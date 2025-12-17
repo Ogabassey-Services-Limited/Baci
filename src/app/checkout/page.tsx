@@ -722,10 +722,11 @@ function Step2_Payment({
               key={gateway.id}
               type="button"
               onClick={() => onGatewaySelect(gateway.id)}
-              className={`w-full rounded-lg border p-4 text-left transition-all ${selectedGateway === gateway.id
-                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                : 'border-border bg-card hover:border-primary/50'
-                }`}
+              className={`w-full rounded-lg border p-4 text-left transition-all ${
+                selectedGateway === gateway.id
+                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                  : 'border-border bg-card hover:border-primary/50'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div
@@ -1140,8 +1141,9 @@ function CheckoutPageContent() {
           cartTotal,
           'NGN',
           cart.map((item) => {
-            // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
-            const itemCategory = (item as any).categories?.name || item.category || 'General';
+            const itemCategory =
+              // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
+              (item as any).categories?.name || item.category || 'General';
             return {
               id: item.id,
               name: item.name,
@@ -1509,13 +1511,13 @@ function CheckoutPageContent() {
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
                                 : `Pay ${new Intl.NumberFormat('en-NG', {
-                                  style: 'currency',
-                                  currency: 'NGN',
-                                }).format(
-                                  cartTotal +
-                                  (shippingFee || 0) -
-                                  discountAmount
-                                )}`}
+                                    style: 'currency',
+                                    currency: 'NGN',
+                                  }).format(
+                                    cartTotal +
+                                      (shippingFee || 0) -
+                                      discountAmount
+                                  )}`}
                             </ThemedButton>
                           </div>
                         </div>

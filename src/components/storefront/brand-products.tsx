@@ -59,8 +59,8 @@ export function BrandProducts({
   const categoriesSlug = (product as any).categories?.slug;
   // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
   const categorySlugFallback = (product as any).category_slug;
-  const categorySlug = categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
-
+  const categorySlug =
+    categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
 
   useEffect(() => {
     // Skip if no merchant, no brand, or no category

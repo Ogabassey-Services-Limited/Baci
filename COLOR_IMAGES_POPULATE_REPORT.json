@@ -11,1439 +11,987 @@
       "name": "iPhone 13 Pro Max 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "6f2c91ea-e7bf-4971-8833-ebe9c66ee311",
       "name": "Apple Watch Series 5 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Gold", "Silver"]
     },
     {
       "id": "2e1f167f-7a66-469d-a21f-2e8b833bda94",
       "name": "Apple Watch Series 3 42mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Gold", "Graphite", "Silver"]
     },
     {
       "id": "ebd0bd7a-c042-45d3-ac4c-5f9e18a51c37",
       "name": "iPhone 15 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green",
-        "Black",
-        "Pink",
-        "Yellow"
-      ]
+      "colors": ["Blue", "Green", "Black", "Pink", "Yellow"]
     },
     {
       "id": "4f44572f-cc89-4bc1-a5e7-042d31da6d0e",
       "name": "AirPods 4",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "ec1e2045-cde3-4aa9-b5e6-a36ce735a5cd",
       "name": "Apple Watch Series 5 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Gold", "Silver"]
     },
     {
       "id": "0fbefe05-4a17-4bd7-88c4-2588a082e402",
       "name": "Apple Watch Series 7 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green"
-      ]
+      "colors": ["Blue", "Green"]
     },
     {
       "id": "5f8d71bd-27b5-4965-a361-616fd2be0527",
       "name": "Apple Watch Series 7 45mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green"
-      ]
+      "colors": ["Blue", "Green"]
     },
     {
       "id": "21d72af4-937a-4037-8945-80ce7236bc18",
       "name": "Apple Watch Series 8 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Red",
-        "Silver",
-        "Starlight"
-      ]
+      "colors": ["Midnight", "Red", "Silver", "Starlight"]
     },
     {
       "id": "117c7c33-0baf-4f40-a85b-4a0fa158c0ad",
       "name": "Apple Watch Series 9 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ]
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"]
     },
     {
       "id": "9e473524-c092-415b-aee6-fdb3698897c8",
       "name": "Apple Watch Series 4 44mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Silver", "Graphite"]
     },
     {
       "id": "3214c475-1572-4b65-a4bc-3352e47239c0",
       "name": "Apple Watch Series 3 38mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Gold", "Graphite", "Silver"]
     },
     {
       "id": "2056380f-5f12-4959-ab2a-8467c31f9687",
       "name": "Apple Watch Series 4 40mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Silver", "Graphite"]
     },
     {
       "id": "d365e72f-8aa4-4503-aa58-06e548d27d33",
       "name": "Apple Watch Series 8 41mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Red",
-        "Silver",
-        "Starlight"
-      ]
+      "colors": ["Midnight", "Red", "Silver", "Starlight"]
     },
     {
       "id": "e21331ea-bf7a-4c7c-b79d-5d91b49f4195",
       "name": "iPhone XR 3GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Yellow",
-        "Blue"
-      ]
+      "colors": ["Yellow", "Blue"]
     },
     {
       "id": "5ea4b09c-a93e-4b7d-a604-4aa388acc126",
       "name": "iPhone 8 Plus 3GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver",
-        "Gold"
-      ]
+      "colors": ["Silver", "Gold"]
     },
     {
       "id": "25ddb094-eb26-40d9-b82d-c2e5bfbfd782",
       "name": "iPhone XR 3GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Yellow",
-        "Blue"
-      ]
+      "colors": ["Yellow", "Blue"]
     },
     {
       "id": "d812ea2d-e2f4-4ed7-a622-21b1ff9afe5a",
       "name": "iPhone XS Max 4GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "White"
-      ]
+      "colors": ["Gold", "White"]
     },
     {
       "id": "72165405-a354-4f1b-9faa-6fef138a1938",
       "name": "Apple Pencil Pro",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "f15ed892-6023-45f8-80a7-a3b690053f97",
       "name": "Apple AirPods 4",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "0e651dde-5aac-41a3-b41d-9e3a20a62f78",
       "name": "iPhone 15 Pro Max 8GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "White",
-        "Black"
-      ]
+      "colors": ["Blue", "White", "Black"]
     },
     {
       "id": "f27b9dce-25bf-4596-bd54-c76679dd8fe2",
       "name": "Apple AirPods 2",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "78ddc60b-ce0e-4d8d-9f51-d808423902cc",
       "name": "Apple AirPods 4 ANC",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "0992f3fb-d0b7-492b-881b-c175b5cab71e",
       "name": "iPhone 11 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Black",
-        "Green",
-        "Purple",
-        "White",
-        "Yellow"
-      ]
+      "colors": ["Black", "Green", "Purple", "White", "Yellow"]
     },
     {
       "id": "eb88f6cc-8c44-4c28-aff2-a9d590323790",
       "name": "iPhone 12 Pro Max 6GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Graphite"]
     },
     {
       "id": "6f582177-d44b-4c54-9322-b6f5293df347",
       "name": "iPhone 12 Pro Max 6GB 512GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Graphite"]
     },
     {
       "id": "25c92750-15dd-4941-9868-9bb9a2bcbee3",
       "name": "Apple Watch Series 6 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "e249ed3a-21c6-4f9d-b480-2c19f626627c",
       "name": "iPhone 12 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Red",
-        "Purple"
-      ]
+      "colors": ["Black", "Blue", "Red", "Purple"]
     },
     {
       "id": "2b8543d8-f26c-4aed-85ad-87ddb55b4dc8",
       "name": "Apple Watch Series 9 45mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ]
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"]
     },
     {
       "id": "671f44e4-64b1-4c32-80b6-b708a0d87753",
       "name": "iPhone 13 Pro Max 6GB 512GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "4bed3d8f-2ae0-4dc1-b354-3f31d21b1926",
       "name": "Apple Watch Series 4 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Silver", "Graphite"]
     },
     {
       "id": "ce9b126b-8642-4b96-bae1-1e0c5d0f3dc6",
       "name": "Apple Watch Series 6 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "49183596-ff3a-4ae1-9183-6126287af93b",
       "name": "Apple Watch Series 9 45mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ]
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"]
     },
     {
       "id": "8391a891-b8d2-435d-b513-175ff8d81813",
       "name": "AirPods Max USB-C",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Green",
-        "Pink",
-        "Silver"
-      ]
+      "colors": ["Green", "Pink", "Silver"]
     },
     {
       "id": "db0a69e1-7fe7-4df9-9d09-6f3b6903ded1",
       "name": "Apple Watch Series 4 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Silver", "Graphite"]
     },
     {
       "id": "8d39e532-e1d4-4bea-a1e0-96b998db0039",
       "name": "Apple Watch SE 2022 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Starlight",
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Starlight", "Graphite", "Silver"]
     },
     {
       "id": "6792e619-8583-41b1-91af-c25388f22db9",
       "name": "Apple AirPods Pro 2nd Gen Type C",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "bd0110e6-e09e-47f4-9a28-8dcc17d72e05",
       "name": "Apple AirPods 3",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "0d6a7022-afc5-4f1a-8581-826da3b71d1f",
       "name": "iPhone 12 Pro Max 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ]
+      "colors": ["Gold", "Graphite"]
     },
     {
       "id": "3467755c-0b8c-456a-90f3-848889659517",
       "name": "iPhone 13 Pro Max 6GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "48379a2f-9e09-40aa-a022-975e5ce2243a",
       "name": "iPhone 8 Plus 3GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver",
-        "Gold"
-      ]
+      "colors": ["Silver", "Gold"]
     },
     {
       "id": "5d759471-176b-412d-a9f2-3c1ef7fa9584",
       "name": "iPhone 13 4GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Starlight",
-        "Red",
-        "Green",
-        "Blue"
-      ]
+      "colors": ["Midnight", "Pink", "Starlight", "Red", "Green", "Blue"]
     },
     {
       "id": "842d189c-dcc9-47de-bea3-1033eaa7183f",
       "name": "iPhone XS Max 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "White"
-      ]
+      "colors": ["Gold", "White"]
     },
     {
       "id": "00036f77-d891-4097-93d7-41b1cff7d55b",
       "name": "Apple Fast Charger 20W",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "051db102-13eb-4073-bfca-7c5ca03d89ea",
       "name": "Apple Pencil 2",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "2c82ef72-d070-4be3-81a9-2396de0c8ff7",
       "name": "Dell XPS 15 9560 (512GB)",
       "brand": "Dell",
       "success": true,
-      "colors": [
-        "Black",
-        "Silver"
-      ]
+      "colors": ["Black", "Silver"]
     },
     {
       "id": "c1ab230f-dbfa-46d5-b703-520a70198e4a",
       "name": "Dell XPS 15 9560",
       "brand": "Dell",
       "success": true,
-      "colors": [
-        "Black",
-        "Silver"
-      ]
+      "colors": ["Black", "Silver"]
     },
     {
       "id": "5f1da51e-9710-4af2-a83c-f358a8e822fe",
       "name": "SLim Cover Plate -Gold",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black"
-      ]
+      "colors": ["Gold", "Black"]
     },
     {
       "id": "6dcb443f-98aa-4cc9-8cb2-3d887c7f92b3",
       "name": "SLim Cover Plate -Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ]
+      "colors": ["Black"]
     },
     {
       "id": "bb23b579-e76b-4070-b7df-52a46b72ebd6",
       "name": "SPreaker- Onyx Studio 8",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Onyx"
-      ]
+      "colors": ["Onyx"]
     },
     {
       "id": "8d4a4f2d-9a68-4fb0-80a7-6b0f6112683f",
       "name": "LAst Of Us 2 -Remastered",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     },
     {
       "id": "f6c63a6a-ce52-40ed-a6a1-c08b398a10c2",
       "name": "HEadset (White)",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "White"
-      ]
+      "colors": ["White"]
     },
     {
       "id": "b17dd4e4-f4f9-487c-9b01-65b347e5d028",
       "name": "COntroller Silicon Cover - Red",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     },
     {
       "id": "c9095176-6cbb-4a5c-9c25-f71cf41f7149",
       "name": "LAst Of Us 1 Remastered",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     },
     {
       "id": "0f37c750-3596-435f-89d9-dad9faa11e23",
       "name": "HEadset Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "White",
-        "Black"
-      ]
+      "colors": ["White", "Black"]
     },
     {
       "id": "43edeb1b-b3af-47d6-8894-edefbe9ddf43",
       "name": "HEadset Elite - Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ]
+      "colors": ["Black"]
     },
     {
       "id": "38e676ef-327d-4b8f-ae70-48a2862546df",
       "name": "SPeaker- Jbl Charge 5",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Green",
-        "Pink",
-        "Red",
-        "White"
-      ]
+      "colors": ["Black", "Blue", "Green", "Pink", "Red", "White"]
     },
     {
       "id": "b1b62f93-23eb-4ecb-a89a-5ea80c13fc52",
       "name": "SPeaker- Jbl Boombox 3",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ]
+      "colors": ["Black"]
     },
     {
       "id": "0630ba7a-2551-436d-8fd8-ebd9a0fa37f4",
       "name": "Google Pixel 4a 6GB 128GB",
       "brand": "Google",
       "success": true,
-      "colors": [
-        "Black"
-      ]
+      "colors": ["Black"]
     },
     {
       "id": "1e4510a8-4459-4f71-9d4f-c47fc58bdf93",
       "name": "Harman Kardon Onyx Studio 8",
       "brand": "Harman Kardon",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Onyx"
-      ]
+      "colors": ["Black", "Blue", "Onyx"]
     },
     {
       "id": "84e81752-1a8b-414f-a362-57d0fe1aace4",
       "name": "Infinix XPAD",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Blue",
-        "Gold"
-      ]
+      "colors": ["Blue", "Gold"]
     },
     {
       "id": "86c9bd1d-4064-4189-92a1-75f60f003d26",
       "name": "Infinix Smart 8",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Green",
-        "Black",
-        "White",
-        "Gold"
-      ]
+      "colors": ["Green", "Black", "White", "Gold"]
     },
     {
       "id": "1846eee0-7244-40e4-a864-3a242afe0a86",
       "name": "Infinix Hot 60 Pro+",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Orange",
-        "Blue",
-        "Black",
-        "Silver"
-      ]
+      "colors": ["Orange", "Blue", "Black", "Silver"]
     },
     {
       "id": "21a75d16-2878-42c7-8c3e-9a199f5186b2",
       "name": "Infinix Hot 60 Pro (128GB + 8GB)",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Orange",
-        "Blue",
-        "Black",
-        "Silver"
-      ]
+      "colors": ["Orange", "Blue", "Black", "Silver"]
     },
     {
       "id": "b8107175-823a-4b89-bafa-5dafa1021453",
       "name": "Infinix Smart 9",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black",
-        "Green"
-      ]
+      "colors": ["Gold", "Black", "Green"]
     },
     {
       "id": "d41bb4af-4709-44c2-bbac-a318e81fde09",
       "name": "Infinix Smart 9 HD (64GB + 3GB)",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black",
-        "Green"
-      ]
+      "colors": ["Gold", "Black", "Green"]
     },
     {
       "id": "0fa179cd-abb1-4350-a7c5-68435fdf7e52",
       "name": "JBL Charge 5",
       "brand": "JBL",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Green",
-        "Pink",
-        "Red",
-        "White"
-      ]
+      "colors": ["Black", "Blue", "Green", "Pink", "Red", "White"]
     },
     {
       "id": "db4b1df4-73c1-43b9-b00c-a045af89f0de",
       "name": "JBL BoomBox 3",
       "brand": "JBL",
       "success": true,
-      "colors": [
-        "Black"
-      ]
+      "colors": ["Black"]
     },
     {
       "id": "10886b09-c319-4c1f-9c0d-514cb715f666",
       "name": "Samsung Galaxy S23 Ultra 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ]
+      "colors": ["Green"]
     },
     {
       "id": "a5e99cf6-d39d-4805-95af-e309fd118862",
       "name": "Samsung Galaxy Z Fold 5 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ]
+      "colors": ["Cream"]
     },
     {
       "id": "62f62fcd-c782-4747-98f6-ea2946ac011e",
       "name": "Samsung Galaxy Z Fold 6 12GB 512GB (Dual Physical Sim)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ]
+      "colors": ["Navy", "Pink"]
     },
     {
       "id": "2a79c735-ce40-409c-af43-d51c4ac277e0",
       "name": "Samsung Galaxy Tab A8 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "3489b804-b2fb-4ad6-80e6-5905afc32d59",
       "name": "Samsung Galaxy Tab A8 LTE 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "3fc7d631-4847-4df2-b94e-0664ebcb7dc4",
       "name": "Samsung Galaxy S22 Plus 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "c2e6b91b-2bfe-4556-905e-c93f3e7f9021",
       "name": "Samsung Galaxy S22 Ultra 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "1f74c54b-49d1-4b4a-b684-20bf4ca21873",
       "name": "Samsung Galaxy Buds FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "White"
-      ]
+      "colors": ["Graphite", "White"]
     },
     {
       "id": "86d0327a-f541-45dd-8e52-50e6c96cf626",
       "name": "Samsung Galaxy S23 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ]
+      "colors": ["Cream", "Green", "Black"]
     },
     {
       "id": "1bce0a2f-579b-4b8b-a0ba-0fc95fb37531",
       "name": "Samsung Galaxy Z Flip 4 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ]
+      "colors": ["Blue", "Graphite", "Gold"]
     },
     {
       "id": "f5878814-068f-44f8-b1ee-2113b5930cef",
       "name": "Samsung Galaxy Tab S9 5G 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "bd0a1ec9-0523-4773-8e88-1b3015b34ab2",
       "name": "Samsung Galaxy Tab A8 WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "b08c4602-3535-4940-ac5e-06103a0edc6f",
       "name": "Samsung Galaxy Tab S9 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "9cf95ac1-b7f0-45a7-b776-786acc91bbf8",
       "name": "Samsung Galaxy Tab S9 FE WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Pink",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Pink", "Silver"]
     },
     {
       "id": "3a34a95a-1110-4c2d-8648-e33afb4bc0ca",
       "name": "Samsung Galaxy S23 Ultra 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ]
+      "colors": ["Green"]
     },
     {
       "id": "9f28129a-0fbd-4b6d-ab74-c27b1bfd9933",
       "name": "Samsung Galaxy S23 FE 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black",
-        "Graphite",
-        "Purple"
-      ]
+      "colors": ["Cream", "Green", "Black", "Graphite", "Purple"]
     },
     {
       "id": "c9fae3db-8af4-4324-b01f-7dfaea080e5d",
       "name": "Samsung Galaxy Tab S9 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "323dacbd-e3de-46fb-8283-63a0f4144a65",
       "name": "Samsung Galaxy Tab S9+ WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "b58f2836-8d9f-466a-8998-1d216c525d70",
       "name": "Samsung Galaxy S23 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ]
+      "colors": ["Cream", "Green", "Black"]
     },
     {
       "id": "680a82e9-dd04-4cb6-9291-e77d1fc1786b",
       "name": "Samsung Galaxy Z Flip 4 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ]
+      "colors": ["Blue", "Graphite", "Gold"]
     },
     {
       "id": "a03acb69-130b-4704-8dd3-27266833f7b8",
       "name": "Samsung Galaxy Tab S9 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "528e0c2e-79a4-484b-b252-5da7784f2449",
       "name": "Samsung Galaxy Tab A9 LTE 4GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "3ebc49de-4b16-4a26-a4f8-260b29e1f3f2",
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (w/Keyboard)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "4d74144e-33a8-417c-bb1d-321945eac7a2",
       "name": "Samsung Galaxy Tab A8 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "50348920-73f9-4ba1-be8f-24ac7bb093e5",
       "name": "Samsung Galaxy Watch FE 40mm Bluetooth",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Black", "Gold", "Silver"]
     },
     {
       "id": "6dcee2e6-d8b4-410e-acda-199db58044b1",
       "name": "Samsung Galaxy Tab S8 Ultra WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "3e31da49-c44f-4d04-8fcd-d2f781a575b4",
       "name": "Samsung Galaxy Tab S10 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "d4c43f2b-dd1e-40a2-8017-7f9fa025e5ea",
       "name": "Samsung Galaxy S24+",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ]
+      "colors": ["Blue", "Graphite"]
     },
     {
       "id": "9ce83190-36ca-4380-8458-3b9ec9afcc75",
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "7420fa0f-98dc-4a29-8894-031db5c2e35f",
       "name": "Samsung Galaxy Tab A9+ WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "eeed4304-fcab-410f-b837-b592f0b9588d",
       "name": "Samsung Galaxy Watch FE BT",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Black", "Gold", "Silver"]
     },
     {
       "id": "c473ae2d-0feb-47d1-872c-10003bf76cb7",
       "name": "Samsung Galaxy Tab A9 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "7121ac75-da69-4da0-9ffd-105acf53f9c7",
       "name": "Samsung Galaxy Z Fold 6 12GB 256GB (Dual Physical Sim)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ]
+      "colors": ["Navy", "Pink"]
     },
     {
       "id": "d9739ced-dc9a-416d-a041-ae8eeee8c3e1",
       "name": "Samsung Galaxy S22 Ultra 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "92579a4e-dfcd-4d49-a1e7-f35dfb070c02",
       "name": "Samsung Galaxy S21 FE 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Navy",
-        "Olive",
-        "White"
-      ]
+      "colors": ["Graphite", "Navy", "Olive", "White"]
     },
     {
       "id": "2b831af8-9585-4e04-822e-bd0795b4aead",
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "b90581e1-6b3f-4298-aa83-1bfaec6287cd",
       "name": "Samsung Galaxy S22 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "3c41d4c6-0a3f-46a2-a110-7ddedd8c6b39",
       "name": "Samsung Galaxy Buds Live",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     },
     {
       "id": "61724187-0cde-4b41-a4d8-b6176884e5d7",
       "name": "Samsung Galaxy Z Flip 4 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ]
+      "colors": ["Blue", "Graphite", "Gold"]
     },
     {
       "id": "1ce86b6f-2c2b-4de3-a3f1-9d569dc19930",
       "name": "Samsung Galaxy S23 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ]
+      "colors": ["Cream", "Green", "Black"]
     },
     {
       "id": "70bef7bb-a473-4101-928c-5a8d5664f507",
       "name": "Samsung Galaxy Buds Pro",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "fc45c83e-c467-4a2b-9c12-a43b94fe476d",
       "name": "Samsung Galaxy Buds FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "White"
-      ]
+      "colors": ["Graphite", "White"]
     },
     {
       "id": "0291968b-8244-430f-a3ec-ed5003e01ed8",
       "name": "Samsung Galaxy S23 FE 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black",
-        "Graphite",
-        "Purple"
-      ]
+      "colors": ["Cream", "Green", "Black", "Graphite", "Purple"]
     },
     {
       "id": "076e80a0-b44f-421c-a441-e14ed7b817fc",
       "name": "Samsung Galaxy Z Fold 6 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ]
+      "colors": ["Navy", "Pink"]
     },
     {
       "id": "2790052f-cb2a-465e-a89d-698119b95fd3",
       "name": "Samsung Galaxy Z Fold 6 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ]
+      "colors": ["Navy", "Pink"]
     },
     {
       "id": "dd509a7c-ce48-4826-b5f3-aca3c3a63f2e",
       "name": "Samsung Galaxy S22 Plus 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "5e148709-9523-4dba-8ba8-13b6de4472b4",
       "name": "Samsung Galaxy Z Fold 5 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ]
+      "colors": ["Cream"]
     },
     {
       "id": "afa0ae66-ac5b-49ca-b530-108581a9f08d",
       "name": "Samsung Galaxy S22 Ultra 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "30a725fc-f576-4989-ab27-484199a3a814",
       "name": "Samsung Galaxy Tab S8 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Pink",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Pink", "Silver"]
     },
     {
       "id": "62c84610-f9b7-4875-9a45-dc692b311476",
       "name": "Samsung Galaxy S22 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "8c93a083-ec0b-46da-9747-1082e9bf5b90",
       "name": "Samsung Galaxy Z Fold 6 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ]
+      "colors": ["Navy", "Pink"]
     },
     {
       "id": "974ee898-d819-4652-9b0d-c20cc29338ec",
       "name": "Samsung Galaxy S24 FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ]
+      "colors": ["Blue", "Graphite"]
     },
     {
       "id": "b37b95f8-e5e1-42b4-aa85-ed147d0e187a",
       "name": "Samsung Galaxy S24 Ultra",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Black",
-        "Yellow"
-      ]
+      "colors": ["Blue", "Graphite", "Black", "Yellow"]
     },
     {
       "id": "bb11f5f9-4ee4-4256-aedb-45f40b250aec",
       "name": "Samsung Galaxy S21 FE 6GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Navy",
-        "Olive",
-        "White"
-      ]
+      "colors": ["Graphite", "Navy", "Olive", "White"]
     },
     {
       "id": "bc5ec43e-420b-4874-8893-f12d54fc3bf8",
       "name": "Samsung Galaxy S22 Plus 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ]
+      "colors": ["Green", "Gold"]
     },
     {
       "id": "cfeba442-3d17-435d-bfc4-a09c2369743d",
       "name": "Samsung Galaxy Z Fold 5 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ]
+      "colors": ["Cream"]
     },
     {
       "id": "dfac4c6c-6c5c-49bf-9df2-14ec0890bb14",
       "name": "Samsung Galaxy S24",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ]
+      "colors": ["Blue", "Graphite"]
     },
     {
       "id": "f6c22071-e9e4-4c9a-add9-692ebfe3c8e5",
       "name": "Samsung Galaxy A16 LTE 4GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue"
-      ]
+      "colors": ["Black", "Blue"]
     },
     {
       "id": "fdfef6ed-b956-4840-afc0-539cef565a83",
       "name": "Samsung Galaxy S23 Ultra 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ]
+      "colors": ["Green"]
     },
     {
       "id": "0e35b68b-c6ba-465d-98b5-4f7b372535e1",
       "name": "Samsung Galaxy Tab A7 Lite WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "16c3b3de-c937-4953-b72e-ff2fe5f8e281",
       "name": "Samsung Galaxy Tab S9+ WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "40ac8c93-3bda-487d-8edb-d49f63d249a4",
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (w/Keyboard)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ]
+      "colors": ["Silver"]
     },
     {
       "id": "7c9cf56b-5fc6-4397-8930-a9e47c1d4221",
       "name": "Samsung Galaxy Tab A9+ 5G 4GB 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "849a4798-d2c2-46bd-8238-39717fc2feb5",
       "name": "Samsung Galaxy Tab A8 WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Gold", "Silver"]
     },
     {
       "id": "9dac0c04-1d01-443c-956f-9ff781a67cce",
       "name": "Samsung Galaxy Tab A9 LTE 4GB 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "d782a42c-06df-4ab5-b033-e730a92d681b",
       "name": "Samsung Galaxy Tab A9+ 5G 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "ead1b721-d01c-4c34-be09-acdde1a3ecb3",
       "name": "Samsung Galaxy Tab S9 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ]
+      "colors": ["Graphite"]
     },
     {
       "id": "fd0270b5-7197-41aa-8a7a-56a43db9e904",
       "name": "Samsung Galaxy Tab A9+ LTE 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ]
+      "colors": ["Graphite", "Silver"]
     },
     {
       "id": "3ac0fcdd-a4e7-45eb-b0a5-dc25016add80",
       "name": "Tecno Phantom V Fold 2 12GB 512GB",
       "brand": "Tecno",
       "success": true,
-      "colors": [
-        "Phantom"
-      ]
+      "colors": ["Phantom"]
     },
     {
       "id": "77c6a51c-2eef-4fbb-b5af-e15e691fe38c",
       "name": "Tecno Phantom V Flip 2 8GB 256GB",
       "brand": "Tecno",
       "success": true,
-      "colors": [
-        "Phantom"
-      ]
+      "colors": ["Phantom"]
     },
     {
       "id": "5a6ca315-fc07-49a5-b577-2cf6d5cabe1d",
       "name": "Redmi 14T 12GB 512GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Midnight"
-      ]
+      "colors": ["Midnight"]
     },
     {
       "id": "29b0b1a8-41cb-4a77-be77-7861669d8c0d",
       "name": "Redmi A3x 3GB 64GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     },
     {
       "id": "b436db84-a79f-4b9b-abd1-eda345af3bf0",
       "name": "Redmi A3x 4GB 128GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Red"
-      ]
+      "colors": ["Red"]
     }
   ]
 }

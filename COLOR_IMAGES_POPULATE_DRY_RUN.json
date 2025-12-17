@@ -11,11 +11,7 @@
       "name": "iPhone 13 Pro Max 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/iphone-13-pro-max-6gb-128gb-uk-used-graphite.avif"
@@ -33,10 +29,7 @@
       "name": "Apple Watch Series 5 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Gold", "Silver"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-5-40mm-gps-premium-used-gold.avif"
@@ -51,11 +44,7 @@
       "name": "Apple Watch Series 3 42mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Gold", "Graphite", "Silver"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-3-42mm-gps-premium-used-gold.avif"
@@ -73,13 +62,7 @@
       "name": "iPhone 15 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green",
-        "Black",
-        "Pink",
-        "Yellow"
-      ],
+      "colors": ["Blue", "Green", "Black", "Pink", "Yellow"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/iphone-15-6gb-128gb-uk-used-blue.avif"
@@ -103,13 +86,9 @@
       "name": "AirPods 4",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
-        "White": [
-          "https://cdn.ogabassey.com/products/airpods-4-white.avif"
-        ]
+        "White": ["https://cdn.ogabassey.com/products/airpods-4-white.avif"]
       }
     },
     {
@@ -117,10 +96,7 @@
       "name": "Apple Watch Series 5 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Gold", "Silver"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-5-44mm-gps-premium-used-gold.avif"
@@ -135,10 +111,7 @@
       "name": "Apple Watch Series 7 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green"
-      ],
+      "colors": ["Blue", "Green"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/apple-watch-series-7-41mm-gps-premium-used-blue.avif"
@@ -153,10 +126,7 @@
       "name": "Apple Watch Series 7 45mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "Green"
-      ],
+      "colors": ["Blue", "Green"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/apple-watch-series-7-45mm-gps-premium-used-blue.avif"
@@ -171,12 +141,7 @@
       "name": "Apple Watch Series 8 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Red",
-        "Silver",
-        "Starlight"
-      ],
+      "colors": ["Midnight", "Red", "Silver", "Starlight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/apple-watch-series-8-41mm-gps-premium-used-midnight.avif"
@@ -197,12 +162,7 @@
       "name": "Apple Watch Series 9 41mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ],
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/apple-watch-series-9-41mm-gps-new-midnight.avif"
@@ -223,11 +183,7 @@
       "name": "Apple Watch Series 4 44mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Silver", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-4-44mm-lte-premium-used-gold.avif"
@@ -245,11 +201,7 @@
       "name": "Apple Watch Series 3 38mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Gold", "Graphite", "Silver"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-3-38mm-gps-premium-used-gold.avif"
@@ -267,11 +219,7 @@
       "name": "Apple Watch Series 4 40mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Silver", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-4-40mm-lte-premium-used-gold.avif"
@@ -289,12 +237,7 @@
       "name": "Apple Watch Series 8 41mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Red",
-        "Silver",
-        "Starlight"
-      ],
+      "colors": ["Midnight", "Red", "Silver", "Starlight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/apple-watch-series-8-41mm-lte-premium-used-midnight.avif"
@@ -315,10 +258,7 @@
       "name": "iPhone XR 3GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Yellow",
-        "Blue"
-      ],
+      "colors": ["Yellow", "Blue"],
       "colorImages": {
         "Yellow": [
           "https://cdn.ogabassey.com/products/iphone-xr-3gb-128gb-uk-used-yellow.avif"
@@ -333,10 +273,7 @@
       "name": "iPhone 8 Plus 3GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver",
-        "Gold"
-      ],
+      "colors": ["Silver", "Gold"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/iphone-8-plus-3gb-64gb-uk-used-silver.avif"
@@ -351,10 +288,7 @@
       "name": "iPhone XR 3GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Yellow",
-        "Blue"
-      ],
+      "colors": ["Yellow", "Blue"],
       "colorImages": {
         "Yellow": [
           "https://cdn.ogabassey.com/products/iphone-xr-3gb-64gb-uk-used-yellow.avif"
@@ -369,10 +303,7 @@
       "name": "iPhone XS Max 4GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "White"
-      ],
+      "colors": ["Gold", "White"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/iphone-xs-max-4gb-256gb-uk-used-gold.avif"
@@ -387,9 +318,7 @@
       "name": "Apple Pencil Pro",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-pencil-pro-new-white.avif"
@@ -401,9 +330,7 @@
       "name": "Apple AirPods 4",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-airpods-4-new-white.avif"
@@ -415,11 +342,7 @@
       "name": "iPhone 15 Pro Max 8GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Blue",
-        "White",
-        "Black"
-      ],
+      "colors": ["Blue", "White", "Black"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/iphone-15-pro-max-8gb-256gb-new-blue.avif"
@@ -437,9 +360,7 @@
       "name": "Apple AirPods 2",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-airpods-2-new-white.avif"
@@ -451,9 +372,7 @@
       "name": "Apple AirPods 4 ANC",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-airpods-4-anc-new-white.avif"
@@ -465,13 +384,7 @@
       "name": "iPhone 11 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Black",
-        "Green",
-        "Purple",
-        "White",
-        "Yellow"
-      ],
+      "colors": ["Black", "Green", "Purple", "White", "Yellow"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/iphone-11-4gb-64gb-uk-used-black.avif"
@@ -495,10 +408,7 @@
       "name": "iPhone 12 Pro Max 6GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/iphone-12-pro-max-6gb-256gb-new-open-box-gold.avif"
@@ -513,10 +423,7 @@
       "name": "iPhone 12 Pro Max 6GB 512GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/iphone-12-pro-max-6gb-512gb-new-open-box-gold.avif"
@@ -531,9 +438,7 @@
       "name": "Apple Watch Series 6 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/apple-watch-series-6-44mm-gps-premium-used-silver.avif"
@@ -545,12 +450,7 @@
       "name": "iPhone 12 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Red",
-        "Purple"
-      ],
+      "colors": ["Black", "Blue", "Red", "Purple"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/iphone-12-4gb-64gb-uk-used-black.avif"
@@ -571,12 +471,7 @@
       "name": "Apple Watch Series 9 45mm LTE",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ],
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/apple-watch-series-9-45mm-lte-new-midnight.avif"
@@ -597,9 +492,7 @@
       "name": "iPhone 13 Pro Max 6GB 512GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/iphone-13-pro-max-6gb-512gb-new-open-box-graphite.avif"
@@ -611,11 +504,7 @@
       "name": "Apple Watch Series 4 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Silver", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-4-40mm-gps-premium-used-gold.avif"
@@ -633,9 +522,7 @@
       "name": "Apple Watch Series 6 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/apple-watch-series-6-40mm-gps-premium-used-silver.avif"
@@ -647,12 +534,7 @@
       "name": "Apple Watch Series 9 45mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Silver",
-        "Starlight"
-      ],
+      "colors": ["Midnight", "Pink", "Silver", "Starlight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/apple-watch-series-9-45mm-gps-new-midnight.avif"
@@ -673,11 +555,7 @@
       "name": "AirPods Max USB-C",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Green",
-        "Pink",
-        "Silver"
-      ],
+      "colors": ["Green", "Pink", "Silver"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/airpods-max-usb-c-green.avif"
@@ -695,11 +573,7 @@
       "name": "Apple Watch Series 4 44mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Silver",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Silver", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/apple-watch-series-4-44mm-gps-premium-used-gold.avif"
@@ -717,11 +591,7 @@
       "name": "Apple Watch SE 2022 40mm GPS",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Starlight",
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Starlight", "Graphite", "Silver"],
       "colorImages": {
         "Starlight": [
           "https://cdn.ogabassey.com/products/apple-watch-se-2022-40mm-gps-new-starlight.avif"
@@ -739,9 +609,7 @@
       "name": "Apple AirPods Pro 2nd Gen Type C",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-airpods-pro-2nd-gen-type-c-new-white.avif"
@@ -753,9 +621,7 @@
       "name": "Apple AirPods 3",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-airpods-3-new-white.avif"
@@ -767,10 +633,7 @@
       "name": "iPhone 12 Pro Max 6GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "Graphite"
-      ],
+      "colors": ["Gold", "Graphite"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/iphone-12-pro-max-6gb-128gb-uk-used-gold.avif"
@@ -785,11 +648,7 @@
       "name": "iPhone 13 Pro Max 6GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/iphone-13-pro-max-6gb-256gb-uk-used-graphite.avif"
@@ -807,10 +666,7 @@
       "name": "iPhone 8 Plus 3GB 256GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Silver",
-        "Gold"
-      ],
+      "colors": ["Silver", "Gold"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/iphone-8-plus-3gb-256gb-uk-used-silver.avif"
@@ -825,14 +681,7 @@
       "name": "iPhone 13 4GB 128GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Midnight",
-        "Pink",
-        "Starlight",
-        "Red",
-        "Green",
-        "Blue"
-      ],
+      "colors": ["Midnight", "Pink", "Starlight", "Red", "Green", "Blue"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/iphone-13-4gb-128gb-uk-used-midnight.avif"
@@ -859,10 +708,7 @@
       "name": "iPhone XS Max 4GB 64GB",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "Gold",
-        "White"
-      ],
+      "colors": ["Gold", "White"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/iphone-xs-max-4gb-64gb-uk-used-gold.avif"
@@ -877,9 +723,7 @@
       "name": "Apple Fast Charger 20W",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-fast-charger-20w-new-white.avif"
@@ -891,9 +735,7 @@
       "name": "Apple Pencil 2",
       "brand": "Apple",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/apple-pencil-2-new-white.avif"
@@ -905,10 +747,7 @@
       "name": "Dell XPS 15 9560 (512GB)",
       "brand": "Dell",
       "success": true,
-      "colors": [
-        "Black",
-        "Silver"
-      ],
+      "colors": ["Black", "Silver"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/dell-xps-15-9560-512gb-black.avif"
@@ -923,10 +762,7 @@
       "name": "Dell XPS 15 9560",
       "brand": "Dell",
       "success": true,
-      "colors": [
-        "Black",
-        "Silver"
-      ],
+      "colors": ["Black", "Silver"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/dell-xps-15-9560-black.avif"
@@ -941,10 +777,7 @@
       "name": "SLim Cover Plate -Gold",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black"
-      ],
+      "colors": ["Gold", "Black"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/slim-cover-plate-gold-playstation-5-gold.avif"
@@ -959,9 +792,7 @@
       "name": "SLim Cover Plate -Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ],
+      "colors": ["Black"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/slim-cover-plate-black-playstation-5.avif"
@@ -973,9 +804,7 @@
       "name": "SPreaker- Onyx Studio 8",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Onyx"
-      ],
+      "colors": ["Onyx"],
       "colorImages": {
         "Onyx": [
           "https://cdn.ogabassey.com/products/spreaker-onyx-studio-8-general.avif"
@@ -987,9 +816,7 @@
       "name": "LAst Of Us 2 -Remastered",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/last-of-us-2-remastered-playstation-5-red.avif"
@@ -1001,9 +828,7 @@
       "name": "HEadset (White)",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "White"
-      ],
+      "colors": ["White"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/headset-white-playstation-5.avif"
@@ -1015,9 +840,7 @@
       "name": "COntroller Silicon Cover - Red",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/controller-silicon-cover-red-playstation-5.avif"
@@ -1029,9 +852,7 @@
       "name": "LAst Of Us 1 Remastered",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/last-of-us-1-remastered-playstation-5-red.avif"
@@ -1043,10 +864,7 @@
       "name": "HEadset Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "White",
-        "Black"
-      ],
+      "colors": ["White", "Black"],
       "colorImages": {
         "White": [
           "https://cdn.ogabassey.com/products/headset-black-playstation-5-white.avif"
@@ -1061,9 +879,7 @@
       "name": "HEadset Elite - Black",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ],
+      "colors": ["Black"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/headset-elite-black-playstation-5-variant-1.avif"
@@ -1075,14 +891,7 @@
       "name": "SPeaker- Jbl Charge 5",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Green",
-        "Pink",
-        "Red",
-        "White"
-      ],
+      "colors": ["Black", "Blue", "Green", "Pink", "Red", "White"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/speaker-jbl-charge-5-audio-black.avif"
@@ -1109,9 +918,7 @@
       "name": "SPeaker- Jbl Boombox 3",
       "brand": "Gaming",
       "success": true,
-      "colors": [
-        "Black"
-      ],
+      "colors": ["Black"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/speaker-jbl-boombox-3-audio-black.avif"
@@ -1123,9 +930,7 @@
       "name": "Google Pixel 4a 6GB 128GB",
       "brand": "Google",
       "success": true,
-      "colors": [
-        "Black"
-      ],
+      "colors": ["Black"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/google-pixel-4a-6gb-128gb-premium-used-black.avif"
@@ -1137,11 +942,7 @@
       "name": "Harman Kardon Onyx Studio 8",
       "brand": "Harman Kardon",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Onyx"
-      ],
+      "colors": ["Black", "Blue", "Onyx"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/harman-kardon-onyx-studio-8-black.avif"
@@ -1159,17 +960,10 @@
       "name": "Infinix XPAD",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Blue",
-        "Gold"
-      ],
+      "colors": ["Blue", "Gold"],
       "colorImages": {
-        "Blue": [
-          "https://cdn.ogabassey.com/products/infinix-xpad-blue.avif"
-        ],
-        "Gold": [
-          "https://cdn.ogabassey.com/products/infinix-xpad-gold.avif"
-        ]
+        "Blue": ["https://cdn.ogabassey.com/products/infinix-xpad-blue.avif"],
+        "Gold": ["https://cdn.ogabassey.com/products/infinix-xpad-gold.avif"]
       }
     },
     {
@@ -1177,12 +971,7 @@
       "name": "Infinix Smart 8",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Green",
-        "Black",
-        "White",
-        "Gold"
-      ],
+      "colors": ["Green", "Black", "White", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/infinix-smart-8-green.avif"
@@ -1193,9 +982,7 @@
         "White": [
           "https://cdn.ogabassey.com/products/infinix-smart-8-white.avif"
         ],
-        "Gold": [
-          "https://cdn.ogabassey.com/products/infinix-smart-8-gold.webp"
-        ]
+        "Gold": ["https://cdn.ogabassey.com/products/infinix-smart-8-gold.webp"]
       }
     },
     {
@@ -1203,12 +990,7 @@
       "name": "Infinix Hot 60 Pro+",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Orange",
-        "Blue",
-        "Black",
-        "Silver"
-      ],
+      "colors": ["Orange", "Blue", "Black", "Silver"],
       "colorImages": {
         "Orange": [
           "https://cdn.ogabassey.com/products/infinix-hot-60-pro-plus-orange.avif"
@@ -1229,12 +1011,7 @@
       "name": "Infinix Hot 60 Pro (128GB + 8GB)",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Orange",
-        "Blue",
-        "Black",
-        "Silver"
-      ],
+      "colors": ["Orange", "Blue", "Black", "Silver"],
       "colorImages": {
         "Orange": [
           "https://cdn.ogabassey.com/products/infinix-hot-60-pro-128gb-8gb-orange.avif"
@@ -1255,11 +1032,7 @@
       "name": "Infinix Smart 9",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black",
-        "Green"
-      ],
+      "colors": ["Gold", "Black", "Green"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/infinix-smart-9-gold.avif"
@@ -1277,11 +1050,7 @@
       "name": "Infinix Smart 9 HD (64GB + 3GB)",
       "brand": "Infinix",
       "success": true,
-      "colors": [
-        "Gold",
-        "Black",
-        "Green"
-      ],
+      "colors": ["Gold", "Black", "Green"],
       "colorImages": {
         "Gold": [
           "https://cdn.ogabassey.com/products/infinix-smart-9-hd-64gb-3gb-gold.avif"
@@ -1299,33 +1068,14 @@
       "name": "JBL Charge 5",
       "brand": "JBL",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue",
-        "Green",
-        "Pink",
-        "Red",
-        "White"
-      ],
+      "colors": ["Black", "Blue", "Green", "Pink", "Red", "White"],
       "colorImages": {
-        "Black": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-black.avif"
-        ],
-        "Blue": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-blue.avif"
-        ],
-        "Green": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-green.avif"
-        ],
-        "Pink": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-pink.avif"
-        ],
-        "Red": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-red.avif"
-        ],
-        "White": [
-          "https://cdn.ogabassey.com/products/jbl-charge-5-white.avif"
-        ]
+        "Black": ["https://cdn.ogabassey.com/products/jbl-charge-5-black.avif"],
+        "Blue": ["https://cdn.ogabassey.com/products/jbl-charge-5-blue.avif"],
+        "Green": ["https://cdn.ogabassey.com/products/jbl-charge-5-green.avif"],
+        "Pink": ["https://cdn.ogabassey.com/products/jbl-charge-5-pink.avif"],
+        "Red": ["https://cdn.ogabassey.com/products/jbl-charge-5-red.avif"],
+        "White": ["https://cdn.ogabassey.com/products/jbl-charge-5-white.avif"]
       }
     },
     {
@@ -1333,13 +1083,9 @@
       "name": "JBL BoomBox 3",
       "brand": "JBL",
       "success": true,
-      "colors": [
-        "Black"
-      ],
+      "colors": ["Black"],
       "colorImages": {
-        "Black": [
-          "https://cdn.ogabassey.com/products/jbl-boombox-3-black.avif"
-        ]
+        "Black": ["https://cdn.ogabassey.com/products/jbl-boombox-3-black.avif"]
       }
     },
     {
@@ -1347,9 +1093,7 @@
       "name": "Samsung Galaxy S23 Ultra 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ],
+      "colors": ["Green"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-ultra-8gb-256gb-new-open-box-green.avif"
@@ -1361,9 +1105,7 @@
       "name": "Samsung Galaxy Z Fold 5 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ],
+      "colors": ["Cream"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-5-12gb-512gb-new-cream.avif"
@@ -1375,10 +1117,7 @@
       "name": "Samsung Galaxy Z Fold 6 12GB 512GB (Dual Physical Sim)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ],
+      "colors": ["Navy", "Pink"],
       "colorImages": {
         "Navy": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-6-12gb-512gb-dual-physical-sim-new-navy.avif"
@@ -1393,11 +1132,7 @@
       "name": "Samsung Galaxy Tab A8 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a8-wifi-64gb-premium-used-graphite.avif"
@@ -1415,11 +1150,7 @@
       "name": "Samsung Galaxy Tab A8 LTE 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a8-lte-64gb-new-graphite.avif"
@@ -1437,10 +1168,7 @@
       "name": "Samsung Galaxy S22 Plus 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-plus-8gb-128gb-open-box-green.avif"
@@ -1455,10 +1183,7 @@
       "name": "Samsung Galaxy S22 Ultra 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-ultra-12gb-256gb-open-box-green.avif"
@@ -1473,10 +1198,7 @@
       "name": "Samsung Galaxy Buds FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "White"
-      ],
+      "colors": ["Graphite", "White"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-buds-fe-new-graphite.avif"
@@ -1491,11 +1213,7 @@
       "name": "Samsung Galaxy S23 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ],
+      "colors": ["Cream", "Green", "Black"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-8gb-512gb-new-open-box-cream.avif"
@@ -1513,11 +1231,7 @@
       "name": "Samsung Galaxy Z Flip 4 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ],
+      "colors": ["Blue", "Graphite", "Gold"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-flip-4-8gb-256gb-new-blue.avif"
@@ -1535,9 +1249,7 @@
       "name": "Samsung Galaxy Tab S9 5G 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-5g-256gb-new-graphite.avif"
@@ -1549,11 +1261,7 @@
       "name": "Samsung Galaxy Tab A8 WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a8-wifi-32gb-premium-used-graphite.avif"
@@ -1571,9 +1279,7 @@
       "name": "Samsung Galaxy Tab S9 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-ultra-wifi-256gb-new-graphite.avif"
@@ -1585,11 +1291,7 @@
       "name": "Samsung Galaxy Tab S9 FE WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Pink",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Pink", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-fe-wifi-128gb-new-graphite.avif"
@@ -1607,9 +1309,7 @@
       "name": "Samsung Galaxy S23 Ultra 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ],
+      "colors": ["Green"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-ultra-12gb-512gb-new-open-box-green.avif"
@@ -1621,13 +1321,7 @@
       "name": "Samsung Galaxy S23 FE 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black",
-        "Graphite",
-        "Purple"
-      ],
+      "colors": ["Cream", "Green", "Black", "Graphite", "Purple"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-fe-8gb-128gb-new-open-box-cream.avif"
@@ -1651,9 +1345,7 @@
       "name": "Samsung Galaxy Tab S9 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-wifi-128gb-new-graphite.avif"
@@ -1665,9 +1357,7 @@
       "name": "Samsung Galaxy Tab S9+ WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-wifi-256gb-premium-used-graphite.avif"
@@ -1679,11 +1369,7 @@
       "name": "Samsung Galaxy S23 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ],
+      "colors": ["Cream", "Green", "Black"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-8gb-128gb-new-open-box-cream.avif"
@@ -1701,11 +1387,7 @@
       "name": "Samsung Galaxy Z Flip 4 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ],
+      "colors": ["Blue", "Graphite", "Gold"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-flip-4-8gb-128gb-new-blue.avif"
@@ -1723,9 +1405,7 @@
       "name": "Samsung Galaxy Tab S9 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-ultra-wifi-256gb-premium-used-graphite.avif"
@@ -1737,10 +1417,7 @@
       "name": "Samsung Galaxy Tab A9 LTE 4GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-lte-4gb-128gb-new-graphite.avif"
@@ -1755,9 +1432,7 @@
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (w/Keyboard)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s10-ultra-5g-12gb-512gb-w-keyboard-new-silver.avif"
@@ -1769,11 +1444,7 @@
       "name": "Samsung Galaxy Tab A8 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a8-wifi-64gb-new-graphite.avif"
@@ -1791,11 +1462,7 @@
       "name": "Samsung Galaxy Watch FE 40mm Bluetooth",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Black", "Gold", "Silver"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-watch-fe-40mm-bluetooth-new-black.avif"
@@ -1813,9 +1480,7 @@
       "name": "Samsung Galaxy Tab S8 Ultra WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s8-ultra-wifi-128gb-premium-used-graphite.avif"
@@ -1827,9 +1492,7 @@
       "name": "Samsung Galaxy Tab S10 Ultra WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s10-ultra-wifi-256gb-new-silver.avif"
@@ -1841,10 +1504,7 @@
       "name": "Samsung Galaxy S24+",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ],
+      "colors": ["Blue", "Graphite"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s24-12gb-256gb-new-blue.avif"
@@ -1859,9 +1519,7 @@
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s10-ultra-5g-12gb-512gb-new-silver.avif"
@@ -1873,10 +1531,7 @@
       "name": "Samsung Galaxy Tab A9+ WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-wifi-64gb-premium-used-graphite.avif"
@@ -1891,11 +1546,7 @@
       "name": "Samsung Galaxy Watch FE BT",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Black", "Gold", "Silver"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-watch-fe-bt-new-black.avif"
@@ -1913,10 +1564,7 @@
       "name": "Samsung Galaxy Tab A9 WiFi 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-wifi-64gb-new-graphite.avif"
@@ -1931,10 +1579,7 @@
       "name": "Samsung Galaxy Z Fold 6 12GB 256GB (Dual Physical Sim)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ],
+      "colors": ["Navy", "Pink"],
       "colorImages": {
         "Navy": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-6-12gb-256gb-dual-physical-sim-new-navy.avif"
@@ -1949,10 +1594,7 @@
       "name": "Samsung Galaxy S22 Ultra 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-ultra-12gb-512gb-open-box-green.avif"
@@ -1967,12 +1609,7 @@
       "name": "Samsung Galaxy S21 FE 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Navy",
-        "Olive",
-        "White"
-      ],
+      "colors": ["Graphite", "Navy", "Olive", "White"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s21-fe-8gb-256gb-open-box-graphite.avif"
@@ -1993,9 +1630,7 @@
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s10-ultra-5g-12gb-256gb-new-silver.avif"
@@ -2007,10 +1642,7 @@
       "name": "Samsung Galaxy S22 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-8gb-128gb-open-box-green.avif"
@@ -2025,9 +1657,7 @@
       "name": "Samsung Galaxy Buds Live",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-buds-live-premium-used-red.avif"
@@ -2039,11 +1669,7 @@
       "name": "Samsung Galaxy Z Flip 4 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Gold"
-      ],
+      "colors": ["Blue", "Graphite", "Gold"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-flip-4-8gb-512gb-new-blue.avif"
@@ -2061,11 +1687,7 @@
       "name": "Samsung Galaxy S23 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black"
-      ],
+      "colors": ["Cream", "Green", "Black"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-8gb-256gb-new-open-box-cream.avif"
@@ -2083,9 +1705,7 @@
       "name": "Samsung Galaxy Buds Pro",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-buds-pro-premium-used-silver.avif"
@@ -2097,10 +1717,7 @@
       "name": "Samsung Galaxy Buds FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "White"
-      ],
+      "colors": ["Graphite", "White"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-buds-fe-premium-used-graphite.avif"
@@ -2115,13 +1732,7 @@
       "name": "Samsung Galaxy S23 FE 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream",
-        "Green",
-        "Black",
-        "Graphite",
-        "Purple"
-      ],
+      "colors": ["Cream", "Green", "Black", "Graphite", "Purple"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-fe-8gb-256gb-new-open-box-cream.avif"
@@ -2145,10 +1756,7 @@
       "name": "Samsung Galaxy Z Fold 6 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ],
+      "colors": ["Navy", "Pink"],
       "colorImages": {
         "Navy": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-6-12gb-256gb-new-navy.avif"
@@ -2163,10 +1771,7 @@
       "name": "Samsung Galaxy Z Fold 6 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ],
+      "colors": ["Navy", "Pink"],
       "colorImages": {
         "Navy": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-6-12gb-1tb-new-navy.avif"
@@ -2181,10 +1786,7 @@
       "name": "Samsung Galaxy S22 Plus 8GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-plus-8gb-512gb-open-box-green.avif"
@@ -2199,9 +1801,7 @@
       "name": "Samsung Galaxy Z Fold 5 12GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ],
+      "colors": ["Cream"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-5-12gb-256gb-new-cream.avif"
@@ -2213,10 +1813,7 @@
       "name": "Samsung Galaxy S22 Ultra 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-ultra-8gb-128gb-open-box-green.avif"
@@ -2231,11 +1828,7 @@
       "name": "Samsung Galaxy Tab S8 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Pink",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Pink", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s8-wifi-128gb-premium-used-graphite.avif"
@@ -2253,10 +1846,7 @@
       "name": "Samsung Galaxy S22 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-8gb-256gb-open-box-green.avif"
@@ -2271,10 +1861,7 @@
       "name": "Samsung Galaxy Z Fold 6 12GB 512GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Navy",
-        "Pink"
-      ],
+      "colors": ["Navy", "Pink"],
       "colorImages": {
         "Navy": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-6-12gb-512gb-new-navy.avif"
@@ -2289,10 +1876,7 @@
       "name": "Samsung Galaxy S24 FE",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ],
+      "colors": ["Blue", "Graphite"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s24-fe-8gb-128gb-new-blue.avif"
@@ -2307,12 +1891,7 @@
       "name": "Samsung Galaxy S24 Ultra",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite",
-        "Black",
-        "Yellow"
-      ],
+      "colors": ["Blue", "Graphite", "Black", "Yellow"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s24-ultra-12gb-256gb-new-blue.avif"
@@ -2333,12 +1912,7 @@
       "name": "Samsung Galaxy S21 FE 6GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Navy",
-        "Olive",
-        "White"
-      ],
+      "colors": ["Graphite", "Navy", "Olive", "White"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s21-fe-6gb-128gb-open-box-graphite.avif"
@@ -2359,10 +1933,7 @@
       "name": "Samsung Galaxy S22 Plus 8GB 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green",
-        "Gold"
-      ],
+      "colors": ["Green", "Gold"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s22-plus-8gb-256gb-open-box-green.avif"
@@ -2377,9 +1948,7 @@
       "name": "Samsung Galaxy Z Fold 5 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Cream"
-      ],
+      "colors": ["Cream"],
       "colorImages": {
         "Cream": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-z-fold-5-12gb-1tb-new-cream.avif"
@@ -2391,10 +1960,7 @@
       "name": "Samsung Galaxy S24",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Blue",
-        "Graphite"
-      ],
+      "colors": ["Blue", "Graphite"],
       "colorImages": {
         "Blue": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s24-8gb-128gb-new-blue.avif"
@@ -2409,10 +1975,7 @@
       "name": "Samsung Galaxy A16 LTE 4GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Black",
-        "Blue"
-      ],
+      "colors": ["Black", "Blue"],
       "colorImages": {
         "Black": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-a16-lte-4gb-128gb-new-black.avif"
@@ -2427,9 +1990,7 @@
       "name": "Samsung Galaxy S23 Ultra 12GB 1TB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Green"
-      ],
+      "colors": ["Green"],
       "colorImages": {
         "Green": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-s23-ultra-12gb-1tb-new-open-box-green.avif"
@@ -2441,10 +2002,7 @@
       "name": "Samsung Galaxy Tab A7 Lite WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a7-lite-wifi-32gb-premium-used-graphite.avif"
@@ -2459,9 +2017,7 @@
       "name": "Samsung Galaxy Tab S9+ WiFi 256GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-wifi-256gb-new-graphite.avif"
@@ -2473,9 +2029,7 @@
       "name": "Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (w/Keyboard)",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Silver"
-      ],
+      "colors": ["Silver"],
       "colorImages": {
         "Silver": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s10-ultra-5g-12gb-256gb-w-keyboard-new-silver.avif"
@@ -2487,10 +2041,7 @@
       "name": "Samsung Galaxy Tab A9+ 5G 4GB 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-5g-4gb-64gb-new-graphite.avif"
@@ -2505,11 +2056,7 @@
       "name": "Samsung Galaxy Tab A8 WiFi 32GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Gold",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Gold", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a8-wifi-32gb-new-graphite.avif"
@@ -2527,10 +2074,7 @@
       "name": "Samsung Galaxy Tab A9 LTE 4GB 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-lte-4gb-64gb-new-graphite.avif"
@@ -2545,10 +2089,7 @@
       "name": "Samsung Galaxy Tab A9+ 5G 8GB 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-5g-8gb-128gb-new-graphite.avif"
@@ -2563,9 +2104,7 @@
       "name": "Samsung Galaxy Tab S9 WiFi 128GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite"
-      ],
+      "colors": ["Graphite"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-s9-wifi-128gb-premium-used-graphite.avif"
@@ -2577,10 +2116,7 @@
       "name": "Samsung Galaxy Tab A9+ LTE 64GB",
       "brand": "Samsung",
       "success": true,
-      "colors": [
-        "Graphite",
-        "Silver"
-      ],
+      "colors": ["Graphite", "Silver"],
       "colorImages": {
         "Graphite": [
           "https://cdn.ogabassey.com/products/samsung-galaxy-tab-a9-lte-64gb-new-graphite.avif"
@@ -2595,9 +2131,7 @@
       "name": "Tecno Phantom V Fold 2 12GB 512GB",
       "brand": "Tecno",
       "success": true,
-      "colors": [
-        "Phantom"
-      ],
+      "colors": ["Phantom"],
       "colorImages": {
         "Phantom": [
           "https://cdn.ogabassey.com/products/tecno-phantom-v-fold-2-12gb-512gb-new.avif"
@@ -2609,9 +2143,7 @@
       "name": "Tecno Phantom V Flip 2 8GB 256GB",
       "brand": "Tecno",
       "success": true,
-      "colors": [
-        "Phantom"
-      ],
+      "colors": ["Phantom"],
       "colorImages": {
         "Phantom": [
           "https://cdn.ogabassey.com/products/tecno-phantom-v-flip-2-8gb-256gb-new.webp"
@@ -2623,9 +2155,7 @@
       "name": "Redmi 14T 12GB 512GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Midnight"
-      ],
+      "colors": ["Midnight"],
       "colorImages": {
         "Midnight": [
           "https://cdn.ogabassey.com/products/redmi-14t-12gb-512gb-new-midnight.avif"
@@ -2637,9 +2167,7 @@
       "name": "Redmi A3x 3GB 64GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/redmi-a3x-3gb-64gb-new-red.webp"
@@ -2651,9 +2179,7 @@
       "name": "Redmi A3x 4GB 128GB",
       "brand": "Xiaomi",
       "success": true,
-      "colors": [
-        "Red"
-      ],
+      "colors": ["Red"],
       "colorImages": {
         "Red": [
           "https://cdn.ogabassey.com/products/redmi-a3x-4gb-128gb-new-red.webp"

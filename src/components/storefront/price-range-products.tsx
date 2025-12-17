@@ -61,7 +61,8 @@ export function PriceRangeProducts({
   const categoriesSlug = (product as any).categories?.slug;
   // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
   const categorySlugFallback = (product as any).category_slug;
-  const categorySlug = categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
+  const categorySlug =
+    categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
 
   // Calculate price range safely
   const rawPrice = Number(product.price);

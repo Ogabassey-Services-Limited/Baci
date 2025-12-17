@@ -1,116 +1,63 @@
 {
-  "generated": "2025-12-17T06:29:03.938Z",
+  "generated": "2025-12-17T07:42:54.442Z",
   "summary": {
     "totalProducts": 1739,
-    "productsWithColorImages": 31,
-    "productsWithoutColorImages": 1708,
-    "productsWithDetectableColors": 141
+    "productsWithColorImages": 224,
+    "productsWithoutColorImages": 1515,
+    "productsWithDetectableColors": 0
   },
   "byBrand": {
     "Samsung": {
       "total": 220,
-      "withColorImages": 0,
-      "withDetectableColors": 68,
-      "detectedColors": [
-        "Green",
-        "Cream",
-        "Navy",
-        "Pink",
-        "Graphite",
-        "Gold",
-        "Silver",
-        "White",
-        "Black",
-        "Blue",
-        "Purple",
-        "Olive",
-        "Red",
-        "Yellow"
-      ]
+      "withColorImages": 74,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Dell": {
       "total": 54,
-      "withColorImages": 0,
-      "withDetectableColors": 2,
-      "detectedColors": [
-        "Black",
-        "Silver"
-      ]
+      "withColorImages": 2,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Gaming": {
       "total": 716,
-      "withColorImages": 0,
-      "withDetectableColors": 11,
-      "detectedColors": [
-        "Gold",
-        "Black",
-        "Onyx",
-        "Red",
-        "White",
-        "Blue",
-        "Green",
-        "Pink"
-      ]
+      "withColorImages": 17,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Infinix": {
       "total": 18,
-      "withColorImages": 0,
-      "withDetectableColors": 6,
-      "detectedColors": [
-        "Blue",
-        "Gold",
-        "Green",
-        "Black",
-        "White",
-        "Orange",
-        "Silver"
-      ]
+      "withColorImages": 6,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "JBL": {
       "total": 23,
-      "withColorImages": 0,
-      "withDetectableColors": 2,
-      "detectedColors": [
-        "Black",
-        "Blue",
-        "Green",
-        "Pink",
-        "Red",
-        "White"
-      ]
+      "withColorImages": 3,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Apple": {
       "total": 339,
-      "withColorImages": 31,
-      "withDetectableColors": 45,
-      "detectedColors": [
-        "Graphite",
-        "Gold",
-        "Silver",
-        "Blue",
-        "Green",
-        "Black",
-        "Pink",
-        "Yellow",
-        "White",
-        "Midnight",
-        "Red",
-        "Starlight",
-        "Purple"
-      ]
+      "withColorImages": 98,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Xiaomi": {
       "total": 43,
-      "withColorImages": 0,
-      "withDetectableColors": 3,
-      "detectedColors": [
-        "Midnight",
-        "Red"
-      ]
+      "withColorImages": 5,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "LG": {
       "total": 19,
       "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Tecno": {
+      "total": 17,
+      "withColorImages": 3,
       "withDetectableColors": 0,
       "detectedColors": []
     },
@@ -119,14 +66,6 @@
       "withColorImages": 0,
       "withDetectableColors": 0,
       "detectedColors": []
-    },
-    "Tecno": {
-      "total": 17,
-      "withColorImages": 0,
-      "withDetectableColors": 2,
-      "detectedColors": [
-        "Phantom"
-      ]
     },
     "Nintendo": {
       "total": 20,
@@ -154,11 +93,9 @@
     },
     "Google": {
       "total": 30,
-      "withColorImages": 0,
-      "withDetectableColors": 1,
-      "detectedColors": [
-        "Black"
-      ]
+      "withColorImages": 13,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "Sony": {
       "total": 10,
@@ -168,7 +105,7 @@
     },
     "Oppo": {
       "total": 13,
-      "withColorImages": 0,
+      "withColorImages": 2,
       "withDetectableColors": 0,
       "detectedColors": []
     },
@@ -180,13 +117,9 @@
     },
     "Harman Kardon": {
       "total": 2,
-      "withColorImages": 0,
-      "withDetectableColors": 1,
-      "detectedColors": [
-        "Black",
-        "Blue",
-        "Onyx"
-      ]
+      "withColorImages": 1,
+      "withDetectableColors": 0,
+      "detectedColors": []
     },
     "MSI": {
       "total": 5,

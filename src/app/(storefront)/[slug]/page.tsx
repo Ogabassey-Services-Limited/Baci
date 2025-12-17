@@ -384,7 +384,10 @@ export default async function StorefrontPage({
       )}
       <Suspense fallback={<StorefrontPageSkeleton />}>
         {/* Pass products and initialTheme to wrapper for use in template homepage */}
-        <StorefrontWrapper products={merchantProducts} initialTheme={initialTheme} />
+        <StorefrontWrapper
+          products={merchantProducts}
+          initialTheme={initialTheme}
+        />
       </Suspense>
     </>
   );

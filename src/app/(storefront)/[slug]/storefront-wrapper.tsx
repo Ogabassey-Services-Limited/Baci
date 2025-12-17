@@ -29,7 +29,10 @@ interface StorefrontWrapperProps {
  * Wrapper that renders the appropriate storefront template based on merchant's template_id.
  * Falls back to Puck storefront if no template_id is set or template not found.
  */
-export function StorefrontWrapper({ products = [], initialTheme }: StorefrontWrapperProps) {
+export function StorefrontWrapper({
+  products = [],
+  initialTheme,
+}: StorefrontWrapperProps) {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
   const [TemplateHome, setTemplateHome] =
