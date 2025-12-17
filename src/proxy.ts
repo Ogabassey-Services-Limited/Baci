@@ -349,7 +349,9 @@ export async function proxy(request: NextRequest) {
         pathname,
         userAgent,
         routeType,
-        nonce
+        nonce,
+        undefined,
+        hostname
       );
     }
   }
@@ -411,7 +413,8 @@ export async function proxy(request: NextRequest) {
           userAgent,
           routeType,
           nonce,
-          request
+          request,
+          hostname
         );
       }
 
@@ -436,7 +439,8 @@ export async function proxy(request: NextRequest) {
         userAgent,
         routeType,
         nonce,
-        request // Pass request for click ID capture on storefront
+        request, // Pass request for click ID capture on storefront
+        hostname
       );
     } else {
       // Invalid/suspicious hostname - reject
@@ -472,7 +476,8 @@ export async function proxy(request: NextRequest) {
       userAgent,
       routeType,
       nonce,
-      request // Pass request for click ID capture on storefront
+      request, // Pass request for click ID capture on storefront
+      hostname
     );
   }
 
@@ -490,7 +495,8 @@ export async function proxy(request: NextRequest) {
     userAgent,
     routeType,
     nonce,
-    request // Pass request for click ID capture on storefront
+    request, // Pass request for click ID capture on storefront
+    hostname
   );
 }
 
@@ -526,7 +532,8 @@ function applySecurityHeaders(
   userAgent: string,
   routeType: 'admin' | 'auth' | 'storefront' | 'api',
   nonce?: string,
-  request?: NextRequest
+  request?: NextRequest,
+  hostname?: string
 ): NextResponse {
   // Capture ad click IDs from URL params (if request provided)
   if (request && routeType === 'storefront') {
@@ -543,10 +550,13 @@ function applySecurityHeaders(
   }
 
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
-  response.headers.set(
-    'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains; preload'
-  );
+  // Skip on localhost to avoid Unlighthouse/CI failures (ERR_SSL_PROTOCOL_ERROR)
+  if (hostname && !isLocalhost(hostname)) {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
+  }
 
   // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
