@@ -102,9 +102,18 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   };
 
   const productData = useMemo(() => {
-    // Normalize Colors
+    // Get color_images if available
+    const colorImages = (serverProduct as Product & { color_images?: Record<string, string[]> }).color_images;
+
+    // Normalize Colors - derive from color_images keys if available, otherwise use colors array
     let normalizedColors: { name: string; value: string }[] = [];
-    if (serverProduct.colors && serverProduct.colors.length > 0) {
+    if (colorImages && Object.keys(colorImages).length > 0) {
+      // Derive colors from color_images keys
+      normalizedColors = Object.keys(colorImages).map((colorName) => ({
+        name: colorName,
+        value: getColorHex(colorName),
+      }));
+    } else if (serverProduct.colors && serverProduct.colors.length > 0) {
       normalizedColors = serverProduct.colors.map((c: unknown) => ({
         name: typeof c === 'string' ? c : (c as { name?: string }).name || String(c),
         value: getColorHex(typeof c === 'string' ? c : (c as { name?: string }).name || String(c)),
@@ -119,12 +128,23 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         : [serverProduct.storage];
     }
 
-    // Normalize Images
+    // Normalize Images - merge color images into the images array
     let normalizedImages: string[] = [];
     if (serverProduct.images && serverProduct.images.length > 0) {
-      normalizedImages = serverProduct.images;
+      normalizedImages = [...serverProduct.images];
     } else if (serverProduct.image) {
       normalizedImages = [serverProduct.image];
+    }
+
+    // Add color images to the images array if not already present
+    if (colorImages) {
+      for (const colorImageArray of Object.values(colorImages)) {
+        for (const img of colorImageArray) {
+          if (!normalizedImages.includes(img)) {
+            normalizedImages.push(img);
+          }
+        }
+      }
     }
 
     // Extract platforms from variants
@@ -140,7 +160,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       colors: normalizedColors,
       storage: normalizedStorage,
       platforms,
-      colorImages: (serverProduct as Product & { color_images?: Record<string, string[]> }).color_images || {},
+      colorImages: colorImages || {},
       condition: serverProduct.condition || 'new',
       rating: serverProduct.rating || 0,
       reviewCount: serverProduct.reviews || 0,

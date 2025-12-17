@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, X, Smartphone, Loader2 } from 'lucide-react';
-import type { Product } from '../types';
 import Link from 'next/link';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import type { Product } from '../types';
 
 interface ProductComparisonTableProps {
     mainProduct: Product;
@@ -19,6 +21,14 @@ export function ProductComparisonTable({
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const merchantContext = useMerchantSafe();
+    const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
+
+    // Helper to build product URL with proper basePath
+    const getProductHref = (product: Product) => {
+        const categorySlug = product.categorySlug || mainProduct.categorySlug || 'products';
+        return asRoute(`${basePath}/${categorySlug}/${product.slug}`);
+    };
 
     // Maximum 2 comparison slots + 1 main product = 3 columns
     const MAX_SLOTS = 2;
@@ -157,7 +167,7 @@ export function ProductComparisonTable({
                                             />
                                         </div>
                                         <Link
-                                            href={storeSlug ? `/${storeSlug}/${product.categorySlug || mainProduct.categorySlug}/${product.slug}` : `/${product.categorySlug || mainProduct.categorySlug}/${product.slug}` as any}
+                                            href={getProductHref(product)}
                                             className="font-bold text-sm text-center line-clamp-2 mb-1 hover:text-red-600"
                                         >
                                             {product.name}

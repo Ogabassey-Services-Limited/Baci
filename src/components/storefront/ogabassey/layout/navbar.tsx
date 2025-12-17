@@ -80,12 +80,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
   // Notification UI State
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('notifications-enabled') === 'true';
-    }
-    return false;
-  });
+  // Initialize with false for SSR consistency, then hydrate from localStorage
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [categories, setCategories] = useState<Array<{ name: string; slug: string; icon: any }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -97,6 +93,14 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
   // Scroll visibility logic - Simplified to always visible
   const isVisible = true;
+
+  // Hydrate notificationsEnabled from localStorage after mount (SSR-safe)
+  useEffect(() => {
+    const stored = localStorage.getItem('notifications-enabled');
+    if (stored === 'true') {
+      setNotificationsEnabled(true);
+    }
+  }, []);
 
   // Handle product selection from search autocomplete
   const handleProductSelect = (url: string) => {

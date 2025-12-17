@@ -59,13 +59,19 @@ export function PriceRangeProducts({
     (product as any).category_slug ||
     productCategory.toLowerCase();
 
-  // Calculate price range
-  const minPrice = Math.floor(product.price * (1 - priceTolerance));
-  const maxPrice = Math.ceil(product.price * (1 + priceTolerance));
+  // Calculate price range safely
+  const rawPrice = Number(product.price);
+  const isValidPrice = !isNaN(rawPrice) && rawPrice > 0;
+  const minPrice = isValidPrice
+    ? Math.floor(rawPrice * (1 - priceTolerance))
+    : 0;
+  const maxPrice = isValidPrice
+    ? Math.floor(rawPrice * (1 + priceTolerance))
+    : 0;
 
   useEffect(() => {
-    // Skip if no merchant or no category
-    if (!merchant?.id || !productCategory) {
+    // Skip if no merchant, no category, or invalid price
+    if (!merchant?.id || !productCategory || !isValidPrice) {
       setPriceRangeProducts([]);
       setIsLoading(false);
       return;
@@ -112,6 +118,7 @@ export function PriceRangeProducts({
     minPrice,
     maxPrice,
     maxProducts,
+    isValidPrice,
   ]);
 
   const handleAddToCart = (p: Product) => {
