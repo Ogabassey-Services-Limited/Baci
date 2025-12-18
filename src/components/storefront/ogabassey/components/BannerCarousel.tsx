@@ -26,7 +26,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 1,
     type: 'image',
-    imageUrl: '/flash-sale-banner.png',
+    imageUrl: 'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
     title: 'Flash Sale',
     subtitle: 'Up to 50% Off Selected Items',
     bgColor: 'bg-red-600',
@@ -40,7 +40,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 3,
     type: 'image',
-    imageUrl: '/new-arrivals-banner.png',
+    imageUrl: 'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
     title: 'New Arrivals',
     subtitle: 'Check out the latest tech',
     bgColor: 'bg-black',

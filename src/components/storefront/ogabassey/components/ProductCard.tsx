@@ -97,13 +97,40 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           />
 
           {/* Badge */}
-          {product.condition && (
-            <div
-              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-            >
-              {product.condition}
-            </div>
+          {/* Badge: Platform or Condition */}
+          {((product as any).variant_attributes?.Platform || product.condition) && (
+            (() => {
+              const platform = (product as any).variant_attributes?.Platform;
+              let badgeColor = 'bg-amber-500';
+              let badgeText = product.condition;
+
+              if (platform) {
+                badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
+                if (typeof badgeText === 'string') {
+                  const lower = badgeText.toLowerCase();
+                  if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
+                  else if (lower.includes('xbox')) badgeColor = 'bg-green-600'; // Xbox Green
+                  else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
+                  else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
+                }
+              } else if (product.condition === 'New') {
+                badgeColor = 'bg-emerald-500';
+              }
+
+              // Shorten text for badges
+              const display = badgeText === 'PlayStation 5' ? 'PS5' :
+                badgeText === 'PlayStation 4' ? 'PS4' :
+                  badgeText === 'Nintendo Switch' ? 'Switch' :
+                    badgeText;
+
+              return (
+                <div
+                  className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${badgeColor}`}
+                >
+                  {display}
+                </div>
+              );
+            })()
           )}
 
           {/* Action Buttons - Top Right */}
@@ -210,12 +237,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           alt={product.name}
           className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
-        <div
-          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-            }`}
-        >
-          {product.condition}
-        </div>
+        {((product as any).variant_attributes?.Platform || product.condition) && (
+          (() => {
+            const platform = (product as any).variant_attributes?.Platform;
+            let badgeColor = 'bg-amber-500';
+            let badgeText = product.condition;
+
+            if (platform) {
+              badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
+              if (typeof badgeText === 'string') {
+                const lower = badgeText.toLowerCase();
+                if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
+                else if (lower.includes('xbox')) badgeColor = 'bg-green-600';
+                else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
+                else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
+              }
+            } else if (product.condition === 'New') {
+              badgeColor = 'bg-emerald-500';
+            }
+
+            const display = badgeText === 'PlayStation 5' ? 'PS5' :
+              badgeText === 'PlayStation 4' ? 'PS4' :
+                badgeText === 'Nintendo Switch' ? 'Switch' :
+                  badgeText;
+
+            return (
+              <div
+                className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${badgeColor}`}
+              >
+                {display}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {/* Content (Right Side) */}
