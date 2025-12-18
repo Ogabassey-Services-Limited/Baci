@@ -14,7 +14,7 @@ export function GadgetUniverseTemplate() {
   // Dynamic hero images based on merchant suggestion or defaults
   const bentoImages = [
     {
-      src: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop', // iPhone 15/16 Red
+      src: '/placeholder.png', // iPhone 15/16 Red
       alt: 'Latest Smartphone',
       title: 'Latest Smartphone',
       subtitle: 'Maximize your CREATIVITY',
@@ -22,7 +22,7 @@ export function GadgetUniverseTemplate() {
       ctaLink: '#iphone',
     },
     {
-      src: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca4?q=80&w=1000&auto=format&fit=crop', // MacBook
+      src: '/placeholder.png', // MacBook
       alt: 'Pro Laptop',
       title: 'Pro Laptop',
       subtitle: 'Elevate your workflow',
@@ -30,7 +30,7 @@ export function GadgetUniverseTemplate() {
       ctaLink: '#macbook',
     },
     {
-      src: 'https://images.unsplash.com/photo-1606318801954-d46d46d3360a?q=80&w=1000&auto=format&fit=crop', // PS5 Controller
+      src: '/placeholder.png', // PS5 Controller
       alt: 'Gaming Console',
       title: 'Next-Gen Gaming',
       subtitle: 'Elevate your game',

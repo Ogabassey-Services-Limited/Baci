@@ -1112,10 +1112,10 @@ export const builderConfig: Config<
               style={
                 backgroundImage
                   ? {
-                      backgroundImage: `url(${backgroundImage})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
+                    backgroundImage: `url(${backgroundImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
                   : {}
               }
               aria-label="Hero Banner"
@@ -1220,21 +1220,21 @@ export const builderConfig: Config<
         slides: [
           {
             image:
-              'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop',
+              '/placeholder.png',
             title: 'iPhone 15 Pro Max',
             link: '/category/phones',
           },
           {
             image:
-              'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=2072&auto=format&fit=crop',
+              '/placeholder.png',
             title: 'PlayStation 5',
             link: '/category/gaming',
           },
         ],
         staticBanner1:
-          'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1981&auto=format&fit=crop',
+          '/placeholder.png',
         staticBanner2:
-          'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
+          '/placeholder.png',
         autoplayDelay: 5000,
       },
       render: (props) => <OgabasseyHero {...props} />,
@@ -1379,7 +1379,7 @@ export const builderConfig: Config<
         slides: [
           {
             image:
-              'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+              '/placeholder.png',
             title: 'Welcome to Your Store',
             subtitle:
               'Customize this slide with your own images and text to showcase your products.',
@@ -1388,7 +1388,7 @@ export const builderConfig: Config<
           },
           {
             image:
-              'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+              '/placeholder.png',
             title: 'Featured Collection',
             subtitle:
               'Add your seasonal promotions or highlight bestselling products here.',
@@ -1508,7 +1508,7 @@ export const builderConfig: Config<
         ...animationFields,
       },
       defaultProps: {
-        src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
+        src: '/placeholder.png',
         alt: 'Product image',
         aspectRatio: '16/9',
         animationType: 'zoom-in',
@@ -2257,9 +2257,9 @@ export const builderConfig: Config<
             // Convert options from textarea string to array
             options: field.options
               ? (field.options as string)
-                  .split('\n')
-                  .map((opt: string) => opt.trim())
-                  .filter(Boolean)
+                .split('\n')
+                .map((opt: string) => opt.trim())
+                .filter(Boolean)
               : undefined,
           })
         );
@@ -2640,7 +2640,7 @@ export const builderConfig: Config<
         content:
           'We are passionate about bringing you the best products at competitive prices. Our journey began with a simple idea: make quality accessible to everyone.\n\nWith years of experience in the industry, we have built strong relationships with suppliers and manufacturers to ensure that every product meets our high standards.',
         image:
-          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+          '/placeholder.png',
         imagePosition: 'right',
         showStats: true,
         stats: [
@@ -2917,7 +2917,7 @@ export const builderConfig: Config<
                   className={cn(
                     'space-y-6',
                     layout === 'stacked' &&
-                      'grid md:grid-cols-2 gap-6 space-y-0'
+                    'grid md:grid-cols-2 gap-6 space-y-0'
                   )}
                 >
                   {contactInfo?.map(
@@ -3421,7 +3421,7 @@ export const builderConfig: Config<
                       className={cn(
                         'flex items-center',
                         style === 'cards' &&
-                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                        'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
                         style === 'minimal' && 'gap-3',
                         style === 'icons-only' && 'flex-col text-center'
                       )}
@@ -3432,7 +3432,7 @@ export const builderConfig: Config<
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
                           style === 'minimal' && 'w-12 h-12 bg-primary/10',
                           style === 'icons-only' &&
-                            'mb-2 w-12 h-12 bg-primary/10'
+                          'mb-2 w-12 h-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',

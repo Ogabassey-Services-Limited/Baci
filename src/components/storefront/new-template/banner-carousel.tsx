@@ -18,8 +18,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 1,
     type: 'image',
-    imageUrl:
-      'https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: '/flash-sale-banner.png',
     title: 'Flash Sale',
     subtitle: 'Up to 50% Off Selected Items',
     bgColor: 'bg-red-600',
@@ -33,8 +32,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 3,
     type: 'image',
-    imageUrl:
-      'https://images.unsplash.com/photo-1555421689-4926337621fa?q=80&w=2000&auto=format&fit=crop',
+    imageUrl: '/new-arrivals-banner.png',
     title: 'New Arrivals',
     subtitle: 'Check out the latest tech',
     bgColor: 'bg-black',
@@ -113,11 +111,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
           <button
             key={idx}
             onClick={() => setCurrentSlide(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-              idx === currentSlide
+            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
                 ? 'w-6 bg-white'
                 : 'w-1.5 bg-white/40 hover:bg-white/70'
-            }`}
+              }`}
             style={{
               backgroundColor:
                 slide.type === 'ad' && idx === currentSlide

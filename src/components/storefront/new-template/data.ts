@@ -8,7 +8,7 @@ export const products: Product[] = [
     rawPrice: 1950000,
     originalPrice: '₦2,100,000',
     image:
-      'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=800',
+      '/placeholder.png',
     category: 'Phones',
     rating: 4.8,
     reviews: 124,
@@ -26,7 +26,7 @@ export const products: Product[] = [
     price: '₦2,450,000',
     rawPrice: 2450000,
     image:
-      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=800',
+      '/placeholder.png',
     category: 'Laptops',
     rating: 4.9,
     reviews: 89,
@@ -44,7 +44,7 @@ export const products: Product[] = [
     rawPrice: 450000,
     originalPrice: '₦500,000',
     image:
-      'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&q=80&w=800',
+      '/placeholder.png',
     category: 'Audio',
     rating: 4.7,
     reviews: 256,
@@ -61,7 +61,7 @@ export const products: Product[] = [
     price: '₦850,000',
     rawPrice: 850000,
     image:
-      'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&q=80&w=800',
+      '/placeholder.png',
     category: 'Tablets',
     rating: 4.6,
     reviews: 150,
@@ -78,7 +78,7 @@ export const products: Product[] = [
     price: '₦1,850,000',
     rawPrice: 1850000,
     image:
-      'https://images.unsplash.com/photo-1610945265078-3858a0828671?auto=format&fit=crop&q=80&w=800',
+      '/placeholder.png',
     category: 'Phones',
     rating: 4.8,
     reviews: 95,

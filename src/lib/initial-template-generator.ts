@@ -26,15 +26,15 @@ export async function generateHeroSlides(
   const fallbackImages = [
     {
       imageUrl:
-        'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+        '/placeholder.png'
     },
     {
       imageUrl:
-        'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+        '/placeholder.png'
     },
     {
       imageUrl:
-        'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1920&q=80',
+        '/placeholder.png'
     },
   ];
 
@@ -500,8 +500,8 @@ export async function generateInitialTemplate(
           // Add logo URL if merchant has one
           ...(params.merchant?.logo_url
             ? {
-                logoUrl: params.merchant.logo_url,
-              }
+              logoUrl: params.merchant.logo_url,
+            }
             : {}),
         },
       },
