@@ -113,5 +113,39 @@ pr_120*.json
 pr_*_todo.md
 pr_*_report.md
 .gemini/pr_*.json
+
+# Koray SEO audit reports (generated)
 KORAY_*.json
+KORAY_*.md
+
+# Image audit and population reports (generated)
+COLOR_IMAGES_*.json
+COLOR_IMAGES_*.md
+CDN_COLOR_LINK_*.md
+UPLOAD_IMAGES_*.md
+
+# Specs reports (generated)
+AUDIO_SPECS_*.md
+TABLET_SPECS_*.md
+TV_SPECS_*.md
+OPEN_BOX_CONSOLIDATION_*.md
+
+# HP/Dell/Lenovo laptop image download guides (temporary)
+HP_*.md
+HP_*.txt
+QUICKSTART_*.md
+
+# Security alerts (temporary)
+*_alerts*.json
+security_alerts_todo.md
+
+# Downloaded image directories (large files, not tracked)
+*_laptop_images/
+*_printer_images/
+*_downloaded_images/
+*_branded_images/
+*_raw_images/
+samsung_jumia_images/
+
+# Scripts directory (one-off scripts)
 /scripts/
