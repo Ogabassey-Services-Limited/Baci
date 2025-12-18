@@ -66,7 +66,11 @@ export function StorefrontPageWrapper({
       } catch (error) {
         // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
         console.error(
-          `Failed to load ${pageName} for template ${merchant.template_id}:`,
+          'Failed to load',
+          pageName,
+          'for template',
+          merchant.template_id,
+          ':',
           error
         );
       } finally {

@@ -35,15 +35,6 @@ function setCookie(name: string, value: string): void {
   document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
 }
 
-/**
- * Get the default theme based on current date.
- * This is deterministic and works on both server and client.
- */
-function getDefaultTheme(): V2ThemeMode {
-  const isDecember = new Date().getMonth() === 11;
-  return isDecember ? 'santa' : 'standard';
-}
-
 export const useV2Theme = () => {
   const context = useContext(V2ThemeContext);
   if (!context) {
@@ -62,22 +53,38 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   children,
   initialTheme,
 }) => {
-  // Use server-provided initialTheme if available, otherwise use date-based default.
-  // This ensures SSR and initial client render match.
+  // CRITICAL: Use server-provided initialTheme for SSR consistency.
+  // Default to 'standard' if not provided - this ensures consistent hydration.
+  // The date-based logic is deferred to useEffect to avoid Date() mismatch.
   const [theme, setThemeState] = useState<V2ThemeMode>(
-    initialTheme ?? getDefaultTheme()
+    initialTheme ?? 'standard'
   );
 
-  // On mount (client-side only), check if user has a cookie preference
-  // that differs from the default. If so, apply it.
+  // Track if we've completed hydration
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // On mount (client-side only), apply date-based default or cookie preference
+  // This runs AFTER hydration to avoid mismatch
   useEffect(() => {
+    setIsHydrated(true);
+
+    // First check for user's cookie preference
     const cookieTheme = getCookie(THEME_COOKIE_NAME) as V2ThemeMode | undefined;
-    if (
-      cookieTheme &&
-      (cookieTheme === 'standard' || cookieTheme === 'santa') &&
-      cookieTheme !== theme
-    ) {
-      setThemeState(cookieTheme);
+    if (cookieTheme && (cookieTheme === 'standard' || cookieTheme === 'santa')) {
+      if (cookieTheme !== theme) {
+        setThemeState(cookieTheme);
+      }
+      return;
+    }
+
+    // If no cookie and no server-provided theme, use date-based default
+    if (!initialTheme) {
+      const isDecember = new Date().getMonth() === 11;
+      const dateBasedTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
+      if (dateBasedTheme !== theme) {
+        setThemeState(dateBasedTheme);
+        setCookie(THEME_COOKIE_NAME, dateBasedTheme);
+      }
     }
   }, []); // Only run once on mount
 

@@ -550,21 +550,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       const { OgabasseyV2HelpSupport } = await import('@/components/storefront/ogabassey/pages/help-support');
       const { OgabasseyV2Blog } = await import('@/components/storefront/ogabassey/pages/blog');
 
-      // Wrapper component that uses the layout for Home
+      // Wrapper component
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
         return (
-          <OgabasseyLayout merchant={props.merchant} initialTheme={props.initialTheme}>
-            <OgabasseyHomePage products={props.products} />
-          </OgabasseyLayout>
+          <OgabasseyHomePage products={props.products} />
         );
       };
 
       // Wrapper factory for pages
       const createWrappedPage = <P extends TemplatePageProps>(Component: React.ComponentType<P>) => {
         return (props: P) => (
-          <OgabasseyLayout merchant={props.merchant} initialTheme={props.initialTheme}>
-            <Component {...props} />
-          </OgabasseyLayout>
+          <Component {...props} />
         );
       };
 

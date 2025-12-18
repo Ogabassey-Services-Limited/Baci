@@ -22,25 +22,17 @@ export function OgabasseyLayout({
   children,
   merchant,
   initialTheme,
+  isCheckout = false,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData;
   /** Initial theme from server cookie - enables SSR consistency */
   initialTheme?: V2ThemeMode;
+  /** Whether we're on the checkout page - passed from server to avoid hydration issues */
+  isCheckout?: boolean;
 }) {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
-  // Ensure we have a valid slug for display/logic, but use basePath for links
-  const defaultSlug = merchant?.slug || 'ogabassey';
-  // If basePath is empty, links should be /path. If /slug, links should be /slug/path.
-  // The components expect "storeSlug" to be the prefix.
-  // However, Navbar and MobileFooter might use storeSlug for OTHER things (like API calls?).
-  // Let's verify if storeSlug is ONLY used for links.
-
-  // Actually, Navbar uses storeSlug for `searchUrl` etc?
-  // I should check Navbar usage. But for now, assuming passing basePath is correct for routing.
-  // BUT basePath has leading slash. storeSlug usually does NOT?
-  // Let's check Footer usage in next step. For now, let's prepare the layout.
 
   return (
     <V2ThemeProvider initialTheme={initialTheme}>
@@ -51,19 +43,28 @@ export function OgabasseyLayout({
             <V2NotificationProvider>
               <div className="text-gray-900 bg-white min-h-screen flex flex-col">
                 <SnowEffect />
-                <Navbar
-                  storeName={merchant?.business_name || 'Ogabassey'}
-                  storeSlug={basePath}
-                  showSearch={true}
-                  showCart={true}
-                  showUser={true}
-                  showBell={true}
-                />
+                {!isCheckout && (
+                  <Navbar
+                    storeName={merchant?.business_name || 'Ogabassey'}
+                    storeSlug={basePath}
+                    showSearch={true}
+                    showCart={true}
+                    showUser={true}
+                    showBell={true}
+                  />
+                )}
+
                 <main className="flex-1">{children}</main>
-                <Footer merchant={merchant} storeSlug={basePath} />
-                <MobileFooter storeSlug={basePath} />
-                <CartSidebar />
-                <ChatWidget />
+
+                {!isCheckout && (
+                  <>
+                    <Footer merchant={merchant} storeSlug={basePath} />
+                    <MobileFooter storeSlug={basePath} />
+                    <CartSidebar />
+                    <ChatWidget />
+                  </>
+                )}
+
                 <PopupSystem />
                 <OfflineNotice />
               </div>
