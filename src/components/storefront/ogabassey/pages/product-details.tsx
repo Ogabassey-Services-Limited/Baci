@@ -381,11 +381,12 @@ export const OgabasseyV2ProductDetails: React.FC<
     setSecondaryColor(idx);
   };
 
-  const getProductForCart = (): Product => {
+  const getProductForCart = () => {
+    // Return object with numeric price for cart (cart expects price: number)
     return {
       id: productData.id,
       name: productData.name,
-      price: productData.price,
+      price: productData.rawPrice, // Cart expects numeric price
       rawPrice: productData.rawPrice,
       image: productData.images[selectedImage],
       description: productData.description,

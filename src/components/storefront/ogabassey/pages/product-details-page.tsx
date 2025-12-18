@@ -11,9 +11,11 @@ import {
   MapPin,
   Minus,
   Plus,
+  RotateCcw,
   Search,
   Share2,
   ShieldCheck,
+  ShieldPlus,
   ShoppingCart,
   Star,
   Trash2,
@@ -30,6 +32,7 @@ import { BrandProducts } from '@/components/storefront/brand-products';
 import { PriceRangeProducts } from '@/components/storefront/price-range-products';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
@@ -64,6 +67,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     setIsCartOpen,
     applyNegotiatedPrice,
   } = useCart();
+  const { toast } = useToast();
   const { toggleSaved, isSaved } = useV2Saved();
   const { compareItems, addToCompare, removeFromCompare, isInCompare } =
     useV2Comparison();
@@ -262,8 +266,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     if (selectedStorage !== null && productData.storage[selectedStorage]) {
       parts.push(productData.storage[selectedStorage]);
     }
+    // Include condition to match use-cart generateCartItemId
+    if (selectedCondition) {
+      parts.push(selectedCondition);
+    }
     return parts.join('-');
-  }, [productData.id, productData.colors, productData.storage, selectedColor, selectedStorage]);
+  }, [productData.id, productData.colors, productData.storage, selectedColor, selectedStorage, selectedCondition]);
 
   const cartItem = currentCartItemId
     ? cart.find((item) => item.cartItemId === currentCartItemId)
@@ -378,8 +386,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       if (productData.offers) {
         const offer = productData.offers.find(o => o.condition.toLowerCase() === selectedCondition.toLowerCase());
         if (offer) {
-          price = offer.price;
-          stock = offer.stock_quantity;
+          price = offer.rawPrice;
+          stock = offer.stock ?? offer.stock_quantity ?? stock;
         }
       }
     }
@@ -434,11 +442,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     };
   }, [selectedCondition, selectedStorage, selectedPlatform, productData]);
 
-  const getProductForCart = (): Product => {
+  const getProductForCart = () => {
+    // Return object with numeric price for cart (cart expects price: number)
     return {
       id: productData.id,
       name: productData.name,
-      price: typeof currentOffer.price === 'string' ? currentOffer.price : `₦${currentOffer.price}`, // Handle generic type mismatch if any, though currentOffer.price is string|number
+      price: currentOffer.rawPrice, // Cart expects numeric price
       rawPrice: currentOffer.rawPrice,
       image: productData.images[selectedImage],
       description: productData.description,
@@ -488,6 +497,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           ? productData.storage[selectedStorage]
           : undefined,
       condition: selectedCondition, // Pass condition to cart
+    });
+
+    toast({
+      title: 'Added to cart',
+      description: `${productData.name} has been added to your cart.`,
+      className: 'bg-white text-gray-900 border-red-600 border-2',
     });
   };
 
@@ -672,7 +687,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             {(productData.has_condition_offers || (productData.offers && productData.offers.length > 0)) && (
               <div className="mb-6">
                 <label className="text-sm font-bold text-gray-900 block mb-3">
-                  Condition: <span className="text-red-600">{selectedCondition}</span>
+                  Condition: <span className="text-red-600">
+                    {selectedCondition === 'used' ? 'Premium Used'
+                      : selectedCondition === 'open_box' ? 'Open Box'
+                        : selectedCondition.charAt(0).toUpperCase() + selectedCondition.slice(1)}
+                  </span>
                 </label>
                 <div className="flex flex-wrap gap-3">
                   {/* Render Main Product Option */}
@@ -683,22 +702,32 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
                   >
-                    {productData.condition || 'New'}
+                    {productData.condition === 'used' ? 'Premium Used'
+                      : productData.condition === 'open_box' ? 'Open Box'
+                        : productData.condition === 'new' ? 'New'
+                          : productData.condition?.charAt(0).toUpperCase() + productData.condition?.slice(1) || 'New'}
                   </button>
 
                   {/* Render Other Offers */}
-                  {productData.offers?.map((offer) => (
-                    <button
-                      key={offer.id}
-                      onClick={() => setSelectedCondition(offer.condition)}
-                      className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all capitalize ${selectedCondition === offer.condition
-                        ? 'border-red-600 bg-red-50 text-red-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                    >
-                      {offer.condition.replace('_', ' ')}
-                    </button>
-                  ))}
+                  {productData.offers?.map((offer) => {
+                    // Display friendly labels while keeping schema-compatible values
+                    const displayLabel = offer.condition === 'used' ? 'Premium Used'
+                      : offer.condition === 'open_box' ? 'Open Box'
+                        : offer.condition.charAt(0).toUpperCase() + offer.condition.slice(1);
+
+                    return (
+                      <button
+                        key={offer.id}
+                        onClick={() => setSelectedCondition(offer.condition)}
+                        className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === offer.condition
+                          ? 'border-red-600 bg-red-50 text-red-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                          }`}
+                      >
+                        {displayLabel}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -847,19 +876,44 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
             )}
 
-            {/* Short description excerpt (strip HTML safely for summary) */}
+            {/* Short description excerpt - skip SEO H2 sections, show benefits */}
             <p className="text-gray-600 leading-relaxed mb-8 border-b border-gray-100 pb-8 text-sm">
               {(() => {
                 const desc = productData.description || '';
-                // Use DOM text extraction if available, fallback to regex
-                if (typeof document !== 'undefined') {
-                  const div = document.createElement('div');
-                  div.innerHTML = desc;
-                  return (div.textContent || '').substring(0, 250);
+
+                // Try to extract content from "Why [Product] is Worth" section (benefits)
+                // or skip the first H2 section which is SEO-focused price info
+                const worthMatch = desc.match(
+                  /<h2[^>]*>Why[^<]*Worth[^<]*<\/h2>\s*<p>([^<]+)/i
+                );
+                if (worthMatch?.[1]) {
+                  const benefitText = worthMatch[1].trim();
+                  return benefitText.length > 200
+                    ? `${benefitText.substring(0, 200)}...`
+                    : benefitText;
                 }
-                // Server-side fallback: remove all tags
-                return desc.replace(/<[^>]+>/g, '').substring(0, 250);
-              })()}...
+
+                // Fallback: Skip first H2+paragraph (price section), get second paragraph
+                const secondParagraph = desc.match(/<\/p>\s*<p>([^<]+)/);
+                if (secondParagraph?.[1]) {
+                  const text = secondParagraph[1].trim();
+                  return text.length > 200
+                    ? `${text.substring(0, 200)}...`
+                    : text;
+                }
+
+                // Final fallback: strip all HTML but skip content before second sentence
+                const plainText = desc
+                  .replace(/<[^>]+>/g, ' ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                const sentences = plainText.split(/(?<=[.!?])\s+/);
+                // Skip first 2 sentences (usually the price Q&A), take next ones
+                const excerpt = sentences.slice(2, 5).join(' ');
+                return excerpt.length > 200
+                  ? `${excerpt.substring(0, 200)}...`
+                  : excerpt || `${plainText.substring(0, 200)}...`;
+              })()}
             </p>
 
             {/* Storage Selector */}
@@ -897,40 +951,52 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             )}
 
             {/* Desktop Actions (Hidden on Mobile) */}
-            <div className="mb-8 h-14 hidden md:block">
+            <div className={`mb-8 hidden md:block transition-all duration-300 ${quantityInCart > 0 ? 'h-auto' : 'h-14'}`}>
               {quantityInCart > 0 ? (
-                /* Counter State */
-                <div className="flex items-center justify-between w-full h-full bg-white border-2 border-red-600 rounded-xl overflow-hidden animate-in fade-in duration-200">
-                  <button
-                    onClick={handleDecrement}
-                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
-                  >
-                    {quantityInCart === 1 ? (
-                      <Trash2 size={20} />
-                    ) : (
-                      <Minus size={20} />
-                    )}
-                  </button>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
-                      Quantity
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={inputValue}
-                      onChange={handleQuantityChange}
-                      onBlur={handleQuantityBlur}
-                      onKeyDown={handleKeyDown}
-                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none"
-                    />
+                /* Counter State & View Cart - Stacked Layout */
+                <div className="flex flex-col gap-3 w-full animate-in fade-in duration-200">
+                  {/* Quantity Counter */}
+                  <div className="flex items-center justify-between w-full h-14 bg-white border-2 border-red-600 rounded-xl overflow-hidden">
+                    <button
+                      onClick={handleDecrement}
+                      className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
+                    >
+                      {quantityInCart === 1 ? (
+                        <Trash2 size={20} />
+                      ) : (
+                        <Minus size={20} />
+                      )}
+                    </button>
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
+                        Quantity
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={inputValue}
+                        onChange={handleQuantityChange}
+                        onBlur={handleQuantityBlur}
+                        onKeyDown={handleKeyDown}
+                        className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
+                      />
+                    </div>
+                    <button
+                      onClick={handleIncrement}
+                      className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                    >
+                      <Plus size={20} />
+                    </button>
                   </div>
+
+                  {/* View Cart Button - Stacked Below */}
                   <button
-                    onClick={handleIncrement}
-                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                    onClick={() => router.push(asRoute(getHref('/cart')))}
+                    className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
                   >
-                    <Plus size={20} />
+                    <ShoppingCart size={20} />
+                    View Cart
                   </button>
                 </div>
               ) : (
@@ -944,24 +1010,42 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               )}
             </div>
 
-            {/* Delivery Info */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                <Truck size={18} className="text-red-600" />
+            {/* Perks Info - 4 cards in 2x2 grid */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <Truck size={16} className="text-red-600 flex-shrink-0" />
                 <div className="text-xs">
                   <span className="font-bold block text-gray-900">
-                    Free Delivery
+                    Nationwide Delivery
                   </span>
-                  <span className="text-gray-500">Orders over ₦500k</span>
+                  <span className="text-gray-500">All states covered</span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                <ShieldCheck size={18} className="text-red-600" />
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <RotateCcw size={16} className="text-red-600 flex-shrink-0" />
                 <div className="text-xs">
                   <span className="font-bold block text-gray-900">
-                    Warranty
+                    14 Day Returns
                   </span>
-                  <span className="text-gray-500">1 year included</span>
+                  <span className="text-gray-500">Easy return policy</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <ShieldCheck size={16} className="text-red-600 flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold block text-gray-900">
+                    1 Year Warranty
+                  </span>
+                  <span className="text-gray-500">Official coverage</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <ShieldPlus size={16} className="text-red-600 flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold block text-gray-900">
+                    Device Protection
+                  </span>
+                  <span className="text-gray-500">Coverage available</span>
                 </div>
               </div>
             </div>
@@ -1019,6 +1103,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 {/* Render description as HTML with client-side sanitization */}
                 <div
                   className="mb-4 prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm"
+                  // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop.react-dangerouslysetinnerhtml-prop
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml(productData.description || '') }}
                 />
 
