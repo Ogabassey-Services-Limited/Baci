@@ -1,11 +1,13 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
-import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
+import {
+  type JuicywayWebhookPayload,
+  verifyWebhookSignature,
+} from '@/lib/juicyway';
 import { logger } from '@/lib/logger';
 import {
   logConversionResults,
@@ -13,223 +15,114 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
-import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
-type PaymentGateway = 'paystack' | 'korapay';
+// Juicyway webhook IP whitelist (from docs)
+const JUICYWAY_IPS = [
+  '52.31.139.75',
+  '52.49.173.169',
+  '52.214.14.220',
+  '18.203.70.158',
+  '54.229.174.45',
+  '52.212.54.134',
+  '54.77.226.185',
+  '52.18.78.91',
+  '54.76.137.67',
+  '52.51.85.69',
+  '52.210.159.41',
+];
 
 /**
- * Detect which payment gateway sent the webhook
+ * Verify the request comes from Juicyway IPs (optional extra security)
  */
-function detectGateway(headers: Headers): PaymentGateway {
-  if (headers.get('x-paystack-signature')) {
-    return 'paystack';
-  }
-  if (headers.get('x-korapay-signature')) {
-    return 'korapay';
-  }
-  // Default to korapay for backwards compatibility
-  return 'korapay';
-}
+function isFromJuicywayIP(request: NextRequest): boolean {
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
+  const ip = forwardedFor?.split(',')[0]?.trim() || realIP || '';
 
-/**
- * Verify Korapay webhook signature
- * @param signature - The signature from the x-korapay-signature header
- * @param payload - The raw request body as string
- * @returns boolean indicating if signature is valid
- */
-function verifyKorapayWebhookSignature(
-  signature: string | null,
-  payload: string
-): boolean {
-  if (!signature) {
-    logger.warn({ message: 'Korapay webhook signature missing' });
-    return false;
+  // In development, allow all IPs
+  if (process.env.NODE_ENV !== 'production') {
+    return true;
   }
 
-  const secretKey = process.env.KORAPAY_SECRET_KEY;
-  if (!secretKey) {
-    logger.error({ message: 'KORAPAY_SECRET_KEY not configured' });
-    return false;
-  }
-
-  try {
-    // Generate expected signature using HMAC-SHA512
-    const expectedSignature = createHmac('sha512', secretKey)
-      .update(payload)
-      .digest('hex');
-
-    // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(signature, 'hex');
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-
-    if (signatureBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(signatureBuffer, expectedBuffer);
-  } catch (error) {
-    logger.error({
-      message: 'Korapay webhook signature verification error',
-      error,
-    });
-    return false;
-  }
-}
-
-/**
- * Verify Paystack webhook signature
- * @param signature - The signature from the x-paystack-signature header
- * @param payload - The raw request body as string
- * @returns boolean indicating if signature is valid
- */
-function verifyPaystackWebhookSignature(
-  signature: string | null,
-  payload: string
-): boolean {
-  if (!signature) {
-    logger.warn({ message: 'Paystack webhook signature missing' });
-    return false;
-  }
-
-  const secretKey = process.env.PAYSTACK_SECRET_KEY;
-  if (!secretKey) {
-    logger.error({ message: 'PAYSTACK_SECRET_KEY not configured' });
-    return false;
-  }
-
-  try {
-    // Generate expected signature using HMAC-SHA512
-    const expectedSignature = createHmac('sha512', secretKey)
-      .update(payload)
-      .digest('hex');
-
-    // Use timing-safe comparison to prevent timing attacks
-    return signature === expectedSignature;
-  } catch (error) {
-    logger.error({
-      message: 'Paystack webhook signature verification error',
-      error,
-    });
-    return false;
-  }
+  return JUICYWAY_IPS.includes(ip);
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Detect which gateway sent the webhook
-    const gateway = detectGateway(request.headers);
+    // Optional: IP whitelist check
+    if (!isFromJuicywayIP(request)) {
+      logger.warn({
+        message: 'Juicyway webhook from non-whitelisted IP',
+        ip:
+          request.headers.get('x-forwarded-for') ||
+          request.headers.get('x-real-ip'),
+      });
+      // Continue processing but log it - don't reject in case of proxy issues
+    }
 
     // Get raw body for signature verification
     const rawBody = await request.text();
+    const payload: JuicywayWebhookPayload = JSON.parse(rawBody);
 
-    // Verify webhook signature based on gateway
-    let isValidSignature = false;
-    if (gateway === 'paystack') {
-      const signature = request.headers.get('x-paystack-signature');
-      isValidSignature = verifyPaystackWebhookSignature(signature, rawBody);
-    } else {
-      const signature = request.headers.get('x-korapay-signature');
-      isValidSignature = verifyKorapayWebhookSignature(signature, rawBody);
+    // Get business ID for signature verification
+    const businessId = process.env.JUICYWAY_BUSINESS_ID;
+    if (!businessId) {
+      logger.error({ message: 'JUICYWAY_BUSINESS_ID not configured' });
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
     }
 
-    if (!isValidSignature) {
-      logger.warn({
-        message: `Invalid ${gateway} webhook signature`,
-        gateway,
-      });
+    // Verify webhook signature
+    const { checksum, event, data } = payload;
+    const isValid = await verifyWebhookSignature(
+      event,
+      data as unknown as Record<string, unknown>,
+      checksum,
+      businessId
+    );
+
+    if (!isValid) {
+      logger.warn({ message: 'Invalid Juicyway webhook signature' });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Parse the verified payload
-    const body = JSON.parse(rawBody);
-
     logger.info({
-      message: `Payment webhook received from ${gateway} (signature verified)`,
-      gateway,
-      event: body.event,
+      message: 'Juicyway webhook received (signature verified)',
+      event,
+      reference: data.reference,
     });
 
-    // Extract reference and check event type based on gateway
-    let reference: string;
-    let isSuccessEvent = false;
-
-    if (gateway === 'paystack') {
-      // Paystack webhook structure: { event: 'charge.success', data: { reference, ... } }
-      const event = body.event;
-      reference = body.data?.reference;
-
-      isSuccessEvent = event === 'charge.success';
-
-      if (!isSuccessEvent) {
-        logger.info({
-          message: 'Ignoring non-success Paystack webhook event',
-          reference,
-          event,
-        });
-        return NextResponse.json({ message: 'Event ignored' });
-      }
-    } else {
-      // Korapay webhook structure: { reference, status, event, ... }
-      reference = body.reference;
-      const event = body.event;
-      const status = body.status;
-
-      isSuccessEvent = event === 'charge.success' || status === 'success';
-
-      if (!isSuccessEvent) {
-        logger.info({
-          message: 'Ignoring non-success Korapay webhook event',
-          reference,
-          event,
-          status,
-        });
-        return NextResponse.json({ message: 'Event ignored' });
-      }
+    // Handle different event types
+    if (event === 'payment.session.failed') {
+      logger.info({
+        message: 'Juicyway payment failed',
+        reference: data.reference,
+      });
+      // Optionally update order status to failed
+      return NextResponse.json({ message: 'Failure noted' });
     }
 
-    // Input validation - intentional guard, not a bypass
-    // lgtm[js/user-controlled-bypass]
+    if (event !== 'payment.session.succeeded') {
+      logger.info({
+        message: 'Ignoring non-success Juicyway event',
+        event,
+        reference: data.reference,
+      });
+      return NextResponse.json({ message: 'Event ignored' });
+    }
+
+    // Process successful payment
+    const reference = data.reference;
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Verify payment with the appropriate gateway
-    let paymentStatus: string;
-    let gatewayResponse: Record<string, unknown>;
-
-    if (gateway === 'paystack') {
-      const result = await verifyPaystackPayment(reference);
-      if (!result.success) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      paymentStatus = result.data.status;
-      gatewayResponse = result.data as unknown as Record<string, unknown>;
-    } else {
-      const result = await verifyKorapayPayment(reference);
-      if (!result.success) {
-        return NextResponse.json({ error: result.error }, { status: 400 });
-      }
-      paymentStatus = result.data.status;
-      gatewayResponse = result.data as unknown as Record<string, unknown>;
-    }
-
-    if (paymentStatus !== 'success') {
-      logger.warn({
-        message: 'Payment verification failed',
-        reference,
-        gateway,
-        status: paymentStatus,
-      });
-      return NextResponse.json(
-        { error: 'Payment not successful' },
-        { status: 400 }
-      );
-    }
 
     // Find transaction record
     const { data: transaction, error: transactionError } = await supabase
@@ -240,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     if (transactionError || !transaction) {
       logger.error({
-        message: 'Transaction not found',
+        message: 'Transaction not found for Juicyway webhook',
         reference,
         error: transactionError,
       });
@@ -250,7 +143,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if already processed
+    // Check if already processed (idempotency)
     if (transaction.status === 'completed') {
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
@@ -261,7 +154,7 @@ export async function POST(request: NextRequest) {
       .from('transactions')
       .update({
         status: 'completed',
-        gateway_response: gatewayResponse,
+        gateway_response: data as unknown as Record<string, unknown>,
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
@@ -296,7 +189,7 @@ export async function POST(request: NextRequest) {
         });
       } else {
         logger.info({
-          message: 'Order updated successfully',
+          message: 'Order updated successfully via Juicyway',
           orderId: transaction.order_id,
         });
 
@@ -352,7 +245,7 @@ export async function POST(request: NextRequest) {
             });
 
             logger.info({
-              message: 'Order confirmation email sent',
+              message: 'Order confirmation email sent (Juicyway)',
               orderId: order.id,
             });
           }
@@ -363,9 +256,8 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Send offline conversion events to ad platforms (Facebook, TikTok, GA4, Snapchat)
+        // Send offline conversion events to ad platforms
         try {
-          // Fetch merchant's analytics configuration and feature toggle
           const { data: merchantAnalytics } = await supabase
             .from('merchants')
             .select(`
@@ -382,7 +274,6 @@ export async function POST(request: NextRequest) {
             .eq('id', transaction.merchant_id)
             .single();
 
-          // Check if merchant has disabled offline conversions (explicit false, not just missing)
           if (merchantAnalytics?.offline_conversions_enabled === false) {
             logger.info({
               message: 'Offline conversions disabled by merchant',
@@ -400,7 +291,6 @@ export async function POST(request: NextRequest) {
               snapchat_capi_token: merchantAnalytics.snapchat_capi_token,
             };
 
-            // Check if any platform is configured
             const hasAnalytics =
               (analyticsConfig.facebook_pixel_id &&
                 analyticsConfig.facebook_capi_token) ||
@@ -412,7 +302,6 @@ export async function POST(request: NextRequest) {
                 analyticsConfig.snapchat_capi_token);
 
             if (hasAnalytics) {
-              // Extract ad tracking data stored with the order (from cookies at checkout)
               const adTracking = order.ad_tracking as Record<
                 string,
                 unknown
@@ -437,25 +326,20 @@ export async function POST(request: NextRequest) {
                     quantity: Number(item.quantity) || 1,
                   })
                 ),
-                // Ad tracking IDs for better attribution
                 fbclid: adTracking?.fbclid as string | undefined,
                 fbp: adTracking?.fbp as string | undefined,
                 ttp: adTracking?.ttp as string | undefined,
                 gclid: adTracking?.gclid as string | undefined,
                 sccid: adTracking?.sccid as string | undefined,
                 gaClientId: adTracking?.gaClientId as string | undefined,
-                // Enhanced matching for better Event Match Quality (EMQ)
                 userIp: adTracking?.userIp as string | undefined,
                 userAgent: adTracking?.userAgent as string | undefined,
-                // Event deduplication ID (shared with client-side Pixel)
                 eventId: adTracking?.eventId as string | undefined,
-                // Privacy compliance
                 limitedDataUse: adTracking?.limitedDataUse as
                   | boolean
                   | undefined,
               };
 
-              // Fire-and-forget: Don't await, let it run in background
               sendPurchaseConversion(analyticsConfig, orderConversionData)
                 .then((results) => {
                   try {
@@ -480,14 +364,12 @@ export async function POST(request: NextRequest) {
                 });
 
               logger.info({
-                message: 'Offline conversion tracking initiated',
+                message: 'Offline conversion tracking initiated (Juicyway)',
                 orderId: order.id,
-                orderNumber: orderConversionData.orderNumber,
               });
             }
           }
         } catch (conversionError) {
-          // Don't fail the webhook if conversion tracking fails
           logger.error({
             message: 'Failed to initiate offline conversion tracking',
             error: conversionError,
@@ -498,7 +380,6 @@ export async function POST(request: NextRequest) {
 
     // Record settlement for merchant wallet tracking
     try {
-      // Calculate fees (platform takes 1.5% for example)
       const grossAmount = Number(transaction.amount) || 0;
       const gatewayFee = Number(transaction.gateway_fee) || 0;
       const platformFee =
@@ -510,12 +391,12 @@ export async function POST(request: NextRequest) {
           p_merchant_id: transaction.merchant_id,
           p_source_type: 'order',
           p_source_id: transaction.order_id,
-          p_gateway: gateway,
+          p_gateway: 'juicyway',
           p_gateway_reference: reference,
           p_gross_amount: grossAmount,
           p_gateway_fee: gatewayFee,
           p_platform_fee: platformFee,
-          p_description: `Order payment via ${gateway}`,
+          p_description: 'Order payment via Juicyway',
         }
       );
 
@@ -525,12 +406,10 @@ export async function POST(request: NextRequest) {
           error: settlementError,
           reference,
         });
-        // Don't fail the webhook - settlement tracking is supplementary
       } else {
         logger.info({
-          message: 'Merchant settlement recorded',
+          message: 'Merchant settlement recorded (Juicyway)',
           reference,
-          gateway,
           grossAmount,
         });
       }
@@ -542,7 +421,7 @@ export async function POST(request: NextRequest) {
     }
 
     logger.info({
-      message: 'Payment processed successfully',
+      message: 'Juicyway payment processed successfully',
       reference,
       transactionId: transaction.id,
     });
@@ -552,48 +431,10 @@ export async function POST(request: NextRequest) {
       message: 'Payment processed successfully',
     });
   } catch (error) {
-    logger.error({ message: 'Payment webhook error', error });
+    logger.error({ message: 'Juicyway webhook error', error });
     return NextResponse.json(
       {
         error: 'Webhook processing failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// GET endpoint to manually verify a payment
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const reference = searchParams.get('reference');
-    // Gateway selection from query param with safe default
-    // lgtm[js/user-controlled-bypass]
-    const gateway = (searchParams.get('gateway') ||
-      'paystack') as PaymentGateway;
-
-    // Input validation - intentional guard
-    // lgtm[js/user-controlled-bypass]
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
-    }
-
-    const paymentData =
-      gateway === 'paystack'
-        ? await verifyPaystackPayment(reference)
-        : await verifyKorapayPayment(reference);
-
-    return NextResponse.json({
-      success: true,
-      gateway,
-      payment: paymentData,
-    });
-  } catch (error) {
-    logger.error({ message: 'Payment verification error', error });
-    return NextResponse.json(
-      {
-        error: 'Verification failed',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

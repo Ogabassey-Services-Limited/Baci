@@ -37,6 +37,13 @@ const PAYMENT_LOGOS = {
         height: 20,
         bgColor: 'bg-[#1E3A5F]',
     },
+    juicyway: {
+        src: 'https://juicyway.com/favicon.ico',
+        alt: 'Juicyway - Multi-currency payment gateway',
+        width: 20,
+        height: 20,
+        bgColor: 'bg-[#6366F1]',
+    },
 } as const;
 
 export type PaymentPartner = keyof typeof PAYMENT_LOGOS;
@@ -201,6 +208,30 @@ export function CreditDirectLogo({ className = '' }: { className?: string }) {
                 fontWeight="bold"
             >
                 CD
+            </text>
+        </svg>
+    );
+}
+
+export function JuicywayLogo({ className = '' }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className={className}
+            role="img"
+            aria-label="Juicyway payment gateway logo"
+        >
+            <title>Juicyway</title>
+            <rect width="24" height="24" rx="4" fill="#6366F1" />
+            <text
+                x="12"
+                y="16"
+                textAnchor="middle"
+                fill="white"
+                fontSize="10"
+                fontWeight="bold"
+            >
+                JW
             </text>
         </svg>
     );
