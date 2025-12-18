@@ -885,3 +885,52 @@
     white-space: nowrap;
   }
 }
+/* Google Places Autocomplete Overrides - Aggressive Fix */
+.pac-container, .pac-container * {
+  background-color: #ffffff !important;
+  color: #000000 !important; /* Force black text everywhere */
+}
+
+.pac-container {
+  border-top: 1px solid #e2e8f0 !important;
+  border-radius: 0 0 0.5rem 0.5rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  font-family: inherit !important;
+  z-index: 99999 !important; /* Maximum z-index */
+  margin-top: 4px !important; /* slight spacing */
+}
+
+.pac-item {
+  border-top: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important; /* Larger touch target */
+  cursor: pointer !important;
+  color: #000000 !important;
+  font-size: 0.95rem !important; /* Slightly larger text */
+  line-height: 1.5 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.pac-item span {
+  color: #000000 !important; /* Explicitly target spans */
+}
+
+.pac-item:hover, .pac-item:hover * {
+  background-color: #f1f5f9 !important; /* Light gray on hover */
+}
+
+.pac-item-query {
+  color: #000000 !important;
+  font-weight: 600 !important;
+  margin-right: 4px !important;
+}
+
+.pac-matched {
+  font-weight: 700 !important;
+}
+
+.pac-icon {
+  margin-top: 0 !important;
+  margin-right: 12px !important;
+  filter: brightness(0) !important; /* Force icons to be black */
+}

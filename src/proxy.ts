@@ -549,6 +549,10 @@ function applySecurityHeaders(
     response.headers.set('x-nonce', nonce);
   }
 
+  // Set pathname header for server components to detect current route
+  // This enables conditional rendering (e.g., hide navbar on checkout) without hydration issues
+  response.headers.set('x-pathname', pathname);
+
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
   // Skip on localhost to avoid Unlighthouse/CI failures (ERR_SSL_PROTOCOL_ERROR)
   if (hostname && !isLocalhost(hostname)) {

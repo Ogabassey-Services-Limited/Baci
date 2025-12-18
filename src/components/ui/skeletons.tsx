@@ -28,20 +28,37 @@ function Skeleton({
  * Product Card Skeleton - matches ProductCard layout
  * Used in product grids across all merchant storefronts
  */
+/**
+ * Product Card Skeleton - matches ProductCard layout
+ * Used in product grids across all merchant storefronts
+ * Uses explicit light colors + Shimmer
+ */
 export function ProductCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('flex flex-col space-y-3', className)}>
+    <div
+      className={cn(
+        'flex flex-col space-y-3 relative overflow-hidden',
+        className
+      )}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading product..."
+    >
+      {/* Shimmer Overlay */}
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-10" />
+
       {/* Image placeholder */}
-      <Skeleton className="aspect-square w-full rounded-lg" />
+      <div className="aspect-square w-full rounded-lg bg-gray-200" />
       {/* Title */}
-      <Skeleton className="h-4 w-3/4" />
+      <div className="h-4 w-3/4 bg-gray-200 rounded" />
       {/* Price */}
-      <Skeleton className="h-4 w-1/4" />
+      <div className="h-4 w-1/4 bg-gray-200 rounded" />
       {/* Rating/badge area */}
       <div className="flex gap-2">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-3 w-12" />
+        <div className="h-3 w-16 bg-gray-200 rounded" />
+        <div className="h-3 w-12 bg-gray-200 rounded" />
       </div>
+      <span className="sr-only">Loading product details...</span>
     </div>
   );
 }
@@ -167,36 +184,49 @@ export function StatsGridSkeleton({
 
 /**
  * Product Detail Skeleton - for single product pages
+ * Uses explicit light colors to avoid dark theme bleed during SSR
  */
 export function ProductDetailSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('grid md:grid-cols-2 gap-8', className)}>
+    <div
+      className={cn(
+        'grid md:grid-cols-2 gap-8 p-4 md:p-8 bg-white relative overflow-hidden',
+        className
+      )}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading product details..."
+    >
+      {/* Shimmer Overlay */}
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
+
       {/* Image gallery */}
       <div className="space-y-4">
-        <Skeleton className="aspect-square w-full rounded-lg" />
+        <div className="aspect-square w-full rounded-lg bg-gray-200" />
         <div className="flex gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
-            <Skeleton key={i} className="w-20 h-20 rounded-md" />
+            <div key={i} className="w-20 h-20 rounded-md bg-gray-200" />
           ))}
         </div>
       </div>
       {/* Product info */}
       <div className="space-y-6">
         <div>
-          <Skeleton className="h-8 w-3/4 mb-2" />
-          <Skeleton className="h-6 w-1/4" />
+          <div className="h-8 w-3/4 mb-2 bg-gray-200 rounded" />
+          <div className="h-6 w-1/4 bg-gray-200 rounded" />
         </div>
         <div className="space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
+          <div className="h-4 w-full bg-gray-200 rounded" />
+          <div className="h-4 w-full bg-gray-200 rounded" />
+          <div className="h-4 w-2/3 bg-gray-200 rounded" />
         </div>
         <div className="flex gap-4">
-          <Skeleton className="h-12 w-32" />
-          <Skeleton className="h-12 flex-1" />
+          <div className="h-12 w-32 bg-gray-200 rounded" />
+          <div className="h-12 flex-1 bg-gray-200 rounded" />
         </div>
       </div>
+      <span className="sr-only">Loading product information...</span>
     </div>
   );
 }
@@ -310,6 +340,7 @@ export function OrderSummarySkeleton({ className }: { className?: string }) {
 
 /**
  * Storefront Header Skeleton - for merchant store headers
+ * Uses explicit light colors to avoid dark theme bleed during SSR
  */
 export function StorefrontHeaderSkeleton({
   className,
@@ -317,19 +348,29 @@ export function StorefrontHeaderSkeleton({
   className?: string;
 }) {
   return (
-    <header className={cn('border-b', className)}>
+    <header
+      className={cn(
+        'border-b border-gray-200 bg-white relative overflow-hidden',
+        className
+      )}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading store header"
+    >
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
+
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-32" />
+          <div className="h-10 w-32 bg-gray-200 rounded" />
           <div className="hidden md:flex gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
-              <Skeleton key={i} className="h-4 w-16" />
+              <div key={i} className="h-4 w-16 bg-gray-200 rounded" />
             ))}
           </div>
           <div className="flex gap-4">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="h-10 w-10 rounded-full bg-gray-200" />
+            <div className="h-10 w-10 rounded-full bg-gray-200" />
           </div>
         </div>
       </div>
@@ -339,15 +380,26 @@ export function StorefrontHeaderSkeleton({
 
 /**
  * Storefront Hero Skeleton
+ * Uses explicit light colors + Shimmer
  */
 export function StorefrontHeroSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('relative h-[400px] md:h-[500px] bg-muted', className)}>
+    <div
+      className={cn(
+        'relative h-[400px] md:h-[500px] bg-gray-100 overflow-hidden',
+        className
+      )}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading hero section"
+    >
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent z-10" />
+
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4 px-4">
-          <Skeleton className="h-12 w-64 mx-auto" />
-          <Skeleton className="h-6 w-96 mx-auto" />
-          <Skeleton className="h-12 w-40 mx-auto" />
+          <div className="h-12 w-64 mx-auto bg-gray-200 rounded" />
+          <div className="h-6 w-96 mx-auto bg-gray-200 rounded" />
+          <div className="h-12 w-40 mx-auto bg-gray-200 rounded" />
         </div>
       </div>
     </div>
@@ -357,16 +409,25 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
 /**
  * Full Storefront Page Skeleton - complete page skeleton for merchant stores
  * This is what users see while a merchant's storefront loads
+ * Uses explicit light background + Shimmer
  */
 export function StorefrontPageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn('min-h-screen', className)}>
+    <div
+      className={cn('min-h-screen bg-white', className)}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading storefront..."
+    >
       <StorefrontHeaderSkeleton />
       <StorefrontHeroSkeleton />
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-12 relative overflow-hidden">
+        {/* Shimmer for the grid section */}
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-10 pointer-events-none" />
+
         <div className="text-center mb-8">
-          <Skeleton className="h-8 w-48 mx-auto mb-2" />
-          <Skeleton className="h-4 w-64 mx-auto" />
+          <div className="h-8 w-48 mx-auto mb-2 bg-gray-200 rounded" />
+          <div className="h-4 w-64 mx-auto bg-gray-200 rounded" />
         </div>
         <ProductGridSkeleton count={8} columns={4} />
       </div>

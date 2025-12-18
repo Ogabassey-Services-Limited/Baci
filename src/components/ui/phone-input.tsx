@@ -36,7 +36,10 @@ const PhoneInput = React.forwardRef<
   return (
     <RPNInput.default
       ref={ref}
-      className={cn('flex', className)}
+      className={cn(
+        'flex items-center bg-gray-50 border border-gray-200 rounded-xl overflow-hidden focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500',
+        className
+      )}
       flagComponent={FlagComponent}
       countrySelectComponent={CountrySelect}
       inputComponent={InputComponent}
@@ -79,7 +82,10 @@ const InputComponent = React.forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <Input
-        className={cn('rounded-e-lg rounded-s-none', className)}
+        className={cn(
+          'rounded-none border-0 bg-transparent text-gray-900 focus-visible:ring-0 focus-visible:ring-offset-0',
+          className
+        )}
         {...props}
         onChange={handleChange}
         ref={ref}
@@ -116,8 +122,10 @@ const CountrySelect = ({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant={'outline'}
-          className={cn('flex gap-1 rounded-e-none rounded-s-lg px-3')}
+          variant={'ghost'}
+          className={cn(
+            'flex gap-1 rounded-none px-3 h-10 bg-transparent text-gray-900 hover:bg-gray-100 border-r border-gray-200'
+          )}
           disabled={disabled}
         >
           <FlagComponent country={value} countryName={value} />

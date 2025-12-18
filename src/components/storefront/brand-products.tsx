@@ -40,9 +40,16 @@ export function BrandProducts({
 }: BrandProductsProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant ?? null;
+  const basePath = merchantContext?.basePath || '';
   const { formatCurrency } = useCurrency();
   const { addToCart } = useCart();
   const { toast } = useToast();
+
+  // Helper to prepend merchant basePath to product URL
+  const getFullProductUrl = (p: Product): string => {
+    const productUrl = getProductUrl(p);
+    return basePath ? `${basePath}${productUrl}` : productUrl;
+  };
 
   const [brandProducts, setBrandProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,7 +202,10 @@ export function BrandProducts({
                   className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
                   accentPosition="top"
                 >
-                  <Link href={getProductUrl(p)} className="block relative">
+                  <Link
+                    href={getFullProductUrl(p) as '/'}
+                    className="block relative"
+                  >
                     <Image
                       src={p.imageLarge || p.image || '/placeholder.svg'}
                       alt={p.name}
@@ -211,7 +221,7 @@ export function BrandProducts({
                     )}
                   </Link>
                   <CardContent className="p-3">
-                    <Link href={getProductUrl(p)}>
+                    <Link href={getFullProductUrl(p) as '/'}>
                       <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
                         {p.name}
                       </h3>
