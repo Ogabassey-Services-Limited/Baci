@@ -66,7 +66,10 @@ export const JUICYWAY_STABLECOINS = ['USDT', 'USDC'] as const;
 export type JuicywayStablecoin = (typeof JUICYWAY_STABLECOINS)[number];
 
 // Chain/stablecoin compatibility matrix
-export const JUICYWAY_CHAIN_SUPPORT: Record<JuicywayStablecoin, JuicywayCryptoChain[]> = {
+export const JUICYWAY_CHAIN_SUPPORT: Record<
+  JuicywayStablecoin,
+  JuicywayCryptoChain[]
+> = {
   USDT: ['TRX', 'ETH'],
   USDC: ['ETH', 'MATIC', 'AVAXC'],
 };
@@ -388,12 +391,18 @@ export async function initializePayment(
     (rawResult as JuicywayApiResponse<unknown>).links?.redirect_url ||
     (rawResult as { checkout_url?: string }).checkout_url ||
     // Check nested data structure
-    (rawResult as { data?: { links?: { redirect_url?: string } } }).data?.links?.redirect_url;
+    (rawResult as { data?: { links?: { redirect_url?: string } } }).data?.links
+      ?.redirect_url;
 
   // Log warning if no checkout URL found for card payments
-  if (!checkoutUrl && (rawResult as { payment_method?: { type?: string } }).payment_method?.type === 'card') {
+  if (
+    !checkoutUrl &&
+    (rawResult as { payment_method?: { type?: string } }).payment_method
+      ?.type === 'card'
+  ) {
     logger.warn({
-      message: 'No checkout URL returned for card payment - may need 3DS redirect',
+      message:
+        'No checkout URL returned for card payment - may need 3DS redirect',
       paymentId: (rawResult as JuicywayApiResponse<unknown>).payment?.id,
     });
   }
@@ -546,8 +555,10 @@ export async function capturePaymentWithCrypto(
   logger.info({
     message: 'Crypto payment captured',
     paymentId,
-    address: (rawResult as JuicywayCryptoPaymentResponse).payment?.payment_method?.address,
-    chain: (rawResult as JuicywayCryptoPaymentResponse).payment?.payment_method?.chain,
+    address: (rawResult as JuicywayCryptoPaymentResponse).payment
+      ?.payment_method?.address,
+    chain: (rawResult as JuicywayCryptoPaymentResponse).payment?.payment_method
+      ?.chain,
   });
 
   return {

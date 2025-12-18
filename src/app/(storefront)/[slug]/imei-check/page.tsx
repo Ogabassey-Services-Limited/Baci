@@ -1,9 +1,7 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
 import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
-import type { MerchantData } from '@/hooks/use-merchant';
 import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function ImeiCheckPage({
@@ -21,7 +19,7 @@ export default async function ImeiCheckPage({
   // Read theme cookie server-side for SSR consistency
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get('storefront-theme')?.value;
-  const initialTheme: V2ThemeMode | undefined =
+  const _initialTheme: V2ThemeMode | undefined =
     themeCookie === 'standard' || themeCookie === 'santa'
       ? themeCookie
       : undefined;

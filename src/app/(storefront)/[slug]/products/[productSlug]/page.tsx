@@ -158,7 +158,9 @@ export async function generateMetadata(
 
   // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
   // This ensures /products/ URLs are always canonicalized to their category-based counterparts
-  const effectiveCategorySlug = product.category_slug || (product.category ? generateSlug(product.category) : undefined);
+  const effectiveCategorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : undefined);
 
   if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
@@ -211,13 +213,13 @@ export async function generateMetadata(
         url: img.url,
         alt: img.alt,
       })) || [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+        {
+          url: product.imageLarge || product.image,
+          width: 800,
+          height: 600,
+          alt: product.name,
+        },
+      ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
@@ -290,8 +292,11 @@ export default async function ProductPage({ params }: PageProps) {
   // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
   const productUrl = `${baseUrl}${urlPrefix}/${product.category_slug || 'products'}/${product.slug || product.id}`;
 
-  const categorySlug = product.category_slug || (product.category ? generateSlug(product.category) : 'products');
-  const categoryName = product.categories?.name || product.category || 'All Products';
+  const categorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const categoryName =
+    product.categories?.name || product.category || 'All Products';
   const categoryUrl = `${baseUrl}${urlPrefix}/${categorySlug}`;
 
   const breadcrumbItems = [

@@ -35,6 +35,7 @@ function Skeleton({
  */
 export function ProductCardSkeleton({ className }: { className?: string }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: Skeleton loading placeholder uses role="status" for accessibility
     <div
       className={cn(
         'flex flex-col space-y-3 relative overflow-hidden',
@@ -188,6 +189,7 @@ export function StatsGridSkeleton({
  */
 export function ProductDetailSkeleton({ className }: { className?: string }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: Skeleton loading placeholder uses role="status" for accessibility
     <div
       className={cn(
         'grid md:grid-cols-2 gap-8 p-4 md:p-8 bg-white relative overflow-hidden',
@@ -348,12 +350,12 @@ export function StorefrontHeaderSkeleton({
   className?: string;
 }) {
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: Using aria-busy for loading state indication
     <header
       className={cn(
         'border-b border-gray-200 bg-white relative overflow-hidden',
         className
       )}
-      role="status"
       aria-busy="true"
       aria-label="Loading store header"
     >
@@ -384,6 +386,7 @@ export function StorefrontHeaderSkeleton({
  */
 export function StorefrontHeroSkeleton({ className }: { className?: string }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: Skeleton loading placeholder uses role="status" for accessibility
     <div
       className={cn(
         'relative h-[400px] md:h-[500px] bg-gray-100 overflow-hidden',
@@ -413,6 +416,7 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
  */
 export function StorefrontPageSkeleton({ className }: { className?: string }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: Skeleton loading placeholder uses role="status" for accessibility
     <div
       className={cn('min-h-screen bg-white', className)}
       role="status"

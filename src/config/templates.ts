@@ -14,32 +14,28 @@ export const TEMPLATES: Template[] = [
     name: 'Modern Minimal',
     description: 'Clean and simple design for modern brands.',
     isPremium: false,
-    previewImage:
-      '/placeholder.png',
+    previewImage: '/placeholder.png',
   },
   {
     id: 'bold-vibrant',
     name: 'Bold & Vibrant',
     description: 'Stand out with bold colors and large typography.',
     isPremium: true,
-    previewImage:
-      '/placeholder.png',
+    previewImage: '/placeholder.png',
   },
   {
     id: 'classic-elegant',
     name: 'Classic Elegant',
     description: 'Timeless design with serif fonts and subtle details.',
     isPremium: true,
-    previewImage:
-      '/placeholder.png',
+    previewImage: '/placeholder.png',
   },
   {
     id: 'ogabassey',
     name: 'Ogabassey',
     description: 'Custom template for Ogabassey Gadgets.',
     isPremium: true,
-    previewImage:
-      '/placeholder.png',
+    previewImage: '/placeholder.png',
   },
 ];
 
@@ -76,8 +72,7 @@ export const getTemplateData = (
           ctaLink: '/shop',
           align: 'left',
           padding: 'large',
-          backgroundImage:
-            '/placeholder.png',
+          backgroundImage: '/placeholder.png',
           overlay: true,
           id: 'hero',
         },
@@ -155,16 +150,14 @@ export const getTemplateData = (
         props: {
           slides: [
             {
-              image:
-                '/placeholder.png',
+              image: '/placeholder.png',
               title: 'Summer Collection',
               subtitle: 'Bright colors for sunny days.',
               ctaText: 'View Collection',
               ctaLink: '/summer',
             },
             {
-              image:
-                '/placeholder.png',
+              image: '/placeholder.png',
               title: 'New Trends',
               subtitle: 'Be the first to wear the latest styles.',
               ctaText: 'Shop Trends',
@@ -262,8 +255,7 @@ export const getTemplateData = (
           ctaLink: '/catalog',
           align: 'center',
           padding: 'large',
-          backgroundImage:
-            '/placeholder.png',
+          backgroundImage: '/placeholder.png',
           overlay: true,
           id: 'hero',
         },
@@ -274,8 +266,7 @@ export const getTemplateData = (
           title: 'Our Heritage',
           content:
             'Founded in 1990, we have been dedicated to crafting the finest quality goods. Our commitment to excellence is evident in every stitch and detail.',
-          image:
-            '/placeholder.png',
+          image: '/placeholder.png',
           imagePosition: 'right',
           showStats: true,
           stats: [
@@ -350,20 +341,17 @@ export const getTemplateData = (
         props: {
           slides: [
             {
-              image:
-                '/placeholder.png',
+              image: '/placeholder.png',
               title: 'iPhone 16 Pro Max',
               link: '#iphone',
             },
             {
-              image:
-                '/placeholder.png',
+              image: '/placeholder.png',
               title: 'MacBook Pro',
               link: '#macbook',
             },
             {
-              image:
-                '/placeholder.png',
+              image: '/placeholder.png',
               title: 'PS5 Pro Edition',
               link: '#ps5',
             },

@@ -17,8 +17,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
     {
       image:
         PlaceHolderImages.find((img) => img.id === 'hero-fashion-1')
-          ?.imageUrl ||
-        '/placeholder.png',
+          ?.imageUrl || '/placeholder.png',
       title: 'Elevate Your Style',
       subtitle:
         'Discover the latest trends in sustainable fashion. Curated just for you.',
@@ -28,8 +27,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
     {
       image:
         PlaceHolderImages.find((img) => img.id === 'hero-minimal-1')
-          ?.imageUrl ||
-        '/placeholder.png',
+          ?.imageUrl || '/placeholder.png',
       title: 'Summer Essentials',
       subtitle: 'Lightweight, breathable, and stylish. Perfect for the season.',
       ctaText: 'View Lookbook',

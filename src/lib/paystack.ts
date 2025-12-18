@@ -32,7 +32,14 @@ const PLATFORM_FEE_CAP_KOBO = PLATFORM_FEE_CAP_NAIRA * 100;
 const PAYMENT_STATUSES = ['success', 'failed', 'abandoned', 'pending'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-const PAYMENT_CHANNELS = ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer'] as const;
+const PAYMENT_CHANNELS = [
+  'card',
+  'bank',
+  'ussd',
+  'qr',
+  'mobile_money',
+  'bank_transfer',
+] as const;
 export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number];
 
 // =============================================================================
@@ -100,11 +107,13 @@ const PaymentVerificationSchema = z.object({
   customer: CustomerSchema,
   metadata: z.record(z.string(), z.unknown()).nullable(),
   fees: z.number(),
-  fees_split: z.object({
-    paystack: z.number(),
-    integration: z.number(),
-    subaccount: z.number(),
-  }).nullable(),
+  fees_split: z
+    .object({
+      paystack: z.number(),
+      integration: z.number(),
+      subaccount: z.number(),
+    })
+    .nullable(),
 });
 
 // =============================================================================
@@ -114,7 +123,9 @@ const PaymentVerificationSchema = z.object({
 export type Bank = z.infer<typeof BankSchema>;
 export type SubaccountResponse = z.infer<typeof SubaccountResponseSchema>;
 export type PaymentInitResponse = z.infer<typeof PaymentInitResponseSchema>;
-export type PaymentVerificationResponse = z.infer<typeof PaymentVerificationSchema>;
+export type PaymentVerificationResponse = z.infer<
+  typeof PaymentVerificationSchema
+>;
 
 export interface Subaccount {
   business_name: string;
@@ -165,7 +176,11 @@ async function paystackRequest<T>(
   const url = `${PAYSTACK_BASE_URL}${endpoint}`;
 
   if (!PAYSTACK_SECRET_KEY) {
-    return { success: false, error: 'PAYSTACK_SECRET_KEY is not configured', code: 'CONFIG_ERROR' };
+    return {
+      success: false,
+      error: 'PAYSTACK_SECRET_KEY is not configured',
+      code: 'CONFIG_ERROR',
+    };
   }
 
   try {
@@ -226,7 +241,9 @@ export async function getBanks(country = 'nigeria'): Promise<Bank[]> {
   }
 
   // Validate and filter valid banks
-  const validBanks = result.data.filter((bank) => BankSchema.safeParse(bank).success);
+  const validBanks = result.data.filter(
+    (bank) => BankSchema.safeParse(bank).success
+  );
   return validBanks;
 }
 
@@ -239,20 +256,33 @@ export async function resolveAccountNumber(
 ): Promise<PaystackResult<{ account_number: string; account_name: string }>> {
   // Validate inputs
   if (!accountNumber || !bankCode) {
-    return { success: false, error: 'Account number and bank code are required', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Account number and bank code are required',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   if (!/^\d{10}$/.test(accountNumber)) {
-    return { success: false, error: 'Account number must be 10 digits', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Account number must be 10 digits',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   if (!/^\d{3}$/.test(bankCode)) {
-    return { success: false, error: 'Bank code must be 3 digits', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Bank code must be 3 digits',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
-  const result = await paystackRequest<{ account_number: string; account_name: string }>(
-    `/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`
-  );
+  const result = await paystackRequest<{
+    account_number: string;
+    account_name: string;
+  }>(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`);
 
   if (!result.success) {
     return result;
@@ -260,7 +290,11 @@ export async function resolveAccountNumber(
 
   const parsed = ResolvedAccountSchema.safeParse(result.data);
   if (!parsed.success) {
-    return { success: false, error: 'Invalid account resolution response', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Invalid account resolution response',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   return { success: true, data: result.data };
@@ -277,17 +311,22 @@ export async function createSubaccount(
   payload: Subaccount
 ): Promise<PaystackResult<SubaccountResponse>> {
   // Validate required fields
-  if (!payload.business_name || !payload.settlement_bank || !payload.account_number) {
-    return { success: false, error: 'Missing required subaccount fields', code: 'VALIDATION_ERROR' };
+  if (
+    !payload.business_name ||
+    !payload.settlement_bank ||
+    !payload.account_number
+  ) {
+    return {
+      success: false,
+      error: 'Missing required subaccount fields',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
-  const result = await paystackRequest<SubaccountResponse>(
-    '/subaccount',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }
-  );
+  const result = await paystackRequest<SubaccountResponse>('/subaccount', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 
   if (!result.success) {
     return result;
@@ -295,7 +334,10 @@ export async function createSubaccount(
 
   const parsed = SubaccountResponseSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Subaccount response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Subaccount response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return { success: true, data: result.data };
@@ -310,7 +352,11 @@ export async function updateSubaccount(
 ): Promise<PaystackResult<SubaccountResponse>> {
   // Validate subaccount code format (e.g., ACCT_xxxxx)
   if (!subaccountCode || !/^ACCT_[a-z0-9]+$/i.test(subaccountCode)) {
-    return { success: false, error: 'Invalid subaccount code format', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Invalid subaccount code format',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   const result = await paystackRequest<SubaccountResponse>(
@@ -358,7 +404,10 @@ export async function initializeTransaction(
   // Validate response
   const parsed = PaymentInitResponseSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Payment init response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Payment init response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return result.data;
@@ -373,7 +422,11 @@ export async function verifyTransaction(
   // Validate reference format to prevent SSRF attacks
   // Paystack references are typically alphanumeric with some special chars
   if (!reference || !/^[A-Za-z0-9_-]{1,100}$/.test(reference)) {
-    return { success: false, error: 'Invalid transaction reference format', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Invalid transaction reference format',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   const result = await paystackRequest<PaymentVerificationResponse>(
@@ -387,7 +440,10 @@ export async function verifyTransaction(
   // Validate response
   const parsed = PaymentVerificationSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Payment verification response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Payment verification response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return { success: true, data: result.data };

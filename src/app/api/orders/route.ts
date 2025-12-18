@@ -237,7 +237,9 @@ export async function POST(request: NextRequest) {
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('id, rider_phone_number, business_name, slug, support_email, email_sender_name, email')
+      .select(
+        'id, rider_phone_number, business_name, slug, support_email, email_sender_name, email'
+      )
       .eq('id', merchant_id)
       .single();
 
@@ -509,7 +511,7 @@ export async function POST(request: NextRequest) {
             customerId: customer_id,
             requestedAmount: wallet_amount,
           });
-        } else if (redemptionData && redemptionData[0]) {
+        } else if (redemptionData?.[0]) {
           const result = redemptionData[0];
           if (result.success) {
             walletRedemptionResult = {
@@ -575,7 +577,11 @@ export async function POST(request: NextRequest) {
     // - POD (Pay on Delivery) or Invoice: no payment gateway redirect
     // - Wallet-paid orders: payment already confirmed via wallet redemption
     const isWalletFullyPaid = walletAmountUsed > 0 && amountDueToGateway <= 0;
-    if (payment_method === 'pod' || payment_method === 'invoice' || isWalletFullyPaid) {
+    if (
+      payment_method === 'pod' ||
+      payment_method === 'invoice' ||
+      isWalletFullyPaid
+    ) {
       try {
         if (merchant.business_name && merchant.slug) {
           const rootDomain =
@@ -614,7 +620,10 @@ export async function POST(request: NextRequest) {
           // Send email asynchronously (don't wait for it)
           // Use merchant's support_email as reply-to (so customer replies go to merchant)
           // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders" instead of "Baci Orders")
-          const replyToEmail = merchant.support_email || merchant.email || `support@${merchant.slug}.${rootDomain}`;
+          const replyToEmail =
+            merchant.support_email ||
+            merchant.email ||
+            `support@${merchant.slug}.${rootDomain}`;
           const senderName = merchant.email_sender_name
             ? `${merchant.email_sender_name} Orders`
             : merchant.business_name

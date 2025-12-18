@@ -11,7 +11,7 @@ const google = createGoogleGenerativeAI({
  * Model Selection Guide (December 2025):
  * - gemini3Flash: Latest Gemini 3 Flash preview - fast with integrated reasoning
  * - geminiFlash: Alias to Gemini 3 Flash for backwards compatibility
- * - geminiPro: Alias to Gemini 3 Flash 
+ * - geminiPro: Alias to Gemini 3 Flash
  * - gemini25Flash: Legacy Gemini 2.5 Flash (deprecated, kept for fallback)
  * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
  *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }

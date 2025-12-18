@@ -60,7 +60,10 @@ export async function POST(request: NextRequest) {
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
       });
       if (!updateResult.success) {
-        return NextResponse.json({ error: updateResult.error }, { status: 400 });
+        return NextResponse.json(
+          { error: updateResult.error },
+          { status: 400 }
+        );
       }
     } else {
       // Create new subaccount
@@ -74,7 +77,10 @@ export async function POST(request: NextRequest) {
         primary_contact_phone: merchant.phone || undefined,
       });
       if (!subaccountResult.success) {
-        return NextResponse.json({ error: subaccountResult.error }, { status: 400 });
+        return NextResponse.json(
+          { error: subaccountResult.error },
+          { status: 400 }
+        );
       }
       subaccountCode = subaccountResult.data.subaccount_code;
     }
