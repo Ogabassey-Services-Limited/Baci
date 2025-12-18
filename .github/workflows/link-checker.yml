@@ -86,7 +86,7 @@ jobs:
             --exclude 'image-us\.samsung\.com'
             --exclude 'p4-ofp\.static\.pub'
             --exclude 'i\.dell\.com'
-            --exclude 'api\.spendjuice\.com'
+            --exclude 'spendjuice\.com'
             --exclude 'api\.vercel\.com'
             --exclude 'api\.paystack\.co'
             --exclude 'tronscan\.org'
