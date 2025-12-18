@@ -17,11 +17,18 @@ const THEME_COOKIE_NAME = 'storefront-theme';
 
 /**
  * Helper to get cookie value (client-side only)
+ * Uses split-based parsing instead of regex to prevent ReDoS vulnerabilities
  */
 function getCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
-  return match ? match[2] : undefined;
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [key, ...valueParts] = cookie.split('=');
+    if (key?.trim() === name) {
+      return valueParts.join('='); // Handle values containing '='
+    }
+  }
+  return undefined;
 }
 
 /**

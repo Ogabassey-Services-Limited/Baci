@@ -7,6 +7,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
@@ -16,10 +17,6 @@ const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Im
 
 // Note: The getProductImage helper was removed because product data is now
 // normalized upstream via normalizeProduct(), ensuring product.image is always set.
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>?/gm, '') || '';
-}
 
 interface ProductCardProps {
   product: Product;
@@ -102,7 +99,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             (() => {
               const platform = (product as any).variant_attributes?.Platform;
               let badgeColor = 'bg-amber-500';
-              let badgeText = product.condition;
+              let badgeText: string | undefined = product.condition;
 
               if (platform) {
                 badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
@@ -206,7 +203,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Description - truncated */}
           <p className="text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed hidden md:block">
-            {stripHtml(product.description || '').substring(0, 100) || 'No description available.'}
+            {stripHtmlTags(product.description || '').substring(0, 100) || 'No description available.'}
           </p>
 
           {/* Price */}
@@ -241,7 +238,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           (() => {
             const platform = (product as any).variant_attributes?.Platform;
             let badgeColor = 'bg-amber-500';
-            let badgeText = product.condition;
+            let badgeText: string | undefined = product.condition;
 
             if (platform) {
               badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
@@ -296,7 +293,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">
-          {stripHtml(product.description || '').substring(0, 150) || 'No description available.'}
+          {stripHtmlTags(product.description || '').substring(0, 150) || 'No description available.'}
         </p>
 
         <div className="mt-auto flex items-center justify-between">
