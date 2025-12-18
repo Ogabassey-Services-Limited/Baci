@@ -446,6 +446,39 @@ function toOgabasseyProduct(
           images: v.images,
         })
       ) || [],
+    // Phase 5: Condition offers for consolidated products
+    has_condition_offers: product.has_condition_offers,
+    offers: product.offers?.map(
+      (o: {
+        id: string;
+        condition: string;
+        price: number | string;
+        compare_at_price?: number | string | null;
+        stock_quantity?: number;
+        images?: string[];
+        condition_notes?: string;
+        grade?: string;
+      }) => ({
+        id: o.id,
+        condition: o.condition as 'new' | 'open_box' | 'used',
+        price: formatter.format(
+          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price
+        ),
+        rawPrice:
+          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
+        compare_at_price: o.compare_at_price
+          ? formatter.format(
+              typeof o.compare_at_price === 'string'
+                ? Number.parseFloat(o.compare_at_price)
+                : o.compare_at_price
+            )
+          : undefined,
+        stock: o.stock_quantity,
+        images: o.images,
+        notes: o.condition_notes,
+        grade: o.grade,
+      })
+    ),
   };
 }
 
@@ -465,11 +498,7 @@ function TemplateProductPage({
   // Ogabassey template
   if (templateId === 'ogabassey') {
     const ogabasseyProduct = toOgabasseyProduct(product);
-    return (
-      <OgabasseyLayout initialTheme={initialTheme}>
-        <OgabasseyProductPage product={ogabasseyProduct} />
-      </OgabasseyLayout>
-    );
+    return <OgabasseyProductPage product={ogabasseyProduct} />;
   }
 
   // Default: use the generic product detail client
@@ -634,6 +663,24 @@ const getProduct = cache(
 
       if (variants) {
         productWithCategorySlug.variants = variants;
+      }
+    }
+
+    // Fetch condition offers if product has them
+    if (product.has_condition_offers) {
+      const { data: offers } = await supabase
+        .from('product_offers')
+        .select(
+          'id, condition, price, compare_at_price, stock_quantity, images, condition_notes, grade'
+        )
+        .eq('product_id', product.id)
+        .eq('status', 'active');
+
+      if (offers) {
+        // Filter out the offer that matches the main product's condition to avoid duplication
+        productWithCategorySlug.offers = offers.filter(
+          (o) => o.condition !== product.condition
+        );
       }
     }
 

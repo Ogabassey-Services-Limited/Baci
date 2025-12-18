@@ -326,7 +326,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
     <>
       {/* CollectionPage Schema */}
       {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -336,7 +336,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       />
       {/* BreadcrumbList Schema */}
       {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -347,7 +347,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       {/* FAQPage Schema */}
       {faqSchema && (
         // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -356,43 +356,40 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       )}
 
       <Suspense fallback={<ProductGridSkeleton />}>
-        <OgabasseyLayout initialTheme={initialTheme}>
-          <OgabasseyCategoryPage
-            seoHeading={categoryData.seo.heading}
-            seoDescription={categoryData.seo.description}
-            seoFeatures={categoryData.seo.features}
-            seoFaqs={categoryData.seo.faqs}
-            categoryImage={categoryData.image}
-            products={products.map((p) => {
-              // Use unified normalizeProduct for consistent data extraction
-              const normalized = normalizeProduct(p as unknown as RawDbProduct);
-              // Map condition to expected enum values
-              const conditionMap: Record<string, 'New' | 'Used' | 'Open Box'> =
-                {
-                  New: 'New',
-                  new: 'New',
-                  Used: 'Used',
-                  used: 'Used',
-                  'Open Box': 'Open Box',
-                  open_box: 'Open Box',
-                };
-              return {
-                id: normalized.id,
-                name: normalized.name,
-                slug: normalized.slug,
-                description: normalized.description,
-                price: `₦${normalized.price.toLocaleString()}`,
-                rawPrice: normalized.price,
-                image: normalized.image,
-                images: normalized.images,
-                category: normalized.category,
-                brand: normalized.brand ?? undefined,
-                condition: conditionMap[normalized.condition] || 'New',
-                stock: normalized.stock,
-              };
-            })}
-          />
-        </OgabasseyLayout>
+        <OgabasseyCategoryPage
+          seoHeading={categoryData.seo.heading}
+          seoDescription={categoryData.seo.description}
+          seoFeatures={categoryData.seo.features}
+          seoFaqs={categoryData.seo.faqs}
+          categoryImage={categoryData.image}
+          products={products.map((p) => {
+            // Use unified normalizeProduct for consistent data extraction
+            const normalized = normalizeProduct(p as unknown as RawDbProduct);
+            // Map condition to expected enum values
+            const conditionMap: Record<string, 'New' | 'Used' | 'Open Box'> = {
+              New: 'New',
+              new: 'New',
+              Used: 'Used',
+              used: 'Used',
+              'Open Box': 'Open Box',
+              open_box: 'Open Box',
+            };
+            return {
+              id: normalized.id,
+              name: normalized.name,
+              slug: normalized.slug,
+              description: normalized.description,
+              price: `₦${normalized.price.toLocaleString()}`,
+              rawPrice: normalized.price,
+              image: normalized.image,
+              images: normalized.images,
+              category: normalized.category,
+              brand: normalized.brand ?? undefined,
+              condition: conditionMap[normalized.condition] || 'New',
+              stock: normalized.stock,
+            };
+          })}
+        />
       </Suspense>
     </>
   );

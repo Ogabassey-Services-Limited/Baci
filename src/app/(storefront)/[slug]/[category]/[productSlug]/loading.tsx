@@ -9,7 +9,7 @@ import {
  */
 export default function CategoryProductLoading() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white">
       <StorefrontHeaderSkeleton />
       <div className="container mx-auto px-4 py-8">
         <ProductDetailSkeleton />
