@@ -10,8 +10,7 @@ export const products: Product[] = [
     rawPrice: 1950000,
     description:
       'Titanium design, A17 Pro chip, and the most powerful iPhone camera system ever.',
-    image:
-      'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 5,
     category: 'Phones',
     categorySlug: 'phones',
@@ -37,8 +36,7 @@ export const products: Product[] = [
     rawPrice: 1350000,
     description:
       'Strikingly thin and fast so you can work, play, or create just about anything, anywhere.',
-    image:
-      'https://images.unsplash.com/photo-1517336714731-489689fd1ca4?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.8,
     category: 'Laptops',
     categorySlug: 'laptops',
@@ -58,8 +56,7 @@ export const products: Product[] = [
     rawPrice: 850000,
     description:
       'Experience lightning fast loading with an ultra-high speed SSD and haptic feedback.',
-    image:
-      'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.9,
     category: 'Gaming',
     categorySlug: 'gaming',
@@ -77,8 +74,7 @@ export const products: Product[] = [
     rawPrice: 1100000,
     description:
       'The most rugged and capable Apple Watch. Designed for outdoor adventure and endurance.',
-    image:
-      'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 5,
     category: 'Accessories',
     categorySlug: 'accessories',
@@ -96,8 +92,7 @@ export const products: Product[] = [
     rawPrice: 550000,
     description:
       'UK Used, pristine condition with 90% battery health. Comes with generic charger.',
-    image:
-      'https://images.unsplash.com/photo-1606312619070-d48b4c652a52?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.5,
     category: 'Phones',
     categorySlug: 'phones',
@@ -118,8 +113,7 @@ export const products: Product[] = [
     rawPrice: 450000,
     description:
       'Reliable laptop for work and study. Intel Core i5, 16GB RAM, 512GB SSD.',
-    image:
-      'https://images.unsplash.com/photo-1541807084-5c52b6b3adef?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.2,
     category: 'Laptops',
     categorySlug: 'laptops',
@@ -139,8 +133,7 @@ export const products: Product[] = [
     rawPrice: 45000,
     description:
       'High precision gaming mouse with RGB lighting and programmable buttons.',
-    image:
-      'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.7,
     category: 'Accessories',
     categorySlug: 'accessories',
@@ -156,8 +149,7 @@ export const products: Product[] = [
     rawPrice: 120000,
     description:
       'All-in-one color inkjet printer, copier, and scanner for home and office use.',
-    image:
-      'https://images.unsplash.com/photo-1612815154858-60aa4c4603e1?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.3,
     category: 'Printers',
     categorySlug: 'printers',
@@ -174,8 +166,7 @@ export const products: Product[] = [
     rawPrice: 1850000,
     description:
       'Galaxy AI is here. Epic titanium design. Visuals with ray tracing.',
-    image:
-      'https://images.unsplash.com/photo-1706606991536-e35c24aa175d?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.9,
     category: 'Phones',
     categorySlug: 'phones',
@@ -201,8 +192,7 @@ export const products: Product[] = [
     rawPrice: 1400000,
     description:
       'The most advanced Pixel phones yet. Google AI and the best Pixel Camera.',
-    image:
-      'https://images.unsplash.com/photo-1598327105666-5b89351aff23?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.7,
     category: 'Phones',
     categorySlug: 'phones',
@@ -222,8 +212,7 @@ export const products: Product[] = [
     price: '₦350,000',
     rawPrice: 350000,
     description: 'US Used, 85% battery, clean body.',
-    image:
-      'https://images.unsplash.com/photo-1610945265064-f3947e85d3b4?q=80&w=1000&auto=format&fit=crop',
+    image: '/placeholder.png',
     rating: 4.1,
     category: 'Phones',
     categorySlug: 'phones',

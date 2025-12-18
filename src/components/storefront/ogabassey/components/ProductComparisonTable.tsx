@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Plus, X, Smartphone, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
@@ -208,8 +209,8 @@ export function ProductComparisonTable({
                                                                     onClick={() => addProduct(res)}
                                                                     className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
                                                                 >
-                                                                    <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                                        <img src={res.image || res.imageLarge} className="w-full h-full object-cover" />
+                                                                    <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden relative">
+                                                                        <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
                                                                     </div>
                                                                     <div className="min-w-0">
                                                                         <div className="text-xs font-bold text-gray-900 truncate">{res.name}</div>

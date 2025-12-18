@@ -116,7 +116,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
           <div className="order-2 lg:order-1">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl group aspect-video">
               <Image
-                src={aboutPage.image_url || "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1600&auto=format&fit=crop"}
+                src={aboutPage.image_url || "/placeholder.png"}
                 alt="Our Team"
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"

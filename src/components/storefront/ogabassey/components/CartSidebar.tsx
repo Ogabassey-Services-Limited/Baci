@@ -85,7 +85,7 @@ export const CartSidebar: React.FC = () => {
         // userData: { email: user?.email, ... }
       });
     }
-  }, [isCartOpen, cart]);
+  }, [isCartOpen, cart, merchant?.id]);
 
   if (!isCartOpen) return null;
 
@@ -187,10 +187,12 @@ export const CartSidebar: React.FC = () => {
                           href={asRoute(getHref(`/product/${item.id}`))}
                           className="relative w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block group/image"
                         >
-                          <img
+                          <Image
                             src={item.image || '/placeholder.png'}
                             alt={item.name}
-                            className="w-full h-full object-contain mix-blend-multiply"
+                            fill
+                            sizes="96px"
+                            className="object-contain mix-blend-multiply p-1"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
                               e.currentTarget.src = '/placeholder.png';

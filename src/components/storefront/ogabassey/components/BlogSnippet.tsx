@@ -17,32 +17,28 @@ const BLOG_DATA: Record<
     title: 'iPhone 15 Pro vs 14 Pro: Is the Upgrade Worth It?',
     excerpt:
       "We break down the titanium design, A17 Pro chip, and camera improvements to help you decide if it's time to switch.",
-    image:
-      'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=800&auto=format&fit=crop',
+    image: '/placeholder.png',
     readTime: '5 min read',
   },
   Laptops: {
     title: 'M3 MacBook Pro: The Ultimate Creator Tool?',
     excerpt:
       "Apple's latest silicon pushes the boundaries of performance. See how it handles 8K video editing and 3D rendering.",
-    image:
-      'https://images.unsplash.com/photo-1517336714731-489689fd1ca4?q=80&w=800&auto=format&fit=crop',
+    image: '/placeholder.png',
     readTime: '4 min read',
   },
   Gaming: {
     title: "PS5 Slim vs Original: What's Actually Different?",
     excerpt:
       "It's smaller and lighter, but does the new design compromise on cooling or performance? Let's find out.",
-    image:
-      'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=800&auto=format&fit=crop',
+    image: '/placeholder.png',
     readTime: '6 min read',
   },
   Accessories: {
     title: 'Why The Apple Watch Ultra Is Overkill (And Why We Love It)',
     excerpt:
       "You probably don't need a dive computer on your wrist, but here is why the battery life alone makes it a winner.",
-    image:
-      'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?q=80&w=800&auto=format&fit=crop',
+    image: '/placeholder.png',
     readTime: '3 min read',
   },
 };
@@ -53,8 +49,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({ category }) => {
     title: 'Tech Trends 2024: What to Expect',
     excerpt:
       'From AI integration to foldable screens, here is what the tech world has in store for us this year.',
-    image:
-      'https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=800&auto=format&fit=crop',
+    image: '/placeholder.png',
     readTime: '4 min read',
   };
 

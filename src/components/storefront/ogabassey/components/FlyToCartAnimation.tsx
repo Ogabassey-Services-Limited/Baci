@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 
 interface FlyToCartAnimationProps {
     startRect: DOMRect | null;
@@ -88,7 +89,7 @@ export const FlyToCartAnimation: React.FC<FlyToCartAnimationProps> = ({
     return createPortal(
         <div style={style}>
             {imageSrc ? (
-                <img src={imageSrc} alt="" className="w-full h-full object-cover" />
+                <Image src={imageSrc} alt="" fill sizes="40px" className="object-cover" />
             ) : (
                 <div className="w-2 h-2 bg-white rounded-full" />
             )}

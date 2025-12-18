@@ -34,6 +34,7 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { openCredPalCheckout, isCredPalEligible } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
+import { toast } from '@/hooks/use-toast';
 
 interface SavedAddress {
   id: number;
@@ -146,7 +147,8 @@ export const CheckoutPage: React.FC = () => {
     confirmation_time: string;
     orderId: string;
     reference: string;
-    sessionId: string;
+    sessionId: string; // Payment session ID (from initialization)
+    paymentId: string; // Payment ID (from capture) - used for verification via GET /payments/{id}
     qrcode?: string;
   } | null>(null);
 
@@ -233,6 +235,7 @@ export const CheckoutPage: React.FC = () => {
           orderId: pendingCryptoOrder.orderId,
           reference: paymentResult.reference,
           sessionId: paymentResult.session_id || '',
+          paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
           qrcode: paymentResult.crypto_payment.qrcode,
         });
       } else {
@@ -240,7 +243,11 @@ export const CheckoutPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Crypto payment initialization error:', error);
-      alert(error instanceof Error ? error.message : 'Failed to initialize crypto payment');
+      toast({
+        title: 'Crypto Payment Failed',
+        description: error instanceof Error ? error.message : 'Failed to initialize crypto payment',
+        variant: 'destructive',
+      });
     } finally {
       setIsInitializingCrypto(false);
     }
@@ -254,8 +261,12 @@ export const CheckoutPage: React.FC = () => {
   });
 
   const verifyCryptoPayment = useCallback(async () => {
-    if (!cryptoPaymentData?.sessionId) {
-      console.error('No session ID available for verification');
+    // Use paymentId for verification (from the capture response)
+    // Fall back to sessionId if paymentId is not available
+    const verificationId = cryptoPaymentData?.paymentId || cryptoPaymentData?.sessionId;
+
+    if (!verificationId) {
+      console.error('No payment ID or session ID available for verification');
       setCryptoVerificationStatus('failed');
       return;
     }
@@ -266,8 +277,9 @@ export const CheckoutPage: React.FC = () => {
 
     const checkPaymentStatus = async (): Promise<'confirmed' | 'failed' | 'pending'> => {
       try {
+        // Use payment_id parameter for GET /payments/{id} endpoint
         const response = await fetch(
-          `/api/payments/status?gateway=juicyway&session_id=${cryptoPaymentData.sessionId}`
+          `/api/payments/status?gateway=juicyway&payment_id=${verificationId}`
         );
 
         if (!response.ok) {
@@ -281,7 +293,7 @@ export const CheckoutPage: React.FC = () => {
           console.error('Payment status check failed:', {
             status: response.status,
             statusText: response.statusText,
-            sessionId: cryptoPaymentData.sessionId,
+            paymentId: verificationId,
             error: errorData,
           });
           return 'pending'; // Treat API errors as pending, not failed
@@ -560,7 +572,10 @@ export const CheckoutPage: React.FC = () => {
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | ''>('');
 
-  const [payWithWallet, _setPayWithWallet] = useState(false);
+  // Wallet state (2025: auto-apply when balance > 0)
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [payWithWallet, setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Note: currentStep and completedSteps are now part of checkoutForm (persisted)
@@ -599,6 +614,45 @@ export const CheckoutPage: React.FC = () => {
     }
   }, [user, customerEmail, firstName, lastName, customerPhone]);
 
+  // Fetch wallet balance for logged-in customers (2025 best practice: auto-apply at checkout)
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const fetchWalletBalance = async () => {
+      if (!user || !merchant?.slug) return;
+
+      setWalletLoading(true);
+      try {
+        const response = await fetch(
+          `/api/storefront/customer/wallet?merchant=${merchant.slug}`,
+          { signal: abortController.signal }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const balance = Number(data.balance) || 0;
+          setWalletBalance(balance);
+          // Auto-apply wallet credit if balance > 0 (Shopify 2025 pattern)
+          if (balance > 0) {
+            setPayWithWallet(true);
+          }
+        }
+      } catch (error) {
+        // Ignore abort errors (component unmounted)
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Failed to fetch wallet balance:', error);
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setWalletLoading(false);
+        }
+      }
+    };
+
+    fetchWalletBalance();
+
+    return () => abortController.abort();
+  }, [user, merchant?.slug]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -636,18 +690,26 @@ export const CheckoutPage: React.FC = () => {
 
   const total = cartTotal + deliveryCost + giftWrappingCost;
 
-  // Wallet feature disabled (future integration)
-  const walletAmountUsed = 0;
+  // Wallet credit calculation (2025: can't redeem more than order total)
+  const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
   const remainingAmount = total - walletAmountUsed;
 
   const handlePlaceOrder = async () => {
     if (!merchant?.id) {
-      alert('Merchant context not available. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Merchant context not available. Please try again.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!customerEmail || !firstName || !lastName) {
-      alert('Please fill in your name and email.');
+      toast({
+        title: 'Missing Information',
+        description: 'Please fill in your name and email.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -664,7 +726,11 @@ export const CheckoutPage: React.FC = () => {
     if (deliveryMethod === 'door') {
       if (isNewAddressMode) {
         if (!newAddressStreet || !newAddressCity || !newAddressState) {
-          alert('Please enter your full address (Street, City, State).');
+          toast({
+            title: 'Incomplete Address',
+            description: 'Please enter your full address (Street, City, State).',
+            variant: 'destructive',
+          });
           setIsProcessing(false);
           return;
         }
@@ -726,7 +792,7 @@ export const CheckoutPage: React.FC = () => {
     }
 
     try {
-      // 1. Create order in database via API
+      // 1. Create order in database via API (with wallet redemption if applicable)
       const orderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -751,6 +817,11 @@ export const CheckoutPage: React.FC = () => {
           shipping_address: shippingAddressData,
           source: 'online_store',
           shipping_provider: shippingProvider,
+          // Wallet redemption (2025: auto-apply at checkout)
+          use_wallet_credit: payWithWallet && walletAmountUsed > 0,
+          wallet_amount: walletAmountUsed,
+          // Link customer to auth user (2025: unified customer identity)
+          user_id: user?.id,
         }),
       });
 
@@ -765,15 +836,33 @@ export const CheckoutPage: React.FC = () => {
         throw new Error(errorData.details || errorData.error || 'Failed to create order');
       }
 
-      const { order } = await orderResponse.json();
+      const orderData = await orderResponse.json();
+      const { order, wallet: walletResult, amountDueToGateway } = orderData;
+
+      // Use gateway amount (accounts for wallet credit) or full total as fallback
+      const paymentAmount = amountDueToGateway ?? total;
+
+      // Update local wallet balance if redemption occurred
+      if (walletResult?.amountUsed) {
+        setWalletBalance(walletResult.newBalance);
+      }
 
       // 2. Handle payment based on method
+      // Special case: If wallet fully covers the order, no payment gateway needed
+      // Order API already marks it as paid, just redirect to success
+      if (paymentAmount <= 0) {
+        clearCheckoutSession();
+        clearCart();
+        router.push(asRoute(getHref(`/order-success?orderId=${order.id}&wallet=true`)));
+        return;
+      }
+
       if (paymentMethod === 'paystack' || paymentMethod === 'korapay' || paymentMethod === 'juicyway') {
         // For Juicyway crypto payments, show the selector first
         if (paymentMethod === 'juicyway') {
           setPendingCryptoOrder({
             orderId: order.id,
-            amount: total,
+            amount: paymentAmount,
             customerEmail,
             customerName: `${firstName} ${lastName}`.trim(),
             customerPhone,
@@ -795,13 +884,14 @@ export const CheckoutPage: React.FC = () => {
         }
 
         // Initialize payment via API - supports Paystack and Korapay
+        // Amount is adjusted for wallet credit (if used)
         const paymentResponse = await fetch('/api/payments/initialize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             merchant_id: merchant.id,
             order_id: order.id,
-            amount: total,
+            amount: paymentAmount,
             currency: 'NGN',
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
@@ -828,6 +918,7 @@ export const CheckoutPage: React.FC = () => {
             orderId: order.id,
             reference: paymentResult.reference,
             sessionId: paymentResult.session_id || '',
+            paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
           });
           setIsProcessing(false);
           return;
@@ -840,21 +931,16 @@ export const CheckoutPage: React.FC = () => {
           // Juicyway uses checkout_url
           window.location.href = paymentResult.checkout_url;
           return;
-        } else if (paymentResult.success && paymentResult.virtual_account) {
-          // Juicyway bank transfer - show virtual account details
-          // Don't clear cart yet - payment not confirmed. User should complete transfer.
-          alert(`Transfer to:\nBank: ${paymentResult.virtual_account.bank_name}\nAccount: ${paymentResult.virtual_account.account_number}\nName: ${paymentResult.virtual_account.account_name}\n\nYour order will be processed once payment is confirmed.`);
-          setIsProcessing(false);
-          return;
         } else {
           throw new Error('Payment initialization failed: No auth URL returned');
         }
       } else if (paymentMethod === 'credit_direct') {
         // Credit Direct BNPL - Client-side popup checkout
+        // Note: BNPL typically uses full total (wallet credits may not apply)
         await openCreditDirectCheckout({
           merchantSlug: merchant.slug || '',
           orderId: order.id,
-          amount: total,
+          amount: paymentAmount,
           customerEmail,
           customerPhone,
           customerName: `${firstName} ${lastName}`.trim(),
@@ -872,7 +958,11 @@ export const CheckoutPage: React.FC = () => {
           },
           onError: (error) => {
             console.error('Credit Direct error:', error);
-            alert(error || 'Credit Direct checkout failed. Please try again.');
+            toast({
+              title: 'Credit Direct Failed',
+              description: error || 'Credit Direct checkout failed. Please try again.',
+              variant: 'destructive',
+            });
             setIsProcessing(false);
           },
           onClose: () => {
@@ -890,7 +980,11 @@ export const CheckoutPage: React.FC = () => {
 
         if (!credpalKey) {
           // CredPal not configured - show error, don't proceed to success
-          alert('CredPal payment is not available at this time. Please select a different payment method.');
+          toast({
+            title: 'CredPal Unavailable',
+            description: 'CredPal payment is not available at this time. Please select a different payment method.',
+            variant: 'destructive',
+          });
           setIsProcessing(false);
           return;
         }
@@ -898,7 +992,7 @@ export const CheckoutPage: React.FC = () => {
         // Open CredPal popup
         await openCredPalCheckout({
           key: credpalKey,
-          amount: total,
+          amount: paymentAmount,
           product: cart.map(item => item.name).join(', '),
           customerEmail,
           customerName: `${firstName} ${lastName}`.trim(),
@@ -911,7 +1005,11 @@ export const CheckoutPage: React.FC = () => {
           },
           onError: (error) => {
             console.error('CredPal error:', error);
-            alert(error.message || 'CredPal checkout failed. Please try again.');
+            toast({
+              title: 'CredPal Failed',
+              description: error.message || 'CredPal checkout failed. Please try again.',
+              variant: 'destructive',
+            });
             setIsProcessing(false);
           },
           onClose: () => {
@@ -942,11 +1040,13 @@ export const CheckoutPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      alert(
-        error instanceof Error
+      toast({
+        title: 'Checkout Failed',
+        description: error instanceof Error
           ? error.message
-          : 'An error occurred. Please try again.'
-      );
+          : 'An error occurred. Please try again.',
+        variant: 'destructive',
+      });
       setIsProcessing(false);
       // Keep user on payment step - don't reset their progress
       setCurrentStep('payment');
@@ -986,20 +1086,17 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
-  // Copy to clipboard helper
+  // Copy to clipboard helper (2025: Clipboard API with visual feedback)
+  const [copiedText, setCopiedText] = useState<string | null>(null);
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      alert('Copied to clipboard!');
+      setCopiedText(text);
+      // Auto-clear after 2 seconds
+      setTimeout(() => setCopiedText(null), 2000);
     } catch (err) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      alert('Copied to clipboard!');
+      // Clipboard API not supported - show error instead of using deprecated method
+      console.error('Clipboard API not available:', err);
     }
   };
 
@@ -1171,7 +1268,7 @@ export const CheckoutPage: React.FC = () => {
                   // Just close the modal - don't clear cart or redirect
                   // User can retry or choose a different payment method
                   setCryptoPaymentData(null);
-                  setCryptoVerificationStatus(null);
+                  setCryptoVerificationStatus('idle');
                   setIsVerifyingCrypto(false);
                 }}
                 className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
@@ -1223,10 +1320,14 @@ export const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => copyToClipboard(cryptoPaymentData.address)}
-                    className="absolute right-1 top-1 bottom-1 px-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-red-200 hover:text-red-600 transition-all flex items-center justify-center group-hover:shadow-md"
-                    title="Copy Address"
+                    className={`absolute right-1 top-1 bottom-1 px-3 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${
+                      copiedText === cryptoPaymentData.address
+                        ? 'border-green-300 text-green-600'
+                        : 'border-gray-200 hover:border-red-200 hover:text-red-600'
+                    }`}
+                    title={copiedText === cryptoPaymentData.address ? 'Copied!' : 'Copy Address'}
                   >
-                    <Copy size={16} />
+                    {copiedText === cryptoPaymentData.address ? <Check size={16} /> : <Copy size={16} />}
                   </button>
                 </div>
               </div>
@@ -2160,11 +2261,48 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Wallet Deduction Line */}
-                {payWithWallet && (
-                  <div className="flex justify-between text-green-700 text-sm font-medium animate-in fade-in">
-                    <span>Wallet Debit</span>
-                    <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                {/* Wallet Credit Section (2025: progressive disclosure - only show if balance > 0 or loading) */}
+                {(walletLoading || walletBalance > 0) && user && (
+                  <div className="py-2 animate-in fade-in">
+                    {walletLoading ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Checking wallet balance...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                              <span className="text-green-600 text-xs font-bold">₦</span>
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-700">Wallet Credit</span>
+                              <span className="text-xs text-gray-500 ml-1">(₦{walletBalance.toLocaleString()} available)</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPayWithWallet(!payWithWallet)}
+                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              payWithWallet ? 'bg-green-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                payWithWallet ? 'translate-x-4' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        {payWithWallet && walletAmountUsed > 0 && (
+                          <div className="flex justify-between text-green-700 text-sm font-medium mt-2 pl-8">
+                            <span>Applied Credit</span>
+                            <span>-₦{walletAmountUsed.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
