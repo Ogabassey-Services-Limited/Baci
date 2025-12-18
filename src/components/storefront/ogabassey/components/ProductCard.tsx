@@ -102,10 +102,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             (() => {
               const platform = (product as any).variant_attributes?.Platform;
               let badgeColor = 'bg-amber-500';
-              let badgeText = product.condition;
+              // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
+              let badgeText = String(product.condition || '');
 
               if (platform) {
-                badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
+                badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
                 if (typeof badgeText === 'string') {
                   const lower = badgeText.toLowerCase();
                   if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
@@ -241,10 +242,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           (() => {
             const platform = (product as any).variant_attributes?.Platform;
             let badgeColor = 'bg-amber-500';
-            let badgeText = product.condition;
+            // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
+            let badgeText = String(product.condition || '');
 
             if (platform) {
-              badgeText = Array.isArray(platform) ? 'Multi-Platform' : platform;
+              badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
               if (typeof badgeText === 'string') {
                 const lower = badgeText.toLowerCase();
                 if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';

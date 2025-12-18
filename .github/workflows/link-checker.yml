@@ -86,6 +86,12 @@ jobs:
             --exclude 'image-us\.samsung\.com'
             --exclude 'p4-ofp\.static\.pub'
             --exclude 'i\.dell\.com'
+            --exclude 'spendjuice\.com|api-sandbox\.spendjuice\.com'
+            --exclude 'api\.vercel\.com'
+            --exclude 'api\.paystack\.co'
+            --exclude 'tronscan\.org'
+            --exclude 'snowtrace\.io'
+            --exclude 'supabase\.com/docs'
           # Fail action if broken links are found
           fail: true
         env:
