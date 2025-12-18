@@ -112,7 +112,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
       !/^https?:\/\//i.test(url);
 
     if (isValidRelativePath) {
-      router.push(url as any);
+      // Prepend storeSlug (basePath) if present - SearchAutocomplete returns URL without it
+      const fullUrl = storeSlug ? `${storeSlug}${url}` : url;
+      router.push(fullUrl as any);
     } else {
       console.warn('Invalid product URL rejected:', url);
     }
@@ -234,10 +236,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               {/* Desktop Right Icons */}
               <div className="hidden md:flex items-center gap-5 shrink-0 text-white/80">
                 {/* Notification Icon & Dropdown */}
-                <div className="relative" ref={notificationRef}>
+                <div className="relative flex items-center" ref={notificationRef}>
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className={`relative hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
+                    className={`relative flex items-center justify-center hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
                   >
                     <Bell size={22} />
                     {/* TODO: Add notification badge when notifications are implemented
@@ -335,7 +337,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     e.preventDefault();
                     setIsCartOpen(true);
                   }}
-                  className="relative hover:text-white transition-colors"
+                  className="relative flex items-center justify-center hover:text-white transition-colors"
                 >
                   <ShoppingCart size={22} />
                   <span
@@ -346,7 +348,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 </Link>
                 <Link
                   href={`${storeSlug || ''}/account` as any}
-                  className="hover:text-white transition-colors"
+                  className="flex items-center justify-center hover:text-white transition-colors"
                 >
                   <User size={22} />
                 </Link>
