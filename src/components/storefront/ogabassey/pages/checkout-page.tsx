@@ -14,14 +14,19 @@ import {
   ChevronDown,
   Check,
   Smartphone,
+  Copy,
+  Clock,
+  ExternalLink,
+  X,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
-import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, PaymentTrustBadges } from '../components/PaymentLogos';
+import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, PaymentTrustBadges } from '../components/PaymentLogos';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { usePersistedForm } from '@/hooks/use-persisted-state';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
@@ -63,7 +68,7 @@ interface QuoteResponse {
 }
 
 export const CheckoutPage: React.FC = () => {
-  const { cart, cartTotal, clearCart } = useCart();
+  const { cart, cartTotal, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   const basePath = merchantContext?.basePath;
@@ -76,12 +81,295 @@ export const CheckoutPage: React.FC = () => {
   const auth = useAuthSafe();
   const user = auth?.user;
 
-  // Customer form state
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  // Persisted checkout form state - survives hydration re-mounts and page refreshes
+  // Using custom hook with debounced sessionStorage persistence (2025 best practice)
+  const {
+    values: checkoutForm,
+    setValue: setCheckoutField,
+    setValues: setCheckoutFields,
+    clear: clearCheckoutSession,
+  } = usePersistedForm('checkout-form', {
+    firstName: '',
+    lastName: '',
+    customerEmail: '',
+    customerPhone: '',
+    newAddressStreet: '',
+    newAddressState: '',
+    newAddressCity: '',
+    currentStep: 'contact' as 'contact' | 'delivery' | 'payment',
+    completedSteps: { contact: false, delivery: false },
+  });
+
+  // Destructure for convenience (these are reactive)
+  const {
+    firstName,
+    lastName,
+    customerEmail,
+    customerPhone,
+    newAddressStreet,
+    newAddressState,
+    newAddressCity,
+    currentStep,
+    completedSteps,
+  } = checkoutForm;
+
+  // Convenient setters that update the persisted form
+  const setFirstName = useCallback((v: string) => setCheckoutField('firstName', v), [setCheckoutField]);
+  const setLastName = useCallback((v: string) => setCheckoutField('lastName', v), [setCheckoutField]);
+  const setCustomerEmail = useCallback((v: string) => setCheckoutField('customerEmail', v), [setCheckoutField]);
+  const setCustomerPhone = useCallback((v: string) => setCheckoutField('customerPhone', v), [setCheckoutField]);
+  const setNewAddressStreet = useCallback((v: string) => setCheckoutField('newAddressStreet', v), [setCheckoutField]);
+  const setNewAddressState = useCallback((v: string) => setCheckoutField('newAddressState', v), [setCheckoutField]);
+  const setNewAddressCity = useCallback((v: string) => setCheckoutField('newAddressCity', v), [setCheckoutField]);
+  const setCurrentStep = useCallback((v: 'contact' | 'delivery' | 'payment') => setCheckoutField('currentStep', v), [setCheckoutField]);
+  const setCompletedSteps = useCallback(
+    (v: { contact: boolean; delivery: boolean } | ((prev: { contact: boolean; delivery: boolean }) => { contact: boolean; delivery: boolean })) => {
+      if (typeof v === 'function') {
+        setCheckoutField('completedSteps', v(completedSteps));
+      } else {
+        setCheckoutField('completedSteps', v);
+      }
+    },
+    [setCheckoutField, completedSteps]
+  );
+
+  // Non-persisted UI state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
+
+  // Crypto payment modal state
+  const [cryptoPaymentData, setCryptoPaymentData] = useState<{
+    address: string;
+    chain: string;
+    currency: string;
+    amount: number;
+    confirmation_time: string;
+    orderId: string;
+    reference: string;
+    sessionId: string;
+    qrcode?: string;
+  } | null>(null);
+
+  // Crypto payment verification state
+  const [isVerifyingCrypto, setIsVerifyingCrypto] = useState(false);
+  const [cryptoVerificationStatus, setCryptoVerificationStatus] = useState<'idle' | 'checking' | 'confirmed' | 'pending' | 'failed'>('idle');
+
+  // Crypto selection state (before payment is initialized)
+  const [showCryptoSelector, setShowCryptoSelector] = useState(false);
+  const [selectedCryptoChain, setSelectedCryptoChain] = useState<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>('TRX');
+  const [selectedCryptoCurrency, setSelectedCryptoCurrency] = useState<'USDT' | 'USDC'>('USDT');
+  const [pendingCryptoOrder, setPendingCryptoOrder] = useState<{
+    orderId: string;
+    amount: number;
+    customerEmail: string;
+    customerName: string;
+    customerPhone: string;
+    billingAddress: {
+      line1: string;
+      city: string;
+      state: string;
+      country: string;
+      zip_code: string;
+    };
+    items: Array<{ name: string; type: 'physical' | 'digital' }>;
+  } | null>(null);
+  const [isInitializingCrypto, setIsInitializingCrypto] = useState(false);
+
+  // Chain/currency compatibility
+  const cryptoChainSupport: Record<'USDT' | 'USDC', Array<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>> = {
+    USDT: ['TRX', 'ETH'],
+    USDC: ['ETH', 'MATIC', 'AVAXC'],
+  };
+
+  // When currency changes, ensure chain is compatible
+  const handleCryptoCurrencyChange = (currency: 'USDT' | 'USDC') => {
+    setSelectedCryptoCurrency(currency);
+    const supportedChains = cryptoChainSupport[currency];
+    if (!supportedChains.includes(selectedCryptoChain)) {
+      setSelectedCryptoChain(supportedChains[0]);
+    }
+  };
+
+  // Initialize crypto payment with selected options
+  const initializeCryptoPayment = async () => {
+    if (!pendingCryptoOrder || !merchant) return;
+
+    setIsInitializingCrypto(true);
+    try {
+      const paymentResponse = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: merchant.id,
+          order_id: pendingCryptoOrder.orderId,
+          amount: pendingCryptoOrder.amount,
+          currency: 'NGN',
+          customer_email: pendingCryptoOrder.customerEmail,
+          customer_name: pendingCryptoOrder.customerName,
+          customer_phone: pendingCryptoOrder.customerPhone,
+          gateway: 'juicyway',
+          billing_address: pendingCryptoOrder.billingAddress,
+          items: pendingCryptoOrder.items,
+          crypto_chain: selectedCryptoChain,
+          crypto_currency: selectedCryptoCurrency,
+        }),
+      });
+
+      if (!paymentResponse.ok) {
+        const errorData = await paymentResponse.json();
+        throw new Error(errorData.details || errorData.error || 'Payment initialization failed');
+      }
+
+      const paymentResult = await paymentResponse.json();
+
+      if (paymentResult.success && paymentResult.crypto_payment) {
+        setShowCryptoSelector(false);
+        setCryptoPaymentData({
+          address: paymentResult.crypto_payment.address,
+          chain: paymentResult.crypto_payment.chain,
+          currency: paymentResult.crypto_payment.currency,
+          amount: paymentResult.crypto_payment.amount / 100,
+          confirmation_time: paymentResult.crypto_payment.confirmation_time,
+          orderId: pendingCryptoOrder.orderId,
+          reference: paymentResult.reference,
+          sessionId: paymentResult.session_id || '',
+          qrcode: paymentResult.crypto_payment.qrcode,
+        });
+      } else {
+        throw new Error('Failed to generate crypto payment address');
+      }
+    } catch (error) {
+      console.error('Crypto payment initialization error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to initialize crypto payment');
+    } finally {
+      setIsInitializingCrypto(false);
+    }
+  };
+
+  // Verify crypto payment status by polling the API
+  // Uses a ref to track polling state to avoid stale closure issues
+  const pollingRef = useRef<{ intervalId: NodeJS.Timeout | null; attempts: number }>({
+    intervalId: null,
+    attempts: 0,
+  });
+
+  const verifyCryptoPayment = useCallback(async () => {
+    if (!cryptoPaymentData?.sessionId) {
+      console.error('No session ID available for verification');
+      setCryptoVerificationStatus('failed');
+      return;
+    }
+
+    setIsVerifyingCrypto(true);
+    setCryptoVerificationStatus('checking');
+    pollingRef.current.attempts = 0;
+
+    const checkPaymentStatus = async (): Promise<'confirmed' | 'failed' | 'pending'> => {
+      try {
+        const response = await fetch(
+          `/api/payments/status?gateway=juicyway&session_id=${cryptoPaymentData.sessionId}`
+        );
+
+        if (!response.ok) {
+          // Try to parse error, but handle JSON parse failures gracefully
+          let errorData = {};
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+          }
+          console.error('Payment status check failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            sessionId: cryptoPaymentData.sessionId,
+            error: errorData,
+          });
+          return 'pending'; // Treat API errors as pending, not failed
+        }
+
+        const result = await response.json();
+
+        if (result.is_confirmed) {
+          return 'confirmed';
+        }
+
+        if (result.is_failed) {
+          return 'failed';
+        }
+
+        return 'pending';
+      } catch (error) {
+        console.error('Payment verification error:', error);
+        return 'pending';
+      }
+    };
+
+    // Initial check
+    const initialStatus = await checkPaymentStatus();
+
+    if (initialStatus === 'confirmed') {
+      setIsVerifyingCrypto(false);
+      setCryptoVerificationStatus('confirmed');
+      clearCheckoutSession();
+      clearCart();
+      router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
+      return;
+    }
+
+    if (initialStatus === 'failed') {
+      setIsVerifyingCrypto(false);
+      setCryptoVerificationStatus('failed');
+      return;
+    }
+
+    // Start polling
+    setCryptoVerificationStatus('pending');
+
+    pollingRef.current.intervalId = setInterval(async () => {
+      pollingRef.current.attempts++;
+      const maxAttempts = 30; // 5 minutes (30 * 10 seconds)
+
+      if (pollingRef.current.attempts >= maxAttempts) {
+        if (pollingRef.current.intervalId) {
+          clearInterval(pollingRef.current.intervalId);
+          pollingRef.current.intervalId = null;
+        }
+        setIsVerifyingCrypto(false);
+        setCryptoVerificationStatus('pending');
+        return;
+      }
+
+      const status = await checkPaymentStatus();
+
+      if (status === 'confirmed') {
+        if (pollingRef.current.intervalId) {
+          clearInterval(pollingRef.current.intervalId);
+          pollingRef.current.intervalId = null;
+        }
+        setIsVerifyingCrypto(false);
+        setCryptoVerificationStatus('confirmed');
+        clearCheckoutSession();
+        clearCart();
+        router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
+      } else if (status === 'failed') {
+        if (pollingRef.current.intervalId) {
+          clearInterval(pollingRef.current.intervalId);
+          pollingRef.current.intervalId = null;
+        }
+        setIsVerifyingCrypto(false);
+        setCryptoVerificationStatus('failed');
+      }
+    }, 10000); // Poll every 10 seconds
+  }, [cryptoPaymentData, clearCheckoutSession, clearCart, router, getHref]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current.intervalId) {
+        clearInterval(pollingRef.current.intervalId);
+      }
+    };
+  }, []);
 
   // Retrieve gift data if passed from cart
   const giftWrappingCost = Number(searchParams.get('giftWrappingCost')) || 0;
@@ -105,10 +393,7 @@ export const CheckoutPage: React.FC = () => {
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
 
-  // Form State for dynamic address
-  const [newAddressState, setNewAddressState] = useState('');
-  const [newAddressCity, setNewAddressCity] = useState('');
-  const [newAddressStreet, setNewAddressStreet] = useState('');
+  // Note: newAddressState, newAddressCity, newAddressStreet are now part of checkoutForm (persisted)
 
   // Fetch States on mount
   useEffect(() => {
@@ -273,14 +558,12 @@ export const CheckoutPage: React.FC = () => {
 
   // Payment State
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | ''>('');
 
   const [payWithWallet, _setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Accordion State
-  const [currentStep, setCurrentStep] = useState<'contact' | 'delivery' | 'payment'>('contact');
-  const [completedSteps, setCompletedSteps] = useState({ contact: false, delivery: false });
+  // Note: currentStep and completedSteps are now part of checkoutForm (persisted)
 
   // Pay For Me State
   const [payForMeDetails, setPayForMeDetails] = useState({
@@ -485,8 +768,33 @@ export const CheckoutPage: React.FC = () => {
       const { order } = await orderResponse.json();
 
       // 2. Handle payment based on method
-      if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
-        // Initialize payment via API - supports both Paystack and Korapay
+      if (paymentMethod === 'paystack' || paymentMethod === 'korapay' || paymentMethod === 'juicyway') {
+        // For Juicyway crypto payments, show the selector first
+        if (paymentMethod === 'juicyway') {
+          setPendingCryptoOrder({
+            orderId: order.id,
+            amount: total,
+            customerEmail,
+            customerName: `${firstName} ${lastName}`.trim(),
+            customerPhone,
+            billingAddress: {
+              line1: newAddressStreet || finalAddress,
+              city: finalCity,
+              state: finalState,
+              country: 'NG',
+              zip_code: '100001',
+            },
+            items: cart.map(item => ({
+              name: item.name,
+              type: 'physical' as const,
+            })),
+          });
+          setShowCryptoSelector(true);
+          setIsProcessing(false);
+          return;
+        }
+
+        // Initialize payment via API - supports Paystack and Korapay
         const paymentResponse = await fetch('/api/payments/initialize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -497,8 +805,8 @@ export const CheckoutPage: React.FC = () => {
             currency: 'NGN',
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
-            gateway: paymentMethod, // Explicitly specify gateway
-
+            customer_phone: customerPhone,
+            gateway: paymentMethod,
           }),
         });
 
@@ -509,10 +817,34 @@ export const CheckoutPage: React.FC = () => {
 
         const paymentResult = await paymentResponse.json();
 
-        if (paymentResult.success && paymentResult.authorization_url) {
+        if (paymentResult.success && paymentResult.crypto_payment) {
+          // Juicyway crypto payment - show wallet address modal
+          setCryptoPaymentData({
+            address: paymentResult.crypto_payment.address,
+            chain: paymentResult.crypto_payment.chain,
+            currency: paymentResult.crypto_payment.currency,
+            amount: paymentResult.crypto_payment.amount / 100, // Convert from minor units
+            confirmation_time: paymentResult.crypto_payment.confirmation_time,
+            orderId: order.id,
+            reference: paymentResult.reference,
+            sessionId: paymentResult.session_id || '',
+          });
+          setIsProcessing(false);
+          return;
+        } else if (paymentResult.success && paymentResult.authorization_url) {
           // NOTE: Don't clear cart here - it causes a flash of empty state
           // Cart will be cleared on the payment callback page after successful payment
           window.location.href = paymentResult.authorization_url;
+          return;
+        } else if (paymentResult.success && paymentResult.checkout_url) {
+          // Juicyway uses checkout_url
+          window.location.href = paymentResult.checkout_url;
+          return;
+        } else if (paymentResult.success && paymentResult.virtual_account) {
+          // Juicyway bank transfer - show virtual account details
+          // Don't clear cart yet - payment not confirmed. User should complete transfer.
+          alert(`Transfer to:\nBank: ${paymentResult.virtual_account.bank_name}\nAccount: ${paymentResult.virtual_account.account_number}\nName: ${paymentResult.virtual_account.account_name}\n\nYour order will be processed once payment is confirmed.`);
+          setIsProcessing(false);
           return;
         } else {
           throw new Error('Payment initialization failed: No auth URL returned');
@@ -534,6 +866,7 @@ export const CheckoutPage: React.FC = () => {
           })),
           onSuccess: (transactionId) => {
             console.log('Credit Direct success:', transactionId);
+            clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`)));
           },
@@ -556,9 +889,9 @@ export const CheckoutPage: React.FC = () => {
         const credpalKey = process.env.NEXT_PUBLIC_CREDPAL_KEY;
 
         if (!credpalKey) {
-          // Fallback if key not configured
-          clearCart();
-          router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&status=pending`)));
+          // CredPal not configured - show error, don't proceed to success
+          alert('CredPal payment is not available at this time. Please select a different payment method.');
+          setIsProcessing(false);
           return;
         }
 
@@ -572,6 +905,7 @@ export const CheckoutPage: React.FC = () => {
           customerPhone,
           onSuccess: (data) => {
             console.log('CredPal success:', data);
+            clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`)));
           },
@@ -588,10 +922,12 @@ export const CheckoutPage: React.FC = () => {
         return;
       } else if (paymentMethod === 'invoice') {
         // Invoice/Pay Later - order created, redirect to success
+        clearCheckoutSession();
         clearCart();
         router.push(asRoute(getHref(`/order-success?type=invoice&orderId=${order.id}`)));
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
+        clearCheckoutSession();
         clearCart();
         router.push(
           asRoute(getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
@@ -600,6 +936,7 @@ export const CheckoutPage: React.FC = () => {
         );
       } else {
         // Default: POD or other
+        clearCheckoutSession();
         clearCart();
         router.push(asRoute(getHref(`/order-success?type=standard&orderId=${order.id}`)));
       }
@@ -611,6 +948,10 @@ export const CheckoutPage: React.FC = () => {
           : 'An error occurred. Please try again.'
       );
       setIsProcessing(false);
+      // Keep user on payment step - don't reset their progress
+      setCurrentStep('payment');
+      // Ensure steps stay completed so user doesn't have to re-enter info
+      setCompletedSteps({ contact: true, delivery: true });
     }
   };
 
@@ -619,8 +960,9 @@ export const CheckoutPage: React.FC = () => {
       ? payForMeDetails.name && payForMeDetails.contact
       : true;
 
-  // Empty cart - show inline state (no redirect to avoid hydration issues)
-  if (cart.length === 0) {
+  // Empty cart check - only show after hydration confirms cart is genuinely empty
+  // Before hydration, cart is always [], so we skip this check until hydrated
+  if (isHydrated && cart.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="text-center max-w-md mx-auto px-4">
@@ -644,6 +986,38 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
+  // Copy to clipboard helper
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Copied to clipboard!');
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Copied to clipboard!');
+    }
+  };
+
+  // Chain display names and explorer URLs
+  const chainDisplayNames: Record<string, string> = {
+    TRX: 'Tron (TRC-20)',
+    ETH: 'Ethereum (ERC-20)',
+    MATIC: 'Polygon',
+    AVAXC: 'Avalanche C-Chain',
+  };
+
+  const chainExplorerUrls: Record<string, string> = {
+    TRX: 'https://tronscan.org/#/address/',
+    ETH: 'https://etherscan.io/address/',
+    MATIC: 'https://polygonscan.com/address/',
+    AVAXC: 'https://snowtrace.io/address/',
+  };
+
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
       <CheckoutAuthModal
@@ -651,6 +1025,313 @@ export const CheckoutPage: React.FC = () => {
         onOpenChange={setIsAuthModalOpen}
         onSuccess={() => setIsAuthModalOpen(false)}
       />
+
+      {/* Crypto Selector Modal */}
+      {showCryptoSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 p-4 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <CreditCard size={16} className="text-white" />
+                </div>
+                <h2 className="font-bold text-white">Select Crypto Payment</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCryptoSelector(false);
+                  setPendingCryptoOrder(null);
+                }}
+                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Currency Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-gray-700">Select Stablecoin</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleCryptoCurrencyChange('USDT')}
+                    className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDT'
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                  >
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">USDT</p>
+                      <p className="text-xs text-gray-500">Tether USD</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCryptoCurrencyChange('USDC')}
+                    className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDC'
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                  >
+                    <div className="text-center">
+                      <p className="text-lg font-bold text-gray-900">USDC</p>
+                      <p className="text-xs text-gray-500">USD Coin</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Network Selection */}
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-gray-700">Select Network</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {cryptoChainSupport[selectedCryptoCurrency].map((chain) => (
+                    <button
+                      key={chain}
+                      type="button"
+                      onClick={() => setSelectedCryptoChain(chain)}
+                      className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoChain === chain
+                        ? 'border-red-500 bg-red-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                    >
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-gray-900">{chain}</p>
+                        <p className="text-xs text-gray-500">
+                          {chainDisplayNames[chain]?.replace(` (${chain === 'TRX' ? 'TRC-20' : 'ERC-20'})`, '') || chain}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Network Info */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <Clock size={18} className="text-gray-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedCryptoChain === 'TRX' && '1-3 minutes'}
+                      {selectedCryptoChain === 'ETH' && '5-30 minutes'}
+                      {selectedCryptoChain === 'MATIC' && '1-5 minutes'}
+                      {selectedCryptoChain === 'AVAXC' && '1-5 minutes'}
+                    </p>
+                    <p className="text-xs text-gray-500">Expected confirmation time</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Continue Button */}
+              <button
+                type="button"
+                onClick={initializeCryptoPayment}
+                disabled={isInitializingCrypto}
+                className="w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isInitializingCrypto ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Generating Address...
+                  </>
+                ) : (
+                  <>
+                    Continue with {selectedCryptoCurrency} on {selectedCryptoChain}
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-xs text-gray-400">
+                You'll receive a wallet address to send your {selectedCryptoCurrency} payment
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crypto Payment Modal */}
+      {cryptoPaymentData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 p-4 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <CreditCard size={16} className="text-white" />
+                </div>
+                <h2 className="font-bold text-white">Pay with Crypto</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // Just close the modal - don't clear cart or redirect
+                  // User can retry or choose a different payment method
+                  setCryptoPaymentData(null);
+                  setCryptoVerificationStatus(null);
+                  setIsVerifyingCrypto(false);
+                }}
+                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4">
+              {/* Top Row: QR & Amount */}
+              <div className="flex gap-4 items-center">
+                {/* QR Code (Compact) */}
+                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-200">
+                  <img
+                    src={cryptoPaymentData.qrcode || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${cryptoPaymentData.address}&margin=10`}
+                    alt="Scan"
+                    className="w-24 h-24"
+                    loading="lazy"
+                  />
+                </div>
+
+                {/* Payment Details */}
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Send Exactly</p>
+                    <p className="text-2xl font-black text-gray-900 leading-tight">
+                      {cryptoPaymentData.amount.toLocaleString()} <span className="text-red-600">{cryptoPaymentData.currency}</span>
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <p className="text-xs font-semibold text-gray-700">
+                      Network: {chainDisplayNames[cryptoPaymentData.chain] || cryptoPaymentData.chain}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Wallet Address (Merged Copy) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+                  Recipient Address
+                </label>
+                <div className="relative group">
+                  <div className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-3 pr-12 font-mono text-xs text-gray-600 break-all">
+                    {cryptoPaymentData.address}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(cryptoPaymentData.address)}
+                    className="absolute right-1 top-1 bottom-1 px-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-red-200 hover:text-red-600 transition-all flex items-center justify-center group-hover:shadow-md"
+                    title="Copy Address"
+                  >
+                    <Copy size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Warning (Compact) */}
+              <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                <p className="text-[11px] leading-relaxed text-amber-800">
+                  <strong className="font-bold">Warning:</strong> Only send <span className="font-bold">{cryptoPaymentData.currency}</span> on the <span className="font-bold">{chainDisplayNames[cryptoPaymentData.chain] || cryptoPaymentData.chain}</span> network. Using the wrong network will result in permanent loss.
+                </p>
+              </div>
+
+              {/* Confirmation Time */}
+              <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4 border border-red-100">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Clock size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Expected confirmation</p>
+                  <p className="text-xs text-gray-500">{cryptoPaymentData.confirmation_time}</p>
+                </div>
+              </div>
+
+              {/* Reference */}
+              <div className="text-center text-xs text-gray-400">
+                Reference: {cryptoPaymentData.reference}
+              </div>
+
+              {/* Verification Status */}
+              {isVerifyingCrypto && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Loader2 size={18} className="animate-spin text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      {cryptoVerificationStatus === 'checking' && 'Checking payment status...'}
+                      {cryptoVerificationStatus === 'pending' && 'Waiting for blockchain confirmation...'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-600">
+                    This may take a few minutes. Do not close this window.
+                  </p>
+                </div>
+              )}
+
+              {cryptoVerificationStatus === 'confirmed' && (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                  <p className="text-sm font-medium text-green-800">
+                    Payment confirmed! Redirecting to order confirmation...
+                  </p>
+                </div>
+              )}
+
+              {cryptoVerificationStatus === 'failed' && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                  <p className="text-sm font-medium text-red-800">
+                    Payment verification failed. Please contact support.
+                  </p>
+                </div>
+              )}
+
+              {/* Verify Payment Button */}
+              <button
+                type="button"
+                onClick={verifyCryptoPayment}
+                disabled={isVerifyingCrypto}
+                className={`w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg ${isVerifyingCrypto
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200'
+                  }`}
+              >
+                {isVerifyingCrypto ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" />
+                    Verifying Payment...
+                  </span>
+                ) : (
+                  "I've Sent the Payment"
+                )}
+              </button>
+
+              <p className="text-center text-xs text-gray-400">
+                Click the button above after sending. We'll verify the payment on the blockchain.
+              </p>
+
+              {/* Close without verifying */}
+              {!isVerifyingCrypto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const confirmed = confirm(
+                      'Are you sure you want to close? If you\'ve already sent payment, your order will still be processed once the payment is detected.'
+                    );
+                    if (confirmed) {
+                      setCryptoPaymentData(null);
+                      setCryptoVerificationStatus('idle');
+                    }
+                  }}
+                  className="w-full py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors"
+                >
+                  Close and check order status later
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -704,9 +1385,15 @@ export const CheckoutPage: React.FC = () => {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="John"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                          className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !firstName.trim()
+                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            : 'border-gray-200 focus:border-red-500'
+                            }`}
                           required
                         />
+                        {contactValidationAttempted && !firstName.trim() && (
+                          <p className="text-red-500 text-xs mt-1">First name is required</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
@@ -717,9 +1404,15 @@ export const CheckoutPage: React.FC = () => {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Doe"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                          className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !lastName.trim()
+                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            : 'border-gray-200 focus:border-red-500'
+                            }`}
                           required
                         />
+                        {contactValidationAttempted && !lastName.trim() && (
+                          <p className="text-red-500 text-xs mt-1">Last name is required</p>
+                        )}
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
@@ -730,9 +1423,18 @@ export const CheckoutPage: React.FC = () => {
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
                           placeholder="john@example.com"
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                          className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && (!customerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()))
+                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            : 'border-gray-200 focus:border-red-500'
+                            }`}
                           required
                         />
+                        {contactValidationAttempted && !customerEmail.trim() && (
+                          <p className="text-red-500 text-xs mt-1">Email address is required</p>
+                        )}
+                        {contactValidationAttempted && customerEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) && (
+                          <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
+                        )}
                       </div>
                     </div>
                     <div>
@@ -751,12 +1453,30 @@ export const CheckoutPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => {
-                          if (firstName && lastName && customerEmail) {
-                            setCompletedSteps(prev => ({ ...prev, contact: true }));
-                            setCurrentStep('delivery');
-                          } else {
-                            alert("Please fill in all required fields");
+                          // Mark validation as attempted to show inline errors
+                          setContactValidationAttempted(true);
+
+                          const trimmedFirstName = firstName.trim();
+                          const trimmedLastName = lastName.trim();
+                          const trimmedEmail = customerEmail.trim();
+
+                          // Validate all required fields
+                          const hasErrors = !trimmedFirstName || !trimmedLastName || !trimmedEmail;
+
+                          if (hasErrors) {
+                            // Inline errors will show - no alert needed
+                            return;
                           }
+
+                          // Basic email validation
+                          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                          if (!emailRegex.test(trimmedEmail)) {
+                            // Inline error will show - no alert needed
+                            return;
+                          }
+
+                          setCompletedSteps(prev => ({ ...prev, contact: true }));
+                          setCurrentStep('delivery');
                         }}
                         className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
                       >
@@ -1174,7 +1894,7 @@ export const CheckoutPage: React.FC = () => {
                     {paymentTab === 'full' && (
                       <div className="space-y-3 animate-in fade-in">
                         <p className="text-xs text-gray-500">Select a payment gateway:</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           {/* Paystack */}
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
@@ -1203,12 +1923,63 @@ export const CheckoutPage: React.FC = () => {
                             <PaystackLogo className="w-6 h-6" />
                           </label>
 
-                          {/* TODO: Re-enable these payment options in next push */}
-                          {/* Korapay - Hidden for now */}
-                          {/* Invoice - Hidden for now */}
-                          {/* Pay For Me - Hidden for now */}
+                          {/* Korapay - Disabled until API keys are configured */}
+                          {/* TODO: Re-enable when KORAPAY_SECRET_KEY and KORAPAY_PUBLIC_KEY are added to .env.local
+                          <label
+                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
+                              ? 'border-red-600 bg-red-50'
+                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                              }`}
+                          >
+                            <input
+                              type="radio"
+                              name="payment"
+                              value="korapay"
+                              checked={paymentMethod === 'korapay'}
+                              onChange={() => setPaymentMethod('korapay')}
+                              className="sr-only"
+                            />
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-red-600' : 'border-gray-400'}`}>
+                              {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-gray-900">Korapay</span>
+                              </div>
+                              <span className="text-xs text-gray-500 block mt-0.5">Other African Countries</span>
+                            </div>
+                            <KorapayLogo className="w-6 h-6" />
+                          </label>
+                          */}
+
+                          {/* Juicyway */}
+                          <label
+                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
+                              ? 'border-red-600 bg-red-50'
+                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                              }`}
+                          >
+                            <input
+                              type="radio"
+                              name="payment"
+                              value="juicyway"
+                              checked={paymentMethod === 'juicyway'}
+                              onChange={() => setPaymentMethod('juicyway')}
+                              className="sr-only"
+                            />
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-red-600' : 'border-gray-400'}`}>
+                              {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-gray-900">Juicyway</span>
+                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Crypto</span>
+                              </div>
+                              <span className="text-xs text-gray-500 block mt-0.5">USDT, USDC etc</span>
+                            </div>
+                            <JuicywayLogo className="w-6 h-6" />
+                          </label>
                         </div>
-                        {/* Pay For Me Details - Hidden for now */}
                       </div>
                     )}
 
