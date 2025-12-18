@@ -114,3 +114,4 @@ pr_*_todo.md
 pr_*_report.md
 .gemini/pr_*.json
 KORAY_*.json
+/scripts/
