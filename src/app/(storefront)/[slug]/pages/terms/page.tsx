@@ -102,6 +102,7 @@ export default async function TermsPage({ params }: PageProps) {
         type="application/ld+json"
         // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
       />
       <StorefrontPageWrapper
