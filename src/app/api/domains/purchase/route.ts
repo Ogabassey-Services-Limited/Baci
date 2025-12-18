@@ -90,11 +90,13 @@ export async function POST(request: Request) {
     }
 
     // First, get the transaction record (might be pending if webhook hasn't fired yet)
+    // Filter by merchant_id to prevent user-controlled bypass of security check
     const { data: transactionRecord, error: transactionFetchError } =
       await supabase
         .from('transactions')
         .select('id, amount, status, metadata, merchant_id, gateway')
         .eq('gateway_reference', paymentReference)
+        .eq('merchant_id', merchant.id)
         .single();
 
     if (transactionFetchError || !transactionRecord) {

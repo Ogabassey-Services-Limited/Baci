@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -203,7 +204,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-2 md:line-clamp-none">
-          {product.description?.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim()}
+          {stripHtmlTags(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim()}
         </p>
 
         <div className="mt-auto flex items-center justify-between">
