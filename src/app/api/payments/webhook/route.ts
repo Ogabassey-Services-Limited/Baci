@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
         try {
           const { data: merchantDetails } = await supabase
             .from('merchants')
-            .select('business_name, slug')
+            .select('business_name, slug, support_email, email_sender_name, email')
             .eq('id', transaction.merchant_id)
             .single();
 
@@ -342,13 +342,24 @@ export async function POST(request: NextRequest) {
             const htmlContent = generateOrderConfirmationEmail(emailData);
             const textContent = generateOrderConfirmationText(emailData);
 
+            // Use merchant's support_email as reply-to (so customer replies go to merchant)
+            // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders")
+            const replyToEmail = merchantDetails.support_email || merchantDetails.email || `support@${merchantDetails.slug}.${rootDomain}`;
+            const senderName = merchantDetails.email_sender_name
+              ? `${merchantDetails.email_sender_name} Orders`
+              : merchantDetails.business_name
+                ? `${merchantDetails.business_name} Orders`
+                : undefined;
+
             await sendEmail({
               to: order.customer_email,
               toName: order.customer_name,
               subject: `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
               textContent,
+              replyTo: replyToEmail,
               emailType: 'orders',
+              fromName: senderName,
             });
 
             logger.info({
