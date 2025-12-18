@@ -54,6 +54,14 @@ function mapProduct(p: Record<string, unknown>) {
     manage_stock: p.manage_stock,
     low_stock_threshold: p.low_stock_threshold,
     specifications: p.specifications,
+    // Condition Offers & Colors
+    has_condition_offers: p.has_condition_offers,
+    offers: p.offers,
+    // Map colors from color_images keys if distinct colors column is missing/empty
+    colors: (p.colors as string[]) || (p.color_images ? Object.keys(p.color_images as object) : []),
+
+    // Variant Attributes for Listing Cards (Phase 4 Extension)
+    variant_attributes: p.variant_attributes,
   };
 }
 

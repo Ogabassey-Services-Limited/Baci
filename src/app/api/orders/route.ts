@@ -465,69 +465,80 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send order confirmation email (non-blocking)
-    // PERFORMANCE: Reuse merchant data from initial fetch instead of redundant query
-    try {
-      if (merchant.business_name && merchant.slug) {
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    // NOTE: Order confirmation email is NOT sent here at order creation.
+    // It is sent ONLY after payment is confirmed via webhook handlers:
+    // - /api/payments/webhook/route.ts (for Paystack/Korapay)
+    // - /api/payments/juicyway/webhook/route.ts (for Juicyway)
+    // This prevents sending confirmation emails for abandoned/unpaid orders.
+    //
+    // Exception: For POD (Pay on Delivery) or Invoice orders, we should send immediately
+    // since there's no payment gateway redirect.
+    if (payment_method === 'pod' || payment_method === 'invoice') {
+      try {
+        if (merchant.business_name && merchant.slug) {
+          const rootDomain =
+            process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+          const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-        // Format items for email template
-        const emailItems = items.map((item: OrderItem) => ({
-          name: item.name || item.productName || 'Product',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-        }));
+          // Format items for email template
+          const emailItems = items.map((item: OrderItem) => ({
+            name: item.name || item.productName || 'Product',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+          }));
 
-        // Generate email content
-        const emailData = {
-          orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-          customerName: customer_name,
-          items: emailItems,
-          subtotal: Number.parseFloat(subtotal),
-          shippingFee: Number.parseFloat(shipping_fee),
-          total: Number.parseFloat(total.toString()),
-          shippingAddress: {
-            address: shipping_address?.address || '',
-            city: shipping_address?.city || '',
-            state: shipping_address?.state || '',
-            phone: customer_phone || '',
-          },
-          merchantName: merchant.business_name,
-          merchantUrl,
-        };
+          // Generate email content
+          const emailData = {
+            orderNumber:
+              order.order_number || order.id.slice(0, 8).toUpperCase(),
+            customerName: customer_name,
+            items: emailItems,
+            subtotal: Number.parseFloat(subtotal),
+            shippingFee: Number.parseFloat(shipping_fee),
+            total: Number.parseFloat(total.toString()),
+            shippingAddress: {
+              address: shipping_address?.address || '',
+              city: shipping_address?.city || '',
+              state: shipping_address?.state || '',
+              phone: customer_phone || '',
+            },
+            merchantName: merchant.business_name,
+            merchantUrl,
+          };
 
-        const htmlContent = generateOrderConfirmationEmail(emailData);
-        const textContent = generateOrderConfirmationText(emailData);
+          const htmlContent = generateOrderConfirmationEmail(emailData);
+          const textContent = generateOrderConfirmationText(emailData);
 
-        // Send email asynchronously (don't wait for it)
-        sendEmail({
-          to: customer_email,
-          toName: customer_name,
-          subject: `Order Confirmation - #${emailData.orderNumber}`,
-          htmlContent,
-          textContent,
-          replyTo: `support@${merchant.slug}.${rootDomain}`,
-          emailType: 'orders',
-        }).catch((emailError) => {
-          logger.error({
-            message: 'Failed to send order confirmation email',
-            error: emailError,
+          // Send email asynchronously (don't wait for it)
+          sendEmail({
+            to: customer_email,
+            toName: customer_name,
+            subject: `Order Confirmation - #${emailData.orderNumber}`,
+            htmlContent,
+            textContent,
+            replyTo: `support@${merchant.slug}.${rootDomain}`,
+            emailType: 'orders',
+          }).catch((emailError) => {
+            logger.error({
+              message: 'Failed to send order confirmation email',
+              error: emailError,
+            });
           });
-        });
 
-        logger.info({
-          message: 'Order confirmation email queued',
-          orderId: order.id,
-          email: customer_email,
+          logger.info({
+            message: 'Order confirmation email queued (POD/Invoice)',
+            orderId: order.id,
+            email: customer_email,
+            paymentMethod: payment_method,
+          });
+        }
+      } catch (emailError) {
+        // Don't fail the order creation if email fails
+        logger.error({
+          message: 'Error preparing order confirmation email',
+          error: emailError,
         });
       }
-    } catch (emailError) {
-      // Don't fail the order creation if email fails
-      logger.error({
-        message: 'Error preparing order confirmation email',
-        error: emailError,
-      });
     }
 
     return NextResponse.json({ order }, { status: 201 });
