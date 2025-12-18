@@ -72,6 +72,7 @@ export async function generateMetadata({
   const socialMedia = merchant.social_media as Record<string, string> | null;
 
   return {
+    metadataBase: new URL(baseUrl),
     title: title,
     description: description,
     keywords: [

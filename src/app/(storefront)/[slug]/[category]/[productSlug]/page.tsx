@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 // Template-specific imports
 import { OgabasseyLayout } from '@/components/storefront/ogabassey';
@@ -15,6 +15,7 @@ import {
   sanitizeLikePattern,
 } from '@/lib/sanitize-core';
 import {
+  constructCanonicalUrl,
   generateBreadcrumbSchema,
   generateProductSchema,
   generateSlug,
@@ -468,10 +469,10 @@ function toOgabasseyProduct(
           typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
         compare_at_price: o.compare_at_price
           ? formatter.format(
-              typeof o.compare_at_price === 'string'
-                ? Number.parseFloat(o.compare_at_price)
-                : o.compare_at_price
-            )
+            typeof o.compare_at_price === 'string'
+              ? Number.parseFloat(o.compare_at_price)
+              : o.compare_at_price
+          )
           : undefined,
         stock: o.stock_quantity,
         images: o.images,
@@ -511,6 +512,7 @@ interface PageProps {
     category: string; // Category slug
     productSlug: string; // Product slug
   }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 import { cache } from 'react';
@@ -690,8 +692,10 @@ const getProduct = cache(
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category, productSlug } = await params;
+  const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
@@ -708,9 +712,27 @@ export async function generateMetadata({
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
-  // Build canonical URL using the proper category-based format
-  const canonicalPath = getProductUrl(product);
-  const canonicalUrl = product.canonical_url || `${baseUrl}${canonicalPath}`;
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const urlPrefix = isLocalhost ? `/${slug}` : '';
+
+  // Construct canonical URL:
+  // 1. Use explicit canonical from product data if available
+  // 2. OR build the base path using getProductUrl (which handles categories)
+  let canonicalUrl = product.canonical_url;
+
+  if (!canonicalUrl) {
+    // Generate the correct path (e.g. /category/product)
+    const productPath = getProductUrl(product);
+
+    // Construct full URL
+    const basePath = `${baseUrl}${urlPrefix}${productPath}`;
+
+    // Clean params for canonical
+    // We import constructCanonicalUrl from seo-utils
+    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
+      'variant',
+    ]);
+  }
 
   const socialMedia = merchant?.social_media as
     | Record<string, string>
@@ -731,13 +753,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-            {
-              url: product.imageLarge || product.image,
-              width: 800,
-              height: 600,
-              alt: product.name,
-            },
-          ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
@@ -767,7 +789,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const { product, merchant } = result;
+  const { product, merchant, categoryMismatch } = result;
 
   // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
   const cookieStore = await cookies();
@@ -779,6 +801,24 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
+
+  // Strict Canonical URL Enforcement:
+  // If the URL category doesn't match the product's actual category, 
+  // redirect to the correct URL to avoid duplicate content.
+  if (categoryMismatch) {
+    const correctCategorySlug = product.category_slug || (product.category ? generateSlug(product.category) : undefined);
+
+    if (correctCategorySlug) {
+      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+      const cleanSlug = product.slug || product.id;
+
+      const targetPath = isLocalhost
+        ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
+        : `/${correctCategorySlug}/${cleanSlug}`;
+
+      permanentRedirect(targetPath as any);
+    }
+  }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
