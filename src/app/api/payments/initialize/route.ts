@@ -209,6 +209,7 @@ interface PaymentResult {
     amount: number;
     confirmation_time: string;
     qrcode?: string;
+    payment_id?: string; // Payment ID for verification (different from session ID)
   };
   reference: string;
   platformFee: number;
@@ -354,7 +355,14 @@ async function initializeJuicyway(
       throw new Error('Failed to generate crypto payment address');
     }
 
+    // IMPORTANT: We need BOTH the session ID and the payment ID:
+    // - session_id (juicywayData.id): Used for initial tracking
+    // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
+    const paymentId = cryptoData.payment?.id;
+
     console.log('Crypto payment captured successfully:', {
+      sessionId: juicywayData.id,
+      paymentId,
       address: paymentMethod.address,
       chain: paymentMethod.chain,
       currency: paymentMethod.currency,
@@ -370,6 +378,7 @@ async function initializeJuicyway(
         amount: cryptoData.payment?.amount || amountInMinor,
         confirmation_time: getChainConfirmationTime(paymentMethod.chain),
         qrcode: paymentMethod.qrcode, // Pass through QR code from API
+        payment_id: paymentId, // Include payment ID for verification
       },
       reference,
       platformFee: fees.platformFee,
