@@ -1,0 +1,166 @@
+/**
+ * Unified Product Data Normalization
+ *
+ * This module provides a single source of truth for product data transformation.
+ * All API routes and server components should use this to ensure consistent
+ * Entity-Attribute-Value (EAV) output for SEO and frontend consumption.
+ *
+ * Koray Alignment:
+ * - Ensures consistent EAV structure for better entity extraction
+ * - Cleaner HTML = lower "understand" cost for crawlers
+ * - Predictable structures improve SEO signal quality
+ */
+
+import { generateSlug } from '@/lib/seo-utils';
+
+const PLACEHOLDER_IMAGE =
+  'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
+
+/**
+ * Raw product data as it comes from Supabase DB
+ */
+export interface RawDbProduct {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  images?: (string | { url: string; alt?: string })[];
+  categories?: { id?: string; name: string; slug: string } | null;
+  category?: string; // Legacy TEXT field
+  category_id?: string;
+  brand?: string;
+  price: number;
+  compare_at_price?: number;
+  condition?: string;
+  stock?: number;
+  rating?: number;
+  merchant_id?: string;
+  status?: string;
+  // Allow additional fields
+  [key: string]: unknown;
+}
+
+/**
+ * Normalized product structure for frontend consumption
+ */
+export interface NormalizedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  imageLarge: string;
+  images: string[];
+  category: string;
+  category_slug: string;
+  brand: string | null;
+  price: number;
+  compare_at_price: number | null;
+  condition: string;
+  stock: number;
+  rating: number;
+  availability: 'InStock' | 'OutOfStock';
+  merchant_id?: string;
+  status?: string;
+}
+
+/**
+ * Extracts the primary image URL from various image formats
+ */
+function extractPrimaryImage(images?: (string | { url: string })[]): string {
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return PLACEHOLDER_IMAGE;
+  }
+
+  const first = images[0];
+
+  if (typeof first === 'string') {
+    return first || PLACEHOLDER_IMAGE;
+  }
+
+  if (first && typeof first === 'object' && 'url' in first) {
+    return first.url || PLACEHOLDER_IMAGE;
+  }
+
+  return PLACEHOLDER_IMAGE;
+}
+
+/**
+ * Normalizes image array to string URLs
+ */
+function normalizeImages(images?: (string | { url: string })[]): string[] {
+  if (!images || !Array.isArray(images)) {
+    return [];
+  }
+
+  return images
+    .map((img) => {
+      if (typeof img === 'string') return img;
+      if (img && typeof img === 'object' && 'url' in img) return img.url;
+      return null;
+    })
+    .filter((url): url is string => Boolean(url));
+}
+
+/**
+ * Normalizes raw DB product data into a consistent structure
+ *
+ * @param raw - Raw product data from Supabase
+ * @returns Normalized product with consistent structure
+ *
+ * @example
+ * ```typescript
+ * const { data: products } = await supabase.from('products').select('*, categories:category_id(...)');
+ * const normalizedProducts = products.map(normalizeProduct);
+ * ```
+ */
+export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
+  const primaryImage = extractPrimaryImage(raw.images);
+  const normalizedImages = normalizeImages(raw.images);
+
+  // Determine category name: prioritize joined category, fallback to TEXT field
+  const categoryName = raw.categories?.name || raw.category || 'General';
+
+  // Determine category slug: prioritize joined category slug, generate from name if needed
+  const categorySlug =
+    raw.categories?.slug ||
+    (raw.category ? generateSlug(raw.category) : 'general');
+
+  // Determine stock availability
+  const stock = raw.stock ?? 0;
+  const availability: 'InStock' | 'OutOfStock' =
+    stock > 0 ? 'InStock' : 'OutOfStock';
+
+  return {
+    id: raw.id,
+    name: raw.name,
+    slug: raw.slug || raw.id,
+    description: raw.description || '',
+    image: primaryImage,
+    imageLarge: primaryImage,
+    images: normalizedImages.length > 0 ? normalizedImages : [primaryImage],
+    category: categoryName,
+    category_slug: categorySlug,
+    brand: raw.brand || null,
+    price: raw.price,
+    compare_at_price: raw.compare_at_price ?? null,
+    condition: raw.condition || 'New',
+    stock,
+    rating: raw.rating ?? 0,
+    availability,
+    merchant_id: raw.merchant_id,
+    status: raw.status,
+  };
+}
+
+/**
+ * Normalizes an array of raw products
+ *
+ * @param products - Array of raw products from Supabase
+ * @returns Array of normalized products
+ */
+export function normalizeProducts(
+  products: RawDbProduct[]
+): NormalizedProduct[] {
+  return products.map(normalizeProduct);
+}

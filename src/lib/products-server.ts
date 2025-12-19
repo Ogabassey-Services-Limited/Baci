@@ -134,11 +134,15 @@ export async function getProducts(
 
         // Image handling
         image:
-          p.images?.[0]?.url ||
+          (typeof p.images?.[0] === 'string'
+            ? p.images[0]
+            : p.images?.[0]?.url) ||
           p.image_small ||
           'https://picsum.photos/seed/placeholder/80/80',
         imageLarge:
-          p.images?.[0]?.url ||
+          (typeof p.images?.[0] === 'string'
+            ? p.images[0]
+            : p.images?.[0]?.url) ||
           p.image_large ||
           'https://picsum.photos/seed/placeholder/600/400',
         imageHint: p.image_hint || '',

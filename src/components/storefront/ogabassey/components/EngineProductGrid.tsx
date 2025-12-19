@@ -22,7 +22,7 @@ import { ProductGridItem } from './ProductGridItem';
 import { ProductListItem } from './ProductListItem';
 
 /** Product condition display labels */
-type ConditionLabel = 'New' | 'Used' | 'Open Box';
+type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
 
 const CONDITION_LABELS: Record<string, ConditionLabel> = {
   open_box: 'Open Box',
@@ -47,24 +47,41 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       maximumFractionDigits: 0,
     }).format(p.price);
 
+    // Robust image extraction: handle both string URLs and object wrappers (from API vs Raw DB)
+    const mapImage = (img: any): string => {
+      if (!img) return '';
+      if (typeof img === 'string') return img;
+      return img.url || '';
+    };
+
+    const images = p.images?.map(mapImage).filter(Boolean) || [];
+    // Fallback for main image if not explicitly provided
+    const mainImage = p.image || images[0];
+
+    // Determine effective condition label
+    // If product has multiple condition offers (New + Used), show "New & Used"
+    const condition: ConditionLabel = p.has_condition_offers
+      ? 'New & Used'
+      : mapCondition(p.condition);
+
     return {
       id: p.id,
       slug: p.slug,
       name: p.name,
       price: formattedPrice,
       rawPrice: p.price, // Already in Naira
-      image: p.image,
+      image: mainImage,
       description: p.description,
       rating: p.rating ?? 4.5,
       category: (p as any).categories?.name || p.category || 'General',
       category_id: p.category_id,
       categories: (p as any).categories, // Joined category object from Supabase
       categorySlug: p.category_slug,
-      condition: mapCondition(p.condition),
+      condition: condition,
       brand: p.brand,
       colors: p.colors,
       storage: p.storage_options?.[0],
-      images: p.images?.map((img) => img.url),
+      images: images,
       // Ensure we map any other needed fields
     };
   });
@@ -235,9 +252,34 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     return Array.from(new Set(products.map((p) => p.brand).filter(Boolean) as string[]));
   }, [products]);
 
-  // Apply client-side filters (only Rating is client-side for now)
+  // Apply client-side filters
   const filteredProducts = useMemo(() => {
     let result = products;
+
+    // Filter by Category
+    if (selectedCategory && selectedCategory !== 'All') {
+      result = result.filter((p) => p.category === selectedCategory);
+    }
+
+    // Filter by Brand
+    if (selectedBrand && selectedBrand !== 'All') {
+      result = result.filter((p) => p.brand === selectedBrand);
+    }
+
+    // Filter by Condition
+    if (selectedCondition && selectedCondition !== 'All') {
+      result = result.filter((p) => p.condition === selectedCondition);
+    }
+
+    // Filter by Price
+    // Note: minPrice/maxPrice defaults are handled in searchParams logic
+    if (minPrice > 0 || maxPrice < 100000000) {
+      result = result.filter((p) => {
+        const pPrice = p.rawPrice || 0;
+        return pPrice >= minPrice && pPrice <= maxPrice;
+      });
+    }
+
     if (minRating > 0) {
       result = result.filter((p) => (p.rating || 0) >= minRating);
     }
@@ -246,7 +288,16 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       result = result.slice(0, limit);
     }
     return result;
-  }, [products, minRating, limit]);
+  }, [
+    products,
+    minRating,
+    limit,
+    selectedCategory,
+    selectedBrand,
+    selectedCondition,
+    minPrice,
+    maxPrice
+  ]);
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();

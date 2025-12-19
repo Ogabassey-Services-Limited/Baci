@@ -24,7 +24,7 @@ const initialSavedItems: SavedProduct[] = [
     description: '256GB, Natural Titanium - A17 Pro chip with 6-core GPU',
     price: '₦1,950,000',
     image:
-      'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=200',
+      '/placeholder.png',
   },
   {
     id: '2',
@@ -32,7 +32,7 @@ const initialSavedItems: SavedProduct[] = [
     description: 'M3 Pro chip, 18GB RAM, 512GB SSD, Space Gray',
     price: '₦2,450,000',
     image:
-      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=200',
+      '/placeholder.png',
   },
   {
     id: '3',
@@ -40,7 +40,7 @@ const initialSavedItems: SavedProduct[] = [
     description: 'Premium Noise Cancelling Wireless Headphones',
     price: '₦450,000',
     image:
-      'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&q=80&w=200',
+      '/placeholder.png',
   },
   {
     id: '4',
@@ -48,7 +48,7 @@ const initialSavedItems: SavedProduct[] = [
     description: '44mm, Graphite, Bluetooth + LTE',
     price: '₦280,000',
     image:
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=200',
+      '/placeholder.png',
   },
 ];
 

@@ -111,7 +111,7 @@ export async function POST(_request: Request) {
 
     // Send payout via Korapay
     try {
-      const payoutData = await sendPayout({
+      const payoutResult = await sendPayout({
         reference,
         destination: {
           type: 'bank_account',
@@ -128,6 +128,12 @@ export async function POST(_request: Request) {
           },
         },
       });
+
+      if (!payoutResult.success) {
+        throw new Error(payoutResult.error);
+      }
+
+      const payoutData = payoutResult.data;
 
       logger.info({
         message: 'Payout sent successfully',

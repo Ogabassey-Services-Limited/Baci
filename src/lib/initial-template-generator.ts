@@ -25,16 +25,13 @@ export async function generateHeroSlides(
   // Fallback images if AI generation is not available yet
   const fallbackImages = [
     {
-      imageUrl:
-        'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+      imageUrl: '/placeholder.png',
     },
     {
-      imageUrl:
-        'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+      imageUrl: '/placeholder.png',
     },
     {
-      imageUrl:
-        'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1920&q=80',
+      imageUrl: '/placeholder.png',
     },
   ];
 

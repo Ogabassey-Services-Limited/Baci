@@ -260,17 +260,17 @@ export function AddressAutocomplete({
                   className={cn(
                     'w-full px-3 py-2.5 text-left text-sm rounded-lg transition-colors flex items-start gap-3 group/item',
                     highlightedIndex === index
-                      ? 'bg-[var(--store-primary)]/10 text-foreground'
-                      : 'hover:bg-accent hover:text-accent-foreground'
+                      ? 'bg-red-50 text-gray-900'
+                      : 'hover:bg-gray-50 hover:text-gray-900'
                   )}
                   onClick={() => handlePredictionSelect(prediction)}
                 >
                   <div
                     className={cn(
-                      'mt-0.5 p-1.5 rounded-full bg-muted transition-colors',
+                      'mt-0.5 p-1.5 rounded-full transition-colors',
                       highlightedIndex === index
-                        ? 'bg-[var(--store-primary)]/20 text-[var(--store-primary)]'
-                        : 'group-hover/item:bg-background'
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-red-50 text-red-500 group-hover/item:bg-red-100 group-hover/item:text-red-600'
                     )}
                   >
                     <MapPin className="h-3.5 w-3.5" />
@@ -279,14 +279,12 @@ export function AddressAutocomplete({
                     <p
                       className={cn(
                         'font-medium truncate transition-colors',
-                        highlightedIndex === index
-                          ? 'text-[var(--store-primary)]'
-                          : ''
+                        highlightedIndex === index ? 'text-red-600' : ''
                       )}
                     >
                       {prediction.mainText}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-gray-500 truncate">
                       {prediction.secondaryText}
                     </p>
                   </div>
@@ -294,7 +292,7 @@ export function AddressAutocomplete({
               ))}
             </div>
 
-            <div className="px-4 py-2 border-t bg-muted/30 flex justify-end sticky bottom-0 backdrop-blur-md">
+            <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 flex justify-end sticky bottom-0">
               <span className="text-xs text-muted-foreground opacity-60">
                 Powered by{' '}
                 <span className="font-medium">

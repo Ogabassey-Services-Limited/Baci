@@ -116,7 +116,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
           <div className="order-2 lg:order-1">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl group aspect-video">
               <Image
-                src={aboutPage.image_url || "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1600&auto=format&fit=crop"}
+                src={aboutPage.image_url || "/placeholder.png"}
                 alt="Our Team"
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -134,7 +134,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
               Driven by Technology.
             </h2>
             <div className="space-y-6 text-gray-600 leading-relaxed">
-              {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop */}
+              {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop.react-dangerouslysetinnerhtml-prop */}
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(story) }} />
 
               <ul className="space-y-3 pt-2">

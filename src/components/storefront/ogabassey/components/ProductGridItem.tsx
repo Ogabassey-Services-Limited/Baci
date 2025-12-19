@@ -138,10 +138,29 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               ? 'bg-gray-900'
               : product.condition === 'Open Box'
                 ? 'bg-indigo-600'
-                : 'bg-stone-500'
+                : product.condition === 'New & Used'
+                  ? 'bg-purple-600'
+                  : 'bg-stone-500'
               }`}
           >
             {product.condition}
+          </div>
+        )}
+
+        {/* Platform Badging (Sony Style) - Bottom Left of Image */}
+        {product.variant_attributes?.Platform && product.variant_attributes.Platform.length > 0 && (
+          <div className="absolute bottom-2 left-3 flex gap-1 z-10 flex-wrap max-w-[70%]">
+            {product.variant_attributes.Platform.slice(0, 3).map((platform) => (
+              <span
+                key={platform}
+                className="bg-white/90 backdrop-blur-sm text-gray-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-gray-100 uppercase tracking-tighter"
+              >
+                {platform.replace('PlayStation ', 'PS').replace('Nintendo Switch', 'Switch')}
+              </span>
+            ))}
+            {product.variant_attributes.Platform.length > 3 && (
+              <span className="bg-white/90 backdrop-blur-sm text-gray-500 text-[9px] px-1 py-0.5 rounded">+</span>
+            )}
           </div>
         )}
 
@@ -241,7 +260,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         <p
           className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
         >
-          {product.description?.slice(0, 60)}{product.description && product.description.length > 60 ? '...' : ''}
+          {product.description?.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
+          {product.description && product.description.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
           <span className="text-red-500 font-medium ml-1">View specs →</span>
         </p>
 

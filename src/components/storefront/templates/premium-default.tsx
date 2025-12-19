@@ -17,8 +17,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
     {
       image:
         PlaceHolderImages.find((img) => img.id === 'hero-fashion-1')
-          ?.imageUrl ||
-        'https://images.unsplash.com/photo-1441986300917-64674bd600d8',
+          ?.imageUrl || '/placeholder.png',
       title: 'Elevate Your Style',
       subtitle:
         'Discover the latest trends in sustainable fashion. Curated just for you.',
@@ -28,8 +27,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
     {
       image:
         PlaceHolderImages.find((img) => img.id === 'hero-minimal-1')
-          ?.imageUrl ||
-        'https://images.unsplash.com/photo-1445205170230-053b83016050',
+          ?.imageUrl || '/placeholder.png',
       title: 'Summer Essentials',
       subtitle: 'Lightweight, breathable, and stylish. Perfect for the season.',
       ctaText: 'View Lookbook',
@@ -38,7 +36,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
     {
       image:
         PlaceHolderImages.find((img) => img.id === 'hero-tech-1')?.imageUrl ||
-        'https://images.unsplash.com/photo-1469334031218-e382a71b716b',
+        '/placeholder.png',
       title: 'New Arrivals',
       subtitle: 'Be the first to wear our exclusive new drops.',
       ctaText: 'Shop New In',

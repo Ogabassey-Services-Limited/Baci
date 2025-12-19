@@ -295,6 +295,15 @@ export async function proxy(request: NextRequest) {
   // console.log('[Middleware] Request:', pathname);
   const userAgent = request.headers.get('user-agent') || '';
 
+  // ==== BLOG MIGRATION REDIRECTS ====
+  // 301 redirect old blog subdomain to new blog location
+  // blog.ogabassey.com/* -> ogabassey.com/blog/*
+  if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
+    const newPath = pathname === '/' ? '' : pathname;
+    const newUrl = `https://ogabassey.com/blog${newPath}`;
+    return NextResponse.redirect(newUrl, { status: 301 });
+  }
+
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
   // For protected routes, verify auth BEFORE rendering
   // Define protected route patterns
@@ -349,7 +358,9 @@ export async function proxy(request: NextRequest) {
         pathname,
         userAgent,
         routeType,
-        nonce
+        nonce,
+        undefined,
+        hostname
       );
     }
   }
@@ -411,7 +422,8 @@ export async function proxy(request: NextRequest) {
           userAgent,
           routeType,
           nonce,
-          request
+          request,
+          hostname
         );
       }
 
@@ -436,7 +448,8 @@ export async function proxy(request: NextRequest) {
         userAgent,
         routeType,
         nonce,
-        request // Pass request for click ID capture on storefront
+        request, // Pass request for click ID capture on storefront
+        hostname
       );
     } else {
       // Invalid/suspicious hostname - reject
@@ -472,7 +485,8 @@ export async function proxy(request: NextRequest) {
       userAgent,
       routeType,
       nonce,
-      request // Pass request for click ID capture on storefront
+      request, // Pass request for click ID capture on storefront
+      hostname
     );
   }
 
@@ -490,7 +504,8 @@ export async function proxy(request: NextRequest) {
     userAgent,
     routeType,
     nonce,
-    request // Pass request for click ID capture on storefront
+    request, // Pass request for click ID capture on storefront
+    hostname
   );
 }
 
@@ -526,7 +541,8 @@ function applySecurityHeaders(
   userAgent: string,
   routeType: 'admin' | 'auth' | 'storefront' | 'api',
   nonce?: string,
-  request?: NextRequest
+  request?: NextRequest,
+  hostname?: string
 ): NextResponse {
   // Capture ad click IDs from URL params (if request provided)
   if (request && routeType === 'storefront') {
@@ -542,11 +558,18 @@ function applySecurityHeaders(
     response.headers.set('x-nonce', nonce);
   }
 
+  // Set pathname header for server components to detect current route
+  // This enables conditional rendering (e.g., hide navbar on checkout) without hydration issues
+  response.headers.set('x-pathname', pathname);
+
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
-  response.headers.set(
-    'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains; preload'
-  );
+  // Skip on localhost to avoid Unlighthouse/CI failures (ERR_SSL_PROTOCOL_ERROR)
+  if (hostname && !isLocalhost(hostname)) {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
+  }
 
   // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
   response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');

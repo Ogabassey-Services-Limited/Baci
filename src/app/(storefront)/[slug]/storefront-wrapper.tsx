@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -20,13 +21,18 @@ const DynamicPuckStorefront = dynamic(
 
 interface StorefrontWrapperProps {
   products?: Product[];
+  /** Initial theme for SSR consistency (Phase 1: Cookie-Based Theme) */
+  initialTheme?: V2ThemeMode;
 }
 
 /**
  * Wrapper that renders the appropriate storefront template based on merchant's template_id.
  * Falls back to Puck storefront if no template_id is set or template not found.
  */
-export function StorefrontWrapper({ products = [] }: StorefrontWrapperProps) {
+export function StorefrontWrapper({
+  products = [],
+  initialTheme,
+}: StorefrontWrapperProps) {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
   const [TemplateHome, setTemplateHome] =
@@ -121,6 +127,7 @@ export function StorefrontWrapper({ products = [] }: StorefrontWrapperProps) {
             merchant={merchant || undefined}
             products={products}
             isPreview={false}
+            initialTheme={initialTheme}
           />
         </Suspense>
       </>

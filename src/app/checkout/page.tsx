@@ -1140,14 +1140,18 @@ function CheckoutPageContent() {
           merchant.id,
           cartTotal,
           'NGN',
-          cart.map((item) => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            category:
-              (item as any).categories?.name || item.category || 'General',
-          })),
+          cart.map((item) => {
+            const itemCategory =
+              // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
+              (item as any).categories?.name || item.category || 'General';
+            return {
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              category: itemCategory,
+            };
+          }),
           undefined,
           { eventSourceUrl: window.location.href }
         ).catch((err) => {

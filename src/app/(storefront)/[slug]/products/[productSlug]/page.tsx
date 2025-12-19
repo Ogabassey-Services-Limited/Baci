@@ -15,6 +15,7 @@ import {
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateProductSchema,
+  generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
 import ProductDetailClient from './product-detail-client';
@@ -155,14 +156,18 @@ export async function generateMetadata(
   // the merchant identity is in the domain itself, not the path
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
-  // If we have a category slug, REDIRECT to the pretty URL (SEO Best Practice)
-  // This answers: "should the /products/ link still exist?" -> No, it redirects.
-  if (product.category_slug) {
+  // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
+  // This ensures /products/ URLs are always canonicalized to their category-based counterparts
+  const effectiveCategorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : undefined);
+
+  if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
     // Resolve stored slug (localhost/preview logic vs production subdomain logic)
     const targetPath = isLocalhost
-      ? `/${slug}/${product.category_slug}/${cleanSlug}`
-      : `/${product.category_slug}/${cleanSlug}`;
+      ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
+      : `/${effectiveCategorySlug}/${cleanSlug}`;
 
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
     permanentRedirect(targetPath as any);
@@ -284,15 +289,19 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
-  const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
-  const productCategory = product.categories?.name || product.category;
-  const categoryUrl = productCategory
-    ? `${baseUrl}${urlPrefix}/products?category=${encodeURIComponent(productCategory)}`
-    : `${baseUrl}${urlPrefix}/products`;
+  // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
+  const productUrl = `${baseUrl}${urlPrefix}/${product.category_slug || 'products'}/${product.slug || product.id}`;
+
+  const categorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const categoryName =
+    product.categories?.name || product.category || 'All Products';
+  const categoryUrl = `${baseUrl}${urlPrefix}/${categorySlug}`;
 
   const breadcrumbItems = [
     { name: merchant?.business_name || 'Home', url: `${baseUrl}${urlPrefix}` },
-    { name: productCategory || 'All Products', url: categoryUrl },
+    { name: categoryName, url: categoryUrl },
     { name: product.name, url: productUrl },
   ];
 

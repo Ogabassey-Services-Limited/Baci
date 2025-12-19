@@ -28,7 +28,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Verify Account Number
-    const accountDetails = await resolveAccountNumber(accountNumber, bankCode);
+    const accountResult = await resolveAccountNumber(accountNumber, bankCode);
+    if (!accountResult.success) {
+      return NextResponse.json({ error: accountResult.error }, { status: 400 });
+    }
+    const accountDetails = accountResult.data;
 
     // 2. Get Merchant Details
     const { data: merchant } = await supabase
@@ -49,15 +53,21 @@ export async function POST(request: NextRequest) {
 
     if (subaccountCode) {
       // Update existing subaccount
-      await updateSubaccount(subaccountCode, {
+      const updateResult = await updateSubaccount(subaccountCode, {
         business_name: businessName || merchant.business_name,
         settlement_bank: bankCode,
         account_number: accountNumber,
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
       });
+      if (!updateResult.success) {
+        return NextResponse.json(
+          { error: updateResult.error },
+          { status: 400 }
+        );
+      }
     } else {
       // Create new subaccount
-      const subaccount = await createSubaccount({
+      const subaccountResult = await createSubaccount({
         business_name: businessName || merchant.business_name,
         settlement_bank: bankCode,
         account_number: accountNumber,
@@ -66,7 +76,13 @@ export async function POST(request: NextRequest) {
         primary_contact_name: accountDetails.account_name, // Use bank account name as contact
         primary_contact_phone: merchant.phone || undefined,
       });
-      subaccountCode = subaccount.subaccount_code;
+      if (!subaccountResult.success) {
+        return NextResponse.json(
+          { error: subaccountResult.error },
+          { status: 400 }
+        );
+      }
+      subaccountCode = subaccountResult.data.subaccount_code;
     }
 
     // 4. Save to Database
@@ -76,7 +92,7 @@ export async function POST(request: NextRequest) {
         paystack_subaccount_code: subaccountCode,
         bank_account_number: accountNumber,
         bank_code: bankCode,
-        bank_name: accountDetails.bank_name || 'Unknown Bank', // resolve endpoint might not return bank name directly
+        bank_name: 'Unknown Bank', // resolve endpoint doesn't return bank name
       })
       .eq('id', merchant.id);
 

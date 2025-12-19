@@ -43,12 +43,12 @@ const FALLBACK_PRODUCT = {
   description:
     'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip, a customizable Action button, and the most powerful iPhone camera system ever.',
   image:
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
+    '/placeholder.png',
   images: [
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1697316986292-6927d3c0157f?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133021-3e0f47e3079c?q=80&w=1000&auto=format&fit=crop',
+    '/placeholder.png',
+    '/placeholder.png',
+    '/placeholder.png',
+    '/placeholder.png',
   ],
   colors: [
     { name: 'Natural Titanium', value: '#Bfb7ad' },
@@ -381,11 +381,12 @@ export const OgabasseyV2ProductDetails: React.FC<
     setSecondaryColor(idx);
   };
 
-  const getProductForCart = (): Product => {
+  const getProductForCart = () => {
+    // Return object with numeric price for cart (cart expects price: number)
     return {
       id: productData.id,
       name: productData.name,
-      price: productData.price,
+      price: productData.rawPrice, // Cart expects numeric price
       rawPrice: productData.rawPrice,
       image: productData.images[selectedImage],
       description: productData.description,

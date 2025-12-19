@@ -3,9 +3,8 @@ import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache, Suspense } from 'react';
 
-// Template-specific imports
-import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
 import {
@@ -13,6 +12,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import type { Product } from '@/lib/products';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
@@ -63,7 +63,8 @@ const getCategoryData = cache(
       : await getCachedMerchant(storeSlug);
 
     if (!merchant) {
-      console.error(`Merchant not found for slug: ${storeSlug}`);
+      // Expected for invalid URLs (e.g., /smartphones/iphone instead of /ogabassey/smartphones/iphone)
+      // Not an error - notFound() will handle this gracefully
       return null;
     }
 
@@ -270,6 +271,14 @@ export default async function CategoryPageRoute({ params }: PageProps) {
 
   const { merchant, category: categoryData, products } = data;
 
+  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+  const _initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
+
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -300,7 +309,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   // Add current category
   breadcrumbItems.push({
     name: categoryData.name,
-    url: categoryUrl,
+    url: `${baseUrl}/${categoryData.slug}`, // Ensure strict slug usage
   });
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
@@ -315,7 +324,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
     <>
       {/* CollectionPage Schema */}
       {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -325,7 +334,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       />
       {/* BreadcrumbList Schema */}
       {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
-      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -336,7 +345,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       {/* FAQPage Schema */}
       {faqSchema && (
         // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -345,31 +354,40 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       )}
 
       <Suspense fallback={<ProductGridSkeleton />}>
-        <OgabasseyLayout>
-          <OgabasseyCategoryPage
-            seoHeading={categoryData.seo.heading}
-            seoDescription={categoryData.seo.description}
-            seoFeatures={categoryData.seo.features}
-            seoFaqs={categoryData.seo.faqs}
-            categoryImage={categoryData.image}
-            products={products.map((p) => {
-              return {
-                id: p.id,
-                name: p.name,
-                slug: p.slug,
-                description: p.description || '',
-                price: `₦${p.price?.toLocaleString() || 0}`,
-                rawPrice: p.price || 0,
-                image: p.images?.[0]?.url || '',
-                images: p.images?.map((img) => img.url) || [],
-                category: p.categories?.name || p.category || '',
-                brand: p.brand,
-                condition: p.condition || 'New',
-                stock: p.stock,
-              };
-            })}
-          />
-        </OgabasseyLayout>
+        <OgabasseyCategoryPage
+          seoHeading={categoryData.seo.heading}
+          seoDescription={categoryData.seo.description}
+          seoFeatures={categoryData.seo.features}
+          seoFaqs={categoryData.seo.faqs}
+          categoryImage={categoryData.image}
+          products={products.map((p) => {
+            // Use unified normalizeProduct for consistent data extraction
+            const normalized = normalizeProduct(p as unknown as RawDbProduct);
+            // Map condition to expected enum values
+            const conditionMap: Record<string, 'New' | 'Used' | 'Open Box'> = {
+              New: 'New',
+              new: 'New',
+              Used: 'Used',
+              used: 'Used',
+              'Open Box': 'Open Box',
+              open_box: 'Open Box',
+            };
+            return {
+              id: normalized.id,
+              name: normalized.name,
+              slug: normalized.slug,
+              description: normalized.description,
+              price: `₦${normalized.price.toLocaleString()}`,
+              rawPrice: normalized.price,
+              image: normalized.image,
+              images: normalized.images,
+              category: normalized.category,
+              brand: normalized.brand ?? undefined,
+              condition: conditionMap[normalized.condition] || 'New',
+              stock: normalized.stock,
+            };
+          })}
+        />
       </Suspense>
     </>
   );

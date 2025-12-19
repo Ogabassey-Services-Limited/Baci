@@ -163,7 +163,6 @@ export default async function RootLayout({
           rel="dns-prefetch"
           href="https://dtbqucrqfbycfpmfwtie.supabase.co"
         />
-        <link rel="dns-prefetch" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
         {/* Schema.org JSON-LD - Safe: These are statically generated schema objects, not user input */}

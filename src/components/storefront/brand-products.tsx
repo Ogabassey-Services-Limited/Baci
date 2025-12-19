@@ -40,9 +40,16 @@ export function BrandProducts({
 }: BrandProductsProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant ?? null;
+  const basePath = merchantContext?.basePath || '';
   const { formatCurrency } = useCurrency();
   const { addToCart } = useCart();
   const { toast } = useToast();
+
+  // Helper to prepend merchant basePath to product URL
+  const getFullProductUrl = (p: Product): string => {
+    const productUrl = getProductUrl(p);
+    return basePath ? `${basePath}${productUrl}` : productUrl;
+  };
 
   const [brandProducts, setBrandProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,12 +57,17 @@ export function BrandProducts({
 
   // Derive brand and category from current product
   const productBrand = product.brand;
-  const productCategory =
-    (product as any).categories?.name || (product as any).category || '';
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoriesName = (product as any).categories?.name;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoryFallback = (product as any).category;
+  const productCategory = categoriesName || categoryFallback || '';
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoriesSlug = (product as any).categories?.slug;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categorySlugFallback = (product as any).category_slug;
   const categorySlug =
-    (product as any).categories?.slug ||
-    (product as any).category_slug ||
-    productCategory.toLowerCase();
+    categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
 
   useEffect(() => {
     // Skip if no merchant, no brand, or no category
@@ -190,7 +202,10 @@ export function BrandProducts({
                   className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
                   accentPosition="top"
                 >
-                  <Link href={getProductUrl(p)} className="block relative">
+                  <Link
+                    href={getFullProductUrl(p) as '/'}
+                    className="block relative"
+                  >
                     <Image
                       src={p.imageLarge || p.image || '/placeholder.svg'}
                       alt={p.name}
@@ -206,7 +221,7 @@ export function BrandProducts({
                     )}
                   </Link>
                   <CardContent className="p-3">
-                    <Link href={getProductUrl(p)}>
+                    <Link href={getFullProductUrl(p) as '/'}>
                       <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
                         {p.name}
                       </h3>

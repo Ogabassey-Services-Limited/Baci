@@ -3,121 +3,121 @@
     {
       "id": "hero-image",
       "description": "Abstract background for hero section",
-      "imageUrl": "https://images.unsplash.com/photo-1669295384050-a1d4357bd1d7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxhYnN0cmFjdCUyMGdyYWRpZW50fGVufDB8fHx8MTc2MTc5MjExNHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "abstract gradient"
     },
     {
       "id": "product-1",
       "description": "A modern ceramic vase",
-      "imageUrl": "https://images.unsplash.com/photo-1705526966290-2de7b8a33f03?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjZXJhbWljJTIwdmFzZXxlbnwwfHx8fDE3NjE3NTg2NTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "ceramic vase"
     },
     {
       "id": "product-2",
       "description": "A minimalist wooden chair",
-      "imageUrl": "https://images.unsplash.com/photo-1531851243379-1524c00c0545?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8d29vZGVuJTIwY2hhaXJ8ZW58MHx8fHwxNzYxODE5OTEwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "wooden chair"
     },
     {
       "id": "product-3",
       "description": "A stylish leather backpack",
-      "imageUrl": "https://images.unsplash.com/photo-1549943872-f7ff0b2b51be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxsZWF0aGVyJTIwYmFja3BhY2t8ZW58MHx8fHwxNzYxNzY2NTkyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "leather backpack"
     },
     {
       "id": "product-4",
       "description": "A set of handmade soaps",
-      "imageUrl": "https://images.unsplash.com/photo-1607006555987-49a12f7c0488?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxoYW5kbWFkZSUyMHNvYXB8ZW58MHx8fHwxNzYxNzQ4MTE1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "handmade soap"
     },
     {
       "id": "product-5",
       "description": "A smart watch with a black band",
-      "imageUrl": "https://images.unsplash.com/photo-1579586337278-3befd40fd17a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzbWFydCUyMHdhdGNofGVufDB8fHx8MTc2MTc0NDc5MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "smart watch"
     },
     {
       "id": "avatar-1",
       "description": "User avatar 1",
-      "imageUrl": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjE3ODg3ODd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "person portrait"
     },
     {
       "id": "avatar-2",
       "description": "User avatar 2",
-      "imageUrl": "https://images.unsplash.com/photo-1614283233556-f35b0c801ef1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2MTgwMzQ2MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "woman portrait"
     },
     {
       "id": "avatar-3",
       "description": "User avatar 3",
-      "imageUrl": "https://images.unsplash.com/photo-1607031542107-f6f46b5d54e9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjE3NTYzNjF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "man portrait"
     },
     {
       "id": "avatar-4",
       "description": "User avatar 4",
-      "imageUrl": "https://images.unsplash.com/photo-1484863137850-59afcfe05386?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBzbWlsaW5nfGVufDB8fHx8MTc2MTc2MDc2MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "person smiling"
     },
     {
       "id": "avatar-5",
       "description": "User avatar 5",
-      "imageUrl": "https://images.unsplash.com/photo-1598625873873-52f9aefd7d9d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b21hbiUyMHNtaWxpbmd8ZW58MHx8fHwxNzYxNzgzNzUwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "/placeholder.png",
       "imageHint": "woman smiling"
     },
     {
       "id": "hero-electronics-1",
       "description": "Sleek smartphone in dark environment",
-      "imageUrl": "https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "smartphone dark"
     },
     {
       "id": "hero-electronics-2",
       "description": "Modern laptop workspace",
-      "imageUrl": "https://images.unsplash.com/photo-1517336714731-489689fd1ca4?q=80&w=2026&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "laptop workspace"
     },
     {
       "id": "hero-food-1",
       "description": "Top down view of plated food",
-      "imageUrl": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=2080&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "plated food top down"
     },
     {
       "id": "hero-food-2",
       "description": "Fresh ingredients on table",
-      "imageUrl": "https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "fresh ingredients"
     },
     {
       "id": "hero-fashion-1",
       "description": "Editorial fashion shot",
-      "imageUrl": "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "fashion editorial"
     },
     {
       "id": "hero-home-1",
       "description": "Modern living room interior",
-      "imageUrl": "https://images.unsplash.com/photo-1616486338812-3dadae4b4f9d?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "modern living room"
     },
     {
       "id": "hero-beauty-1",
       "description": "Skincare products aesthetic",
-      "imageUrl": "https://images.unsplash.com/photo-1596462502278-27bfdd403348?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "skincare aesthetic"
     },
     {
       "id": "hero-handmade-1",
       "description": "Pottery making hands",
-      "imageUrl": "https://images.unsplash.com/photo-1493106641515-6b5631de4bb9?q=80&w=2069&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "pottery making"
     },
     {
       "id": "hero-hair-1",
       "description": "Luxury hair styling",
-      "imageUrl": "https://images.unsplash.com/photo-1562025281-34102b0947d9?q=80&w=2070&auto=format&fit=crop",
+      "imageUrl": "/placeholder.png",
       "imageHint": "luxury hair"
     }
   ]

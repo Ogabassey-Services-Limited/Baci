@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
-// Template-specific imports
-import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import type { Product } from '@/lib/products';
@@ -14,6 +13,7 @@ import {
   sanitizeLikePattern,
 } from '@/lib/sanitize-core';
 import {
+  constructCanonicalUrl,
   generateBreadcrumbSchema,
   generateProductSchema,
   generateSlug,
@@ -445,6 +445,39 @@ function toOgabasseyProduct(
           images: v.images,
         })
       ) || [],
+    // Phase 5: Condition offers for consolidated products
+    has_condition_offers: product.has_condition_offers,
+    offers: product.offers?.map(
+      (o: {
+        id: string;
+        condition: string;
+        price: number | string;
+        compare_at_price?: number | string | null;
+        stock_quantity?: number;
+        images?: string[];
+        condition_notes?: string;
+        grade?: string;
+      }) => ({
+        id: o.id,
+        condition: o.condition as 'new' | 'open_box' | 'used',
+        price: formatter.format(
+          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price
+        ),
+        rawPrice:
+          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
+        compare_at_price: o.compare_at_price
+          ? formatter.format(
+              typeof o.compare_at_price === 'string'
+                ? Number.parseFloat(o.compare_at_price)
+                : o.compare_at_price
+            )
+          : undefined,
+        stock: o.stock_quantity,
+        images: o.images,
+        notes: o.condition_notes,
+        grade: o.grade,
+      })
+    ),
   };
 }
 
@@ -455,18 +488,16 @@ function toOgabasseyProduct(
 function TemplateProductPage({
   product,
   templateId,
+  initialTheme,
 }: {
   product: Product;
   templateId?: string;
+  initialTheme?: V2ThemeMode;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
     const ogabasseyProduct = toOgabasseyProduct(product);
-    return (
-      <OgabasseyLayout>
-        <OgabasseyProductPage product={ogabasseyProduct} />
-      </OgabasseyLayout>
-    );
+    return <OgabasseyProductPage product={ogabasseyProduct} />;
   }
 
   // Default: use the generic product detail client
@@ -479,6 +510,7 @@ interface PageProps {
     category: string; // Category slug
     productSlug: string; // Product slug
   }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 import { cache } from 'react';
@@ -634,14 +666,34 @@ const getProduct = cache(
       }
     }
 
+    // Fetch condition offers if product has them
+    if (product.has_condition_offers) {
+      const { data: offers } = await supabase
+        .from('product_offers')
+        .select(
+          'id, condition, price, compare_at_price, stock_quantity, images, condition_notes, grade'
+        )
+        .eq('product_id', product.id)
+        .eq('status', 'active');
+
+      if (offers) {
+        // Filter out the offer that matches the main product's condition to avoid duplication
+        productWithCategorySlug.offers = offers.filter(
+          (o) => o.condition !== product.condition
+        );
+      }
+    }
+
     return { product: productWithCategorySlug, categoryMismatch, merchant };
   }
 );
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category, productSlug } = await params;
+  const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
@@ -658,9 +710,27 @@ export async function generateMetadata({
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
-  // Build canonical URL using the proper category-based format
-  const canonicalPath = getProductUrl(product);
-  const canonicalUrl = product.canonical_url || `${baseUrl}${canonicalPath}`;
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const urlPrefix = isLocalhost ? `/${slug}` : '';
+
+  // Construct canonical URL:
+  // 1. Use explicit canonical from product data if available
+  // 2. OR build the base path using getProductUrl (which handles categories)
+  let canonicalUrl = product.canonical_url;
+
+  if (!canonicalUrl) {
+    // Generate the correct path (e.g. /category/product)
+    const productPath = getProductUrl(product);
+
+    // Construct full URL
+    const basePath = `${baseUrl}${urlPrefix}${productPath}`;
+
+    // Clean params for canonical
+    // We import constructCanonicalUrl from seo-utils
+    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
+      'variant',
+    ]);
+  }
 
   const socialMedia = merchant?.social_media as
     | Record<string, string>
@@ -717,10 +787,39 @@ export default async function CategoryProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const { product, merchant } = result;
+  const { product, merchant, categoryMismatch } = result;
+
+  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+  const initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
 
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
+
+  // Strict Canonical URL Enforcement:
+  // If the URL category doesn't match the product's actual category,
+  // redirect to the correct URL to avoid duplicate content.
+  if (categoryMismatch) {
+    const correctCategorySlug =
+      product.category_slug ||
+      (product.category ? generateSlug(product.category) : undefined);
+
+    if (correctCategorySlug) {
+      const isLocalhost =
+        host.includes('localhost') || host.includes('127.0.0.1');
+      const cleanSlug = product.slug || product.id;
+
+      const targetPath = isLocalhost
+        ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
+        : `/${correctCategorySlug}/${cleanSlug}`;
+
+      permanentRedirect(targetPath as any);
+    }
+  }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
@@ -779,6 +878,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         <TemplateProductPage
           product={product}
           templateId={merchant?.template_id}
+          initialTheme={initialTheme}
         />
       </Suspense>
     </>

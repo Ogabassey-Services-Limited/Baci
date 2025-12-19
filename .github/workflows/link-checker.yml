@@ -83,6 +83,16 @@ jobs:
             --exclude 'store\.storeimages\.cdn-apple\.com'
             --exclude 'korapay\.com'
             --exclude 'api\.mycover\.ai'
+            --exclude 'image-us\.samsung\.com'
+            --exclude 'p4-ofp\.static\.pub'
+            --exclude 'i\.dell\.com'
+            --exclude 'spendjuice\.com|api-sandbox\.spendjuice\.com'
+            --exclude 'api\.vercel\.com'
+            --exclude 'api\.paystack\.co'
+            --exclude 'tronscan\.org'
+            --exclude 'snowtrace\.io'
+            --exclude 'supabase\.com/docs'
+            --exclude 'exp\.host'
           # Fail action if broken links are found
           fail: true
         env:

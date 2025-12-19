@@ -5,11 +5,13 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 
 export const OfflineNotice: React.FC = () => {
-  const [isOffline, setIsOffline] = useState(
-    typeof navigator !== 'undefined' ? !navigator.onLine : false
-  );
+  // Always start false to avoid hydration mismatch (navigator not available on server)
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
+    // Check initial state on client only
+    setIsOffline(!navigator.onLine);
+
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 

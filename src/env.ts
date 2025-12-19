@@ -75,6 +75,20 @@ export const getKorapayPublicKey = (): string | undefined => {
   return key;
 };
 
+export const getJuicywaySecretKey = (): string | undefined => {
+  const key = process.env.JUICYWAY_SECRET_KEY;
+  if (!key && typeof window === 'undefined') {
+    console.warn(
+      'JUICYWAY_SECRET_KEY is not defined. Juicyway payments will not work.'
+    );
+  }
+  return key;
+};
+
+export const getJuicywayBaseUrl = (): string => {
+  return process.env.JUICYWAY_BASE_URL || 'https://api-sandbox.spendjuice.com';
+};
+
 export const getZeptoMailToken = (): string | undefined => {
   const token = process.env.ZEPTOMAIL_TOKEN;
   if (!token && typeof window === 'undefined') {

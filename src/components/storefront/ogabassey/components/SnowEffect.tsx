@@ -3,9 +3,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useV2Theme } from '../providers/v2-theme-context';
 
-/* 
+/*
  * Performant Canvas-based Snow Effect
  * Best Practice: useAnimationFrame loop + Offscreen drawing if needed (simple canvas is fast enough for < 500 particles)
+ *
+ * Note: The mounted state workaround was removed because the theme is now passed
+ * from the server via cookies, ensuring SSR/CSR consistency.
  */
 
 interface Snowflake {

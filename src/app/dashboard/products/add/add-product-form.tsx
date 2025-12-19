@@ -164,6 +164,7 @@ export default function AddProductForm({
       name: initialData?.name || '',
       description: initialData?.description || '',
       category:
+        // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
         (initialData as any)?.categories?.name ||
         initialData?.category ||
         'General',

@@ -45,7 +45,7 @@ const orders: Order[] = [
         name: 'iPhone 15 Pro Max',
         description: '256GB, Natural Titanium',
         image:
-          'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=200',
+          '/placeholder.png',
       },
     ],
   },
@@ -60,14 +60,14 @@ const orders: Order[] = [
         name: 'Samsung Galaxy Watch 6',
         description: '44mm, Graphite',
         image:
-          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=200',
+          '/placeholder.png',
       },
       {
         id: '3',
         name: 'AirPods Pro 2',
         description: 'With MagSafe Case',
         image:
-          'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&q=80&w=200',
+          '/placeholder.png',
       },
     ],
   },
@@ -82,7 +82,7 @@ const orders: Order[] = [
         name: 'MacBook Pro 14"',
         description: 'M3 Pro, 512GB, Space Gray',
         image:
-          'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=200',
+          '/placeholder.png',
       },
     ],
   },

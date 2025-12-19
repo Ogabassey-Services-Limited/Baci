@@ -1,0 +1,35 @@
+Fetching gaming parents with missing images...
+Found 33 parent products missing images.
+1. [41ee6609-6ddb-49a6-9b65-2bee3379e41d] DArk Souls Remastered
+2. [916b8e95-df37-4671-a211-2b7778824feb] CAll Of Duty Cold War
+3. [d0dc6c45-435d-4ac3-8ff4-e12b642bff5a] F1 2024
+4. [47d518e9-2432-4fa2-96b8-63a7881c6d6f] DIrt 5
+5. [94d7e42b-82d0-4eac-8aee-bf5b058012ec] FArcry 6
+6. [a884c157-686e-4996-ba4f-69850adfe786] GTa Trilogy
+7. [7b344acc-c3df-47ee-b557-ad9a0c5af748] DRagon Ball Kakarot
+8. [0992b416-1994-4f45-9644-d9c7ed1ff604] FAst And Furious Spy Racers
+9. [abc7fe1e-d152-4b5f-b9bb-235538a723ff] BAbylons Fall
+10. [c4fbc544-3e55-45c3-9d8c-d74e991399ec] F1 2021
+11. [b4462a36-a8e8-420a-9511-f000fd85d376] BAttlefield 2042
+12. [893a23a0-1991-4e26-835f-cf3bb4a89432] LEgo World
+13. [6b101fcd-d7f6-42ce-9983-9403108cc316] OVerwatch
+14. [b0878b38-a535-4a2b-88c7-3451c0182aeb] CAll Of Duty Vanguard
+15. [6b65baed-f9e2-4608-9744-b30a2996ba65] F1 2022
+16. [46e5f864-b62b-46b8-8dea-650ac27ebaaa] AVengers
+17. [3e67659d-6256-4704-866d-3289f62152b8] FOrtnite
+18. [1b19c537-8b63-48cf-b6b6-514a8336f54f] GRid Legend
+19. [a0ddf4b7-1979-468f-b7ef-ab969d45936f] DYing Light 2
+20. [9fe558ad-3342-40d2-8fd0-38da2374d9d7] WWe 24
+21. [69ba1431-f470-4a3c-ade9-e91561df19c7] GHost Of Tsushima Directors Cut
+22. [eb3c1025-e6eb-4076-b672-4a15ea8f3202] CHivalry
+23. [d81ab36f-6a2a-455b-b8d3-c1864c3a675b] WWe 25
+24. [86dba8a1-10eb-425c-92f4-137fd364d99f] F1 2023
+25. [107b3280-248a-48d5-85b6-0552e0ef18ca] LEgo Movie
+26. [a19f523b-ac4e-4242-988a-74506814717d] SNiper Elite4
+27. [710b98f3-4ef6-486c-9594-099c53c182f9] CAll Of Duty Modern Warfare 2
+28. [25268133-9674-4b1a-95ab-2f268279214e] BEn 10
+29. [bb7a04a1-0717-4a8f-a6e3-7d968574e76f] LEgo City Undercover
+30. [a4b2c12b-0cd9-474e-9c1d-0f2e97bb961c] NAruto Road To Buruto
+31. [6f969430-0c16-423c-a157-72a849013ee0] ROcket League
+32. [6809db86-43b0-44dd-9773-3e21859da190] SOnic Force
+33. [94a572b2-3dd0-46c7-8151-8184255ad800] TEnnis World Tour

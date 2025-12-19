@@ -112,9 +112,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // Extract image URLs as simple string array (Next.js format)
       const images: string[] = [];
       if (product.images && Array.isArray(product.images)) {
-        product.images.forEach((imageUrl: string) => {
-          if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-            images.push(imageUrl);
+        product.images.forEach((imageItem: string | { url: string }) => {
+          if (typeof imageItem === 'string' && imageItem.startsWith('http')) {
+            images.push(imageItem);
+          } else if (
+            typeof imageItem === 'object' &&
+            imageItem?.url &&
+            imageItem.url.startsWith('http')
+          ) {
+            images.push(imageItem.url);
           }
         });
       }

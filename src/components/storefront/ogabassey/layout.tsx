@@ -1,6 +1,6 @@
 'use client';
 
-import { type MerchantData, useMerchant } from '@/hooks/use-merchant';
+import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
@@ -15,31 +15,27 @@ import { OgabasseyNavbar as Navbar } from './layout/navbar';
 import { V2ComparisonProvider } from './providers/v2-comparison-context';
 import { V2NotificationProvider } from './providers/v2-notification-context';
 import { V2SavedProvider } from './providers/v2-saved-context';
-import { V2ThemeProvider } from './providers/v2-theme-context';
+import { type V2ThemeMode, V2ThemeProvider } from './providers/v2-theme-context';
 
 
 export function OgabasseyLayout({
   children,
   merchant,
+  initialTheme,
+  isCheckout = false,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData;
+  /** Initial theme from server cookie - enables SSR consistency */
+  initialTheme?: V2ThemeMode;
+  /** Whether we're on the checkout page - passed from server to avoid hydration issues */
+  isCheckout?: boolean;
 }) {
-  const { basePath } = useMerchant();
-  // Ensure we have a valid slug for display/logic, but use basePath for links
-  const defaultSlug = merchant?.slug || 'ogabassey';
-  // If basePath is empty, links should be /path. If /slug, links should be /slug/path.
-  // The components expect "storeSlug" to be the prefix.
-  // However, Navbar and MobileFooter might use storeSlug for OTHER things (like API calls?).
-  // Let's verify if storeSlug is ONLY used for links.
-
-  // Actually, Navbar uses storeSlug for `searchUrl` etc?
-  // I should check Navbar usage. But for now, assuming passing basePath is correct for routing.
-  // BUT basePath has leading slash. storeSlug usually does NOT?
-  // Let's check Footer usage in next step. For now, let's prepare the layout.
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
 
   return (
-    <V2ThemeProvider>
+    <V2ThemeProvider initialTheme={initialTheme}>
       {/* Using unified cart with Smart Cart Pro enabled */}
       <CartProvider enableSmartCartPro={true}>
         <V2SavedProvider>
@@ -47,19 +43,28 @@ export function OgabasseyLayout({
             <V2NotificationProvider>
               <div className="text-gray-900 bg-white min-h-screen flex flex-col">
                 <SnowEffect />
-                <Navbar
-                  storeName={merchant?.business_name || 'Ogabassey'}
-                  storeSlug={basePath}
-                  showSearch={true}
-                  showCart={true}
-                  showUser={true}
-                  showBell={true}
-                />
+                {!isCheckout && (
+                  <Navbar
+                    storeName={merchant?.business_name || 'Ogabassey'}
+                    storeSlug={basePath}
+                    showSearch={true}
+                    showCart={true}
+                    showUser={true}
+                    showBell={true}
+                  />
+                )}
+
                 <main className="flex-1">{children}</main>
-                <Footer merchant={merchant} storeSlug={basePath} />
-                <MobileFooter storeSlug={basePath} />
-                <CartSidebar />
-                <ChatWidget />
+
+                {!isCheckout && (
+                  <>
+                    <Footer merchant={merchant} storeSlug={basePath} />
+                    <MobileFooter storeSlug={basePath} />
+                    <CartSidebar />
+                    <ChatWidget />
+                  </>
+                )}
+
                 <PopupSystem />
                 <OfflineNotice />
               </div>

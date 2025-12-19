@@ -220,6 +220,11 @@ export async function POST(request: NextRequest) {
       notes,
       // Ad tracking data for offline conversions
       ad_tracking,
+      // Wallet redemption (2025: auto-apply full balance at checkout)
+      use_wallet_credit = false,
+      wallet_amount = 0,
+      // User ID for linking customer to auth user (passed from checkout if logged in)
+      user_id,
     } = body;
 
     // Validate merchant_id is a valid UUID
@@ -232,7 +237,9 @@ export async function POST(request: NextRequest) {
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('id, rider_phone_number, business_name, slug')
+      .select(
+        'id, rider_phone_number, business_name, slug, support_email, email_sender_name, email'
+      )
       .eq('id', merchant_id)
       .single();
 
@@ -269,13 +276,20 @@ export async function POST(request: NextRequest) {
     let customer_id = null;
     const { data: existingCustomer } = await supabase
       .from('customers')
-      .select('id')
+      .select('id, user_id')
       .eq('merchant_id', merchant_id)
       .eq('email', customer_email)
       .single();
 
     if (existingCustomer) {
       customer_id = existingCustomer.id;
+      // Link user_id if logged in and not already linked (2025: unified customer identity)
+      if (user_id && !existingCustomer.user_id) {
+        void supabase
+          .from('customers')
+          .update({ user_id })
+          .eq('id', existingCustomer.id);
+      }
     } else {
       // Create new customer
       const nameParts = customer_name.split(' ');
@@ -290,6 +304,8 @@ export async function POST(request: NextRequest) {
           first_name,
           last_name,
           phone: customer_phone,
+          // Link to auth user if logged in (2025: unified customer identity)
+          ...(user_id && { user_id }),
         })
         .select('id')
         .single();
@@ -465,72 +481,204 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send order confirmation email (non-blocking)
-    // PERFORMANCE: Reuse merchant data from initial fetch instead of redundant query
-    try {
-      if (merchant.business_name && merchant.slug) {
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
+    // Process wallet credit redemption atomically after order creation
+    let walletRedemptionResult: {
+      success: boolean;
+      amountRedeemed: number;
+      newBalance: number;
+      transactionId: string | null;
+    } | null = null;
 
-        // Format items for email template
-        const emailItems = items.map((item: OrderItem) => ({
-          name: item.name || item.productName || 'Product',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-        }));
-
-        // Generate email content
-        const emailData = {
-          orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-          customerName: customer_name,
-          items: emailItems,
-          subtotal: Number.parseFloat(subtotal),
-          shippingFee: Number.parseFloat(shipping_fee),
-          total: Number.parseFloat(total.toString()),
-          shippingAddress: {
-            address: shipping_address?.address || '',
-            city: shipping_address?.city || '',
-            state: shipping_address?.state || '',
-            phone: customer_phone || '',
-          },
-          merchantName: merchant.business_name,
-          merchantUrl,
-        };
-
-        const htmlContent = generateOrderConfirmationEmail(emailData);
-        const textContent = generateOrderConfirmationText(emailData);
-
-        // Send email asynchronously (don't wait for it)
-        sendEmail({
-          to: customer_email,
-          toName: customer_name,
-          subject: `Order Confirmation - #${emailData.orderNumber}`,
-          htmlContent,
-          textContent,
-          replyTo: `support@${merchant.slug}.${rootDomain}`,
-          emailType: 'orders',
-        }).catch((emailError) => {
-          logger.error({
-            message: 'Failed to send order confirmation email',
-            error: emailError,
+    if (use_wallet_credit && wallet_amount > 0 && customer_id) {
+      try {
+        // Call atomic wallet redemption function (handles idempotency via order_id)
+        const { data: redemptionData, error: redemptionError } =
+          await supabase.rpc('redeem_wallet_for_order', {
+            p_customer_id: customer_id,
+            p_merchant_id: merchant_id,
+            p_order_id: order.id,
+            p_amount: Math.min(wallet_amount, total), // Can't redeem more than order total
+            p_order_reference: order.order_number || order.id,
           });
-        });
 
-        logger.info({
-          message: 'Order confirmation email queued',
+        if (redemptionError) {
+          // Log but don't fail order - wallet redemption is optional
+          logger.error({
+            message: 'Wallet redemption failed',
+            error: redemptionError,
+            orderId: order.id,
+            customerId: customer_id,
+            requestedAmount: wallet_amount,
+          });
+        } else if (redemptionData?.[0]) {
+          const result = redemptionData[0];
+          if (result.success) {
+            walletRedemptionResult = {
+              success: true,
+              amountRedeemed: Number(result.redeemed_amount),
+              newBalance: Number(result.new_balance),
+              transactionId: result.transaction_id,
+            };
+
+            logger.info({
+              message: 'Wallet redemption successful',
+              orderId: order.id,
+              customerId: customer_id,
+              amountRedeemed: result.redeemed_amount,
+              newBalance: result.new_balance,
+            });
+          } else {
+            logger.warn({
+              message: 'Wallet redemption returned unsuccessful',
+              orderId: order.id,
+              customerId: customer_id,
+              result,
+            });
+          }
+        }
+      } catch (walletError) {
+        logger.error({
+          message: 'Wallet redemption exception',
+          error: walletError,
           orderId: order.id,
-          email: customer_email,
         });
       }
-    } catch (emailError) {
-      // Don't fail the order creation if email fails
-      logger.error({
-        message: 'Error preparing order confirmation email',
-        error: emailError,
+    }
+
+    // Calculate amount due to payment gateway (total - wallet credit used)
+    const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
+    const amountDueToGateway = total - walletAmountUsed;
+
+    // If wallet fully covers the order, mark as paid immediately (2025 best practice)
+    if (walletAmountUsed > 0 && amountDueToGateway <= 0) {
+      await supabase
+        .from('orders')
+        .update({
+          payment_status: 'paid',
+          payment_method: 'wallet',
+        })
+        .eq('id', order.id);
+
+      logger.info({
+        message: 'Order fully paid with wallet credit',
+        orderId: order.id,
+        walletAmountUsed,
       });
     }
 
-    return NextResponse.json({ order }, { status: 201 });
+    // NOTE: Order confirmation email is NOT sent here at order creation.
+    // It is sent ONLY after payment is confirmed via webhook handlers:
+    // - /api/payments/webhook/route.ts (for Paystack/Korapay)
+    // - /api/payments/juicyway/webhook/route.ts (for Juicyway)
+    // This prevents sending confirmation emails for abandoned/unpaid orders.
+    //
+    // Exceptions (send immediately):
+    // - POD (Pay on Delivery) or Invoice: no payment gateway redirect
+    // - Wallet-paid orders: payment already confirmed via wallet redemption
+    const isWalletFullyPaid = walletAmountUsed > 0 && amountDueToGateway <= 0;
+    if (
+      payment_method === 'pod' ||
+      payment_method === 'invoice' ||
+      isWalletFullyPaid
+    ) {
+      try {
+        if (merchant.business_name && merchant.slug) {
+          const rootDomain =
+            process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+          const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+
+          // Format items for email template
+          const emailItems = items.map((item: OrderItem) => ({
+            name: item.name || item.productName || 'Product',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+          }));
+
+          // Generate email content
+          const emailData = {
+            orderNumber:
+              order.order_number || order.id.slice(0, 8).toUpperCase(),
+            customerName: customer_name,
+            items: emailItems,
+            subtotal: Number.parseFloat(subtotal),
+            shippingFee: Number.parseFloat(shipping_fee),
+            total: Number.parseFloat(total.toString()),
+            shippingAddress: {
+              address: shipping_address?.address || '',
+              city: shipping_address?.city || '',
+              state: shipping_address?.state || '',
+              phone: customer_phone || '',
+            },
+            merchantName: merchant.business_name,
+            merchantUrl,
+          };
+
+          const htmlContent = generateOrderConfirmationEmail(emailData);
+          const textContent = generateOrderConfirmationText(emailData);
+
+          // Send email asynchronously (don't wait for it)
+          // Use merchant's support_email as reply-to (so customer replies go to merchant)
+          // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders" instead of "Baci Orders")
+          const replyToEmail =
+            merchant.support_email ||
+            merchant.email ||
+            `support@${merchant.slug}.${rootDomain}`;
+          const senderName = merchant.email_sender_name
+            ? `${merchant.email_sender_name} Orders`
+            : merchant.business_name
+              ? `${merchant.business_name} Orders`
+              : undefined;
+
+          sendEmail({
+            to: customer_email,
+            toName: customer_name,
+            subject: `Order Confirmation - #${emailData.orderNumber}`,
+            htmlContent,
+            textContent,
+            replyTo: replyToEmail,
+            emailType: 'orders',
+            fromName: senderName,
+          }).catch((emailError) => {
+            logger.error({
+              message: 'Failed to send order confirmation email',
+              error: emailError,
+            });
+          });
+
+          logger.info({
+            message: 'Order confirmation email queued (POD/Invoice)',
+            orderId: order.id,
+            email: customer_email,
+            paymentMethod: payment_method,
+          });
+        }
+      } catch (emailError) {
+        // Don't fail the order creation if email fails
+        logger.error({
+          message: 'Error preparing order confirmation email',
+          error: emailError,
+        });
+      }
+    }
+
+    // Return order with wallet info for checkout UI
+    return NextResponse.json(
+      {
+        order,
+        // Wallet redemption details for UI display
+        wallet: walletRedemptionResult
+          ? {
+              amountUsed: walletRedemptionResult.amountRedeemed,
+              newBalance: walletRedemptionResult.newBalance,
+              transactionId: walletRedemptionResult.transactionId,
+            }
+          : null,
+        // Amount still due to payment gateway (for payment initialization)
+        amountDueToGateway,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Unexpected error in POST /api/orders:', error);
     return NextResponse.json(

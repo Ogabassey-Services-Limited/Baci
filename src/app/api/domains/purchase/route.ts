@@ -5,6 +5,7 @@ import {
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { type ContactInfo, registerDomain } from '@/lib/go54';
+import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -23,7 +24,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { domain, years = 1, contactInfo } = await request.json();
+    const {
+      domain,
+      years = 1,
+      contactInfo,
+      paymentReference,
+    } = await request.json();
 
     // Validate domain - using required separator [.-] instead of optional [-.]?
     // to prevent ReDoS (exponential backtracking) vulnerability
@@ -74,10 +80,105 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: Verify payment via Paystack before proceeding
-    // if (!paymentVerified) {
-    //   return NextResponse.json({ error: 'Payment not verified' }, { status: 402 });
-    // }
+    // Verify payment before proceeding
+    // Payment must be completed and match the expected amount
+    if (!paymentReference) {
+      return NextResponse.json(
+        { error: 'Payment reference is required' },
+        { status: 400 }
+      );
+    }
+
+    // First, get the transaction record (might be pending if webhook hasn't fired yet)
+    const { data: transactionRecord, error: transactionFetchError } =
+      await supabase
+        .from('transactions')
+        .select('id, amount, status, metadata, merchant_id, gateway')
+        .eq('gateway_reference', paymentReference)
+        .single();
+
+    if (transactionFetchError || !transactionRecord) {
+      return NextResponse.json(
+        {
+          error:
+            'Transaction not found. Please ensure you completed the payment.',
+        },
+        { status: 402 }
+      );
+    }
+
+    // If transaction is still pending, verify directly with payment gateway
+    let payment = transactionRecord;
+    if (transactionRecord.status === 'pending') {
+      // Verify with Paystack (domain payments use Paystack)
+      const verificationResult = await verifyPaystackPayment(paymentReference);
+
+      if (
+        !verificationResult.success ||
+        verificationResult.data.status !== 'success'
+      ) {
+        return NextResponse.json(
+          {
+            error: 'Payment not completed. Please complete your payment first.',
+          },
+          { status: 402 }
+        );
+      }
+
+      // Update transaction status to 'success' since payment is confirmed
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({
+          status: 'success',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', transactionRecord.id);
+
+      if (updateError) {
+        console.error('Failed to update transaction status:', updateError);
+      }
+
+      // Update local reference with new status
+      payment = { ...transactionRecord, status: 'success' };
+    }
+
+    // Verify payment status is successful
+    if (!['success', 'completed'].includes(payment.status)) {
+      return NextResponse.json(
+        { error: 'Payment not verified. Please complete payment first.' },
+        { status: 402 }
+      );
+    }
+
+    // Verify payment belongs to this merchant
+    if (payment.merchant_id !== merchant.id) {
+      return NextResponse.json(
+        { error: 'Payment does not belong to this merchant' },
+        { status: 403 }
+      );
+    }
+
+    // Verify payment amount matches domain price
+    const expectedAmount = priceCalculation.sellPrice;
+    if (Number(payment.amount) < expectedAmount) {
+      return NextResponse.json(
+        {
+          error: 'Payment amount insufficient',
+          expected: expectedAmount,
+          received: payment.amount,
+        },
+        { status: 402 }
+      );
+    }
+
+    // Check if payment was already used for a domain purchase
+    const paymentMetadata = payment.metadata as Record<string, unknown> | null;
+    if (paymentMetadata?.domain_purchased) {
+      return NextResponse.json(
+        { error: 'This payment has already been used for a domain purchase' },
+        { status: 409 }
+      );
+    }
 
     // Check if domain already exists
     const { data: existingDomain } = await supabase
@@ -219,6 +320,19 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
+
+      // Mark payment as used for this domain purchase (prevent reuse)
+      await supabase
+        .from('transactions')
+        .update({
+          metadata: {
+            ...(paymentMetadata || {}),
+            domain_purchased: domain,
+            domain_id: newDomain.id,
+            purchased_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', payment.id);
 
       return NextResponse.json({
         success: true,

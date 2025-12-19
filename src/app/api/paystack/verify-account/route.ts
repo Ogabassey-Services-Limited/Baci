@@ -35,12 +35,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify with Paystack
-    const accountDetails = await resolveAccountNumber(accountNumber, bankCode);
+    const result = await resolveAccountNumber(accountNumber, bankCode);
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
 
     return NextResponse.json({
-      accountName: accountDetails.account_name,
-      accountNumber: accountDetails.account_number,
-      bankId: accountDetails.bank_id,
+      accountName: result.data.account_name,
+      accountNumber: result.data.account_number,
     });
   } catch (error) {
     console.error('Account verification error:', error);

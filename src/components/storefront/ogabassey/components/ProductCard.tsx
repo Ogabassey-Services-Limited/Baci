@@ -5,11 +5,21 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
+
+// Note: The getProductImage helper was removed because product data is now
+// normalized upstream via normalizeProduct(), ensuring product.image is always set.
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>?/gm, '') || '';
+}
 
 interface ProductCardProps {
   product: Product;
@@ -27,6 +37,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const { toggleSaved, isSaved } = useV2Saved();
   const { addToCompare, removeFromCompare, isInCompare } = useV2Comparison();
   const [showPlusOne, setShowPlusOne] = useState(false);
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
 
   const isLiked = isSaved(product.id);
   const isComparing = isInCompare(product.id);
@@ -55,11 +67,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     setTimeout(() => setShowPlusOne(false), 1000); // Hide after animation
   };
 
+  // Build semantic link attributes per Koray's methodology:
+  // - Unique title/aria-label per product (no duplicate anchors)
+  // - Links provide transactional frame signals ("Buy", "View")
+  const linkTitle = `${product.name}${product.brand ? ` - ${product.brand}` : ''} ${product.condition || ''}`.trim();
+  const linkAriaLabel = `Buy ${product.name} for ${product.price}`;
+
+  // Ensure id is a string for getProductUrl (Product type allows number | string)
+  const productForUrl = { ...product, id: String(product.id) };
+  // Build full URL with basePath for proper routing on custom domains
+  const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
+
   if (viewMode === 'grid') {
     return (
       <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
         <Link
-          href={`./product/${product.id}` as any}
+          href={productHref}
+          title={linkTitle}
+          aria-label={linkAriaLabel}
           className="absolute inset-0 z-0"
         />
 
@@ -72,13 +97,41 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           />
 
           {/* Badge */}
-          {product.condition && (
-            <div
-              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-            >
-              {product.condition}
-            </div>
+          {/* Badge: Platform or Condition */}
+          {((product as any).variant_attributes?.Platform || product.condition) && (
+            (() => {
+              const platform = (product as any).variant_attributes?.Platform;
+              let badgeColor = 'bg-amber-500';
+              // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
+              let badgeText = String(product.condition || '');
+
+              if (platform) {
+                badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
+                if (typeof badgeText === 'string') {
+                  const lower = badgeText.toLowerCase();
+                  if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
+                  else if (lower.includes('xbox')) badgeColor = 'bg-green-600'; // Xbox Green
+                  else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
+                  else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
+                }
+              } else if (product.condition === 'New') {
+                badgeColor = 'bg-emerald-500';
+              }
+
+              // Shorten text for badges
+              const display = badgeText === 'PlayStation 5' ? 'PS5' :
+                badgeText === 'PlayStation 4' ? 'PS4' :
+                  badgeText === 'Nintendo Switch' ? 'Switch' :
+                    badgeText;
+
+              return (
+                <div
+                  className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${badgeColor}`}
+                >
+                  {display}
+                </div>
+              );
+            })()
           )}
 
           {/* Action Buttons - Top Right */}
@@ -154,7 +207,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Description - truncated */}
           <p className="text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed hidden md:block">
-            {product.description?.substring(0, 100) || 'No description available.'}
+            {stripHtml(product.description || '').substring(0, 100) || 'No description available.'}
           </p>
 
           {/* Price */}
@@ -172,7 +225,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
       <Link
-        href={`./product/${product.id}` as any}
+        href={productHref}
+        title={linkTitle}
+        aria-label={linkAriaLabel}
         className="absolute inset-0 z-0"
       />
 
@@ -183,12 +238,40 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           alt={product.name}
           className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
-        <div
-          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-            }`}
-        >
-          {product.condition}
-        </div>
+        {((product as any).variant_attributes?.Platform || product.condition) && (
+          (() => {
+            const platform = (product as any).variant_attributes?.Platform;
+            let badgeColor = 'bg-amber-500';
+            // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
+            let badgeText = String(product.condition || '');
+
+            if (platform) {
+              badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
+              if (typeof badgeText === 'string') {
+                const lower = badgeText.toLowerCase();
+                if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
+                else if (lower.includes('xbox')) badgeColor = 'bg-green-600';
+                else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
+                else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
+              }
+            } else if (product.condition === 'New') {
+              badgeColor = 'bg-emerald-500';
+            }
+
+            const display = badgeText === 'PlayStation 5' ? 'PS5' :
+              badgeText === 'PlayStation 4' ? 'PS4' :
+                badgeText === 'Nintendo Switch' ? 'Switch' :
+                  badgeText;
+
+            return (
+              <div
+                className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${badgeColor}`}
+              >
+                {display}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       {/* Content (Right Side) */}
@@ -215,7 +298,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">
-          {product.description?.substring(0, 150) || 'No description available.'}
+          {stripHtml(product.description || '').substring(0, 150) || 'No description available.'}
         </p>
 
         <div className="mt-auto flex items-center justify-between">

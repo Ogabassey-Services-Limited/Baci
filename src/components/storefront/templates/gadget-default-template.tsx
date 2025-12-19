@@ -47,9 +47,7 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
     }
   };
 
-  const heroImage =
-    getHeroImage() ||
-    'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3';
+  const heroImage = getHeroImage() || '/placeholder.png';
 
   // --- Dynamic Categories ---
   const categories = [

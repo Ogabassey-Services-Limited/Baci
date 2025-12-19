@@ -13,6 +13,7 @@
     "docs": "typedoc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "knip": "knip --no-exit-code",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs"
   },
   "dependencies": {

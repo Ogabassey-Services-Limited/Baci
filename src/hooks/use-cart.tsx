@@ -100,6 +100,9 @@ export interface CartContextType {
 
   // Feature availability
   hasSmartCartPro: boolean;
+
+  // Hydration state - true once cart has loaded from localStorage
+  isHydrated: boolean;
 }
 
 // ============================================================================
@@ -638,6 +641,9 @@ export const CartProvider = ({
 
     // Feature flag
     hasSmartCartPro: enableSmartCartPro,
+
+    // Hydration state
+    isHydrated,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

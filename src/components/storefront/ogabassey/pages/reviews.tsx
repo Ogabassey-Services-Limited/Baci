@@ -17,22 +17,19 @@ const mockProducts: Product[] = [
   {
     id: '1',
     name: 'iPhone 15 Pro Max',
-    image:
-      'https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=200',
+    image: '/placeholder.png',
     price: '₦1,950,000',
   },
   {
     id: '2',
     name: 'MacBook Pro 14"',
-    image:
-      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=200',
+    image: '/placeholder.png',
     price: '₦2,450,000',
   },
   {
     id: '3',
     name: 'Sony WH-1000XM5',
-    image:
-      'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&q=80&w=200',
+    image: '/placeholder.png',
     price: '₦450,000',
   },
 ];

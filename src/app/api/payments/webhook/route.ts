@@ -203,13 +203,19 @@ export async function POST(request: NextRequest) {
     let gatewayResponse: Record<string, unknown>;
 
     if (gateway === 'paystack') {
-      const paymentData = await verifyPaystackPayment(reference);
-      paymentStatus = paymentData.status;
-      gatewayResponse = paymentData as unknown as Record<string, unknown>;
+      const result = await verifyPaystackPayment(reference);
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      paymentStatus = result.data.status;
+      gatewayResponse = result.data as unknown as Record<string, unknown>;
     } else {
-      const paymentData = await verifyKorapayPayment(reference);
-      paymentStatus = paymentData.status;
-      gatewayResponse = paymentData as unknown as Record<string, unknown>;
+      const result = await verifyKorapayPayment(reference);
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      paymentStatus = result.data.status;
+      gatewayResponse = result.data as unknown as Record<string, unknown>;
     }
 
     if (paymentStatus !== 'success') {
@@ -298,7 +304,9 @@ export async function POST(request: NextRequest) {
         try {
           const { data: merchantDetails } = await supabase
             .from('merchants')
-            .select('business_name, slug')
+            .select(
+              'business_name, slug, support_email, email_sender_name, email'
+            )
             .eq('id', transaction.merchant_id)
             .single();
 
@@ -336,13 +344,27 @@ export async function POST(request: NextRequest) {
             const htmlContent = generateOrderConfirmationEmail(emailData);
             const textContent = generateOrderConfirmationText(emailData);
 
+            // Use merchant's support_email as reply-to (so customer replies go to merchant)
+            // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders")
+            const replyToEmail =
+              merchantDetails.support_email ||
+              merchantDetails.email ||
+              `support@${merchantDetails.slug}.${rootDomain}`;
+            const senderName = merchantDetails.email_sender_name
+              ? `${merchantDetails.email_sender_name} Orders`
+              : merchantDetails.business_name
+                ? `${merchantDetails.business_name} Orders`
+                : undefined;
+
             await sendEmail({
               to: order.customer_email,
               toName: order.customer_name,
               subject: `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
               textContent,
+              replyTo: replyToEmail,
               emailType: 'orders',
+              fromName: senderName,
             });
 
             logger.info({

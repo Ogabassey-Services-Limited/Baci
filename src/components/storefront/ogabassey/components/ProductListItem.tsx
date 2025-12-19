@@ -123,10 +123,12 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {product.condition && (
           <div
             className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${product.condition === 'New'
-              ? 'bg-gray-900'
-              : product.condition === 'Open Box'
-                ? 'bg-indigo-600'
-                : 'bg-stone-500'
+                ? 'bg-gray-900'
+                : product.condition === 'Open Box'
+                  ? 'bg-indigo-600'
+                  : product.condition === 'New & Used'
+                    ? 'bg-purple-600'
+                    : 'bg-stone-500'
               }`}
           >
             {product.condition}
@@ -201,7 +203,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-2 md:line-clamp-none">
-          {product.description}
+          {product.description?.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim()}
         </p>
 
         <div className="mt-auto flex items-center justify-between">

@@ -1,7 +1,6 @@
 'use client';
 
 import { Loader2, Search, ShoppingCart } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -37,7 +36,6 @@ interface DomainSearchPanelProps {
 }
 
 export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
-  const router = useRouter();
   const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,40 +125,44 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
     setPurchasingDomain(domain);
 
     try {
-      const response = await fetch('/api/domains/purchase', {
+      // Initialize payment for domain purchase
+      const response = await fetch('/api/domains/initialize-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ domain, years: 1 }),
       });
 
-      // Check response.ok before calling .json() to handle non-JSON error responses
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Purchase failed');
+        throw new Error(error.error || 'Failed to initialize payment');
       }
 
       const data = await response.json();
 
-      toast({
-        title: '🎉 Domain Purchased!',
-        description: data.message || `Successfully registered ${domain}`,
-      });
+      // Redirect to Paystack checkout
+      if (data.authorization_url) {
+        toast({
+          title: 'Redirecting to payment...',
+          description: 'You will be redirected to complete your payment.',
+        });
 
-      // Clear search and refresh data
-      setResults([]);
-      setSearchTerm('');
-      router.refresh(); // Refresh page to show new domain
+        // Small delay to show toast before redirect
+        setTimeout(() => {
+          window.location.href = data.authorization_url;
+        }, 500);
+      } else {
+        throw new Error('No payment URL returned');
+      }
     } catch (error) {
-      console.error('Purchase error:', error);
+      console.error('Payment initialization error:', error);
       toast({
-        title: 'Purchase Failed',
+        title: 'Payment Failed',
         description:
           error instanceof Error
             ? error.message
             : 'Please try again or contact support',
         variant: 'destructive',
       });
-    } finally {
       setPurchasingDomain(null);
     }
   };

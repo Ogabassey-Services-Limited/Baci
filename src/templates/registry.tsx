@@ -19,6 +19,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { MerchantData } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 
 /**
  * Template status - controls visibility and access
@@ -123,6 +124,8 @@ export interface TemplatePageProps {
   products?: Product[];
   /** Whether this is a preview mode */
   isPreview?: boolean;
+  /** Initial theme for SSR consistency (Phase 1: Cookie-Based Theme) */
+  initialTheme?: V2ThemeMode;
 }
 
 /**
@@ -547,21 +550,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       const { OgabasseyV2HelpSupport } = await import('@/components/storefront/ogabassey/pages/help-support');
       const { OgabasseyV2Blog } = await import('@/components/storefront/ogabassey/pages/blog');
 
-      // Wrapper component that uses the layout for Home
+      // Wrapper component
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
         return (
-          <OgabasseyLayout merchant={props.merchant}>
-            <OgabasseyHomePage products={props.products} />
-          </OgabasseyLayout>
+          <OgabasseyHomePage products={props.products} />
         );
       };
 
       // Wrapper factory for pages
       const createWrappedPage = <P extends TemplatePageProps>(Component: React.ComponentType<P>) => {
         return (props: P) => (
-          <OgabasseyLayout merchant={props.merchant}>
-            <Component {...props} />
-          </OgabasseyLayout>
+          <Component {...props} />
         );
       };
 

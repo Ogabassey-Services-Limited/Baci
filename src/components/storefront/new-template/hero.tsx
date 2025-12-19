@@ -11,7 +11,7 @@ export const Hero: React.FC = () => {
           {/* 1. Main Hero Banner (Spans 3 Columns) */}
           <div className="lg:col-span-3 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300">
             <img
-              src="https://images.unsplash.com/photo-1592434134753-a70baf7979d5?q=80&w=2000&auto=format&fit=crop"
+              src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
               alt="VR Headset"
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
             />
@@ -59,7 +59,7 @@ export const Hero: React.FC = () => {
             {/* 2a. Top Unit: MacBook Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
               <img
-                src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=1000&auto=format&fit=crop"
+                src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
                 alt="MacBook Pro"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
               />
@@ -91,7 +91,7 @@ export const Hero: React.FC = () => {
             {/* 2b. Bottom Unit: PS5 Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
               <img
-                src="https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=1000&auto=format&fit=crop"
+                src="https://cdn.ogabassey.com/products/flash-sale-banner.avif"
                 alt="PS5 Controller"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
               />

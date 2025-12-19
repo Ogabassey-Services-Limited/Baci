@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, X, Smartphone, Loader2 } from 'lucide-react';
-import type { Product } from '../types';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import type { Product } from '../types';
 
 interface ProductComparisonTableProps {
     mainProduct: Product;
@@ -19,11 +22,19 @@ export function ProductComparisonTable({
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const merchantContext = useMerchantSafe();
+    const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
+
+    // Helper to build product URL with proper basePath
+    const getProductHref = (product: Product) => {
+        const categorySlug = product.categorySlug || mainProduct.categorySlug || 'products';
+        return asRoute(`${basePath}/${categorySlug}/${product.slug}`);
+    };
 
     // Maximum 2 comparison slots + 1 main product = 3 columns
     const MAX_SLOTS = 2;
 
-    // Search products API
+    // Search products API - filtered to SAME CATEGORY only (Koray SEO: no cross-category comparisons)
     useEffect(() => {
         const searchProducts = async () => {
             if (!query.trim() || query.length < 2) {
@@ -33,7 +44,8 @@ export function ProductComparisonTable({
 
             setLoading(true);
             try {
-                // Construct API URL
+                // Construct API URL - filter to same category for semantic relevance
+                const categorySlug = mainProduct.categorySlug || mainProduct.category;
                 const params = new URLSearchParams({
                     q: query,
                     limit: '5',
@@ -41,6 +53,11 @@ export function ProductComparisonTable({
 
                 if (mainProduct.merchantId) {
                     params.append('merchant_id', mainProduct.merchantId);
+                }
+
+                // Filter to same category only - prevents cross-category comparisons
+                if (categorySlug) {
+                    params.append('category', categorySlug);
                 }
 
                 const res = await fetch(`/api/storefront/products?${params.toString()}`);
@@ -151,7 +168,7 @@ export function ProductComparisonTable({
                                             />
                                         </div>
                                         <Link
-                                            href={storeSlug ? `/${storeSlug}/${product.categorySlug || mainProduct.categorySlug}/${product.slug}` : `/${product.categorySlug || mainProduct.categorySlug}/${product.slug}` as any}
+                                            href={getProductHref(product)}
                                             className="font-bold text-sm text-center line-clamp-2 mb-1 hover:text-red-600"
                                         >
                                             {product.name}
@@ -192,8 +209,8 @@ export function ProductComparisonTable({
                                                                     onClick={() => addProduct(res)}
                                                                     className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
                                                                 >
-                                                                    <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                                                        <img src={res.image || res.imageLarge} className="w-full h-full object-cover" />
+                                                                    <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden relative">
+                                                                        <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
                                                                     </div>
                                                                     <div className="min-w-0">
                                                                         <div className="text-xs font-bold text-gray-900 truncate">{res.name}</div>
@@ -223,7 +240,9 @@ export function ProductComparisonTable({
                                                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
                                                     <Plus size={20} />
                                                 </div>
-                                                <span className="text-xs font-bold uppercase tracking-wider">Add Product</span>
+                                                <span className="text-xs font-bold uppercase tracking-wider text-center px-2">
+                                                    Compare Similar {mainProduct.category || 'Products'}
+                                                </span>
                                             </button>
                                         )}
                                     </div>

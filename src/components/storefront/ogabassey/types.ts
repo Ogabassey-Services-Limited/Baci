@@ -12,9 +12,14 @@ export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 export interface ProductConditionOffer {
   id: string;
   condition: ProductCondition;
-  price: number;
-  stock_quantity: number;
+  price: string; // Formatted price string
+  rawPrice: number; // Raw numeric price
+  compare_at_price?: string;
+  stock?: number;
+  stock_quantity?: number;
   images?: string[];
+  notes?: string;
+  grade?: string;
 }
 
 export interface ProductRecommendation {
@@ -62,6 +67,7 @@ export interface Product {
   | 'New'
   | 'Used'
   | 'Open Box'
+  | 'New & Used'
   | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
@@ -87,6 +93,7 @@ export interface Product {
   offers?: ProductConditionOffer[];
   // Phase 4: Product Variants (Storage/Color/etc)
   variants?: ProductVariant[];
+  variant_attributes?: Record<string, string[]>;
 }
 
 export interface ProductVariant {

@@ -43,8 +43,7 @@ const MOBILE_SLIDES: SlideData[] = [
     subtitle: 'Shoot like a pro. Auto-focus changes dynamically.',
     bgClass: 'bg-black',
     src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-    poster:
-      'https://images.unsplash.com/photo-1535016120720-40c6874c3b1c?q=80&w=1000&auto=format&fit=crop',
+    poster: '/placeholder.png',
     textColor: 'text-white',
     imageFit: 'cover',
   },
@@ -353,7 +352,7 @@ export const Hero: React.FC = () => {
             {/* 2a. Top Unit: MacBook Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
               <Image
-                src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=1000&auto=format&fit=crop"
+                src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
                 alt="MacBook Pro"
                 fill
                 sizes="(max-width: 1024px) 100vw, 25vw"
@@ -390,7 +389,7 @@ export const Hero: React.FC = () => {
             {/* 2b. Bottom Unit: PS5 Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
               <Image
-                src="https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=1000&auto=format&fit=crop"
+                src="https://cdn.ogabassey.com/products/flash-sale-banner.avif"
                 alt="PS5 Controller"
                 fill
                 sizes="(max-width: 1024px) 100vw, 25vw"

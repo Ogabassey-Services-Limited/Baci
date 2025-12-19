@@ -1219,22 +1219,18 @@ export const builderConfig: Config<
       defaultProps: {
         slides: [
           {
-            image:
-              'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop',
+            image: '/placeholder.png',
             title: 'iPhone 15 Pro Max',
             link: '/category/phones',
           },
           {
-            image:
-              'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=2072&auto=format&fit=crop',
+            image: '/placeholder.png',
             title: 'PlayStation 5',
             link: '/category/gaming',
           },
         ],
-        staticBanner1:
-          'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1981&auto=format&fit=crop',
-        staticBanner2:
-          'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
+        staticBanner1: '/placeholder.png',
+        staticBanner2: '/placeholder.png',
         autoplayDelay: 5000,
       },
       render: (props) => <OgabasseyHero {...props} />,
@@ -1378,8 +1374,7 @@ export const builderConfig: Config<
         autoplayDelay: 5000,
         slides: [
           {
-            image:
-              'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+            image: '/placeholder.png',
             title: 'Welcome to Your Store',
             subtitle:
               'Customize this slide with your own images and text to showcase your products.',
@@ -1387,8 +1382,7 @@ export const builderConfig: Config<
             ctaLink: '#products',
           },
           {
-            image:
-              'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+            image: '/placeholder.png',
             title: 'Featured Collection',
             subtitle:
               'Add your seasonal promotions or highlight bestselling products here.',
@@ -1508,7 +1502,7 @@ export const builderConfig: Config<
         ...animationFields,
       },
       defaultProps: {
-        src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
+        src: '/placeholder.png',
         alt: 'Product image',
         aspectRatio: '16/9',
         animationType: 'zoom-in',
@@ -2639,8 +2633,7 @@ export const builderConfig: Config<
         title: 'About Our Store',
         content:
           'We are passionate about bringing you the best products at competitive prices. Our journey began with a simple idea: make quality accessible to everyone.\n\nWith years of experience in the industry, we have built strong relationships with suppliers and manufacturers to ensure that every product meets our high standards.',
-        image:
-          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+        image: '/placeholder.png',
         imagePosition: 'right',
         showStats: true,
         stats: [

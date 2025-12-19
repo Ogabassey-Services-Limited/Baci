@@ -83,11 +83,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get VTU settings
+    // Get VTU settings (including customer cashback settings)
     const { data: settings } = await supabase
       .from('merchant_feature_settings')
       .select(
-        'vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_merchant_commission_rate'
+        'vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_merchant_commission_rate, vtu_customer_cashback_enabled, vtu_customer_cashback_rate'
       )
       .eq('merchant_id', merchant.id)
       .single();
@@ -126,6 +126,24 @@ export async function POST(request: Request) {
       merchantSplitPercentage
     );
 
+    // Calculate customer cashback (if enabled)
+    // Merchant can share a percentage of their commission with customers
+    const customerCashbackEnabled =
+      settings.vtu_customer_cashback_enabled ?? false;
+    const customerCashbackRate = settings.vtu_customer_cashback_rate ?? 50; // Default 50% of merchant's share
+
+    let customerCashback = 0;
+    let effectiveMerchantEarning = commissions.merchantEarning;
+
+    if (customerCashbackEnabled && customerId) {
+      // Customer gets a percentage of merchant's commission
+      customerCashback =
+        Math.round(
+          ((commissions.merchantEarning * customerCashbackRate) / 100) * 100
+        ) / 100;
+      effectiveMerchantEarning = commissions.merchantEarning - customerCashback;
+    }
+
     // Generate request reference
     const requestRef = generateRequestRef();
 
@@ -144,10 +162,14 @@ export async function POST(request: Request) {
         status: 'pending',
         source,
         platform_commission: commissions.platformEarning,
-        merchant_commission: commissions.merchantEarning,
+        merchant_commission: effectiveMerchantEarning, // After customer cashback deduction
+        customer_cashback: customerCashback,
         metadata: {
           dataPlanCode,
           originalPhoneNumber: phoneNumber,
+          originalMerchantCommission: commissions.merchantEarning,
+          customerCashbackEnabled,
+          customerCashbackRate,
         },
       })
       .select()
@@ -201,43 +223,74 @@ export async function POST(request: Request) {
 
     // WALLET CREDIT: Add merchant's commission share to their wallet
     // Weekly auto-payout or manual withdrawal when balance >= ₦1,000
-    let walletCredited = false;
-    if (commissions.merchantEarning > 0) {
+    let merchantWalletCredited = false;
+    let customerWalletCredited = false;
+    let customerNewBalance = 0;
+
+    // Credit merchant wallet (with effective amount after customer cashback)
+    if (effectiveMerchantEarning > 0) {
       try {
-        // Credit merchant wallet using database function
-        const { data: walletResult, error: walletError } = await supabase.rpc(
+        const { error: walletError } = await supabase.rpc(
           'credit_merchant_wallet',
           {
             p_merchant_id: merchant.id,
-            p_amount: commissions.merchantEarning,
+            p_amount: effectiveMerchantEarning,
             p_source_type: 'vtu_transaction',
             p_source_id: transaction.id,
-            p_description: `VTU Commission - ${type} ${networkProvider} ₦${amount}`,
+            p_description: `VTU Commission - ${type} ${networkProvider} ₦${amount}${customerCashback > 0 ? ` (after ₦${customerCashback} customer cashback)` : ''}`,
           }
         );
 
         if (walletError) {
           console.error('Failed to credit merchant wallet:', walletError);
         } else {
-          walletCredited = true;
-
-          // Update transaction with wallet credit info
-          await supabase
-            .from('vtu_transactions')
-            .update({
-              metadata: {
-                ...((transaction.metadata as Record<string, unknown>) || {}),
-                walletCredited: true,
-                walletTransactionId: walletResult?.[0]?.transaction_id,
-                newWalletBalance: walletResult?.[0]?.new_balance,
-              },
-            })
-            .eq('id', transaction.id);
+          merchantWalletCredited = true;
         }
       } catch (walletError) {
-        console.error('Wallet credit error:', walletError);
-        // Don't fail the transaction - just log for reconciliation
+        console.error('Merchant wallet credit error:', walletError);
       }
+    }
+
+    // Credit customer wallet with cashback (if enabled and customer exists)
+    if (customerCashback > 0 && customerId) {
+      try {
+        const { data: customerWalletResult, error: customerWalletError } =
+          await supabase.rpc('credit_customer_wallet', {
+            p_customer_id: customerId,
+            p_merchant_id: merchant.id,
+            p_amount: customerCashback,
+            p_source_type: 'vtu_transaction',
+            p_source_id: transaction.id,
+            p_description: `Cashback - ${type} ${networkProvider} ₦${amount}`,
+          });
+
+        if (customerWalletError) {
+          console.error(
+            'Failed to credit customer wallet:',
+            customerWalletError
+          );
+        } else {
+          customerWalletCredited = true;
+          customerNewBalance = customerWalletResult?.[0]?.new_balance || 0;
+        }
+      } catch (walletError) {
+        console.error('Customer wallet credit error:', walletError);
+      }
+    }
+
+    // Update transaction with wallet credit info
+    if (merchantWalletCredited || customerWalletCredited) {
+      await supabase
+        .from('vtu_transactions')
+        .update({
+          metadata: {
+            ...((transaction.metadata as Record<string, unknown>) || {}),
+            merchantWalletCredited,
+            customerWalletCredited,
+            customerNewBalance,
+          },
+        })
+        .eq('id', transaction.id);
     }
 
     return NextResponse.json({
@@ -249,9 +302,17 @@ export async function POST(request: Request) {
       phoneNumber: formattedPhone,
       provider: networkProvider,
       commission: {
-        merchantEarning: commissions.merchantEarning,
-        walletCredited,
+        merchantEarning: effectiveMerchantEarning,
+        merchantWalletCredited,
       },
+      // Include cashback info if customer received any
+      ...(customerCashback > 0 && {
+        cashback: {
+          amount: customerCashback,
+          credited: customerWalletCredited,
+          newBalance: customerNewBalance,
+        },
+      }),
     });
   } catch (error) {
     console.error('VTU purchase error:', error);

@@ -1,7 +1,21 @@
 /**
  * Korapay Payment Integration
  * Supports multi-currency payments, conversions, and payouts across Africa
+ *
+ * 2025 Best Practices:
+ * - Zod validation for API responses
+ * - Result types for recoverable errors
+ * - Const assertions for literal types
+ * - Structured logging
+ * - Type-safe currency handling
  */
+
+import { z } from 'zod';
+import { logger } from './logger';
+
+// =============================================================================
+// Configuration
+// =============================================================================
 
 const KORAPAY_BASE_URL =
   process.env.KORAPAY_BASE_URL || 'https://api.korapay.com/merchant/api/v1';
@@ -12,9 +26,12 @@ const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || '';
 const PLATFORM_FEE_PERCENTAGE = Number.parseFloat(
   process.env.PLATFORM_FEE_PERCENTAGE || '2'
 );
-const PLATFORM_FEE_CAP = 2050; // ₦2,050 cap
+const PLATFORM_FEE_CAP = 2050;
 
-// Supported African currencies
+// =============================================================================
+// Type Definitions
+// =============================================================================
+
 export const SUPPORTED_CURRENCIES = [
   'NGN',
   'KES',
@@ -25,7 +42,6 @@ export const SUPPORTED_CURRENCIES = [
 ] as const;
 export type Currency = (typeof SUPPORTED_CURRENCIES)[number];
 
-// Currency symbols
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   NGN: '₦',
   KES: 'KSh',
@@ -35,7 +51,6 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   XOF: 'CFA',
 };
 
-// Currency names
 export const CURRENCY_NAMES: Record<Currency, string> = {
   NGN: 'Nigerian Naira',
   KES: 'Kenyan Shilling',
@@ -45,13 +60,81 @@ export const CURRENCY_NAMES: Record<Currency, string> = {
   XOF: 'West African CFA Franc',
 };
 
-interface KorapayResponse<T = unknown> {
-  status: boolean;
-  message: string;
-  data: T;
-}
+const PAYMENT_STATUSES = ['success', 'pending', 'failed'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-interface PaymentInitData {
+const PAYOUT_STATUSES = ['processing', 'success', 'failed'] as const;
+export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
+
+// =============================================================================
+// Zod Schemas
+// =============================================================================
+
+const PaymentInitResponseSchema = z.object({
+  reference: z.string(),
+  checkout_url: z.string().url(),
+  authorization_url: z.string().url(),
+});
+
+const PaymentVerificationSchema = z.object({
+  reference: z.string(),
+  amount: z.number(),
+  currency: z.string(),
+  status: z.enum(PAYMENT_STATUSES),
+  customer: z.object({
+    name: z.string(),
+    email: z.string().email(),
+  }),
+  paid_at: z.string(),
+  created_at: z.string(),
+});
+
+const ExchangeRateSchema = z.object({
+  source_currency: z.string(),
+  destination_currency: z.string(),
+  rate: z.number(),
+});
+
+const ConversionResponseSchema = z.object({
+  source_currency: z.string(),
+  destination_currency: z.string(),
+  source_amount: z.number(),
+  destination_amount: z.number(),
+  rate: z.number(),
+  reference: z.string(),
+});
+
+const PayoutResponseSchema = z.object({
+  reference: z.string(),
+  status: z.enum(PAYOUT_STATUSES),
+  amount: z.number(),
+  fee: z.number(),
+  currency: z.string(),
+});
+
+const BankSchema = z.object({
+  name: z.string(),
+  code: z.string(),
+});
+
+const ResolvedAccountSchema = z.object({
+  account_name: z.string(),
+  account_number: z.string(),
+});
+
+// =============================================================================
+// TypeScript Interfaces
+// =============================================================================
+
+export type PaymentInitResponse = z.infer<typeof PaymentInitResponseSchema>;
+export type PaymentVerificationResponse = z.infer<
+  typeof PaymentVerificationSchema
+>;
+export type ExchangeRateResponse = z.infer<typeof ExchangeRateSchema>;
+export type ConversionResponse = z.infer<typeof ConversionResponseSchema>;
+export type PayoutResponse = z.infer<typeof PayoutResponseSchema>;
+
+export interface PaymentInitData {
   amount: number;
   currency: Currency;
   customer: {
@@ -66,47 +149,13 @@ interface PaymentInitData {
   metadata?: Record<string, unknown>;
 }
 
-interface PaymentInitResponse {
-  reference: string;
-  checkout_url: string;
-  authorization_url: string;
-}
-
-interface PaymentVerificationResponse {
-  reference: string;
-  amount: number;
-  currency: string;
-  status: 'success' | 'pending' | 'failed';
-  customer: {
-    name: string;
-    email: string;
-  };
-  paid_at: string;
-  created_at: string;
-}
-
-interface ExchangeRateResponse {
-  source_currency: string;
-  destination_currency: string;
-  rate: number;
-}
-
-interface ConversionRequest {
+export interface ConversionRequest {
   source_currency: Currency;
   destination_currency: Currency;
   amount: number;
 }
 
-interface ConversionResponse {
-  source_currency: string;
-  destination_currency: string;
-  source_amount: number;
-  destination_amount: number;
-  rate: number;
-  reference: string;
-}
-
-interface PayoutRequest {
+export interface PayoutRequest {
   reference: string;
   destination: {
     type: 'bank_account';
@@ -114,8 +163,8 @@ interface PayoutRequest {
     currency: Currency;
     narration: string;
     bank_account: {
-      bank: string; // Bank code
-      account: string; // Account number
+      bank: string;
+      account: string;
       account_name?: string;
     };
     customer: {
@@ -125,41 +174,81 @@ interface PayoutRequest {
   };
 }
 
-interface PayoutResponse {
-  reference: string;
-  status: 'processing' | 'success' | 'failed';
-  amount: number;
-  fee: number;
-  currency: string;
+// =============================================================================
+// Result Type
+// =============================================================================
+
+export type KorapayResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string };
+
+// =============================================================================
+// API Client
+// =============================================================================
+
+interface KorapayApiResponse<T> {
+  status: boolean;
+  message: string;
+  data: T;
 }
 
-/**
- * Make authenticated request to Korapay API
- */
-async function korapayRequest<T = unknown>(
+async function korapayRequest<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<KorapayResponse<T>> {
+): Promise<KorapayResult<T>> {
   const url = `${KORAPAY_BASE_URL}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${KORAPAY_SECRET_KEY}`,
-      ...options.headers,
-    },
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('Korapay API Error:', data);
-    throw new Error(data.message || 'Korapay API request failed');
+  if (!KORAPAY_SECRET_KEY) {
+    return {
+      success: false,
+      error: 'KORAPAY_SECRET_KEY is not configured',
+      code: 'CONFIG_ERROR',
+    };
   }
 
-  return data;
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${KORAPAY_SECRET_KEY}`,
+        ...options.headers,
+      },
+    });
+
+    const data: KorapayApiResponse<T> = await response.json();
+
+    logger.info({
+      message: 'Korapay API Response',
+      endpoint,
+      status: response.status,
+      success: data.status,
+    });
+
+    if (!response.ok || !data.status) {
+      logger.error({
+        message: 'Korapay API Error',
+        status: response.status,
+        error: data.message,
+      });
+      return {
+        success: false,
+        error: data.message || `API request failed: ${response.status}`,
+        code: `HTTP_${response.status}`,
+      };
+    }
+
+    return { success: true, data: data.data };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network error';
+    logger.error({ message: 'Korapay request failed', error: message });
+    return { success: false, error: message, code: 'NETWORK_ERROR' };
+  }
 }
+
+// =============================================================================
+// Public API Functions
+// =============================================================================
 
 /**
  * Initialize payment checkout
@@ -167,7 +256,7 @@ async function korapayRequest<T = unknown>(
 export async function initializePayment(
   data: PaymentInitData
 ): Promise<PaymentInitResponse> {
-  const response = await korapayRequest<PaymentInitResponse>(
+  const result = await korapayRequest<PaymentInitResponse>(
     '/charges/initialize',
     {
       method: 'POST',
@@ -185,21 +274,56 @@ export async function initializePayment(
     }
   );
 
-  return response.data;
+  if (!result.success) {
+    throw new Error(result.error);
+  }
+
+  // Validate response
+  const parsed = PaymentInitResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Korapay payment init response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return result.data;
 }
 
 /**
- * Verify payment status
+ * Verify payment status (with Result type)
  */
 export async function verifyPayment(
   reference: string
-): Promise<PaymentVerificationResponse> {
-  const response = await korapayRequest<PaymentVerificationResponse>(
-    `/charges/${reference}/verify`,
+): Promise<KorapayResult<PaymentVerificationResponse>> {
+  // Validate reference format
+  if (!reference || !/^[A-Za-z0-9_-]{1,100}$/.test(reference)) {
+    return {
+      success: false,
+      error: 'Invalid reference format',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await korapayRequest<PaymentVerificationResponse>(
+    `/charges/${encodeURIComponent(reference)}/verify`,
     { method: 'GET' }
   );
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  // Validate response
+  const parsed = PaymentVerificationSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Korapay verification response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
 }
 
 /**
@@ -208,13 +332,25 @@ export async function verifyPayment(
 export async function getExchangeRate(
   sourceCurrency: Currency,
   destinationCurrency: Currency
-): Promise<ExchangeRateResponse> {
-  const response = await korapayRequest<ExchangeRateResponse>(
+): Promise<KorapayResult<ExchangeRateResponse>> {
+  const result = await korapayRequest<ExchangeRateResponse>(
     `/misc/exchange-rates?source_currency=${sourceCurrency}&destination_currency=${destinationCurrency}`,
     { method: 'GET' }
   );
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = ExchangeRateSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Exchange rate response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
 }
 
 /**
@@ -222,27 +358,34 @@ export async function getExchangeRate(
  */
 export async function convertCurrency(
   data: ConversionRequest
-): Promise<ConversionResponse> {
-  const response = await korapayRequest<ConversionResponse>(
-    '/balances/convert',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        source_currency: data.source_currency,
-        destination_currency: data.destination_currency,
-        amount: data.amount,
-      }),
-    }
-  );
+): Promise<KorapayResult<ConversionResponse>> {
+  const result = await korapayRequest<ConversionResponse>('/balances/convert', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = ConversionResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Conversion response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
 }
 
 /**
  * Send payout to bank account
  */
-export async function sendPayout(data: PayoutRequest): Promise<PayoutResponse> {
-  const response = await korapayRequest<PayoutResponse>(
+export async function sendPayout(
+  data: PayoutRequest
+): Promise<KorapayResult<PayoutResponse>> {
+  const result = await korapayRequest<PayoutResponse>(
     '/transactions/disburse',
     {
       method: 'POST',
@@ -250,7 +393,19 @@ export async function sendPayout(data: PayoutRequest): Promise<PayoutResponse> {
     }
   );
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = PayoutResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Payout response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
 }
 
 /**
@@ -258,8 +413,8 @@ export async function sendPayout(data: PayoutRequest): Promise<PayoutResponse> {
  */
 export async function sendBulkPayouts(
   payouts: PayoutRequest[]
-): Promise<PayoutResponse[]> {
-  const response = await korapayRequest<PayoutResponse[]>(
+): Promise<KorapayResult<PayoutResponse[]>> {
+  const result = await korapayRequest<PayoutResponse[]>(
     '/transactions/disburse/bulk',
     {
       method: 'POST',
@@ -267,7 +422,7 @@ export async function sendBulkPayouts(
     }
   );
 
-  return response.data;
+  return result;
 }
 
 /**
@@ -275,13 +430,22 @@ export async function sendBulkPayouts(
  */
 export async function getBanks(
   country: 'NG' | 'KE' | 'GH' | 'ZA'
-): Promise<Array<{ name: string; code: string }>> {
-  const response = await korapayRequest<Array<{ name: string; code: string }>>(
+): Promise<KorapayResult<Array<{ name: string; code: string }>>> {
+  const result = await korapayRequest<Array<{ name: string; code: string }>>(
     `/misc/banks?country=${country}`,
     { method: 'GET' }
   );
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  // Validate each bank
+  const validBanks = result.data.filter(
+    (bank) => BankSchema.safeParse(bank).success
+  );
+
+  return { success: true, data: validBanks };
 }
 
 /**
@@ -290,11 +454,28 @@ export async function getBanks(
 export async function resolveBankAccount(
   bankCode: string,
   accountNumber: string
-): Promise<{ account_name: string; account_number: string }> {
-  const response = await korapayRequest<{
+): Promise<KorapayResult<{ account_name: string; account_number: string }>> {
+  // Validate inputs
+  if (!bankCode || !accountNumber) {
+    return {
+      success: false,
+      error: 'Bank code and account number are required',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  if (!/^\d{10}$/.test(accountNumber)) {
+    return {
+      success: false,
+      error: 'Account number must be 10 digits',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await korapayRequest<{
     account_name: string;
     account_number: string;
-  }>(`/misc/banks/resolve`, {
+  }>('/misc/banks/resolve', {
     method: 'POST',
     body: JSON.stringify({
       bank: bankCode,
@@ -302,8 +483,25 @@ export async function resolveBankAccount(
     }),
   });
 
-  return response.data;
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = ResolvedAccountSchema.safeParse(result.data);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: 'Invalid account resolution response',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return { success: true, data: result.data };
 }
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
 
 /**
  * Calculate platform fee and merchant amount
@@ -314,10 +512,7 @@ export function calculatePlatformFee(amount: number): {
   merchantAmount: number;
   total: number;
 } {
-  // Calculate 2% fee
   let platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
-
-  // Apply cap of ₦2,050
   platformFee = Math.min(platformFee, PLATFORM_FEE_CAP);
 
   const merchantAmount = amount - platformFee;
@@ -360,6 +555,20 @@ export function getCurrencyFromCountry(countryCode: string): Currency {
   };
 
   return currencyMap[countryCode.toUpperCase()] || 'NGN';
+}
+
+/**
+ * Validate if a currency is supported
+ */
+export function isSupportedCurrency(currency: string): currency is Currency {
+  return SUPPORTED_CURRENCIES.includes(currency as Currency);
+}
+
+/**
+ * Check if Korapay is properly configured
+ */
+export function isKorapayConfigured(): boolean {
+  return Boolean(KORAPAY_SECRET_KEY);
 }
 
 export { PLATFORM_FEE_PERCENTAGE };

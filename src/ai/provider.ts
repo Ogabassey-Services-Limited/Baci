@@ -8,17 +8,22 @@ const google = createGoogleGenerativeAI({
 /**
  * Gemini Model Exports (Vercel AI SDK)
  *
- * Model Selection Guide:
- * - geminiFlash: Fast, cost-effective. Use for simple tasks (descriptions, autofill)
- * - geminiPro: Currently aliased to geminiFlash. Upgrade to gemini-2.0-pro when needed.
+ * Model Selection Guide (December 2025):
+ * - gemini3Flash: Latest Gemini 3 Flash preview - fast with integrated reasoning
+ * - geminiFlash: Alias to Gemini 3 Flash for backwards compatibility
+ * - geminiPro: Alias to Gemini 3 Flash
+ * - gemini25Flash: Legacy Gemini 2.5 Flash (deprecated, kept for fallback)
  * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
  *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
  */
 
-// Primary models
-export const geminiFlash = google('gemini-2.0-flash'); // Restored to 2.0 Flash (Fast & Capable)
-export const geminiPro = google('gemini-2.0-flash'); // Alias for flash
-export const gemini25Flash = google('gemini-2.5-flash'); // Gemini 2.5 Flash - more capable
+// Primary models - Gemini 3 Flash (latest, December 2025)
+export const gemini3Flash = google('gemini-3-flash-preview'); // Latest Gemini 3 Flash with reasoning
+export const geminiFlash = gemini3Flash; // Alias for backwards compatibility
+export const geminiPro = gemini3Flash; // Alias for pro-level tasks
+
+// Legacy models (kept for fallback)
+export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash
 
 // Multimodal model - handles text, image understanding, and image generation
 // Use gemini-2.5-flash-image for image generation (stable release)
