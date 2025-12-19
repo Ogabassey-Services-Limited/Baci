@@ -145,6 +145,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
+  // 4. Fetch blog posts with featured images for blog sitemap
+  const { data: blogPosts } = await supabase
+    .from('blog_posts')
+    .select('slug, published_at, updated_at, featured_image_url')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false });
+
+  // Blog post entries with images (for Google Images indexing)
+  const blogEntries: MetadataRoute.Sitemap = (blogPosts || []).map((post) => {
+    const images: string[] = [];
+    if (post.featured_image_url?.startsWith('http')) {
+      images.push(post.featured_image_url);
+    }
+
+    return {
+      url: `${storeUrl}/blog/${post.slug}`,
+      lastModified: post.updated_at
+        ? new Date(post.updated_at)
+        : post.published_at
+          ? new Date(post.published_at)
+          : new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+      ...(images.length > 0 && { images }),
+    };
+  });
+
+  // Blog listing page entry
+  const blogListingEntry: MetadataRoute.Sitemap[0] = {
+    url: `${storeUrl}/blog`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.7,
+  };
+
   return [
     {
       url: storeUrl,
@@ -154,5 +190,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     ...categoryEntries,
     ...productEntries,
+    // Only include blog entries if there are blog posts
+    ...(blogPosts && blogPosts.length > 0
+      ? [blogListingEntry, ...blogEntries]
+      : []),
   ];
 }

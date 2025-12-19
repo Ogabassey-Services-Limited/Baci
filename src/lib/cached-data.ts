@@ -502,11 +502,10 @@ export const getCachedCategories = unstable_cache(
         slug,
         description,
         image_url,
-        parent_id,
-        position
+        parent_id
       `)
       .eq('merchant_id', merchantId)
-      .order('position', { ascending: true });
+      .order('name', { ascending: true });
 
     if (error) {
       console.error('Error fetching categories:', error);
@@ -537,8 +536,7 @@ export const getCachedCategory = unstable_cache(
         slug,
         description,
         image_url,
-        parent_id,
-        position
+        parent_id
       `)
       .eq('merchant_id', merchantId)
       .eq('slug', categorySlug)
