@@ -14,9 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
 
 interface PageProps {
@@ -25,20 +30,29 @@ interface PageProps {
 }
 
 const getMerchantAndPosts = cache(
-  async (merchantSlug: string, category?: string, page = 1) => {
+  async (identifier: string, category?: string, page = 1) => {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const limit = 12;
     const offset = (page - 1) * limit;
 
-    // Get merchant with template_id
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name, slug, logo_url, template_id')
-      .eq('slug', merchantSlug)
-      .single();
+    // Get merchant - support both slugs and custom domains
+    // Custom domains (like ogabassey.com) are rewritten by proxy.ts
+    const lookupKey = identifier.toLowerCase();
+    const cachedMerchant = isDomainIdentifier(identifier)
+      ? await getCachedMerchantByDomain(lookupKey)
+      : await getCachedMerchant(lookupKey);
 
-    if (!merchant) return null;
+    if (!cachedMerchant) return null;
+
+    // Map cached merchant to the format we need
+    const merchant = {
+      id: cachedMerchant.id,
+      business_name: cachedMerchant.business_name,
+      slug: cachedMerchant.slug,
+      logo_url: cachedMerchant.logo_url,
+      template_id: cachedMerchant.template_id,
+    };
 
     // Check if blog is enabled (use service client to bypass RLS)
     const adminSupabase = createServiceClient();

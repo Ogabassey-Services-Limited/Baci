@@ -9,6 +9,10 @@ import { cache } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import {
@@ -16,23 +20,32 @@ import {
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
-const getPostData = cache(async (merchantSlug: string, postSlug: string) => {
+const getPostData = cache(async (identifier: string, postSlug: string) => {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id, business_name, slug, logo_url')
-    .eq('slug', merchantSlug)
-    .single();
+  // Get merchant - support both slugs and custom domains
+  // Custom domains (like ogabassey.com) are rewritten by proxy.ts
+  const lookupKey = identifier.toLowerCase();
+  const cachedMerchant = isDomainIdentifier(identifier)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
 
-  if (!merchant) return null;
+  if (!cachedMerchant) return null;
+
+  // Map cached merchant to the format we need
+  const merchant = {
+    id: cachedMerchant.id,
+    business_name: cachedMerchant.business_name,
+    slug: cachedMerchant.slug,
+    logo_url: cachedMerchant.logo_url,
+  };
 
   // Check if blog is enabled
   const { data: features } = await supabase
