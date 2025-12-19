@@ -156,7 +156,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Blog post entries with images (for Google Images indexing)
   const blogEntries: MetadataRoute.Sitemap = (blogPosts || []).map((post) => {
     const images: string[] = [];
-    if (post.featured_image_url && post.featured_image_url.startsWith('http')) {
+    if (post.featured_image_url?.startsWith('http')) {
       images.push(post.featured_image_url);
     }
 
