@@ -225,7 +225,7 @@ export const ChatWidget: React.FC = () => {
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-50 flex flex-col items-end gap-4 ${isCartOpen ? 'hidden' : ''}`}
+      className={`fixed bottom-24 md:bottom-4 right-4 z-50 flex flex-col items-end gap-4 ${isCartOpen ? 'hidden' : ''}`}
     >
       {/* Chat Window */}
       {
@@ -340,8 +340,8 @@ export const ChatWidget: React.FC = () => {
                               onClick={() => handleAddSantaWishToCart(idx)}
                               disabled={msg.santaAction.added}
                               className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${msg.santaAction.added
-                                  ? 'bg-green-100 text-green-700 cursor-default'
-                                  : 'bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] active:scale-[0.98]'
+                                ? 'bg-green-100 text-green-700 cursor-default'
+                                : 'bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] active:scale-[0.98]'
                                 }`}
                             >
                               {msg.santaAction.added ? (

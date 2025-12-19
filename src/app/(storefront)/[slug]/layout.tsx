@@ -112,7 +112,7 @@ export default async function StorefrontLayout({
 
   // Detect checkout page from pathname header (set by middleware)
   const pathname = headersList.get('x-pathname') || '';
-  const isCheckout = pathname.endsWith('/checkout');
+  const isCheckout = pathname.includes('/checkout');
 
   // Fetch navigation categories server-side (cached)
   const navigationCategories = await getCachedNavigationCategories(merchant.id);

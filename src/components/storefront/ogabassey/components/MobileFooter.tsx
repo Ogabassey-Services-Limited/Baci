@@ -48,40 +48,28 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
   // Scroll-based visibility with debouncing
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-  const SCROLL_THRESHOLD = 50; // Require more scroll before hiding (less aggressive)
+  const SCROLL_THRESHOLD = 5; // Reduced threshold for immediate response
 
   useEffect(() => {
     const handleScroll = () => {
-      // Clear any pending timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollY.current;
 
-      // Debounce: wait 50ms before deciding to show/hide
-      scrollTimeout.current = setTimeout(() => {
-        // Only hide if scrolled down significantly and not near top
-        if (scrollDelta > SCROLL_THRESHOLD && currentScrollY > 100) {
-          setIsVisible(false);
-        }
-        // Show when scrolling up OR near top of page
-        else if (scrollDelta < -10 || currentScrollY < 50) {
-          setIsVisible(true);
-        }
+      // Immediate response without debounce
+      if (scrollDelta > SCROLL_THRESHOLD && currentScrollY > 100) {
+        setIsVisible(false);
+      }
+      // Show when scrolling up OR near top of page
+      else if (scrollDelta < -5 || currentScrollY < 50) {
+        setIsVisible(true);
+      }
 
-        lastScrollY.current = currentScrollY;
-      }, 50);
+      lastScrollY.current = currentScrollY;
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
     };
   }, []);
 

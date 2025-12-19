@@ -91,8 +91,30 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const categoryRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Scroll visibility logic - Simplified to always visible
-  const isVisible = true;
+  // Scroll visibility logic
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const SCROLL_THRESHOLD = 5; // Reduced threshold for responsiveness
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY.current;
+
+      // Immediate state update without debounce
+      if (scrollDelta > SCROLL_THRESHOLD && currentScrollY > 100) {
+        setIsVisible(false);
+      } else if (scrollDelta < -5 || currentScrollY < 50) {
+        setIsVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Hydrate notificationsEnabled from localStorage after mount (SSR-safe)
   useEffect(() => {

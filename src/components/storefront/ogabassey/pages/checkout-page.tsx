@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, PaymentTrustBadges } from '../components/PaymentLogos';
+import { MobileOrderSummary, MobileCheckoutActions } from '../components/MobileCheckoutComponents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -1055,6 +1056,37 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
+  // Unified Next Step Handler for Mobile Action Bar
+  const handleNextStep = () => {
+    if (currentStep === 'contact') {
+      // Validation Logic (Same as desktop button)
+      setContactValidationAttempted(true);
+
+      const trimmedFirstName = firstName.trim();
+      const trimmedLastName = lastName.trim();
+      const trimmedEmail = customerEmail.trim();
+
+      // Validate all required fields
+      const hasErrors = !trimmedFirstName || !trimmedLastName || !trimmedEmail;
+
+      if (hasErrors) return; // Inline errors will show
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) return;
+
+      setCompletedSteps(prev => ({ ...prev, contact: true }));
+      setCurrentStep('delivery');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (currentStep === 'delivery') {
+      setCompletedSteps(prev => ({ ...prev, delivery: true }));
+      setCurrentStep('payment');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (currentStep === 'payment') {
+      handlePlaceOrder();
+    }
+  };
+
   const isPayForMeValid =
     paymentMethod === 'payforme'
       ? payForMeDetails.name && payForMeDetails.contact
@@ -1116,7 +1148,35 @@ export const CheckoutPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-20">
+    <div className="min-h-screen bg-gray-50/50 pb-20 flex flex-col">
+      {/* Checkout Navbar */}
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-sm supports-[backdrop-filter]:bg-white/60">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <button
+            onClick={() => router.push(asRoute(getHref('/cart')))}
+            className="group flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-red-50 transition-colors">
+              <ChevronRight className="w-4 h-4 rotate-180 group-hover:text-red-600 transition-colors" />
+            </div>
+            <span className="hidden sm:inline">Return to Cart</span>
+          </button>
+
+          <div className="flex flex-col items-center">
+            <div className="font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-green-600" />
+              <span>Secure Checkout</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-100">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              Encrypted
+            </div>
+          </div>
+        </div>
+      </div>
       <CheckoutAuthModal
         isOpen={isAuthModalOpen}
         onOpenChange={setIsAuthModalOpen}
@@ -1320,11 +1380,10 @@ export const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => copyToClipboard(cryptoPaymentData.address)}
-                    className={`absolute right-1 top-1 bottom-1 px-3 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${
-                      copiedText === cryptoPaymentData.address
-                        ? 'border-green-300 text-green-600'
-                        : 'border-gray-200 hover:border-red-200 hover:text-red-600'
-                    }`}
+                    className={`absolute right-1 top-1 bottom-1 px-3 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${copiedText === cryptoPaymentData.address
+                      ? 'border-green-300 text-green-600'
+                      : 'border-gray-200 hover:border-red-200 hover:text-red-600'
+                      }`}
                     title={copiedText === cryptoPaymentData.address ? 'Copied!' : 'Copy Address'}
                   >
                     {copiedText === cryptoPaymentData.address ? <Check size={16} /> : <Copy size={16} />}
@@ -1448,6 +1507,19 @@ export const CheckoutPage: React.FC = () => {
             SSL Encrypted
           </div>
         </div>
+
+        {/* MOBILE ORDER SUMMARY (Collapsible) */}
+        <MobileOrderSummary
+          cart={cart}
+          cartTotal={cartTotal}
+          deliveryCost={deliveryCost}
+          deliveryMethod={deliveryMethod as any}
+          giftWrappingCost={giftWrappingCost}
+          walletBalance={walletBalance}
+          payWithWallet={payWithWallet}
+          walletAmountUsed={walletAmountUsed}
+          remainingAmount={remainingAmount}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           {/* LEFT COLUMN: Accordion Steps */}
@@ -1579,7 +1651,7 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, contact: true }));
                           setCurrentStep('delivery');
                         }}
-                        className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
+                        className="hidden lg:block px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
                       >
                         Continue to Delivery
                       </button>
@@ -1937,7 +2009,7 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, delivery: true }));
                           setCurrentStep('payment');
                         }}
-                        className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
+                        className="hidden lg:block px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
                       >
                         Continue to Payment
                       </button>
@@ -2194,7 +2266,7 @@ export const CheckoutPage: React.FC = () => {
           </div>
 
           {/* RIGHT COLUMN: Order Summary */}
-          < div className="lg:col-span-4 lg:sticky lg:top-24 space-y-6" >
+          <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24 space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
                 Order Summary
@@ -2284,14 +2356,12 @@ export const CheckoutPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setPayWithWallet(!payWithWallet)}
-                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                              payWithWallet ? 'bg-green-600' : 'bg-gray-300'
-                            }`}
+                            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${payWithWallet ? 'bg-green-600' : 'bg-gray-300'
+                              }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                payWithWallet ? 'translate-x-4' : 'translate-x-0'
-                              }`}
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${payWithWallet ? 'translate-x-4' : 'translate-x-0'
+                                }`}
                             />
                           </button>
                         </div>
@@ -2326,7 +2396,7 @@ export const CheckoutPage: React.FC = () => {
                   (remainingAmount > 0 && !paymentMethod) ||
                   (paymentMethod === 'payforme' && !isPayForMeValid)
                 }
-                className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98]"
+                className="hidden lg:flex w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98]"
               >
                 {isProcessing ? (
                   <Loader2 className="animate-spin" />
@@ -2346,7 +2416,18 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+
+      <MobileCheckoutActions
+        currentStep={currentStep}
+        completedSteps={completedSteps}
+        onNext={handleNextStep}
+        isProcessing={isProcessing}
+        totalDisplay={remainingAmount}
+        paymentMethod={paymentMethod}
+        isPayForMeValid={isPayForMeValid as boolean}
+        originalTotal={cartTotal}
+      />
+    </div>
   );
 };
