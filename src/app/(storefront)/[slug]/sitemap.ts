@@ -191,6 +191,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...categoryEntries,
     ...productEntries,
     // Only include blog entries if there are blog posts
-    ...(blogPosts && blogPosts.length > 0 ? [blogListingEntry, ...blogEntries] : []),
+    ...(blogPosts && blogPosts.length > 0
+      ? [blogListingEntry, ...blogEntries]
+      : []),
   ];
 }
