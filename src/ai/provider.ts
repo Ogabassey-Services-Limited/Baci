@@ -25,11 +25,14 @@ export const geminiPro = gemini3Flash; // Alias for pro-level tasks
 // Legacy models (kept for fallback)
 export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash
 
-// Multimodal model - handles text, image understanding, and image generation
-// Use gemini-2.5-flash-image for image generation (stable release)
-export const gemini25FlashImage = google('gemini-2.5-flash-image');
+// Image generation models (December 2025)
+// - gemini25FlashImage: Fast, lower cost image generation (Nano Banana)
+// - gemini3ProImage: High quality image generation (Nano Banana Pro) - supports 1K/2K/4K, text rendering
+// Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
+export const gemini25FlashImage = google('gemini-2.5-flash-image'); // Fast image gen
+export const gemini3ProImage = google('gemini-3-pro-image-preview'); // High quality image gen (Nano Banana Pro)
 
-// Imagen 3 model for dedicated image generation
+// Imagen 3 model for dedicated image generation (legacy)
 // Note: Use 002 version for Google AI API (001 is only available in Vertex AI)
 export const imagen3 = google.image('imagen-3.0-generate-002');
 
