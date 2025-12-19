@@ -264,18 +264,20 @@ export default function CheckoutSuccessPage() {
                       className="flex flex-col items-center text-center"
                     >
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all ${isCompleted
+                        className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 transition-all ${
+                          isCompleted
                             ? 'bg-green-500 text-white'
                             : isActive
                               ? 'bg-green-100 text-green-600 ring-2 ring-green-500 ring-offset-2'
                               : 'bg-gray-100 text-gray-400'
-                          }`}
+                        }`}
                       >
                         <StepIcon className="w-5 h-5" />
                       </div>
                       <span
-                        className={`text-xs font-medium ${isActive ? 'text-green-600' : 'text-gray-500'
-                          }`}
+                        className={`text-xs font-medium ${
+                          isActive ? 'text-green-600' : 'text-gray-500'
+                        }`}
                       >
                         {step.label}
                       </span>

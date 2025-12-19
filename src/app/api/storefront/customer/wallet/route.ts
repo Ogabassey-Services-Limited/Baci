@@ -28,7 +28,10 @@ export async function GET(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json(

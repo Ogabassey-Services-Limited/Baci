@@ -9,7 +9,6 @@ import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -111,8 +110,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const { merchant, basePath } = useMerchant();
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath || ''}${path}`;
-  const { cart, cartCount, addToCart, updateQuantity, setMerchantSlug } =
-    useCart();
+  const { cart, addToCart, updateQuantity, setMerchantSlug } = useCart();
   const { toast } = useToast();
   const { formatCurrency, currencyCode } = useCurrency();
   const { addToRecentlyViewed } = useRecentlyViewed();

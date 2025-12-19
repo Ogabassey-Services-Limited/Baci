@@ -74,7 +74,7 @@ async function processImages() {
       );
 
       // 2. Upload to Supabase
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(uploadPath, avifBuffer, {
           contentType: 'image/avif',

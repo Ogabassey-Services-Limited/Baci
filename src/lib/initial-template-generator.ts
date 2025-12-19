@@ -25,16 +25,13 @@ export async function generateHeroSlides(
   // Fallback images if AI generation is not available yet
   const fallbackImages = [
     {
-      imageUrl:
-        '/placeholder.png'
+      imageUrl: '/placeholder.png',
     },
     {
-      imageUrl:
-        '/placeholder.png'
+      imageUrl: '/placeholder.png',
     },
     {
-      imageUrl:
-        '/placeholder.png'
+      imageUrl: '/placeholder.png',
     },
   ];
 
@@ -500,8 +497,8 @@ export async function generateInitialTemplate(
           // Add logo URL if merchant has one
           ...(params.merchant?.logo_url
             ? {
-              logoUrl: params.merchant.logo_url,
-            }
+                logoUrl: params.merchant.logo_url,
+              }
             : {}),
         },
       },

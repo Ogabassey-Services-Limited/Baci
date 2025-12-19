@@ -295,6 +295,15 @@ export async function proxy(request: NextRequest) {
   // console.log('[Middleware] Request:', pathname);
   const userAgent = request.headers.get('user-agent') || '';
 
+  // ==== BLOG MIGRATION REDIRECTS ====
+  // 301 redirect old blog subdomain to new blog location
+  // blog.ogabassey.com/* -> ogabassey.com/blog/*
+  if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
+    const newPath = pathname === '/' ? '' : pathname;
+    const newUrl = `https://ogabassey.com/blog${newPath}`;
+    return NextResponse.redirect(newUrl, { status: 301 });
+  }
+
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
   // For protected routes, verify auth BEFORE rendering
   // Define protected route patterns

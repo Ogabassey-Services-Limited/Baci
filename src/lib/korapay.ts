@@ -32,7 +32,14 @@ const PLATFORM_FEE_CAP = 2050;
 // Type Definitions
 // =============================================================================
 
-export const SUPPORTED_CURRENCIES = ['NGN', 'KES', 'GHS', 'ZAR', 'XAF', 'XOF'] as const;
+export const SUPPORTED_CURRENCIES = [
+  'NGN',
+  'KES',
+  'GHS',
+  'ZAR',
+  'XAF',
+  'XOF',
+] as const;
 export type Currency = (typeof SUPPORTED_CURRENCIES)[number];
 
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -54,10 +61,10 @@ export const CURRENCY_NAMES: Record<Currency, string> = {
 };
 
 const PAYMENT_STATUSES = ['success', 'pending', 'failed'] as const;
-type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 const PAYOUT_STATUSES = ['processing', 'success', 'failed'] as const;
-type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
+export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 
 // =============================================================================
 // Zod Schemas
@@ -120,7 +127,9 @@ const ResolvedAccountSchema = z.object({
 // =============================================================================
 
 export type PaymentInitResponse = z.infer<typeof PaymentInitResponseSchema>;
-export type PaymentVerificationResponse = z.infer<typeof PaymentVerificationSchema>;
+export type PaymentVerificationResponse = z.infer<
+  typeof PaymentVerificationSchema
+>;
 export type ExchangeRateResponse = z.infer<typeof ExchangeRateSchema>;
 export type ConversionResponse = z.infer<typeof ConversionResponseSchema>;
 export type PayoutResponse = z.infer<typeof PayoutResponseSchema>;
@@ -190,7 +199,11 @@ async function korapayRequest<T>(
   const url = `${KORAPAY_BASE_URL}${endpoint}`;
 
   if (!KORAPAY_SECRET_KEY) {
-    return { success: false, error: 'KORAPAY_SECRET_KEY is not configured', code: 'CONFIG_ERROR' };
+    return {
+      success: false,
+      error: 'KORAPAY_SECRET_KEY is not configured',
+      code: 'CONFIG_ERROR',
+    };
   }
 
   try {
@@ -285,7 +298,11 @@ export async function verifyPayment(
 ): Promise<KorapayResult<PaymentVerificationResponse>> {
   // Validate reference format
   if (!reference || !/^[A-Za-z0-9_-]{1,100}$/.test(reference)) {
-    return { success: false, error: 'Invalid reference format', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Invalid reference format',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   const result = await korapayRequest<PaymentVerificationResponse>(
@@ -327,7 +344,10 @@ export async function getExchangeRate(
 
   const parsed = ExchangeRateSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Exchange rate response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Exchange rate response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return { success: true, data: result.data };
@@ -339,13 +359,10 @@ export async function getExchangeRate(
 export async function convertCurrency(
   data: ConversionRequest
 ): Promise<KorapayResult<ConversionResponse>> {
-  const result = await korapayRequest<ConversionResponse>(
-    '/balances/convert',
-    {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }
-  );
+  const result = await korapayRequest<ConversionResponse>('/balances/convert', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 
   if (!result.success) {
     return result;
@@ -353,7 +370,10 @@ export async function convertCurrency(
 
   const parsed = ConversionResponseSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Conversion response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Conversion response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return { success: true, data: result.data };
@@ -379,7 +399,10 @@ export async function sendPayout(
 
   const parsed = PayoutResponseSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({ message: 'Payout response validation warning', issues: parsed.error.issues });
+    logger.warn({
+      message: 'Payout response validation warning',
+      issues: parsed.error.issues,
+    });
   }
 
   return { success: true, data: result.data };
@@ -418,7 +441,9 @@ export async function getBanks(
   }
 
   // Validate each bank
-  const validBanks = result.data.filter((bank) => BankSchema.safeParse(bank).success);
+  const validBanks = result.data.filter(
+    (bank) => BankSchema.safeParse(bank).success
+  );
 
   return { success: true, data: validBanks };
 }
@@ -432,23 +457,31 @@ export async function resolveBankAccount(
 ): Promise<KorapayResult<{ account_name: string; account_number: string }>> {
   // Validate inputs
   if (!bankCode || !accountNumber) {
-    return { success: false, error: 'Bank code and account number are required', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Bank code and account number are required',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   if (!/^\d{10}$/.test(accountNumber)) {
-    return { success: false, error: 'Account number must be 10 digits', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Account number must be 10 digits',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
-  const result = await korapayRequest<{ account_name: string; account_number: string }>(
-    '/misc/banks/resolve',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        bank: bankCode,
-        account: accountNumber,
-      }),
-    }
-  );
+  const result = await korapayRequest<{
+    account_name: string;
+    account_number: string;
+  }>('/misc/banks/resolve', {
+    method: 'POST',
+    body: JSON.stringify({
+      bank: bankCode,
+      account: accountNumber,
+    }),
+  });
 
   if (!result.success) {
     return result;
@@ -456,7 +489,11 @@ export async function resolveBankAccount(
 
   const parsed = ResolvedAccountSchema.safeParse(result.data);
   if (!parsed.success) {
-    return { success: false, error: 'Invalid account resolution response', code: 'VALIDATION_ERROR' };
+    return {
+      success: false,
+      error: 'Invalid account resolution response',
+      code: 'VALIDATION_ERROR',
+    };
   }
 
   return { success: true, data: result.data };

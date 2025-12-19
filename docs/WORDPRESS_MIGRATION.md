@@ -292,3 +292,192 @@ _To be documented during migration_
 - [ ] Duplicate detection across imports
 - [ ] Schedule imports for large files
 - [ ] Webhook notifications on completion
+
+---
+
+## Phase 4: Blogger App (Standalone Product)
+
+### Vision
+
+A standalone blogging platform where users can:
+1. **Migrate from WordPress** - Upload export, blog ready in minutes
+2. **Write with zero friction** - Paste text, add images, publish
+3. **Auto SEO optimization** - All technical SEO handled on backend
+
+**Tagline**: "Your blog, optimized and live in minutes."
+
+### Target Users
+- WordPress users frustrated with complexity
+- Small businesses needing a simple blog
+- Content creators who want to focus on writing, not tech
+- Merchants already on Baci (integrated experience)
+
+---
+
+### Existing Blog Infrastructure
+
+**Database Tables** (already exist in Baci):
+
+| Table | Purpose |
+|-------|---------|
+| `blog_posts` | 28 columns including SEO fields, content_embedding for semantic matching |
+| `blog_categories` | Category management with parent/child relationships |
+| `ai_generated_topics` | AI topic suggestions for content planning |
+
+**Already Implemented**:
+- JSON-LD schema (BlogPosting, BreadcrumbList)
+- Social sharing (Twitter, LinkedIn, Facebook)
+- Related posts section
+- Category filtering & pagination
+- Template-based blog layouts
+- RSS feed generation
+- View count tracking
+- TipTap rich text editor
+
+---
+
+### Auto-Optimization Engine
+
+**On paste/import, automatically optimize:**
+
+1. **Heading Semantics**
+   - Ensure single H1 (post title)
+   - Convert multiple H1s to H2s
+   - Ensure logical hierarchy (H2 → H3 → H4)
+
+2. **Image Optimization**
+   - Add alt text if missing (AI-generated)
+   - Convert to AVIF/WebP
+   - Add lazy loading & dimensions
+
+3. **SEO Meta Generation**
+   - Generate title (50-60 chars)
+   - Generate meta description (150-160 chars)
+   - Identify focus keyword
+   - Calculate reading time
+
+4. **Internal Linking**
+   - Find mentions of topics in other posts
+   - Add contextual links (max 3-5 per post)
+   - Link to related products if merchant
+
+5. **Schema Markup**
+   - BlogPosting schema (auto)
+   - FAQPage schema (if Q&A detected)
+   - HowTo schema (if instructions detected)
+
+---
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Blogger App Frontend                         │
+│                     blog.usebaci.com                             │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   Import Flow    Editor      Dashboard
+        │             │             │
+        └─────────────┼─────────────┘
+                      ▼
+         Auto-Optimization Layer
+                      │
+                      ▼
+              Supabase Backend
+                      │
+                      ▼
+              CDN / Storage
+```
+
+---
+
+### WordPress Import UX
+
+**Step 1: Upload**
+- Drag & drop WordPress export (.xml or .zip)
+- Supports: Elementor, WPBakery, Gutenberg
+- SEO: Rank Math, Yoast, AIOSEO
+
+**Step 2: Processing (Auto)**
+- Extract posts, categories, tags
+- Optimize images → CDN
+- Generate SEO metadata
+- Add internal links
+
+**Step 3: Review**
+- Posts imported count
+- Images migrated count
+- SEO score average
+- Posts needing attention
+- Bulk publish option
+
+---
+
+### Simple Editor Design
+
+**Principles:**
+- Zero configuration required
+- No visible SEO fields (auto-generated)
+- Focus on writing, not formatting
+- Mobile-first
+
+**Features:**
+- Featured image upload
+- Title field
+- TipTap content editor
+- Category & tags
+- Collapsible SEO preview (shows auto-generated meta)
+
+---
+
+### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `src/app/blogger/page.tsx` | Blogger landing page |
+| `src/app/blogger/import/page.tsx` | WordPress import flow |
+| `src/app/blogger/write/page.tsx` | Simple editor |
+| `src/app/blogger/posts/page.tsx` | Posts management |
+| `src/app/api/blogger/import/route.ts` | Handle WordPress import |
+| `src/app/api/blogger/optimize/route.ts` | Auto-optimization endpoint |
+| `src/lib/blog-optimizer.ts` | Optimization engine |
+| `src/components/blogger/SimpleEditor.tsx` | Minimal TipTap editor |
+| `src/components/blogger/ImportWizard.tsx` | Import flow UI |
+
+---
+
+### Integration Paths
+
+**For Baci Merchants:**
+- Blog at `{store}.usebaci.com/blog`
+- Same database tables
+- BlogSnippet on product pages
+- Unified dashboard
+
+**For Standalone Blogger Users:**
+- Blog at `{username}.blog.usebaci.com`
+- Same optimization engine
+- Can upgrade to full store later
+
+---
+
+### Monetization
+
+| Tier | Price | Features |
+|------|-------|----------|
+| Free | $0 | 5 posts/month, basic optimization, subdomain |
+| Pro | $9/mo | Unlimited posts, custom domain, advanced SEO |
+| Business | $29/mo | Team collaboration, API access, priority support |
+
+---
+
+### Implementation Priority
+
+| Phase | Scope | Timeline |
+|-------|-------|----------|
+| A: MVP | Simple editor, basic optimization, subdomain hosting | Week 1-2 |
+| B: Import | WordPress XML parser, image migration, bulk import | Week 3-4 |
+| C: Advanced | ZIP support, shortcode stripping, SEO plugin extraction | Week 5-6 |
+| D: Polish | Custom domains, analytics, team features | Week 7-8 |

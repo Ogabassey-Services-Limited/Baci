@@ -10,17 +10,18 @@ import { z } from 'zod';
 import { verifyPayment as verifyJuicywayPayment } from '@/lib/juicyway';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
-const QuerySchema = z.object({
-  gateway: z.enum(['juicyway', 'paystack', 'korapay']),
-  // payment_id is for Juicyway GET /payments/{id} verification
-  // session_id is kept for backwards compatibility
-  payment_id: z.string().min(1).optional(),
-  session_id: z.string().min(1).optional(),
-  reference: z.string().optional(),
-}).refine(
-  (data) => data.payment_id || data.session_id || data.reference,
-  { message: 'At least one of payment_id, session_id, or reference is required' }
-);
+const QuerySchema = z
+  .object({
+    gateway: z.enum(['juicyway', 'paystack', 'korapay']),
+    // payment_id is for Juicyway GET /payments/{id} verification
+    // session_id is kept for backwards compatibility
+    payment_id: z.string().min(1).optional(),
+    session_id: z.string().min(1).optional(),
+    reference: z.string().optional(),
+  })
+  .refine((data) => data.payment_id || data.session_id || data.reference, {
+    message: 'At least one of payment_id, session_id, or reference is required',
+  });
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +40,10 @@ export async function GET(request: NextRequest) {
 
     const parsed = QuerySchema.safeParse(query);
     if (!parsed.success) {
-      console.log('[Payment Status] Zod validation failed:', parsed.error.flatten());
+      console.log(
+        '[Payment Status] Zod validation failed:',
+        parsed.error.flatten()
+      );
       return NextResponse.json(
         { error: 'Invalid query parameters', details: parsed.error.flatten() },
         { status: 400 }
@@ -56,7 +60,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Either payment_id or session_id is required for Juicyway verification',
+            error:
+              'Either payment_id or session_id is required for Juicyway verification',
             code: 'MISSING_ID',
             gateway: 'juicyway',
           },
@@ -65,7 +70,12 @@ export async function GET(request: NextRequest) {
       }
 
       // Debug logging
-      console.log('[Payment Status] Checking Juicyway payment:', { payment_id, session_id, verificationId, gateway });
+      console.log('[Payment Status] Checking Juicyway payment:', {
+        payment_id,
+        session_id,
+        verificationId,
+        gateway,
+      });
 
       const result = await verifyJuicywayPayment(verificationId);
 

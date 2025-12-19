@@ -14,15 +14,15 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
+  capturePaymentWithCrypto,
   formatPhoneToE164,
   generatePaymentReference as generateJuicywayReference,
+  getChainConfirmationTime,
   initializePayment as initializeJuicywayPayment,
   isSupportedCurrency as isJuicywayCurrency,
-  capturePaymentWithCrypto,
-  getChainConfirmationTime,
+  JUICYWAY_CHAIN_SUPPORT,
   type JuicywayCryptoChain,
   type JuicywayStablecoin,
-  JUICYWAY_CHAIN_SUPPORT,
 } from '@/lib/juicyway';
 import {
   type Currency,
@@ -238,14 +238,16 @@ async function initializeJuicyway(
   // Juicyway requires the currency to match the payment method
   const paymentCurrency = isCryptoPayment
     ? cryptoCurrency
-    : (isJuicywayCurrency(data.currency) ? data.currency : 'NGN');
+    : isJuicywayCurrency(data.currency)
+      ? data.currency
+      : 'NGN';
 
   // For crypto payments, we need to convert NGN amount to USDT equivalent
   // Using approximate rate: 1 USD ≈ 1650 NGN
   const NGN_TO_USD_RATE = 1650;
 
   // Calculate equivalent USD amount in cents (minor units)
-  // Ensure we send at least 100 cents (1 USD) to avoid "too small" errors, 
+  // Ensure we send at least 100 cents (1 USD) to avoid "too small" errors,
   // though Juicyway might require more (e.g. 15-20 USDT) depending on the chain.
   const calculatedUsdAmount = Math.round(amountInMinor / NGN_TO_USD_RATE);
 
@@ -257,7 +259,9 @@ async function initializeJuicyway(
   if (isCryptoPayment) {
     const supportedChains = JUICYWAY_CHAIN_SUPPORT[cryptoCurrency];
     if (!supportedChains.includes(cryptoChain)) {
-      throw new Error(`${cryptoCurrency} is not supported on ${cryptoChain}. Supported chains: ${supportedChains.join(', ')}`);
+      throw new Error(
+        `${cryptoCurrency} is not supported on ${cryptoChain}. Supported chains: ${supportedChains.join(', ')}`
+      );
     }
   }
 
@@ -287,12 +291,21 @@ async function initializeJuicyway(
       },
       ip_address: getClientIp(request),
     },
-    description: `${isCryptoPayment ? 'Crypto' : 'Card'} payment to ${merchant.business_name}`.substring(0, 200),
+    description:
+      `${isCryptoPayment ? 'Crypto' : 'Card'} payment to ${merchant.business_name}`.substring(
+        0,
+        200
+      ),
     reference,
     payment_method: { type: isCryptoPayment ? 'crypto_address' : 'card' },
     order: {
       identifier: data.order_id || reference,
-      items: data.items || [{ name: 'Order Payment', type: isCryptoPayment ? 'digital' : 'physical' }],
+      items: data.items || [
+        {
+          name: 'Order Payment',
+          type: isCryptoPayment ? 'digital' : 'physical',
+        },
+      ],
     },
     redirect_url: redirectUrl,
     // direction is required for crypto payments
@@ -344,7 +357,9 @@ async function initializeJuicyway(
 
     if (!captureResult.success) {
       console.error('Failed to capture crypto payment:', captureResult.error);
-      throw new Error(captureResult.error || 'Failed to generate crypto payment address');
+      throw new Error(
+        captureResult.error || 'Failed to generate crypto payment address'
+      );
     }
 
     const cryptoData = captureResult.data;
@@ -404,7 +419,9 @@ async function initializeJuicyway(
       paymentMethod: juicywayData.payment_method?.type,
       fullResponse: juicywayData,
     });
-    throw new Error('Card payment checkout not available. Please try again or use an alternative payment method.');
+    throw new Error(
+      'Card payment checkout not available. Please try again or use an alternative payment method.'
+    );
   }
 
   return {
@@ -563,15 +580,15 @@ export async function POST(request: NextRequest) {
 
     const gatewaySettings: GatewaySettings = featureSettings
       ? {
-        paystack_enabled: featureSettings.paystack_enabled ?? true,
-        korapay_enabled: featureSettings.korapay_enabled ?? true,
-        preferred_local_gateway:
-          (featureSettings.preferred_local_gateway as PaymentGateway) ||
-          'paystack',
-        preferred_international_gateway:
-          (featureSettings.preferred_international_gateway as PaymentGateway) ||
-          'korapay',
-      }
+          paystack_enabled: featureSettings.paystack_enabled ?? true,
+          korapay_enabled: featureSettings.korapay_enabled ?? true,
+          preferred_local_gateway:
+            (featureSettings.preferred_local_gateway as PaymentGateway) ||
+            'paystack',
+          preferred_international_gateway:
+            (featureSettings.preferred_international_gateway as PaymentGateway) ||
+            'korapay',
+        }
       : DEFAULT_GATEWAY_SETTINGS;
 
     // Generate reference and URLs
@@ -609,8 +626,6 @@ export async function POST(request: NextRequest) {
           reference
         );
         break;
-
-      case 'korapay':
       default:
         paymentResult = await initializeKorapay(
           data,

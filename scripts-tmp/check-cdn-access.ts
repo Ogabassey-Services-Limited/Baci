@@ -26,7 +26,9 @@ async function checkCdn() {
   }
 
   console.log('✅ Connected! Available buckets:');
-  buckets.forEach((b) => console.log(` - ${b.name}`));
+  for (const b of buckets) {
+    console.log(` - ${b.name}`);
+  }
 
   // Check 'images' bucket content
   const { data: files, error: filesError } = await supabase.storage
@@ -37,7 +39,9 @@ async function checkCdn() {
     console.log('Could not list files in "images":', filesError.message);
   } else {
     console.log('\nFiles in "images" bucket:');
-    files.forEach((f) => console.log(` - ${f.name}`));
+    for (const f of files) {
+      console.log(` - ${f.name}`);
+    }
   }
 
   // Check specifically for product-images

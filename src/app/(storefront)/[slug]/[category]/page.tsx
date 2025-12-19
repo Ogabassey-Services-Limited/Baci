@@ -3,8 +3,6 @@ import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache, Suspense } from 'react';
 
-// Template-specific imports
-import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
@@ -98,8 +96,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-        normalizedSlug.includes(key)
-      )?.[1]
+          normalizedSlug.includes(key)
+        )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -247,13 +245,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-        images: [
-          {
-            url: products[0].images[0] as unknown as string,
-            alt: categoryData.name,
-          },
-        ],
-      }),
+          images: [
+            {
+              url: products[0].images[0] as unknown as string,
+              alt: categoryData.name,
+            },
+          ],
+        }),
     },
     twitter: {
       card: 'summary_large_image',
@@ -276,7 +274,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get('storefront-theme')?.value;
-  const initialTheme: V2ThemeMode | undefined =
+  const _initialTheme: V2ThemeMode | undefined =
     themeCookie === 'standard' || themeCookie === 'santa'
       ? themeCookie
       : undefined;

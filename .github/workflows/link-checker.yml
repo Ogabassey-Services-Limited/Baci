@@ -92,6 +92,7 @@ jobs:
             --exclude 'tronscan\.org'
             --exclude 'snowtrace\.io'
             --exclude 'supabase\.com/docs'
+            --exclude 'exp\.host'
           # Fail action if broken links are found
           fail: true
         env:

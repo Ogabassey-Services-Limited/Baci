@@ -40,9 +40,7 @@ export function ProductCardSkeleton({ className }: { className?: string }) {
         'flex flex-col space-y-3 relative overflow-hidden',
         className
       )}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading product..."
+      aria-hidden="true"
     >
       {/* Shimmer Overlay */}
       <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-10" />
@@ -193,9 +191,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
         'grid md:grid-cols-2 gap-8 p-4 md:p-8 bg-white relative overflow-hidden',
         className
       )}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading product details..."
+      aria-hidden="true"
     >
       {/* Shimmer Overlay */}
       <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
@@ -353,9 +349,7 @@ export function StorefrontHeaderSkeleton({
         'border-b border-gray-200 bg-white relative overflow-hidden',
         className
       )}
-      role="status"
       aria-busy="true"
-      aria-label="Loading store header"
     >
       <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
 
@@ -389,9 +383,7 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
         'relative h-[400px] md:h-[500px] bg-gray-100 overflow-hidden',
         className
       )}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading hero section"
+      aria-hidden="true"
     >
       <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent z-10" />
 
@@ -413,12 +405,7 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
  */
 export function StorefrontPageSkeleton({ className }: { className?: string }) {
   return (
-    <div
-      className={cn('min-h-screen bg-white', className)}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading storefront..."
-    >
+    <div className={cn('min-h-screen bg-white', className)} aria-hidden="true">
       <StorefrontHeaderSkeleton />
       <StorefrontHeroSkeleton />
       <div className="container mx-auto px-4 py-12 relative overflow-hidden">

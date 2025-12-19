@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
-// Template-specific imports
-import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
@@ -469,10 +467,10 @@ function toOgabasseyProduct(
           typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
         compare_at_price: o.compare_at_price
           ? formatter.format(
-            typeof o.compare_at_price === 'string'
-              ? Number.parseFloat(o.compare_at_price)
-              : o.compare_at_price
-          )
+              typeof o.compare_at_price === 'string'
+                ? Number.parseFloat(o.compare_at_price)
+                : o.compare_at_price
+            )
           : undefined,
         stock: o.stock_quantity,
         images: o.images,
@@ -753,13 +751,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
@@ -803,13 +801,16 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const host = headersList.get('host') || 'baci.app';
 
   // Strict Canonical URL Enforcement:
-  // If the URL category doesn't match the product's actual category, 
+  // If the URL category doesn't match the product's actual category,
   // redirect to the correct URL to avoid duplicate content.
   if (categoryMismatch) {
-    const correctCategorySlug = product.category_slug || (product.category ? generateSlug(product.category) : undefined);
+    const correctCategorySlug =
+      product.category_slug ||
+      (product.category ? generateSlug(product.category) : undefined);
 
     if (correctCategorySlug) {
-      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+      const isLocalhost =
+        host.includes('localhost') || host.includes('127.0.0.1');
       const cleanSlug = product.slug || product.id;
 
       const targetPath = isLocalhost

@@ -128,7 +128,8 @@ export async function POST(request: Request) {
 
     // Calculate customer cashback (if enabled)
     // Merchant can share a percentage of their commission with customers
-    const customerCashbackEnabled = settings.vtu_customer_cashback_enabled ?? false;
+    const customerCashbackEnabled =
+      settings.vtu_customer_cashback_enabled ?? false;
     const customerCashbackRate = settings.vtu_customer_cashback_rate ?? 50; // Default 50% of merchant's share
 
     let customerCashback = 0;
@@ -136,7 +137,10 @@ export async function POST(request: Request) {
 
     if (customerCashbackEnabled && customerId) {
       // Customer gets a percentage of merchant's commission
-      customerCashback = Math.round((commissions.merchantEarning * customerCashbackRate / 100) * 100) / 100;
+      customerCashback =
+        Math.round(
+          ((commissions.merchantEarning * customerCashbackRate) / 100) * 100
+        ) / 100;
       effectiveMerchantEarning = commissions.merchantEarning - customerCashback;
     }
 
@@ -226,7 +230,7 @@ export async function POST(request: Request) {
     // Credit merchant wallet (with effective amount after customer cashback)
     if (effectiveMerchantEarning > 0) {
       try {
-        const { data: walletResult, error: walletError } = await supabase.rpc(
+        const { error: walletError } = await supabase.rpc(
           'credit_merchant_wallet',
           {
             p_merchant_id: merchant.id,
@@ -250,20 +254,21 @@ export async function POST(request: Request) {
     // Credit customer wallet with cashback (if enabled and customer exists)
     if (customerCashback > 0 && customerId) {
       try {
-        const { data: customerWalletResult, error: customerWalletError } = await supabase.rpc(
-          'credit_customer_wallet',
-          {
+        const { data: customerWalletResult, error: customerWalletError } =
+          await supabase.rpc('credit_customer_wallet', {
             p_customer_id: customerId,
             p_merchant_id: merchant.id,
             p_amount: customerCashback,
             p_source_type: 'vtu_transaction',
             p_source_id: transaction.id,
             p_description: `Cashback - ${type} ${networkProvider} ₦${amount}`,
-          }
-        );
+          });
 
         if (customerWalletError) {
-          console.error('Failed to credit customer wallet:', customerWalletError);
+          console.error(
+            'Failed to credit customer wallet:',
+            customerWalletError
+          );
         } else {
           customerWalletCredited = true;
           customerNewBalance = customerWalletResult?.[0]?.new_balance || 0;
