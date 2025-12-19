@@ -40,6 +40,7 @@ interface Merchant {
   business_name: string;
   site_description: string | null;
   logo_url: string | null;
+  custom_domain: string | null;
 }
 
 // Escape XML special characters
@@ -99,10 +100,10 @@ const getCachedFeed = unstable_cache(
       throw new Error('Supabase not configured');
     }
 
-    // Get merchant
+    // Get merchant with custom domain
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, slug, business_name, site_description, logo_url')
+      .select('id, slug, business_name, site_description, logo_url, custom_domain')
       .eq('slug', merchantSlug)
       .single();
 
@@ -153,9 +154,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { merchant, posts } = data;
 
     // Base URL for the merchant's storefront
+    // Use custom domain if available for better SEO (canonical URLs)
     const baseUrl = getAppUrl();
-    const storeUrl = `${baseUrl}/${merchant.slug}`;
-    const feedUrl = `${baseUrl}/api/blog/feed/${merchant.slug}`;
+    const storeUrl = merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `${baseUrl}/${merchant.slug}`;
+    const feedUrl = merchant.custom_domain
+      ? `https://${merchant.custom_domain}/api/blog/feed/${merchant.slug}`
+      : `${baseUrl}/api/blog/feed/${merchant.slug}`;
 
     // Build date for the channel
     const lastBuildDate =
