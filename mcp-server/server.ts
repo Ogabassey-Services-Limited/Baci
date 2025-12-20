@@ -2293,143 +2293,142 @@ function createOgabasseyServer() {
   );
 
   // Tool: Compare products
+  // Tool: Compare Products
   server.registerTool(
-    // Tool: Compare Products
-    server.registerTool(
-      'compare_products',
-      {
-        title: 'Compare Products',
-        description: 'Compare 2-3 products side by side with spec-sheet precision. Analyzes price, condition, specs (RAM, storage, etc.), and ratings to help users choose.',
-        inputSchema: {
-          products: z.string().describe('Comma-separated product names or IDs (e.g., "iPhone 15, iPhone 14 Pro")'),
-        },
-        _meta: {
-          'openai/toolInvocation/invoking': 'Analyzing product specs...',
-          'openai/toolInvocation/invoked': 'Comparison complete',
-        },
+    'compare_products',
+    {
+      title: 'Compare Products',
+      description: 'Compare 2-3 products side by side with spec-sheet precision. Analyzes price, condition, specs (RAM, storage, etc.), and ratings to help users choose.',
+      inputSchema: {
+        products: z.string().describe('Comma-separated product names or IDs (e.g., "iPhone 15, iPhone 14 Pro")'),
       },
-      async (args) => {
-        const merchantId = await getMerchantId();
-        if (!merchantId) {
-          return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
-        }
+      _meta: {
+        'openai/toolInvocation/invoking': 'Analyzing product specs...',
+        'openai/toolInvocation/invoked': 'Comparison complete',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
 
-        // 1. Parse and sanitize inputs
-        const queries = args.products
-          .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 1)
-          .slice(0, 3); // Limit to 3 max
+      // 1. Parse and sanitize inputs
+      const queries = args.products
+        .split(',')
+        .map(s => s.trim())
+        .filter(s => s.length > 1)
+        .slice(0, 3); // Limit to 3 max
 
-        if (queries.length < 2) {
-          return { content: [{ type: 'text', text: 'Please provide at least 2 distinct products to compare (e.g., "iPhone 13, iPhone 12").' }] };
-        }
+      if (queries.length < 2) {
+        return { content: [{ type: 'text', text: 'Please provide at least 2 distinct products to compare (e.g., "iPhone 13, iPhone 12").' }] };
+      }
 
-        // 2. Fetch products details (Parallel fetch for speed)
-        const products: any[] = [];
+      // 2. Fetch products details (Parallel fetch for speed)
+      const products: any[] = [];
 
-        for (const q of queries) {
-          let product = null;
+      for (const q of queries) {
+        let product = null;
 
-          // Try ID match first
-          const { data: byId } = await supabase
+        // Try ID match first
+        const { data: byId } = await supabase
+          .from('products')
+          .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
+          .eq('id', q)
+          .eq('merchant_id', merchantId)
+          .single();
+
+        if (byId) {
+          product = byId;
+        } else {
+          // Fallback to fuzzy name match
+          const { data: byName } = await supabase
             .from('products')
             .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
-            .eq('id', q)
             .eq('merchant_id', merchantId)
+            .eq('status', 'active')
+            .ilike('name', `%${sanitizeString(q, 100)}%`)
+            .limit(1)
             .single();
-
-          if (byId) {
-            product = byId;
-          } else {
-            // Fallback to fuzzy name match
-            const { data: byName } = await supabase
-              .from('products')
-              .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
-              .eq('merchant_id', merchantId)
-              .eq('status', 'active')
-              .ilike('name', `%${sanitizeString(q, 100)}%`)
-              .limit(1)
-              .single();
-            product = byName;
-          }
-
-          if (product) products.push(product);
+          product = byName;
         }
 
-        if (products.length < 2) {
-          return {
-            content: [{ type: 'text', text: `❌ I couldn't find enough products matching "${args.products}" to compare. Please check the names.` }]
-          };
-        }
+        if (product) products.push(product);
+      }
 
-        // 3. Extract & Normalize Attributes
-        const allAttrKeys = new Set<string>();
-        products.forEach(p => {
-          if (p.attributes) {
-            Object.keys(p.attributes).forEach(k => allAttrKeys.add(k));
-          }
-        });
-        // Prioritize common tech specs
-        const prioritySpecs = ['Storage', 'RAM', 'Screen', 'Battery', 'Processor', 'Camera', 'Color'];
-        const sortedKeys = Array.from(allAttrKeys).sort((a, b) => {
-          const idxA = prioritySpecs.indexOf(a);
-          const idxB = prioritySpecs.indexOf(b);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return a.localeCompare(b);
-        });
-
-        // 4. Build Markdown Table
-        let text = `**📊 Product Comparison**\n\n`;
-
-        // Header
-        text += `| Feature | ${products.map(p => `**${p.name.substring(0, 30)}**`).join(' | ')} |\n`;
-        text += `|:---|${products.map(() => ':---').join('|')}|\n`;
-
-        // Core Data
-        text += `| **Price** | ${products.map(p => `**${formatPrice(p.price)}**`).join(' | ')} |\n`;
-        text += `| Savings | ${products.map(p => p.compare_at_price > p.price ? `Save ${Math.round((1 - p.price / p.compare_at_price) * 100)}%` : '-').join(' | ')} |\n`;
-        text += `| Condition | ${products.map(p => p.condition || 'New').join(' | ')} |\n`;
-        text += `| Rating | ${products.map(p => p.schema_markup?.aggregateRating?.ratingValue ? `⭐ ${p.schema_markup.aggregateRating.ratingValue}/5` : '-').join(' | ')} |\n`;
-
-        // Dynamic Attributes
-        sortedKeys.slice(0, 8).forEach(key => {
-          text += `| ${key} | ${products.map(p => p.attributes?.[key] || '-').join(' | ')} |\n`;
-        });
-
-        // 5. Intelligent Verdict
-        const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
-        const cheapest = sortedByPrice[0];
-        const expensive = sortedByPrice[sortedByPrice.length - 1];
-        const diff = expensive.price - cheapest.price;
-
-        text += `\n**💡 Analysis:**\n`;
-        text += `• **Best Value:** ${cheapest.name} is the most affordable options at ${formatPrice(cheapest.price)}.\n`;
-        if (diff > 0) {
-          text += `• **Price Gap:** There is a ${formatPrice(diff)} difference between the highest and lowest price.\n`;
-        }
-
-        const formattedProducts = products.map(p => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          price: p.price,
-          image: p.images?.[0]?.url || p.images?.[0] || null,
-          condition: p.condition,
-          in_stock: p.stock_quantity > 0
-        }));
-
+      if (products.length < 2) {
         return {
-          content: [{ type: 'text', text }],
-          structuredContent: {
-            type: 'comparison_table',
-            products: formattedProducts
-          },
+          content: [{ type: 'text', text: `❌ I couldn't find enough products matching "${args.products}" to compare. Please check the names.` }]
         };
       }
-    );
+
+      // 3. Extract & Normalize Attributes
+      const allAttrKeys = new Set<string>();
+      products.forEach(p => {
+        if (p.attributes) {
+          Object.keys(p.attributes).forEach(k => allAttrKeys.add(k));
+        }
+      });
+      // Prioritize common tech specs
+      const prioritySpecs = ['Storage', 'RAM', 'Screen', 'Battery', 'Processor', 'Camera', 'Color'];
+      const sortedKeys = Array.from(allAttrKeys).sort((a, b) => {
+        const idxA = prioritySpecs.indexOf(a);
+        const idxB = prioritySpecs.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      // 4. Build Markdown Table
+      let text = `**📊 Product Comparison**\n\n`;
+
+      // Header
+      text += `| Feature | ${products.map(p => `**${p.name.substring(0, 30)}**`).join(' | ')} |\n`;
+      text += `|:---|${products.map(() => ':---').join('|')}|\n`;
+
+      // Core Data
+      text += `| **Price** | ${products.map(p => `**${formatPrice(p.price)}**`).join(' | ')} |\n`;
+      text += `| Savings | ${products.map(p => p.compare_at_price > p.price ? `Save ${Math.round((1 - p.price / p.compare_at_price) * 100)}%` : '-').join(' | ')} |\n`;
+      text += `| Condition | ${products.map(p => p.condition || 'New').join(' | ')} |\n`;
+      text += `| Rating | ${products.map(p => p.schema_markup?.aggregateRating?.ratingValue ? `⭐ ${p.schema_markup.aggregateRating.ratingValue}/5` : '-').join(' | ')} |\n`;
+
+      // Dynamic Attributes
+      sortedKeys.slice(0, 8).forEach(key => {
+        text += `| ${key} | ${products.map(p => p.attributes?.[key] || '-').join(' | ')} |\n`;
+      });
+
+      // 5. Intelligent Verdict
+      const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
+      const cheapest = sortedByPrice[0];
+      const expensive = sortedByPrice[sortedByPrice.length - 1];
+      const diff = expensive.price - cheapest.price;
+
+      text += `\n**💡 Analysis:**\n`;
+      text += `• **Best Value:** ${cheapest.name} is the most affordable options at ${formatPrice(cheapest.price)}.\n`;
+      if (diff > 0) {
+        text += `• **Price Gap:** There is a ${formatPrice(diff)} difference between the highest and lowest price.\n`;
+      }
+
+      const formattedProducts = products.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        image: p.images?.[0]?.url || p.images?.[0] || null,
+        condition: p.condition,
+        in_stock: p.stock_quantity > 0
+      }));
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          type: 'comparison_table',
+          products: formattedProducts
+        },
+      };
+    }
+  );
 
   // Tool: Search Blog / Articles
   server.registerTool(
@@ -3447,367 +3446,332 @@ function createOgabasseyServer() {
     }
   );
 
-  // Find best value (lowest price with good condition)
-  const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
-  const cheapest = sortedByPrice[0];
-  const savings = products.length > 1 ? sortedByPrice[1].price - cheapest.price : 0;
 
-  text += `**💡 Recommendation:**\n`;
-  text += `• **Best Value:** ${cheapest.name} - ${formatPrice(cheapest.price)}`;
-  if (savings > 0) text += ` (Save ${formatPrice(savings)})`;
-  text += `\n`;
 
-  // Find premium option
-  const premium = sortedByPrice[sortedByPrice.length - 1];
-  if (premium.id !== cheapest.id) {
-    text += `• **Premium Choice:** ${premium.name} - ${formatPrice(premium.price)}\n`;
-  }
-
-  text += `\n_Need more details? Ask me about any specific product!_`;
-
-  return {
-    content: [{ type: 'text', text }],
-    structuredContent: {
-      products: products.map(p => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        condition: p.condition,
-        brand: p.brand,
-      })),
-      recommendation: {
-        best_value: cheapest.name,
-        savings: savings,
+  // Tool: Wishlist Management
+  server.registerTool(
+    'manage_wishlist',
+    {
+      title: 'Wishlist',
+      description: 'Add products to wishlist, view wishlist, or get notified about deals on wishlist items.',
+      inputSchema: {
+        action: z.enum(['add', 'view', 'remove', 'check_deals']).describe('Action to perform'),
+        product_id: z.string().optional().describe('Product ID for add/remove actions'),
+        product_name: z.string().optional().describe('Product name if ID not available'),
+        customer_email: z.string().email().optional().describe('Email to associate wishlist with'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Managing wishlist...',
+        'openai/toolInvocation/invoked': 'Wishlist updated',
       },
     },
-  };
-}
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to manage wishlist.' }] };
+      }
+
+      const action = args.action;
+
+      if (action === 'add') {
+        // Find product
+        let product: { id: string; name: string; price: number; images?: string[] } | null = null;
+
+        if (args.product_id) {
+          const { data, error } = await supabase
+            .from('products')
+            .select('id, name, price, images')
+            .eq('id', args.product_id)
+            .eq('merchant_id', merchantId)
+            .single();
+          if (error && error.code !== 'PGRST116') {
+            console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_id', message: error.message }));
+          }
+          product = data;
+        } else if (args.product_name) {
+          const { data, error } = await supabase
+            .from('products')
+            .select('id, name, price, images')
+            .eq('merchant_id', merchantId)
+            .eq('status', 'active')
+            .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
+            .limit(1)
+            .single();
+          if (error && error.code !== 'PGRST116') {
+            console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_name', message: error.message }));
+          }
+          product = data;
+        }
+
+        if (!product) {
+          return { content: [{ type: 'text', text: '❌ Product not found. Please provide a valid product name.' }] };
+        }
+
+        // Store in form_submissions as wishlist item
+        const { error } = await supabase
+          .from('form_submissions')
+          .insert({
+            merchant_id: merchantId,
+            form_name: 'wishlist_item',
+            form_data: {
+              product_id: product.id,
+              product_name: product.name,
+              price_when_added: product.price,
+              customer_email: args.customer_email || 'anonymous',
+              added_via: 'ChatGPT MCP',
+              added_at: new Date().toISOString(),
+            },
+            status: 'unread',
+          });
+
+        if (error) {
+          console.error('Error adding to wishlist:', error);
+          return { content: [{ type: 'text', text: '❌ Failed to add to wishlist. Please try again.' }] };
+        }
+
+        const text = `**❤️ Added to Wishlist!**\n\n` +
+          `**${product.name}**\n` +
+          `${formatPrice(product.price)}\n\n` +
+          `---\n` +
+          `💡 I'll let you know if the price drops or if there's a sale!\n` +
+          `_To view your wishlist, just ask "show my wishlist"._`;
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: { action: 'added', product: { id: product.id, name: product.name, price: product.price } },
+        };
+
+      } else if (action === 'view' || action === 'check_deals') {
+        // Get wishlist items
+        const { data: wishlistItems } = await supabase
+          .from('form_submissions')
+          .select('form_data')
+          .eq('merchant_id', merchantId)
+          .eq('form_name', 'wishlist_item')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!wishlistItems || wishlistItems.length === 0) {
+          return { content: [{ type: 'text', text: '📋 Your wishlist is empty!\n\nBrowse our products and ask me to add items to your wishlist.' }] };
+        }
+
+        // Get current prices for wishlist items
+        const productIds = wishlistItems.map(w => (w.form_data as Record<string, unknown>).product_id as string);
+        const { data: currentProducts } = await supabase
+          .from('products')
+          .select('id, name, price, compare_at_price')
+          .in('id', productIds)
+          .eq('merchant_id', merchantId);
+
+        const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
+
+        let text = `**❤️ Your Wishlist**\n\n`;
+        let hasDeals = false;
+
+        wishlistItems.forEach((item, index) => {
+          const formData = item.form_data as Record<string, unknown>;
+          const product = productMap.get(formData.product_id as string);
+
+          if (product) {
+            const priceWhenAdded = formData.price_when_added as number;
+            const currentPrice = product.price;
+            const priceDrop = priceWhenAdded - currentPrice;
+            const hasDiscount = product.compare_at_price && product.compare_at_price > currentPrice;
+
+            text += `${index + 1}. **${product.name}**\n`;
+            text += `   ${formatPrice(currentPrice)}`;
+
+            if (priceDrop > 0) {
+              text += ` 🔥 **Price dropped ${formatPrice(priceDrop)}!**`;
+              hasDeals = true;
+            } else if (hasDiscount) {
+              const pct = Math.round((1 - currentPrice / (product.compare_at_price || currentPrice)) * 100);
+              text += ` 🏷️ **${pct}% OFF**`;
+              hasDeals = true;
+            }
+            text += `\n\n`;
+          }
+        });
+
+        if (action === 'check_deals' && !hasDeals) {
+          text += `---\n_No deals on your wishlist items right now. I'll notify you when prices drop!_`;
+        } else if (hasDeals) {
+          text += `---\n🎉 **Great news!** Some items on your wishlist have deals. Don't miss out!`;
+        }
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: { wishlist_count: wishlistItems.length, has_deals: hasDeals },
+        };
+
+      } else if (action === 'remove') {
+        return { content: [{ type: 'text', text: '❌ Remove functionality coming soon! For now, items stay on your wishlist.' }] };
+      }
+
+      return { content: [{ type: 'text', text: '❌ Unknown action.' }] };
+    }
   );
 
-// Tool: Wishlist Management
-server.registerTool(
-  'manage_wishlist',
-  {
-    title: 'Wishlist',
-    description: 'Add products to wishlist, view wishlist, or get notified about deals on wishlist items.',
-    inputSchema: {
-      action: z.enum(['add', 'view', 'remove', 'check_deals']).describe('Action to perform'),
-      product_id: z.string().optional().describe('Product ID for add/remove actions'),
-      product_name: z.string().optional().describe('Product name if ID not available'),
-      customer_email: z.string().email().optional().describe('Email to associate wishlist with'),
+  // Tool: Santa Chatbot (Festive Gift Helper)
+  server.registerTool(
+    'ask_santa',
+    {
+      title: 'Ask Santa 🎅',
+      description: 'A festive gift helper! Ask Santa for gift recommendations, holiday deals, and seasonal suggestions. Perfect for Christmas shopping!',
+      inputSchema: {
+        message: z.string().min(3).max(300).describe('Your message or question for Santa'),
+        recipient: z.string().optional().describe('Who is the gift for? (e.g., mom, dad, friend, colleague)'),
+        budget: z.number().optional().describe('Gift budget in NGN'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': '🎅 Santa is thinking...',
+        'openai/toolInvocation/invoked': '🎄 Ho ho ho!',
+      },
     },
-    _meta: {
-      'openai/toolInvocation/invoking': 'Managing wishlist...',
-      'openai/toolInvocation/invoked': 'Wishlist updated',
-    },
-  },
-  async (args) => {
-    const merchantId = await getMerchantId();
-    if (!merchantId) {
-      return { content: [{ type: 'text', text: '❌ Unable to manage wishlist.' }] };
-    }
-
-    const action = args.action;
-
-    if (action === 'add') {
-      // Find product
-      let product: { id: string; name: string; price: number; images?: string[] } | null = null;
-
-      if (args.product_id) {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, images')
-          .eq('id', args.product_id)
-          .eq('merchant_id', merchantId)
-          .single();
-        if (error && error.code !== 'PGRST116') {
-          console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_id', message: error.message }));
-        }
-        product = data;
-      } else if (args.product_name) {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, images')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
-          .limit(1)
-          .single();
-        if (error && error.code !== 'PGRST116') {
-          console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_name', message: error.message }));
-        }
-        product = data;
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '🎅 Ho ho ho! Santa is taking a break. Please try again!' }] };
       }
 
-      if (!product) {
-        return { content: [{ type: 'text', text: '❌ Product not found. Please provide a valid product name.' }] };
-      }
+      const message = args.message.toLowerCase();
+      const recipient = args.recipient?.toLowerCase() || '';
+      const budget = args.budget;
 
-      // Store in form_submissions as wishlist item
-      const { error } = await supabase
-        .from('form_submissions')
-        .insert({
-          merchant_id: merchantId,
-          form_name: 'wishlist_item',
-          form_data: {
-            product_id: product.id,
-            product_name: product.name,
-            price_when_added: product.price,
-            customer_email: args.customer_email || 'anonymous',
-            added_via: 'ChatGPT MCP',
-            added_at: new Date().toISOString(),
-          },
-          status: 'unread',
-        });
+      // Santa's personality responses
+      const santaGreetings = [
+        'Ho ho ho! 🎅',
+        'Merry Christmas! 🎄',
+        'Season\'s Greetings! ❄️',
+        'Happy Holidays! 🎁',
+      ];
+      const greeting = santaGreetings[Math.floor(Math.random() * santaGreetings.length)];
 
-      if (error) {
-        console.error('Error adding to wishlist:', error);
-        return { content: [{ type: 'text', text: '❌ Failed to add to wishlist. Please try again.' }] };
-      }
+      // Determine gift category based on recipient
+      let giftKeywords: string[] = [];
+      let giftSuggestions: string[] = [];
 
-      const text = `**❤️ Added to Wishlist!**\n\n` +
-        `**${product.name}**\n` +
-        `${formatPrice(product.price)}\n\n` +
-        `---\n` +
-        `💡 I'll let you know if the price drops or if there's a sale!\n` +
-        `_To view your wishlist, just ask "show my wishlist"._`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { action: 'added', product: { id: product.id, name: product.name, price: product.price } },
-      };
-
-    } else if (action === 'view' || action === 'check_deals') {
-      // Get wishlist items
-      const { data: wishlistItems } = await supabase
-        .from('form_submissions')
-        .select('form_data')
-        .eq('merchant_id', merchantId)
-        .eq('form_name', 'wishlist_item')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (!wishlistItems || wishlistItems.length === 0) {
-        return { content: [{ type: 'text', text: '📋 Your wishlist is empty!\n\nBrowse our products and ask me to add items to your wishlist.' }] };
-      }
-
-      // Get current prices for wishlist items
-      const productIds = wishlistItems.map(w => (w.form_data as Record<string, unknown>).product_id as string);
-      const { data: currentProducts } = await supabase
-        .from('products')
-        .select('id, name, price, compare_at_price')
-        .in('id', productIds)
-        .eq('merchant_id', merchantId);
-
-      const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
-
-      let text = `**❤️ Your Wishlist**\n\n`;
-      let hasDeals = false;
-
-      wishlistItems.forEach((item, index) => {
-        const formData = item.form_data as Record<string, unknown>;
-        const product = productMap.get(formData.product_id as string);
-
-        if (product) {
-          const priceWhenAdded = formData.price_when_added as number;
-          const currentPrice = product.price;
-          const priceDrop = priceWhenAdded - currentPrice;
-          const hasDiscount = product.compare_at_price && product.compare_at_price > currentPrice;
-
-          text += `${index + 1}. **${product.name}**\n`;
-          text += `   ${formatPrice(currentPrice)}`;
-
-          if (priceDrop > 0) {
-            text += ` 🔥 **Price dropped ${formatPrice(priceDrop)}!**`;
-            hasDeals = true;
-          } else if (hasDiscount) {
-            const pct = Math.round((1 - currentPrice / (product.compare_at_price || currentPrice)) * 100);
-            text += ` 🏷️ **${pct}% OFF**`;
-            hasDeals = true;
-          }
-          text += `\n\n`;
-        }
-      });
-
-      if (action === 'check_deals' && !hasDeals) {
-        text += `---\n_No deals on your wishlist items right now. I'll notify you when prices drop!_`;
-      } else if (hasDeals) {
-        text += `---\n🎉 **Great news!** Some items on your wishlist have deals. Don't miss out!`;
-      }
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { wishlist_count: wishlistItems.length, has_deals: hasDeals },
-      };
-
-    } else if (action === 'remove') {
-      return { content: [{ type: 'text', text: '❌ Remove functionality coming soon! For now, items stay on your wishlist.' }] };
-    }
-
-    return { content: [{ type: 'text', text: '❌ Unknown action.' }] };
-  }
-);
-
-// Tool: Santa Chatbot (Festive Gift Helper)
-server.registerTool(
-  'ask_santa',
-  {
-    title: 'Ask Santa 🎅',
-    description: 'A festive gift helper! Ask Santa for gift recommendations, holiday deals, and seasonal suggestions. Perfect for Christmas shopping!',
-    inputSchema: {
-      message: z.string().min(3).max(300).describe('Your message or question for Santa'),
-      recipient: z.string().optional().describe('Who is the gift for? (e.g., mom, dad, friend, colleague)'),
-      budget: z.number().optional().describe('Gift budget in NGN'),
-    },
-    _meta: {
-      'openai/toolInvocation/invoking': '🎅 Santa is thinking...',
-      'openai/toolInvocation/invoked': '🎄 Ho ho ho!',
-    },
-  },
-  async (args) => {
-    const merchantId = await getMerchantId();
-    if (!merchantId) {
-      return { content: [{ type: 'text', text: '🎅 Ho ho ho! Santa is taking a break. Please try again!' }] };
-    }
-
-    const message = args.message.toLowerCase();
-    const recipient = args.recipient?.toLowerCase() || '';
-    const budget = args.budget;
-
-    // Santa's personality responses
-    const santaGreetings = [
-      'Ho ho ho! 🎅',
-      'Merry Christmas! 🎄',
-      'Season\'s Greetings! ❄️',
-      'Happy Holidays! 🎁',
-    ];
-    const greeting = santaGreetings[Math.floor(Math.random() * santaGreetings.length)];
-
-    // Determine gift category based on recipient
-    let giftKeywords: string[] = [];
-    let giftSuggestions: string[] = [];
-
-    if (recipient.includes('dad') || recipient.includes('father') || recipient.includes('husband') || recipient.includes('boyfriend')) {
-      giftKeywords = ['laptop', 'headphone', 'watch', 'ps5', 'xbox', 'speaker'];
-      giftSuggestions = ['A powerful laptop for work', 'Premium headphones', 'Gaming console', 'Smart watch'];
-    } else if (recipient.includes('mom') || recipient.includes('mother') || recipient.includes('wife') || recipient.includes('girlfriend')) {
-      giftKeywords = ['iphone', 'airpods', 'tablet', 'watch', 'speaker'];
-      giftSuggestions = ['Latest iPhone', 'AirPods Pro', 'iPad for creativity', 'Smart home devices'];
-    } else if (recipient.includes('kid') || recipient.includes('child') || recipient.includes('son') || recipient.includes('daughter')) {
-      giftKeywords = ['ps5', 'xbox', 'nintendo', 'tablet', 'headphone'];
-      giftSuggestions = ['Gaming console', 'Tablet for learning', 'Fun headphones', 'Gaming accessories'];
-    } else if (recipient.includes('friend') || recipient.includes('colleague')) {
-      giftKeywords = ['airpods', 'power bank', 'speaker', 'accessory'];
-      giftSuggestions = ['Wireless earbuds', 'Portable speaker', 'Power bank', 'Phone accessories'];
-    } else if (recipient.includes('gamer')) {
-      giftKeywords = ['ps5', 'xbox', 'controller', 'headset', 'gaming'];
-      giftSuggestions = ['Gaming console', 'Pro controller', 'Gaming headset', 'Game titles'];
-    } else {
-      giftKeywords = ['iphone', 'airpods', 'laptop', 'tablet', 'speaker'];
-      giftSuggestions = ['Smartphone', 'Wireless earbuds', 'Laptop', 'Smart accessories'];
-    }
-
-    // Search for gift products
-    // Validate gift keywords are safe alphanumeric strings (these are hardcoded but validate anyway)
-    const safeGiftKeywords = giftKeywords
-      .map(k => k.replace(/[^a-zA-Z0-9-]/g, ''))
-      .filter(k => k.length > 0 && k.length <= 30);
-
-    let query = supabase
-      .from('products')
-      .select('id, name, price, compare_at_price, images')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .or(safeGiftKeywords.map(k => `name.ilike.%${k}%`).join(','))
-      .order('price', { ascending: true });
-
-    if (budget) {
-      query = query.lte('price', budget);
-    }
-
-    const { data: products, error: giftError } = await query.limit(6);
-    if (giftError) {
-      console.error(JSON.stringify({ type: 'error', context: 'ask_santa', message: giftError.message }));
-    }
-
-    // Build Santa's response
-    let text = `**${greeting}**\n\n`;
-
-    if (message.includes('help') || message.includes('suggest') || message.includes('recommend') || message.includes('gift')) {
-      text += `🎁 **Santa's Gift Guide${recipient ? ` for ${args.recipient}` : ''}**\n\n`;
-
-      if (products && products.length > 0) {
-        text += `Here are my top picks from the nice list:\n\n`;
-        products.slice(0, 4).forEach((p, i) => {
-          const hasDiscount = p.compare_at_price && p.compare_at_price > p.price;
-          text += `${i + 1}. **${p.name}**\n`;
-          text += `   ${formatPrice(p.price)}`;
-          if (hasDiscount) {
-            text += ` 🎄 _Holiday Sale!_`;
-          }
-          text += `\n`;
-        });
+      if (recipient.includes('dad') || recipient.includes('father') || recipient.includes('husband') || recipient.includes('boyfriend')) {
+        giftKeywords = ['laptop', 'headphone', 'watch', 'ps5', 'xbox', 'speaker'];
+        giftSuggestions = ['A powerful laptop for work', 'Premium headphones', 'Gaming console', 'Smart watch'];
+      } else if (recipient.includes('mom') || recipient.includes('mother') || recipient.includes('wife') || recipient.includes('girlfriend')) {
+        giftKeywords = ['iphone', 'airpods', 'tablet', 'watch', 'speaker'];
+        giftSuggestions = ['Latest iPhone', 'AirPods Pro', 'iPad for creativity', 'Smart home devices'];
+      } else if (recipient.includes('kid') || recipient.includes('child') || recipient.includes('son') || recipient.includes('daughter')) {
+        giftKeywords = ['ps5', 'xbox', 'nintendo', 'tablet', 'headphone'];
+        giftSuggestions = ['Gaming console', 'Tablet for learning', 'Fun headphones', 'Gaming accessories'];
+      } else if (recipient.includes('friend') || recipient.includes('colleague')) {
+        giftKeywords = ['airpods', 'power bank', 'speaker', 'accessory'];
+        giftSuggestions = ['Wireless earbuds', 'Portable speaker', 'Power bank', 'Phone accessories'];
+      } else if (recipient.includes('gamer')) {
+        giftKeywords = ['ps5', 'xbox', 'controller', 'headset', 'gaming'];
+        giftSuggestions = ['Gaming console', 'Pro controller', 'Gaming headset', 'Game titles'];
       } else {
-        text += `My elves are working hard to find the perfect gift! Here are some ideas:\n\n`;
-        giftSuggestions.forEach((s, i) => {
-          text += `${i + 1}. ${s}\n`;
-        });
+        giftKeywords = ['iphone', 'airpods', 'laptop', 'tablet', 'speaker'];
+        giftSuggestions = ['Smartphone', 'Wireless earbuds', 'Laptop', 'Smart accessories'];
       }
 
-      text += `\n🎅 _Santa's tip: Order early for delivery before Christmas!_`;
+      // Search for gift products
+      // Validate gift keywords are safe alphanumeric strings (these are hardcoded but validate anyway)
+      const safeGiftKeywords = giftKeywords
+        .map(k => k.replace(/[^a-zA-Z0-9-]/g, ''))
+        .filter(k => k.length > 0 && k.length <= 30);
 
-    } else if (message.includes('deal') || message.includes('sale') || message.includes('discount')) {
-      text += `🎄 **Holiday Deals from Santa's Workshop!**\n\n`;
-
-      // Find discounted products
-      const { data: deals } = await supabase
+      let query = supabase
         .from('products')
-        .select('id, name, price, compare_at_price')
+        .select('id, name, price, compare_at_price, images')
         .eq('merchant_id', merchantId)
         .eq('status', 'active')
-        .not('compare_at_price', 'is', null)
-        .order('compare_at_price', { ascending: false })
-        .limit(5);
+        .or(safeGiftKeywords.map(k => `name.ilike.%${k}%`).join(','))
+        .order('price', { ascending: true });
 
-      if (deals && deals.length > 0) {
-        deals.forEach((d) => {
-          if (d.compare_at_price && d.compare_at_price > d.price) {
-            const pct = Math.round((1 - d.price / d.compare_at_price) * 100);
-            text += `🎁 **${d.name}**\n`;
-            text += `   ${formatPrice(d.price)} ~~${formatPrice(d.compare_at_price)}~~ (-${pct}%)\n\n`;
-          }
-        });
-      } else {
-        text += `No special deals right now, but everything at Ogabassey is priced fairly!\n`;
+      if (budget) {
+        query = query.lte('price', budget);
       }
 
-      text += `🔔 _Set a price alert to catch the next sale!_`;
+      const { data: products, error: giftError } = await query.limit(6);
+      if (giftError) {
+        console.error(JSON.stringify({ type: 'error', context: 'ask_santa', message: giftError.message }));
+      }
 
-    } else {
-      // General festive response
-      text += `I'm Santa's digital helper at Ogabassey! 🎄\n\n`;
-      text += `I can help you with:\n`;
-      text += `• 🎁 **Gift recommendations** - Tell me who you're shopping for\n`;
-      text += `• 🏷️ **Holiday deals** - Find the best discounts\n`;
-      text += `• 💰 **Budget gifts** - Set a budget and I'll find options\n`;
-      text += `• ❤️ **Wishlist** - Save items for Santa to remember\n\n`;
-      text += `_Try saying: "Santa, find a gift for my dad under ₦200,000"_\n\n`;
-      text += `🎅 **Merry Christmas and Happy Shopping!**`;
+      // Build Santa's response
+      let text = `**${greeting}**\n\n`;
+
+      if (message.includes('help') || message.includes('suggest') || message.includes('recommend') || message.includes('gift')) {
+        text += `🎁 **Santa's Gift Guide${recipient ? ` for ${args.recipient}` : ''}**\n\n`;
+
+        if (products && products.length > 0) {
+          text += `Here are my top picks from the nice list:\n\n`;
+          products.slice(0, 4).forEach((p, i) => {
+            const hasDiscount = p.compare_at_price && p.compare_at_price > p.price;
+            text += `${i + 1}. **${p.name}**\n`;
+            text += `   ${formatPrice(p.price)}`;
+            if (hasDiscount) {
+              text += ` 🎄 _Holiday Sale!_`;
+            }
+            text += `\n`;
+          });
+        } else {
+          text += `My elves are working hard to find the perfect gift! Here are some ideas:\n\n`;
+          giftSuggestions.forEach((s, i) => {
+            text += `${i + 1}. ${s}\n`;
+          });
+        }
+
+        text += `\n🎅 _Santa's tip: Order early for delivery before Christmas!_`;
+
+      } else if (message.includes('deal') || message.includes('sale') || message.includes('discount')) {
+        text += `🎄 **Holiday Deals from Santa's Workshop!**\n\n`;
+
+        // Find discounted products
+        const { data: deals } = await supabase
+          .from('products')
+          .select('id, name, price, compare_at_price')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .not('compare_at_price', 'is', null)
+          .order('compare_at_price', { ascending: false })
+          .limit(5);
+
+        if (deals && deals.length > 0) {
+          deals.forEach((d) => {
+            if (d.compare_at_price && d.compare_at_price > d.price) {
+              const pct = Math.round((1 - d.price / d.compare_at_price) * 100);
+              text += `🎁 **${d.name}**\n`;
+              text += `   ${formatPrice(d.price)} ~~${formatPrice(d.compare_at_price)}~~ (-${pct}%)\n\n`;
+            }
+          });
+        } else {
+          text += `No special deals right now, but everything at Ogabassey is priced fairly!\n`;
+        }
+
+        text += `🔔 _Set a price alert to catch the next sale!_`;
+
+      } else {
+        // General festive response
+        text += `I'm Santa's digital helper at Ogabassey! 🎄\n\n`;
+        text += `I can help you with:\n`;
+        text += `• 🎁 **Gift recommendations** - Tell me who you're shopping for\n`;
+        text += `• 🏷️ **Holiday deals** - Find the best discounts\n`;
+        text += `• 💰 **Budget gifts** - Set a budget and I'll find options\n`;
+        text += `• ❤️ **Wishlist** - Save items for Santa to remember\n\n`;
+        text += `_Try saying: "Santa, find a gift for my dad under ₦200,000"_\n\n`;
+        text += `🎅 **Merry Christmas and Happy Shopping!**`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          santa_mode: true,
+          recipient,
+          budget,
+          products: products?.slice(0, 4).map(p => ({ id: p.id, name: p.name, price: p.price })) || [],
+        },
+      };
     }
+  );
 
-    return {
-      content: [{ type: 'text', text }],
-      structuredContent: {
-        santa_mode: true,
-        recipient,
-        budget,
-        products: products?.slice(0, 4).map(p => ({ id: p.id, name: p.name, price: p.price })) || [],
-      },
-    };
-  }
-);
-
-return server;
+  return server;
 }
 
 // =============================================================================
