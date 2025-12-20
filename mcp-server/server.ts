@@ -14,6 +14,8 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
@@ -231,6 +233,38 @@ function formatPrice(price: number): string {
     currency: 'NGN',
     minimumFractionDigits: 0,
   }).format(price);
+}
+
+/**
+ * Ensure image URL is in a format ChatGPT can render.
+ * - Converts .avif to .jpg (ChatGPT may not support AVIF)
+ * - Fixes path mismatch: database has /products/, CDN has /core-assets/products/
+ */
+function ensureJpgImageUrl(imageUrl: string | null | undefined): string | undefined {
+  if (!imageUrl) return undefined;
+
+  let url = String(imageUrl);
+
+  // If it's a relative path or doesn't start with https, make it absolute
+  if (!url.startsWith('https://')) {
+    if (url.startsWith('/')) {
+      url = `https://cdn.ogabassey.com${url}`;
+    } else {
+      url = `https://cdn.ogabassey.com/${url}`;
+    }
+  }
+
+  // Fix path mismatch: database stores /products/ but CDN serves from /core-assets/products/
+  if (url.includes('/products/') && !url.includes('/core-assets/products/')) {
+    url = url.replace('/products/', '/core-assets/products/');
+  }
+
+  // Convert AVIF to JPG for better compatibility
+  if (url.endsWith('.avif')) {
+    url = url.replace(/\.avif$/, '.jpg');
+  }
+
+  return url;
 }
 
 // =============================================================================
@@ -929,6 +963,34 @@ const widgetHtml = `<!DOCTYPE html>
 </html>`;
 
 // =============================================================================
+// PREMIUM WIDGET LOADER
+// =============================================================================
+
+// Load premium widget from bundled assets if available
+function loadPremiumWidget(): string {
+  // Check for bundled widget (built from widgets/src)
+  const bundledPath = path.join(__dirname, 'assets', 'ogabassey-store.html');
+  if (fs.existsSync(bundledPath)) {
+    console.log('[Widget] Loading premium widget from:', bundledPath);
+    return fs.readFileSync(bundledPath, 'utf8');
+  }
+
+  // Docker deployment path
+  const dockerPath = '/app/assets/ogabassey-store.html';
+  if (fs.existsSync(dockerPath)) {
+    console.log('[Widget] Loading premium widget from Docker:', dockerPath);
+    return fs.readFileSync(dockerPath, 'utf8');
+  }
+
+  // Fall back to inline widget
+  console.log('[Widget] Using inline fallback widget');
+  return widgetHtml;
+}
+
+// Cache the loaded widget
+const premiumWidgetHtml = loadPremiumWidget();
+
+// =============================================================================
 // MCP SERVER FACTORY
 // =============================================================================
 
@@ -947,7 +1009,7 @@ function createOgabasseyServer() {
       contents: [{
         uri: 'ui://widget/store.html',
         mimeType: 'text/html+skybridge',
-        text: widgetHtml,
+        text: premiumWidgetHtml,
         _meta: { 'openai/widgetPrefersBorder': true },
       }],
     })
@@ -1064,7 +1126,7 @@ function createOgabasseyServer() {
             slug: p.slug,
             price: p.price,
             compare_at_price: p.compare_at_price,
-            image: p.images?.[0]?.url || p.images?.[0] || null,
+            image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
             condition: p.condition || 'new',
             brand: p.brand,
             category: p.category,
@@ -1105,6 +1167,65 @@ function createOgabasseyServer() {
             products: []
           }
         };
+      }
+    }
+  );
+
+  // Tool: Add to Cart (Widget-accessible)
+  // This tool can be called from the widget iframe using window.openai.callTool
+  server.registerTool(
+    'add_to_cart',
+    {
+      title: 'Add to Cart',
+      description: 'Add a product to the shopping cart. This tool is accessible from the in-chat widget for real-time cart updates.',
+      inputSchema: {
+        product_id: z.string().describe('The product ID to add to cart'),
+        quantity: z.number().min(1).max(10).optional().default(1).describe('Quantity to add'),
+        session_id: z.string().optional().describe('Cart session identifier'),
+      },
+      _meta: {
+        'openai/widgetAccessible': true, // Enable widget-initiated calls
+        'openai/toolInvocation/invoking': 'Adding to cart...',
+        'openai/toolInvocation/invoked': 'Added to cart',
+      },
+    },
+    async (args) => {
+      try {
+        const merchantId = await getMerchantId();
+        if (!merchantId) {
+          return { content: [{ type: 'text', text: '❌ Unable to access store.' }] };
+        }
+
+        // For now, generate cart URL - in production this would update server-side cart
+        const cartUrl = `https://ogabassey.com/ogabassey/cart?item_id=${encodeURIComponent(args.product_id)}&qty=${args.quantity || 1}`;
+
+        // Get product details for confirmation message
+        const { data: product } = await supabase
+          .from('products')
+          .select('name, price')
+          .eq('id', args.product_id)
+          .eq('merchant_id', merchantId)
+          .single();
+
+        const productName = product?.name || 'Product';
+        const price = product?.price ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(product.price) : '';
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ **${productName}** added to cart!${price ? ` (${price})` : ''}\n\n[View Cart & Checkout](${cartUrl})`,
+          }],
+          structuredContent: {
+            success: true,
+            product_id: args.product_id,
+            product_name: productName,
+            quantity: args.quantity || 1,
+            cart_url: cartUrl,
+          },
+        };
+      } catch (error) {
+        console.error('Add to cart error:', error);
+        return { content: [{ type: 'text', text: '❌ Unable to add item to cart.' }] };
       }
     }
   );
@@ -1437,7 +1558,7 @@ function createOgabasseyServer() {
         name: p.name,
         slug: p.slug,
         price: p.price,
-        image: p.images?.[0] || null,
+        image: ensureJpgImageUrl(p.images?.[0]),
       }));
 
       return {
@@ -1580,7 +1701,7 @@ function createOgabasseyServer() {
         slug: p.slug,
         price: p.price,
         compare_at_price: p.compare_at_price,
-        image: p.images?.[0]?.url || p.images?.[0] || null,
+        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
         condition: p.condition || 'new',
         brand: p.brand,
         in_stock: true,
@@ -1864,7 +1985,7 @@ function createOgabasseyServer() {
         slug: p.slug,
         price: p.price,
         compare_at_price: p.compare_at_price,
-        image: p.images?.[0]?.url || p.images?.[0] || null,
+        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
         condition: p.condition || 'new',
         brand: p.brand,
         in_stock: true,
@@ -2071,7 +2192,7 @@ function createOgabasseyServer() {
         slug: p.slug,
         price: p.price,
         compare_at_price: p.compare_at_price,
-        image: p.images?.[0]?.url || p.images?.[0] || null,
+        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
         condition: p.condition || 'new',
         brand: p.brand,
         in_stock: true,
@@ -2415,7 +2536,7 @@ function createOgabasseyServer() {
         name: p.name,
         slug: p.slug,
         price: p.price,
-        image: p.images?.[0]?.url || p.images?.[0] || null,
+        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
         condition: p.condition,
         in_stock: p.stock_quantity > 0
       }));
@@ -3120,7 +3241,7 @@ function createOgabasseyServer() {
             name: p.name,
             price: p.price,
             compare_at_price: p.compare_at_price,
-            image: p.images?.[0],
+            image: ensureJpgImageUrl(p.images?.[0]),
           }));
         }
       }
@@ -3144,7 +3265,7 @@ function createOgabasseyServer() {
             name: p.name,
             price: p.price,
             compare_at_price: p.compare_at_price,
-            image: p.images?.[0],
+            image: ensureJpgImageUrl(p.images?.[0]),
           }));
         }
       }
