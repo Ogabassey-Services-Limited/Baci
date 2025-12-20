@@ -1,0 +1,192 @@
+import crypto from 'node:crypto';
+
+/**
+ * TikTok Events API (Server-Side)
+ *
+ * Server-side event tracking for TikTok Ads.
+ * This bypasses ad blockers and provides more accurate attribution.
+ *
+ * @see https://business-api.tiktok.com/portal/docs?id=1741601162187777
+ */
+
+const TIKTOK_API_URL =
+  'https://business-api.tiktok.com/open_api/v1.3/event/track/';
+
+export type TikTokEventName =
+  | 'ViewContent'
+  | 'AddToCart'
+  | 'InitiateCheckout'
+  | 'CompletePayment'
+  | 'PlaceAnOrder'
+  | 'Search'
+  | 'AddToWishlist'
+  | 'CompleteRegistration';
+
+export interface TikTokUserData {
+  email?: string;
+  phone?: string;
+  externalId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  ttp?: string; // TikTok click ID from cookie
+}
+
+export interface TikTokEventProperties {
+  value?: number;
+  currency?: string;
+  contentId?: string;
+  contentIds?: string[];
+  contentName?: string;
+  contentType?: 'product' | 'product_group';
+  contents?: Array<{
+    content_id: string;
+    price?: number;
+    quantity?: number;
+    content_name?: string;
+  }>;
+  query?: string;
+  orderId?: string;
+}
+
+/**
+ * Hash data using SHA-256 (required by TikTok)
+ */
+function hashData(data: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(data.toLowerCase().trim())
+    .digest('hex');
+}
+
+/**
+ * Send event to TikTok Events API
+ */
+export async function sendTikTokEvent(
+  pixelId: string,
+  accessToken: string,
+  eventName: TikTokEventName,
+  userData: TikTokUserData,
+  properties?: TikTokEventProperties,
+  eventId?: string,
+  testEventCode?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!pixelId || !accessToken) {
+    return { success: false, error: 'Missing pixel ID or access token' };
+  }
+
+  // Build user data with hashing
+  const user: Record<string, string | undefined> = {};
+  if (userData.email) user.email = hashData(userData.email);
+  if (userData.phone)
+    user.phone = hashData(userData.phone.replace(/[^\d+]/g, ''));
+  if (userData.externalId) user.external_id = hashData(userData.externalId);
+  if (userData.ipAddress) user.ip = userData.ipAddress;
+  if (userData.userAgent) user.user_agent = userData.userAgent;
+  if (userData.ttp) user.ttp = userData.ttp;
+
+  // Build properties
+  const eventProperties: Record<string, unknown> = {};
+  if (properties?.value !== undefined) eventProperties.value = properties.value;
+  if (properties?.currency) eventProperties.currency = properties.currency;
+  if (properties?.contentId) eventProperties.content_id = properties.contentId;
+  if (properties?.contentIds)
+    eventProperties.content_ids = properties.contentIds;
+  if (properties?.contentName)
+    eventProperties.content_name = properties.contentName;
+  if (properties?.contentType)
+    eventProperties.content_type = properties.contentType;
+  if (properties?.contents) eventProperties.contents = properties.contents;
+  if (properties?.query) eventProperties.query = properties.query;
+  if (properties?.orderId) eventProperties.order_id = properties.orderId;
+
+  const payload = {
+    pixel_code: pixelId,
+    event: eventName,
+    event_id:
+      eventId || `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+    timestamp: new Date().toISOString(),
+    context: {
+      user,
+      page: {
+        // url: properties?.url, // Uncomment & implement if event page URL is available as properties.url
+      },
+    },
+    properties: eventProperties,
+    ...(testEventCode ? { test_event_code: testEventCode } : {}),
+  };
+
+  try {
+    const response = await fetch(TIKTOK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Token': accessToken,
+      },
+      body: JSON.stringify({
+        data: [payload],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('TikTok Events API error:', errorData);
+      return { success: false, error: errorData.message || 'Unknown error' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('TikTok Events API request failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
+  }
+}
+
+/**
+ * Helper functions for common e-commerce events
+ */
+export const tiktokEventsAPI = {
+  purchase: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    orderId: string,
+    value: number,
+    currency: string,
+    products: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }>
+  ) => {
+    return sendTikTokEvent(pixelId, accessToken, 'CompletePayment', userData, {
+      value,
+      currency,
+      orderId,
+      contentIds: products.map((p) => p.id),
+      contents: products.map((p) => ({
+        content_id: p.id,
+        content_name: p.name,
+        price: p.price,
+        quantity: p.quantity,
+      })),
+    });
+  },
+
+  initiateCheckout: (
+    pixelId: string,
+    accessToken: string,
+    userData: TikTokUserData,
+    value: number,
+    currency: string,
+    productIds: string[]
+  ) => {
+    return sendTikTokEvent(pixelId, accessToken, 'InitiateCheckout', userData, {
+      value,
+      currency,
+      contentIds: productIds,
+    });
+  },
+};

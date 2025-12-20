@@ -1,0 +1,146 @@
+'use server';
+
+import { cookies } from 'next/headers';
+import { getCachedDashboardStats } from '@/lib/cached-data';
+import { createClient } from '@/lib/supabase/server';
+
+export interface DashboardMetrics {
+  revenue: {
+    value: number;
+    change: number;
+  };
+  customers: {
+    value: number;
+    change: number;
+  };
+  orders: {
+    value: number;
+    change: number;
+  };
+  activeNow: {
+    value: number;
+    change: number;
+  };
+  fulfillmentRate: number;
+  aov: number;
+}
+
+export interface MonthlyChartData {
+  month: string;
+  revenue: number;
+  profit: number;
+  orders: number;
+}
+
+export interface RecentSale {
+  id: string;
+  name: string;
+  email: string;
+  amount: number;
+  status: 'Completed' | 'Processing' | 'Failed' | 'Pending';
+}
+
+export async function getDashboardMetrics(
+  merchantId: string
+): Promise<DashboardMetrics> {
+  try {
+    // OPTIMIZED: Use cached RPC function
+    // This uses stable caching (1 min) to prevent DB hammering on refresh
+    const stats = await getCachedDashboardStats(merchantId);
+
+    // If RPC returns null/empty (shouldn't happen with our SQL logic but safe to handle)
+    if (!stats) {
+      return {
+        revenue: { value: 0, change: 0 },
+        customers: { value: 0, change: 0 },
+        orders: { value: 0, change: 0 },
+        activeNow: { value: 0, change: 0 },
+        fulfillmentRate: 0,
+        aov: 0,
+      };
+    }
+
+    return {
+      revenue: stats.revenue,
+      customers: stats.customers,
+      orders: stats.orders,
+      activeNow: stats.activeNow,
+      fulfillmentRate: stats.fulfillmentRate,
+      aov: stats.aov,
+    };
+  } catch (error) {
+    console.error('Failed to fetch dashboard metrics:', error);
+    return {
+      revenue: { value: 0, change: 0 },
+      customers: { value: 0, change: 0 },
+      orders: { value: 0, change: 0 },
+      activeNow: { value: 0, change: 0 },
+      fulfillmentRate: 0,
+      aov: 0,
+    };
+  }
+}
+
+export async function getRecentSales(
+  merchantId: string,
+  limit = 5
+): Promise<RecentSale[]> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('id, customer_name, customer_email, total, payment_status')
+      .eq('merchant_id', merchantId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching recent sales:', error);
+      return [];
+    }
+
+    return (orders || []).map((order) => ({
+      id: order.id,
+      name: order.customer_name || 'Unknown Customer',
+      email: order.customer_email || 'no-email@example.com',
+      amount: Number(order.total) || 0,
+      status:
+        order.payment_status === 'paid'
+          ? 'Completed'
+          : order.payment_status === 'unpaid'
+            ? 'Pending'
+            : 'Failed',
+    }));
+  } catch (error) {
+    console.error('Failed to fetch recent sales:', error);
+    return [];
+  }
+}
+
+export async function getMonthlyChartData(
+  merchantId: string
+): Promise<MonthlyChartData[]> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // OPTIMIZED: Use database RPC function
+    const { data: chartData, error } = await supabase.rpc(
+      'get_monthly_sales_stats',
+      { p_merchant_id: merchantId }
+    );
+
+    if (error) {
+      console.error('Error fetching monthly chart data (RPC):', error);
+      // Fallback to empty array
+      return [];
+    }
+
+    return (chartData as unknown as MonthlyChartData[]) || [];
+  } catch (error) {
+    console.error('Failed to fetch monthly chart data:', error);
+    return [];
+  }
+}

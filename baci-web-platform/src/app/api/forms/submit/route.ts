@@ -1,0 +1,143 @@
+import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/zeptomail';
+
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const body = await request.json();
+
+    const { merchantId, formName, formData } = body;
+
+    // Validate required fields
+    if (!merchantId || !formName || !formData) {
+      return NextResponse.json(
+        { error: 'Missing required fields: merchantId, formName, or formData' },
+        { status: 400 }
+      );
+    }
+
+    // Validate merchant exists and get their email
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id, business_name, user_id')
+      .eq('id', merchantId)
+      .single();
+
+    if (merchantError || !merchant) {
+      return NextResponse.json(
+        { error: 'Invalid merchant ID' },
+        { status: 400 }
+      );
+    }
+
+    // Get merchant's email from auth.users
+    let merchantEmail: string | null = null;
+    if (merchant.user_id) {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', merchant.user_id)
+        .single();
+      merchantEmail = userData?.email || null;
+    }
+
+    // Get IP address and user agent
+    const ip =
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+
+    // Insert form submission
+    const { data: submission, error: submitError } = await supabase
+      .from('form_submissions')
+      .insert({
+        merchant_id: merchantId,
+        form_name: formName,
+        form_data: formData,
+        ip_address: ip,
+        user_agent: userAgent,
+        status: 'unread',
+      })
+      .select()
+      .single();
+
+    if (submitError) {
+      console.error('Error saving form submission:', submitError);
+      return NextResponse.json(
+        { error: 'Failed to save form submission' },
+        { status: 500 }
+      );
+    }
+
+    // Send email notification to merchant (fire and forget)
+    if (merchantEmail) {
+      const formDataRows = Object.entries(formData)
+        .map(
+          ([key, value]) =>
+            `<tr><td style="padding: 8px; border: 1px solid #eee; font-weight: 500;">${key}</td><td style="padding: 8px; border: 1px solid #eee;">${value}</td></tr>`
+        )
+        .join('');
+
+      const textFormData = Object.entries(formData)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+
+      sendEmail({
+        to: merchantEmail,
+        toName: merchant.business_name,
+        subject: `New ${formName} submission on ${merchant.business_name}`,
+        htmlContent: `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    </head>
+                    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #6366f1; margin: 0;">New Form Submission</h1>
+                        </div>
+                        <p>You received a new <strong>${formName}</strong> submission on your store.</p>
+                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                            <thead>
+                                <tr style="background: #f9fafb;">
+                                    <th style="padding: 8px; border: 1px solid #eee; text-align: left;">Field</th>
+                                    <th style="padding: 8px; border: 1px solid #eee; text-align: left;">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${formDataRows}
+                            </tbody>
+                        </table>
+                        <p style="font-size: 12px; color: #666;">
+                            Submitted at: ${new Date().toLocaleString()}
+                        </p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                        <p style="font-size: 12px; color: #666; text-align: center;">
+                            This notification was sent by Baci for ${merchant.business_name}.
+                        </p>
+                    </body>
+                    </html>
+                `,
+        textContent: `New ${formName} submission on ${merchant.business_name}\n\n${textFormData}\n\nSubmitted at: ${new Date().toLocaleString()}`,
+        emailType: 'notifications',
+      }).catch((err) => console.error('Form notification email error:', err));
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Form submitted successfully',
+      submissionId: submission.id,
+    });
+  } catch (error) {
+    console.error('Form submission error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

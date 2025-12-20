@@ -1,0 +1,124 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-image",
+      "description": "Abstract background for hero section",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "abstract gradient"
+    },
+    {
+      "id": "product-1",
+      "description": "A modern ceramic vase",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "ceramic vase"
+    },
+    {
+      "id": "product-2",
+      "description": "A minimalist wooden chair",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "wooden chair"
+    },
+    {
+      "id": "product-3",
+      "description": "A stylish leather backpack",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "leather backpack"
+    },
+    {
+      "id": "product-4",
+      "description": "A set of handmade soaps",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "handmade soap"
+    },
+    {
+      "id": "product-5",
+      "description": "A smart watch with a black band",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "smart watch"
+    },
+    {
+      "id": "avatar-1",
+      "description": "User avatar 1",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "avatar-2",
+      "description": "User avatar 2",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "avatar-3",
+      "description": "User avatar 3",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "man portrait"
+    },
+    {
+      "id": "avatar-4",
+      "description": "User avatar 4",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "person smiling"
+    },
+    {
+      "id": "avatar-5",
+      "description": "User avatar 5",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "woman smiling"
+    },
+    {
+      "id": "hero-electronics-1",
+      "description": "Sleek smartphone in dark environment",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "smartphone dark"
+    },
+    {
+      "id": "hero-electronics-2",
+      "description": "Modern laptop workspace",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "laptop workspace"
+    },
+    {
+      "id": "hero-food-1",
+      "description": "Top down view of plated food",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "plated food top down"
+    },
+    {
+      "id": "hero-food-2",
+      "description": "Fresh ingredients on table",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "fresh ingredients"
+    },
+    {
+      "id": "hero-fashion-1",
+      "description": "Editorial fashion shot",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "fashion editorial"
+    },
+    {
+      "id": "hero-home-1",
+      "description": "Modern living room interior",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "modern living room"
+    },
+    {
+      "id": "hero-beauty-1",
+      "description": "Skincare products aesthetic",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "skincare aesthetic"
+    },
+    {
+      "id": "hero-handmade-1",
+      "description": "Pottery making hands",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "pottery making"
+    },
+    {
+      "id": "hero-hair-1",
+      "description": "Luxury hair styling",
+      "imageUrl": "/placeholder.png",
+      "imageHint": "luxury hair"
+    }
+  ]
+}

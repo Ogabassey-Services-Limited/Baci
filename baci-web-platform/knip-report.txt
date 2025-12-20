@@ -1,0 +1,459 @@
+Unused files (44)
+src/app/(merchant)/merchant/[merchantSlug]/favicon-layout.tsx     
+src/app/(storefront)/[slug]/robots.ts                             
+src/app/(storefront)/[slug]/storefront-client.tsx                 
+src/app/dashboard/orders/[orderId]/shipping-dialog.tsx            
+src/components/builder/ai-command-bar.tsx                         
+src/components/checkout/airtime-addon.tsx                         
+src/components/dashboard/features/feature-settings-panel.tsx      
+src/components/dashboard/features/index.ts                        
+src/components/delivery-options.tsx                               
+src/components/domains/domain-search.tsx                          
+src/components/integrations/google-merchant-center-connect.tsx    
+src/components/landing/faq.tsx                                    
+src/components/landing/google-reviews-section.tsx                 
+src/components/landing/typing-animation.backup.tsx                
+src/components/loyalty/airtime-rewards.tsx                        
+src/components/products/command-bar.tsx                           
+src/components/products/index.ts                                  
+src/components/speculation-rules.tsx                              
+src/components/storefront-preview.tsx                             
+src/components/storefront/blocks/category-tabs.tsx                
+src/components/storefront/blocks/ogabassey-unified-panel.tsx      
+src/components/storefront/checkout/index.ts                       
+src/components/storefront/checkout/order-summary.tsx              
+src/components/storefront/checkout/shipping-insurance-option.tsx  
+src/components/storefront/checkout/shipping-selector.tsx          
+src/components/storefront/loyalty/index.ts                        
+src/components/storefront/social-proof.tsx                        
+src/components/storefront/social-share.tsx                        
+src/components/wishlist/add-to-wishlist-button.tsx                
+src/hooks/use-customer-auth.tsx                                   
+src/lib/accessibility/color-contrast.ts                           
+src/lib/accessibility/generate-alt-text.ts                        
+src/lib/accessibility/index.ts                                    
+src/lib/browser-capabilities.ts                                   
+src/lib/cache-invalidation.ts                                     
+src/lib/edge-config.ts                                            
+src/lib/facebook-capi-client.ts                                   
+src/lib/fonts.ts                                                  
+src/lib/order-number.ts                                           
+src/lib/template-library.ts                                       
+src/lib/twitter-capi.ts                                           
+src/lib/usage-monitor.ts                                          
+src/templates/mock-data.ts                                        
+src/types/supabase.ts                                             
+Unused dependencies (8)
+@radix-ui/react-menubar        package.json:30:6
+@radix-ui/react-slider         package.json:37:6
+@react-email/components        package.json:44:6
+@react-email/render            package.json:45:6
+@supabase/auth-helpers-nextjs  package.json:46:6
+critters                       package.json:67:6
+patch-package                  package.json:81:6
+react-email                    package.json:86:6
+Unused devDependencies (8)
+@modelcontextprotocol/server-github  package.json:101:6
+@types/sharp                         package.json:114:6
+@typescript-eslint/eslint-plugin     package.json:115:6
+@typescript-eslint/parser            package.json:116:6
+baseline-browser-mapping             package.json:119:6
+eslint-plugin-prettier               package.json:125:6
+prettier                             package.json:131:6
+tsx                                  package.json:134:6
+Unlisted dependencies (10)
+@eslint/js                      eslint.config.js:1:21                                       
+globals                         eslint.config.js:6:22                                       
+postcss-load-config             postcss.config.mjs:1:43                                     
+glob                            scripts/generate-critical-css.mjs:3:23                      
+marked                          src/app/[slug]/blog/[postSlug]/page.tsx:2:25                
+nanoid                          src/app/api/merchant/blog/upload/route.ts:1:25              
+nanoid                          src/app/api/payments/initialize/route.ts:1:25               
+nanoid                          src/app/api/payouts/request/route.ts:1:25                   
+react-resizable/css/styles.css  src/components/analytics/draggable-analytics-grid.tsx:355:13
+zustand                         src/store/onboarding-ui-store.ts:1:25                       
+Unused exports (240)
+imagen3                                 src/ai/provider.ts:28:14                                                        
+AI_RETRY_CONFIG                         src/ai/provider.ts:100:14                                                       
+StorefrontContent             function  src/app/storefront/[slug]/storefront-client.tsx:87:17                           
+OrdersChart                   function  src/components/analytics/chart-components.tsx:111:17                            
+sendEnhancedConversion        function  src/components/analytics/google-analytics.tsx:89:17                             
+trackMerchantFirstSale        function  src/components/analytics/platform-analytics-provider.tsx:198:17                 
+trackStorePublished           function  src/components/analytics/platform-analytics-provider.tsx:239:17                 
+trackPricingPageView          function  src/components/analytics/platform-analytics-provider.tsx:302:17                 
+platformInstructions                    src/components/analytics/setup-instructions.tsx:62:14                           
+snapchatEvents                          src/components/analytics/snapchat-pixel.tsx:68:14                               
+tiktokEvents                            src/components/analytics/tiktok-pixel.tsx:65:14                                 
+twitterEvents                           src/components/analytics/twitter-pixel.tsx:65:14                                
+ProductCard                   function  src/components/blog/product-embed.tsx:210:17                                    
+iconRegistry                            src/components/builder/icon-registry.tsx:117:14                                 
+iconCategories                          src/components/builder/icon-registry.tsx:239:14                                 
+getGroupedIconOptions         function  src/components/builder/icon-registry.tsx:307:17                                 
+isValidIcon                   function  src/components/builder/icon-registry.tsx:338:17                                 
+defaultFeatureIcons                     src/components/builder/icon-registry.tsx:345:14                                 
+SetupChecklistCompact         function  src/components/dashboard/setup-checklist.tsx:373:17                             
+NotificationBannerStack       function  src/components/notifications/notification-banner.tsx:172:17                     
+default                                 src/components/notifications/notification-banner.tsx:257:8                      
+default                                 src/components/notifications/notification-center.tsx:230:8                      
+OptimizedImage                function  src/components/optimized-image.tsx:65:17                                        
+HeroImage                     function  src/components/optimized-image.tsx:133:17                                       
+ProductMainImage              function  src/components/optimized-image.tsx:140:17                                       
+ThumbnailImage                function  src/components/optimized-image.tsx:161:17                                       
+LogoImage                     function  src/components/optimized-image.tsx:175:17                                       
+ImagePlaceholder              function  src/components/optimized-image.tsx:184:17                                       
+useCookieConsent              function  src/components/storefront/cookie-consent.tsx:309:17                             
+isCookieAllowed               function  src/components/storefront/cookie-consent.tsx:339:17                             
+FloatingParticles                       src/components/storefront/lumina/index.ts:5:3                                   
+LuminaProductFilters                    src/components/storefront/lumina/index.ts:8:10                                  
+LuminaProductGridItem                   src/components/storefront/lumina/index.ts:10:10                                 
+NewTemplateHome                         src/components/storefront/new-template/index.ts:5:18                            
+InteractiveProductGrid                  src/components/storefront/new-template/index.ts:7:10                            
+NewTemplateProductDetails               src/components/storefront/new-template/index.ts:8:28                            
+ProductDetails                          src/components/storefront/new-template/product-details.tsx:28:14                
+OgabasseyV2CartSidebar                  src/components/storefront/ogabassey-v2/components/CartSidebar.tsx:37:14         
+InteractiveProductGrid                  …/components/storefront/ogabassey-v2/components/InteractiveProductGrid.tsx:23:14
+AdUnit                                  src/components/storefront/ogabassey-v2/index.ts:3:10                            
+BlogSnippet                             src/components/storefront/ogabassey-v2/index.ts:6:10                            
+CartSidebar                             src/components/storefront/ogabassey-v2/index.ts:7:36                            
+EngineProductGrid                       src/components/storefront/ogabassey-v2/index.ts:8:10                            
+InteractiveProductGrid                  src/components/storefront/ogabassey-v2/index.ts:9:10                            
+NegotiationModal                        src/components/storefront/ogabassey-v2/index.ts:10:10                           
+OgabasseyV2ProductCard                  src/components/storefront/ogabassey-v2/index.ts:11:25                           
+OgabasseyV2MobileMenu                   src/components/storefront/ogabassey-v2/index.ts:14:24                           
+OgabasseyV2HomePage                     src/components/storefront/ogabassey-v2/index.ts:18:10                           
+ProductRating                 function  src/components/storefront/reviews-section.tsx:217:17                            
+BUSINESS_TYPES                          src/config/business-types.ts:94:14                                              
+getBusinessTypeById           function  src/config/business-types.ts:346:17                                             
+getAllBusinessTypeIds         function  src/config/business-types.ts:366:17                                             
+isValidBusinessTypeId         function  src/config/business-types.ts:401:17                                             
+getAIPromptContext            function  src/config/business-types.ts:417:17                                             
+getProductDescriptionStyle    function  src/config/business-types.ts:428:17                                             
+DOMAIN_PRICING                          src/config/domain-pricing.ts:22:14                                              
+RESALE_MARKUP                           src/config/domain-pricing.ts:151:14                                             
+getPopularDomains             function  src/config/domain-pricing.ts:168:17                                             
+getRecommendedDomains         function  src/config/domain-pricing.ts:172:17                                             
+getNigerianDomains            function  src/config/domain-pricing.ts:176:17                                             
+getKorapaySecretKey                     src/env.ts:30:14                                                                
+getKorapayPublicKey                     src/env.ts:40:14                                                                
+getZeptoMailToken                       src/env.ts:50:14                                                                
+getGeminiApiKey                         src/env.ts:60:14                                                                
+isProduction                            src/env.ts:74:14                                                                
+validateEnvironment                     src/env.ts:83:14                                                                
+useComparison                 function  src/hooks/use-comparison.tsx:76:17                                              
+useStorefrontFeatures         function  src/hooks/use-merchant-features.ts:143:17                                       
+useNotificationsSafe          function  src/hooks/use-notifications.ts:362:17                                           
+getRecentlyViewedIds          function  src/hooks/use-recently-viewed.ts:197:17                                         
+actionTypes                             src/hooks/use-toast.ts:18:14                                                    
+reducer                                 src/hooks/use-toast.ts:74:14                                                    
+toast                                   src/hooks/use-toast.ts:275:20                                                   
+fetchWithCsrf                 function  src/lib/api-client.ts:22:17                                                     
+apiPut                        function  src/lib/api-client.ts:75:23                                                     
+apiDelete                     function  src/lib/api-client.ts:119:23                                                    
+getCacheControl               function  src/lib/cache-headers.ts:17:17                                                  
+withCacheHeaders              function  src/lib/cache-headers.ts:85:17                                                  
+withCache                     function  src/lib/cache.ts:136:23                                                         
+getCachedMerchantById                   src/lib/cached-data.ts:75:14                                                    
+getCachedProducts                       src/lib/cached-data.ts:116:14                                                   
+getCachedCategories                     src/lib/cached-data.ts:260:14                                                   
+getCachedCategory                       src/lib/cached-data.ts:295:14                                                   
+getCachedPageConfig                     src/lib/cached-data.ts:331:14                                                   
+getCachedProductReviews                 src/lib/cached-data.ts:360:14                                                   
+CATEGORY_CONFIGS                        src/lib/category-configs.ts:49:14                                               
+getCategoryConfig             function  src/lib/category-configs.ts:550:17                                              
+getAllCategories              function  src/lib/category-configs.ts:554:17                                              
+getVariantCategories          function  src/lib/category-configs.ts:558:17                                              
+hexToRgb                      function  src/lib/color-utils.ts:28:17                                                    
+getContrastRatio              function  src/lib/color-utils.ts:81:17                                                    
+isLightColor                  function  src/lib/color-utils.ts:101:17                                                   
+meetsWCAGAA                   function  src/lib/color-utils.ts:141:17                                                   
+meetsWCAGAAA                  function  src/lib/color-utils.ts:151:17                                                   
+meetsWCAGAALarge              function  src/lib/color-utils.ts:161:17                                                   
+adjustColorBrightness         function  src/lib/color-utils.ts:171:17                                                   
+buildCheckoutConfig           function  src/lib/credit-direct.ts:190:17                                                 
+getCheckoutScriptUrl          function  src/lib/credit-direct.ts:225:17                                                 
+generateCsrfToken             function  src/lib/csrf.ts:14:17                                                           
+createCsrfTokenPair           function  src/lib/csrf.ts:26:17                                                           
+getCsrfToken                  function  src/lib/csrf.ts:89:23                                                           
+verifyCsrfToken               function  src/lib/csrf.ts:99:23                                                           
+getClientCsrfToken            function  src/lib/csrf.ts:179:17                                                          
+getCustomerById               function  src/lib/customers.ts:57:17                                                      
+validateDNSRecord             function  src/lib/dns-validator.ts:9:17                                                   
+sendOrderConfirmation         function  src/lib/email.ts:47:17                                                          
+sanitizeSVG                   function  src/lib/favicon-processor.ts:150:17                                             
+default                                 src/lib/ga4-measurement-protocol.ts:293:8                                       
+trackGiglShipment             function  src/lib/gigl.ts:120:23                                                          
+transferDomain                function  src/lib/go54.ts:309:23                                                          
+renewDomain                   function  src/lib/go54.ts:355:23                                                          
+getDomainEPPCode              function  src/lib/go54.ts:379:23                                                          
+getDomainContacts             function  src/lib/go54.ts:398:23                                                          
+updateDomainContacts          function  src/lib/go54.ts:417:23                                                          
+syncDomainDetails             function  src/lib/go54.ts:535:23                                                          
+syncDomainTransfer            function  src/lib/go54.ts:554:23                                                          
+registerChildNameserver       function  src/lib/go54.ts:714:23                                                          
+modifyChildNameserver         function  src/lib/go54.ts:739:23                                                          
+deleteChildNameserver         function  src/lib/go54.ts:766:23                                                          
+getDomainSuggestions          function  src/lib/go54.ts:789:23                                                          
+requestDomainDelete           function  src/lib/go54.ts:816:23                                                          
+releaseDomain                 function  src/lib/go54.ts:835:23                                                          
+DEFAULT_BLUR_DATA_URL                   src/lib/image-utils.ts:12:14                                                    
+CATEGORY_BLUR_COLORS                    src/lib/image-utils.ts:19:14                                                    
+generateColorBlur             function  src/lib/image-utils.ts:33:17                                                    
+generateBlurFromImage         function  src/lib/image-utils.ts:44:23                                                    
+getImageLoader                function  src/lib/image-utils.ts:71:17                                                    
+generateInvoicePDF            function  src/lib/invoice-generator.ts:193:17                                             
+downloadInvoice               function  src/lib/invoice-generator.ts:689:17                                             
+generateInvoiceDataUrl        function  src/lib/invoice-generator.ts:697:17                                             
+CURRENCY_SYMBOLS                        src/lib/korapay.ts:29:14                                                        
+CURRENCY_NAMES                          src/lib/korapay.ts:39:14                                                        
+getExchangeRate               function  src/lib/korapay.ts:208:23                                                       
+convertCurrency               function  src/lib/korapay.ts:223:23                                                       
+sendBulkPayouts               function  src/lib/korapay.ts:259:23                                                       
+getBanks                      function  src/lib/korapay.ts:276:23                                                       
+resolveBankAccount            function  src/lib/korapay.ts:290:23                                                       
+getPublicKey                  function  src/lib/korapay.ts:335:17                                                       
+formatCurrency                function  src/lib/korapay.ts:342:17                                                       
+getCurrencyFromCountry        function  src/lib/korapay.ts:350:17                                                       
+PLATFORM_FEE_PERCENTAGE                 src/lib/korapay.ts:365:10                                                       
+getBillersByType              function  src/lib/kuda.ts:202:23                                                          
+getDataProviders              function  src/lib/kuda.ts:222:17                                                          
+verifyBillCustomer            function  src/lib/kuda.ts:229:23                                                          
+checkTransactionStatus        function  src/lib/kuda.ts:378:23                                                          
+getPurchasedBills             function  src/lib/kuda.ts:395:23                                                          
+getAccountBalance             function  src/lib/kuda.ts:420:23                                                          
+getBankList                   function  src/lib/kuda.ts:469:23                                                          
+verifyBankAccount             function  src/lib/kuda.ts:480:23                                                          
+transferFunds                 function  src/lib/kuda.ts:522:23                                                          
+KUDA_COMMISSION_RATES                   src/lib/kuda.ts:712:14                                                          
+getCommissionRate             function  src/lib/kuda.ts:755:17                                                          
+getPublicKey                  function  src/lib/paystack.ts:337:17                                                      
+PLATFORM_FEE_PERCENTAGE                 src/lib/paystack.ts:341:10                                                      
+getProductById                function  src/lib/products.ts:353:17                                                      
+cleanupRateLimitStore         function  src/lib/rate-limit.ts:122:17                                                    
+isValidRouteKey               function  src/lib/routes.ts:173:17                                                        
+sanitizeUrl                   function  src/lib/sanitize-core.ts:66:17                                                  
+sanitizeSchemaUrl             function  src/lib/sanitize-core.ts:98:17                                                  
+sanitizeNumber                function  src/lib/sanitize-core.ts:144:17                                                 
+sanitizeInteger               function  src/lib/sanitize-core.ts:152:17                                                 
+sanitizePrice                 function  src/lib/sanitize-core.ts:160:17                                                 
+sanitizeObjectKeys            function  src/lib/sanitize-core.ts:168:17                                                 
+customerSchema                          src/lib/sanitize-core.ts:189:14                                                 
+productSchema                           src/lib/sanitize-core.ts:229:14                                                 
+orderSchema                             src/lib/sanitize-core.ts:265:14                                                 
+sanitizeFileName              function  src/lib/sanitize-core.ts:332:17                                                 
+sanitizeJson                  function  src/lib/sanitize-core.ts:348:17                                                 
+sanitizeSchemaObject                    src/lib/sanitize-core.ts:365:14                                                 
+customerSchema                          src/lib/sanitize.ts:9:3                                                         
+escapeHtml                              src/lib/sanitize.ts:10:3                                                        
+isValidUuid                             src/lib/sanitize.ts:11:3                                                        
+orderSchema                             src/lib/sanitize.ts:12:3                                                        
+productSchema                           src/lib/sanitize.ts:13:3                                                        
+safeJsonLdStringify                     src/lib/sanitize.ts:14:3                                                        
+sanitizeEmail                           src/lib/sanitize.ts:15:3                                                        
+sanitizeFileName                        src/lib/sanitize.ts:16:3                                                        
+sanitizeInteger                         src/lib/sanitize.ts:17:3                                                        
+sanitizeJson                            src/lib/sanitize.ts:18:3                                                        
+sanitizeLikePattern                     src/lib/sanitize.ts:19:3                                                        
+sanitizeNumber                          src/lib/sanitize.ts:20:3                                                        
+sanitizeObjectKeys                      src/lib/sanitize.ts:21:3                                                        
+sanitizePhone                           src/lib/sanitize.ts:22:3                                                        
+sanitizePrice                           src/lib/sanitize.ts:23:3                                                        
+sanitizeSchemaMarkup                    src/lib/sanitize.ts:24:3                                                        
+sanitizeSchemaObject                    src/lib/sanitize.ts:25:3                                                        
+sanitizeSchemaUrl                       src/lib/sanitize.ts:26:3                                                        
+sanitizeSearchQuery                     src/lib/sanitize.ts:27:3                                                        
+sanitizeText                            src/lib/sanitize.ts:28:3                                                        
+sanitizeUrl                             src/lib/sanitize.ts:29:3                                                        
+stripHtmlTags                           src/lib/sanitize.ts:30:3                                                        
+escapeHtml                              src/lib/seo-utils.ts:11:10                                                      
+buildProductUrl               function  src/lib/seo-utils.ts:67:17                                                      
+generateCollectionPageSchema  function  src/lib/seo-utils.ts:497:17                                                     
+generateProductGroupSchema    function  src/lib/seo-utils.ts:553:17                                                     
+sendServerSideAnalytics       function  src/lib/server-side-analytics.ts:75:23                                          
+trackServerSidePurchase       function  src/lib/server-side-analytics.ts:265:23                                         
+default                                 src/lib/server-side-analytics.ts:312:8                                          
+formatShippingPrice           function  src/lib/shipping/aggregator.ts:254:17                                           
+formatDeliveryEstimate        function  src/lib/shipping/aggregator.ts:269:17                                           
+groupQuotesByTier             function  src/lib/shipping/aggregator.ts:283:17                                           
+hasQuotesExpired              function  src/lib/shipping/aggregator.ts:309:17                                           
+ShippingService               class     src/lib/shipping/index.ts:41:14                                                 
+ShippingProviderRegistry                src/lib/shipping/index.ts:249:3                                                 
+giglProvider                            src/lib/shipping/providers/gigl.ts:626:14                                       
+topshipProvider                         src/lib/shipping/providers/topship.ts:627:14                                    
+isActiveStatus                function  src/lib/shipping/status-mapper.ts:167:17                                        
+isFinalStatus                 function  src/lib/shipping/status-mapper.ts:180:17                                        
+isDeliveredStatus             function  src/lib/shipping/status-mapper.ts:187:17                                        
+isProblemStatus               function  src/lib/shipping/status-mapper.ts:194:17                                        
+STATUS_ORDER                            src/lib/shipping/status-mapper.ts:201:14                                        
+isValidStatusTransition       function  src/lib/shipping/status-mapper.ts:214:17                                        
+SHIPMENT_STATUS_LABELS                  src/lib/shipping/types.ts:171:14                                                
+PROVIDER_CONFIGS                        src/lib/shipping/types.ts:299:14                                                
+sendSnapchatEvent             function  src/lib/snapchat-capi.ts:55:23                                                  
+default                                 src/lib/snapchat-capi.ts:183:8                                                  
+checkAuth                     function  src/lib/supabase/middleware.ts:54:23                                            
+getCurrentTheme               function  src/lib/theme-manager.ts:307:17                                                 
+validateTheme                 function  src/lib/theme-manager.ts:326:17                                                 
+sendTikTokEvent               function  src/lib/tiktok-events-api.ts:64:23                                              
+default                                 src/lib/tiktok-events-api.ts:194:8                                              
+streamToDataURI               function  src/lib/utils.ts:144:23                                                         
+validateSlug                  function  src/lib/validate-slug.ts:32:17                                                  
+sendEmailWithTemplate         function  src/lib/zeptomail.ts:249:23                                                     
+sendBatchEmailWithTemplate    function  src/lib/zeptomail.ts:338:23                                                     
+step1Schema                             src/schemas/onboarding.ts:18:14                                                 
+step2Schema                             src/schemas/onboarding.ts:38:14                                                 
+getTemplatesByStatus          function  src/templates/registry.tsx:590:17                                               
+getTemplatesByCategory        function  src/templates/registry.tsx:599:17                                               
+getProductionTemplates        function  src/templates/registry.tsx:608:17                                               
+templateExists                function  src/templates/registry.tsx:622:17                                               
+getTemplateMockMerchant       function  src/templates/registry.tsx:629:17                                               
+NOTIFICATION_TYPES                      src/types/notifications.ts:19:14                                                
+NOTIFICATION_PRIORITIES                 src/types/notifications.ts:25:14                                                
+TARGET_TYPES                            src/types/notifications.ts:31:14                                                
+NOTIFICATION_CHANNELS                   src/types/notifications.ts:32:14                                                
+TARGET_SEGMENTS                         src/types/notifications.ts:36:14                                                
+PRIORITY_LABELS                         src/types/notifications.ts:39:14                                                
+TYPE_LABELS                             src/types/notifications.ts:47:14                                                
+USAGE_THRESHOLDS                        src/types/notifications.ts:344:14                                               
+Unused exported types (135)
+SanitizeResult                      interface  src/ai/provider.ts:147:18                                        
+AnimationDuration                   type       src/components/builder/animated-wrapper.tsx:16:13                
+AnimationConfig                     interface  src/components/builder/animated-wrapper.tsx:18:18                
+MediaFile                           interface  src/components/builder/media-library.tsx:22:18                   
+BentoGridHeroProps                  interface  src/components/storefront/blocks/bento-grid-hero.tsx:9:18        
+CategoryIconsProps                  interface  src/components/storefront/blocks/category-icons.tsx:30:18        
+FooterProps                         interface  src/components/storefront/blocks/footer.tsx:9:18                 
+HeaderProps                         interface  src/components/storefront/blocks/header.tsx:38:18                
+HeroCarouselProps                   interface  src/components/storefront/blocks/hero-carousel.tsx:18:18         
+NewsletterSectionProps              interface  src/components/storefront/blocks/newsletter-section.tsx:7:18     
+NewsletterProps                     interface  src/components/storefront/blocks/newsletter.tsx:8:18             
+BreadcrumbItem                      interface  src/components/storefront/breadcrumbs.tsx:8:18                   
+BreadcrumbsProps                    interface  src/components/storefront/breadcrumbs.tsx:13:18                  
+Particle                            type       src/components/storefront/lumina/index.ts:6:8                    
+CartItem                            interface  src/components/storefront/new-template/types.ts:33:18            
+Category                            interface  src/components/storefront/new-template/types.ts:40:18            
+AdPlacement                         interface  src/components/storefront/ogabassey-v2/adLocations/config.ts:1:18
+ProductRecommendation               interface  src/components/storefront/ogabassey-v2/types.ts:3:18             
+Category                            interface  src/components/storefront/ogabassey-v2/types.ts:10:18            
+Banner                              interface  src/components/storefront/ogabassey-v2/types.ts:17:18            
+BusinessTypeJourney                 interface  src/config/business-types.ts:37:18                               
+BusinessTypeConfig                  interface  src/config/business-types.ts:61:18                               
+BusinessTypeId                      type       src/config/business-types.ts:327:13                              
+BusinessTypeConfigType              type       src/config/business-types.ts:332:13                              
+DomainPricing                       interface  src/config/domain-pricing.ts:9:18                                
+Template                            interface  src/config/templates.ts:3:18                                     
+CustomerUser                        interface  src/contexts/customer-auth-context.tsx:12:18                     
+Customer                            interface  src/contexts/customer-auth-context.tsx:18:18                     
+WorkflowStep                        type       src/contexts/product-context.tsx:17:13                           
+UseCurrencyReturn                   interface  src/hooks/use-currency.ts:21:18                                  
+IndustryTheme                       type       src/hooks/use-industry-theme.ts:24:13                            
+StorefrontFeatures                  interface  src/hooks/use-merchant-features.ts:8:18                          
+MerchantFeatureSettings             interface  src/hooks/use-merchant-features.ts:39:18                         
+Product                             type       src/hooks/use-recently-viewed.ts:15:15                           
+AuditLogEntry                       interface  src/lib/audit-logger.ts:3:18                                     
+CacheStrategy                       type       src/lib/cache-headers.ts:6:13                                    
+CategoryFulfillmentIdentifier       interface  src/lib/category-configs.ts:17:18                                
+CategoryJourney                     interface  src/lib/category-configs.ts:24:18                                
+ConsentState                        type       src/lib/consent-mode.ts:13:13                                    
+ConsentSettings                     interface  src/lib/consent-mode.ts:15:18                                    
+Country                             interface  src/lib/countries.ts:1:18                                        
+CreditDirectProduct                 interface  src/lib/credit-direct.ts:16:18                                   
+CreditDirectTransaction             interface  src/lib/credit-direct.ts:22:18                                   
+CreditDirectCheckoutConfig          interface  src/lib/credit-direct.ts:31:18                                   
+CreditDirectWebhookEvent            type       src/lib/credit-direct.ts:55:13                                   
+ValidationResult                    interface  src/lib/dns-validator.ts:3:18                                    
+EventType                           type       src/lib/event-tracking.ts:15:13                                  
+FacebookEventName                   type       src/lib/facebook-capi.ts:22:13                                   
+FacebookCustomData                  interface  src/lib/facebook-capi.ts:52:18                                   
+FaviconUploadResult                 interface  src/lib/favicon-processor.ts:6:18                                
+GA4EventParams                      interface  src/lib/ga4-measurement-protocol.ts:28:18                        
+GA4EventName                        type       src/lib/ga4-measurement-protocol.ts:45:13                        
+DomainAvailabilityResult            interface  src/lib/go54.ts:29:18                                            
+DomainRegistrationResult            interface  src/lib/go54.ts:37:18                                            
+EmailForward                        interface  src/lib/go54.ts:53:18                                            
+IDProtectionStatus                  interface  src/lib/go54.ts:58:18                                            
+TldPricing                          interface  src/lib/go54.ts:63:18                                            
+DomainSuggestion                    interface  src/lib/go54.ts:76:18                                            
+DomainInformation                   interface  src/lib/go54.ts:83:18                                            
+GooglePlaceDetails                  interface  src/lib/google-places.ts:15:18                                   
+MerchantInfo                        interface  src/lib/invoice-generator.ts:90:18                               
+CustomerInfo                        interface  src/lib/invoice-generator.ts:109:18                              
+KudaServiceType                     enum       src/lib/kuda.ts:17:13                                            
+BillType                            enum       src/lib/kuda.ts:44:13                                            
+DataPlan                            interface  src/lib/kuda.ts:61:18                                            
+Biller                              interface  src/lib/kuda.ts:70:18                                            
+BillItem                            interface  src/lib/kuda.ts:79:18                                            
+PurchaseResult                      interface  src/lib/kuda.ts:89:18                                            
+Bank                                interface  src/lib/kuda.ts:439:18                                           
+NameEnquiryResult                   interface  src/lib/kuda.ts:444:18                                           
+TransferResult                      interface  src/lib/kuda.ts:457:18                                           
+MyCoverConfig                       type       src/lib/mycover.ts:244:3                                         
+MyCoverPolicy                       type       src/lib/mycover.ts:247:3                                         
+MyCoverResponse                     type       src/lib/mycover.ts:248:3                                         
+WalletBalance                       type       src/lib/mycover.ts:249:3                                         
+PolicySearchParams                  type       src/lib/mycover.ts:250:3                                         
+Subaccount                          interface  src/lib/paystack.ts:25:18                                        
+SubaccountResponse                  interface  src/lib/paystack.ts:38:18                                        
+PaymentInitData                     interface  src/lib/paystack.ts:195:18                                       
+PaymentInitResponse                 interface  src/lib/paystack.ts:209:18                                       
+PaymentVerificationResponse         interface  src/lib/paystack.ts:215:18                                       
+ImagePlaceholder                    type       src/lib/placeholder-images.ts:3:13                               
+VariantInventoryItem                interface  src/lib/products.ts:4:18                                         
+ProductImage                        interface  src/lib/products.ts:14:18                                        
+ProductDimensions                   interface  src/lib/products.ts:20:18                                        
+AppRoutes                           type       src/lib/routes.ts:168:13                                         
+BreadcrumbItem                      interface  src/lib/seo-utils.ts:298:18                                      
+FAQItem                             interface  src/lib/seo-utils.ts:323:18                                      
+CollectionPageData                  interface  src/lib/seo-utils.ts:488:18                                      
+ProductGroupData                    interface  src/lib/seo-utils.ts:543:18                                      
+ReviewStats                         interface  src/lib/seo-utils.ts:714:18                                      
+AggregateRatingSchema               interface  src/lib/seo-utils.ts:719:18                                      
+SoftwarePricingPlan                 interface  src/lib/seo-utils.ts:748:18                                      
+ServerAnalyticsUserData             interface  src/lib/server-side-analytics.ts:20:18                           
+ServerAnalyticsProduct              interface  src/lib/server-side-analytics.ts:32:18                           
+ServerAnalyticsEventData            interface  src/lib/server-side-analytics.ts:40:18                           
+ShippingProvider                    type       src/lib/shipping/index.ts:248:8                                  
+ShippingProvider                    interface  src/lib/shipping/providers/base.ts:17:18                         
+ShippingProviderFactory             type       src/lib/shipping/providers/base.ts:175:13                        
+ShippingAddress                     interface  src/lib/shipping/types.ts:16:18                                  
+ShipmentItem                        interface  src/lib/shipping/types.ts:37:18                                  
+SelfFulfillmentData                 interface  src/lib/shipping/types.ts:200:18                                 
+ShipmentRecord                      interface  src/lib/shipping/types.ts:210:18                                 
+ShippingQuoteRecord                 interface  src/lib/shipping/types.ts:236:18                                 
+NigerianState                       interface  src/lib/shipping/types.ts:264:18                                 
+NigerianCity                        interface  src/lib/shipping/types.ts:270:18                                 
+ProviderConfig                      interface  src/lib/shipping/types.ts:290:18                                 
+SnapchatEventName                   type       src/lib/snapchat-capi.ts:14:13                                   
+SnapchatEventData                   interface  src/lib/snapchat-capi.ts:33:18                                   
+TikTokEventName                     type       src/lib/tiktok-events-api.ts:15:13                               
+TikTokEventProperties               interface  src/lib/tiktok-events-api.ts:34:18                               
+EmailType                           type       src/lib/zeptomail.ts:29:13                                       
+TemplateCategory                    type       src/templates/registry.tsx:31:13                                 
+EngineIntegration                   interface  src/templates/registry.tsx:42:18                                 
+TemplateMockData                    interface  src/templates/registry.tsx:92:18                                 
+TeamMember                          interface  src/types/about-page.ts:6:18                                     
+Milestone                           interface  src/types/about-page.ts:18:18                                    
+Award                               interface  src/types/about-page.ts:24:18                                    
+MediaFeature                        interface  src/types/about-page.ts:30:18                                    
+SocialProof                         interface  src/types/about-page.ts:37:18                                    
+PlatformSummary                     interface  src/types/analytics.ts:1:18                                      
+MerchantHealthBreakdown             interface  src/types/analytics.ts:13:18                                     
+GrowthMetrics                       interface  src/types/analytics.ts:20:18                                     
+TopMerchant                         interface  src/types/analytics.ts:26:18                                     
+SampleProduct                       interface  src/types/index.ts:7:18                                          
+NotificationTemplate                interface  src/types/notifications.ts:65:18                                 
+MerchantNotification                interface  src/types/notifications.ts:103:18                                
+NotificationStats                   interface  src/types/notifications.ts:199:18                                
+PaginatedNotifications              interface  src/types/notifications.ts:216:18                                
+NotificationUpdateBroadcastPayload  interface  src/types/notifications.ts:264:18                                
+NotificationCenterProps             interface  src/types/notifications.ts:279:18                                
+NotificationBannerProps             interface  src/types/notifications.ts:286:18                                
+NotificationItemProps               interface  src/types/notifications.ts:293:18                                
+RealtimeUsageStats                  interface  src/types/notifications.ts:330:18                                
+RolePermissions                     interface  src/types/staff.ts:31:18                                         
+Duplicate exports (6)
+NotificationBanner|default                 src/components/notifications/notification-banner.tsx
+NotificationCenter|default                 src/components/notifications/notification-center.tsx
+ga4MeasurementProtocol|default             src/lib/ga4-measurement-protocol.ts                 
+sanitizeSchemaMarkup|sanitizeSchemaObject  src/lib/sanitize-core.ts                            
+snapchatCAPI|default                       src/lib/snapchat-capi.ts                            
+tiktokEventsAPI|default                    src/lib/tiktok-events-api.ts                        
+Configuration hints (6)

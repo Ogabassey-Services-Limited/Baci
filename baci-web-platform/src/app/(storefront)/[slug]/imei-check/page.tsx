@@ -1,0 +1,37 @@
+import { cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
+import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
+import { getCachedMerchant } from '@/lib/cached-data';
+
+export default async function ImeiCheckPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const merchant = await getCachedMerchant(slug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  // Read theme cookie server-side for SSR consistency
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+  const _initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
+
+  // Only for Ogabassey template
+  if (
+    (merchant as unknown as { template_id?: string }).template_id ===
+    'ogabassey'
+  ) {
+    return <OgabasseyImeiChecker />;
+  }
+
+  // Fallback for other templates (e.g. 404 or coming soon)
+  return notFound();
+}

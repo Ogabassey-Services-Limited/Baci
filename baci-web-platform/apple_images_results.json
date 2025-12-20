@@ -1,0 +1,68 @@
+[
+  {
+    "name": "iPhone 17 Pro (Silver)",
+    "slug": "iphone-17-pro-finish-select-202509-6-3inch-silver",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-3inch-silver.png",
+    "success": true
+  },
+  {
+    "name": "iPhone 17 Pro (Cosmic Orange)",
+    "slug": "iphone-17-pro-finish-select-202509-6-3inch-cosmicorange",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-3inch-cosmicorange.png",
+    "success": true
+  },
+  {
+    "name": "iPhone 17 Pro (Deep Blue)",
+    "slug": "iphone-17-pro-finish-select-202509-6-3inch-deepblue",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-3inch-deepblue.png",
+    "success": true
+  },
+  {
+    "name": "iPhone 17 Pro Max (Silver)",
+    "slug": "iphone-17-pro-finish-select-202509-6-9inch-silver",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-9inch-silver.png",
+    "success": true
+  },
+  {
+    "name": "iPhone 17 Pro Max (Cosmic Orange)",
+    "slug": "iphone-17-pro-finish-select-202509-6-9inch-cosmicorange",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-9inch-cosmicorange.png",
+    "success": true
+  },
+  {
+    "name": "iPhone 17 Pro Max (Deep Blue)",
+    "slug": "iphone-17-pro-finish-select-202509-6-9inch-deepblue",
+    "localPath": "apple_downloaded_images/branded_iphone-17-pro-finish-select-202509-6-9inch-deepblue.png",
+    "success": true
+  },
+  {
+    "name": "MacBook Air M4 (Midnight)",
+    "slug": "macbook-air-m4-midnight-select-202503",
+    "success": false
+  },
+  {
+    "name": "MacBook Air M4 (Starlight)",
+    "slug": "macbook-air-m4-starlight-select-202503",
+    "success": false
+  },
+  {
+    "name": "MacBook Air M4 (Space Gray)",
+    "slug": "macbook-air-m4-spacegray-select-202503",
+    "success": false
+  },
+  {
+    "name": "MacBook Air M4 (Silver)",
+    "slug": "macbook-air-m4-silver-select-202503",
+    "success": false
+  },
+  {
+    "name": "MacBook Air M3 (Midnight)",
+    "slug": "macbook-air-m3-midnight-select-202402",
+    "success": false
+  },
+  {
+    "name": "MacBook Air M3 (Starlight)",
+    "slug": "macbook-air-m3-starlight-select-202402",
+    "success": false
+  }
+]

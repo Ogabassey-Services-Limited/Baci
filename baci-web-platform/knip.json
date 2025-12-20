@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "next.config.{js,ts,cjs,mjs}",
+    "src/proxy.ts",
+    "src/app/**/{page,layout,loading,error,not-found,global-error,route,template,default}.{ts,tsx}",
+    "scripts/**/*"
+  ],
+  "project": ["src/**/*.{ts,tsx,js,jsx}", "scripts/**/*.{js,ts,cjs,mjs}"],
+  "ignore": ["**/*.d.ts", "src/components/ui/**"],
+  "ignoreDependencies": [
+    "eslint-config-next",
+    "postcss",
+    "autoprefixer",
+    "tailwindcss",
+    "sharp",
+    "encoding"
+  ]
+}

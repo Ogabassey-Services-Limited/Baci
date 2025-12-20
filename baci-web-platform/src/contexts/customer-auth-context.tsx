@@ -1,0 +1,330 @@
+'use client';
+
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+
+export interface CustomerUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export interface Customer {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  saved_addresses?: SavedAddress[];
+  store_credit?: number;
+  total_orders?: number;
+  total_spent?: number;
+  created_at?: string;
+}
+
+export interface SavedAddress {
+  id: string;
+  label: string;
+  full_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postal_code?: string;
+  is_default?: boolean;
+}
+
+interface OtpState {
+  email: string;
+  codeSent: boolean;
+  expiresAt?: number;
+}
+
+interface GoogleAuthResponse {
+  url?: string;
+  error?: string;
+}
+
+interface CustomerAuthContextType {
+  user: CustomerUser | null;
+  customer: Customer | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  otpState: OtpState | null;
+  // Auth actions
+  sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  // Customer data actions
+  refreshCustomer: () => Promise<void>;
+  updateCustomer: (
+    data: Partial<Customer>
+  ) => Promise<{ success: boolean; error?: string }>;
+}
+
+const CustomerAuthContext = createContext<CustomerAuthContextType | null>(null);
+
+interface CustomerAuthProviderProps {
+  children: ReactNode;
+  merchantSlug: string;
+}
+
+export function CustomerAuthProvider({
+  children,
+  merchantSlug,
+}: CustomerAuthProviderProps) {
+  const [user, setUser] = useState<CustomerUser | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [otpState, setOtpState] = useState<OtpState | null>(null);
+
+  const isAuthenticated = !!user && !!customer;
+
+  // Check session on mount
+  const checkSession = useCallback(async () => {
+    try {
+      const response = await fetch(
+        `/api/storefront/auth/session?merchantSlug=${encodeURIComponent(merchantSlug)}`
+      );
+      const data = await response.json();
+
+      if (data.authenticated) {
+        setUser(data.user);
+        setCustomer(data.customer);
+      } else {
+        setUser(null);
+        setCustomer(null);
+      }
+    } catch (error) {
+      console.error('Session check error:', error);
+      setUser(null);
+      setCustomer(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [merchantSlug]);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+
+  // Send OTP code
+  const sendOtp = useCallback(
+    async (email: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await fetch('/api/storefront/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, merchantSlug }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Failed to send code' };
+        }
+
+        // Set OTP state with 10 minute expiry
+        setOtpState({
+          email,
+          codeSent: true,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        });
+
+        return { success: true };
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    },
+    [merchantSlug]
+  );
+
+  // Verify OTP code
+  const verifyOtp = useCallback(
+    async (code: string): Promise<{ success: boolean; error?: string }> => {
+      if (!otpState?.email) {
+        return { success: false, error: 'Please enter your email first' };
+      }
+
+      try {
+        const response = await fetch('/api/storefront/auth/verify-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: otpState.email,
+            token: code,
+            merchantSlug,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Verification failed' };
+        }
+
+        // Set user and customer from response
+        setUser(data.user);
+        setCustomer(data.customer);
+        setOtpState(null);
+
+        return { success: true };
+      } catch (error) {
+        console.error('Verify OTP error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    },
+    [otpState?.email, merchantSlug]
+  );
+
+  // Logout
+  const logout = useCallback(async () => {
+    try {
+      await fetch('/api/storefront/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setCustomer(null);
+      setOtpState(null);
+    }
+  }, []);
+
+  // Sign in with Google OAuth
+  const signInWithGoogle = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    try {
+      // Use the current browser origin to support custom domains (e.g., ogabassey.com)
+      // This automatically handles: localhost, subdomains (*.usebaci.com), and custom domains
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/account`
+          : '/account';
+
+      const response = await fetch('/api/storefront/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchantSlug, redirectUrl }),
+      });
+
+      const data: GoogleAuthResponse = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Failed to initiate Google sign-in',
+        };
+      }
+
+      // Redirect to Google OAuth URL
+      if (data.url) {
+        // Validate that the URL is a Google OAuth URL
+        try {
+          const url = new URL(data.url);
+          const validHosts = ['accounts.google.com', 'www.google.com'];
+          const isGoogleDomain =
+            validHosts.some((h) => url.hostname === h) ||
+            url.hostname.endsWith('.google.com');
+
+          if (!isGoogleDomain) {
+            return {
+              success: false,
+              error: 'Invalid OAuth provider URL',
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            error: 'Invalid OAuth URL format',
+          };
+        }
+        window.location.href = data.url;
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }, [merchantSlug]);
+
+  // Refresh customer data
+  const refreshCustomer = useCallback(async () => {
+    if (!user) return;
+    await checkSession();
+  }, [user, checkSession]);
+
+  // Update customer data
+  const updateCustomer = useCallback(
+    async (
+      data: Partial<Customer>
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!customer) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      try {
+        const response = await fetch('/api/storefront/customer', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, merchantSlug }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: result.error || 'Update failed' };
+        }
+
+        // Update local state
+        setCustomer((prev) => (prev ? { ...prev, ...data } : null));
+        return { success: true };
+      } catch (error) {
+        console.error('Update customer error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    },
+    [customer, merchantSlug]
+  );
+
+  return (
+    <CustomerAuthContext.Provider
+      value={{
+        user,
+        customer,
+        isAuthenticated,
+        isLoading,
+        otpState,
+        sendOtp,
+        verifyOtp,
+        signInWithGoogle,
+        logout,
+        refreshCustomer,
+        updateCustomer,
+      }}
+    >
+      {children}
+    </CustomerAuthContext.Provider>
+  );
+}
+
+export function useCustomerAuth() {
+  const context = useContext(CustomerAuthContext);
+  if (!context) {
+    throw new Error(
+      'useCustomerAuth must be used within a CustomerAuthProvider'
+    );
+  }
+  return context;
+}

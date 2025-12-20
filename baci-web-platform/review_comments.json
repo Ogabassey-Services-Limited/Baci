@@ -1,0 +1,692 @@
+[
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472263",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472263,
+    "node_id": "PRRC_kwDOQZgfis6b9DLH",
+    "diff_hunk": "@@ -0,0 +1,210 @@\n+import { createClient } from '@supabase/supabase-js';\n+import dotenv from 'dotenv';\n+import path from 'path';\n+\n+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });\n+\n+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;\n+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;\n+\n+if (!supabaseUrl || !supabaseKey) {\n+    console.error(\"❌ Missing Supabase credentials\");\n+    process.exit(1);\n+}\n+\n+const supabase = createClient(supabaseUrl, supabaseKey);\n+\n+// Comprehensive color database by brand (Researched 2024/2025)\n+const BRAND_COLORS: Record<string, string[]> = {\n+    // Samsung - Common across Galaxy A series\n+    'Samsung': ['Awesome Lime', 'Awesome Graphite', 'Awesome Violet', 'Awesome White', 'Awe some Silver', 'Black', 'Light Green', 'Dark Red'],\n+\n+    // Infinix - Hot, Note, Smart series\n+    'Infinix': ['Palm Blue', 'Horizon Gold', 'Starlit Black', 'Starfall Green', 'Interstellar Blue', 'Timber Black', 'Shiny Gold', 'Crystal Green', 'Galaxy White', 'Obsidian Black'],\n+\n+    // Tecno - Spark, Camon, Phantom series\n+    'Tecno': ['Gravity Black', 'Cyber White', 'Neon Gold', 'Magic Skin Blue', 'Stardust Gray', 'Moonlight Silver', 'Uyuni Salt White', 'Iceland Basaltic Dark', 'Sahara Sand Brown'],\n+\n+    // Xiaomi/Redmi/Poco\n+    'Xiaomi': ['Mirror Black', 'Snowstorm White', 'Ocean Teal', 'Arctic White', 'Graphite Black', 'Chromatic Purple', 'Mint Green', 'Ice Blue', 'Midnight Black', 'Gold'],\n+\n+    // Oppo\n+    'Oppo': ['Starry Black', 'Moonlight Silver', 'Aurora Green', 'Pearl White', 'Dreamy White', 'Cosmic Blue'],\n+\n+    // vivo\n+    'vivo': ['Space Black', 'Mint Green', 'Glacier Blue', 'Diamond Black', 'Titanium Gold', 'Nebula Purple', 'Freestyle White', 'Emerald Green', 'Moonlit Blue'],\n+\n+    // itel - Basic colors\n+    'itel': ['Black', 'Blue', 'Green', 'Gold', 'Purple']\n+};\n+\n+const COLOR_HEX: Record<string, string> = {\n+    // Samsung\n+    'Awesome Lime': '#C6E377',\n+    'Awesome Graphite': '#3C3C3C',\n+    'Awesome Violet': '#9370DB',\n+    'Awesome White': '#FFFFFF',\n+    'Awesome Silver': '#C0C0C0',\n+    'Light Green': '#90EE90',\n+    'Dark Red': '#8B0000',\n+\n+    // Infinix\n+    'Palm Blue': '#00A3E0',\n+    'Horizon Gold': '#FFD700',\n+    'Starlit Black': '#000000',\n+    'Starfall Green': '#00A86B',\n+    'Interstellar Blue': '#4169E1',\n+    'Timber Black': '#101010',\n+    'Shiny Gold': '#FFD700',\n+    'Crystal Green': '#50C878',\n+    'Galaxy White': '#F8F8FF',\n+    'Obsidian Black': '#0B1B1A',\n+\n+    // Tecno\n+    'Gravity Black': '#000000',\n+    'Cyber White': '#FFFFFF',\n+    'Neon Gold': '#FFD700',\n+    'Magic Skin Blue': '#0066CC',\n+    'Stardust Gray': '#808080',\n+    'Moonlight Silver': '#C0C0C0',",
+    "path": "scripts/add-smartphone-color-variants.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Overwritten property\n\nThis property is overwritten by <a class=\"Link\" href=\"/Ogabassey-Services-Limited/Baci/blob/ad224aa78678bb32684b6f4677ff495fab7a6dbb/scripts/add-smartphone-color-variants.ts#L87-L87\">another property</a> in the same object literal.\n\n---\n\n<p>In general, the solution is to remove or resolve the duplicate property so that the object literal has only one entry per key. The most robust way, if the two <code>'Moonlight Silver'</code> color codes are supposed to be the same, is to remove one of the entries. If they're different, or should be brand-specific, the data structure should be reworked to support that.</p>\n<p>Given the constraints (only work with shown code), and assuming both entries assign the same color code (<code>'#C0C0C0'</code>), we should remove one. In the provided snippet, line 69 defines <code>'Moonlight Silver': '#C0C0C0'</code> under Tecno. Since a later <code>'Moonlight Silver'</code> likely exists for Oppo, as hinted on line 32: <code>'Oppo': ['Starry Black', 'Moonlight Silver', ...]</code>, the probable best solution (for minimal disruption) is to remove the occurrence in the Tecno color block at line 69, leaving the later definition for Oppo to remain.</p>\n<p>If in fact the newer, later value is more accurate for Oppo, keeping that is correct because JavaScript object literal semantics always prefer the \"last\" one. This will also eliminate the CodeQL warning.</p>\n",
+    "created_at": "2025-12-13T18:59:31Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472263",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472263"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472263"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472263/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 69,
+    "original_line": 69,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 69,
+    "position": 69,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472265",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472265,
+    "node_id": "PRRC_kwDOQZgfis6b9DLJ",
+    "diff_hunk": "@@ -0,0 +1,307 @@\n+import { createClient } from '@supabase/supabase-js';\n+import dotenv from 'dotenv';\n+import path from 'path';\n+\n+// Load environment variables\n+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });\n+\n+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;\n+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;\n+\n+if (!supabaseUrl || !supabaseKey) {\n+    console.error(\"❌ Missing Supabase credentials in .env.local\");\n+    process.exit(1);\n+}\n+\n+const supabase = createClient(supabaseUrl, supabaseKey);\n+\n+// ------------------------------------------------------------------\n+// DATA PARSING UTIL\n+// ------------------------------------------------------------------\n+\n+interface StructuredSpecs {\n+    Processor?: string;\n+    RAM?: string;\n+    Storage?: string;\n+    Display?: string;\n+    Graphics?: string;\n+    Other?: string;\n+}\n+\n+function parseSpecs(specsString: string): StructuredSpecs {\n+    const parts = specsString.split(',').map(s => s.trim());\n+    const result: StructuredSpecs = {};\n+\n+    parts.forEach(part => {\n+        const p = part.toLowerCase();\n+        if (p.includes('core') || p.includes('ryzen') || p.includes('pro') || p.includes('max') || p.match(/i\\d/) || p.includes('snapdragon')) {\n+            if (!result.Processor) result.Processor = part;\n+            else result.Other = result.Other ? result.Other + ', ' + part : part;\n+        } else if (p.includes('ram')) {\n+            result.RAM = part;\n+        } else if (p.includes('ssd') || p.includes('hdd') || p.includes('storage')) {\n+            result.Storage = part;\n+        } else if (p.includes('\"') || p.includes('inch') || p.includes('display') || p.includes('touch') || p.includes('fhd') || p.includes('qhd') || p.includes('4k')) {\n+            result.Display = part;\n+        } else if (p.includes('geforce') || p.includes('radeon') || p.includes('nvidia') || p.includes('quadro') || p.includes('graphics')) {\n+            result.Graphics = part;\n+        } else {\n+            result.Other = result.Other ? result.Other + ', ' + part : part;\n+        }\n+    });\n+\n+    return result;\n+}\n+\n+// ------------------------------------------------------------------\n+// DATA\n+// ------------------------------------------------------------------\n+\n+const HP_PRODUCTS = [\n+    { name: 'HP Envy x360 2-in-1 14-es1023dx', specs: 'Intel Core 7 150U, 16GB RAM, 512GB SSD, 14\" FHD Touch', price: 1150000, condition: 'New' },\n+    { name: 'HP Elite Dragonfly Chromebook', specs: '12th Gen Intel Core i5, 16GB RAM, 256GB SSD, 13.3\" Touch', price: 380000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 830 G6 x360', specs: '8th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13.3\" Touch', price: 400000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G2', specs: '5th Gen Intel Core i5, 8GB RAM, 256GB SSD, 14\" Touch', price: 225000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G3', specs: '5th Gen Intel Core i5, 8GB RAM, 256GB SSD, 14\"', price: 235000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G3 (6th Gen)', specs: '6th Gen Intel Core i5, 8GB RAM, 256GB SSD, Touchscreen', price: 275000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G4', specs: '7th Gen Intel Core i7, 16GB RAM, 256GB SSD, 14\" FHD', price: 280000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G8 (512GB)', specs: '11th Gen Intel Core i5, 16GB RAM, 512GB SSD, 14\" Touch', price: 480000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G8 (256GB)', specs: '11th Gen Intel Core i5, 16GB RAM, 256GB SSD, 14\" Touch', price: 470000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G7 (256GB Non-Touch)', specs: '10th Gen Intel Core i5, 16GB RAM, 256GB SSD, 14\"', price: 400000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G7 (256GB Touch)', specs: '10th Gen Intel Core i5, 16GB RAM, 256GB SSD, 14\" Touch', price: 430000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G7 (512GB Non-Touch)', specs: '10th Gen Intel Core i5, 16GB RAM, 512GB SSD, 14\"', price: 410000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G7 (512GB Touch)', specs: '10th Gen Intel Core i5, 16GB RAM, 512GB SSD, 14\" Touch', price: 440000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 840 G6', specs: '8th Gen Intel Core i5, 16GB RAM, 256GB SSD, 14\"', price: 320000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G2 x360 (i5/8/256)', specs: '7th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13\" FHD Touch', price: 390000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G2 x360 (i5/8/512)', specs: '7th Gen Intel Core i5, 8GB RAM, 512GB SSD, 13\" FHD Touch', price: 410000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G2 x360 (i7/8/512)', specs: '7th Gen Intel Core i7, 8GB RAM, 512GB SSD, 13\" FHD Touch', price: 470000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G3 x360 (i5)', specs: '8th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13\" FHD Touch', price: 400000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G3 x360 (i7/16/256)', specs: '8th Gen Intel Core i7, 16GB RAM, 256GB SSD, 13\" FHD Touch', price: 470000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G3 x360 (i7/16/512)', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 13\" FHD Touch', price: 490000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G4 x360', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 13\" FHD Touch', price: 500000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G6 x360 (16/256)', specs: '8th Gen Intel Core i7, 16GB RAM, 256GB SSD, 14\" FHD Touch', price: 510000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G6 x360 (16/512)', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 14\" FHD Touch', price: 530000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G6 x360 (32/512)', specs: '8th Gen Intel Core i7, 32GB RAM, 512GB SSD, 14\" FHD Touch', price: 550000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1030 G7 x360', specs: '10th Gen Intel Core i7, 32GB RAM, 512GB SSD, 13\" FHD Touch', price: 620000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G7 x360 (16/256)', specs: '10th Gen Intel Core i7, 16GB RAM, 256GB SSD, 14\" FHD Touch', price: 550000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G7 x360 (16/512)', specs: '10th Gen Intel Core i7, 16GB RAM, 512GB SSD, 14\" FHD Touch', price: 580000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G7 x360 (32/512)', specs: '10th Gen Intel Core i7, 32GB RAM, 512GB SSD, 14\" FHD Touch', price: 620000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G7 x360 (32/1TB)', specs: '10th Gen Intel Core i7, 32GB RAM, 1TB SSD, 14\" FHD Touch', price: 660000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G8', specs: '11th Gen Intel Core i5, 16GB RAM, 256GB SSD, 14\" Touch', price: 600000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G8 x360 (16/512)', specs: '11th Gen Intel Core i7, 16GB RAM, 512GB SSD, 14\" FHD Touch', price: 650000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G8 x360 (32/512)', specs: '11th Gen Intel Core i7, 32GB RAM, 512GB SSD, 14\" FHD Touch', price: 700000, condition: 'Premium Used' },\n+    { name: 'HP EliteBook 1040 G8 x360 (32/1TB)', specs: '11th Gen Intel Core i7, 32GB RAM, 1TB SSD, 14\" FHD Touch', price: 740000, condition: 'Premium Used' },\n+    { name: 'HP Pavilion 15', specs: '10th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15\" FHD Touch, Nvidia MX250', price: 620000, condition: 'Premium Used' },\n+    { name: 'HP Spectre 13-ae0xx x360', specs: '8th Gen Intel Core i7, 16GB RAM, 1TB SSD, 13\" FHD Touch', price: 650000, condition: 'Premium Used' },\n+    { name: 'HP Spectre 13-ap0xxx Gem Cut', specs: '8th Gen Intel Core i7, 16GB RAM, 1TB SSD, 13\" FHD Touch', price: 750000, condition: 'Premium Used' },\n+    { name: 'HP Spectre 15 x360 Gem Cut 4K', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15\" 4K UHD Touch, GTX 1050Ti', price: 880000, condition: 'Premium Used' },\n+    { name: 'HP ZBook 15u G6', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\" FHD Touch, AMD Radeon WX3200', price: 620000, condition: 'Premium Used' },\n+    { name: 'HP ZBook 15 G6', specs: '9th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\" FHD, Nvidia Quadro T1000', price: 660000, condition: 'Premium Used' },\n+    { name: 'HP ZBook Studio 15 G5 (P1000/680k)', specs: '8th Gen Intel Core i7, 32GB RAM, 1TB SSD, 15.6\" FHD, Quadro P1000', price: 680000, condition: 'Premium Used' },\n+    { name: 'HP ZBook Studio 15 G5 (P1000/740k)', specs: '8th Gen Intel Core i7, 32GB RAM, 1TB SSD, 15.6\" FHD, Quadro P1000', price: 740000, condition: 'Premium Used' },\n+];\n+\n+const DELL_PRODUCTS = [\n+    { name: 'Dell XPS 13 9365 2-in-1', specs: '8th Gen Intel Core i7, 16GB RAM, 256GB SSD, 13.3\" QHD+ Touch', price: 525000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 9560', specs: '7th Gen Intel Core i7, 16GB RAM, 256GB SSD, 15\" FHD Touch, GTX 1050', price: 450000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 9530', specs: '13th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15\"', price: 1350000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 9520', specs: '12th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15\", RTX 3050', price: 1200000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 7590', specs: '9th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\", GTX 1650', price: 750000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 9570', specs: '8th Gen Intel Core i5, 16GB RAM, 256GB SSD, GTX 1050', price: 570000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 13 9360', specs: '8th Gen Intel Core i5, 16GB RAM, 256GB SSD, Touch', price: 450000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 13 9365 (i7)', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 13\" FHD Touch', price: 450000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 13 9380', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 13.3\"', price: 490000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 13 9365 (i5)', specs: '7th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13.3\" QHD+ Touch', price: 380000, condition: 'Premium Used' },\n+    { name: 'Dell XPS 15 9560 (512GB)', specs: '7th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\" FHD, GTX 1050', price: 620000, condition: 'Premium Used' },\n+    { name: 'Dell Vostro 5490', specs: '10th Gen Intel Core i7, 12GB RAM, 512GB SSD, 14\" FHD, 2GB Nvidia', price: 550000, condition: 'Premium Used' },\n+    { name: 'Dell Vostro 5481', specs: '8th Gen Intel Core i7, 8GB RAM, 256GB SSD, 14\" FHD', price: 400000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 15 7567 Gaming', specs: '7th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15\" FHD, GTX 1050Ti', price: 580000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 3571', specs: '12th Gen Intel Core i5, 16GB RAM, 256GB SSD, 15\" FHD Touch, 4GB Graphics', price: 620000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 3570 (512GB)', specs: '12th Gen Intel Core i5, 16GB RAM, 512GB SSD, 15\" FHD, 4GB Graphics', price: 640000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 3570 (256GB)', specs: '12th Gen Intel Core i5, 16GB RAM, 256GB SSD, 15\" FHD, 4GB Graphics', price: 610000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 3470', specs: '12th Gen Intel Core i5, 8GB RAM, 256GB SSD, 14\" FHD', price: 500000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 5520', specs: '7th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\" 4K Touch, Quadro M1200M', price: 660000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 5530 (FHD)', specs: 'Intel Core i7-8850H, 16GB RAM, 512GB SSD, 15.6\" FHD, Quadro P1000', price: 650000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 5530 (4K)', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 15.6\" 4K Touch, Quadro P1000', price: 680000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 5530 (i9)', specs: '8th Gen Intel Core i9, 16GB RAM, 512GB SSD, 15\" FHD, Quadro P2000', price: 740000, condition: 'Premium Used' },\n+    { name: 'Dell Precision 5550', specs: '10th Gen Intel Core i5 vPro, 32GB RAM, 512GB SSD, 15.6\" 4K Touch, Quadro T1000', price: 770000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 16 5620', specs: '12th Gen Intel Core i7, 16GB RAM, 512GB SSD, 16\" FHD', price: 600000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 15 3000', specs: '11th Gen Intel Core i3, 8GB RAM, 256GB SSD, 14\" FHD Touch', price: 380000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 7348', specs: '5th Gen Intel Core i3, 8GB RAM, 500GB HDD, 13\" FHD Touch', price: 200000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 15 5510', specs: '11th Gen Intel Core i5, 8GB RAM, 256GB SSD, 16\" FHD', price: 450000, condition: 'Premium Used' },\n+    { name: 'Dell Inspiron 15 5000', specs: '8th Gen Intel Core i7, 8GB RAM, 256GB SSD, 15\" FHD', price: 420000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3400', specs: '8th Gen Intel Core i5, 8GB RAM, 512GB SSD, 14\" FHD', price: 280000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3410 (256GB)', specs: '10th Gen Intel Core i5, 8GB RAM, 256GB SSD, 14\" FHD', price: 380000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3410 (512GB)', specs: '10th Gen Intel Core i5, 8GB RAM, 512GB SSD, 14\" FHD', price: 400000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3420', specs: '11th Gen Intel Core i5, 8GB RAM, 256GB SSD, 14\" FHD', price: 390000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3510', specs: '10th Gen Intel Core i5, 8GB RAM, 256GB SSD, 15.6\" FHD', price: 350000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 3520', specs: '11th Gen Intel Core i5, 8GB RAM, 256GB SSD, 15.6\" FHD', price: 370000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 5300', specs: '8th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13\" FHD', price: 280000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 5300 2-in-1 (i7-8665U/256)', specs: '8th Gen Intel Core i7, 16GB RAM, 256GB SSD, 13\" FHD Touch, FaceID', price: 390000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 5300 2-in-1 (i7-8665U/512)', specs: '8th Gen Intel Core i7, 16GB RAM, 512GB SSD, 13\" FHD Touch, FaceID', price: 410000, condition: 'Premium Used' },\n+    { name: 'Dell Latitude 5300 2-in-1 (i5)', specs: '8th Gen Intel Core i5, 8GB RAM, 256GB SSD, 13\" FHD Touch', price: 340000, condition: 'Premium Used' },\n+];\n+\n+function generateDescription(product: any, specs: StructuredSpecs) {\n+    const priceStr = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(product.price);\n+    const monthlyPayment = Math.ceil(product.price / 10);\n+    const bnplStr = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(monthlyPayment);\n+    const isUsed = product.condition === 'Premium Used';\n+\n+    return `## What is the ${product.name} Price in Nigeria?\n+\n+The **${product.name}** is priced at **${priceStr}** at Ogabassey with ${isUsed ? '90-day warranty' : 'official warranty'}. You can also pay **${bnplStr}/month for 10 months** via BNPL (Buy Now Pay Later), making premium ${product.brand} laptops accessible to Nigerian professionals.\n+\n+## What are the ${product.name} Specifications?\n+\n+| Specification | Value |\n+|---------------|-------|\n+| **Processor** | ${specs.Processor || 'Intel Core'} |\n+| **RAM** | ${specs.RAM || 'Standard'} |\n+| **Storage** | ${specs.Storage || 'SSD'} |\n+| **Display** | ${specs.Display || 'FHD'} |\n+| **Graphics** | ${specs.Graphics || 'Integrated Intel'} |\n+| **Condition** | ${product.condition} |\n+| **Brand** | ${product.brand} |\n+\n+## What Condition is the ${product.name}?\n+\n+${isUsed ? `This is a **Premium Used** laptop that has been professionally refurbished and certified. Every unit undergoes a rigorous 50-point inspection, battery health verification (80%+ guaranteed), and cosmetic grading (Grade A - minimal wear). You get enterprise-quality hardware at a fraction of new prices.` : `This is **Brand New** - sealed in original packaging with full manufacturer warranty. You receive the complete retail experience with all original accessories and documentation.`}\n+\n+## Why Buy Premium Used Laptops from Ogabassey?\n+\n+- ✅ **Best Value:** Enterprise-grade specs at 40-60% off new prices\n+- ✅ **Flexible Payment:** Pay **${bnplStr}/month × 10** via BNPL\n+- ✅ **Quality Guaranteed:** 50-point inspection + ${isUsed ? '90-day' : '1-year'} warranty\n+- ✅ **Fast Delivery:** Same-day in Lagos, 2-5 days nationwide\n+- ✅ **Support:** Physical office in Ikeja for after-sales service\n+\n+## Related Products\n+\n+- [HP EliteBook Series](/ogabassey/laptops) - Business Laptops\n+- [Dell XPS Series](/ogabassey/laptops) - Premium Ultrabooks\n+- [MacBook Pro](/ogabassey/macbook) - Apple Alternative\n+`.trim();\n+}\n+\n+async function seed() {\n+    console.log(\"🌱 Seeding HP and Dell Laptops (RFC-compliant)...\");\n+\n+    // Get Laptops Category\n+    const { data: cat } = await supabase.from('categories').select('id, merchant_id').eq('slug', 'laptops').single();\n+\n+    if (!cat) {\n+        console.error(\"❌ 'Laptops' category not found\");\n+        return;\n+    }\n+\n+    const allProducts = [\n+        ...HP_PRODUCTS.map(p => ({ ...p, brand: 'HP' })),\n+        ...DELL_PRODUCTS.map(p => ({ ...p, brand: 'Dell' }))\n+    ];\n+\n+    let created = 0;\n+    let updated = 0;\n+    let skipped = 0;\n+\n+    for (const p of allProducts) {\n+        const slug = p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');\n+        const specs = parseSpecs(p.specs);\n+\n+        // SEO/Frontend-friendly structured specs\n+        const structuredSpecs = [\n+            {\n+                category: 'Performance',\n+                items: [\n+                    { label: 'Processor', value: specs.Processor || 'Standard' },\n+                    { label: 'RAM', value: specs.RAM || 'Standard' },\n+                    { label: 'Graphics', value: specs.Graphics || 'Integrated' }\n+                ]\n+            },\n+            {\n+                category: 'Display & Design',\n+                items: [\n+                    { label: 'Display', value: specs.Display || 'Standard' },\n+                    { label: 'Storage', value: specs.Storage || 'Standard' }\n+                ]\n+            }\n+        ];\n+\n+        const description = generateDescription(p, specs);\n+\n+        // Check if exists\n+        const { data: existing } = await supabase.from('products').select('id, metadata').eq('slug', slug).maybeSingle();\n+\n+        const metadata = {\n+            brand: p.brand,\n+            model: p.name,\n+            condition: p.condition,\n+            // Enhanced EAV fields\n+            processor: specs.Processor,\n+            processorGen: specs.Processor?.match(/(\\d+)(th|st|nd|rd)\\s*Gen/i)?.[0] || '',\n+            ram: specs.RAM?.match(/\\d+GB/i)?.[0] || specs.RAM,\n+            ramType: specs.RAM?.includes('DDR5') ? 'DDR5' : 'DDR4',\n+            storage: specs.Storage?.match(/\\d+GB|\\d+TB/i)?.[0] || specs.Storage,\n+            storageType: specs.Storage?.toLowerCase().includes('ssd') ? 'SSD' : specs.Storage?.toLowerCase().includes('hdd') ? 'HDD' : 'SSD',\n+            display: specs.Display,\n+            displaySize: specs.Display?.match(/\\d+(\\.\\d+)?[\"'']/)?.[0] || '14\"',",
+    "path": "scripts/seed-non-mac-laptops.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Duplicate character in character class\n\nCharacter ''' is <a class=\"Link\" href=\"/Ogabassey-Services-Limited/Baci/blob/ad224aa78678bb32684b6f4677ff495fab7a6dbb/scripts/seed-non-mac-laptops.ts#L247-L247\">repeated in the same character class</a>.\n\n---\n\n<p>To fix the problem, we should remove the duplicated <code>'</code> character from the character class. The intention of the character class is to match either a double quote <code>\"</code> or a single quote <code>'</code>, so it should only contain each character once. Specifically, on line 247, in the regex <code>/\\d+(\\.\\d+)?[\"'']/</code>, change <code>[\"'']</code> to <code>[\"']</code>, keeping only a single occurrence of each character. This minor edit removes redundancy and clarifies intent, without altering existing functionality.</p>\n",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472265",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472265"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472265"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472265/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 247,
+    "original_line": 247,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 247,
+    "position": 247,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472266",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472266,
+    "node_id": "PRRC_kwDOQZgfis6b9DLK",
+    "diff_hunk": "@@ -212,8 +214,12 @@ export default function DashboardClientLayout({\n     }\n \n     // If there IS a user but NO merchant record OR incomplete profile,\n-    // the blocking UI is handled outside this effect (see below)\n-  }, [user, authLoading, merchantLoading, router, hasAttemptedAuthCheck]);\n+    // automatically redirect to onboarding instead of showing a blocking screen\n+    if (user && !merchantLoading && (!merchant || !merchant.business_name)) {",
+    "path": "src/app/dashboard/client-layout.tsx",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Useless conditional\n\nThis expression always evaluates to true.\n\n---\n\n<p>The best fix is to simplify the conditional on line 218 by removing the redundant checks for <code>user</code> and <code>!merchantLoading</code>, since both conditions will always be met if this branch is reached. The conditional should now simply check <code>!merchant || !merchant.business_name</code>, because all code after the earlier returns is already within the context where <code>user</code> is truthy and <code>merchantLoading</code> is falsy. This change will clarify the intent and remove dead code, following best practices for clean and maintainable code.</p>\n<p>In summary:</p>\n<ul>\n<li>Edit <code>src/app/dashboard/client-layout.tsx</code></li>\n<li>On line 218, replace <code>if (user &amp;&amp; !merchantLoading &amp;&amp; (!merchant || !merchant.business_name)) { ... }</code> with <code>if (!merchant || !merchant.business_name) { ... }</code></li>\n<li>No imports or additional definitions are necessary.</li>\n</ul>\n",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472266",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472266"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472266"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472266/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 218,
+    "original_line": 218,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 36,
+    "position": 36,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472267",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472267,
+    "node_id": "PRRC_kwDOQZgfis6b9DLL",
+    "diff_hunk": "@@ -212,8 +214,12 @@ export default function DashboardClientLayout({\n     }\n \n     // If there IS a user but NO merchant record OR incomplete profile,\n-    // the blocking UI is handled outside this effect (see below)\n-  }, [user, authLoading, merchantLoading, router, hasAttemptedAuthCheck]);\n+    // automatically redirect to onboarding instead of showing a blocking screen\n+    if (user && !merchantLoading && (!merchant || !merchant.business_name)) {",
+    "path": "src/app/dashboard/client-layout.tsx",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Useless conditional\n\nThis use of variable 'user' always evaluates to true.\n\n---\n\n<p>To fix this problem, the redundant check for <code>user</code> in the condition <code>if (user &amp;&amp; !merchantLoading &amp;&amp; (!merchant || !merchant.business_name))</code> should be removed. Since all code paths with <code>!user</code> already result in an early return, it's safe to simplify the condition to only check <code>!merchantLoading &amp;&amp; (!merchant || !merchant.business_name)</code>.</p>\n<p>This change should be made in the effect callback inside <code>src/app/dashboard/client-layout.tsx</code> at line 218. No other files or regions need editing, and no new imports or definitions are necessary.</p>\n",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472267",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472267"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472267"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472267/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 218,
+    "original_line": 218,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 36,
+    "position": 36,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472269",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472269,
+    "node_id": "PRRC_kwDOQZgfis6b9DLN",
+    "diff_hunk": "@@ -212,8 +214,12 @@ export default function DashboardClientLayout({\n     }\n \n     // If there IS a user but NO merchant record OR incomplete profile,\n-    // the blocking UI is handled outside this effect (see below)\n-  }, [user, authLoading, merchantLoading, router, hasAttemptedAuthCheck]);\n+    // automatically redirect to onboarding instead of showing a blocking screen\n+    if (user && !merchantLoading && (!merchant || !merchant.business_name)) {",
+    "path": "src/app/dashboard/client-layout.tsx",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Useless conditional\n\nThis negation always evaluates to true.\n\n---\n\nTo fix the issue, simply remove the redundant <code>!merchantLoading</code> check from the conditional on line 218, leaving the rest of the condition unchanged. This does not change the logic or functionality because, due to the prior early return, <code>merchantLoading</code> will always be false in this scope. This edit only requires removing <code>!merchantLoading &amp;&amp;</code> from the if statement and does not require any new imports, definitions, or additional methods.",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472269",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472269"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472269"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472269/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 218,
+    "original_line": 218,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 36,
+    "position": 36,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472270",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472270,
+    "node_id": "PRRC_kwDOQZgfis6b9DLO",
+    "diff_hunk": "@@ -0,0 +1,289 @@\n+/**\n+ * 1-extract.ts - Extract WordPress posts from SQL dump to JSON\n+ *\n+ * Usage: npx tsx scripts/1-extract.ts\n+ *\n+ * Input:  /Users/mac/Desktop/blog_database.sql\n+ * Output: scripts/data/posts-raw.json\n+ */\n+\n+import * as fs from 'node:fs';\n+import * as path from 'node:path';\n+import * as readline from 'node:readline';\n+\n+// Configuration\n+const SQL_FILE = '/Users/mac/Desktop/blog_database.sql';\n+const OUTPUT_FILE = path.join(import.meta.dirname, 'data', 'posts-raw.json');\n+const UPLOADS_TAR = '/Users/mac/Desktop/blog_uploads.tar.gz';\n+\n+interface RawPost {\n+    id: number;\n+    title: string;\n+    slug: string;\n+    content: string;\n+    excerpt: string;\n+    status: string;\n+    postType: string;\n+    publishedAt: string;\n+    authorId: number;\n+    featuredImageId?: number;\n+    featuredImagePath?: string;\n+    categories: string[];\n+    tags: string[];\n+}\n+\n+interface PostMeta {\n+    postId: number;\n+    metaKey: string;\n+    metaValue: string;\n+}\n+\n+interface Attachment {\n+    id: number;\n+    filePath: string;\n+}\n+\n+// Regex patterns for parsing MySQL INSERT statements\n+const POST_INSERT_REGEX = /INSERT INTO `wpgo_posts` VALUES\\s*(.+);/;\n+const POSTMETA_INSERT_REGEX = /INSERT INTO `wpgo_postmeta` VALUES\\s*(.+);/;\n+\n+// Parse a MySQL values row - handles escaped quotes and commas\n+function parseValues(valuesStr: string): string[][] {\n+    const rows: string[][] = [];\n+    let current = '';",
+    "path": "scripts/1-extract.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Unused variable, import, function or class\n\nUnused variable current.\n\n---\n\n<p>To fix the problem, simply remove the unused variable declaration for <code>current</code> on line 53 of scripts/1-extract.ts. No other parts of the code reference <code>current</code>, so deleting this line will have no effect on program behavior or function. Ensure no other occurrences of this variable remain within the provided snippet. This change eliminates dead code and prevents future confusion.</p>\n",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472270",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472270"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472270"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472270/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 53,
+    "original_line": 53,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 53,
+    "position": 53,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472274",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472274,
+    "node_id": "PRRC_kwDOQZgfis6b9DLS",
+    "diff_hunk": "@@ -0,0 +1,266 @@\n+/**\n+ * 3-import.ts - Import clean posts to Supabase\n+ *\n+ * Usage: npx tsx scripts/3-import.ts\n+ *\n+ * Input:  scripts/data/posts-clean.json\n+ *         /Users/mac/Desktop/blog_uploads.tar.gz (for images)\n+ *\n+ * Output: Supabase blog_posts table + media bucket\n+ *\n+ * Features:\n+ * - Secure image upload (MIME check, magic bytes, UUID rename)\n+ * - WebP conversion\n+ * - Post insertion as draft\n+ */\n+\n+import * as fs from 'node:fs';\n+import * as path from 'node:path';\n+import { execSync } from 'node:child_process';\n+import { createClient } from '@supabase/supabase-js';\n+\n+// Configuration\n+const INPUT_FILE = path.join(import.meta.dirname, 'data', 'posts-clean.json');\n+const UPLOADS_TAR = '/Users/mac/Desktop/blog_uploads.tar.gz';\n+const TEMP_DIR = path.join(import.meta.dirname, 'data', 'uploads-temp');\n+\n+// Supabase config (uses env vars from .env.local)\n+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;\n+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;\n+\n+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {\n+    console.error('❌ Missing Supabase environment variables!');\n+    console.error('   Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');\n+    process.exit(1);\n+}\n+\n+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);\n+\n+// Allowed image MIME types\n+const ALLOWED_MIME_TYPES = new Set([",
+    "path": "scripts/3-import.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Unused variable, import, function or class\n\nUnused variable ALLOWED_MIME_TYPES.\n\n---\n\nThe best way to fix this problem without altering existing functionality is to remove the unused variable declaration for <code>ALLOWED_MIME_TYPES</code>. Since it is not referenced anywhere in the shown code, its removal will not change program behavior and will eliminate the static analysis warning. The necessary change is confined to line 40–45, where <code>ALLOWED_MIME_TYPES</code> is defined, and can simply be deleted.",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472274",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472274"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472274"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472274/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 40,
+    "original_line": 40,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 40,
+    "position": 40,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472276",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472276,
+    "node_id": "PRRC_kwDOQZgfis6b9DLU",
+    "diff_hunk": "@@ -0,0 +1,266 @@\n+/**\n+ * 3-import.ts - Import clean posts to Supabase\n+ *\n+ * Usage: npx tsx scripts/3-import.ts\n+ *\n+ * Input:  scripts/data/posts-clean.json\n+ *         /Users/mac/Desktop/blog_uploads.tar.gz (for images)\n+ *\n+ * Output: Supabase blog_posts table + media bucket\n+ *\n+ * Features:\n+ * - Secure image upload (MIME check, magic bytes, UUID rename)\n+ * - WebP conversion\n+ * - Post insertion as draft\n+ */\n+\n+import * as fs from 'node:fs';\n+import * as path from 'node:path';\n+import { execSync } from 'node:child_process';\n+import { createClient } from '@supabase/supabase-js';\n+\n+// Configuration\n+const INPUT_FILE = path.join(import.meta.dirname, 'data', 'posts-clean.json');\n+const UPLOADS_TAR = '/Users/mac/Desktop/blog_uploads.tar.gz';\n+const TEMP_DIR = path.join(import.meta.dirname, 'data', 'uploads-temp');\n+\n+// Supabase config (uses env vars from .env.local)\n+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;\n+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;\n+\n+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {\n+    console.error('❌ Missing Supabase environment variables!');\n+    console.error('   Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');\n+    process.exit(1);\n+}\n+\n+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);\n+\n+// Allowed image MIME types\n+const ALLOWED_MIME_TYPES = new Set([\n+    'image/jpeg',\n+    'image/png',\n+    'image/gif',\n+    'image/webp',\n+]);\n+\n+// Magic bytes for image validation\n+const MAGIC_BYTES: Record<string, number[]> = {\n+    jpeg: [0xff, 0xd8, 0xff],\n+    png: [0x89, 0x50, 0x4e, 0x47],\n+    gif: [0x47, 0x49, 0x46],\n+    webp: [0x52, 0x49, 0x46, 0x46], // RIFF header\n+};\n+\n+interface CleanPost {\n+    id: number;\n+    title: string;\n+    slug: string;\n+    content: string;\n+    excerpt: string;\n+    publishedAt: string;\n+    featuredImagePath?: string;\n+    cleanStatus: 'KEEP' | 'REVIEW' | 'DISCARD';\n+    wordCount: number;\n+}\n+\n+interface CleanData {\n+    cleanedAt: string;\n+    summary: {\n+        total: number;\n+        keep: number;\n+        review: number;\n+        discard: number;\n+    };\n+    posts: CleanPost[];\n+}\n+\n+function validateMagicBytes(buffer: Buffer): boolean {\n+    for (const [, bytes] of Object.entries(MAGIC_BYTES)) {\n+        let match = true;\n+        for (let i = 0; i < bytes.length; i++) {\n+            if (buffer[i] !== bytes[i]) {\n+                match = false;\n+                break;\n+            }\n+        }\n+        if (match) return true;\n+    }\n+    return false;\n+}\n+\n+function generateSlug(title: string): string {\n+    return title\n+        .toLowerCase()\n+        .replace(/[^a-z0-9]+/g, '-')\n+        .replace(/^-+|-+$/g, '')\n+        .substring(0, 100);\n+}\n+\n+async function uploadImage(\n+    localPath: string,\n+    postSlug: string\n+): Promise<string | null> {\n+    try {\n+        if (!fs.existsSync(localPath)) {\n+            console.log(`   ⚠️  Image not found: ${localPath}`);\n+            return null;\n+        }\n+\n+        // Read file\n+        const buffer = fs.readFileSync(localPath);\n+\n+        // Validate magic bytes (security check)\n+        if (!validateMagicBytes(buffer)) {\n+            console.log(`   ⚠️  Invalid image magic bytes: ${localPath}`);\n+            return null;\n+        }\n+\n+        // Generate unique filename\n+        const ext = path.extname(localPath).toLowerCase();\n+        const uuid = crypto.randomUUID();\n+        const newFilename = `blog-import/${postSlug}/${uuid}${ext}`;\n+\n+        // Upload to Supabase Storage\n+        const { data, error } = await supabase.storage",
+    "path": "scripts/3-import.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Unused variable, import, function or class\n\nUnused variable data.\n\n---\n\n<p>The best way to fix this problem is to modify the destructuring assignment at line 125:<br>\nChange</p>\n<pre><code>const { data, error } = await supabase.storage\n</code></pre>\n<p>to instead only destructure the <code>error</code> property, which is the only part of the result actually used later. The fix is to replace <code>{ data, error }</code> with <code>{ error }</code> on that line, leaving all other logic unchanged. This avoids creating an unused variable and removes the CodeQL warning. The fix only requires editing the line with the destructuring assignment, and no additional imports or code changes are necessary.</p>\n",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472276",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472276"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472276"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472276/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 125,
+    "original_line": 125,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 125,
+    "position": 125,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472278",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472278,
+    "node_id": "PRRC_kwDOQZgfis6b9DLW",
+    "diff_hunk": "@@ -0,0 +1,116 @@\n+import sharp from 'sharp';\n+import fs from 'fs';",
+    "path": "scripts/apply-red-ring.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Unused variable, import, function or class\n\n<p>Unused import fs.</p>",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472278",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472278"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472278"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472278/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 2,
+    "original_line": 2,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 2,
+    "position": 2,
+    "subject_type": "line"
+  },
+  {
+    "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472280",
+    "pull_request_review_id": 3574516059,
+    "id": 2616472280,
+    "node_id": "PRRC_kwDOQZgfis6b9DLY",
+    "diff_hunk": "@@ -0,0 +1,116 @@\n+import sharp from 'sharp';\n+import fs from 'fs';\n+import { removeBackground } from '@imgly/background-removal-node';",
+    "path": "scripts/apply-red-ring.ts",
+    "commit_id": "6d81e855373c86327aaf6ed95367d7c4798c10e9",
+    "original_commit_id": "ad224aa78678bb32684b6f4677ff495fab7a6dbb",
+    "user": {
+      "login": "github-code-quality[bot]",
+      "id": 223894421,
+      "node_id": "BOT_kgDODVhblQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-code-quality%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-code-quality",
+      "followers_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-code-quality%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "body": "## Unused variable, import, function or class\n\n<p>Unused import removeBackground.</p>",
+    "created_at": "2025-12-13T18:59:32Z",
+    "updated_at": "2025-12-13T18:59:32Z",
+    "html_url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472280",
+    "pull_request_url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118",
+    "_links": {
+      "self": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472280"
+      },
+      "html": {
+        "href": "https://github.com/Ogabassey-Services-Limited/Baci/pull/118#discussion_r2616472280"
+      },
+      "pull_request": {
+        "href": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/118"
+      }
+    },
+    "reactions": {
+      "url": "https://api.github.com/repos/Ogabassey-Services-Limited/Baci/pulls/comments/2616472280/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "start_line": null,
+    "original_start_line": null,
+    "start_side": null,
+    "line": 3,
+    "original_line": 3,
+    "side": "RIGHT",
+    "author_association": "NONE",
+    "original_position": 3,
+    "position": 3,
+    "subject_type": "line"
+  }
+]

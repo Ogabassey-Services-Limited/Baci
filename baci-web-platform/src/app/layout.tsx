@@ -1,0 +1,218 @@
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import { headers } from 'next/headers';
+import './globals.css';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
+import { Toaster } from '@/components/ui/toaster';
+import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+import { NonceProvider } from '@/contexts/NonceProvider';
+import { Providers } from '@/contexts/providers';
+import {
+  generateOrganizationSchema,
+  generateSoftwareApplicationSchema,
+  generateWebSiteSchema,
+  type OrganizationData,
+} from '@/lib/seo-utils';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap', // Prevents FOIT (Flash of Invisible Text)
+  preload: true, // Preloads font for faster initial render
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL(PLATFORM_CONFIG.url),
+  title: {
+    default: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    template: `%s | ${PLATFORM_CONFIG.name}`,
+  },
+  description: PLATFORM_CONFIG.description,
+  applicationName: PLATFORM_CONFIG.name,
+  authors: [{ name: PLATFORM_CONFIG.name }],
+  keywords: [
+    'ai',
+    'ecommerce',
+    'store builder',
+    'online store',
+    'nextjs',
+    'react',
+    'business',
+    'retail',
+  ],
+  // Favicon configuration - comprehensive setup for all devices
+  icons: {
+    icon: [
+      { url: '/baci-verified-favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  // PWA manifest
+  manifest: '/manifest.json',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    title: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    description: PLATFORM_CONFIG.description,
+    url: PLATFORM_CONFIG.url,
+    siteName: PLATFORM_CONFIG.name,
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    description: PLATFORM_CONFIG.description,
+    creator: '@usebaci',
+    images: ['/opengraph-image'],
+  },
+  alternates: {
+    canonical: PLATFORM_CONFIG.url,
+  },
+};
+
+export const viewport: Viewport = {
+  // Core viewport settings for responsive design
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5, // Allow zoom for accessibility (WCAG 1.4.4)
+  userScalable: true, // Never disable zoom - accessibility requirement
+  // Enable safe area support for notched devices (iPhone, etc.)
+  viewportFit: 'cover',
+  // Theme color for browser chrome
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#3F51B5' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1f4e' },
+  ],
+  // Color scheme support
+  colorScheme: 'light dark',
+};
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  // Get nonce from middleware (will be null for storefront routes)
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') || undefined;
+  // const nonce = undefined;
+
+  // Build organization data for schema generator
+  const organizationData: OrganizationData = {
+    name: PLATFORM_CONFIG.name,
+    url: PLATFORM_CONFIG.url,
+    logo: `${PLATFORM_CONFIG.url}/baci-logo.svg`,
+    description: PLATFORM_CONFIG.description,
+    socialMedia: {
+      twitter: 'https://twitter.com/usebaci',
+      linkedin: 'https://linkedin.com/company/usebaci',
+      instagram: 'https://instagram.com/usebaci',
+    },
+  };
+
+  const organizationSchema = generateOrganizationSchema(organizationData);
+
+  // Use the SEO utility for consistent WebSite schema generation
+  const websiteSchema = generateWebSiteSchema(
+    PLATFORM_CONFIG.name,
+    PLATFORM_CONFIG.url,
+    `${PLATFORM_CONFIG.url}/search?q={search_term_string}`
+  );
+
+  const softwareApplicationSchema =
+    generateSoftwareApplicationSchema(PLATFORM_PRICING);
+
+  return (
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <head>
+        {/*
+          Font loading is handled automatically by next/font/google (Inter).
+          No manual preconnect/preload needed - Next.js optimizes this.
+        */}
+
+        {/*
+          DNS prefetch hints for third-party origins
+          Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
+          dns-prefetch is less aggressive but still helps with connection setup
+        */}
+        <link
+          rel="dns-prefetch"
+          href="https://dtbqucrqfbycfpmfwtie.supabase.co"
+        />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+        {/* Schema.org JSON-LD - Safe: These are statically generated schema objects, not user input */}
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          suppressHydrationWarning
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema),
+          }}
+        />
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          suppressHydrationWarning
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          suppressHydrationWarning
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(softwareApplicationSchema),
+          }}
+        />
+      </head>
+      <body className={inter.variable} suppressHydrationWarning>
+        {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
+        <a
+          href="#main-content"
+          className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[9999] focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:px-4 focus-visible:py-2 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Skip to main content
+        </a>
+        <NonceProvider nonce={nonce}>
+          <Providers>
+            {children}
+            <Toaster />
+          </Providers>
+        </NonceProvider>
+        <WebVitalsReporter />
+        <Analytics />
+        <SpeedInsights />
+      </body>
+    </html>
+  );
+}

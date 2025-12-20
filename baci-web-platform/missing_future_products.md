@@ -1,0 +1,8 @@
+- Samsung Galaxy Tab A11 LTE 4GB 128GB
+- Samsung Galaxy Watch 8 Classic
+- Samsung Galaxy Z Fold 7 12GB 512GB
+- Samsung Galaxy Tab A11 LTE 4GB 64GB
+- Samsung Galaxy Watch 8 Large
+- Samsung Galaxy Watch 8 Small
+- Samsung Galaxy Z Fold 7 12GB 256GB
+- Samsung Galaxy Z Fold 7 12GB 1TB

@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ogabassey.store",
+      "sha256_cert_fingerprints": [
+        "7F:EA:BB:6C:3C:16:62:84:98:B7:AA:5C:6E:33:C0:1B:F8:40:09:B5:9B:DD:F4:5A:02:3B:AB:DD:3B:26:8F:A8"
+      ]
+    }
+  }
+]

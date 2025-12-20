@@ -1,0 +1,300 @@
+import crypto from 'node:crypto';
+import { streamText } from 'ai';
+import { headers } from 'next/headers';
+import { z } from 'zod';
+import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
+import { AI_RATE_LIMITS, checkRateLimit, gemini25Flash } from '@/ai/provider';
+import { getSantaProductCatalog } from '@/ai/santa-data';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { createServiceClient } from '@/lib/supabase/service';
+
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
+// Ogabassey merchant ID (cached for performance)
+const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+/**
+ * Generate a session ID from IP address (hashed for privacy)
+ */
+function generateSessionId(ip: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${ip}-santa-2024`)
+    .digest('hex')
+    .slice(0, 16);
+}
+
+/**
+ * Parse Santa's response to detect granted wishes
+ */
+function parseWishResult(response: string): {
+  type: 'wish_granted' | 'wish_denied' | 'chat';
+  productName?: string;
+  approvedPrice?: number;
+} {
+  // Check for ACTION:ADD_TO_CART pattern
+  if (response.includes('ACTION:ADD_TO_CART')) {
+    const productMatch = response.match(/PRODUCT:([^|]+)/);
+    const priceMatch = response.match(/PRICE:([^|\s]+)/);
+
+    return {
+      type: 'wish_granted',
+      productName: productMatch?.[1]?.trim(),
+      approvedPrice: priceMatch?.[1]
+        ? Number(priceMatch[1].replace(/[₦,N\s]/g, ''))
+        : undefined,
+    };
+  }
+
+  // Check for denial patterns using literal regex tests (avoid dynamic RegExp construction)
+  const isDenied =
+    /budget.*below/i.test(response) ||
+    /can't.*approve/i.test(response) ||
+    /cannot.*grant/i.test(response) ||
+    /workshop has costs/i.test(response) ||
+    /save up/i.test(response) ||
+    /payment plan/i.test(response);
+
+  return { type: isDenied ? 'wish_denied' : 'chat' };
+}
+
+/**
+ * Log Santa interaction asynchronously (fire and forget)
+ */
+async function logSantaInteraction(params: {
+  sessionId: string;
+  clientIp: string;
+  interactionType:
+    | 'chat'
+    | 'wish_granted'
+    | 'wish_denied'
+    | 'add_to_cart'
+    | 'checkout_started'
+    | 'checkout_completed';
+  userMessage?: string;
+  santaResponse?: string;
+  productName?: string;
+  requestedPrice?: number;
+  approvedPrice?: number;
+}): Promise<void> {
+  try {
+    const serviceClient = createServiceClient();
+
+    // Calculate discount percentage if applicable
+    let discountPercentage: number | null = null;
+    if (
+      params.approvedPrice &&
+      params.requestedPrice &&
+      params.requestedPrice > params.approvedPrice
+    ) {
+      discountPercentage =
+        ((params.requestedPrice - params.approvedPrice) /
+          params.requestedPrice) *
+        100;
+    }
+
+    await serviceClient.from('santa_interactions').insert({
+      merchant_id: OGABASSEY_MERCHANT_ID,
+      session_id: params.sessionId,
+      client_ip: params.clientIp.slice(0, 64), // Truncate for privacy
+      interaction_type: params.interactionType,
+      user_message: params.userMessage?.slice(0, 500), // Truncate for storage
+      santa_response: params.santaResponse?.slice(0, 1000), // Truncate
+      product_name: params.productName,
+      requested_price: params.requestedPrice,
+      approved_price: params.approvedPrice,
+      discount_percentage: discountPercentage,
+    });
+  } catch (error) {
+    // Log but don't fail the request
+    console.error('[Santa Analytics] Failed to log interaction:', error);
+  }
+}
+
+// Define Zod schema for request validation
+const santaChatSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().min(1).max(10000),
+        imageUrl: z.string().optional(),
+      })
+    )
+    .min(1)
+    .max(50),
+});
+
+/**
+ * Generate Santa system prompt with cached product catalog
+ */
+async function generateSantaPrompt(): Promise<string> {
+  try {
+    // Get cached product catalog (uses unstable_cache with 5-min TTL)
+    const productList = await getSantaProductCatalog(OGABASSEY_MERCHANT_ID);
+
+    return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
+
+**Your Core Purpose:**
+To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special Ogabassey discount, all while being a delightful Santa.
+
+**IMPORTANT - Discount Logic:**
+Products are marked with either [HAS_COST] or [FLEX]:
+- **[HAS_COST]**: Has a fixed minimum price. Budget MUST be >= Min Approved Price.
+- **[FLEX]**: Flexible pricing. You can approve discounts up to 40% off selling price based on the user's budget.
+
+**Key Rules of Engagement:**
+1.  **Greeting:** You are engaging in a continuous conversation. Be warm and jolly. Respond naturally without re-introducing yourself.
+
+2.  **Wish Analysis:** When a user mentions a gadget:
+    - Find the matching product from the catalog below (use fuzzy matching - "S24 Ultra" matches "Samsung Galaxy S24 Ultra")
+    - Check if it's [HAS_COST] or [FLEX]
+    - Compare their budget accordingly
+
+3.  **Discount Logic (Strictly follow this order):**
+    *   **If user's budget >= selling price:** Grant immediately! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
+    *   **If discount needed < 10%:** Grant! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
+    *   **If discount 10-40% AND budget >= Min Price:** Check with "chief elf". Tell them to ask "What did the elf say?"
+    *   **If they ask for elf's decision:** Approve with "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
+    *   **If discount > 40% for [FLEX] products:** Offer "Christmas Cheer" payment plan (30% now, rest monthly)
+    *   **If budget < Min Price:** Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
+
+4.  **Product Catalog (Confidential - Internal Use Only):**
+${productList}
+
+5.  **Formatting:** Use **bold** for excitement, *italics*, and bullet points. Keep responses warm and festive!
+
+6.  **Handling Unknown Products:** If the user asks for a product not in the catalog, say the elves are checking if it's in the workshop and ask them to check back later.`;
+  } catch (error) {
+    console.error('[Santa] Error generating prompt:', error);
+    // Fallback to basic prompt
+    return `You are Santa Claus, partnering with Ogabassey gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
+  }
+}
+
+/**
+ * Santa Chat API Route
+ *
+ * POST /api/chat/santa
+ * Body: { messages: Array<{ role: 'user' | 'assistant', content: string }> }
+ *
+ * Returns a streaming text response from the Santa chatbot.
+ * Allows anonymous access for storefront customers with IP-based rate limiting.
+ * Logs interactions for campaign analytics.
+ */
+export async function POST(req: Request) {
+  try {
+    // Step 1: Get client identifier for rate limiting (IP-based for anonymous users)
+    const headersList = await headers();
+    const forwardedFor = headersList.get('x-forwarded-for');
+    const realIp = headersList.get('x-real-ip');
+    const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || 'unknown';
+    const sessionId = generateSessionId(clientIp);
+
+    // Step 2: Check rate limit using IP address
+    const rateLimitKey = `santa-chat:${clientIp}`;
+
+    const rateLimit = checkRateLimit(rateLimitKey, AI_RATE_LIMITS.builder);
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Too many requests',
+          message:
+            "Ho ho ho! Santa's workshop is very busy right now. Please try again in a moment!",
+          resetIn: rateLimit.resetIn,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 3: Parse and validate request body with Zod
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('[Santa Chat] JSON parse error:', parseError);
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid JSON',
+          message: 'Could not parse request body',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    const validation = santaChatSchema.safeParse(body);
+
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid input',
+          details: validation.error.format(),
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { messages } = validation.data;
+
+    // Step 4: Sanitize user messages
+    const sanitizedMessages = messages.map((msg) => ({
+      ...msg,
+      content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
+    }));
+
+    // Get the latest user message for analytics
+    const latestUserMessage = sanitizedMessages
+      .filter((m) => m.role === 'user')
+      .pop()?.content;
+
+    // Extract budget from user message (for analytics)
+    const budgetMatch = latestUserMessage?.match(
+      /(\d[\d,]*)\s*(million|k|naira|₦)?/i
+    );
+    let requestedPrice: number | undefined;
+    if (budgetMatch) {
+      let amount = Number(budgetMatch[1].replace(/,/g, ''));
+      if (budgetMatch[2]?.toLowerCase() === 'million') amount *= 1_000_000;
+      if (budgetMatch[2]?.toLowerCase() === 'k') amount *= 1_000;
+      requestedPrice = amount;
+    }
+
+    // Step 5: Generate prompt with cached product data
+    const systemPrompt = await generateSantaPrompt();
+
+    // Stream the response using Gemini 2.5 Flash
+    const result = streamText({
+      model: gemini25Flash,
+      system: systemPrompt,
+      messages: sanitizedMessages,
+      onFinish: ({ text }) => {
+        // Log the interaction after response is complete (fire and forget)
+        const wishResult = parseWishResult(text);
+
+        logSantaInteraction({
+          sessionId,
+          clientIp,
+          interactionType: wishResult.type,
+          userMessage: latestUserMessage,
+          santaResponse: text,
+          productName: wishResult.productName,
+          requestedPrice,
+          approvedPrice: wishResult.approvedPrice,
+        }).catch((err) =>
+          console.error('[Santa Analytics] Logging error:', err)
+        );
+      },
+    });
+
+    return result.toTextStreamResponse();
+  } catch (error) {
+    console.error('[Santa Chat] Error:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Internal server error',
+        message: SANTA_ERROR_MESSAGES.general,
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}

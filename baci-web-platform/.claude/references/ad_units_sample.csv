@@ -1,0 +1,4 @@
+#Note: Please remove semicolon (;) from your file editor's list of delimiter or separator characters.
+#Code,Name,Sizes,Description,Enabled for AdSense,Placements,Target window,Labels
+at_c1_aut_lb,at_c1_aut_lb name,728x90;out-of-page,Comedy,yes,placement 1,_blank,
+at_c1_aut_lb/at_c1_com_lb,at_c1_com_lb name,728x90;125x125;fluid,Autos & Vehicles,no,placement 1; placement 2,_top,2333;9043;5232

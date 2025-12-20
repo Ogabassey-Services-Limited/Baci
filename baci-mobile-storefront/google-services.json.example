@@ -1,0 +1,40 @@
+{
+  "_comment": "IMPORTANT: This is a template file. Download your actual google-services.json from Firebase Console.",
+  "_instructions": [
+    "1. Go to https://console.firebase.google.com",
+    "2. Create a new project or select existing 'Ogabassey' project",
+    "3. Click 'Add app' and select Android",
+    "4. Enter package name: com.ogabassey.store",
+    "5. Download google-services.json",
+    "6. Replace this file with the downloaded one",
+    "7. For FCM V1 (recommended): Go to Project Settings > Service Accounts > Generate new private key",
+    "8. Upload the service account key to EAS: eas credentials"
+  ],
+  "project_info": {
+    "project_number": "YOUR_PROJECT_NUMBER",
+    "project_id": "ogabassey-store",
+    "storage_bucket": "ogabassey-store.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID",
+        "android_client_info": {
+          "package_name": "com.ogabassey.store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "YOUR_API_KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
