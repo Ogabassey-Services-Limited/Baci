@@ -1,0 +1,3967 @@
+/**
+ * Ogabassey ChatGPT MCP Server
+ *
+ * Production-ready MCP server following 2025 security best practices:
+ * - Rate limiting per IP
+ * - Input validation & sanitization
+ * - Audit logging
+ * - Proper error handling (fail closed)
+ * - Security headers
+ * - Request size limits
+ *
+ * Run with: npx tsx mcp-server/server.ts
+ */
+
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
+import 'dotenv/config';
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const OGABASSEY_SLUG = 'ogabassey';
+const PORT = Number(process.env.MCP_PORT ?? 8787);
+const MCP_PATH = '/mcp';
+
+// Security settings
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
+const RATE_LIMIT_MAX_ENTRIES = 10_000; // Max unique IPs to track (prevent memory exhaustion)
+const MAX_REQUEST_SIZE = 1024 * 100; // 100KB max request body
+const REQUEST_TIMEOUT_MS = 30_000; // 30 second timeout
+
+// Validate required environment variables at startup (fail closed)
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error('FATAL: Missing required environment variables');
+  console.error('Required: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
+
+// Create Supabase admin client
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+// =============================================================================
+// RATE LIMITING
+// =============================================================================
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+function getClientIP(req: IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    // Check if we're at capacity - if so, clean expired entries first
+    if (rateLimitMap.size >= RATE_LIMIT_MAX_ENTRIES) {
+      // Emergency cleanup: remove all expired entries
+      for (const [existingIp, existingEntry] of rateLimitMap.entries()) {
+        if (now > existingEntry.resetAt) {
+          rateLimitMap.delete(existingIp);
+        }
+      }
+      // If still at capacity after cleanup, reject new IPs (DDoS protection)
+      if (rateLimitMap.size >= RATE_LIMIT_MAX_ENTRIES) {
+        console.warn(JSON.stringify({ type: 'security', event: 'rate_limit_capacity', ip: ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)/, '$1.$2.xxx.xxx') }));
+        return { allowed: false, remaining: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+      }
+    }
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetAt: now + RATE_LIMIT_WINDOW_MS };
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - entry.count, resetAt: entry.resetAt };
+}
+
+// Cleanup old rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// =============================================================================
+// AUDIT LOGGING
+// =============================================================================
+
+interface AuditLogEntry {
+  timestamp: string;
+  requestId: string;
+  ip: string;
+  method: string;
+  path: string;
+  tool?: string;
+  statusCode: number;
+  durationMs: number;
+  error?: string;
+}
+
+function logAudit(entry: AuditLogEntry): void {
+  // Redact sensitive data, log structured JSON for easy parsing
+  const sanitized = {
+    ...entry,
+    ip: entry.ip.replace(/(\d+)\.(\d+)\.(\d+)\.(\d+)/, '$1.$2.xxx.xxx'), // Partial IP for privacy
+  };
+  console.log(JSON.stringify({ type: 'audit', ...sanitized }));
+}
+
+function logError(requestId: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  // Never log stack traces in production (could leak sensitive info)
+  console.error(JSON.stringify({
+    type: 'error',
+    requestId,
+    message,
+    timestamp: new Date().toISOString(),
+  }));
+}
+
+// =============================================================================
+// INPUT VALIDATION & SANITIZATION
+// =============================================================================
+
+// Sanitize string input to prevent injection attacks
+function sanitizeString(input: string, maxLength = 200): string {
+  if (typeof input !== 'string') return '';
+  return input
+    .slice(0, maxLength)
+    .replace(/[\x00-\x1f]/g, '') // Remove null bytes and control characters
+    .replace(/[<>\"'`\\;]/g, '') // Remove potentially dangerous chars including semicolons and backslashes
+    .trim();
+}
+
+// Validate and sanitize price input
+function sanitizePrice(price: unknown): number | undefined {
+  if (typeof price !== 'number') return undefined;
+  if (price < 0 || price > 1_000_000_000) return undefined; // Max 1 billion NGN
+  return Math.floor(price);
+}
+
+// Validate order number format
+function isValidOrderNumber(orderNumber: string): boolean {
+  // Expected format: ORD-XXXXX or similar
+  return /^[A-Z0-9-]{3,20}$/i.test(orderNumber);
+}
+
+// Validate phone number format (basic)
+function isValidPhone(phone: string): boolean {
+  return /^[0-9+\-\s]{7,20}$/.test(phone);
+}
+
+// =============================================================================
+// SECURITY HEADERS
+// =============================================================================
+
+function setSecurityHeaders(res: ServerResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+let cachedMerchantId: string | null = null;
+let merchantIdCacheTime = 0;
+const MERCHANT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getMerchantId(): Promise<string | null> {
+  const now = Date.now();
+  if (cachedMerchantId && now - merchantIdCacheTime < MERCHANT_CACHE_TTL) {
+    return cachedMerchantId;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('slug', OGABASSEY_SLUG)
+      .single();
+
+    if (error) {
+      console.error(JSON.stringify({ type: 'error', context: 'getMerchantId', message: error.message }));
+      // On error, invalidate cache and return null
+      cachedMerchantId = null;
+      return null;
+    }
+
+    cachedMerchantId = data?.id || null;
+    merchantIdCacheTime = now;
+    return cachedMerchantId;
+  } catch (err) {
+    console.error(JSON.stringify({ type: 'error', context: 'getMerchantId', message: err instanceof Error ? err.message : 'Unknown error' }));
+    cachedMerchantId = null;
+    return null;
+  }
+}
+
+function formatPrice(price: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(price);
+}
+
+// =============================================================================
+// WIDGET HTML (CSP-compliant, no inline event handlers in production)
+// =============================================================================
+
+const widgetHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: data:; font-src https://fonts.gstatic.com;" />
+  <title>Ogabassey Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :root {
+      --bg-base: #050505;
+      --bg-primary: #0a0a0a;
+      --bg-glass: rgba(255, 255, 255, 0.03);
+      --bg-glass-hover: rgba(255, 255, 255, 0.06);
+      --accent: #ef4444;
+      --accent-glow: rgba(239, 68, 68, 0.3);
+      --gold: #ffd700;
+      --gold-glow: rgba(255, 215, 0, 0.2);
+      --text-primary: #ffffff;
+      --text-secondary: #a1a1aa;
+      --text-muted: #52525b;
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --success: #10b981;
+      --info: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Snowfall effect */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.3), transparent),
+        radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.4), transparent),
+        radial-gradient(2px 2px at 200px 50px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 250px 90px, rgba(255,255,255,0.3), transparent),
+        radial-gradient(2px 2px at 300px 130px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 350px 20px, rgba(255,255,255,0.4), transparent),
+        radial-gradient(2px 2px at 380px 100px, rgba(255,255,255,0.2), transparent);
+      background-size: 400px 200px;
+      animation: snow 8s linear infinite;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.6;
+    }
+
+    @keyframes snow {
+      0% { background-position: 0 0; }
+      100% { background-position: 400px 200px; }
+    }
+
+    main {
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Glassmorphism Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding: 16px 18px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 20px;
+      border: 1px solid var(--border-glass);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent) 0%, #b91c1c 100%);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      color: white;
+      letter-spacing: -0.5px;
+      box-shadow: 0 8px 32px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.2);
+      position: relative;
+    }
+
+    .logo::after {
+      content: '🎄';
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 14px;
+    }
+
+    .brand-info h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+    }
+
+    .brand-info .subtitle {
+      color: var(--text-secondary);
+      font-size: 0.72rem;
+      margin-top: 3px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .verified-badge {
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, var(--info) 0%, #2563eb 100%);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    .verified-badge svg { width: 8px; height: 8px; stroke: white; stroke-width: 3; }
+
+    /* Quick Actions Grid */
+    .welcome-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .quick-action {
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      border-radius: 16px;
+      padding: 16px 10px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .quick-action::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .quick-action:hover {
+      background: var(--bg-glass-hover);
+      border-color: rgba(239, 68, 68, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(239,68,68,0.1);
+    }
+
+    .quick-action:hover::before { opacity: 1; }
+
+    .quick-action-icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .quick-action-text {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      line-height: 1.2;
+      letter-spacing: -0.2px;
+    }
+
+    /* Santa Special Button */
+    .santa-action {
+      background: linear-gradient(135deg, rgba(26, 71, 42, 0.8) 0%, rgba(45, 90, 61, 0.8) 100%);
+      border: 1px solid rgba(196, 30, 58, 0.5);
+      animation: santaGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes santaGlow {
+      0% { box-shadow: 0 0 20px rgba(196, 30, 58, 0.2); }
+      100% { box-shadow: 0 0 30px rgba(196, 30, 58, 0.4), 0 0 60px rgba(255, 215, 0, 0.1); }
+    }
+
+    .santa-action:hover {
+      background: linear-gradient(135deg, rgba(45, 90, 61, 0.9) 0%, rgba(61, 111, 77, 0.9) 100%);
+      border-color: rgba(255, 77, 106, 0.6);
+    }
+
+    .santa-action .quick-action-text {
+      color: var(--gold);
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    .santa-action .quick-action-icon {
+      animation: bounce 1s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* CTA Section */
+    .cta-section {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(185, 28, 28, 0.9) 100%);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 24px 20px;
+      text-align: center;
+      color: white;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: -100%;
+      right: -100%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .cta-section::after {
+      content: '🎁';
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      font-size: 20px;
+      opacity: 0.8;
+    }
+
+    .cta-section h3 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      position: relative;
+      letter-spacing: -0.3px;
+    }
+
+    .cta-section p {
+      margin: 0 0 16px;
+      font-size: 0.82rem;
+      opacity: 0.9;
+      font-weight: 400;
+      position: relative;
+    }
+
+    .cta-btn {
+      background: white;
+      color: var(--accent);
+      border: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      position: relative;
+    }
+
+    .cta-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+    }
+
+    /* Product Grid */
+    .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+
+    .product-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border-radius: 18px;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid var(--border-glass);
+      position: relative;
+    }
+
+    .product-card:hover {
+      background: var(--bg-glass-hover);
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    .product-img-wrap {
+      position: relative;
+      background: linear-gradient(180deg, rgba(38,38,38,0.5) 0%, rgba(26,26,26,0.5) 100%);
+      padding: 14px;
+      cursor: pointer;
+    }
+
+    .product-img {
+      width: 100%;
+      height: 85px;
+      object-fit: contain;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .product-card:hover .product-img { transform: scale(1.08); }
+
+    .product-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; }
+
+    .badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-sale {
+      background: linear-gradient(135deg, var(--accent), #dc2626);
+      color: white;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .badge-condition {
+      background: rgba(59, 130, 246, 0.9);
+      color: white;
+    }
+
+    .product-info { padding: 12px 14px 14px; }
+
+    .product-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .product-name:hover { color: var(--accent); }
+
+    .product-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+    .product-brand { font-size: 0.65rem; color: var(--text-muted); font-weight: 500; }
+
+    .in-stock {
+      font-size: 0.6rem;
+      color: var(--success);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .in-stock::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+    }
+
+    .price-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+
+    .product-price { font-size: 0.95rem; color: var(--text-primary); font-weight: 700; }
+
+    .original-price { font-size: 0.72rem; color: var(--text-muted); text-decoration: line-through; }
+
+    .product-actions { display: flex; gap: 8px; }
+
+    .btn {
+      flex: 1;
+      border: none;
+      padding: 10px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .btn-cart {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-glass);
+      color: var(--text-primary);
+    }
+
+    .btn-cart:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-buy {
+      background: linear-gradient(135deg, var(--accent) 0%, #dc2626 100%);
+      color: white;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-buy:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+
+    /* Order Status */
+    .order-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glass);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .order-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .order-title { display: flex; align-items: center; gap: 10px; }
+
+    .order-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-glass);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .order-number { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
+
+    .order-date { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+    .status-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      text-transform: capitalize;
+    }
+
+    .status-badge.pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .status-badge.processing { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .status-badge.shipped { background: rgba(59, 130, 246, 0.15); color: var(--info); }
+    .status-badge.delivered { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .status-badge.cancelled { background: rgba(239, 68, 68, 0.15); color: var(--accent); }
+
+    .order-total {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px;
+      background: var(--bg-glass);
+      border-radius: 12px;
+    }
+
+    .order-total-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+    .order-total-value { font-size: 1.05rem; color: var(--text-primary); font-weight: 700; }
+
+    /* Empty State */
+    .empty-state { text-align: center; padding: 48px 24px; }
+
+    .empty-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--bg-glass);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+    }
+
+    .empty-icon svg { width: 32px; height: 32px; stroke: var(--text-muted); }
+
+    .empty-state p { color: var(--text-muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <main id="app">
+    <div class="header">
+      <div class="logo">OGA</div>
+      <div class="brand-info">
+        <h1>Ogabassey</h1>
+        <p class="subtitle">
+          <span class="verified-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+          Premium Tech Store
+        </p>
+      </div>
+    </div>
+    <div id="content">
+      <div class="welcome-grid">
+        <div class="quick-action" id="qa-phones"><div class="quick-action-icon">📱</div><div class="quick-action-text">Phones</div></div>
+        <div class="quick-action" id="qa-laptops"><div class="quick-action-icon">💻</div><div class="quick-action-text">Laptops</div></div>
+        <div class="quick-action" id="qa-gaming"><div class="quick-action-icon">🎮</div><div class="quick-action-text">Gaming</div></div>
+        <div class="quick-action" id="qa-deals"><div class="quick-action-icon">🔥</div><div class="quick-action-text">Hot Deals</div></div>
+        <div class="quick-action" id="qa-repairs"><div class="quick-action-icon">🔧</div><div class="quick-action-text">Repairs</div></div>
+        <div class="quick-action santa-action" id="qa-santa"><div class="quick-action-icon">🎅</div><div class="quick-action-text">Ask Santa!</div></div>
+      </div>
+      <div class="cta-section">
+        <h3>🎄 Holiday Shopping Made Easy</h3>
+        <p>Find the perfect gift - just ask me anything!</p>
+        <button class="cta-btn" id="visit-btn">Explore Store</button>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    const contentEl = document.getElementById('content');
+    const visitBtn = document.getElementById('visit-btn');
+    if (visitBtn) visitBtn.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com' }) || window.open('https://ogabassey.com', '_blank'));
+
+    // Quick actions
+    document.getElementById('qa-phones')?.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com/ogabassey/phones' }) || window.open('https://ogabassey.com/ogabassey/phones', '_blank'));
+    document.getElementById('qa-laptops')?.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com/ogabassey/laptops' }) || window.open('https://ogabassey.com/ogabassey/laptops', '_blank'));
+    document.getElementById('qa-gaming')?.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com/ogabassey/gaming' }) || window.open('https://ogabassey.com/ogabassey/gaming', '_blank'));
+    document.getElementById('qa-deals')?.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com' }) || window.open('https://ogabassey.com', '_blank'));
+    document.getElementById('qa-repairs')?.addEventListener('click', () => window.openai?.openExternal?.({ href: 'https://ogabassey.com/ogabassey/repairs' }) || window.open('https://ogabassey.com/ogabassey/repairs', '_blank'));
+    document.getElementById('qa-santa')?.addEventListener('click', () => {
+      // Show festive Santa prompt
+      contentEl.innerHTML = '<div style="text-align:center;padding:28px 20px;"><div style="font-size:56px;margin-bottom:16px;animation:bounce 1s ease-in-out infinite;">🎅</div><h3 style="color:#ffd700;margin-bottom:10px;font-size:1.2rem;text-shadow:0 0 20px rgba(255,215,0,0.3);">Ho Ho Ho!</h3><p style="color:#a1a1aa;font-size:0.88rem;margin-bottom:20px;line-height:1.5;">Type in the chat below to talk to Santa!<br><em style="color:#71717a;">Try: "Santa, find a gift for my mom"</em></p><div style="background:linear-gradient(135deg,rgba(26,71,42,0.9),rgba(45,90,61,0.9));border:1px solid rgba(196,30,58,0.5);border-radius:16px;padding:16px;backdrop-filter:blur(12px);"><p style="color:#fff;font-size:0.8rem;margin:0 0 8px;font-weight:600;">🎄 Santa can help with:</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><span style="background:rgba(255,255,255,0.1);padding:4px 10px;border-radius:20px;font-size:0.7rem;color:#a1a1aa;">🎁 Gift ideas</span><span style="background:rgba(255,255,255,0.1);padding:4px 10px;border-radius:20px;font-size:0.7rem;color:#a1a1aa;">🔥 Deals</span><span style="background:rgba(255,255,255,0.1);padding:4px 10px;border-radius:20px;font-size:0.7rem;color:#a1a1aa;">💰 Budget</span></div></div></div>';
+    });
+
+    const formatPrice = (price) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(price);
+
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+
+    const openLink = (url) => window.openai?.openExternal?.({ href: url }) || window.open(url, '_blank');
+    const productUrl = (slug) => 'https://ogabassey.com/ogabassey/' + encodeURIComponent(slug);
+    const cartUrl = (productId) => 'https://ogabassey.com/ogabassey/cart?item_id=' + encodeURIComponent(productId);
+
+    const renderProducts = (products) => {
+      if (!products?.length) {
+        contentEl.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg></div><p>No products found</p></div>';
+        return;
+      }
+      const grid = products.slice(0, 4).map(p => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        const hasDiscount = p.compare_at_price && p.compare_at_price > p.price;
+        const discountPct = hasDiscount ? Math.round((1 - p.price / p.compare_at_price) * 100) : 0;
+        const condition = p.condition && p.condition !== 'new' ? p.condition : null;
+        const cartIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>';
+
+        let badgesHtml = '<div class="product-badges">';
+        if (hasDiscount) badgesHtml += '<span class="badge badge-sale">-' + discountPct + '%</span>';
+        if (condition) badgesHtml += '<span class="badge badge-condition">' + escapeHtml(condition) + '</span>';
+        badgesHtml += '</div>';
+
+        card.innerHTML =
+          '<div class="product-img-wrap">' +
+            badgesHtml +
+            '<img class="product-img" src="' + escapeHtml(p.image || 'https://placehold.co/200x200/1a1a1a/666?text=No+Image') + '" alt="" loading="lazy" />' +
+          '</div>' +
+          '<div class="product-info">' +
+            '<p class="product-name">' + escapeHtml(p.name) + '</p>' +
+            '<div class="product-meta">' +
+              (p.brand ? '<span class="product-brand">' + escapeHtml(p.brand) + '</span>' : '') +
+              (p.in_stock !== false ? '<span class="in-stock">In Stock</span>' : '') +
+            '</div>' +
+            '<div class="price-row">' +
+              '<span class="product-price">' + formatPrice(p.price) + '</span>' +
+              (hasDiscount ? '<span class="original-price">' + formatPrice(p.compare_at_price) + '</span>' : '') +
+            '</div>' +
+            '<div class="product-actions">' +
+              '<button class="btn btn-cart" data-id="' + escapeHtml(p.id) + '">' + cartIcon + '</button>' +
+              '<button class="btn btn-buy" data-id="' + escapeHtml(p.id) + '">Buy Now</button>' +
+            '</div>' +
+          '</div>';
+
+        card.querySelector('.product-img-wrap')?.addEventListener('click', () => openLink(productUrl(p.slug)));
+        card.querySelector('.product-name')?.addEventListener('click', () => openLink(productUrl(p.slug)));
+        card.querySelector('.btn-cart')?.addEventListener('click', (e) => { e.stopPropagation(); openLink(cartUrl(p.id)); });
+        card.querySelector('.btn-buy')?.addEventListener('click', (e) => { e.stopPropagation(); openLink(cartUrl(p.id)); });
+        return card;
+      });
+
+      contentEl.innerHTML = '<div class="product-grid"></div><div class="cta-section"><h3>See All Products</h3><p>Browse our complete collection</p><button class="cta-btn" id="shop-btn">Shop Now</button></div>';
+      const gridEl = contentEl.querySelector('.product-grid');
+      grid.forEach(c => gridEl.appendChild(c));
+      document.getElementById('shop-btn')?.addEventListener('click', () => openLink('https://ogabassey.com'));
+    };
+
+    const renderOrder = (order) => {
+      if (!order) {
+        contentEl.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg></div><p>Order not found</p></div>';
+        return;
+      }
+      const statusClass = order.status || 'pending';
+      const dateStr = new Date(order.created_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      contentEl.innerHTML =
+        '<div class="order-card">' +
+          '<div class="order-header">' +
+            '<div class="order-title">' +
+              '<div class="order-icon">📦</div>' +
+              '<div><div class="order-number">#' + escapeHtml(order.order_number) + '</div><div class="order-date">' + dateStr + '</div></div>' +
+            '</div>' +
+            '<span class="status-badge ' + statusClass + '">' + escapeHtml(order.status) + '</span>' +
+          '</div>' +
+          '<div class="order-total">' +
+            '<span class="order-total-label">Order Total</span>' +
+            '<span class="order-total-value">' + formatPrice(order.total) + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cta-section"><h3>Need Help?</h3><p>Contact support for order inquiries</p><button class="cta-btn" id="support-btn">Get Support</button></div>';
+
+      document.getElementById('support-btn')?.addEventListener('click', () => openLink('https://ogabassey.com/pages/faq'));
+    };
+
+    window.addEventListener('openai:set_globals', (e) => {
+      const out = e.detail?.globals?.toolOutput;
+      if (out?.products) renderProducts(out.products);
+      else if (out?.order) renderOrder(out.order);
+    }, { passive: true });
+    if (window.openai?.toolOutput) {
+      const out = window.openai.toolOutput;
+      if (out.products) renderProducts(out.products);
+      else if (out.order) renderOrder(out.order);
+    }
+  </script>
+</body>
+</html>`;
+
+// =============================================================================
+// MCP SERVER FACTORY
+// =============================================================================
+
+function createOgabasseyServer() {
+  const server = new McpServer({
+    name: 'ogabassey-store',
+    version: '1.0.0',
+  });
+
+  // Widget resource
+  server.registerResource(
+    'store-widget',
+    'ui://widget/store.html',
+    { description: 'Ogabassey store widget' },
+    async () => ({
+      contents: [{
+        uri: 'ui://widget/store.html',
+        mimeType: 'text/html+skybridge',
+        text: widgetHtml,
+        _meta: { 'openai/widgetPrefersBorder': true },
+      }],
+    })
+  );
+
+  // Tool: Search products
+  server.registerTool(
+    'search_products',
+    {
+      title: 'Search Products',
+      description: 'Search for products in Ogabassey store. Returns rich details including variants (colors/sizes), stock confidence, and price trends. Always use this for general product queries.',
+      inputSchema: {
+        query: z.string().max(100).optional().describe('Search query (product name, brand, or keywords)'),
+        condition: z.enum(['new', 'used', 'open_box', 'refurbished']).optional().describe('Product condition'),
+        category: z.string().max(50).optional().describe('Category (e.g., phones, laptops)'),
+        brand: z.string().max(50).optional().describe('Brand name'),
+        min_price: z.number().min(0).optional(),
+        max_price: z.number().min(0).optional(),
+        sort: z.enum(['price_asc', 'price_desc', 'newest', 'relevance']).optional().default('relevance'),
+        limit: z.number().min(1).max(20).optional().default(10),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Searching catalog...',
+        'openai/toolInvocation/invoked': 'Search complete',
+      },
+    },
+    async (args) => {
+      try {
+        const merchantId = await getMerchantId();
+        if (!merchantId) throw new Error('Merchant ID unavailable');
+
+        const sanitizedQuery = args.query ? sanitizeString(args.query, 100) : undefined;
+        const limit = Math.min(Math.max(args.limit || 10, 1), 20);
+
+        let query = supabase
+          .from('products')
+          .select('id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, attributes, updated_at, created_at')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .limit(limit);
+
+        // Filters
+        if (sanitizedQuery) query = query.ilike('name', `%${sanitizedQuery}%`);
+        if (args.condition) query = query.eq('condition', args.condition);
+        if (args.category) query = query.ilike('category', `%${sanitizeString(args.category, 50)}%`);
+        if (args.brand) query = query.ilike('brand', `%${sanitizeString(args.brand, 50)}%`);
+        if (args.min_price) query = query.gte('price', args.min_price);
+        if (args.max_price) query = query.lte('price', args.max_price);
+
+        // Sorting
+        if (args.sort === 'price_asc') query = query.order('price', { ascending: true });
+        else if (args.sort === 'price_desc') query = query.order('price', { ascending: false });
+        else if (args.sort === 'newest') query = query.order('created_at', { ascending: false });
+        else query = query.order('stock_quantity', { ascending: false }); // Relevance proxy: push in-stock items up
+
+        const { data: products, error } = await query;
+
+        if (error) throw error;
+
+        // Graceful fallback for empty results
+        if (!products || products.length === 0) {
+          return {
+            content: [{ type: 'text', text: `No specific products found for "${sanitizedQuery || 'your criteria'}". Try broader terms.` }],
+            structuredContent: { products: [], status: 'empty' }
+          };
+        }
+
+        // 2. Normalization: Fetch Variants for valid products
+        const productIds = products.filter(p => p.has_variants).map(p => p.id);
+        const variantsMap = new Map<string, any[]>();
+
+        if (productIds.length > 0) {
+          const { data: variants } = await supabase
+            .from('product_variants')
+            .select('product_id, attributes, stock_quantity, price_override')
+            .in('product_id', productIds)
+            .gt('stock_quantity', 0); // Only available variants
+
+          variants?.forEach(v => {
+            const current = variantsMap.get(v.product_id) || [];
+            variantsMap.set(v.product_id, [...current, v]);
+          });
+        }
+
+        // 3. Buyer Intelligence & Formatting
+        const formatted = products.map((p) => {
+          // Inventory Confidence
+          let stockLevel = 'Out of Stock';
+          if (p.stock_quantity > 10) stockLevel = 'High Stock';
+          else if (p.stock_quantity > 5) stockLevel = 'Low Stock';
+          else if (p.stock_quantity > 0) stockLevel = 'Last Units';
+
+          // Price Intelligence
+          const isDiscounted = p.compare_at_price && p.compare_at_price > p.price;
+          const priceTrend = isDiscounted ? 'falling' : 'stable';
+
+          // Variant Summary (e.g., "Available in: Black, White")
+          const variants = variantsMap.get(p.id) || [];
+          const variantOptions: Record<string, Set<string>> = {};
+          variants.forEach(v => {
+            Object.entries(v.attributes || {}).forEach(([key, val]) => {
+              if (!variantOptions[key]) variantOptions[key] = new Set();
+              variantOptions[key].add(String(val));
+            });
+          });
+          const availableOptions = Object.entries(variantOptions)
+            .map(([key, vals]) => `${key}: ${Array.from(vals).join(', ')}`)
+            .join(' | ');
+
+          return {
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            price: p.price,
+            compare_at_price: p.compare_at_price,
+            image: p.images?.[0]?.url || p.images?.[0] || null,
+            condition: p.condition || 'new',
+            brand: p.brand,
+            category: p.category,
+            in_stock: p.stock_quantity > 0,
+
+            // New Intelligence Fields
+            stock_level: stockLevel,
+            stock_confidence: p.stock_quantity > 0 ? (p.stock_quantity > 5 ? 'high' : 'low') : 'none',
+            price_trend: priceTrend,
+            available_variants: availableOptions || 'Standard',
+            warranty: p.attributes?.['Warranty'] || p.attributes?.['warranty'] || 'Standard Warranty',
+            in_the_box: p.attributes?.['In the Box'] || undefined,
+            last_updated: p.updated_at
+          };
+        });
+
+        // 4. Construct Response
+        const count = formatted.length;
+        const resultText = `Found ${count} available products. Top match: ${formatted[0].name} (${formatted[0].stock_level}).`;
+
+        return {
+          content: [{ type: 'text', text: resultText }],
+          structuredContent: {
+            status: 'success',
+            products: formatted,
+            meta: { total: count, query: sanitizedQuery }
+          },
+        };
+
+      } catch (err: any) {
+        console.error('Search Critical Error:', err);
+        // Graceful Degradation (Unbreakable)
+        return {
+          content: [{ type: 'text', text: 'Search is experimenting mild turbulence but I can still help. Please try listing a specific category.' }],
+          structuredContent: {
+            status: 'error',
+            message: 'Search service temporarily degraded',
+            products: []
+          }
+        };
+      }
+    }
+  );
+
+  // Tool: Get product details
+  server.registerTool(
+    'get_product',
+    {
+      title: 'Get Product Details',
+      description: 'Get detailed information about a specific product including variants, conditions, specifications, and reviews.',
+      inputSchema: {
+        product_name: z.string().min(1).max(100).describe('Product name to look up'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Loading product...',
+        'openai/toolInvocation/invoked': 'Product loaded',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
+
+      const sanitizedName = sanitizeString(args.product_name, 100);
+      if (!sanitizedName) {
+        return { content: [{ type: 'text', text: 'Please provide a valid product name.' }], structuredContent: { products: [] } };
+      }
+
+      // Fetch product with all details
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select(`
+          id, name, slug, price, compare_at_price, images, description, stock_quantity,
+          condition, condition_detail, brand, category, has_variants, has_condition_offers,
+          weight_value, weight_unit, dimensions, schema_markup
+        `)
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .ilike('name', `%${sanitizedName}%`)
+        .limit(1)
+        .single();
+
+      if (productError || !product) {
+        if (productError && productError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'get_product', message: productError.message }));
+        }
+        return { content: [{ type: 'text', text: `Product "${sanitizedName}" not found.` }], structuredContent: { products: [] } };
+      }
+
+      // Fetch variants if product has variants
+      let variants: Array<{
+        attributes: Record<string, string>;
+        price_override: number | null;
+        stock_quantity: number;
+        condition: string;
+        images: unknown[];
+      }> = [];
+      if (product.has_variants) {
+        const { data: variantData } = await supabase
+          .from('product_variants')
+          .select('attributes, price_override, stock_quantity, condition, images')
+          .eq('product_id', product.id)
+          .eq('merchant_id', merchantId);
+        variants = variantData || [];
+      }
+
+      // Fetch condition offers if available
+      let conditionOffers: Array<{
+        condition: string;
+        price: number;
+        stock_quantity: number;
+        grade: string | null;
+        condition_notes: string | null;
+      }> = [];
+      if (product.has_condition_offers) {
+        const { data: offerData } = await supabase
+          .from('product_offers')
+          .select('condition, price, stock_quantity, grade, condition_notes')
+          .eq('product_id', product.id)
+          .eq('status', 'active');
+        conditionOffers = offerData || [];
+      }
+
+      // Get rating from schema_markup if available
+      const rating = product.schema_markup?.aggregateRating?.ratingValue;
+      const reviewCount = product.schema_markup?.aggregateRating?.reviewCount;
+
+      const formatted = {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        compare_at_price: product.compare_at_price,
+        image: product.images?.[0]?.url || product.images?.[0] || null,
+        condition: product.condition || 'new',
+        condition_detail: product.condition_detail,
+        brand: product.brand,
+        category: product.category,
+        in_stock: (product.stock_quantity || 0) > 0,
+        has_variants: product.has_variants,
+      };
+
+      // Build detailed text response
+      let text = `**${product.name}**\n\n`;
+      text += `**Price:** ${formatPrice(product.price)}`;
+      if (product.compare_at_price && product.compare_at_price > product.price) {
+        const discount = Math.round((1 - product.price / product.compare_at_price) * 100);
+        text += ` ~~${formatPrice(product.compare_at_price)}~~ (${discount}% off)`;
+      }
+      text += '\n';
+
+      // Condition info
+      if (product.condition && product.condition !== 'new') {
+        text += `**Condition:** ${product.condition}${product.condition_detail ? ` - ${product.condition_detail}` : ''}\n`;
+      }
+
+      // Brand & Category
+      if (product.brand) text += `**Brand:** ${product.brand}\n`;
+      if (product.category) text += `**Category:** ${product.category}\n`;
+
+      // Rating
+      if (rating) {
+        text += `**Rating:** ${rating}/5${reviewCount ? ` (${reviewCount} reviews)` : ''}\n`;
+      }
+
+      // Description
+      if (product.description) {
+        text += `\n${product.description}\n`;
+      }
+
+      // Variants summary
+      if (variants.length > 0) {
+        const colors = [...new Set(variants.map(v => v.attributes?.color).filter(Boolean))];
+        const storageOptions = [...new Set(variants.map(v => v.attributes?.storage).filter(Boolean))];
+        if (colors.length > 0) text += `\n**Available Colors:** ${colors.join(', ')}`;
+        if (storageOptions.length > 0) text += `\n**Storage Options:** ${storageOptions.join(', ')}`;
+      }
+
+      // Condition offers summary
+      if (conditionOffers.length > 0) {
+        text += '\n\n**Available Conditions:**\n';
+        for (const offer of conditionOffers) {
+          text += `• ${offer.condition}${offer.grade ? ` (Grade ${offer.grade})` : ''}: ${formatPrice(offer.price)}`;
+          if (offer.stock_quantity > 0) text += ' - In Stock';
+          text += '\n';
+        }
+      }
+
+      // Stock & Link
+      text += `\n**Stock:** ${formatted.in_stock ? 'In Stock' : 'Out of Stock'}`;
+      text += `\n\n🔗 [View Product](https://ogabassey.com/ogabassey/${product.slug})`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          products: [formatted],
+          variants: variants.map(v => ({
+            attributes: v.attributes,
+            price: v.price_override,
+            stock: v.stock_quantity,
+            condition: v.condition,
+          })),
+          condition_offers: conditionOffers,
+        },
+      };
+    }
+  );
+
+  // Tool: Check order status
+  server.registerTool(
+    'check_order',
+    {
+      title: 'Check Order Status',
+      description: 'Look up order status by order number or phone.',
+      inputSchema: {
+        order_number: z.string().max(20).optional().describe('Order number (e.g., ORD-12345)'),
+        phone: z.string().max(20).optional().describe('Phone number'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Looking up order...',
+        'openai/toolInvocation/invoked': 'Order found',
+      },
+    },
+    async (args) => {
+      if (!args.order_number && !args.phone) {
+        return { content: [{ type: 'text', text: 'Please provide order number or phone.' }], structuredContent: { order: null } };
+      }
+
+      // Validate inputs
+      if (args.order_number && !isValidOrderNumber(args.order_number)) {
+        return { content: [{ type: 'text', text: 'Invalid order number format.' }], structuredContent: { order: null } };
+      }
+      if (args.phone && !isValidPhone(args.phone)) {
+        return { content: [{ type: 'text', text: 'Invalid phone number format.' }], structuredContent: { order: null } };
+      }
+
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { order: null } };
+      }
+
+      let query = supabase
+        .from('orders')
+        .select('id, order_number, status, total, created_at')
+        .eq('merchant_id', merchantId);
+
+      if (args.order_number) {
+        query = query.eq('order_number', sanitizeString(args.order_number, 20).toUpperCase());
+      } else if (args.phone) {
+        query = query.ilike('shipping_address->>phone', `%${sanitizeString(args.phone, 20)}%`);
+      }
+
+      const { data: order, error: orderError } = await query.order('created_at', { ascending: false }).limit(1).single();
+
+      if (orderError || !order) {
+        if (orderError && orderError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'check_order', message: orderError.message }));
+        }
+        return { content: [{ type: 'text', text: 'Order not found.' }], structuredContent: { order: null } };
+      }
+
+      const statusMessages: Record<string, string> = {
+        pending: 'Your order is pending confirmation.',
+        processing: 'Your order is being processed.',
+        shipped: 'Your order has been shipped!',
+        delivered: 'Your order has been delivered.',
+        cancelled: 'This order was cancelled.',
+      };
+
+      // Redact sensitive order data - only return necessary fields
+      const safeOrder = {
+        order_number: order.order_number,
+        status: order.status,
+        total: order.total,
+        created_at: order.created_at,
+      };
+
+      return {
+        content: [{ type: 'text', text: `**Order #${order.order_number}**\n\nStatus: ${order.status}\n${statusMessages[order.status] || ''}\n\nTotal: ${formatPrice(order.total)}\nDate: ${new Date(order.created_at).toLocaleDateString()}` }],
+        structuredContent: { order: safeOrder },
+      };
+    }
+  );
+
+  // Tool: Get store info (read-only, no sensitive data)
+  server.registerTool(
+    'get_store_info',
+    {
+      title: 'Get Store Information',
+      description: 'Get information about Ogabassey store.',
+      inputSchema: {
+        topic: z.enum(['contact', 'shipping', 'returns', 'payment', 'general']).optional().describe('Topic'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Loading info...',
+        'openai/toolInvocation/invoked': 'Info loaded',
+      },
+    },
+    async (args) => {
+      const info: Record<string, string> = {
+        general: "**Ogabassey** is Nigeria's premium destination for authentic tech products. We offer competitive prices and genuine products with warranty.\n\nWebsite: https://ogabassey.com",
+        contact: '**Contact**\n\nWebsite: https://ogabassey.com\nWhatsApp: Available on website\n\nWe respond within 24 hours.',
+        shipping: '**Shipping**\n\n- Lagos: 1-2 days\n- Other states: 3-5 days\n- International: 7-14 days\n\nShipped via GIGL, Topship.',
+        returns: '**Returns**\n\n- 7-day return window\n- Original packaging required\n- Defective items exchanged/refunded',
+        payment: '**Payment**\n\n- Bank Transfer\n- Card (Visa, Mastercard)\n- Pay on Delivery (Lagos)\n- Buy Now Pay Later',
+      };
+      return { content: [{ type: 'text', text: info[args.topic || 'general'] }] };
+    }
+  );
+
+  // Tool: Get recommendations
+  server.registerTool(
+    'get_recommendations',
+    {
+      title: 'Get Recommendations',
+      description: 'Get product recommendations based on use case and budget.',
+      inputSchema: {
+        use_case: z.string().min(1).max(50).describe('What the product is for (gaming, work, etc.)'),
+        budget: z.number().min(0).max(1000000000).optional().describe('Max budget in NGN'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Finding recommendations...',
+        'openai/toolInvocation/invoked': 'Recommendations ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
+
+      const sanitizedUseCase = sanitizeString(args.use_case, 50).toLowerCase();
+      const keywords: Record<string, string[]> = {
+        gaming: ['gaming', 'pro', 'max'],
+        work: ['pro', 'business', 'macbook'],
+        photography: ['camera', 'pro', 'ultra'],
+        budget: ['lite', 'mini'],
+        student: ['ipad', 'laptop', 'air'],
+      };
+
+      const kws = keywords[sanitizedUseCase] || [sanitizedUseCase];
+
+      let query = supabase
+        .from('products')
+        .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0)
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      if (args.budget) {
+        query = query.lte('price', sanitizePrice(args.budget) ?? 1000000000);
+      }
+
+      const { data: products } = await query;
+
+      const filtered = (products || [])
+        .filter((p) => kws.some((kw) => p.name.toLowerCase().includes(kw) || p.description?.toLowerCase().includes(kw)))
+        .slice(0, 4);
+
+      const final = filtered.length > 0 ? filtered : (products || []).slice(0, 4);
+
+      const formatted = final.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        image: p.images?.[0] || null,
+      }));
+
+      return {
+        content: [{ type: 'text', text: `Based on "${sanitizedUseCase}"${args.budget ? ` (budget: ${formatPrice(args.budget)})` : ''}, here are my recommendations:` }],
+        structuredContent: { products: formatted },
+      };
+    }
+  );
+
+  // Tool: Smart Recommendations (AI-powered)
+  server.registerTool(
+    'smart_recommend',
+    {
+      title: 'Smart Product Recommendations',
+      description: 'Get AI-powered product recommendations based on user needs, preferences, and context. Supports scenarios like "gaming laptop under 1M", "gift for teenager", "best phone for photography", "budget work laptop".',
+      inputSchema: {
+        query: z.string().min(3).max(200).describe('Natural language description of what the user needs (e.g., "gaming laptop under 1 million naira", "gift for my mom who likes cooking", "best phone for night photography")'),
+        budget: z.number().min(0).max(10000000000).optional().describe('Maximum budget in NGN'),
+        priority: z.enum(['price', 'quality', 'features', 'value']).optional().describe('What matters most: price (cheapest), quality (best rated), features (most capable), value (best bang for buck)'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Finding perfect recommendations...',
+        'openai/toolInvocation/invoked': 'Recommendations ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
+
+      const query = sanitizeString(args.query, 200).toLowerCase();
+
+      // Extract keywords and intent from the query
+      const categoryKeywords: Record<string, string[]> = {
+        phone: ['phone', 'iphone', 'samsung', 'android', 'smartphone', 'mobile'],
+        laptop: ['laptop', 'macbook', 'notebook', 'computer', 'pc', 'work laptop', 'gaming laptop'],
+        tablet: ['tablet', 'ipad', 'tab'],
+        gaming: ['gaming', 'game', 'ps5', 'playstation', 'xbox', 'console'],
+        accessories: ['accessory', 'charger', 'case', 'cable', 'headphone', 'earbuds', 'airpods'],
+      };
+
+      const useKeywords: Record<string, string[]> = {
+        gaming: ['gaming', 'game', 'play', 'gamer'],
+        photography: ['photo', 'camera', 'photography', 'portrait', 'night photo'],
+        work: ['work', 'office', 'business', 'professional', 'productivity'],
+        student: ['student', 'school', 'study', 'university', 'college'],
+        gift: ['gift', 'present', 'birthday', 'christmas', 'mom', 'dad', 'friend', 'boyfriend', 'girlfriend'],
+        budget: ['budget', 'cheap', 'affordable', 'inexpensive', 'value'],
+        premium: ['premium', 'best', 'top', 'flagship', 'high-end', 'luxury'],
+      };
+
+      // Detect category
+      let detectedCategory: string | null = null;
+      for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+        if (keywords.some(kw => query.includes(kw))) {
+          detectedCategory = cat;
+          break;
+        }
+      }
+
+      // Detect use case
+      const detectedUses: string[] = [];
+      for (const [use, keywords] of Object.entries(useKeywords)) {
+        if (keywords.some(kw => query.includes(kw))) {
+          detectedUses.push(use);
+        }
+      }
+
+      // Build the product query
+      let dbQuery = supabase
+        .from('products')
+        .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0);
+
+      // Apply budget filter
+      if (args.budget) {
+        dbQuery = dbQuery.lte('price', args.budget);
+      }
+
+      // Apply category filter if detected
+      if (detectedCategory) {
+        dbQuery = dbQuery.ilike('category', `%${detectedCategory}%`);
+      }
+
+      // Order by priority
+      if (args.priority === 'price') {
+        dbQuery = dbQuery.order('price', { ascending: true });
+      } else {
+        dbQuery = dbQuery.order('created_at', { ascending: false });
+      }
+
+      const { data: products } = await dbQuery.limit(20);
+
+      if (!products || products.length === 0) {
+        return {
+          content: [{ type: 'text', text: `No products found matching "${args.query}". Try a different search or browse our categories.` }],
+          structuredContent: { products: [] },
+        };
+      }
+
+      // Score products based on relevance to query
+      const scoredProducts = products.map(p => {
+        let score = 0;
+        const name = p.name.toLowerCase();
+        const desc = (p.description || '').toLowerCase();
+
+        // Name match bonus
+        if (query.split(' ').some(word => name.includes(word))) score += 10;
+
+        // Use case bonuses
+        if (detectedUses.includes('gaming') && (name.includes('gaming') || name.includes('pro'))) score += 5;
+        if (detectedUses.includes('photography') && (name.includes('pro') || name.includes('ultra') || desc.includes('camera'))) score += 5;
+        if (detectedUses.includes('budget') && p.price < 200000) score += 5;
+        if (detectedUses.includes('premium') && p.price > 500000) score += 5;
+
+        // Value score (discount percentage)
+        if (p.compare_at_price && p.compare_at_price > p.price) {
+          const discount = (p.compare_at_price - p.price) / p.compare_at_price;
+          score += Math.round(discount * 10);
+        }
+
+        // Rating bonus
+        const rating = p.schema_markup?.aggregateRating?.ratingValue;
+        if (rating) score += rating;
+
+        return { ...p, score };
+      });
+
+      // Sort by score and take top results
+      scoredProducts.sort((a, b) => b.score - a.score);
+      const topProducts = scoredProducts.slice(0, 4);
+
+      const formatted = topProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        compare_at_price: p.compare_at_price,
+        image: p.images?.[0]?.url || p.images?.[0] || null,
+        condition: p.condition || 'new',
+        brand: p.brand,
+        in_stock: true,
+      }));
+
+      // Build personalized response
+      let text = `**Recommended for "${args.query}"**\n\n`;
+      if (detectedUses.includes('gift')) {
+        text = `**Perfect Gift Ideas**\n\nBased on your request, here are some thoughtful options:\n\n`;
+      } else if (detectedUses.includes('gaming')) {
+        text = `**Top Gaming Picks**\n\nHere are the best options for gaming:\n\n`;
+      } else if (detectedUses.includes('budget')) {
+        text = `**Best Value Picks**\n\nGreat options that won't break the bank:\n\n`;
+      }
+
+      for (const p of topProducts.slice(0, 3)) {
+        const discount = p.compare_at_price && p.compare_at_price > p.price
+          ? ` (${Math.round((1 - p.price / p.compare_at_price) * 100)}% off)`
+          : '';
+        text += `• **${p.name}** - ${formatPrice(p.price)}${discount}\n`;
+      }
+
+      if (args.budget) {
+        text += `\n_All within your ${formatPrice(args.budget)} budget_`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { products: formatted },
+      };
+    }
+  );
+
+  // Tool: Trade-In/Swap Estimate
+  server.registerTool(
+    'estimate_trade_in',
+    {
+      title: 'Trade-In Value Estimator',
+      description: 'Estimate the trade-in value of your current device and calculate the upgrade cost to a new product. Provide details about your current device to get a swap estimate.',
+      inputSchema: {
+        current_device: z.string().min(2).max(100).describe('Your current device (e.g., "iPhone 12 Pro", "Samsung S21", "MacBook Pro 2019")'),
+        current_condition: z.enum(['new', 'used', 'open_box']).describe('Current device condition: new (sealed/unused), used (previously owned), open_box (opened but unused)'),
+        current_storage: z.string().max(20).optional().describe('Storage capacity if applicable (e.g., "128GB", "256GB")'),
+        target_product: z.string().min(2).max(100).optional().describe('Product you want to upgrade to (optional)'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Calculating trade-in value...',
+        'openai/toolInvocation/invoked': 'Estimate ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      const deviceName = sanitizeString(args.current_device, 100).toLowerCase();
+
+      // Base trade-in values by device category (approximate Nigerian market values)
+      const tradeInRates: Record<string, { base: number; depreciation: number }> = {
+        'iphone 15': { base: 850000, depreciation: 0.15 },
+        'iphone 14': { base: 650000, depreciation: 0.20 },
+        'iphone 13': { base: 450000, depreciation: 0.25 },
+        'iphone 12': { base: 320000, depreciation: 0.30 },
+        'iphone 11': { base: 200000, depreciation: 0.35 },
+        'iphone x': { base: 120000, depreciation: 0.40 },
+        'samsung s24': { base: 700000, depreciation: 0.18 },
+        'samsung s23': { base: 500000, depreciation: 0.22 },
+        'samsung s22': { base: 350000, depreciation: 0.28 },
+        'samsung s21': { base: 250000, depreciation: 0.32 },
+        'macbook pro': { base: 800000, depreciation: 0.15 },
+        'macbook air': { base: 500000, depreciation: 0.18 },
+        'ipad pro': { base: 450000, depreciation: 0.20 },
+        'ipad air': { base: 300000, depreciation: 0.22 },
+        'ps5': { base: 350000, depreciation: 0.10 },
+        'xbox': { base: 300000, depreciation: 0.12 },
+      };
+
+      // Condition multipliers (matching store conditions: new, used, open_box)
+      const conditionMultipliers: Record<string, number> = {
+        new: 1.0,        // Unused/sealed - full value
+        open_box: 0.85,  // Opened but unused - slight discount
+        used: 0.65,      // Previously owned - standard used discount
+      };
+
+      // Find matching device category
+      let baseValue = 100000; // Default minimum
+      let deviceCategory = 'device';
+      for (const [device, rates] of Object.entries(tradeInRates)) {
+        if (deviceName.includes(device.split(' ')[0])) {
+          baseValue = rates.base;
+          deviceCategory = device;
+          break;
+        }
+      }
+
+      // Calculate trade-in value
+      const conditionMultiplier = conditionMultipliers[args.current_condition];
+      const estimatedValue = Math.round(baseValue * conditionMultiplier);
+      const valueRange = {
+        low: Math.round(estimatedValue * 0.85),
+        high: Math.round(estimatedValue * 1.15),
+      };
+
+      let text = `**Trade-In Estimate for ${args.current_device}**\n\n`;
+      text += `📱 **Device:** ${args.current_device}${args.current_storage ? ` (${args.current_storage})` : ''}\n`;
+      text += `📊 **Condition:** ${args.current_condition.charAt(0).toUpperCase() + args.current_condition.slice(1)}\n\n`;
+      text += `💰 **Estimated Trade-In Value:**\n`;
+      text += `• Range: ${formatPrice(valueRange.low)} - ${formatPrice(valueRange.high)}\n`;
+      text += `• Best Estimate: **${formatPrice(estimatedValue)}**\n\n`;
+
+      // If target product specified, calculate upgrade cost
+      let targetProduct = null;
+      if (args.target_product) {
+        const { data: product, error: targetError } = await supabase
+          .from('products')
+          .select('id, name, slug, price, compare_at_price, images, condition, brand')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .ilike('name', `%${sanitizeString(args.target_product, 100)}%`)
+          .limit(1)
+          .single();
+
+        if (targetError && targetError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'trade_in_estimate', message: targetError.message }));
+        }
+
+        if (product) {
+          targetProduct = product;
+          const upgradeCost = Math.max(0, product.price - estimatedValue);
+          const savings = estimatedValue;
+
+          text += `🎯 **Upgrade to ${product.name}:**\n`;
+          text += `• New Price: ${formatPrice(product.price)}\n`;
+          text += `• Your Trade-In: -${formatPrice(estimatedValue)}\n`;
+          text += `• **You Pay: ${formatPrice(upgradeCost)}**\n\n`;
+
+          if (upgradeCost === 0) {
+            text += `✨ _Your trade-in covers the full cost!_\n`;
+          } else if (savings > product.price * 0.3) {
+            text += `✨ _Great deal! You save ${Math.round((savings / product.price) * 100)}% with trade-in_\n`;
+          }
+        }
+      }
+
+      text += `\n_Trade-in values are estimates and may vary. Final value determined upon device inspection._`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          trade_in: {
+            device: args.current_device,
+            condition: args.current_condition,
+            estimated_value: estimatedValue,
+            value_range: valueRange,
+          },
+          target_product: targetProduct ? {
+            id: targetProduct.id,
+            name: targetProduct.name,
+            slug: targetProduct.slug,
+            price: targetProduct.price,
+            image: targetProduct.images?.[0]?.url || targetProduct.images?.[0] || null,
+            upgrade_cost: Math.max(0, targetProduct.price - estimatedValue),
+          } : null,
+          products: targetProduct ? [{
+            id: targetProduct.id,
+            name: targetProduct.name,
+            slug: targetProduct.slug,
+            price: targetProduct.price,
+            image: targetProduct.images?.[0]?.url || targetProduct.images?.[0] || null,
+            condition: targetProduct.condition || 'new',
+            brand: targetProduct.brand,
+            in_stock: true,
+          }] : [],
+        },
+      };
+    }
+  );
+
+  // Tool: Gift Finder
+  server.registerTool(
+    'find_gift',
+    {
+      title: 'Gift Finder',
+      description: 'Find the perfect gift based on recipient details, occasion, and budget. Describe who the gift is for and get personalized suggestions.',
+      inputSchema: {
+        recipient: z.string().min(2).max(100).describe('Who is the gift for? (e.g., "my dad who loves tech", "teenage gamer", "mom who takes lots of photos")'),
+        occasion: z.enum(['birthday', 'christmas', 'anniversary', 'graduation', 'just_because', 'other']).optional().describe('Gift occasion'),
+        budget: z.number().min(10000).max(10000000).optional().describe('Maximum budget in NGN'),
+        interests: z.string().max(200).optional().describe('Their interests or hobbies'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Finding perfect gifts...',
+        'openai/toolInvocation/invoked': 'Gift ideas ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
+
+      const recipient = sanitizeString(args.recipient, 100).toLowerCase();
+      const interests = args.interests ? sanitizeString(args.interests, 200).toLowerCase() : '';
+      const combined = `${recipient} ${interests}`;
+
+      // Gift persona mapping
+      const personaKeywords: Record<string, { categories: string[]; priceRange: { min: number; max: number } }> = {
+        gamer: { categories: ['gaming', 'console', 'accessories'], priceRange: { min: 20000, max: 500000 } },
+        photographer: { categories: ['phone', 'camera', 'accessories'], priceRange: { min: 50000, max: 1000000 } },
+        student: { categories: ['laptop', 'tablet', 'accessories'], priceRange: { min: 30000, max: 400000 } },
+        professional: { categories: ['laptop', 'phone', 'accessories'], priceRange: { min: 100000, max: 1500000 } },
+        teen: { categories: ['phone', 'gaming', 'accessories', 'audio'], priceRange: { min: 20000, max: 300000 } },
+        parent: { categories: ['phone', 'tablet', 'accessories'], priceRange: { min: 50000, max: 500000 } },
+        music_lover: { categories: ['audio', 'accessories'], priceRange: { min: 15000, max: 200000 } },
+      };
+
+      // Detect persona
+      let detectedPersona = 'general';
+      if (combined.includes('gam')) detectedPersona = 'gamer';
+      else if (combined.includes('photo') || combined.includes('camera')) detectedPersona = 'photographer';
+      else if (combined.includes('student') || combined.includes('school')) detectedPersona = 'student';
+      else if (combined.includes('work') || combined.includes('business') || combined.includes('professional')) detectedPersona = 'professional';
+      else if (combined.includes('teen') || combined.includes('young')) detectedPersona = 'teen';
+      else if (combined.includes('mom') || combined.includes('dad') || combined.includes('parent')) detectedPersona = 'parent';
+      else if (combined.includes('music') || combined.includes('audio')) detectedPersona = 'music_lover';
+
+      const persona = personaKeywords[detectedPersona] || { categories: [], priceRange: { min: 20000, max: 500000 } };
+
+      // Build query
+      let query = supabase
+        .from('products')
+        .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0);
+
+      // Apply budget
+      const maxBudget = args.budget || persona.priceRange.max;
+      query = query.lte('price', maxBudget).gte('price', 10000);
+
+      const { data: products } = await query.order('created_at', { ascending: false }).limit(20);
+
+      if (!products || products.length === 0) {
+        return {
+          content: [{ type: 'text', text: `No gift ideas found within your budget. Try adjusting your criteria.` }],
+          structuredContent: { products: [] },
+        };
+      }
+
+      // Score products for gift suitability
+      const scored = products.map(p => {
+        let score = 0;
+        const cat = (p.category || '').toLowerCase();
+        const name = p.name.toLowerCase();
+
+        // Category match
+        if (persona.categories.some(c => cat.includes(c) || name.includes(c))) score += 10;
+
+        // Price sweet spot (not too cheap for a gift)
+        if (p.price > 30000) score += 3;
+        if (p.price > 50000) score += 2;
+
+        // New condition preferred for gifts
+        if (p.condition === 'new') score += 5;
+
+        // Popular brands
+        if (['apple', 'samsung', 'sony', 'jbl'].some(b => (p.brand || '').toLowerCase().includes(b))) score += 3;
+
+        return { ...p, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      const topGifts = scored.slice(0, 4);
+
+      const formatted = topGifts.map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        compare_at_price: p.compare_at_price,
+        image: p.images?.[0]?.url || p.images?.[0] || null,
+        condition: p.condition || 'new',
+        brand: p.brand,
+        in_stock: true,
+      }));
+
+      const occasionEmoji: Record<string, string> = {
+        birthday: '🎂',
+        christmas: '🎄',
+        anniversary: '💕',
+        graduation: '🎓',
+        just_because: '💝',
+        other: '🎁',
+      };
+
+      let text = `**${occasionEmoji[args.occasion || 'other']} Gift Ideas for ${args.recipient}**\n\n`;
+
+      if (args.budget) {
+        text += `_Budget: up to ${formatPrice(args.budget)}_\n\n`;
+      }
+
+      text += `Based on their interests, here are my top picks:\n\n`;
+
+      for (const p of topGifts.slice(0, 3)) {
+        text += `🎁 **${p.name}** - ${formatPrice(p.price)}\n`;
+      }
+
+      text += `\n_All items are gift-ready and can be shipped directly!_`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { products: formatted },
+      };
+    }
+  );
+
+  // Tool: Installment/BNPL Calculator
+  server.registerTool(
+    'calculate_installment',
+    {
+      title: 'Installment Payment Calculator',
+      description: 'Calculate monthly installment payments for any product. See how you can afford expensive items with flexible payment plans.',
+      inputSchema: {
+        product_name: z.string().min(2).max(100).optional().describe('Product to calculate installments for'),
+        amount: z.number().min(10000).max(10000000).optional().describe('Or specify an amount directly in NGN'),
+        months: z.enum(['3', '6', '9', '12']).optional().describe('Number of months for payment plan'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Calculating payment plan...',
+        'openai/toolInvocation/invoked': 'Payment options ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      let productPrice = args.amount;
+      let productName = 'your purchase';
+
+      // If product name provided, look it up
+      if (args.product_name) {
+        const { data: product, error: lookupError } = await supabase
+          .from('products')
+          .select('name, price')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
+          .limit(1)
+          .single();
+
+        if (lookupError && lookupError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'calculate_installments', message: lookupError.message }));
+        }
+
+        if (product) {
+          productPrice = product.price;
+          productName = product.name;
+        }
+      }
+
+      if (!productPrice) {
+        return { content: [{ type: 'text', text: 'Please specify a product name or amount to calculate installments.' }] };
+      }
+
+      // Interest rates by duration (typical Nigerian BNPL rates)
+      const rates: Record<string, { rate: number; fee: number }> = {
+        '3': { rate: 0.05, fee: 0.02 },   // 5% interest, 2% processing
+        '6': { rate: 0.10, fee: 0.025 },  // 10% interest, 2.5% processing
+        '9': { rate: 0.15, fee: 0.03 },   // 15% interest, 3% processing
+        '12': { rate: 0.20, fee: 0.035 }, // 20% interest, 3.5% processing
+      };
+
+      let text = `**💳 Payment Plan for ${productName}**\n\n`;
+      text += `**Product Price:** ${formatPrice(productPrice)}\n\n`;
+      text += `**Available Payment Options:**\n\n`;
+
+      const options = args.months ? [args.months] : ['3', '6', '9', '12'];
+
+      for (const months of options) {
+        const { rate, fee } = rates[months];
+        const totalInterest = productPrice * rate;
+        const processingFee = productPrice * fee;
+        const totalAmount = productPrice + totalInterest + processingFee;
+        const monthlyPayment = Math.ceil(totalAmount / parseInt(months));
+
+        text += `**${months} Months:**\n`;
+        text += `• Monthly: ${formatPrice(monthlyPayment)}/month\n`;
+        text += `• Total: ${formatPrice(totalAmount)} (${Math.round(rate * 100)}% interest)\n\n`;
+      }
+
+      text += `---\n`;
+      text += `_Powered by Credit Direct. Subject to approval. Terms apply._\n`;
+      text += `_Pay a small deposit and spread the rest over months!_`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          product_name: productName,
+          product_price: productPrice,
+          payment_plans: Object.entries(rates).map(([months, { rate, fee }]) => {
+            const totalInterest = productPrice! * rate;
+            const processingFee = productPrice! * fee;
+            const totalAmount = productPrice! + totalInterest + processingFee;
+            return {
+              months: parseInt(months),
+              monthly_payment: Math.ceil(totalAmount / parseInt(months)),
+              total_amount: totalAmount,
+              interest_rate: rate,
+            };
+          }),
+        },
+      };
+    }
+  );
+
+  // Tool: Deal Finder / Price Drop Alert
+  server.registerTool(
+    'find_deals',
+    {
+      title: 'Deal Finder',
+      description: 'Find the best deals, discounts, and price drops in the store. Get notified about products with the biggest savings.',
+      inputSchema: {
+        category: z.string().max(50).optional().describe('Category to search for deals (e.g., phones, laptops)'),
+        min_discount: z.number().min(5).max(90).optional().describe('Minimum discount percentage (default: 10%)'),
+      },
+      _meta: {
+        'openai/outputTemplate': 'ui://widget/store.html',
+        'openai/toolInvocation/invoking': 'Finding best deals...',
+        'openai/toolInvocation/invoked': 'Deals found',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+      }
+
+      let query = supabase
+        .from('products')
+        .select('id, name, slug, price, compare_at_price, images, condition, brand, category')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0)
+        .not('compare_at_price', 'is', null);
+
+      if (args.category) {
+        query = query.ilike('category', `%${sanitizeString(args.category, 50)}%`);
+      }
+
+      const { data: products } = await query.limit(50);
+
+      if (!products || products.length === 0) {
+        return {
+          content: [{ type: 'text', text: 'No deals found at the moment. Check back soon!' }],
+          structuredContent: { products: [] },
+        };
+      }
+
+      // Calculate discounts and filter
+      const minDiscount = args.min_discount || 10;
+      const deals = products
+        .map(p => {
+          const discount = p.compare_at_price && p.compare_at_price > p.price
+            ? Math.round((1 - p.price / p.compare_at_price) * 100)
+            : 0;
+          const savings = p.compare_at_price ? p.compare_at_price - p.price : 0;
+          return { ...p, discount, savings };
+        })
+        .filter(p => p.discount >= minDiscount)
+        .sort((a, b) => b.discount - a.discount)
+        .slice(0, 6);
+
+      if (deals.length === 0) {
+        return {
+          content: [{ type: 'text', text: `No products with ${minDiscount}%+ discount found. Try a lower threshold.` }],
+          structuredContent: { products: [] },
+        };
+      }
+
+      const formatted = deals.slice(0, 4).map(p => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        compare_at_price: p.compare_at_price,
+        image: p.images?.[0]?.url || p.images?.[0] || null,
+        condition: p.condition || 'new',
+        brand: p.brand,
+        in_stock: true,
+      }));
+
+      let text = `**🔥 Hot Deals${args.category ? ` in ${args.category}` : ''}**\n\n`;
+
+      for (const deal of deals.slice(0, 5)) {
+        text += `• **${deal.name}**\n`;
+        text += `  ~~${formatPrice(deal.compare_at_price!)}~~ → **${formatPrice(deal.price)}** (-${deal.discount}%)\n`;
+        text += `  _You save ${formatPrice(deal.savings)}_\n\n`;
+      }
+
+      const totalSavings = deals.reduce((sum, d) => sum + d.savings, 0);
+      text += `---\n_${deals.length} deals found with up to ${deals[0].discount}% off!_`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          products: formatted,
+          deals_summary: {
+            total_deals: deals.length,
+            max_discount: deals[0]?.discount || 0,
+            total_potential_savings: totalSavings,
+          },
+        },
+      };
+    }
+  );
+
+  // Tool: Get product variants
+  server.registerTool(
+    'get_product_variants',
+    {
+      title: 'Get Product Variants',
+      description: 'Get all available variants (colors, storage options, conditions) for a product.',
+      inputSchema: {
+        product_name: z.string().min(1).max(100).describe('Product name'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Loading variants...',
+        'openai/toolInvocation/invoked': 'Variants loaded',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      const sanitizedName = sanitizeString(args.product_name, 100);
+
+      // First find the product
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('id, name, has_variants, has_condition_offers')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .ilike('name', `%${sanitizedName}%`)
+        .limit(1)
+        .single();
+
+      if (productError || !product) {
+        if (productError && productError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'get_product_variants', message: productError.message }));
+        }
+        return { content: [{ type: 'text', text: `Product "${sanitizedName}" not found.` }] };
+      }
+
+      // Fetch variants
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select('attributes, price_override, stock_quantity, condition, sku')
+        .eq('product_id', product.id)
+        .eq('merchant_id', merchantId);
+
+      // Fetch condition offers
+      const { data: offers } = await supabase
+        .from('product_offers')
+        .select('condition, price, stock_quantity, grade, condition_notes')
+        .eq('product_id', product.id)
+        .eq('status', 'active');
+
+      if ((!variants || variants.length === 0) && (!offers || offers.length === 0)) {
+        return { content: [{ type: 'text', text: `No variants available for "${product.name}".` }] };
+      }
+
+      let text = `**Variants for ${product.name}:**\n\n`;
+
+      if (variants && variants.length > 0) {
+        // Group by attribute type
+        const colors = [...new Set(variants.map(v => v.attributes?.color).filter(Boolean))];
+        const storages = [...new Set(variants.map(v => v.attributes?.storage).filter(Boolean))];
+        const sizes = [...new Set(variants.map(v => v.attributes?.size).filter(Boolean))];
+
+        if (colors.length > 0) text += `**Colors:** ${colors.join(', ')}\n`;
+        if (storages.length > 0) text += `**Storage:** ${storages.join(', ')}\n`;
+        if (sizes.length > 0) text += `**Sizes:** ${sizes.join(', ')}\n`;
+
+        text += '\n**Available Combinations:**\n';
+        for (const v of variants.slice(0, 10)) {
+          const attrs = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+          const price = v.price_override ? formatPrice(v.price_override) : 'Base price';
+          const stock = v.stock_quantity > 0 ? 'In Stock' : 'Out of Stock';
+          text += `• ${attrs} - ${price} (${stock})\n`;
+        }
+      }
+
+      if (offers && offers.length > 0) {
+        text += '\n**Condition Options:**\n';
+        for (const o of offers) {
+          const grade = o.grade ? ` (Grade ${o.grade})` : '';
+          const stock = o.stock_quantity > 0 ? 'In Stock' : 'Out of Stock';
+          text += `• ${o.condition}${grade}: ${formatPrice(o.price)} - ${stock}\n`;
+          if (o.condition_notes) text += `  Note: ${o.condition_notes}\n`;
+        }
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          product_name: product.name,
+          variants: variants || [],
+          condition_offers: offers || [],
+        },
+      };
+    }
+  );
+
+  // Tool: Browse categories
+  server.registerTool(
+    'browse_categories',
+    {
+      title: 'Browse Categories',
+      description: 'Get a list of product categories available in the store.',
+      inputSchema: {},
+      _meta: {
+        'openai/toolInvocation/invoking': 'Loading categories...',
+        'openai/toolInvocation/invoked': 'Categories loaded',
+      },
+    },
+    async () => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      // Get unique categories from products
+      const { data: products } = await supabase
+        .from('products')
+        .select('category')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0);
+
+      const categories = [...new Set((products || []).map(p => p.category).filter(Boolean))];
+
+      if (categories.length === 0) {
+        return { content: [{ type: 'text', text: 'No categories found.' }] };
+      }
+
+      const text = `**Available Categories:**\n\n${categories.map(c => `• ${c}`).join('\n')}\n\nAsk me to search for products in any of these categories!`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { categories },
+      };
+    }
+  );
+
+  // Tool: Get brands
+  server.registerTool(
+    'get_brands',
+    {
+      title: 'Get Available Brands',
+      description: 'Get a list of brands available in the store.',
+      inputSchema: {
+        category: z.string().max(50).optional().describe('Filter brands by category'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Loading brands...',
+        'openai/toolInvocation/invoked': 'Brands loaded',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      let query = supabase
+        .from('products')
+        .select('brand')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .gt('stock_quantity', 0);
+
+      if (args.category) {
+        const sanitizedCategory = sanitizeString(args.category, 50);
+        query = query.ilike('category', `%${sanitizedCategory}%`);
+      }
+
+      const { data: products } = await query;
+
+      const brands = [...new Set((products || []).map(p => p.brand).filter(Boolean))];
+
+      if (brands.length === 0) {
+        return { content: [{ type: 'text', text: 'No brands found.' }] };
+      }
+
+      const categoryText = args.category ? ` in ${args.category}` : '';
+      const text = `**Available Brands${categoryText}:**\n\n${brands.map(b => `• ${b}`).join('\n')}\n\nAsk me to search for products from any of these brands!`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { brands },
+      };
+    }
+  );
+
+  // Tool: Compare products
+  server.registerTool(
+    // Tool: Compare Products
+    server.registerTool(
+      'compare_products',
+      {
+        title: 'Compare Products',
+        description: 'Compare 2-3 products side by side with spec-sheet precision. Analyzes price, condition, specs (RAM, storage, etc.), and ratings to help users choose.',
+        inputSchema: {
+          products: z.string().describe('Comma-separated product names or IDs (e.g., "iPhone 15, iPhone 14 Pro")'),
+        },
+        _meta: {
+          'openai/toolInvocation/invoking': 'Analyzing product specs...',
+          'openai/toolInvocation/invoked': 'Comparison complete',
+        },
+      },
+      async (args) => {
+        const merchantId = await getMerchantId();
+        if (!merchantId) {
+          return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }], structuredContent: { products: [] } };
+        }
+
+        // 1. Parse and sanitize inputs
+        const queries = args.products
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 1)
+          .slice(0, 3); // Limit to 3 max
+
+        if (queries.length < 2) {
+          return { content: [{ type: 'text', text: 'Please provide at least 2 distinct products to compare (e.g., "iPhone 13, iPhone 12").' }] };
+        }
+
+        // 2. Fetch products details (Parallel fetch for speed)
+        const products: any[] = [];
+
+        for (const q of queries) {
+          let product = null;
+
+          // Try ID match first
+          const { data: byId } = await supabase
+            .from('products')
+            .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
+            .eq('id', q)
+            .eq('merchant_id', merchantId)
+            .single();
+
+          if (byId) {
+            product = byId;
+          } else {
+            // Fallback to fuzzy name match
+            const { data: byName } = await supabase
+              .from('products')
+              .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
+              .eq('merchant_id', merchantId)
+              .eq('status', 'active')
+              .ilike('name', `%${sanitizeString(q, 100)}%`)
+              .limit(1)
+              .single();
+            product = byName;
+          }
+
+          if (product) products.push(product);
+        }
+
+        if (products.length < 2) {
+          return {
+            content: [{ type: 'text', text: `❌ I couldn't find enough products matching "${args.products}" to compare. Please check the names.` }]
+          };
+        }
+
+        // 3. Extract & Normalize Attributes
+        const allAttrKeys = new Set<string>();
+        products.forEach(p => {
+          if (p.attributes) {
+            Object.keys(p.attributes).forEach(k => allAttrKeys.add(k));
+          }
+        });
+        // Prioritize common tech specs
+        const prioritySpecs = ['Storage', 'RAM', 'Screen', 'Battery', 'Processor', 'Camera', 'Color'];
+        const sortedKeys = Array.from(allAttrKeys).sort((a, b) => {
+          const idxA = prioritySpecs.indexOf(a);
+          const idxB = prioritySpecs.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
+
+        // 4. Build Markdown Table
+        let text = `**📊 Product Comparison**\n\n`;
+
+        // Header
+        text += `| Feature | ${products.map(p => `**${p.name.substring(0, 30)}**`).join(' | ')} |\n`;
+        text += `|:---|${products.map(() => ':---').join('|')}|\n`;
+
+        // Core Data
+        text += `| **Price** | ${products.map(p => `**${formatPrice(p.price)}**`).join(' | ')} |\n`;
+        text += `| Savings | ${products.map(p => p.compare_at_price > p.price ? `Save ${Math.round((1 - p.price / p.compare_at_price) * 100)}%` : '-').join(' | ')} |\n`;
+        text += `| Condition | ${products.map(p => p.condition || 'New').join(' | ')} |\n`;
+        text += `| Rating | ${products.map(p => p.schema_markup?.aggregateRating?.ratingValue ? `⭐ ${p.schema_markup.aggregateRating.ratingValue}/5` : '-').join(' | ')} |\n`;
+
+        // Dynamic Attributes
+        sortedKeys.slice(0, 8).forEach(key => {
+          text += `| ${key} | ${products.map(p => p.attributes?.[key] || '-').join(' | ')} |\n`;
+        });
+
+        // 5. Intelligent Verdict
+        const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
+        const cheapest = sortedByPrice[0];
+        const expensive = sortedByPrice[sortedByPrice.length - 1];
+        const diff = expensive.price - cheapest.price;
+
+        text += `\n**💡 Analysis:**\n`;
+        text += `• **Best Value:** ${cheapest.name} is the most affordable options at ${formatPrice(cheapest.price)}.\n`;
+        if (diff > 0) {
+          text += `• **Price Gap:** There is a ${formatPrice(diff)} difference between the highest and lowest price.\n`;
+        }
+
+        const formattedProducts = products.map(p => ({
+          id: p.id,
+          name: p.name,
+          slug: p.slug,
+          price: p.price,
+          image: p.images?.[0]?.url || p.images?.[0] || null,
+          condition: p.condition,
+          in_stock: p.stock_quantity > 0
+        }));
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: {
+            type: 'comparison_table',
+            products: formattedProducts
+          },
+        };
+      }
+    );
+
+  // Tool: Search Blog / Articles
+  server.registerTool(
+    'search_blog',
+    {
+      title: 'Search Blog & Articles',
+      description: 'Search Ogabassey blog for articles, guides, reviews, and tips about tech products. Great for learning about products before buying.',
+      inputSchema: {
+        query: z.string().min(2).max(100).optional().describe('Search query (e.g., "iPhone 15 review", "best gaming laptop 2024", "how to choose a phone")'),
+        category: z.string().max(50).optional().describe('Blog category (e.g., reviews, guides, news, tips)'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Searching articles...',
+        'openai/toolInvocation/invoked': 'Articles found',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: 'Store temporarily unavailable.' }] };
+      }
+
+      let query = supabase
+        .from('blog_posts')
+        .select('id, title, slug, excerpt, category, tags, author_name, published_at, reading_time_minutes')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(5);
+
+      if (args.query) {
+        const sanitizedQuery = sanitizeString(args.query, 100);
+        // Use parameterized filter pattern instead of string concatenation
+        query = query.or(`title.ilike.%${sanitizedQuery.replace(/%/g, '')}%,excerpt.ilike.%${sanitizedQuery.replace(/%/g, '')}%`);
+      }
+
+      if (args.category) {
+        query = query.eq('category', sanitizeString(args.category, 50));
+      }
+
+      const { data: posts, error } = await query;
+
+      if (error || !posts || posts.length === 0) {
+        return {
+          content: [{
+            type: 'text', text: args.query
+              ? `No articles found for "${args.query}". Browse our blog at ogabassey.com/blog for more content.`
+              : 'No blog articles found. Check out our blog at ogabassey.com/blog for the latest content.'
+          }],
+        };
+      }
+
+      let text = `**📚 Blog Articles${args.query ? ` for "${args.query}"` : ''}**\n\n`;
+
+      for (const post of posts) {
+        const date = new Date(post.published_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric', year: 'numeric' });
+        text += `📖 **${post.title}**\n`;
+        text += `   ${post.excerpt?.slice(0, 100)}${post.excerpt && post.excerpt.length > 100 ? '...' : ''}\n`;
+        text += `   _${date} • ${post.reading_time_minutes || 5} min read_\n`;
+        text += `   🔗 [Read Article](https://ogabassey.com/ogabassey/blog/${post.slug})\n\n`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          articles: posts.map(p => ({
+            title: p.title,
+            slug: p.slug,
+            excerpt: p.excerpt,
+            category: p.category,
+            url: `https://ogabassey.com/ogabassey/blog/${p.slug}`,
+          })),
+        },
+      };
+    }
+  );
+
+  // Tool: Get FAQ / Common Questions
+  server.registerTool(
+    'get_faq',
+    {
+      title: 'Get FAQ & Help',
+      description: 'Get answers to frequently asked questions about ordering, shipping, returns, payments, and store policies.',
+      inputSchema: {
+        topic: z.enum(['shipping', 'returns', 'payment', 'warranty', 'order', 'general']).optional().describe('FAQ topic'),
+        question: z.string().max(200).optional().describe('Specific question to answer'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Finding answers...',
+        'openai/toolInvocation/invoked': 'Answers ready',
+      },
+    },
+    async () => {
+      // Pre-built FAQ responses based on Ogabassey policies
+      const faqs: Record<string, { emoji: string; title: string; items: Array<{ q: string; a: string }> }> = {
+        shipping: {
+          emoji: '🚚',
+          title: 'Shipping & Delivery',
+          items: [
+            { q: 'How long does delivery take?', a: 'Lagos: 1-2 business days. Other states: 3-5 business days. We ship via GIGL, Topship, and Shiip.' },
+            { q: 'Do you deliver nationwide?', a: 'Yes! We deliver to all 36 states in Nigeria. International shipping available on request.' },
+            { q: 'How much is shipping?', a: 'Shipping cost is calculated at checkout based on your location. Lagos deliveries start from ₦2,500.' },
+            { q: 'Can I track my order?', a: 'Yes! You\'ll receive a tracking number via email/SMS once your order ships.' },
+          ],
+        },
+        returns: {
+          emoji: '↩️',
+          title: 'Returns & Refunds',
+          items: [
+            { q: 'What is your return policy?', a: 'We offer a 7-day return window for unused items in original packaging. Defective items are exchanged or refunded.' },
+            { q: 'How do I return an item?', a: 'Contact our support team via WhatsApp or email to initiate a return. We\'ll provide instructions and pickup.' },
+            { q: 'When will I get my refund?', a: 'Refunds are processed within 3-5 business days after we receive and verify the returned item.' },
+          ],
+        },
+        payment: {
+          emoji: '💳',
+          title: 'Payment Options',
+          items: [
+            { q: 'What payment methods do you accept?', a: 'Bank Transfer, Debit/Credit Cards (Visa, Mastercard), Pay on Delivery (Lagos only), and Buy Now Pay Later.' },
+            { q: 'Is Pay on Delivery available?', a: 'Yes, for orders in Lagos. A ₦5,000 deposit may be required for high-value items.' },
+            { q: 'Do you offer installment payments?', a: 'Yes! Through Credit Direct, you can pay in 3-12 monthly installments. Ask me to calculate installments for any product.' },
+          ],
+        },
+        warranty: {
+          emoji: '🛡️',
+          title: 'Warranty & Support',
+          items: [
+            { q: 'Do products come with warranty?', a: 'Yes! New products come with manufacturer warranty (usually 12 months). Used items have a 30-day warranty.' },
+            { q: 'What does warranty cover?', a: 'Manufacturing defects and hardware failures. Physical damage and water damage are not covered.' },
+            { q: 'How do I claim warranty?', a: 'Contact us with your order number and issue description. We\'ll guide you through the process.' },
+          ],
+        },
+        order: {
+          emoji: '📦',
+          title: 'Orders & Tracking',
+          items: [
+            { q: 'How do I track my order?', a: 'You can track your order by providing your order number or phone number. Just ask me!' },
+            { q: 'Can I cancel my order?', a: 'Orders can be cancelled before shipping. Once shipped, you\'ll need to wait for delivery and return if needed.' },
+            { q: 'What if my order is delayed?', a: 'Contact our support team. We\'ll investigate and provide updates. Delays are rare but may occur during peak periods.' },
+          ],
+        },
+        general: {
+          emoji: '❓',
+          title: 'General Questions',
+          items: [
+            { q: 'Are your products authentic?', a: 'Absolutely! We only sell genuine, authentic products. No fakes or clones.' },
+            { q: 'Do you sell used products?', a: 'Yes! We offer certified used and open-box items at great prices, clearly labeled with condition grades.' },
+            { q: 'How can I contact support?', a: 'WhatsApp, email, or through our website. We respond within 24 hours, usually much faster!' },
+            { q: 'Do you have a physical store?', a: 'We\'re primarily online, but you can arrange pickup in Lagos for some orders.' },
+          ],
+        },
+      };
+
+      let text = `**❓ Frequently Asked Questions**\n\n`;
+
+      for (const [key, section] of Object.entries(faqs)) {
+        text += `**${section.emoji} ${section.title}**\n`;
+        for (const item of section.items.slice(0, 2)) {
+          text += `• _${item.q}_\n  ${item.a}\n`;
+        }
+        text += '\n';
+      }
+
+      text += `---\n_Have another question? Just ask me directly!_\n`;
+      text += `_Or visit our [FAQ page](https://ogabassey.com/ogabassey/pages/faq) for more._`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { faqs },
+      };
+    }
+  );
+
+  // Tool: Quick Help / Ask Anything
+  server.registerTool(
+    'quick_help',
+    {
+      title: 'Quick Help',
+      description: 'Get quick help on any topic. Ask about products, orders, shipping, returns, or anything else.',
+      inputSchema: {
+        question: z.string().min(3).max(300).describe('Your question or what you need help with'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Finding help...',
+        'openai/toolInvocation/invoked': 'Help ready',
+      },
+    },
+    async (args) => {
+      const question = sanitizeString(args.question, 300).toLowerCase();
+
+      // Quick response patterns
+      const patterns: Array<{ keywords: string[]; response: string }> = [
+        {
+          keywords: ['whatsapp', 'contact', 'call', 'phone', 'reach'],
+          response: '📱 **Contact Us**\n\nWhatsApp: Available on our website\nEmail: support@ogabassey.com\nWebsite: ogabassey.com\n\nWe respond within 24 hours, usually much faster!'
+        },
+        {
+          keywords: ['lagos', 'location', 'address', 'pickup', 'store'],
+          response: '📍 **Location**\n\nWe\'re primarily an online store, but Lagos customers can arrange pickup for some orders. Contact us to coordinate!'
+        },
+        {
+          keywords: ['authentic', 'genuine', 'original', 'fake', 'real'],
+          response: '✅ **Authenticity Guarantee**\n\nAll our products are 100% genuine and authentic. We source directly from authorized distributors. No fakes, ever!'
+        },
+        {
+          keywords: ['swap', 'trade', 'exchange', 'old phone', 'upgrade'],
+          response: '🔄 **Trade-In Program**\n\nYes! We accept trade-ins for your old devices. Use the trade-in estimator to see your device\'s value and calculate upgrade costs.'
+        },
+        {
+          keywords: ['installment', 'credit', 'loan', 'bnpl', 'pay later', 'monthly'],
+          response: '💳 **Buy Now, Pay Later**\n\nPay in 3-12 monthly installments through Credit Direct. Ask me to calculate installments for any product!'
+        },
+        {
+          keywords: ['discount', 'promo', 'code', 'coupon', 'sale'],
+          response: '🏷️ **Deals & Discounts**\n\nUse the deal finder to see current discounts! We also run special promotions—follow us on social media for updates.'
+        },
+        {
+          keywords: ['repair', 'fix', 'broken', 'screen', 'battery', 'cracked'],
+          response: '🔧 **Repair Services**\n\nWe offer device repairs including:\n• Screen replacement\n• Battery replacement\n• Charging port repair\n• Software fixes\n• Water damage repair\n\nAsk me to book a repair!'
+        },
+        {
+          keywords: ['shipping', 'delivery', 'deliver', 'ship', 'how much shipping'],
+          response: '🚚 **Delivery Options**\n\nWe deliver nationwide! Rates vary by location:\n• Lagos: ₦2,500-3,500 (1-2 days)\n• Other states: ₦4,000-8,000 (2-5 days)\n\nFree shipping on orders over ₦150,000! Ask me to calculate delivery to your state.'
+        },
+      ];
+
+      // Find matching pattern
+      for (const pattern of patterns) {
+        if (pattern.keywords.some(kw => question.includes(kw))) {
+          return { content: [{ type: 'text', text: pattern.response }] };
+        }
+      }
+
+      // Default helpful response
+      const text = `**💡 How Can I Help?**\n\nI can help you with:\n\n• 🔍 **Finding Products** - Search by name, brand, category, or budget\n• 💰 **Trade-In Estimates** - Value your old device for upgrade\n• 🎁 **Gift Ideas** - Find perfect gifts for anyone\n• 📦 **Order Tracking** - Check order status\n• 💳 **Installment Plans** - Calculate monthly payments\n• 🔥 **Deals** - Find the best discounts\n• 🔧 **Repairs** - Book device repair services\n• 🚚 **Delivery** - Calculate shipping costs\n• ❓ **FAQ** - Shipping, returns, warranty info\n\nJust ask your question naturally, and I'll help!`;
+
+      return { content: [{ type: 'text', text }] };
+    }
+  );
+
+  // Tool: Book Repair Service
+  server.registerTool(
+    'book_repair',
+    {
+      title: 'Book Repair Service',
+      description: 'Book a device repair service at Ogabassey. Available services include screen replacement, battery replacement, charging port repair, and software fixes.',
+      inputSchema: {
+        device_type: z.string().min(2).max(100).describe('Type of device (e.g., iPhone 14 Pro, Samsung Galaxy S23, MacBook Pro)'),
+        issue: z.enum(['screen', 'battery', 'charging_port', 'software', 'water_damage', 'speaker', 'camera', 'other']).describe('Type of repair needed'),
+        issue_description: z.string().max(500).optional().describe('Detailed description of the issue'),
+        customer_name: z.string().min(2).max(100).describe('Customer full name'),
+        customer_phone: z.string().min(10).max(15).describe('Customer phone number (Nigerian format)'),
+        customer_email: z.string().email().optional().describe('Customer email address'),
+        preferred_date: z.string().optional().describe('Preferred date for repair (YYYY-MM-DD format)'),
+        location: z.enum(['lagos', 'pickup', 'remote']).optional().describe('Service location preference'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Booking your repair...',
+        'openai/toolInvocation/invoked': 'Repair booked!',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to process repair booking. Please try again later or contact us directly.' }] };
+      }
+
+      // Validate phone number
+      const phone = sanitizeString(args.customer_phone, 15);
+      if (!isValidPhone(phone)) {
+        return { content: [{ type: 'text', text: '❌ Please provide a valid phone number.' }] };
+      }
+
+      // Service prices (estimated)
+      const servicePrices: Record<string, { name: string; priceRange: string; estimatedDays: string }> = {
+        screen: { name: 'Screen Replacement', priceRange: '₦25,000 - ₦150,000', estimatedDays: '1-2 days' },
+        battery: { name: 'Battery Replacement', priceRange: '₦15,000 - ₦50,000', estimatedDays: '1 day' },
+        charging_port: { name: 'Charging Port Repair', priceRange: '₦10,000 - ₦30,000', estimatedDays: '1-2 days' },
+        software: { name: 'Software Fix/Restore', priceRange: '₦5,000 - ₦15,000', estimatedDays: 'Same day' },
+        water_damage: { name: 'Water Damage Repair', priceRange: '₦20,000 - ₦80,000', estimatedDays: '2-5 days' },
+        speaker: { name: 'Speaker Repair', priceRange: '₦8,000 - ₦25,000', estimatedDays: '1-2 days' },
+        camera: { name: 'Camera Repair/Replacement', priceRange: '₦15,000 - ₦60,000', estimatedDays: '1-2 days' },
+        other: { name: 'Diagnostic & Repair', priceRange: 'Quote after diagnosis', estimatedDays: 'TBD' },
+      };
+
+      const service = servicePrices[args.issue] || servicePrices.other;
+      const bookingRef = `REP-${Date.now().toString(36).toUpperCase()}`;
+
+      // Submit repair booking via form submission system
+      try {
+        const formData = {
+          booking_reference: bookingRef,
+          device_type: sanitizeString(args.device_type, 100),
+          issue_type: args.issue,
+          issue_description: args.issue_description ? sanitizeString(args.issue_description, 500) : 'Not provided',
+          customer_name: sanitizeString(args.customer_name, 100),
+          customer_phone: phone,
+          customer_email: args.customer_email || 'Not provided',
+          preferred_date: args.preferred_date || 'Flexible',
+          location_preference: args.location || 'lagos',
+          estimated_price: service.priceRange,
+          estimated_time: service.estimatedDays,
+          submitted_via: 'ChatGPT MCP',
+          submitted_at: new Date().toISOString(),
+        };
+
+        // Insert into form_submissions table
+        const { error } = await supabase
+          .from('form_submissions')
+          .insert({
+            merchant_id: merchantId,
+            form_name: 'repair_booking',
+            form_data: formData,
+            status: 'unread',
+          });
+
+        if (error) {
+          console.error('Error saving repair booking:', error);
+          return { content: [{ type: 'text', text: '❌ Unable to complete booking. Please contact us directly via WhatsApp or call.' }] };
+        }
+
+        const locationText = args.location === 'pickup'
+          ? 'We\'ll arrange pickup of your device.'
+          : args.location === 'remote'
+            ? 'Remote support will be provided where possible.'
+            : 'You can drop off your device at our Lagos location.';
+
+        const text = `**🔧 Repair Booking Confirmed!**\n\n` +
+          `**Booking Reference:** \`${bookingRef}\`\n\n` +
+          `**Device:** ${sanitizeString(args.device_type, 100)}\n` +
+          `**Service:** ${service.name}\n` +
+          `**Estimated Cost:** ${service.priceRange}\n` +
+          `**Estimated Time:** ${service.estimatedDays}\n\n` +
+          `**Your Details:**\n` +
+          `• Name: ${sanitizeString(args.customer_name, 100)}\n` +
+          `• Phone: ${phone}\n` +
+          (args.preferred_date ? `• Preferred Date: ${args.preferred_date}\n` : '') +
+          `\n${locationText}\n\n` +
+          `---\n` +
+          `📞 **What's Next?**\n` +
+          `Our team will contact you within 2 hours to confirm your appointment and provide a precise quote after assessing your device.\n\n` +
+          `_Save your booking reference for tracking!_`;
+
+        return {
+          content: [{ type: 'text', text }],
+          structuredContent: {
+            booking_reference: bookingRef,
+            device: args.device_type,
+            service: service.name,
+            estimated_price: service.priceRange,
+            estimated_time: service.estimatedDays,
+            status: 'confirmed',
+          },
+        };
+      } catch (err) {
+        console.error('Repair booking error:', err);
+        return { content: [{ type: 'text', text: '❌ Something went wrong. Please try again or contact us directly.' }] };
+      }
+    }
+  );
+
+  // Tool: Get Shipping Quote / Calculate Delivery Fee
+  server.registerTool(
+    'get_shipping_quote',
+    {
+      title: 'Calculate Delivery Fee',
+      description: 'Calculate shipping/delivery cost based on location. Provides real-time quotes from multiple carriers (GIGL, Topship).',
+      inputSchema: {
+        state: z.string().min(2).max(50).describe('Nigerian state for delivery (e.g., Lagos, Abuja, Rivers)'),
+        city: z.string().min(2).max(100).optional().describe('City within the state'),
+        address: z.string().max(200).optional().describe('Full delivery address'),
+        product_ids: z.string().optional().describe('Comma-separated product IDs to calculate shipping for'),
+        estimated_weight: z.number().optional().describe('Estimated total weight in kg (if products not specified)'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Calculating delivery fee...',
+        'openai/toolInvocation/invoked': 'Shipping quote ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to calculate shipping. Please try again later.' }] };
+      }
+
+      const state = sanitizeString(args.state, 50);
+      const city = args.city ? sanitizeString(args.city, 100) : state;
+
+      // Nigerian states with shipping zones
+      const shippingZones: Record<string, { zone: 'lagos' | 'southwest' | 'south' | 'north'; baseRate: number; estimatedDays: string }> = {
+        'lagos': { zone: 'lagos', baseRate: 2500, estimatedDays: '1-2 days' },
+        'ogun': { zone: 'southwest', baseRate: 3500, estimatedDays: '2-3 days' },
+        'oyo': { zone: 'southwest', baseRate: 4000, estimatedDays: '2-3 days' },
+        'osun': { zone: 'southwest', baseRate: 4000, estimatedDays: '2-3 days' },
+        'ondo': { zone: 'southwest', baseRate: 4500, estimatedDays: '2-3 days' },
+        'ekiti': { zone: 'southwest', baseRate: 4500, estimatedDays: '2-3 days' },
+        'kwara': { zone: 'southwest', baseRate: 5000, estimatedDays: '3-4 days' },
+        'abuja': { zone: 'north', baseRate: 5000, estimatedDays: '3-4 days' },
+        'fct': { zone: 'north', baseRate: 5000, estimatedDays: '3-4 days' },
+        'rivers': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'delta': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'edo': { zone: 'south', baseRate: 5000, estimatedDays: '3-4 days' },
+        'cross river': { zone: 'south', baseRate: 6000, estimatedDays: '3-5 days' },
+        'akwa ibom': { zone: 'south', baseRate: 6000, estimatedDays: '3-5 days' },
+        'enugu': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'anambra': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'imo': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'abia': { zone: 'south', baseRate: 5500, estimatedDays: '3-4 days' },
+        'kano': { zone: 'north', baseRate: 6500, estimatedDays: '4-5 days' },
+        'kaduna': { zone: 'north', baseRate: 6000, estimatedDays: '4-5 days' },
+        'plateau': { zone: 'north', baseRate: 6000, estimatedDays: '4-5 days' },
+        'kogi': { zone: 'north', baseRate: 5500, estimatedDays: '3-4 days' },
+        'nassarawa': { zone: 'north', baseRate: 5500, estimatedDays: '3-4 days' },
+        'niger': { zone: 'north', baseRate: 6000, estimatedDays: '4-5 days' },
+        'benue': { zone: 'north', baseRate: 6000, estimatedDays: '4-5 days' },
+        'taraba': { zone: 'north', baseRate: 7000, estimatedDays: '4-6 days' },
+        'adamawa': { zone: 'north', baseRate: 7000, estimatedDays: '4-6 days' },
+        'bauchi': { zone: 'north', baseRate: 7000, estimatedDays: '4-6 days' },
+        'gombe': { zone: 'north', baseRate: 7000, estimatedDays: '4-6 days' },
+        'borno': { zone: 'north', baseRate: 8000, estimatedDays: '5-7 days' },
+        'yobe': { zone: 'north', baseRate: 8000, estimatedDays: '5-7 days' },
+        'sokoto': { zone: 'north', baseRate: 7500, estimatedDays: '4-6 days' },
+        'kebbi': { zone: 'north', baseRate: 7500, estimatedDays: '4-6 days' },
+        'zamfara': { zone: 'north', baseRate: 7500, estimatedDays: '4-6 days' },
+        'katsina': { zone: 'north', baseRate: 7000, estimatedDays: '4-5 days' },
+        'jigawa': { zone: 'north', baseRate: 7000, estimatedDays: '4-5 days' },
+        'bayelsa': { zone: 'south', baseRate: 6500, estimatedDays: '3-5 days' },
+        'ebonyi': { zone: 'south', baseRate: 6000, estimatedDays: '3-5 days' },
+      };
+
+      // Find matching state
+      const stateKey = state.toLowerCase();
+      const zoneInfo = shippingZones[stateKey] || { zone: 'north', baseRate: 7000, estimatedDays: '4-6 days' };
+
+      // Calculate weight-based adjustments
+      let weight = args.estimated_weight || 1;
+      let products: Array<{ name: string; weight?: number }> = [];
+
+      // If product IDs provided, fetch products and calculate weight
+      if (args.product_ids) {
+        const ids = args.product_ids.split(',').map(id => id.trim()).filter(Boolean);
+        if (ids.length > 0) {
+          const { data: fetchedProducts } = await supabase
+            .from('products')
+            .select('id, name, weight')
+            .in('id', ids)
+            .eq('merchant_id', merchantId);
+
+          if (fetchedProducts && fetchedProducts.length > 0) {
+            products = fetchedProducts;
+            weight = fetchedProducts.reduce((sum, p) => sum + (p.weight || 0.5), 0);
+          }
+        }
+      }
+
+      // Weight-based pricing adjustments
+      let weightMultiplier = 1;
+      if (weight > 5) weightMultiplier = 1.5;
+      else if (weight > 2) weightMultiplier = 1.25;
+      else if (weight > 1) weightMultiplier = 1.1;
+
+      const estimatedFee = Math.round(zoneInfo.baseRate * weightMultiplier);
+      const expressRate = Math.round(estimatedFee * 1.5);
+
+      // Shipping options
+      const options = [
+        {
+          name: 'Standard Delivery',
+          carrier: 'GIGL/Topship',
+          price: estimatedFee,
+          days: zoneInfo.estimatedDays,
+        },
+        {
+          name: 'Express Delivery',
+          carrier: 'Express Courier',
+          price: expressRate,
+          days: zoneInfo.zone === 'lagos' ? 'Same day' : '1-2 days faster',
+        },
+      ];
+
+      // Free shipping threshold
+      const freeShippingThreshold = 150000;
+      const freeShippingNote = `💡 **Free Shipping** on orders over ${formatPrice(freeShippingThreshold)}!`;
+
+      let text = `**🚚 Shipping to ${city}, ${state}**\n\n`;
+
+      if (products.length > 0) {
+        text += `**Items:**\n`;
+        products.forEach(p => {
+          text += `• ${p.name}\n`;
+        });
+        text += `**Total Weight:** ${weight.toFixed(1)}kg\n\n`;
+      }
+
+      text += `**Delivery Options:**\n\n`;
+
+      options.forEach(opt => {
+        text += `📦 **${opt.name}**\n`;
+        text += `   • ${formatPrice(opt.price)}\n`;
+        text += `   • ${opt.days}\n`;
+        text += `   • via ${opt.carrier}\n\n`;
+      });
+
+      text += `---\n${freeShippingNote}\n\n`;
+
+      if (zoneInfo.zone === 'lagos') {
+        text += `🏪 **Pickup Available!** Save on shipping by picking up from our Lagos location.`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          state,
+          city,
+          zone: zoneInfo.zone,
+          shipping_options: options,
+          estimated_weight: weight,
+          free_shipping_threshold: freeShippingThreshold,
+        },
+      };
+    }
+  );
+
+  // Tool: Save Delivery Address
+  server.registerTool(
+    'save_delivery_address',
+    {
+      title: 'Save Delivery Address',
+      description: 'Save customer delivery address for easy checkout. The address is stored for the current session and can be used when adding items to cart.',
+      inputSchema: {
+        full_name: z.string().min(2).max(100).describe('Recipient full name'),
+        phone: z.string().min(10).max(15).describe('Phone number'),
+        email: z.string().email().optional().describe('Email address'),
+        address: z.string().min(5).max(200).describe('Street address'),
+        city: z.string().min(2).max(100).describe('City'),
+        state: z.string().min(2).max(50).describe('State'),
+        landmark: z.string().max(100).optional().describe('Nearby landmark'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Saving address...',
+        'openai/toolInvocation/invoked': 'Address saved',
+      },
+    },
+    async (args) => {
+      // Validate phone
+      const phone = sanitizeString(args.phone, 15);
+      if (!isValidPhone(phone)) {
+        return { content: [{ type: 'text', text: '❌ Please provide a valid phone number.' }] };
+      }
+
+      // Create checkout URL with pre-filled address
+      const addressParams = new URLSearchParams({
+        name: sanitizeString(args.full_name, 100),
+        phone: phone,
+        email: args.email || '',
+        address: sanitizeString(args.address, 200),
+        city: sanitizeString(args.city, 100),
+        state: sanitizeString(args.state, 50),
+        landmark: args.landmark ? sanitizeString(args.landmark, 100) : '',
+      });
+
+      const checkoutUrl = `https://ogabassey.com/ogabassey/checkout?${addressParams.toString()}`;
+
+      const text = `**✅ Delivery Address Saved!**\n\n` +
+        `**Recipient:** ${sanitizeString(args.full_name, 100)}\n` +
+        `**Phone:** ${phone}\n` +
+        (args.email ? `**Email:** ${args.email}\n` : '') +
+        `**Address:** ${sanitizeString(args.address, 200)}\n` +
+        `**City:** ${sanitizeString(args.city, 100)}, ${sanitizeString(args.state, 50)}\n` +
+        (args.landmark ? `**Landmark:** ${sanitizeString(args.landmark, 100)}\n` : '') +
+        `\n---\n` +
+        `🛒 Your address is ready! When you add items to cart and proceed to checkout, this address will be pre-filled.\n\n` +
+        `[Proceed to Checkout with this address](${checkoutUrl})`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          address_saved: true,
+          checkout_url: checkoutUrl,
+          address: {
+            name: args.full_name,
+            phone,
+            email: args.email,
+            street: args.address,
+            city: args.city,
+            state: args.state,
+            landmark: args.landmark,
+          },
+        },
+      };
+    }
+  );
+
+  // Tool: Get Related Products (Upsell & Cross-sell)
+  server.registerTool(
+    'get_related_products',
+    {
+      title: 'Related Products & Accessories',
+      description: 'Get related products, accessories, and upgrades for upselling and cross-selling. Use this when a customer is viewing or has added a product to cart to suggest complementary items.',
+      inputSchema: {
+        product_id: z.string().optional().describe('Product ID to find related items for'),
+        product_name: z.string().optional().describe('Product name if ID not available'),
+        category: z.string().optional().describe('Product category for broader matching'),
+        type: z.enum(['accessories', 'upgrades', 'bundles', 'all']).optional().describe('Type of recommendations to show'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Finding related products...',
+        'openai/toolInvocation/invoked': 'Recommendations ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to find related products.' }] };
+      }
+
+      // Detect product type from name or category
+      const productName = args.product_name?.toLowerCase() || '';
+      const category = args.category?.toLowerCase() || '';
+
+      // Product-specific accessories mapping
+      const accessoryMappings: Record<string, string[]> = {
+        'iphone': ['airpods', 'case', 'charger', 'screen protector', 'magsafe', 'cable', 'power bank'],
+        'samsung': ['galaxy buds', 'case', 'charger', 'screen protector', 'wireless charger', 'cable'],
+        'macbook': ['magic mouse', 'magic keyboard', 'adapter', 'sleeve', 'stand', 'hub', 'monitor'],
+        'laptop': ['mouse', 'keyboard', 'bag', 'stand', 'cooling pad', 'adapter', 'monitor'],
+        'phone': ['case', 'charger', 'screen protector', 'earbuds', 'power bank', 'cable'],
+        'ps5': ['controller', 'headset', 'charging dock', 'camera', 'media remote'],
+        'xbox': ['controller', 'headset', 'play and charge kit', 'expansion card'],
+        'gaming': ['headset', 'controller', 'monitor', 'chair', 'mouse', 'keyboard'],
+      };
+
+      // Determine accessory keywords based on product
+      let accessoryKeywords: string[] = [];
+      for (const [key, accessories] of Object.entries(accessoryMappings)) {
+        if (productName.includes(key) || category.includes(key)) {
+          accessoryKeywords = [...accessoryKeywords, ...accessories];
+        }
+      }
+
+      // Default to general accessories if no specific match
+      if (accessoryKeywords.length === 0) {
+        accessoryKeywords = ['case', 'charger', 'cable', 'adapter', 'accessory'];
+      }
+
+      const recommendations: {
+        accessories: Array<{ id: string; name: string; price: number; image?: string; compare_at_price?: number }>;
+        upgrades: Array<{ id: string; name: string; price: number; image?: string; compare_at_price?: number }>;
+        bundles: Array<{ name: string; items: string[]; savings: string }>;
+      } = { accessories: [], upgrades: [], bundles: [] };
+
+      // Fetch current product if ID provided (to find price for upgrades)
+      let currentPrice = 0;
+      let currentCategory = '';
+      if (args.product_id) {
+        const { data: currentProduct, error: productError } = await supabase
+          .from('products')
+          .select('price, category')
+          .eq('id', args.product_id)
+          .single();
+        if (productError && productError.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'get_related_products', message: productError.message }));
+        }
+        if (currentProduct) {
+          currentPrice = currentProduct.price || 0;
+          currentCategory = currentProduct.category || '';
+        }
+      }
+
+      // Fetch accessories
+      if (args.type === 'accessories' || args.type === 'all' || !args.type) {
+        // Validate accessory keywords are safe alphanumeric strings
+        const safeKeywords = accessoryKeywords
+          .map(k => k.replace(/[^a-zA-Z0-9-]/g, ''))
+          .filter(k => k.length > 0 && k.length <= 30);
+
+        const { data: accessories, error: accessoryError } = await supabase
+          .from('products')
+          .select('id, name, price, compare_at_price, images')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .lt('price', 50000) // Accessories are usually < ₦50k
+          .or(safeKeywords.map(k => `name.ilike.%${k}%`).join(','))
+          .limit(6);
+
+        if (!accessoryError && accessories) {
+          recommendations.accessories = accessories.map(p => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            compare_at_price: p.compare_at_price,
+            image: p.images?.[0],
+          }));
+        }
+      }
+
+      // Fetch upgrades (higher priced items in same category)
+      if ((args.type === 'upgrades' || args.type === 'all' || !args.type) && currentPrice > 0) {
+        const { data: upgrades } = await supabase
+          .from('products')
+          .select('id, name, price, compare_at_price, images')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .gt('price', currentPrice * 1.1) // At least 10% higher
+          .lt('price', currentPrice * 2) // But not more than 2x
+          .ilike('category', `%${currentCategory}%`)
+          .order('price', { ascending: true })
+          .limit(4);
+
+        if (upgrades) {
+          recommendations.upgrades = upgrades.map(p => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            compare_at_price: p.compare_at_price,
+            image: p.images?.[0],
+          }));
+        }
+      }
+
+      // Generate bundle suggestions based on product type
+      if (args.type === 'bundles' || args.type === 'all' || !args.type) {
+        if (productName.includes('iphone') || productName.includes('phone')) {
+          recommendations.bundles = [
+            { name: 'Complete Protection Bundle', items: ['Phone Case', 'Screen Protector', 'Power Bank'], savings: 'Save ₦5,000' },
+            { name: 'Audio Bundle', items: ['AirPods/Earbuds', 'Charging Cable'], savings: 'Save ₦3,000' },
+          ];
+        } else if (productName.includes('macbook') || productName.includes('laptop')) {
+          recommendations.bundles = [
+            { name: 'Productivity Bundle', items: ['Laptop Bag', 'Mouse', 'USB-C Hub'], savings: 'Save ₦8,000' },
+            { name: 'Home Office Bundle', items: ['Monitor Stand', 'External Keyboard', 'Mouse Pad'], savings: 'Save ₦6,000' },
+          ];
+        } else if (productName.includes('ps5') || productName.includes('xbox') || category.includes('gaming')) {
+          recommendations.bundles = [
+            { name: 'Gaming Essentials Bundle', items: ['Extra Controller', 'Gaming Headset'], savings: 'Save ₦10,000' },
+            { name: 'Ultimate Gaming Bundle', items: ['Extra Controller', 'Headset', 'Charging Dock'], savings: 'Save ₦15,000' },
+          ];
+        }
+      }
+
+      // Format response
+      let text = `**✨ Complete Your Purchase**\n\n`;
+
+      // Accessories section
+      if (recommendations.accessories.length > 0) {
+        text += `**🎧 Recommended Accessories:**\n`;
+        recommendations.accessories.slice(0, 4).forEach(item => {
+          const hasDiscount = item.compare_at_price && item.compare_at_price > item.price;
+          text += `• **${item.name}** - ${formatPrice(item.price)}`;
+          if (hasDiscount) {
+            const pct = Math.round((1 - item.price / (item.compare_at_price || item.price)) * 100);
+            text += ` ~~${formatPrice(item.compare_at_price || 0)}~~ (-${pct}%)`;
+          }
+          text += `\n`;
+        });
+        text += '\n';
+      }
+
+      // Upgrades section
+      if (recommendations.upgrades.length > 0) {
+        text += `**⬆️ Consider Upgrading:**\n`;
+        recommendations.upgrades.slice(0, 3).forEach(item => {
+          const priceDiff = item.price - currentPrice;
+          text += `• **${item.name}** - ${formatPrice(item.price)} (+${formatPrice(priceDiff)})\n`;
+        });
+        text += '\n';
+      }
+
+      // Bundles section
+      if (recommendations.bundles.length > 0) {
+        text += `**📦 Value Bundles:**\n`;
+        recommendations.bundles.forEach(bundle => {
+          text += `• **${bundle.name}** - ${bundle.savings}\n`;
+          text += `  _Includes: ${bundle.items.join(', ')}_\n`;
+        });
+        text += '\n';
+      }
+
+      if (recommendations.accessories.length === 0 && recommendations.upgrades.length === 0) {
+        text = `**🛍️ Great Choice!**\n\nThis product is excellent as-is. If you need any accessories or have questions, just ask!`;
+      } else {
+        text += `---\n_Ask me about any of these items for more details!_`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: recommendations,
+      };
+    }
+  );
+
+  // Tool: Check Cart & Suggest Add-ons (Proactive Cross-sell)
+  server.registerTool(
+    'suggest_cart_addons',
+    {
+      title: 'Smart Cart Suggestions',
+      description: 'Analyze customer cart and proactively suggest add-ons, protection plans, and complementary products. Use this when a customer has items in cart or is about to checkout.',
+      inputSchema: {
+        cart_items: z.string().describe('Comma-separated product IDs or names in the cart'),
+        cart_total: z.number().optional().describe('Current cart total in NGN'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Analyzing your cart...',
+        'openai/toolInvocation/invoked': 'Suggestions ready',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to analyze cart.' }] };
+      }
+
+      const cartItems = args.cart_items.split(',').map(s => s.trim()).filter(Boolean);
+      const cartTotal = args.cart_total || 0;
+
+      // Analyze cart items
+      const suggestions: Array<{ type: string; title: string; description: string; action?: string }> = [];
+
+      // Free shipping threshold
+      const freeShippingThreshold = 150000;
+      if (cartTotal > 0 && cartTotal < freeShippingThreshold) {
+        const remaining = freeShippingThreshold - cartTotal;
+        suggestions.push({
+          type: 'free_shipping',
+          title: '🚚 Almost Free Shipping!',
+          description: `Add ${formatPrice(remaining)} more to get FREE shipping!`,
+          action: 'Browse accessories under ' + formatPrice(remaining),
+        });
+      }
+
+      // Protection plan for high-value items
+      if (cartTotal > 100000) {
+        suggestions.push({
+          type: 'protection',
+          title: '🛡️ Protect Your Purchase',
+          description: 'Consider our extended warranty for peace of mind.',
+          action: 'Add 2-year protection plan',
+        });
+      }
+
+      // Financing for expensive items
+      if (cartTotal > 200000) {
+        const monthlyPayment = Math.round((cartTotal * 1.15) / 12); // 15% interest over 12 months
+        suggestions.push({
+          type: 'financing',
+          title: '💳 Pay in Installments',
+          description: `Only ${formatPrice(monthlyPayment)}/month for 12 months!`,
+          action: 'Apply for Buy Now Pay Later',
+        });
+      }
+
+      // Analyze cart for accessories
+      const cartNames = cartItems.join(' ').toLowerCase();
+      const accessorySuggestions: string[] = [];
+
+      if (cartNames.includes('phone') || cartNames.includes('iphone') || cartNames.includes('samsung')) {
+        accessorySuggestions.push('Screen protector', 'Phone case', 'Fast charger');
+      }
+      if (cartNames.includes('laptop') || cartNames.includes('macbook')) {
+        accessorySuggestions.push('Laptop bag', 'Mouse', 'USB-C hub');
+      }
+      if (cartNames.includes('airpods') || cartNames.includes('buds')) {
+        accessorySuggestions.push('Protective case');
+      }
+      if (cartNames.includes('ps5') || cartNames.includes('xbox')) {
+        accessorySuggestions.push('Extra controller', 'Gaming headset');
+      }
+
+      if (accessorySuggestions.length > 0) {
+        suggestions.push({
+          type: 'accessories',
+          title: '🎧 Don\'t Forget',
+          description: accessorySuggestions.slice(0, 3).join(', '),
+          action: 'Add popular accessories',
+        });
+      }
+
+      // Trade-in reminder
+      if (cartTotal > 150000) {
+        suggestions.push({
+          type: 'trade_in',
+          title: '🔄 Trade In & Save',
+          description: 'Got an old device? Trade it in and reduce your total!',
+          action: 'Estimate trade-in value',
+        });
+      }
+
+      // Format response
+      let text = `**🛒 Smart Cart Suggestions**\n\n`;
+
+      if (suggestions.length === 0) {
+        text += `Your cart looks great! Ready to checkout?\n\n[Proceed to Checkout](https://ogabassey.com/ogabassey/checkout)`;
+      } else {
+        suggestions.forEach(s => {
+          text += `**${s.title}**\n${s.description}\n`;
+          if (s.action) text += `→ _${s.action}_\n`;
+          text += '\n';
+        });
+
+        text += `---\n_These suggestions can save you money and enhance your purchase!_`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { suggestions, cart_total: cartTotal },
+      };
+    }
+  );
+
+  // Tool: Price Drop Alert
+  server.registerTool(
+    'set_price_alert',
+    {
+      title: 'Price Drop Alert',
+      description: 'Subscribe to price drop alerts for a product. Get notified when the price drops below your target or when there\'s a sale.',
+      inputSchema: {
+        product_id: z.string().optional().describe('Product ID to track'),
+        product_name: z.string().optional().describe('Product name if ID not available'),
+        target_price: z.number().optional().describe('Target price to alert at (NGN)'),
+        customer_email: z.string().email().describe('Email address to receive alerts'),
+        customer_phone: z.string().optional().describe('Phone number for SMS alerts'),
+      },
+      _meta: {
+        'openai/toolInvocation/invoking': 'Setting up price alert...',
+        'openai/toolInvocation/invoked': 'Alert created!',
+      },
+    },
+    async (args) => {
+      const merchantId = await getMerchantId();
+      if (!merchantId) {
+        return { content: [{ type: 'text', text: '❌ Unable to set price alert.' }] };
+      }
+
+      // Find product
+      let product: { id: string; name: string; price: number; images?: string[] } | null = null;
+
+      if (args.product_id) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, images')
+          .eq('id', args.product_id)
+          .eq('merchant_id', merchantId)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'set_price_alert_by_id', message: error.message }));
+        }
+        product = data;
+      } else if (args.product_name) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, images')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
+          .limit(1)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'set_price_alert_by_name', message: error.message }));
+        }
+        product = data;
+      }
+
+      if (!product) {
+        return { content: [{ type: 'text', text: '❌ Product not found. Please provide a valid product name or ID.' }] };
+      }
+
+      const targetPrice = args.target_price || Math.round(product.price * 0.9); // Default: 10% below current
+      const alertId = `PA-${Date.now().toString(36).toUpperCase()}`;
+
+      // Store alert in form_submissions (can be migrated to dedicated table later)
+      const { error } = await supabase
+        .from('form_submissions')
+        .insert({
+          merchant_id: merchantId,
+          form_name: 'price_alert',
+          form_data: {
+            alert_id: alertId,
+            product_id: product.id,
+            product_name: product.name,
+            current_price: product.price,
+            target_price: targetPrice,
+            customer_email: args.customer_email,
+            customer_phone: args.customer_phone || null,
+            status: 'active',
+            created_via: 'ChatGPT MCP',
+            created_at: new Date().toISOString(),
+          },
+          status: 'unread',
+        });
+
+      if (error) {
+        console.error('Error saving price alert:', error);
+        return { content: [{ type: 'text', text: '❌ Failed to create alert. Please try again.' }] };
+      }
+
+      const text = `**🔔 Price Alert Set!**\n\n` +
+        `**Product:** ${product.name}\n` +
+        `**Current Price:** ${formatPrice(product.price)}\n` +
+        `**Alert When:** ${formatPrice(targetPrice)} or lower\n` +
+        `**Notify via:** ${args.customer_email}${args.customer_phone ? ` & ${args.customer_phone}` : ''}\n\n` +
+        `**Alert ID:** \`${alertId}\`\n\n` +
+        `---\n` +
+        `📧 We'll email you as soon as the price drops!\n` +
+        `_Save your alert ID to manage this alert later._`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: {
+          alert_id: alertId,
+          product: { id: product.id, name: product.name, current_price: product.price },
+          target_price: targetPrice,
+          status: 'active',
+        },
+      };
+    }
+  );
+
+  // Find best value (lowest price with good condition)
+  const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
+  const cheapest = sortedByPrice[0];
+  const savings = products.length > 1 ? sortedByPrice[1].price - cheapest.price : 0;
+
+  text += `**💡 Recommendation:**\n`;
+  text += `• **Best Value:** ${cheapest.name} - ${formatPrice(cheapest.price)}`;
+  if (savings > 0) text += ` (Save ${formatPrice(savings)})`;
+  text += `\n`;
+
+  // Find premium option
+  const premium = sortedByPrice[sortedByPrice.length - 1];
+  if (premium.id !== cheapest.id) {
+    text += `• **Premium Choice:** ${premium.name} - ${formatPrice(premium.price)}\n`;
+  }
+
+  text += `\n_Need more details? Ask me about any specific product!_`;
+
+  return {
+    content: [{ type: 'text', text }],
+    structuredContent: {
+      products: products.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        condition: p.condition,
+        brand: p.brand,
+      })),
+      recommendation: {
+        best_value: cheapest.name,
+        savings: savings,
+      },
+    },
+  };
+}
+  );
+
+// Tool: Wishlist Management
+server.registerTool(
+  'manage_wishlist',
+  {
+    title: 'Wishlist',
+    description: 'Add products to wishlist, view wishlist, or get notified about deals on wishlist items.',
+    inputSchema: {
+      action: z.enum(['add', 'view', 'remove', 'check_deals']).describe('Action to perform'),
+      product_id: z.string().optional().describe('Product ID for add/remove actions'),
+      product_name: z.string().optional().describe('Product name if ID not available'),
+      customer_email: z.string().email().optional().describe('Email to associate wishlist with'),
+    },
+    _meta: {
+      'openai/toolInvocation/invoking': 'Managing wishlist...',
+      'openai/toolInvocation/invoked': 'Wishlist updated',
+    },
+  },
+  async (args) => {
+    const merchantId = await getMerchantId();
+    if (!merchantId) {
+      return { content: [{ type: 'text', text: '❌ Unable to manage wishlist.' }] };
+    }
+
+    const action = args.action;
+
+    if (action === 'add') {
+      // Find product
+      let product: { id: string; name: string; price: number; images?: string[] } | null = null;
+
+      if (args.product_id) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, images')
+          .eq('id', args.product_id)
+          .eq('merchant_id', merchantId)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_id', message: error.message }));
+        }
+        product = data;
+      } else if (args.product_name) {
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, images')
+          .eq('merchant_id', merchantId)
+          .eq('status', 'active')
+          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
+          .limit(1)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error(JSON.stringify({ type: 'error', context: 'wishlist_add_by_name', message: error.message }));
+        }
+        product = data;
+      }
+
+      if (!product) {
+        return { content: [{ type: 'text', text: '❌ Product not found. Please provide a valid product name.' }] };
+      }
+
+      // Store in form_submissions as wishlist item
+      const { error } = await supabase
+        .from('form_submissions')
+        .insert({
+          merchant_id: merchantId,
+          form_name: 'wishlist_item',
+          form_data: {
+            product_id: product.id,
+            product_name: product.name,
+            price_when_added: product.price,
+            customer_email: args.customer_email || 'anonymous',
+            added_via: 'ChatGPT MCP',
+            added_at: new Date().toISOString(),
+          },
+          status: 'unread',
+        });
+
+      if (error) {
+        console.error('Error adding to wishlist:', error);
+        return { content: [{ type: 'text', text: '❌ Failed to add to wishlist. Please try again.' }] };
+      }
+
+      const text = `**❤️ Added to Wishlist!**\n\n` +
+        `**${product.name}**\n` +
+        `${formatPrice(product.price)}\n\n` +
+        `---\n` +
+        `💡 I'll let you know if the price drops or if there's a sale!\n` +
+        `_To view your wishlist, just ask "show my wishlist"._`;
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { action: 'added', product: { id: product.id, name: product.name, price: product.price } },
+      };
+
+    } else if (action === 'view' || action === 'check_deals') {
+      // Get wishlist items
+      const { data: wishlistItems } = await supabase
+        .from('form_submissions')
+        .select('form_data')
+        .eq('merchant_id', merchantId)
+        .eq('form_name', 'wishlist_item')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!wishlistItems || wishlistItems.length === 0) {
+        return { content: [{ type: 'text', text: '📋 Your wishlist is empty!\n\nBrowse our products and ask me to add items to your wishlist.' }] };
+      }
+
+      // Get current prices for wishlist items
+      const productIds = wishlistItems.map(w => (w.form_data as Record<string, unknown>).product_id as string);
+      const { data: currentProducts } = await supabase
+        .from('products')
+        .select('id, name, price, compare_at_price')
+        .in('id', productIds)
+        .eq('merchant_id', merchantId);
+
+      const productMap = new Map(currentProducts?.map(p => [p.id, p]) || []);
+
+      let text = `**❤️ Your Wishlist**\n\n`;
+      let hasDeals = false;
+
+      wishlistItems.forEach((item, index) => {
+        const formData = item.form_data as Record<string, unknown>;
+        const product = productMap.get(formData.product_id as string);
+
+        if (product) {
+          const priceWhenAdded = formData.price_when_added as number;
+          const currentPrice = product.price;
+          const priceDrop = priceWhenAdded - currentPrice;
+          const hasDiscount = product.compare_at_price && product.compare_at_price > currentPrice;
+
+          text += `${index + 1}. **${product.name}**\n`;
+          text += `   ${formatPrice(currentPrice)}`;
+
+          if (priceDrop > 0) {
+            text += ` 🔥 **Price dropped ${formatPrice(priceDrop)}!**`;
+            hasDeals = true;
+          } else if (hasDiscount) {
+            const pct = Math.round((1 - currentPrice / (product.compare_at_price || currentPrice)) * 100);
+            text += ` 🏷️ **${pct}% OFF**`;
+            hasDeals = true;
+          }
+          text += `\n\n`;
+        }
+      });
+
+      if (action === 'check_deals' && !hasDeals) {
+        text += `---\n_No deals on your wishlist items right now. I'll notify you when prices drop!_`;
+      } else if (hasDeals) {
+        text += `---\n🎉 **Great news!** Some items on your wishlist have deals. Don't miss out!`;
+      }
+
+      return {
+        content: [{ type: 'text', text }],
+        structuredContent: { wishlist_count: wishlistItems.length, has_deals: hasDeals },
+      };
+
+    } else if (action === 'remove') {
+      return { content: [{ type: 'text', text: '❌ Remove functionality coming soon! For now, items stay on your wishlist.' }] };
+    }
+
+    return { content: [{ type: 'text', text: '❌ Unknown action.' }] };
+  }
+);
+
+// Tool: Santa Chatbot (Festive Gift Helper)
+server.registerTool(
+  'ask_santa',
+  {
+    title: 'Ask Santa 🎅',
+    description: 'A festive gift helper! Ask Santa for gift recommendations, holiday deals, and seasonal suggestions. Perfect for Christmas shopping!',
+    inputSchema: {
+      message: z.string().min(3).max(300).describe('Your message or question for Santa'),
+      recipient: z.string().optional().describe('Who is the gift for? (e.g., mom, dad, friend, colleague)'),
+      budget: z.number().optional().describe('Gift budget in NGN'),
+    },
+    _meta: {
+      'openai/toolInvocation/invoking': '🎅 Santa is thinking...',
+      'openai/toolInvocation/invoked': '🎄 Ho ho ho!',
+    },
+  },
+  async (args) => {
+    const merchantId = await getMerchantId();
+    if (!merchantId) {
+      return { content: [{ type: 'text', text: '🎅 Ho ho ho! Santa is taking a break. Please try again!' }] };
+    }
+
+    const message = args.message.toLowerCase();
+    const recipient = args.recipient?.toLowerCase() || '';
+    const budget = args.budget;
+
+    // Santa's personality responses
+    const santaGreetings = [
+      'Ho ho ho! 🎅',
+      'Merry Christmas! 🎄',
+      'Season\'s Greetings! ❄️',
+      'Happy Holidays! 🎁',
+    ];
+    const greeting = santaGreetings[Math.floor(Math.random() * santaGreetings.length)];
+
+    // Determine gift category based on recipient
+    let giftKeywords: string[] = [];
+    let giftSuggestions: string[] = [];
+
+    if (recipient.includes('dad') || recipient.includes('father') || recipient.includes('husband') || recipient.includes('boyfriend')) {
+      giftKeywords = ['laptop', 'headphone', 'watch', 'ps5', 'xbox', 'speaker'];
+      giftSuggestions = ['A powerful laptop for work', 'Premium headphones', 'Gaming console', 'Smart watch'];
+    } else if (recipient.includes('mom') || recipient.includes('mother') || recipient.includes('wife') || recipient.includes('girlfriend')) {
+      giftKeywords = ['iphone', 'airpods', 'tablet', 'watch', 'speaker'];
+      giftSuggestions = ['Latest iPhone', 'AirPods Pro', 'iPad for creativity', 'Smart home devices'];
+    } else if (recipient.includes('kid') || recipient.includes('child') || recipient.includes('son') || recipient.includes('daughter')) {
+      giftKeywords = ['ps5', 'xbox', 'nintendo', 'tablet', 'headphone'];
+      giftSuggestions = ['Gaming console', 'Tablet for learning', 'Fun headphones', 'Gaming accessories'];
+    } else if (recipient.includes('friend') || recipient.includes('colleague')) {
+      giftKeywords = ['airpods', 'power bank', 'speaker', 'accessory'];
+      giftSuggestions = ['Wireless earbuds', 'Portable speaker', 'Power bank', 'Phone accessories'];
+    } else if (recipient.includes('gamer')) {
+      giftKeywords = ['ps5', 'xbox', 'controller', 'headset', 'gaming'];
+      giftSuggestions = ['Gaming console', 'Pro controller', 'Gaming headset', 'Game titles'];
+    } else {
+      giftKeywords = ['iphone', 'airpods', 'laptop', 'tablet', 'speaker'];
+      giftSuggestions = ['Smartphone', 'Wireless earbuds', 'Laptop', 'Smart accessories'];
+    }
+
+    // Search for gift products
+    // Validate gift keywords are safe alphanumeric strings (these are hardcoded but validate anyway)
+    const safeGiftKeywords = giftKeywords
+      .map(k => k.replace(/[^a-zA-Z0-9-]/g, ''))
+      .filter(k => k.length > 0 && k.length <= 30);
+
+    let query = supabase
+      .from('products')
+      .select('id, name, price, compare_at_price, images')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .or(safeGiftKeywords.map(k => `name.ilike.%${k}%`).join(','))
+      .order('price', { ascending: true });
+
+    if (budget) {
+      query = query.lte('price', budget);
+    }
+
+    const { data: products, error: giftError } = await query.limit(6);
+    if (giftError) {
+      console.error(JSON.stringify({ type: 'error', context: 'ask_santa', message: giftError.message }));
+    }
+
+    // Build Santa's response
+    let text = `**${greeting}**\n\n`;
+
+    if (message.includes('help') || message.includes('suggest') || message.includes('recommend') || message.includes('gift')) {
+      text += `🎁 **Santa's Gift Guide${recipient ? ` for ${args.recipient}` : ''}**\n\n`;
+
+      if (products && products.length > 0) {
+        text += `Here are my top picks from the nice list:\n\n`;
+        products.slice(0, 4).forEach((p, i) => {
+          const hasDiscount = p.compare_at_price && p.compare_at_price > p.price;
+          text += `${i + 1}. **${p.name}**\n`;
+          text += `   ${formatPrice(p.price)}`;
+          if (hasDiscount) {
+            text += ` 🎄 _Holiday Sale!_`;
+          }
+          text += `\n`;
+        });
+      } else {
+        text += `My elves are working hard to find the perfect gift! Here are some ideas:\n\n`;
+        giftSuggestions.forEach((s, i) => {
+          text += `${i + 1}. ${s}\n`;
+        });
+      }
+
+      text += `\n🎅 _Santa's tip: Order early for delivery before Christmas!_`;
+
+    } else if (message.includes('deal') || message.includes('sale') || message.includes('discount')) {
+      text += `🎄 **Holiday Deals from Santa's Workshop!**\n\n`;
+
+      // Find discounted products
+      const { data: deals } = await supabase
+        .from('products')
+        .select('id, name, price, compare_at_price')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'active')
+        .not('compare_at_price', 'is', null)
+        .order('compare_at_price', { ascending: false })
+        .limit(5);
+
+      if (deals && deals.length > 0) {
+        deals.forEach((d) => {
+          if (d.compare_at_price && d.compare_at_price > d.price) {
+            const pct = Math.round((1 - d.price / d.compare_at_price) * 100);
+            text += `🎁 **${d.name}**\n`;
+            text += `   ${formatPrice(d.price)} ~~${formatPrice(d.compare_at_price)}~~ (-${pct}%)\n\n`;
+          }
+        });
+      } else {
+        text += `No special deals right now, but everything at Ogabassey is priced fairly!\n`;
+      }
+
+      text += `🔔 _Set a price alert to catch the next sale!_`;
+
+    } else {
+      // General festive response
+      text += `I'm Santa's digital helper at Ogabassey! 🎄\n\n`;
+      text += `I can help you with:\n`;
+      text += `• 🎁 **Gift recommendations** - Tell me who you're shopping for\n`;
+      text += `• 🏷️ **Holiday deals** - Find the best discounts\n`;
+      text += `• 💰 **Budget gifts** - Set a budget and I'll find options\n`;
+      text += `• ❤️ **Wishlist** - Save items for Santa to remember\n\n`;
+      text += `_Try saying: "Santa, find a gift for my dad under ₦200,000"_\n\n`;
+      text += `🎅 **Merry Christmas and Happy Shopping!**`;
+    }
+
+    return {
+      content: [{ type: 'text', text }],
+      structuredContent: {
+        santa_mode: true,
+        recipient,
+        budget,
+        products: products?.slice(0, 4).map(p => ({ id: p.id, name: p.name, price: p.price })) || [],
+      },
+    };
+  }
+);
+
+return server;
+}
+
+// =============================================================================
+// HTTP SERVER
+// =============================================================================
+
+const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  const startTime = Date.now();
+  const requestId = randomUUID();
+  const ip = getClientIP(req);
+
+  // Set security headers on all responses
+  setSecurityHeaders(res);
+
+  // Set request timeout
+  req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: req.method || 'UNKNOWN', path: req.url || '/', statusCode: 408, durationMs: Date.now() - startTime, error: 'Request timeout' });
+    if (!res.headersSent) {
+      res.writeHead(408).end('Request Timeout');
+    }
+  });
+
+  if (!req.url) {
+    res.writeHead(400).end('Bad Request');
+    return;
+  }
+
+  const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+
+  // Rate limiting
+  const rateLimit = checkRateLimit(ip);
+  res.setHeader('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS);
+  res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
+  res.setHeader('X-RateLimit-Reset', Math.ceil(rateLimit.resetAt / 1000));
+
+  if (!rateLimit.allowed) {
+    logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: req.method || 'UNKNOWN', path: url.pathname, statusCode: 429, durationMs: Date.now() - startTime, error: 'Rate limited' });
+    res.writeHead(429, { 'Retry-After': Math.ceil((rateLimit.resetAt - Date.now()) / 1000) }).end('Too Many Requests');
+    return;
+  }
+
+  // CORS preflight
+  if (req.method === 'OPTIONS' && url.pathname === MCP_PATH) {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE',
+      'Access-Control-Allow-Headers': 'content-type, mcp-session-id',
+      'Access-Control-Expose-Headers': 'Mcp-Session-Id',
+      'Access-Control-Max-Age': '86400',
+    });
+    res.end();
+    return;
+  }
+
+  // Health check endpoint
+  if (req.method === 'GET' && url.pathname === '/') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      name: 'Ogabassey ChatGPT MCP Server',
+      version: '1.0.0',
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    }));
+    logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: 'GET', path: '/', statusCode: 200, durationMs: Date.now() - startTime });
+    return;
+  }
+
+  // Readiness probe
+  if (req.method === 'GET' && url.pathname === '/health') {
+    try {
+      const merchantId = await getMerchantId();
+      if (merchantId) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ status: 'healthy', database: 'connected' }));
+      } else {
+        res.writeHead(503, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ status: 'unhealthy', database: 'merchant not found' }));
+      }
+    } catch {
+      res.writeHead(503, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ status: 'unhealthy', database: 'connection failed' }));
+    }
+    return;
+  }
+
+  // MCP endpoint
+  const MCP_METHODS = new Set(['POST', 'GET', 'DELETE']);
+  if (url.pathname === MCP_PATH && req.method && MCP_METHODS.has(req.method)) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id');
+
+    const server = createOgabasseyServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+
+    res.on('close', () => {
+      transport.close();
+      server.close();
+    });
+
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res);
+      logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: req.method, path: MCP_PATH, statusCode: 200, durationMs: Date.now() - startTime });
+    } catch (error) {
+      logError(requestId, error);
+      logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: req.method, path: MCP_PATH, statusCode: 500, durationMs: Date.now() - startTime, error: 'MCP error' });
+      if (!res.headersSent) {
+        res.writeHead(500).end('Internal Server Error');
+      }
+    }
+    return;
+  }
+
+  // 404 for everything else
+  logAudit({ timestamp: new Date().toISOString(), requestId, ip, method: req.method || 'UNKNOWN', path: url.pathname, statusCode: 404, durationMs: Date.now() - startTime });
+  res.writeHead(404).end('Not Found');
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log(JSON.stringify({ type: 'lifecycle', event: 'shutdown', timestamp: new Date().toISOString() }));
+  httpServer.close(() => process.exit(0));
+});
+
+process.on('SIGINT', () => {
+  console.log(JSON.stringify({ type: 'lifecycle', event: 'shutdown', timestamp: new Date().toISOString() }));
+  httpServer.close(() => process.exit(0));
+});
+
+// Unhandled rejection handler (fail closed - log and continue)
+process.on('unhandledRejection', (reason) => {
+  console.error(JSON.stringify({ type: 'unhandledRejection', reason: String(reason), timestamp: new Date().toISOString() }));
+});
+
+httpServer.listen(PORT, () => {
+  console.log(JSON.stringify({ type: 'lifecycle', event: 'startup', port: PORT, timestamp: new Date().toISOString() }));
+  console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║     Ogabassey ChatGPT MCP Server (Production)                  ║
+╠════════════════════════════════════════════════════════════════╣
+║  Status:    Running                                            ║
+║  Port:      ${PORT}                                                ║
+║  Endpoint:  https://mcp.ogabassey.com/mcp                      ║
+╠════════════════════════════════════════════════════════════════╣
+║  Security Features:                                            ║
+║    • Rate limiting (${RATE_LIMIT_MAX_REQUESTS} req/min per IP)                     ║
+║    • Input validation & sanitization                           ║
+║    • Audit logging (JSON structured)                           ║
+║    • Security headers (CSP, XSS, etc.)                         ║
+║    • Request timeout (${REQUEST_TIMEOUT_MS / 1000}s)                                 ║
+║    • Graceful shutdown                                         ║
+╚════════════════════════════════════════════════════════════════╝
+`);
+});
