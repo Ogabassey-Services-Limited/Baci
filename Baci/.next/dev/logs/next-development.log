@@ -1,0 +1,112 @@
+[00:48:24.807] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:24.882] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:25.064] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:25.377] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.110] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.257] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.334] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.545] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.723] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.821] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.882] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:26.927] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:27.119] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/client/components/builtin/global-not-found'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:27.164] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:27.283] Server  ERROR   ⨯ Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
+[00:48:27.364] Server  ERROR   Error: Cannot find module 'next/dist/pages/_error'
+Require stack:
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/on-demand-entry-handler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/dev/hot-reloader-turbopack.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-utils/setup-dev-bundler.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/router-server.js
+- /Users/mac/Baci-app/Baci/node_modules/next/dist/server/lib/start-server.js
