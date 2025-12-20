@@ -69,7 +69,8 @@ export function ConnectivityBanner() {
   // Monitor network connectivity
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
-      const isConnected = state.isConnected && state.isInternetReachable !== false;
+      // Only show offline if explicitly disconnected, allow null/unknown states
+      const isConnected = state.isConnected === true;
 
       if (!isConnected) {
         // Going offline
@@ -89,7 +90,8 @@ export function ConnectivityBanner() {
 
     // Check initial state
     NetInfo.fetch().then((state) => {
-      const isConnected = state.isConnected && state.isInternetReachable !== false;
+      // Only show offline if explicitly disconnected, allow null/unknown states
+      const isConnected = state.isConnected === true;
       if (!isConnected) {
         wasOffline.current = true;
         showBanner('offline');
