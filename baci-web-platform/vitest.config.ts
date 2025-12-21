@@ -11,9 +11,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./vitest.setup.ts'],
+    setupFiles: [path.join(__dirname, 'vitest.setup.ts')],
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': path.resolve(process.cwd(), 'src'),
     },
   },
 });
