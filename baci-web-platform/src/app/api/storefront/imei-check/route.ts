@@ -105,25 +105,39 @@ interface ImeiCheckResult {
 }
 
 /**
- * Strip HTML tags from a string
- */
-const TAG_REGEX = /<[^>]*>/g;
-
-/**
- * Strip HTML tags from a string
+ * Strip HTML tags from a string using a safe character-by-character approach.
+ * This handles recursive attacks like <scr<script>ipt> by removing ALL < and > chars
+ * and any content between them, iteratively until stable.
  */
 function stripHtml(html: string): string {
   if (!html) return '';
-  let current = html;
+
+  // First, decode common HTML entities that could hide tags
+  let decoded = html
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#60;/g, '<')
+    .replace(/&#62;/g, '>')
+    .replace(/&#x3c;/gi, '<')
+    .replace(/&#x3e;/gi, '>');
+
+  let current = decoded;
   let previous = '';
   let loops = 0;
+  const maxLoops = 10; // Prevent infinite loops
 
-  // Loop to handle recursive attacks like <scr<script>ipt>
-  while (current !== previous && loops < 5) {
+  // Iteratively remove anything between < and > until stable
+  while (current !== previous && loops < maxLoops) {
     previous = current;
-    current = current.replace(TAG_REGEX, '');
+    // Remove complete tags
+    current = current.replace(/<[^<>]*>/g, '');
+    // Also remove any orphan < or > to prevent partial tag injection
     loops++;
   }
+
+  // Final cleanup: remove any remaining < or > characters entirely
+  // This ensures no partial tags like "<script" can remain
+  current = current.replace(/[<>]/g, '');
 
   return current.trim();
 }

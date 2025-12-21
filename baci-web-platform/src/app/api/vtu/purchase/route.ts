@@ -8,8 +8,8 @@ import {
   purchaseAirtime,
   purchaseData,
 } from '@/lib/kuda';
-import { createClient } from '@/lib/supabase/server';
 import { calculateCommerce } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/server';
 
 interface PurchaseRequest {
   merchantSlug: string;

@@ -54,12 +54,15 @@ export function HeroCarousel({
       >
         <CarouselContent className="h-full">
           {slides.map((slide, index) => (
-            <CarouselItem key={slide.title} className="h-full relative overflow-hidden">
+            <CarouselItem
+              key={slide.title}
+              className="h-full relative overflow-hidden"
+            >
               {/* Parallax Background - Elite 2025 Standard */}
-              <motion.div 
+              <motion.div
                 className="absolute inset-0 w-[110%]"
                 style={{
-                  x: '-5%' // Centering the slightly larger image
+                  x: '-5%', // Centering the slightly larger image
                 }}
               >
                 <Image
@@ -78,12 +81,12 @@ export function HeroCarousel({
                 <motion.div
                   initial={{ opacity: 0, y: 40, scale: 0.95 }}
                   whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ 
+                  transition={{
                     type: 'spring',
                     stiffness: 100,
                     damping: 20,
                     mass: 1,
-                    delay: 0.1 
+                    delay: 0.1,
                   }}
                   viewport={{ once: true }}
                   className="max-w-4xl"

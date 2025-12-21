@@ -53,7 +53,10 @@ export const getCachedNavigationCategories = cache(
       const lowerName = name.toLowerCase();
       // First try exact match or starts-with match (more specific)
       for (let i = 0; i < PRIORITY_ORDER.length; i++) {
-        if (lowerName === PRIORITY_ORDER[i] || lowerName.startsWith(PRIORITY_ORDER[i])) {
+        if (
+          lowerName === PRIORITY_ORDER[i] ||
+          lowerName.startsWith(PRIORITY_ORDER[i])
+        ) {
           return i;
         }
       }

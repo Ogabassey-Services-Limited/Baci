@@ -16,13 +16,15 @@ export const BlockSchema = z.discriminatedUnion('type', [
     type: z.literal('HeroCarousel'),
     props: z.object({
       id: z.string(),
-      slides: z.array(z.object({
-        image: z.string(),
-        title: z.string(),
-        subtitle: z.string(),
-        ctaText: z.string(),
-        ctaLink: z.string(),
-      })),
+      slides: z.array(
+        z.object({
+          image: z.string(),
+          title: z.string(),
+          subtitle: z.string(),
+          ctaText: z.string(),
+          ctaLink: z.string(),
+        })
+      ),
       autoplayDelay: z.number().optional(),
     }),
   }),

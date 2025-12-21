@@ -125,11 +125,11 @@ export async function generateMetadata({
       tags: post.tags,
       images: post.featured_image_url
         ? [
-          {
-            url: post.featured_image_url,
-            alt: post.featured_image_alt || post.title,
-          },
-        ]
+            {
+              url: post.featured_image_url,
+              alt: post.featured_image_alt || post.title,
+            },
+          ]
         : [],
     },
     twitter: {

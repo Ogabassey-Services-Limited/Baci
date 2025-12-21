@@ -44,10 +44,13 @@ export async function GET(_request: Request) {
         // Exclude the main image and take up to 10 unique additional images
         const additionalImages = Array.isArray(product.images)
           ? product.images
-            .filter((img: string) => img !== imageLink)
-            .slice(0, 10)
-            .map((img: string) => `<g:additional_image_link>${img}</g:additional_image_link>`)
-            .join('\n  ')
+              .filter((img: string) => img !== imageLink)
+              .slice(0, 10)
+              .map(
+                (img: string) =>
+                  `<g:additional_image_link>${img}</g:additional_image_link>`
+              )
+              .join('\n  ')
           : '';
 
         // Handle Variant Grouping

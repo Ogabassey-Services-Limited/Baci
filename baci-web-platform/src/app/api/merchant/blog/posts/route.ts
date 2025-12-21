@@ -444,7 +444,9 @@ export async function POST(request: NextRequest) {
             text: embeddingText,
           }),
         }
-      ).catch((err) => console.error('Failed to generate blog embedding:', err));
+      ).catch((err) =>
+        console.error('Failed to generate blog embedding:', err)
+      );
     }
 
     return NextResponse.json(newPost, { status: 201 });

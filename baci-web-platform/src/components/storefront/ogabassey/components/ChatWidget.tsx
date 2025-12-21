@@ -32,8 +32,22 @@ function isSafeUrl(url: string): boolean {
 }
 
 /**
+ * Escapes HTML entities to prevent XSS when rendering user/AI text.
+ * This ensures text content is safe before being placed in React nodes.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
  * Enhanced markdown renderer for chat messages (2025 standards).
  * Supports: **bold**, *list items, [links](url), ![images](url), and line breaks.
+ * All text content is escaped to prevent XSS attacks.
  */
 function renderMarkdown(text: string): React.ReactNode {
   if (!text) return null;
@@ -46,23 +60,29 @@ function renderMarkdown(text: string): React.ReactNode {
     const isListItem = /^\s*[*-]\s+/.test(line);
     const cleanLine = isListItem ? line.replace(/^\s*[*-]\s+/, '') : line;
 
-    // Parse inline elements (images, links, bold)
+    // Parse inline elements (images, links, bold) - all text is escaped
     const parseInline = (content: string): React.ReactNode[] => {
       const elements: React.ReactNode[] = [];
       let remaining = content;
       let keyIndex = 0;
+      const maxIterations = 1000; // Prevent infinite loops
+      let iterations = 0;
 
-      while (remaining.length > 0) {
+      while (remaining.length > 0 && iterations < maxIterations) {
+        iterations++;
+
         // Check for image: ![alt](url)
         const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
         if (imgMatch) {
           const src = imgMatch[2];
+          // Escape alt text and validate URL
+          const altText = escapeHtml(imgMatch[1] || 'Image');
           if (isSafeUrl(src)) {
             elements.push(
               <img
                 key={`${lineIndex}-img-${keyIndex++}`}
                 src={src}
-                alt={imgMatch[1] || 'Image'}
+                alt={altText}
                 className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
                 loading="lazy"
               />
@@ -71,79 +91,82 @@ function renderMarkdown(text: string): React.ReactNode {
           remaining = remaining.slice(imgMatch[0].length);
           continue;
         }
-      }
 
-      // Check for link: [text](url)
-      if (linkMatch) {
-        const href = linkMatch[2];
-        // Only allow safe protocols
-        if (isSafeUrl(href)) {
-          elements.push(
-            <a
-              key={`${lineIndex}-link-${keyIndex++}`}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-red-600 underline hover:text-red-700 font-medium"
-            >
-              {linkMatch[1]}
-            </a>
-          );
-        } else {
-          // Fallback to text if unsafe
-          elements.push(linkMatch[1]);
+        // Check for link: [text](url)
+        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+          const href = linkMatch[2];
+          const linkText = escapeHtml(linkMatch[1]);
+          // Only allow safe protocols
+          if (isSafeUrl(href)) {
+            elements.push(
+              <a
+                key={`${lineIndex}-link-${keyIndex++}`}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-red-600 underline hover:text-red-700 font-medium"
+              >
+                {linkText}
+              </a>
+            );
+          } else {
+            // Fallback to escaped text if unsafe URL
+            elements.push(linkText);
+          }
+          remaining = remaining.slice(linkMatch[0].length);
+          continue;
         }
-        remaining = remaining.slice(linkMatch[0].length);
-        continue;
+
+        // Check for bold: **text**
+        const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
+        if (boldMatch) {
+          elements.push(
+            <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
+              {escapeHtml(boldMatch[1])}
+            </strong>
+          );
+          remaining = remaining.slice(boldMatch[0].length);
+          continue;
+        }
+
+        // Find next special pattern
+        const nextPattern = remaining.search(/!\[|\[|\*\*/);
+        if (nextPattern === -1) {
+          // No more patterns, escape and push remaining text
+          if (remaining) elements.push(escapeHtml(remaining));
+          break;
+        } else if (nextPattern > 0) {
+          // Push escaped text before the pattern
+          elements.push(escapeHtml(remaining.slice(0, nextPattern)));
+          remaining = remaining.slice(nextPattern);
+        } else {
+          // Pattern at start but didn't match, push first char escaped
+          elements.push(escapeHtml(remaining[0]));
+          remaining = remaining.slice(1);
+        }
       }
-    }
-
-    // Check for bold: **text**
-    const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
-    if (boldMatch) {
-      elements.push(
-        <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
-          {boldMatch[1]}
-        </strong>
-      );
-      remaining = remaining.slice(boldMatch[0].length);
-      continue;
-    }
-
-    // Find next special pattern
-    const nextPattern = remaining.search(/!\[|\[|\*\*/);
-    if (nextPattern === -1) {
-      if (remaining) elements.push(remaining);
-      break;
-    } else if (nextPattern > 0) {
-      elements.push(remaining.slice(0, nextPattern));
-      remaining = remaining.slice(nextPattern);
-    } else {
-      elements.push(remaining[0]);
-      remaining = remaining.slice(1);
-    }
-  }
 
       return elements;
-};
+    };
 
-const renderedParts = parseInline(cleanLine);
+    const renderedParts = parseInline(cleanLine);
 
-if (isListItem) {
-  return (
-    <div key={lineIndex} className="flex items-start gap-2 my-1">
-      <span className="text-red-600 mt-0.5 flex-shrink-0">•</span>
-      <span className="flex-1">{renderedParts}</span>
-    </div>
-  );
-}
+    if (isListItem) {
+      return (
+        <div key={lineIndex} className="flex items-start gap-2 my-1">
+          <span className="text-red-600 mt-0.5 flex-shrink-0">•</span>
+          <span className="flex-1">{renderedParts}</span>
+        </div>
+      );
+    }
 
-// Empty lines create spacing
-if (!cleanLine.trim()) {
-  return <div key={lineIndex} className="h-2" />;
-}
+    // Empty lines create spacing
+    if (!cleanLine.trim()) {
+      return <div key={lineIndex} className="h-2" />;
+    }
 
-return <div key={lineIndex}>{renderedParts}</div>;
+    return <div key={lineIndex}>{renderedParts}</div>;
   });
 }
 

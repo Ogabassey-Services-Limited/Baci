@@ -400,7 +400,9 @@ export async function PUT(
             text: embeddingText,
           }),
         }
-      ).catch((err) => console.error('Failed to regenerate product embedding:', err));
+      ).catch((err) =>
+        console.error('Failed to regenerate product embedding:', err)
+      );
     }
 
     return NextResponse.json({ product: updatedProduct });

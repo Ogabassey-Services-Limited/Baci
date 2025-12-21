@@ -40,9 +40,9 @@ export function OgabasseyCategories({
           {categories.map((category) => (
             <motion.div
               key={category.label}
-              whileHover={{ 
+              whileHover={{
                 scale: 1.1,
-                transition: { type: 'spring', stiffness: 250, damping: 15 } 
+                transition: { type: 'spring', stiffness: 250, damping: 15 },
               }}
               whileTap={{ scale: 0.95 }}
               className="flex flex-col items-center text-center group"

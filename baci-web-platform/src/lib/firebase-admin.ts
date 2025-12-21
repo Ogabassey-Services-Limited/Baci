@@ -59,14 +59,14 @@ export async function sendFCMNotification(
     return { success: true, messageId: response };
   } catch (error: any) {
     const errorCode = error?.code;
-    const isUnregistered = 
+    const isUnregistered =
       errorCode === 'messaging/registration-token-not-registered' ||
       errorCode === 'messaging/invalid-registration-token';
 
-    return { 
-      success: false, 
-      error: error.message, 
-      isUnregistered 
+    return {
+      success: false,
+      error: error.message,
+      isUnregistered,
     };
   }
 }

@@ -15,11 +15,11 @@ function getServiceClient() {
 }
 
 import crypto from 'node:crypto';
+import { notifyOrderStatusChange } from '@/lib/expo-push';
 import type {
   NormalizedShipmentStatus,
   ShippingProviderCode,
 } from '@/lib/shipping/types';
-import { notifyOrderStatusChange } from '@/lib/expo-push';
 
 // =============================================================================
 // WEBHOOK VERIFICATION
@@ -217,7 +217,9 @@ export async function POST(
     // Find shipment by tracking number or provider shipment ID
     let shipmentQuery = supabase
       .from('shipments')
-      .select('id, order_id, status, tracking_events, orders(order_number, customer_id, customers(user_id))')
+      .select(
+        'id, order_id, status, tracking_events, orders(order_number, customer_id, customers(user_id))'
+      )
       .eq('provider', providerUpper);
 
     if (event.trackingNumber) {
@@ -336,7 +338,8 @@ export async function POST(
     const customerUserId = order?.customers?.[0]?.user_id;
 
     if (customerUserId && order) {
-      const orderStatusForNotification = orderStatusMap[normalizedStatus] || normalizedStatus;
+      const orderStatusForNotification =
+        orderStatusMap[normalizedStatus] || normalizedStatus;
       notifyOrderStatusChange(
         customerUserId,
         shipment.order_id,

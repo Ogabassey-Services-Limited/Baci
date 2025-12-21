@@ -46,7 +46,12 @@ export interface ExpoPushTicket {
 /**
  * Notification channel types for Android
  */
-export type NotificationChannel = 'orders' | 'payments' | 'stock' | 'general' | 'promotions';
+export type NotificationChannel =
+  | 'orders'
+  | 'payments'
+  | 'stock'
+  | 'general'
+  | 'promotions';
 
 /**
  * Send push notification to a single token
@@ -442,7 +447,10 @@ export async function notifyOrderStatusChange(
   };
 
   const title = statusTitles[status] || `Order Update: #${orderNumber}`;
-  const body = message || statusMessages[status] || `Your order #${orderNumber} status has been updated to ${status}.`;
+  const body =
+    message ||
+    statusMessages[status] ||
+    `Your order #${orderNumber} status has been updated to ${status}.`;
 
   await notifyCustomer(
     userId,

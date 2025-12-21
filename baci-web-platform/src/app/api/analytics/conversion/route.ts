@@ -408,14 +408,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log for debugging
+    // Log for debugging - sanitize user-provided values to prevent log injection
+    const sanitizeForLog = (val: unknown): string => {
+      if (val === undefined || val === null) return 'unknown';
+      const str = String(val).slice(0, 50); // Limit length
+      return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, ''); // Remove control chars
+    };
+
     console.log(
       '[Conversion]',
-      event_name,
+      sanitizeForLog(event_name),
       'from',
-      event_source,
+      sanitizeForLog(event_source),
       '/',
-      platform,
+      sanitizeForLog(platform),
       ':',
       {
         value: custom_data.value,

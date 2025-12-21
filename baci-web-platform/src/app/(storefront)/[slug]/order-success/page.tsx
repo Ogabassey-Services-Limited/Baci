@@ -30,9 +30,8 @@ interface OrderData {
   total: number;
 }
 
-import { useAuthSafe } from '@/contexts/auth-context';
-
 import { GoogleCustomerReviews } from '@/components/analytics/google-customer-reviews';
+import { useAuthSafe } from '@/contexts/auth-context';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
@@ -94,7 +93,11 @@ function OrderSuccessContent() {
           orderId={order.id}
           email={order.shipping.email}
           // Default to 5 days for delivery logic if not available
-          deliveryDate={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          deliveryDate={
+            new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+              .toISOString()
+              .split('T')[0]
+          }
           country="NG"
         />
       )}

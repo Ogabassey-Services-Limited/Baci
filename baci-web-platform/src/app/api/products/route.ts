@@ -514,7 +514,9 @@ export async function POST(request: NextRequest) {
             text: embeddingText,
           }),
         }
-      ).catch((err) => console.error('Failed to generate product embedding:', err));
+      ).catch((err) =>
+        console.error('Failed to generate product embedding:', err)
+      );
     }
 
     return NextResponse.json({ product }, { status: 201 });

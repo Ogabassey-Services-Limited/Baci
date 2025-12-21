@@ -164,9 +164,10 @@ function generateGoogleMerchantFeed(
       const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
 
       const firstImage = product.images?.[0];
-      const imageUrl = typeof firstImage === 'string'
-        ? firstImage
-        : firstImage?.url || product.imageLarge || product.image || '';
+      const imageUrl =
+        typeof firstImage === 'string'
+          ? firstImage
+          : firstImage?.url || product.imageLarge || product.image || '';
 
       // Additional images (max 10 additional images as per Google requirements)
       const additionalImages =

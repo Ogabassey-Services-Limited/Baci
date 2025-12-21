@@ -273,7 +273,8 @@ function generateCSP(
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
       'connect-src':
         "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google",
-      'frame-src': "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com",
+      'frame-src':
+        "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');

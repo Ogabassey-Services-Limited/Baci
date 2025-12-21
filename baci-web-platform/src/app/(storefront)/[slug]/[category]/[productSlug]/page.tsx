@@ -396,7 +396,9 @@ function toOgabasseyProduct(
   // Derive storage options - check multiple sources
   // Priority: storage_options > variant_attributes.Storage > extracted from variants
   // variant_attributes is consolidated JSONB: {"Storage": ["256GB", "512GB"], "Platform": ["EU"]}
-  const variantAttrs = (product as { variant_attributes?: Record<string, string[]> }).variant_attributes;
+  const variantAttrs = (
+    product as { variant_attributes?: Record<string, string[]> }
+  ).variant_attributes;
   let storageOptions: string[] = [];
 
   if (product.storage_options && product.storage_options.length > 0) {
@@ -404,7 +406,10 @@ function toOgabasseyProduct(
   } else if (variantAttrs?.Storage && variantAttrs.Storage.length > 0) {
     // Consolidated storage from variant_attributes (case-sensitive key)
     storageOptions = variantAttrs.Storage;
-  } else if (variantAttrs?.storage && (variantAttrs as Record<string, string[]>).storage.length > 0) {
+  } else if (
+    variantAttrs?.storage &&
+    (variantAttrs as Record<string, string[]>).storage.length > 0
+  ) {
     // Lowercase fallback
     storageOptions = (variantAttrs as Record<string, string[]>).storage;
   } else if (product.variants && product.variants.length > 0) {
@@ -412,8 +417,9 @@ function toOgabasseyProduct(
     storageOptions = Array.from(
       new Set(
         product.variants
-          .map((v: { attributes?: Record<string, string>; storage?: string }) =>
-            v.attributes?.storage || v.storage
+          .map(
+            (v: { attributes?: Record<string, string>; storage?: string }) =>
+              v.attributes?.storage || v.storage
           )
           .filter(Boolean) as string[]
       )
@@ -473,10 +479,7 @@ function toOgabasseyProduct(
 
           return {
             id: v.id,
-            name:
-              `${storage || ''} ${ram || ''}`.trim() ||
-              v.sku ||
-              'Variant',
+            name: `${storage || ''} ${ram || ''}`.trim() || v.sku || 'Variant',
             storage,
             ram,
             color,
@@ -510,10 +513,10 @@ function toOgabasseyProduct(
           typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
         compare_at_price: o.compare_at_price
           ? formatter.format(
-            typeof o.compare_at_price === 'string'
-              ? Number.parseFloat(o.compare_at_price)
-              : o.compare_at_price
-          )
+              typeof o.compare_at_price === 'string'
+                ? Number.parseFloat(o.compare_at_price)
+                : o.compare_at_price
+            )
           : undefined,
         stock: o.stock_quantity,
         images: o.images,
@@ -719,7 +722,10 @@ const getProduct = cache(
 
     // Fetch variants if has_variants flag is set
     // Also fetch as fallback if storage_options exist but flag wasn't set
-    if (product.has_variants || (product.storage_options && product.storage_options.length > 0)) {
+    if (
+      product.has_variants ||
+      (product.storage_options && product.storage_options.length > 0)
+    ) {
       const { data: variants } = await supabase
         .from('product_variants')
         .select('*')
@@ -815,13 +821,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

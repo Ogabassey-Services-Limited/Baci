@@ -120,12 +120,8 @@ export async function generateMetadata({
         merchant.favicon_svg_url ||
         merchant.favicon_png_32_url ||
         '/favicon.ico',
-      shortcut:
-        merchant.favicon_png_32_url ||
-        '/favicon.ico',
-      apple:
-        merchant.favicon_apple_touch_url ||
-        '/favicon.ico', // Apple touch icon fallbacks
+      shortcut: merchant.favicon_png_32_url || '/favicon.ico',
+      apple: merchant.favicon_apple_touch_url || '/favicon.ico', // Apple touch icon fallbacks
     },
   };
 }
@@ -213,7 +209,7 @@ export default async function StorefrontPage({
         .order('price', { ascending: false })
         .limit(500), // Load more products for instant client-side filtering
 
-      getCachedNavigationCategories(merchant.id)
+      getCachedNavigationCategories(merchant.id),
     ]);
 
     const { data: products, error: productsError } = productsResult;
@@ -231,7 +227,6 @@ export default async function StorefrontPage({
 
     // Assign categories directly
     merchantCategories = (categories || []) as any;
-
   } catch (err) {
     console.error('[StorefrontPage] Failed to fetch data:', err);
   }

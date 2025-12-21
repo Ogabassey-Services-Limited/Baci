@@ -11,11 +11,17 @@ export function createClient() {
  * Call the central commerce brain (Supabase Edge Function)
  * Centralizes math for Parity between Web & App
  */
-export async function calculateCommerce(action: 'calculate_vtu' | 'calculate_order', data: any) {
+export async function calculateCommerce(
+  action: 'calculate_vtu' | 'calculate_order',
+  data: any
+) {
   const supabase = createClient();
-  const { data: result, error } = await supabase.functions.invoke('calculate-commerce', {
-    body: { action, data }
-  });
+  const { data: result, error } = await supabase.functions.invoke(
+    'calculate-commerce',
+    {
+      body: { action, data },
+    }
+  );
 
   if (error) {
     console.error(`Commerce Brain Error [${action}]:`, error);

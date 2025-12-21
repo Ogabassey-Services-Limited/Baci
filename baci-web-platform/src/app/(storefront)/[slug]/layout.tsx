@@ -90,8 +90,12 @@ export async function generateMetadata({
 
   // Extract verification code from feature settings or published config
   // Prioritize feature_settings, check published_config fallback
-  const featureSettings = merchant.feature_settings as Record<string, any> | undefined;
-  const publishedConfig = merchant.published_config as Record<string, any> | undefined;
+  const featureSettings = merchant.feature_settings as
+    | Record<string, any>
+    | undefined;
+  const publishedConfig = merchant.published_config as
+    | Record<string, any>
+    | undefined;
 
   const verificationCode =
     featureSettings?.google_site_verification ||
@@ -100,9 +104,11 @@ export async function generateMetadata({
   return {
     title: merchant.business_name,
     description: `Shop at ${merchant.business_name} on Baci`,
-    verification: verificationCode ? {
-      google: verificationCode,
-    } : undefined,
+    verification: verificationCode
+      ? {
+          google: verificationCode,
+        }
+      : undefined,
     openGraph: {
       title: merchant.business_name,
       images: merchant.logo_url ? [merchant.logo_url] : [],

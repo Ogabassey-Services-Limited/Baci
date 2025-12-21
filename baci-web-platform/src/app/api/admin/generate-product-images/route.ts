@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { experimental_generateImage as generateImage } from 'ai';
-import { imagen3 } from '@/ai/provider';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { imagen3 } from '@/ai/provider';
+import { createClient } from '@/lib/supabase/server';
 
 // Configure process limit to avoid timeouts
 const BATCH_SIZE = 3;
@@ -11,141 +11,143 @@ const TARGET_IMAGE_COUNT = 4;
 export const maxDuration = 60; // Allow 60 seconds for execution
 
 export async function POST(req: NextRequest) {
-    try {
-        const cookieStore = await cookies();
-        const supabase = createClient(cookieStore);
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-        // 1. Check Authentication (Admin Only)
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+    // 1. Check Authentication (Admin Only)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-        // In a real app, you'd check a role here. For now, we ensure a valid user exists.
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        // 2. Fetch products that need images
-        const { searchParams } = new URL(req.url);
-        const parentId = searchParams.get('parent_product_id');
-
-        // Start building the query
-        let query = supabase
-            .from('products')
-            .select('id, name, color, images, parent_product_id')
-            .eq('status', 'active');
-
-        // If parentId is provided, target specifically those variants
-        if (parentId) {
-            query = query.eq('parent_product_id', parentId);
-        } else {
-            // General clean-up mode: avoid touching empty products unless specified
-            query = query.not('images', 'is', null);
-        }
-
-        const { data: products, error: dbError } = await query.limit(10); // Fetch a few
-
-        if (dbError) {
-            return NextResponse.json({ error: dbError.message }, { status: 500 });
-        }
-
-        const processed: any[] = [];
-        const errors: any[] = [];
-
-        // Filter locally
-        const candidates = (products || []).filter(p => {
-            const imgCount = Array.isArray(p.images) ? p.images.length : 0;
-            // If parentId is set, we allow starting from 0 images. 
-            // Otherwise, we enforce strict mode to only fill gaps for valid products.
-            const allowZero = !!parentId;
-            return imgCount < TARGET_IMAGE_COUNT && (allowZero || imgCount > 0);
-        }).slice(0, BATCH_SIZE);
-
-        if (candidates.length === 0) {
-            return NextResponse.json({ message: 'No eligible products found needing images.' });
-        }
-
-        // 3. Process candidates
-        for (const product of candidates) {
-            try {
-                const currentImages = Array.isArray(product.images) ? product.images : [];
-                const missingCount = TARGET_IMAGE_COUNT - currentImages.length;
-
-                // Only generate 1 per run per product to be safe and fast
-                if (missingCount > 0) {
-                    const prompt = `Professional product photography of ${product.name} ${product.color ? `in ${product.color} color` : ''}, minimalist style, photorealistic, 4k resolution, white or light gray background, advertising quality.`;
-
-                    console.log(`Generating image for ${product.name}...`);
-
-                    const { image } = await generateImage({
-                        model: imagen3,
-                        prompt: prompt,
-                        aspectRatio: '1:1',
-                    });
-
-                    // 'image' is a base64 string or Uint8Array usually depending on provider, 
-                    // but Vercel AI SDK standardizes to base64.
-                    const base64Data = image.base64;
-
-                    if (!base64Data) {
-                        throw new Error('No image data returned from AI');
-                    }
-
-                    // Convert base64 to buffer
-                    const buffer = Buffer.from(base64Data, 'base64');
-
-                    // Generate unique filename
-                    const timestamp = Date.now();
-                    const filename = `${product.id}/gen_${timestamp}.png`;
-
-                    // 4. Upload to Supabase Storage
-                    const { data: uploadData, error: uploadError } = await supabase
-                        .storage
-                        .from('images')
-                        .upload(filename, buffer, {
-                            contentType: 'image/png',
-                            upsert: false
-                        });
-
-                    if (uploadError) throw uploadError;
-
-                    // 5. Get Public URL
-                    const { data: { publicUrl } } = supabase
-                        .storage
-                        .from('images')
-                        .getPublicUrl(filename);
-
-                    // 6. Update Product Record
-                    const newImages = [...currentImages, publicUrl];
-
-                    const { error: updateError } = await supabase
-                        .from('products')
-                        .update({ images: newImages })
-                        .eq('id', product.id);
-
-                    if (updateError) throw updateError;
-
-                    processed.push({
-                        id: product.id,
-                        name: product.name,
-                        new_image: publicUrl
-                    });
-                }
-            } catch (err: any) {
-                console.error(`Failed to process ${product.id}:`, err);
-                errors.push({ id: product.id, error: err.message });
-            }
-        }
-
-        return NextResponse.json({
-            success: true,
-            processed_count: processed.length,
-            processed,
-            errors
-        });
-
-    } catch (error: any) {
-        console.error('API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    // In a real app, you'd check a role here. For now, we ensure a valid user exists.
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // 2. Fetch products that need images
+    const { searchParams } = new URL(req.url);
+    const parentId = searchParams.get('parent_product_id');
+
+    // Start building the query
+    let query = supabase
+      .from('products')
+      .select('id, name, color, images, parent_product_id')
+      .eq('status', 'active');
+
+    // If parentId is provided, target specifically those variants
+    if (parentId) {
+      query = query.eq('parent_product_id', parentId);
+    } else {
+      // General clean-up mode: avoid touching empty products unless specified
+      query = query.not('images', 'is', null);
+    }
+
+    const { data: products, error: dbError } = await query.limit(10); // Fetch a few
+
+    if (dbError) {
+      return NextResponse.json({ error: dbError.message }, { status: 500 });
+    }
+
+    const processed: any[] = [];
+    const errors: any[] = [];
+
+    // Filter locally
+    const candidates = (products || [])
+      .filter((p) => {
+        const imgCount = Array.isArray(p.images) ? p.images.length : 0;
+        // If parentId is set, we allow starting from 0 images.
+        // Otherwise, we enforce strict mode to only fill gaps for valid products.
+        const allowZero = !!parentId;
+        return imgCount < TARGET_IMAGE_COUNT && (allowZero || imgCount > 0);
+      })
+      .slice(0, BATCH_SIZE);
+
+    if (candidates.length === 0) {
+      return NextResponse.json({
+        message: 'No eligible products found needing images.',
+      });
+    }
+
+    // 3. Process candidates
+    for (const product of candidates) {
+      try {
+        const currentImages = Array.isArray(product.images)
+          ? product.images
+          : [];
+        const missingCount = TARGET_IMAGE_COUNT - currentImages.length;
+
+        // Only generate 1 per run per product to be safe and fast
+        if (missingCount > 0) {
+          const prompt = `Professional product photography of ${product.name} ${product.color ? `in ${product.color} color` : ''}, minimalist style, photorealistic, 4k resolution, white or light gray background, advertising quality.`;
+
+          console.log(`Generating image for ${product.name}...`);
+
+          const { image } = await generateImage({
+            model: imagen3,
+            prompt: prompt,
+            aspectRatio: '1:1',
+          });
+
+          // 'image' is a base64 string or Uint8Array usually depending on provider,
+          // but Vercel AI SDK standardizes to base64.
+          const base64Data = image.base64;
+
+          if (!base64Data) {
+            throw new Error('No image data returned from AI');
+          }
+
+          // Convert base64 to buffer
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          // Generate unique filename
+          const timestamp = Date.now();
+          const filename = `${product.id}/gen_${timestamp}.png`;
+
+          // 4. Upload to Supabase Storage
+          const { data: uploadData, error: uploadError } =
+            await supabase.storage.from('images').upload(filename, buffer, {
+              contentType: 'image/png',
+              upsert: false,
+            });
+
+          if (uploadError) throw uploadError;
+
+          // 5. Get Public URL
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from('images').getPublicUrl(filename);
+
+          // 6. Update Product Record
+          const newImages = [...currentImages, publicUrl];
+
+          const { error: updateError } = await supabase
+            .from('products')
+            .update({ images: newImages })
+            .eq('id', product.id);
+
+          if (updateError) throw updateError;
+
+          processed.push({
+            id: product.id,
+            name: product.name,
+            new_image: publicUrl,
+          });
+        }
+      } catch (err: any) {
+        console.error(`Failed to process ${product.id}:`, err);
+        errors.push({ id: product.id, error: err.message });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      processed_count: processed.length,
+      processed,
+      errors,
+    });
+  } catch (error: any) {
+    console.error('API Error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

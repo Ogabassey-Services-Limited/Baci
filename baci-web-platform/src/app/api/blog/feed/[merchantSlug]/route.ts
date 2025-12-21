@@ -103,7 +103,9 @@ const getCachedFeed = unstable_cache(
     // Get merchant with custom domain
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, slug, business_name, site_description, logo_url, custom_domain')
+      .select(
+        'id, slug, business_name, site_description, logo_url, custom_domain'
+      )
       .eq('slug', merchantSlug)
       .single();
 

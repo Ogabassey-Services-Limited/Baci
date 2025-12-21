@@ -86,12 +86,22 @@ export function getProductEmbeddingText(product: {
   }
 
   if (product.description) {
-    // Strip HTML and limit length (max 10k chars processed for regex safety)
-    const cleanDescription = product.description
-      .slice(0, 10000)
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    // Strip HTML safely - limit length first, then use simple character-based stripping
+    // to avoid ReDoS on malformed HTML like strings with many '<' chars
+    let desc = product.description.slice(0, 10000);
+    // Simple tag removal: find < and skip to > or end
+    let result = '';
+    let inTag = false;
+    for (let i = 0; i < desc.length; i++) {
+      if (desc[i] === '<') {
+        inTag = true;
+      } else if (desc[i] === '>') {
+        inTag = false;
+      } else if (!inTag) {
+        result += desc[i];
+      }
+    }
+    const cleanDescription = result.replace(/\s+/g, ' ').trim();
     parts.push(cleanDescription);
   }
 
@@ -118,13 +128,22 @@ export function getBlogEmbeddingText(blog: {
   }
 
   if (blog.content) {
-    // Strip HTML and limit length (max 10k chars processed for regex safety)
-    const cleanContent = blog.content
-      .slice(0, 10000)
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 5000); // Final limit
+    // Strip HTML safely - limit length first, then use simple character-based stripping
+    // to avoid ReDoS on malformed HTML like strings with many '<' chars
+    let content = blog.content.slice(0, 10000);
+    // Simple tag removal: find < and skip to > or end
+    let result = '';
+    let inTag = false;
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === '<') {
+        inTag = true;
+      } else if (content[i] === '>') {
+        inTag = false;
+      } else if (!inTag) {
+        result += content[i];
+      }
+    }
+    const cleanContent = result.replace(/\s+/g, ' ').trim().slice(0, 5000); // Final limit
     parts.push(cleanContent);
   }
 

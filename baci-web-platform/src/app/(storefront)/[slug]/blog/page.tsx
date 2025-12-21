@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
+import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +24,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
-import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -31,7 +31,12 @@ interface PageProps {
 }
 
 const getMerchantAndPosts = cache(
-  async (identifier: string, category?: string, page = 1, searchQuery?: string) => {
+  async (
+    identifier: string,
+    category?: string,
+    page = 1,
+    searchQuery?: string
+  ) => {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const limit = 12;

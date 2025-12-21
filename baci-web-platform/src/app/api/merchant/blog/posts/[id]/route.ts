@@ -212,7 +212,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Regenerate embedding if content, title, or excerpt changed
-    if (updatedPost && (updateData.content || updateData.title || updateData.excerpt)) {
+    if (
+      updatedPost &&
+      (updateData.content || updateData.title || updateData.excerpt)
+    ) {
       const embeddingText = getBlogEmbeddingText({
         title: updatedPost.title,
         excerpt: updatedPost.excerpt,
@@ -235,7 +238,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
             text: embeddingText,
           }),
         }
-      ).catch((err) => console.error('Failed to regenerate blog embedding:', err));
+      ).catch((err) =>
+        console.error('Failed to regenerate blog embedding:', err)
+      );
     }
 
     return NextResponse.json(updatedPost);

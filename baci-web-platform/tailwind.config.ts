@@ -104,15 +104,42 @@ export default {
       },
       // Fluid typography using clamp() (2025 elite standard)
       fontSize: {
-        'fluid-xs': ['clamp(0.625rem, 0.6rem + 0.2vw, 0.75rem)', { lineHeight: '1.5' }],
-        'fluid-sm': ['clamp(0.75rem, 0.7rem + 0.3vw, 0.875rem)', { lineHeight: '1.5' }],
-        'fluid-base': ['clamp(0.875rem, 0.85rem + 0.4vw, 1rem)', { lineHeight: '1.6' }],
-        'fluid-lg': ['clamp(1rem, 0.95rem + 0.5vw, 1.25rem)', { lineHeight: '1.5' }],
-        'fluid-xl': ['clamp(1.25rem, 1.2rem + 0.6vw, 1.5rem)', { lineHeight: '1.4' }],
-        'fluid-2xl': ['clamp(1.5rem, 1.4rem + 0.8vw, 2rem)', { lineHeight: '1.3' }],
-        'fluid-3xl': ['clamp(2rem, 1.8rem + 1.2vw, 2.5rem)', { lineHeight: '1.2' }],
-        'fluid-4xl': ['clamp(2.5rem, 2.2rem + 1.5vw, 3.5rem)', { lineHeight: '1.1' }],
-        'fluid-5xl': ['clamp(3rem, 2.5rem + 2.5vw, 4.5rem)', { lineHeight: '1' }],
+        'fluid-xs': [
+          'clamp(0.625rem, 0.6rem + 0.2vw, 0.75rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-sm': [
+          'clamp(0.75rem, 0.7rem + 0.3vw, 0.875rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-base': [
+          'clamp(0.875rem, 0.85rem + 0.4vw, 1rem)',
+          { lineHeight: '1.6' },
+        ],
+        'fluid-lg': [
+          'clamp(1rem, 0.95rem + 0.5vw, 1.25rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-xl': [
+          'clamp(1.25rem, 1.2rem + 0.6vw, 1.5rem)',
+          { lineHeight: '1.4' },
+        ],
+        'fluid-2xl': [
+          'clamp(1.5rem, 1.4rem + 0.8vw, 2rem)',
+          { lineHeight: '1.3' },
+        ],
+        'fluid-3xl': [
+          'clamp(2rem, 1.8rem + 1.2vw, 2.5rem)',
+          { lineHeight: '1.2' },
+        ],
+        'fluid-4xl': [
+          'clamp(2.5rem, 2.2rem + 1.5vw, 3.5rem)',
+          { lineHeight: '1.1' },
+        ],
+        'fluid-5xl': [
+          'clamp(3rem, 2.5rem + 2.5vw, 4.5rem)',
+          { lineHeight: '1' },
+        ],
         'fluid-hero': ['clamp(2rem, 1.8rem + 3vw, 3rem)', { lineHeight: '1' }],
       },
       boxShadow: {
