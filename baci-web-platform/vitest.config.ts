@@ -13,7 +13,7 @@ export default defineConfig({
     globals: true,
     setupFiles: [path.join(__dirname, 'vitest.setup.ts')],
     alias: {
-      '@': path.resolve(process.cwd(), 'src'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
 });
