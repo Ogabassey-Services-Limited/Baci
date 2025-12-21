@@ -3,7 +3,6 @@ import { cookies, headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import type { Product } from '@/lib/products';
@@ -488,11 +487,9 @@ function toOgabasseyProduct(
 function TemplateProductPage({
   product,
   templateId,
-  _initialTheme,
 }: {
   product: Product;
   templateId?: string;
-  _initialTheme?: V2ThemeMode;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
@@ -789,14 +786,6 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   const { product, merchant, categoryMismatch } = result;
 
-  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
-  const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme')?.value;
-  const initialTheme: V2ThemeMode | undefined =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? themeCookie
-      : undefined;
-
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
 
@@ -817,7 +806,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
         : `/${correctCategorySlug}/${cleanSlug}`;
 
-      permanentRedirect(targetPath);
+      permanentRedirect(targetPath as `/${string}`);
     }
   }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -878,7 +867,6 @@ export default async function CategoryProductPage({ params }: PageProps) {
         <TemplateProductPage
           product={product}
           templateId={merchant?.template_id}
-          initialTheme={initialTheme}
         />
       </Suspense>
     </>
