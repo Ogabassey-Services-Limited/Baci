@@ -488,11 +488,11 @@ function toOgabasseyProduct(
 function TemplateProductPage({
   product,
   templateId,
-  initialTheme,
+  _initialTheme,
 }: {
   product: Product;
   templateId?: string;
-  initialTheme?: V2ThemeMode;
+  _initialTheme?: V2ThemeMode;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
@@ -817,7 +817,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
         : `/${correctCategorySlug}/${cleanSlug}`;
 
-      permanentRedirect(targetPath as any);
+      permanentRedirect(targetPath);
     }
   }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';

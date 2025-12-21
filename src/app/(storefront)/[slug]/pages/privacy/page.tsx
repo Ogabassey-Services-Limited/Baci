@@ -100,8 +100,6 @@ export default async function PrivacyPage({ params }: PageProps) {
       {/* Privacy Policy JSON-LD Schema */}
       <script
         type="application/ld+json"
-        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
       />
       <StorefrontPageWrapper
