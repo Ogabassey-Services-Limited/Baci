@@ -7,7 +7,7 @@ import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 
@@ -23,6 +23,8 @@ interface StorefrontWrapperProps {
   products?: Product[];
   /** Initial theme for SSR consistency (Phase 1: Cookie-Based Theme) */
   initialTheme?: V2ThemeMode;
+  /** Categories loaded from DB */
+  categories?: { name: string; slug: string }[];
 }
 
 /**
@@ -31,9 +33,13 @@ interface StorefrontWrapperProps {
  */
 export function StorefrontWrapper({
   products = [],
+  categories = [],
   initialTheme,
 }: StorefrontWrapperProps) {
-  const { merchant, loading } = useMerchant();
+  // Use safe hook to prevent SSR hydration errors when context isn't yet available
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant ?? null;
+  const loading = merchantContext?.loading ?? true;
   const [showError, setShowError] = useState(false);
   const [TemplateHome, setTemplateHome] =
     useState<React.ComponentType<TemplatePageProps> | null>(null);
@@ -126,6 +132,7 @@ export function StorefrontWrapper({
             storeSlug={merchant?.slug}
             merchant={merchant || undefined}
             products={products}
+            categories={categories}
             isPreview={false}
             initialTheme={initialTheme}
           />

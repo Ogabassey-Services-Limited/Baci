@@ -174,7 +174,7 @@ export const MobileCheckoutActions: React.FC<MobileCheckoutActionsProps> = ({
     }
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe-area lg:hidden z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe-area lg:hidden z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-4">
                 {/* Total displayed next to button for context */}
                 <div className="flex-shrink-0">

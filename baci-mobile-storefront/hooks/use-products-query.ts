@@ -17,8 +17,10 @@ interface UseProductsOptions {
   sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'popular';
   search?: string;
   condition?: string;
+  brand?: string;
   minPrice?: number;
   maxPrice?: number;
+  minRating?: number;
 }
 
 interface ProductsPage {
@@ -77,12 +79,16 @@ async function fetchProductsPage(
   if (options.condition) {
     query = query.eq('condition', options.condition);
   }
+  if (options.brand) {
+    query = query.eq('brand', options.brand);
+  }
   if (options.minPrice !== undefined) {
     query = query.gte('price', options.minPrice);
   }
   if (options.maxPrice !== undefined) {
     query = query.lte('price', options.maxPrice);
   }
+  // Note: minRating filter would require a rating column in DB or client-side filtering
 
   // Apply sorting
   switch (options.sortBy) {

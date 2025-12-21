@@ -89,9 +89,12 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
               technicians use genuine parts to give your gadget a second life.
             </p>
             <div className="flex flex-wrap gap-4">
-              <button className="bg-red-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-red-700 transition-colors shadow-lg active:scale-95 shadow-red-900/20">
+              <Link
+                href={storeSlug ? `/${storeSlug}/repair` : '/ogabassey/repair'}
+                className="bg-red-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-red-700 transition-colors shadow-lg active:scale-95 shadow-red-900/20"
+              >
                 Book a Repair
-              </button>
+              </Link>
               <Link
                 href={swapLink as any}
                 className="bg-white/10 text-white border border-white/20 font-bold py-3.5 px-8 rounded-xl hover:bg-white/20 transition-colors active:scale-95 backdrop-blur-sm"

@@ -32,12 +32,15 @@ interface OrderData {
 
 import { useAuthSafe } from '@/contexts/auth-context';
 
+import { GoogleCustomerReviews } from '@/components/analytics/google-customer-reviews';
+
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const _type = searchParams.get('type'); // Reserved for future use
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
+  const merchant = merchantContext?.merchant;
   const auth = useAuthSafe();
   const user = auth?.user;
 
@@ -84,6 +87,18 @@ function OrderSuccessContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
+      {/* Google Customer Reviews Opt-in */}
+      {merchant && order && order.shipping?.email && (
+        <GoogleCustomerReviews
+          merchant={merchant}
+          orderId={order.id}
+          email={order.shipping.email}
+          // Default to 5 days for delivery logic if not available
+          deliveryDate={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          country="NG"
+        />
+      )}
+
       <div className="max-w-xl mx-auto px-4">
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">

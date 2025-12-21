@@ -17,6 +17,7 @@ import { ProductCard } from './ProductCard';
 
 interface InteractiveProductGridProps {
   products: Product[]; // ADDED PROP
+  categories?: { name: string; slug: string }[];
   selectedCategory?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -26,6 +27,7 @@ interface InteractiveProductGridProps {
 
 export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   products, // DESTRUCTURED PROP
+  categories: explicitCategories,
   selectedCategory: defaultCategory = 'All',
   minPrice: defaultMin = 0,
   maxPrice: defaultMax = 100000000,
@@ -53,10 +55,17 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Derive categories and brands dynamically from products
+  // Derive categories: Use explicitly passed categories if available, otherwise derive from products
   const categories = useMemo(() => {
+    // If explicit categories array provided:
+    if (explicitCategories && explicitCategories.length > 0) {
+      // Map to just names string array, ensuring "All" is first
+      return ['All', ...explicitCategories.map(c => c.name)];
+    }
+
+    // Fallback behavior: derive from current products
     return ['All', ...Array.from(new Set(products.map((p) => p.categories?.name || (p as any).category)))];
-  }, [products]);
+  }, [products, explicitCategories]);
 
   const brands = useMemo(() => {
     return Array.from(

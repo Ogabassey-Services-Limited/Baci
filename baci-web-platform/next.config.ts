@@ -150,9 +150,10 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
-  // SEO redirects - flat URL structure for legal pages
+  // SEO redirects - flat URL structure for legal pages + legacy WordPress URLs
   async redirects() {
     return [
+      // Legal page redirects
       {
         source: '/:slug/pages/privacy',
         destination: '/:slug/privacy-policy',
@@ -162,6 +163,37 @@ const nextConfig: NextConfig = {
         source: '/:slug/pages/terms',
         destination: '/:slug/terms-of-service',
         permanent: true, // 301 redirect
+      },
+      // === LEGACY WORDPRESS URL REDIRECTS (GSC Fix) ===
+      // /user/* paths - redirect to homepage
+      {
+        source: '/user/:path*',
+        destination: '/',
+        permanent: true,
+      },
+      // /home/* paths - redirect to homepage
+      {
+        source: '/home/:path*',
+        destination: '/',
+        permanent: true,
+      },
+      // /cart - redirect to ogabassey cart
+      {
+        source: '/cart',
+        destination: '/ogabassey/cart',
+        permanent: true,
+      },
+      // /product-category/* - redirect to products
+      {
+        source: '/product-category/:path*',
+        destination: '/ogabassey/products',
+        permanent: true,
+      },
+      // /category/product/:id - legacy product URLs
+      {
+        source: '/category/product/:id',
+        destination: '/ogabassey/products',
+        permanent: true,
       },
     ];
   },

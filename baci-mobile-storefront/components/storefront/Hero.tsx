@@ -11,10 +11,10 @@ import {
   Dimensions,
   Pressable,
 } from 'react-native';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedScrollHandler, 
-  useAnimatedStyle, 
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
   interpolate,
   Extrapolate
 } from 'react-native-reanimated';
@@ -26,8 +26,8 @@ import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ELITE_HEIGHT = 400;
-const CAROUSEL_HEIGHT = 450; // Taller for fashion
+const ELITE_HEIGHT = 280; // Compact card height
+const CAROUSEL_HEIGHT = 450;
 const STANDARD_HEIGHT = 220;
 
 interface HeroSlide {
@@ -53,32 +53,37 @@ const DEFAULT_SLIDES: HeroSlide[] = [
   }
 ];
 
-// --- SUB-COMPONENT: Elite Parallax Slide ---
-const EliteSlide = ({ item, index, scrollX }: { item: HeroSlide, index: number, scrollX: Animated.SharedValue<number> }) => {
-  const imageAnimatedStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(
-      scrollX.value,
-      [(index - 1) * SCREEN_WIDTH, index * SCREEN_WIDTH, (index + 1) * SCREEN_WIDTH],
-      [-SCREEN_WIDTH * 0.3, 0, SCREEN_WIDTH * 0.3],
-      Extrapolate.CLAMP
-    );
-    return { transform: [{ translateX }] };
-  });
-
+// --- SUB-COMPONENT: Elite Web-Alike Slide ---
+const EliteSlide = ({ item }: { item: HeroSlide }) => {
   return (
-    <View style={[styles.slide, { height: ELITE_HEIGHT }]}>
-      <View style={styles.imageWrapper}>
-        <Animated.View style={[styles.imageContainer, imageAnimatedStyle]}>
-          <Image source={{ uri: item.image }} style={styles.slideImage} contentFit="cover" transition={500} />
-        </Animated.View>
-      </View>
-      <LinearGradient colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.85)']} style={styles.gradient} />
-      <View style={styles.eliteContent}>
-        <Text style={styles.eliteTitle}>{item.title}</Text>
-        <Text style={styles.eliteSubtitle} numberOfLines={2}>{item.subtitle}</Text>
-        <Pressable style={styles.eliteCta} onPress={() => router.push(item.ctaLink as any)}>
-          <Text style={styles.eliteCtaText}>{item.ctaText}</Text>
-        </Pressable>
+    <View style={styles.eliteSlideContainer}>
+      <View style={styles.eliteCard}>
+        {/* Background Image/Gradient - mocked as light gradient for now */}
+        <LinearGradient
+          colors={['#F3F4F6', '#E5E7EB']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View style={styles.eliteCardContent}>
+          <View style={styles.eliteTextColumn}>
+            <Text style={styles.eliteTitle} numberOfLines={2}>{item.title}</Text>
+            <Text style={styles.eliteSubtitle} numberOfLines={3}>{item.subtitle}</Text>
+            <Pressable style={styles.eliteCta} onPress={() => router.push(item.ctaLink as any)}>
+              <Text style={styles.eliteCtaText}>{item.ctaText}</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.eliteImageColumn}>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.eliteProductImage}
+              contentFit="contain"
+              transition={300}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -140,7 +145,7 @@ export function Hero({ slides = DEFAULT_SLIDES, autoplayDelay = 5000 }: HeroProp
   const renderSlide = ({ item, index }: { item: HeroSlide, index: number }) => {
     switch (template.heroVariant) {
       case 'parallax':
-        return <EliteSlide item={item} index={index} scrollX={scrollX} />;
+        return <EliteSlide item={item} />;
       case 'carousel':
         return <FashionSlide item={item} />;
       default:
@@ -180,13 +185,75 @@ const styles = StyleSheet.create({
   imageContainer: { width: SCREEN_WIDTH * 1.3, height: '100%', left: -SCREEN_WIDTH * 0.15 },
   slideImage: { width: '100%', height: '100%' },
   gradient: { position: 'absolute', inset: 0 },
-  
-  // Elite
-  eliteContent: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 60, paddingHorizontal: 32 },
-  eliteTitle: { fontSize: TYPOGRAPHY.size.hero, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 8 },
-  eliteSubtitle: { fontSize: TYPOGRAPHY.size.base, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 24 },
-  eliteCta: { backgroundColor: '#FFF', paddingHorizontal: 32, paddingVertical: 12, borderRadius: RADIUS.full },
-  eliteCtaText: { fontWeight: '700', color: '#000' },
+
+  // Elite Web-Alike Styles
+  eliteSlideContainer: {
+    width: SCREEN_WIDTH,
+    height: ELITE_HEIGHT,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.lg, // Space for dots
+  },
+  eliteCard: {
+    flex: 1,
+    borderRadius: RADIUS.xl, // 24px or similar
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: '#F3F4F6', // Fallback
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  eliteCardContent: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: SPACING.lg, // 24px
+  },
+  eliteTextColumn: {
+    flex: 0.6,
+    justifyContent: 'center',
+    gap: 8,
+    zIndex: 2,
+  },
+  eliteImageColumn: {
+    flex: 0.4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eliteProductImage: {
+    width: '140%', // Oversized for effect
+    height: '140%',
+    transform: [{ rotate: '-12deg' }, { translateX: 10 }, { translateY: 10 }],
+  },
+  eliteTitle: {
+    fontSize: 26, // Large
+    fontFamily: 'Inter_900Black',
+    color: '#111',
+    textAlign: 'left',
+    lineHeight: 28,
+  },
+  eliteSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'left',
+    fontFamily: 'Inter_500Medium',
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  eliteCta: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E5E7EB', // Light pill
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+  },
+  eliteCtaText: {
+    fontWeight: '700',
+    color: '#111',
+    fontSize: 12,
+  },
 
   // Fashion
   fashionContent: { flex: 1, justifyContent: 'flex-end', padding: 32 },

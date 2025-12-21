@@ -231,8 +231,46 @@ export function StorefrontProductGrid({
     const cats = new Set(
       products.map((p) => p.category).filter((c): c is string => !!c)
     );
-    return ['All', ...Array.from(cats)];
-  }, [products]);
+    const availableCategories = Array.from(cats);
+
+    // Get priority list from navigation categories if available
+    const priorityList = merchantContext?.navigationCategories?.map(c => c.name.toLowerCase()) || [];
+
+    console.log('[ProductGrid] Debug Priority:', {
+      priorityList,
+      availableCategories,
+      merchantContextCats: merchantContext?.navigationCategories
+    });
+
+    // Sort logic: All -> Smartphones -> Navigation Priority Order -> Remaining Alphabetical
+    const sorted = availableCategories.sort((a, b) => {
+      const aName = a.toLowerCase().trim();
+      const bName = b.toLowerCase().trim();
+
+      // 1. Force 'Smartphones' (singular or plural) OR any phone related to the top
+      const isASmartphone = aName === 'smartphone' || aName === 'smartphones' || aName.includes('phone') || aName.includes('mobile');
+      const isBSmartphone = bName === 'smartphone' || bName === 'smartphones' || bName.includes('phone') || bName.includes('mobile');
+
+      if (isASmartphone && !isBSmartphone) return -1;
+      if (!isASmartphone && isBSmartphone) return 1;
+      if (isASmartphone && isBSmartphone) return a.localeCompare(b);
+
+      // 2. Navigation Priority List
+      const aIndex = priorityList.findIndex(p => aName === p || aName.includes(p));
+      const bIndex = priorityList.findIndex(p => bName === p || bName.includes(p));
+
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+
+      // 3. Alphabetical
+      return a.localeCompare(b);
+    });
+
+    console.log('[ProductGrid] Debug Categories:', { availableCategories, sorted, priorityList });
+
+    return ['All', ...sorted];
+  }, [products, merchantContext?.navigationCategories]);
 
   const searchResults = useMemo(() => {
     // Use server search results if available and search is active
@@ -315,10 +353,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -378,11 +416,10 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
-                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                            : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
+                          ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                          : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                          }`}
                       >
                         {option}
                       </button>
@@ -428,6 +465,14 @@ export function StorefrontProductGrid({
             )}
           </>
         )}
+        <div className="bg-gray-100 p-4 rounded mb-4 text-xs font-mono overflow-auto max-h-60">
+          <strong>Debug Info:</strong>
+          <div>Categories Found: {categories.join(', ')}</div>
+          <div>Total Products: {products.length}</div>
+          <div>Merchant ID: {merchant?.id}</div>
+          <div>Priority List: {JSON.stringify(merchantContext?.navigationCategories?.map(c => c.name) || [])}</div>
+          <div>First 5 categories in products: {JSON.stringify(products.slice(0, 5).map(p => p.category))}</div>
+        </div>
 
         {/* Did you mean banner */}
         {didYouMean && searchQuery && (

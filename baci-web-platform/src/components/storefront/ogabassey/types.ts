@@ -114,7 +114,7 @@ export interface ProductVariant {
 export interface ProductKeySpecs {
   // Network
   network_technology?: string;
-  is_5g?: boolean;
+  has_5g?: boolean;
   has_nfc?: boolean;
 
   // Body

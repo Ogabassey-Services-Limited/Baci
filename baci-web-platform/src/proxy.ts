@@ -240,6 +240,7 @@ function generateCSP(
     'default-src': "'self'",
     'img-src': "'self' blob: data: https:",
     'font-src': "'self' data: https://fonts.gstatic.com",
+    'media-src': "'self' https:",
     'object-src': "'none'",
     'base-uri': "'self'",
     'upgrade-insecure-requests': '',
@@ -264,13 +265,15 @@ function generateCSP(
 
   if (routeType === 'storefront') {
     // Relaxed CSP for merchant storefronts (allows ISR/SSG)
+    // Includes CredPal BNPL SDK, Credit Direct SDK, and Google Ads domains
     return Object.entries({
       ...baseDirectives,
       'script-src':
-        "'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
+        "'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com",
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
       'connect-src':
-        "'self' https://*.supabase.co https://vitals.vercel-insights.com",
+        "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google",
+      'frame-src': "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');

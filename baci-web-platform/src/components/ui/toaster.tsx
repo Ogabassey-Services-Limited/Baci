@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 
-const TOAST_DURATION = 5000;
+const TOAST_DURATION = 2000;
 
 export function Toaster() {
   const { toasts } = useToast();

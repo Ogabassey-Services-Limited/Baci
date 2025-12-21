@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Hero } from './Hero';
 import { UtilityPanel } from './UtilityPanel';
 import { ProductCard } from './ProductCard';
-import { useProducts } from '@/hooks/use-products-query';
+import { FilterBar } from './FilterBar';
+import { useProducts, useCategories } from '@/hooks/use-products-query';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
@@ -16,15 +17,56 @@ interface BlockRendererProps {
   onCategorySelect: (id: string | null) => void;
 }
 
-const ProductGrid = ({ block, selectedCategoryId, variant }: { 
-  block: ProductGridBlock, 
+const ProductGrid = ({ block, selectedCategoryId, variant }: {
+  block: ProductGridBlock,
   selectedCategoryId: string | null,
   variant: 'grid' | 'editorial' | 'list'
 }) => {
-  const { products, isLoading } = useProducts({ 
+  // Filter state
+  const [selectedCategoryName, setSelectedCategoryName] = useState('All');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(3000000);
+  const [selectedBrand, setSelectedBrand] = useState('All');
+  const [selectedCondition, setSelectedCondition] = useState('All');
+  const [minRating, setMinRating] = useState(0);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const { data: categoriesData = [] } = useCategories();
+
+  // Map category name to ID for API query
+  const selectedCategoryIdFromFilter = useMemo(() => {
+    if (selectedCategoryName === 'All') return undefined;
+    const cat = categoriesData.find((c: any) => c.name === selectedCategoryName);
+    return cat?.id;
+  }, [selectedCategoryName, categoriesData]);
+
+  const { products, isLoading } = useProducts({
     limit: block.props.limit || 12,
-    category: selectedCategoryId || undefined 
+    category: selectedCategoryIdFromFilter || selectedCategoryId || undefined,
+    minPrice: minPrice > 0 ? minPrice : undefined,
+    maxPrice: maxPrice < 3000000 ? maxPrice : undefined,
+    brand: selectedBrand !== 'All' ? selectedBrand : undefined,
+    condition: selectedCondition !== 'All' ? selectedCondition : undefined,
   });
+
+  // Derive categories and brands from data
+  const categoryNames = useMemo(() => {
+    if (categoriesData.length > 0) {
+      return ['All', ...categoriesData.map((c: any) => c.name)];
+    }
+    return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
+  }, [categoriesData]);
+
+  const brands = useMemo(() => {
+    return Array.from(new Set(products.map(p => p.brand).filter(Boolean) as string[]));
+  }, [products]);
+
+  const handlePriceChange = (min: number, max: number) => {
+    setMinPrice(min);
+    setMaxPrice(max);
+  };
+
+  const currentVariant = viewMode === 'list' ? 'list' : variant;
 
   if (isLoading) return <ProductGridSkeleton count={4} />;
 
@@ -33,10 +75,30 @@ const ProductGrid = ({ block, selectedCategoryId, variant }: {
       {block.props.title && (
         <Text style={styles.sectionTitle}>{block.props.title}</Text>
       )}
-      <View style={variant === 'list' ? styles.list : styles.grid}>
+
+      {/* Filter Bar - matching web mobile view */}
+      <FilterBar
+        categories={categoryNames}
+        selectedCategory={selectedCategoryName}
+        onSelectCategory={setSelectedCategoryName}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        onPriceChange={handlePriceChange}
+        brands={brands}
+        selectedBrand={selectedBrand}
+        onSelectBrand={setSelectedBrand}
+        selectedCondition={selectedCondition}
+        onSelectCondition={setSelectedCondition}
+        minRating={minRating}
+        onSelectRating={setMinRating}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
+
+      <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {products.map((product) => (
-          <View key={product.id} style={variant === 'editorial' ? styles.editorialWrapper : variant === 'list' ? styles.listWrapper : styles.gridWrapper}>
-            <ProductCard product={product} variant={variant} />
+          <View key={product.id} style={currentVariant === 'editorial' ? styles.editorialWrapper : currentVariant === 'list' ? styles.listWrapper : styles.gridWrapper}>
+            <ProductCard product={product} variant={currentVariant} />
           </View>
         ))}
       </View>

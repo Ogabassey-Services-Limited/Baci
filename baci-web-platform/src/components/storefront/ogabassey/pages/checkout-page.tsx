@@ -24,7 +24,7 @@ import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo,
 import { MobileOrderSummary, MobileCheckoutActions } from '../components/MobileCheckoutComponents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { usePersistedForm } from '@/hooks/use-persisted-state';
@@ -37,6 +37,7 @@ import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import { toast } from '@/hooks/use-toast';
 import { calculateCommerce } from '@/lib/supabase/client';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface SavedAddress {
   id: number;
@@ -112,9 +113,13 @@ export const CheckoutPage: React.FC = () => {
     newAddressStreet,
     newAddressState,
     newAddressCity,
-    currentStep,
-    completedSteps,
+    currentStep: rawCurrentStep,
+    completedSteps: rawCompletedSteps,
   } = checkoutForm;
+
+  // Hydration safety: Force default state during server/first render to match server HTML
+  const currentStep = isHydrated ? rawCurrentStep : 'contact';
+  const completedSteps = isHydrated ? rawCompletedSteps : { contact: false, delivery: false };
 
   // Convenient setters that update the persisted form
   const setFirstName = useCallback((v: string) => setCheckoutField('firstName', v), [setCheckoutField]);
@@ -139,6 +144,16 @@ export const CheckoutPage: React.FC = () => {
   // Non-persisted UI state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
+
+  // Validation States (hydration-safe: default to false during SSR to match disabled="" on server)
+  const rawIsContactValid = useMemo(() => {
+    const hasRequiredFields = firstName.trim() && lastName.trim() && customerEmail.trim() && customerPhone;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isPhoneValid = customerPhone && isValidPhoneNumber(customerPhone);
+    return !!(hasRequiredFields && emailRegex.test(customerEmail.trim()) && isPhoneValid);
+  }, [firstName, lastName, customerEmail, customerPhone]);
+  const isContactValid = isHydrated ? rawIsContactValid : false;
+
 
   // Crypto payment modal state
   const [cryptoPaymentData, setCryptoPaymentData] = useState<{
@@ -406,6 +421,18 @@ export const CheckoutPage: React.FC = () => {
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
+
+  // Delivery step validation (hydration-safe)
+  const rawIsDeliveryValid = useMemo(() => {
+    if (!deliveryMethod) return false;
+    // For door delivery, a shipping quote MUST be selected
+    if (deliveryMethod === 'door') return !!selectedQuoteId;
+    // For airport, a type (pickup/delivery) must be selected
+    if (deliveryMethod === 'airport') return !!airportType;
+    // Pickup is valid as long as the state matches (handled by UI selection enforcement)
+    return true;
+  }, [deliveryMethod, selectedQuoteId, airportType]);
+  const isDeliveryValid = isHydrated ? rawIsDeliveryValid : false;
 
   // Note: newAddressState, newAddressCity, newAddressStreet are now part of checkoutForm (persisted)
 
@@ -697,7 +724,7 @@ export const CheckoutPage: React.FC = () => {
   const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
   const remainingAmount = total - walletAmountUsed;
 
-  
+
   useEffect(() => {
     const fetchTotals = async () => {
       try {
@@ -1086,7 +1113,7 @@ export const CheckoutPage: React.FC = () => {
       const trimmedEmail = customerEmail.trim();
 
       // Validate all required fields
-      const hasErrors = !trimmedFirstName || !trimmedLastName || !trimmedEmail;
+      const hasErrors = !trimmedFirstName || !trimmedLastName || !trimmedEmail || !customerPhone || !isValidPhoneNumber(customerPhone);
 
       if (hasErrors) return; // Inline errors will show
 
@@ -1631,46 +1658,33 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
-                        Phone Number
+                        Phone Number *
                       </label>
-                      <PhoneInput
-                        value={customerPhone}
-                        onChange={(value) => setCustomerPhone(value || '')}
-                        placeholder="+234 800 000 0000"
-                        defaultCountry="NG"
-                        className="w-full text-sm"
-                      />
+                      <div className={contactValidationAttempted && (!customerPhone || !isValidPhoneNumber(customerPhone)) ? "rounded-lg border border-red-500" : ""}>
+                        <PhoneInput
+                          value={customerPhone}
+                          onChange={(value) => setCustomerPhone(value || '')}
+                          placeholder="+234 800 000 0000"
+                          defaultCountry="NG"
+                          className="w-full text-sm"
+                        />
+                      </div>
+                      {contactValidationAttempted && !customerPhone && (
+                        <p className="text-red-500 text-xs mt-1">Phone number is required</p>
+                      )}
+                      {contactValidationAttempted && customerPhone && !isValidPhoneNumber(customerPhone) && (
+                        <p className="text-red-500 text-xs mt-1">Please enter a valid phone number</p>
+                      )}
                     </div>
                     <div className="pt-2">
                       <button
                         type="button"
                         onClick={() => {
-                          // Mark validation as attempted to show inline errors
-                          setContactValidationAttempted(true);
-
-                          const trimmedFirstName = firstName.trim();
-                          const trimmedLastName = lastName.trim();
-                          const trimmedEmail = customerEmail.trim();
-
-                          // Validate all required fields
-                          const hasErrors = !trimmedFirstName || !trimmedLastName || !trimmedEmail;
-
-                          if (hasErrors) {
-                            // Inline errors will show - no alert needed
-                            return;
-                          }
-
-                          // Basic email validation
-                          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                          if (!emailRegex.test(trimmedEmail)) {
-                            // Inline error will show - no alert needed
-                            return;
-                          }
-
                           setCompletedSteps(prev => ({ ...prev, contact: true }));
                           setCurrentStep('delivery');
                         }}
-                        className="hidden lg:block px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
+                        disabled={!isContactValid}
+                        className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
                       >
                         Continue to Delivery
                       </button>
@@ -2028,9 +2042,11 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, delivery: true }));
                           setCurrentStep('payment');
                         }}
-                        className="hidden lg:block px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto"
+                        className="w-full md:w-auto px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-red-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+                        disabled={!isDeliveryValid}
                       >
                         Continue to Payment
+                        <ChevronRight size={18} />
                       </button>
                     </div>
                   </div>
@@ -2248,7 +2264,7 @@ export const CheckoutPage: React.FC = () => {
                                 <h4 className="font-bold text-sm text-gray-900">How CredPal works</h4>
                                 <ul className="mt-2 space-y-1 text-xs text-gray-600">
                                   <li>• Quick approval in minutes</li>
-                                  <li>• Pay over 3-12 months</li>
+                                  <li>• Pay over 3-6 months</li>
                                   <li>• Competitive interest rates</li>
                                   <li>• Receive your items immediately</li>
                                 </ul>
@@ -2268,7 +2284,7 @@ export const CheckoutPage: React.FC = () => {
                                 <h4 className="font-bold text-sm text-gray-900">How Credit Direct works</h4>
                                 <ul className="mt-2 space-y-1 text-xs text-gray-600">
                                   <li>• Instant approval decision</li>
-                                  <li>• Pay over 3-12 months</li>
+                                  <li>• Pay over 3-6 months</li>
                                   <li>• No hidden fees</li>
                                   <li>• Get your items immediately</li>
                                 </ul>
@@ -2279,9 +2295,35 @@ export const CheckoutPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+
+                  {/* Mobile/Inline Place Order Button for Payment Step */}
+                  <div className="pt-4 lg:hidden">
+                    <button
+                      onClick={handlePlaceOrder}
+                      disabled={
+                        isProcessing ||
+                        (remainingAmount > 0 && !paymentMethod) ||
+                        (paymentMethod === 'payforme' && !isPayForMeValid)
+                      }
+                      className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98]"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="animate-spin" size={20} />
+                      ) : paymentMethod === 'invoice' ? (
+                        'Generate Invoice'
+                      ) : paymentMethod === 'payforme' ? (
+                        'Send Payment Link'
+                      ) : (
+                        'Place Order'
+                      )}
+                      {!isProcessing && <ChevronRight size={20} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+
           </div>
 
           {/* RIGHT COLUMN: Order Summary */}
@@ -2443,16 +2485,6 @@ export const CheckoutPage: React.FC = () => {
         </div>
       </div>
 
-      <MobileCheckoutActions
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onNext={handleNextStep}
-        isProcessing={isProcessing}
-        totalDisplay={remainingAmount}
-        paymentMethod={paymentMethod}
-        isPayForMeValid={isPayForMeValid as boolean}
-        originalTotal={cartTotal}
-      />
-    </div>
+    </div >
   );
 };

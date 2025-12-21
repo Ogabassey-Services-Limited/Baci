@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Baci Storefront",
-    "slug": "baci-mobile-storefront",
+    "name": "Ogabassey",
+    "slug": "ogabassey-store",
     "owner": "ogabassey",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -84,7 +84,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "merchantId": "",
+      "merchantId": "6b5cb8a4-5575-456c-b936-8cdfae30db74",
       "merchantSlug": "ogabassey",
       "businessType": "electronics",
       "templateId": "default",

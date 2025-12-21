@@ -45,8 +45,8 @@ export interface CreditDirectWebhookPayload {
   };
   checkoutTransactionId: string;
   eventType:
-    | 'Checkout_Customer_Payment_Completed'
-    | 'Checkout_Merchant_Payment_Completed';
+  | 'Checkout_Customer_Payment_Completed'
+  | 'Checkout_Merchant_Payment_Completed';
   metaData: string | null;
   products: CreditDirectProduct[];
   timeStamp: string;
@@ -64,7 +64,7 @@ const CREDIT_DIRECT_CONFIG = {
   checkoutScriptUrl: 'https://checkout.creditdirect.ng/bnpl/checkout.min.js',
   // Default amount limits (in NGN)
   defaultMinAmount: 10000,
-  defaultMaxAmount: 500000,
+  defaultMaxAmount: 5000000,
 };
 
 // ============================================================================

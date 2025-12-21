@@ -2,6 +2,7 @@
 
 import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
+import { Suspense } from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
 import { ChatWidget } from './components/ChatWidget';
@@ -19,21 +20,45 @@ import { type V2ThemeMode, V2ThemeProvider } from './providers/v2-theme-context'
 import { GoogleAdManager } from './components/GoogleAdManager';
 import { AdUnit } from './components/AdUnit';
 
+
+import { usePathname } from 'next/navigation';
+
 export function OgabasseyLayout({
   children,
   merchant,
   initialTheme,
-  isCheckout = false,
+  hideNavigation: initialHideNavigation = false,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData;
   /** Initial theme from server cookie - enables SSR consistency */
   initialTheme?: V2ThemeMode;
-  /** Whether we're on the checkout page - passed from server to avoid hydration issues */
-  isCheckout?: boolean;
+  /** Whether to hide navigation (header/footer) - e.g. for checkout or auth pages */
+  hideNavigation?: boolean;
 }) {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
+  const pathname = usePathname();
+
+  // Dynamic check for client-side navigation (fixes persistent layout causing stale props)
+  const isCheckout = pathname?.includes('/checkout');
+  const isAuthPage =
+    pathname?.includes('/account/login') ||
+    pathname?.includes('/orders/track') ||
+    pathname?.includes('/auth/');
+
+  const shouldHideNavigation = initialHideNavigation || isCheckout || isAuthPage;
+
+  if (typeof window !== 'undefined') {
+    console.log('[Layout Debug]', {
+      pathname,
+      isCheckout,
+      isAuthPage,
+      initialHideNavigation,
+      shouldHideNavigation,
+      theme: initialTheme
+    });
+  }
 
   return (
     <V2ThemeProvider initialTheme={initialTheme}>
@@ -46,22 +71,24 @@ export function OgabasseyLayout({
               <div className="text-gray-900 bg-white min-h-screen flex flex-col">
                 <SnowEffect />
 
-                {!isCheckout && (
-                  <Navbar
-                    storeName={merchant?.business_name || 'Ogabassey'}
-                    storeSlug={basePath}
-                    showSearch={true}
-                    showCart={true}
-                    showUser={true}
-                    showBell={true}
-                  />
+                {!shouldHideNavigation && (
+                  <Suspense fallback={<div className="h-16 bg-[#0F0F0F]" />}>
+                    <Navbar
+                      storeName={merchant?.business_name || 'Ogabassey'}
+                      storeSlug={basePath}
+                      showSearch={true}
+                      showCart={true}
+                      showUser={true}
+                      showBell={true}
+                    />
+                  </Suspense>
                 )}
 
 
 
                 <main className="flex-1">{children}</main>
 
-                {!isCheckout && (
+                {!shouldHideNavigation && (
                   <>
                     {/* Ad Placement: Footer Banner */}
                     <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4">

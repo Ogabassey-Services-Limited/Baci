@@ -14,9 +14,115 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { parseCartAction } from '@/components/storefront/santa-chat/types';
 import { useV2Theme } from '../providers/v2-theme-context';
+
+/**
+ * Enhanced markdown renderer for chat messages (2025 standards).
+ * Supports: **bold**, *list items, [links](url), ![images](url), and line breaks.
+ */
+function renderMarkdown(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Split by lines first
+  const lines = text.split('\n');
+
+  return lines.map((line, lineIndex) => {
+    // Check if line is a list item (starts with * or -)
+    const isListItem = /^\s*[*-]\s+/.test(line);
+    const cleanLine = isListItem ? line.replace(/^\s*[*-]\s+/, '') : line;
+
+    // Parse inline elements (images, links, bold)
+    const parseInline = (content: string): React.ReactNode[] => {
+      const elements: React.ReactNode[] = [];
+      let remaining = content;
+      let keyIndex = 0;
+
+      while (remaining.length > 0) {
+        // Check for image: ![alt](url)
+        const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+        if (imgMatch) {
+          elements.push(
+            <img
+              key={`${lineIndex}-img-${keyIndex++}`}
+              src={imgMatch[2]}
+              alt={imgMatch[1] || 'Image'}
+              className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
+              loading="lazy"
+            />
+          );
+          remaining = remaining.slice(imgMatch[0].length);
+          continue;
+        }
+
+        // Check for link: [text](url)
+        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
+        if (linkMatch) {
+          elements.push(
+            <a
+              key={`${lineIndex}-link-${keyIndex++}`}
+              href={linkMatch[2]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-red-600 underline hover:text-red-700 font-medium"
+            >
+              {linkMatch[1]}
+            </a>
+          );
+          remaining = remaining.slice(linkMatch[0].length);
+          continue;
+        }
+
+        // Check for bold: **text**
+        const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
+        if (boldMatch) {
+          elements.push(
+            <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
+              {boldMatch[1]}
+            </strong>
+          );
+          remaining = remaining.slice(boldMatch[0].length);
+          continue;
+        }
+
+        // Find next special pattern
+        const nextPattern = remaining.search(/!\[|\[|\*\*/);
+        if (nextPattern === -1) {
+          if (remaining) elements.push(remaining);
+          break;
+        } else if (nextPattern > 0) {
+          elements.push(remaining.slice(0, nextPattern));
+          remaining = remaining.slice(nextPattern);
+        } else {
+          elements.push(remaining[0]);
+          remaining = remaining.slice(1);
+        }
+      }
+
+      return elements;
+    };
+
+    const renderedParts = parseInline(cleanLine);
+
+    if (isListItem) {
+      return (
+        <div key={lineIndex} className="flex items-start gap-2 my-1">
+          <span className="text-red-600 mt-0.5 flex-shrink-0">•</span>
+          <span className="flex-1">{renderedParts}</span>
+        </div>
+      );
+    }
+
+    // Empty lines create spacing
+    if (!cleanLine.trim()) {
+      return <div key={lineIndex} className="h-2" />;
+    }
+
+    return <div key={lineIndex}>{renderedParts}</div>;
+  });
+}
 
 interface SantaCartAction {
   productName: string;
@@ -49,8 +155,41 @@ const SUGGESTIONS = [
   },
 ];
 
+const SnowOverlay: React.FC = () => (
+  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+    <style jsx>{`
+      @keyframes snowfall {
+        0% { transform: translateY(-10px) translateX(0); opacity: 0; }
+        10% { opacity: 1; }
+        100% { transform: translateY(100vh) translateX(20px); opacity: 0; }
+      }
+      .snowflake {
+        position: absolute;
+        top: -10px;
+        color: #e2e8f0;
+        animation: snowfall linear infinite;
+      }
+    `}</style>
+    {[...Array(12)].map((_, i) => (
+      <div
+        key={i}
+        className="snowflake"
+        style={{
+          left: `${Math.random() * 100}%`,
+          animationDuration: `${5 + Math.random() * 5}s`,
+          animationDelay: `${Math.random() * 5}s`,
+          fontSize: `${10 + Math.random() * 10}px`,
+          opacity: 0.3 + Math.random() * 0.4
+        }}
+      >
+        ❄
+      </div>
+    ))}
+  </div>
+);
+
 const SantaIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <div className={`${className} bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs`}>
+  <div className={`${className} bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-sm`}>
     🎅
   </div>
 );
@@ -58,6 +197,7 @@ const SantaIcon: React.FC<{ className?: string }> = ({ className }) => (
 export const ChatWidget: React.FC = () => {
   const { isCartOpen, addToCart, setIsCartOpen } = useCart();
   const { theme } = useV2Theme();
+  const pathname = usePathname();
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -68,6 +208,19 @@ export const ChatWidget: React.FC = () => {
   // Note: The mounted state workaround was removed because the theme is now passed
   // from the server via cookies, ensuring SSR/CSR consistency.
   const isSanta = theme === 'santa';
+
+  // Dynamic bottom positioning based on page type
+  // - Product pages: Add-to-cart bar + bottom nav = bottom-44 (176px)
+  // - Cart page: Checkout button + bottom nav = bottom-36 (144px)
+  // - Default pages: Just bottom nav = bottom-24 (96px)
+  const isProductPage = pathname?.match(/\/[^/]+\/[^/]+\/[^/]+/) && !pathname?.includes('/cart') && !pathname?.includes('/checkout');
+  const isCartPage = pathname?.includes('/cart');
+
+  const mobileBottomClass = isProductPage
+    ? 'bottom-44'
+    : isCartPage
+      ? 'bottom-36'
+      : 'bottom-24';
 
   // Handle adding Santa's wish to cart
   const handleAddSantaWishToCart = useCallback(
@@ -225,7 +378,7 @@ export const ChatWidget: React.FC = () => {
 
   return (
     <div
-      className={`fixed bottom-24 md:bottom-4 right-4 z-50 flex flex-col items-end gap-4 ${isCartOpen ? 'hidden' : ''}`}
+      className={`fixed ${mobileBottomClass} md:bottom-4 right-4 z-50 flex flex-col items-end gap-4 ${isCartOpen ? 'hidden' : ''}`}
     >
       {/* Chat Window */}
       {
@@ -235,21 +388,38 @@ export const ChatWidget: React.FC = () => {
           >
             {/* Header */}
             <div
-              className={`flex items-center justify-between p-4 border-b ${isSanta ? 'bg-red-600 text-white border-red-500' : 'bg-white text-gray-800 border-gray-100'}`}
+              className={`relative flex items-center justify-between p-4 border-b ${isSanta
+                ? 'bg-red-600 text-white border-red-500'
+                : 'bg-white text-gray-800 border-gray-100'
+                }`}
             >
-              <div className="flex items-center gap-3">
+              {/* Santa Festive Pattern Overlay */}
+              {isSanta && (
+                <div
+                  className="absolute inset-0 opacity-10 pointer-events-none"
+                  style={{
+                    backgroundImage: 'radial-gradient(circle at 50% 120%, rgba(255, 255, 255, 0.4) 10%, transparent 80%)'
+                  }}
+                />
+              )}
+
+              <div className="relative z-10 flex items-center gap-3">
                 {isSanta ? (
                   <img
                     src="/african-santa-head.svg"
                     alt="Santa"
-                    className="w-9 h-9 object-contain rounded-full"
+                    className="w-9 h-9 object-contain rounded-full border-2 border-red-400"
                   />
                 ) : (
                   <Sparkles size={24} className="text-red-600" />
                 )}
                 <div>
-                  <h3 className="text-base font-semibold">
-                    {isSanta ? 'Santa AI' : 'Ogabassey AI'}
+                  <h3 className="text-base font-semibold flex items-center gap-1">
+                    {isSanta ? (
+                      <>
+                        Santa AI <span className="text-xs ml-1">🎄</span>
+                      </>
+                    ) : 'Ogabassey AI'}
                   </h3>
                   <p
                     className={`text-xs ${isSanta ? 'text-red-100' : 'text-gray-500'}`}
@@ -261,7 +431,7 @@ export const ChatWidget: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className={`p-2 rounded-full ${isSanta ? 'hover:bg-red-700' : 'hover:bg-gray-100'} transition-colors`}
+                className={`relative z-10 p-2 rounded-full ${isSanta ? 'hover:bg-red-700/50' : 'hover:bg-gray-100'} transition-colors`}
                 aria-label="Close chat"
               >
                 <X size={20} />
@@ -269,15 +439,12 @@ export const ChatWidget: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 bg-[#F8F9FA] scroll-smooth relative">
-              {/* Background decoration for Santa theme - using CSS gradient instead of remote image */}
-              {isSanta && (
-                <div className="absolute inset-0 pointer-events-none opacity-10 bg-gradient-to-b from-red-100 to-transparent" />
-              )}
+            <div className={`flex-1 overflow-y-auto p-4 scroll-smooth relative ${isSanta ? 'bg-[#FFF5F5]' : 'bg-[#F8F9FA]'}`}>
 
               <div className="space-y-6 relative z-10">
                 <div className="text-center">
-                  <span className="text-[10px] font-medium text-gray-400 uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full">
+                  <span className={`text-[10px] font-medium uppercase tracking-widest px-3 py-1 rounded-full ${isSanta ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'
+                    }`}>
                     Today
                   </span>
                 </div>
@@ -317,7 +484,7 @@ export const ChatWidget: React.FC = () => {
                           : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
                           }`}
                       >
-                        {msg.text}
+                        {renderMarkdown(msg.text)}
 
                         {/* Santa Wish Granted - Add to Cart Button */}
                         {msg.santaAction && (
@@ -364,18 +531,14 @@ export const ChatWidget: React.FC = () => {
                 ))}
 
                 {isLoading && (
-                  <div className="flex items-end gap-2">
-                    <div className="w-8 h-8 rounded-full bg-white border border-gray-100 text-red-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                      {isSanta ? (
-                        <SantaIcon className="w-6 h-6" />
-                      ) : (
-                        <Sparkles size={14} />
-                      )}
-                    </div>
-                    <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <div className="flex justify-start animate-in fade-in zoom-in duration-300">
+                    <div className={`rounded-2xl rounded-tl-none px-4 py-3 shadow-sm ${isSanta ? 'bg-white border border-red-100' : 'bg-white border border-gray-100'
+                      }`}>
+                      <div className="flex gap-1">
+                        <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isSanta ? 'bg-red-400' : 'bg-gray-400'}`} style={{ animationDelay: '0ms' }} />
+                        <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isSanta ? 'bg-red-400' : 'bg-gray-400'}`} style={{ animationDelay: '150ms' }} />
+                        <span className={`w-1.5 h-1.5 rounded-full animate-bounce ${isSanta ? 'bg-red-400' : 'bg-gray-400'}`} style={{ animationDelay: '300ms' }} />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -383,9 +546,11 @@ export const ChatWidget: React.FC = () => {
               </div>
             </div>
 
-            {/* Footer Area */}
-            <div className="bg-white border-t border-gray-100 p-4 pt-2">
-              {/* Suggestion Chips */}
+            {/* Input Area */}
+            <form
+              onSubmit={handleSubmit}
+              className={`p-4 border-t ${isSanta ? 'bg-[#FFF5F5] border-red-100' : 'bg-white border-gray-100'}`}
+            >
               {messages.length < 3 && !isLoading && (
                 <div className="flex gap-2 overflow-x-auto pb-3 pt-1 hide-scrollbar">
                   {SUGGESTIONS.map((s, i) => (
@@ -400,52 +565,37 @@ export const ChatWidget: React.FC = () => {
                   ))}
                 </div>
               )}
-
-              {/* Human Handoff Button */}
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 text-xs font-semibold text-gray-500 hover:text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors mb-2 group"
-              >
-                <Headphones
-                  size={14}
-                  className="text-red-600 group-hover:scale-110 transition-transform"
-                />
-                Connect with Human Support
-              </button>
-
-              {/* Input Bar */}
-              <form
-                onSubmit={handleSubmit}
-                className="relative flex items-center gap-2"
-              >
+              <div className="flex gap-2">
                 <input
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question..."
-                  className="w-full bg-gray-100 text-gray-900 placeholder-gray-500 rounded-full pl-5 pr-12 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:bg-white border border-transparent focus:border-red-100 transition-all shadow-inner"
+                  placeholder={isSanta ? "Tell Santa your wish..." : "Type your message..."}
+                  className={`flex-1 px-4 py-2.5 rounded-full border focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all text-sm ${isSanta
+                    ? 'border-red-200 focus:border-red-400 focus:ring-red-100 bg-white placeholder:text-red-300'
+                    : 'border-gray-200 focus:border-red-600 focus:ring-red-50'
+                    }`}
+                  disabled={isLoading}
                 />
                 <button
                   type="submit"
                   disabled={!input.trim() || isLoading}
-                  className="absolute right-1.5 top-1.5 w-9 h-9 bg-red-600 text-white rounded-full flex items-center justify-center hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:scale-100 disabled:shadow-none cursor-pointer transition-all"
-                  aria-label="Send message"
+                  className={`p-2.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white shadow-sm flex items-center justify-center w-10 h-10 ${isSanta
+                    ? 'bg-red-600 hover:bg-red-700 hover:scale-105 active:scale-95'
+                    : 'bg-red-600 hover:bg-red-700'
+                    }`}
                 >
-                  <Send
-                    size={16}
-                    className={input.trim() ? 'translate-x-0.5' : ''}
-                  />
+                  {isSanta ? <Gift size={18} /> : <Send size={18} />}
                 </button>
-              </form>
-              <div className="text-center mt-2">
-                <p className="text-[10px] text-gray-300">
-                  Powered by Google Gemini • AI can make mistakes.
-                </p>
               </div>
+            </form>
+            <div className="text-center mt-2">
+              <p className="text-[10px] text-gray-300">
+                Powered by Google Gemini • AI can make mistakes.
+              </p>
             </div>
           </div>
-        )
-      }
+        )}
 
       {/* Floating Toggle Button */}
       <div className="relative group">
@@ -498,6 +648,6 @@ export const ChatWidget: React.FC = () => {
           )}
         </button>
       </div>
-    </div>
+    </div >
   );
 };

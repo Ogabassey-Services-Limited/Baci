@@ -14,12 +14,13 @@ export interface Product {
   images?: string[];
   brand?: string;
   category?: string;
-  condition?: 'New' | 'UK Used' | 'Refurbished';
+  condition?: 'New' | 'UK Used' | 'Refurbished' | 'Open Box' | 'Used' | 'New & Used';
   rating?: number;
   review_count?: number;
   in_stock?: boolean;
   stock_quantity?: number;
   has_variants?: boolean;
+  colors?: (string | { name: string; value: string })[];
   variant_attributes?: Record<string, string[]>;
   variants?: ProductVariant[];
   specifications?: Record<string, string>;

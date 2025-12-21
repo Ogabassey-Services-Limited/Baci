@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
 import { getTemplate, type TemplateComponents } from '@/templates/registry';
 
@@ -24,7 +24,10 @@ export function StorefrontPageWrapper({
   merchant: initialMerchant,
   products = [], // Default to empty array if not provided
 }: StorefrontPageWrapperProps) {
-  const { merchant: hookMerchant, loading: hookLoading } = useMerchant();
+  // Use safe hook to prevent SSR hydration errors when context isn't yet available
+  const merchantContext = useMerchantSafe();
+  const hookMerchant = merchantContext?.merchant ?? null;
+  const hookLoading = merchantContext?.loading ?? true;
 
   // Use initial merchant if provided (SSR), otherwise fallback to hook
   const merchant = initialMerchant || hookMerchant;

@@ -13,9 +13,10 @@ import { AdUnit } from '../components/AdUnit';
 // Define the expected props
 interface HomePageProps {
   products?: Product[];
+  categories?: { name: string; slug: string }[];
 }
 
-export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products }) => {
+export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products, categories }) => {
   const merchantContext = useMerchantSafe();
   const storeSlug = merchantContext?.merchant?.slug;
 
@@ -43,6 +44,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products }) => {
         storeSlug={storeSlug}
         // If we have products from props, pass them to prevent client-side fetching
         externalProducts={products}
+        categories={categories}
         useMockData={!storeSlug && !products}
       />
     </>

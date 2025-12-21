@@ -55,10 +55,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: BRAND.primary,
-        tabBarInactiveTintColor: colors.tabIconDefault,
+        tabBarInactiveTintColor: '#888888',
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
+          backgroundColor: '#000000',
+          borderTopColor: '#222222',
           borderTopWidth: 1,
           paddingTop: SPACING.sm,
           paddingBottom: SPACING.sm,
@@ -70,13 +70,14 @@ export default function TabLayout() {
           marginTop: 2,
         },
         headerStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: '#000000',
         },
         headerTitleStyle: {
           fontFamily: 'Inter_600SemiBold',
           fontSize: TYPOGRAPHY.size.lg,
+          color: '#FFFFFF',
         },
-        headerTintColor: colors.text,
+        headerTintColor: '#FFFFFF',
         headerShadowVisible: false,
       }}
     >

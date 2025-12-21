@@ -234,7 +234,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
         </div>
 
         <div className="mt-8 pt-4 border-t border-gray-800 text-center text-[10px] text-gray-500">
-          &copy; {new Date().getFullYear()} Ogabassey Ltd. All rights reserved.
+          <span suppressHydrationWarning>&copy; {new Date().getFullYear()} Ogabassey Ltd. All rights reserved.</span>
         </div>
       </div>
     </footer>

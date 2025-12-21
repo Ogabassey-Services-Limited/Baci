@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Service tiers matching the API
 const SERVICE_TIERS = {
@@ -89,11 +89,28 @@ interface ImeiResult {
   modelNumber: string;
   status: 'Clean' | 'Blacklisted' | 'Unknown';
   icloud: string;
+  icloudLock: string;
   simLock: string;
   blacklistStatus: string;
   carrier: string;
   deviceImage: string;
   score: number;
+  serialNumber?: string;
+  purchaseDate?: string;
+  purchaseCountry?: string;
+  warranty?: string;
+  refurbished?: string;
+  demoUnit?: string;
+  deviceType: 'apple' | 'android' | 'other';
+  verdict: string;
+  verdictType: 'safe' | 'caution' | 'danger';
+}
+// Product suggestion interface for autocomplete
+interface ProductSuggestion {
+  id: string;
+  name: string;
+  category?: string;
+  image?: string;
 }
 
 export const OgabasseyImeiChecker: React.FC = () => {
@@ -103,6 +120,53 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [showTierPicker, setShowTierPicker] = useState(false);
+
+  // Device search autocomplete state
+  const [deviceQuery, setDeviceQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<ProductSuggestion | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // Debounced search for product suggestions
+  useEffect(() => {
+    if (deviceQuery.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const response = await fetch(
+          `/api/storefront/products?q=${encodeURIComponent(deviceQuery)}&limit=5`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSuggestions(
+            data.data?.map((p: Record<string, unknown>) => ({
+              id: p.id as string,
+              name: p.name as string,
+              category: p.category as string | undefined,
+              image: p.image as string | undefined,
+            })) || []
+          );
+        }
+      } catch {
+        console.warn('Failed to fetch device suggestions');
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [deviceQuery]);
+
+  const handleSelectDevice = useCallback((device: ProductSuggestion) => {
+    setSelectedDevice(device);
+    setDeviceQuery(device.name);
+    setShowSuggestions(false);
+  }, []);
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,10 +255,76 @@ export const OgabasseyImeiChecker: React.FC = () => {
         {/* Main Check Section */}
         {!result && (
           <>
-            {/* Service Tier Selection */}
+            {/* Step 1: Device Search */}
+            <div className="max-w-xl mx-auto mb-8">
+              <p className="text-center text-sm font-medium text-gray-500 mb-3">
+                Step 1: What device are you checking?
+              </p>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Smartphone className="text-gray-400" size={20} />
+                </div>
+                <input
+                  type="text"
+                  value={deviceQuery}
+                  onChange={(e) => {
+                    setDeviceQuery(e.target.value);
+                    setShowSuggestions(true);
+                    if (!e.target.value) setSelectedDevice(null);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder="Type device name (e.g., iPhone 16, Samsung S24...)"
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-200 outline-none text-base transition-all"
+                />
+                {searchLoading && (
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                    <Loader2 className="animate-spin text-gray-400" size={18} />
+                  </div>
+                )}
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+                    {suggestions.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSelectDevice(product)}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 border-b border-gray-50 last:border-0"
+                      >
+                        {product.image && (
+                          <Image
+                            src={product.image}
+                            alt={product.name}
+                            width={40}
+                            height={40}
+                            className="rounded-lg object-cover"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-900">{product.name}</p>
+                          {product.category && (
+                            <p className="text-xs text-gray-500">{product.category}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedDevice && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-sm text-green-600">
+                  <Check size={16} />
+                  <span>Checking: <strong>{selectedDevice.name}</strong></span>
+                </div>
+              )}
+            </div>
+
+            {/* Step 2: Service Tier Selection */}
             <div className="max-w-4xl mx-auto mb-8">
               <p className="text-center text-sm font-medium text-gray-500 mb-4">
-                Choose what you want to verify:
+                Step 2: Choose what you want to verify:
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -208,11 +338,10 @@ export const OgabasseyImeiChecker: React.FC = () => {
                       key={tierKey}
                       type="button"
                       onClick={() => setSelectedTier(tierKey)}
-                      className={`relative p-4 rounded-2xl border-2 transition-all text-left ${
-                        isSelected
-                          ? 'border-red-500 bg-red-50 shadow-lg shadow-red-100'
-                          : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
-                      }`}
+                      className={`relative p-4 rounded-2xl border-2 transition-all text-left ${isSelected
+                        ? 'border-red-500 bg-red-50 shadow-lg shadow-red-100'
+                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
+                        }`}
                     >
                       {'recommended' in tier && tier.recommended && (
                         <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -486,24 +615,24 @@ export const OgabasseyImeiChecker: React.FC = () => {
                   </div>
                 </div>
 
-                {/* iCloud Status */}
+                {/* iCloud Lock (Find My iPhone) */}
                 <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isIcloudClean(result.icloud) ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${result.icloudLock.toLowerCase() === 'off' || result.icloudLock.toLowerCase() === 'unknown' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}
                   >
                     <Lock size={20} />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
-                      iCloud Lock
+                      Find My iPhone
                     </p>
                     <p
-                      className={`font-bold text-base ${isIcloudClean(result.icloud) ? 'text-green-700' : 'text-red-600'}`}
+                      className={`font-bold text-base ${result.icloudLock.toLowerCase() === 'off' || result.icloudLock.toLowerCase() === 'unknown' ? 'text-green-700' : 'text-red-600'}`}
                     >
-                      {isIcloudClean(result.icloud) ? 'OFF' : result.icloud}
+                      {result.icloudLock}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Find My iPhone Status
+                      iCloud Lock Status
                     </p>
                   </div>
                 </div>
@@ -545,21 +674,22 @@ export const OgabasseyImeiChecker: React.FC = () => {
 
               {/* Verdict */}
               <div
-                className={`p-6 border-t ${result.status === 'Clean' ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} text-center`}
+                className={`p-6 border-t text-center ${result.verdictType === 'safe'
+                  ? 'bg-green-50 border-green-100'
+                  : result.verdictType === 'danger'
+                    ? 'bg-red-50 border-red-100'
+                    : 'bg-yellow-50 border-yellow-100'
+                  }`}
               >
-                <h3
-                  className={`font-bold text-lg mb-1 ${result.status === 'Clean' ? 'text-green-800' : 'text-red-800'}`}
-                >
-                  {result.status === 'Clean'
-                    ? '✓ This device appears safe to buy!'
-                    : '✗ WARNING: Do NOT purchase this device.'}
-                </h3>
                 <p
-                  className={`text-sm ${result.status === 'Clean' ? 'text-green-600' : 'text-red-600'}`}
+                  className={`font-bold text-base leading-relaxed ${result.verdictType === 'safe'
+                    ? 'text-green-800'
+                    : result.verdictType === 'danger'
+                      ? 'text-red-800'
+                      : 'text-yellow-800'
+                    }`}
                 >
-                  {result.status === 'Clean'
-                    ? 'All critical checks passed. Always do a physical inspection before payment.'
-                    : 'This device has serious issues. Buying it could be illegal and you risk losing your money.'}
+                  {result.verdict}
                 </p>
               </div>
             </div>

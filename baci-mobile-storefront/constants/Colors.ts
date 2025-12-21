@@ -90,12 +90,13 @@ export const TYPOGRAPHY = {
     '5xl': clamp(48, 72),
     'hero': clamp(32, 48), // Dedicated hero size
   },
-  // Font weights
+  // Font weights (Testing with system serif - can upgrade to Google Font later)
   weight: {
-    normal: '400' as const,
-    medium: '500' as const,
-    semibold: '600' as const,
-    bold: '700' as const,
+    normal: 'serif',
+    medium: 'serif',
+    semibold: 'serif',
+    bold: 'serif',
+    black: 'serif',
   },
   // Line heights
   lineHeight: {

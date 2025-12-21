@@ -6,9 +6,10 @@ import { InteractiveProductGrid } from '@/components/storefront/ogabassey/compon
 
 interface HomePageProps {
   products: Product[];
+  categories?: { name: string; slug: string }[];
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ products = [] }) => {
+export const HomePage: React.FC<HomePageProps> = ({ products = [], categories = [] }) => {
   return (
     <>
       <Hero />
@@ -18,7 +19,7 @@ export const HomePage: React.FC<HomePageProps> = ({ products = [] }) => {
         <BannerCarousel className="h-40 md:h-52" />
       </div>
 
-      <InteractiveProductGrid products={products} />
+      <InteractiveProductGrid products={products} categories={categories} />
     </>
   );
 };

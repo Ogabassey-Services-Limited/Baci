@@ -44,6 +44,9 @@ export const routes = {
   /** Cart page: /{slug}/cart */
   cart: (slug: string) => `/${slug}/cart` as Route,
 
+  /** Repair Booking: /{slug}/repair */
+  storefrontRepair: (slug: string) => `/${slug}/repair` as Route,
+
   // ============================================================
   // Dashboard Routes (authenticated merchant admin)
   // ============================================================

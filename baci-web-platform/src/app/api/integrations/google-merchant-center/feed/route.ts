@@ -15,9 +15,10 @@ export async function GET(_request: Request) {
     const { data: products, error } = await supabase
       .from('products')
       .select(
-        `id, name, description, slug, sku, price, image,
+        `id, name, description, slug, sku, price, image, images,
          stock, manage_stock, condition, brand, gtin, mpn,
-         google_product_category, weight_value, weight_unit`
+         google_product_category, weight_value, weight_unit,
+         parent_product_id`
       )
       .eq('status', 'active')
       .limit(10000);
@@ -39,16 +40,33 @@ export async function GET(_request: Request) {
             : 'in stock';
         const price = `${product.price} USD`;
 
+        // Handle Additional Images
+        // Exclude the main image and take up to 10 unique additional images
+        const additionalImages = Array.isArray(product.images)
+          ? product.images
+            .filter((img: string) => img !== imageLink)
+            .slice(0, 10)
+            .map((img: string) => `<g:additional_image_link>${img}</g:additional_image_link>`)
+            .join('\n  ')
+          : '';
+
+        // Handle Variant Grouping
+        const itemGroupId = product.parent_product_id
+          ? `<g:item_group_id>${product.parent_product_id}</g:item_group_id>`
+          : '';
+
         return `<item>
   <g:id>${product.sku || product.id}</g:id>
   <g:title><![CDATA[${product.name}]]></g:title>
   <g:description><![CDATA[${product.description || product.name}]]></g:description>
   <g:link>${link}</g:link>
   <g:image_link>${imageLink}</g:image_link>
+  ${additionalImages}
   <g:condition>${product.condition || 'new'}</g:condition>
   <g:availability>${availability}</g:availability>
   <g:price>${price}</g:price>
   <g:brand><![CDATA[${product.brand || 'Baci'}]]></g:brand>
+  ${itemGroupId}
   ${product.gtin ? `<g:gtin>${product.gtin}</g:gtin>` : ''}
   ${product.mpn ? `<g:mpn>${product.mpn}</g:mpn>` : ''}
   ${product.google_product_category ? `<g:google_product_category><![CDATA[${product.google_product_category}]]></g:google_product_category>` : ''}

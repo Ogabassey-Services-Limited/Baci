@@ -284,6 +284,30 @@ function App() {
 
             <CartSummary cart={cart} onViewCart={handleViewCart} onRemoveItem={handleRemoveItem} />
 
+            {/* Mobile Sticky Footer */}
+            {cart.length > 0 && (
+                <div className="mobile-sticky-footer">
+                    <button
+                        className="btn-negotiate-icon"
+                        onClick={() => {
+                            window.openai?.sendFollowUpMessage?.('I would like to negotiate the price for my cart items.');
+                        }}
+                        aria-label="Negotiate Price"
+                        title="Negotiate Price"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            <path d="M8 10h.01" />
+                            <path d="M12 10h.01" />
+                            <path d="M16 10h.01" />
+                        </svg>
+                    </button>
+                    <button className="btn-checkout-sticky" onClick={handleViewCart}>
+                        Proceed to Checkout →
+                    </button>
+                </div>
+            )}
+
             <footer className="widget-footer">
                 <button
                     className="btn-browse-more"

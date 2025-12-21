@@ -108,7 +108,7 @@ export function PlatformFooter() {
           </div>
         </div>
         <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Baci. All rights reserved.</p>
+          <p suppressHydrationWarning>&copy; {new Date().getFullYear()} Baci. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="#" className="hover:text-accent transition-colors">
               Twitter

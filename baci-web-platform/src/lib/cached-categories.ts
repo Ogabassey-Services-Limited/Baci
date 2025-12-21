@@ -31,35 +31,44 @@ export const getCachedNavigationCategories = cache(
 
     const categories = data || [];
 
-    // Priority order for "Interest-Based" sorting
+    // Exact priority order - matches "Shop by Category" dropdown in the Navbar
+    // Categories are matched by checking if their name STARTS with these keywords
     const PRIORITY_ORDER = [
       'smartphones',
-      'phones',
       'laptops',
-      'computers',
       'tablets',
-      'ipads',
       'gaming',
-      'consoles',
-      'smart watches',
       'wearables',
       'audio',
-      'speakers',
-      'headphones',
-      'televisions',
-      'tvs',
+      'smart tvs',
       'monitors',
       'printers',
-      'accessories', // Accessories usually go last in "Interest" hierarchy
-      'others',
+      'accessories',
+      'desktops',
+      'general',
     ];
 
-    return categories.sort((a, b) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
+    // Helper: find the best matching priority index for a category name
+    const getPriorityIndex = (name: string): number => {
+      const lowerName = name.toLowerCase();
+      // First try exact match or starts-with match (more specific)
+      for (let i = 0; i < PRIORITY_ORDER.length; i++) {
+        if (lowerName === PRIORITY_ORDER[i] || lowerName.startsWith(PRIORITY_ORDER[i])) {
+          return i;
+        }
+      }
+      // Fallback: check if name contains the keyword (less specific)
+      for (let i = 0; i < PRIORITY_ORDER.length; i++) {
+        if (lowerName.includes(PRIORITY_ORDER[i])) {
+          return i;
+        }
+      }
+      return -1; // Not found
+    };
 
-      const aIndex = PRIORITY_ORDER.findIndex((p) => aName.includes(p));
-      const bIndex = PRIORITY_ORDER.findIndex((p) => bName.includes(p));
+    return categories.sort((a, b) => {
+      const aIndex = getPriorityIndex(a.name);
+      const bIndex = getPriorityIndex(b.name);
 
       // Both are priority categories -> sort by priority index
       if (aIndex !== -1 && bIndex !== -1) {
@@ -73,7 +82,7 @@ export const getCachedNavigationCategories = cache(
       if (bIndex !== -1) return 1;
 
       // Neither is priority -> Alphabetical sort
-      return aName.localeCompare(bName);
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
   }
 );

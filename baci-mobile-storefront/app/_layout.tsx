@@ -13,6 +13,7 @@ import {
   Inter_500Medium,
   Inter_600SemiBold,
   Inter_700Bold,
+  Inter_900Black,
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -76,6 +77,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
+    Inter_900Black,
     ...FontAwesome.font,
     ...Ionicons.font,
   });
@@ -146,104 +148,104 @@ function RootLayoutNav() {
         <ThemeProvider value={colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <Stack
-          screenOptions={{
-            headerStyle: {
-              backgroundColor: colors.background,
-            },
-            headerTintColor: colors.text,
-            headerTitleStyle: {
-              fontWeight: '600',
-            },
-            headerShadowVisible: false,
-            contentStyle: {
-              backgroundColor: colors.background,
-            },
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="product/[slug]"
-            options={{
-              headerTransparent: true,
-              headerTitle: '',
+            screenOptions={{
+              headerStyle: {
+                backgroundColor: colors.background,
+              },
+              headerTintColor: colors.text,
+              headerTitleStyle: {
+                fontWeight: '600',
+              },
+              headerShadowVisible: false,
+              contentStyle: {
+                backgroundColor: colors.background,
+              },
             }}
-          />
-          <Stack.Screen
-            name="checkout"
-            options={{
-              title: 'Checkout',
-              presentation: 'card',
-            }}
-          />
-          <Stack.Screen
-            name="order-success"
-            options={{
-              headerShown: false,
-              gestureEnabled: false,
-            }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{
-              headerShown: false,
-              animation: 'fade',
-            }}
-          />
-          <Stack.Screen
-            name="auth/login"
-            options={{
-              title: '',
-              presentation: 'modal',
-            }}
-          />
-          <Stack.Screen
-            name="orders/index"
-            options={{
-              title: 'My Orders',
-            }}
-          />
-          <Stack.Screen
-            name="orders/[id]"
-            options={{
-              title: 'Order Details',
-            }}
-          />
-          <Stack.Screen
-            name="addresses/index"
-            options={{
-              title: 'My Addresses',
-            }}
-          />
-          <Stack.Screen
-            name="addresses/[id]"
-            options={({ route }) => ({
-              title: (route.params as { id?: string })?.id === 'new' ? 'Add Address' : 'Edit Address',
-            })}
-          />
-          <Stack.Screen
-            name="modal"
-            options={{
-              presentation: 'modal',
-            }}
-          />
-          <Stack.Screen
-            name="notifications"
-            options={{
-              title: 'Notifications',
-            }}
-          />
-          <Stack.Screen
-            name="category/[slug]"
-            options={{
-              title: 'Category',
-            }}
-          />
-          <Stack.Screen
-            name="wallet/index"
-            options={{
-              title: 'Wallet & Rewards',
-            }}
-          />
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="product/[slug]"
+              options={{
+                headerTransparent: true,
+                headerTitle: '',
+              }}
+            />
+            <Stack.Screen
+              name="checkout"
+              options={{
+                title: 'Checkout',
+                presentation: 'card',
+              }}
+            />
+            <Stack.Screen
+              name="order-success"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            />
+            <Stack.Screen
+              name="search"
+              options={{
+                headerShown: false,
+                animation: 'fade',
+              }}
+            />
+            <Stack.Screen
+              name="auth/login"
+              options={{
+                title: '',
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="orders/index"
+              options={{
+                title: 'My Orders',
+              }}
+            />
+            <Stack.Screen
+              name="orders/[id]"
+              options={{
+                title: 'Order Details',
+              }}
+            />
+            <Stack.Screen
+              name="addresses/index"
+              options={{
+                title: 'My Addresses',
+              }}
+            />
+            <Stack.Screen
+              name="addresses/[id]"
+              options={({ route }) => ({
+                title: (route.params as { id?: string })?.id === 'new' ? 'Add Address' : 'Edit Address',
+              })}
+            />
+            <Stack.Screen
+              name="modal"
+              options={{
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen
+              name="notifications"
+              options={{
+                title: 'Notifications',
+              }}
+            />
+            <Stack.Screen
+              name="category/[slug]"
+              options={{
+                title: 'Category',
+              }}
+            />
+            <Stack.Screen
+              name="wallet/index"
+              options={{
+                title: 'Wallet & Rewards',
+              }}
+            />
           </Stack>
           {/* Global Connectivity Banner */}
           <ConnectivityBanner />

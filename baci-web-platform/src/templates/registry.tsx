@@ -128,6 +128,8 @@ export interface TemplatePageProps {
   isPreview?: boolean;
   /** Initial theme for SSR consistency (Phase 1: Cookie-Based Theme) */
   initialTheme?: V2ThemeMode;
+  /** Categories loaded from DB */
+  categories?: { name: string; slug: string }[];
 }
 
 /**
@@ -555,7 +557,10 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       // Wrapper component
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
         return (
-          <OgabasseyHomePage products={props.products} />
+          <OgabasseyHomePage
+            products={props.products}
+            categories={props.categories}
+          />
         );
       };
 

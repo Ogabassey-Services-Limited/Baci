@@ -440,6 +440,33 @@ export const CartPage: React.FC = () => {
           onSuccess={handleNegotiationSuccess}
         />
       )}
+
+      {/* Mobile Sticky Footer - Only visible on mobile when cart has items */}
+      {cart.length > 0 && (
+        <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden z-40">
+          {/* Negotiate Icon Button */}
+          <button
+            onClick={openTotalNegotiation}
+            className="w-14 h-14 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
+            aria-label="Bulk Negotiate"
+            title="Bulk Negotiate"
+          >
+            <HandCoins size={20} className="text-red-600" />
+            <span className="text-[9px] font-bold text-gray-600 mt-0.5">Bulk</span>
+          </button>
+
+          {/* Checkout Button */}
+          <Link
+            href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
+            className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+          >
+            <span>Checkout</span>
+            <span className="text-white/80">•</span>
+            <span>₦{cartTotal.toLocaleString()}</span>
+            <ArrowRight size={18} className="ml-1" />
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

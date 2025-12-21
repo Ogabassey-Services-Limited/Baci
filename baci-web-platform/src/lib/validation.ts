@@ -55,6 +55,11 @@ export const RESERVED_PATHS = new Set([
  * @returns True if it matches the domain regex.
  */
 export function isDomainIdentifier(identifier: string): boolean {
+  // Reject common file extensions to prevent filenames being treated as domains
+  if (/\.(ico|json|png|jpg|jpeg|svg|css|js|map|txt|xml)$/i.test(identifier)) {
+    return false;
+  }
+
   return (
     identifier.includes('.') &&
     VALID_DOMAIN_REGEX.test(identifier.toLowerCase())

@@ -214,7 +214,7 @@ export async function openCreditDirectCheckout(
 export function isCreditDirectEligible(
   amount: number,
   minAmount: number = 10000,
-  maxAmount: number = 500000
+  maxAmount: number = 5000000
 ): boolean {
   return amount >= minAmount && amount <= maxAmount;
 }

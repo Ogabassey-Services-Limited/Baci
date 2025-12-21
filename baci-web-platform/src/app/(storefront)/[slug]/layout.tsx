@@ -19,12 +19,12 @@ import {
 async function StorefrontLayoutRenderer({
   merchant,
   children,
-  isCheckout,
+  hideNavigation,
 }: {
   merchant: MerchantData;
   slug: string; // identifier used
   children: React.ReactNode;
-  isCheckout: boolean;
+  hideNavigation: boolean;
 }) {
   // Read theme cookie server-side for SSR consistency
   // CRITICAL: Always provide a theme value to avoid hydration mismatch
@@ -42,7 +42,7 @@ async function StorefrontLayoutRenderer({
       <OgabasseyLayout
         merchant={merchant}
         initialTheme={initialTheme}
-        isCheckout={isCheckout}
+        hideNavigation={hideNavigation}
       >
         {children}
       </OgabasseyLayout>
@@ -63,6 +63,52 @@ import {
 
 // Enable ISR - revalidate categories every 5 minutes
 export const revalidate = 300;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  // Validate identifier format
+  if (!isValidMerchantIdentifier(slug)) {
+    return { title: 'Store Not Found' };
+  }
+
+  // Fetch merchant data
+  let merchant;
+  if (isDomainIdentifier(slug)) {
+    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
+  } else {
+    merchant = await getCachedMerchant(slug.toLowerCase());
+  }
+
+  if (!merchant) {
+    return { title: 'Store Not Found' };
+  }
+
+  // Extract verification code from feature settings or published config
+  // Prioritize feature_settings, check published_config fallback
+  const featureSettings = merchant.feature_settings as Record<string, any> | undefined;
+  const publishedConfig = merchant.published_config as Record<string, any> | undefined;
+
+  const verificationCode =
+    featureSettings?.google_site_verification ||
+    publishedConfig?.google_site_verification;
+
+  return {
+    title: merchant.business_name,
+    description: `Shop at ${merchant.business_name} on Baci`,
+    verification: verificationCode ? {
+      google: verificationCode,
+    } : undefined,
+    openGraph: {
+      title: merchant.business_name,
+      images: merchant.logo_url ? [merchant.logo_url] : [],
+    },
+  };
+}
 
 export default async function StorefrontLayout({
   children,
@@ -110,9 +156,15 @@ export default async function StorefrontLayout({
   const hasCustomDomain = headersList.has('x-custom-domain');
   const routingMode = hasSubdomain || hasCustomDomain ? 'domain' : 'path';
 
-  // Detect checkout page from pathname header (set by middleware)
+  // Detect key pages where navigation should be hidden (Checkout, Auth, Account Login)
   const pathname = headersList.get('x-pathname') || '';
   const isCheckout = pathname.includes('/checkout');
+  const isAuthPage =
+    pathname.includes('/account/login') ||
+    pathname.includes('/orders/track') || // Tracking often minimal
+    pathname.includes('/auth/'); // Future proofing
+
+  const hideNavigation = isCheckout || isAuthPage;
 
   // Fetch navigation categories server-side (cached)
   const navigationCategories = await getCachedNavigationCategories(merchant.id);
@@ -134,7 +186,7 @@ export default async function StorefrontLayout({
         <StorefrontLayoutRenderer
           merchant={merchant as unknown as MerchantData}
           slug={slug}
-          isCheckout={isCheckout}
+          hideNavigation={hideNavigation}
         >
           {children}
         </StorefrontLayoutRenderer>

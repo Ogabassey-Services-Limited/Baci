@@ -16,6 +16,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/checkout/',
     '/reset-password/',
     '/auth/',
+    '/_next/', // Prevent Next.js static assets from being indexed (Soft 404 fix)
   ];
 
   return {

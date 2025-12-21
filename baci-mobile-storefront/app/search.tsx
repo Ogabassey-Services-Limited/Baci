@@ -42,6 +42,10 @@ const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   'smartwatches': 'watch-outline',
 };
 
+import { FilterBar } from '@/components/storefront/FilterBar';
+
+// ... (imports remain)
+
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -50,12 +54,26 @@ export default function SearchScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  // Filter State
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(0);
+  const [selectedBrand, setSelectedBrand] = useState('All');
+  const [selectedCondition, setSelectedCondition] = useState('All');
+  const [minRating, setMinRating] = useState(0);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,
     limit: 20,
   });
 
   const { data: categories = [] } = useCategories();
+
+  // Derived data for filters (mocking for now)
+  // Derive brand names for filter
+  const categoryNames = ['All', ...categories.map(c => c.name)];
+  const brandNames = Array.from(new Set(products.map(p => p.brand).filter(Boolean) as string[])).slice(0, 10);
 
   const handleSearch = useCallback((text: string) => {
     setQuery(text);
@@ -135,7 +153,6 @@ export default function SearchScreen() {
 
   const renderSuggestions = () => (
     <View style={styles.suggestionsContainer}>
-      {/* Recent Searches */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Recent Searches
@@ -158,7 +175,6 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      {/* Popular Categories */}
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Popular Categories
@@ -189,38 +205,33 @@ export default function SearchScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
-
+      <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
         {/* Search Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </Pressable>
-
-          <View style={[styles.searchInputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="search" size={20} color={colors.textSecondary} />
-            <TextInput
-              ref={inputRef}
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search products..."
-              placeholderTextColor={colors.textSecondary}
-              value={query}
-              onChangeText={handleSearch}
-              autoFocus
-              returnKeyType="search"
-            />
-            {query.length > 0 && (
-              <Pressable onPress={handleClear}>
-                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
-              </Pressable>
-            )}
-          </View>
+          {/* ... header code ... */}
         </View>
+
+        {/* Filter Bar - Show only when searching */}
+        {isSearching && (
+          <FilterBar
+            categories={categoryNames}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onPriceChange={(min, max) => { setMinPrice(min); setMaxPrice(max); }}
+            brands={brandNames}
+            selectedBrand={selectedBrand}
+            onSelectBrand={setSelectedBrand}
+            selectedCondition={selectedCondition}
+            onSelectCondition={setSelectedCondition}
+            minRating={minRating}
+            onSelectRating={setMinRating}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
+        )}
 
         {/* Content */}
         {isSearching ? renderSearchResults() : renderSuggestions()}

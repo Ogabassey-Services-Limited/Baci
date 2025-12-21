@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const creditDirectEnabled = settings?.credit_direct_enabled ?? false;
     const merchantPublicKey = settings?.credit_direct_public_key;
     const minAmount = settings?.credit_direct_min_amount ?? 10000;
-    const maxAmount = settings?.credit_direct_max_amount ?? 500000;
+    const maxAmount = settings?.credit_direct_max_amount ?? 5000000;
 
     if (!creditDirectEnabled) {
       return NextResponse.json(

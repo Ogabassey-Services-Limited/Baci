@@ -186,53 +186,53 @@ export function generateProductSchema(
     offers:
       product.offers && product.offers.length > 0
         ? product.offers.map((offer) => ({
-            '@type': 'Offer',
-            price: offer.price,
-            priceCurrency: currency,
-            availability:
-              offer.stock_quantity > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
-            itemCondition:
-              offer.condition === 'new'
-                ? 'https://schema.org/NewCondition'
-                : offer.condition === 'open_box'
-                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
-                  : offer.condition === 'refurbished'
-                    ? 'https://schema.org/RefurbishedCondition'
-                    : 'https://schema.org/UsedCondition',
-            seller: {
-              '@type': 'Organization',
-              name: safeMerchantName,
-            },
-            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
-              .toISOString()
-              .substring(0, 10),
-          }))
-        : {
-            '@type': 'Offer',
-            price: product.price,
-            priceCurrency: currency,
-            availability:
-              product.stock > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
-            itemCondition:
-              product.condition === 'used'
-                ? 'https://schema.org/UsedCondition'
-                : product.condition === 'open_box'
-                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
-                  : product.condition === 'refurbished'
-                    ? 'https://schema.org/RefurbishedCondition'
-                    : 'https://schema.org/NewCondition',
-            seller: {
-              '@type': 'Organization',
-              name: safeMerchantName,
-            },
-            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
-              .toISOString()
-              .substring(0, 10),
+          '@type': 'Offer',
+          price: offer.price,
+          priceCurrency: currency,
+          availability:
+            offer.stock_quantity > 0
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+          itemCondition:
+            offer.condition === 'new'
+              ? 'https://schema.org/NewCondition'
+              : offer.condition === 'open_box'
+                ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
+                : offer.condition === 'refurbished'
+                  ? 'https://schema.org/RefurbishedCondition'
+                  : 'https://schema.org/UsedCondition',
+          seller: {
+            '@type': 'Organization',
+            name: safeMerchantName,
           },
+          priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+            .toISOString()
+            .substring(0, 10),
+        }))
+        : {
+          '@type': 'Offer',
+          price: product.price,
+          priceCurrency: currency,
+          availability:
+            product.stock > 0
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+          itemCondition:
+            product.condition === 'used'
+              ? 'https://schema.org/UsedCondition'
+              : product.condition === 'open_box'
+                ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
+                : product.condition === 'refurbished'
+                  ? 'https://schema.org/RefurbishedCondition'
+                  : 'https://schema.org/NewCondition',
+          seller: {
+            '@type': 'Organization',
+            name: safeMerchantName,
+          },
+          priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+            .toISOString()
+            .substring(0, 10),
+        },
   };
 
   // Product identifiers (important for Google Merchant Center) - sanitized
@@ -295,7 +295,7 @@ export function generateProductSchema(
     const SPEC_MAPPINGS: SpecMapping[] = [
       // Network
       { key: 'network_technology', name: 'Network Technology' },
-      { key: 'is_5g', name: '5G Support', format: (v) => (v ? 'Yes' : 'No') },
+      { key: 'has_5g', name: '5G Support', format: (v) => (v ? 'Yes' : 'No') },
       { key: 'has_nfc', name: 'NFC', format: (v) => (v ? 'Yes' : 'No') },
 
       // Body

@@ -14,6 +14,9 @@ interface AdUnitProps {
 // TODO: REPLACE WITH YOUR ACTUAL GOOGLE AD MANAGER NETWORK CODE
 const NETWORK_CODE = '/23331099951'; // Updated from screenshot
 
+// Track defined slots globally to prevent duplicates in React StrictMode
+const definedSlots = new Set<string>();
+
 export const AdUnit: React.FC<AdUnitProps> = ({
   placementKey,
   className = '',
@@ -21,6 +24,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 }) => {
   const config = AD_CONFIG[placementKey];
   const adRef = useRef<HTMLDivElement>(null);
+  const slotRef = useRef<googletag.Slot | null>(null);
   const [isAdLoaded, setIsAdLoaded] = useState(false);
 
   useEffect(() => {
@@ -29,10 +33,20 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     const { id, width, height, mobileWidth, mobileHeight } = config;
     const slotPath = `${NETWORK_CODE}/${config.name.replace(/\s+/g, '_')}`; // Construct ad unit path
 
+    // Skip if this slot is already defined (React StrictMode double-render protection)
+    if (definedSlots.has(id)) {
+      return;
+    }
+
     // Ensure googletag is loaded
     window.googletag = window.googletag || { cmd: [] };
 
     window.googletag.cmd.push(() => {
+      // Double-check inside the queue in case of race conditions
+      if (definedSlots.has(id)) {
+        return;
+      }
+
       // Define the slot
       // We implement basic size mapping for responsiveness if mobile dims exist
       let slot;
@@ -52,9 +66,9 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       }
 
       if (slot) {
-        // Store slot reference for manual refresh
-        // @ts-ignore - Valid property storing slot for internal use
-        adRef.current.slot = slot;
+        // Track this slot as defined
+        definedSlots.add(id);
+        slotRef.current = slot;
 
         window.googletag.display(id);
 
@@ -69,10 +83,13 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
     return () => {
       // Cleanup: Destroy slot to prevent memory leaks in SPA navigation
-      const slotToDestroy = adRef.current?.slot;
+      const slotToDestroy = slotRef.current;
+      const slotId = id;
       if (slotToDestroy) {
         window.googletag.cmd.push(() => {
           window.googletag.destroySlots([slotToDestroy]);
+          definedSlots.delete(slotId);
+          slotRef.current = null;
         });
       }
     };
@@ -83,8 +100,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
     if (!config || !window.googletag?.pubads) return;
 
     // Check if we have a refresh trigger and a valid slot
-    // @ts-ignore - Accessing stored slot
-    const slot = adRef.current?.slot;
+    const slot = slotRef.current;
 
     if (refreshKey && slot) {
       window.googletag.cmd.push(() => {

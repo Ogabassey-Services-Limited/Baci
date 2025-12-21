@@ -59,14 +59,16 @@ export function AddressAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [mounted, setMounted] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize session token
+  // Initialize session token and mark as mounted
   useEffect(() => {
     setSessionToken(generateSessionToken());
+    setMounted(true);
   }, []);
 
   // Close dropdown on outside click
@@ -225,7 +227,8 @@ export function AddressAutocomplete({
       />
 
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-        {internalValue && !isLoading && (
+        {/* Only show clear button after hydration to prevent SSR mismatch */}
+        {mounted && internalValue && !isLoading && (
           <button
             type="button"
             onClick={handleClear}

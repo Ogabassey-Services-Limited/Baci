@@ -1052,7 +1052,7 @@ function createOgabasseyServer() {
 
         let query = supabase
           .from('products')
-          .select('id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, attributes, updated_at, created_at')
+          .select('id, name, slug, price, compare_at_price, images, condition, condition_detail, brand, category, stock_quantity, has_variants, updated_at, created_at')
           .eq('merchant_id', merchantId)
           .eq('status', 'active')
           .limit(limit);
@@ -1142,8 +1142,8 @@ function createOgabasseyServer() {
             stock_confidence: p.stock_quantity > 0 ? (p.stock_quantity > 5 ? 'high' : 'low') : 'none',
             price_trend: priceTrend,
             available_variants: availableOptions || 'Standard',
-            warranty: p.attributes?.['Warranty'] || p.attributes?.['warranty'] || 'Standard Warranty',
-            in_the_box: p.attributes?.['In the Box'] || undefined,
+            warranty: 'Standard Warranty',
+            in_the_box: undefined,
             last_updated: p.updated_at
           };
         });
@@ -2459,7 +2459,7 @@ function createOgabasseyServer() {
         // Try ID match first
         const { data: byId } = await supabase
           .from('products')
-          .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
+          .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup')
           .eq('id', q)
           .eq('merchant_id', merchantId)
           .single();
@@ -2470,7 +2470,7 @@ function createOgabasseyServer() {
           // Fallback to fuzzy name match
           const { data: byName } = await supabase
             .from('products')
-            .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, attributes, schema_markup')
+            .select('id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup')
             .eq('merchant_id', merchantId)
             .eq('status', 'active')
             .ilike('name', `%${sanitizeString(q, 100)}%`)

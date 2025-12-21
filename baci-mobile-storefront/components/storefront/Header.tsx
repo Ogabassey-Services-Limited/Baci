@@ -21,6 +21,7 @@ import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { useCartStore } from '@/stores/cart-store';
 import { useThemeStore } from '@/stores/theme-store';
+import { Logo } from '@/components/ui/Logo';
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -59,45 +60,54 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
         {isSanta && (
           <Image
             source={{ uri: PATTERN_URI }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover" // or 'repeat' if supported, otherwise cover scales it
+            style={[StyleSheet.absoluteFillObject, { opacity: 0.1 }]}
+            contentFit="cover"
             transition={500}
-            opacity={0.1}
           />
         )}
 
         <View style={styles.eliteContent}>
-          <Pressable onPress={() => router.push('/(tabs)')} style={styles.logoContainer}>
-            <Text style={[styles.logoText, isSanta && styles.santaText]}>
-              Oga<Text style={{ color: isSanta ? '#FFF' : BRAND.secondary }}>bassey</Text>
-            </Text>
-            {/* Santa Hat Overlay would go here if we had the SVG asset setup for RN */}
-          </Pressable>
+          {/* Row 1: Nav, Logo, Actions */}
+          <View style={styles.topRow}>
+            <View style={styles.leftGroup}>
+              <Pressable onPress={() => { }} hitSlop={12} style={styles.menuBtn}>
+                <Ionicons name="menu-outline" size={28} color="#FFF" />
+              </Pressable>
 
+              <Pressable onPress={() => router.push('/(tabs)')} style={styles.logoContainer}>
+                <Logo width={140} height={25} color='white' />
+              </Pressable>
+            </View>
+
+            <View style={styles.actionRow}>
+              {/* <Pressable onPress={() => router.push('/notifications' as any)} hitSlop={12} style={styles.iconBtn}>
+                <Ionicons name="notifications-outline" size={24} color="#FFF" />
+              </Pressable> */}
+              {/* Note: Web view doesn't show bell in header usually, simplifying to match web if needed, 
+                  but keeping specific user request "utility bar" separate. 
+                  Let's keep Cart prominent as per standard e-commerce. */}
+              <Pressable onPress={() => router.push('/(tabs)/cart')} hitSlop={12} style={styles.iconBtn}>
+                <Ionicons name="cart-outline" size={26} color="#FFF" />
+                {itemCount > 0 && (
+                  <View style={styles.badge}><Text style={styles.badgeText}>{itemCount}</Text></View>
+                )}
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Row 2: Search Bar */}
           {showSearch && (
             <Pressable
               style={[styles.searchPill, isSanta && styles.santaSearchPill]}
               onPress={handleSearch}
               hitSlop={12}
             >
-              <Ionicons name="search" size={16} color={isSanta ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.5)"} />
+              <Ionicons name="search-outline" size={20} color={isSanta ? "#666" : "#999"} />
               <Text style={[styles.searchPlaceholder, isSanta && styles.santaPlaceholder]} numberOfLines={1}>
-                Search products, brands...
+                Search products, brands and categories
               </Text>
             </Pressable>
           )}
-
-          <View style={styles.actionRow}>
-            <Pressable onPress={() => router.push('/notifications' as any)} hitSlop={12} style={styles.iconBtn}>
-              <Ionicons name="notifications-outline" size={22} color="#FFF" />
-            </Pressable>
-            <Pressable onPress={() => router.push('/(tabs)/cart')} hitSlop={12} style={styles.iconBtn}>
-              <Ionicons name="cart-outline" size={22} color="#FFF" />
-              {itemCount > 0 && (
-                <View style={styles.badge}><Text style={styles.badgeText}>{itemCount}</Text></View>
-              )}
-            </Pressable>
-          </View>
         </View>
       </View>
     );
@@ -157,53 +167,72 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 const styles = StyleSheet.create({
   // Elite Styles
   eliteContainer: {
-    backgroundColor: '#111',
-    // Reduced bottom padding for seamless look
-    paddingBottom: SPACING.md + 20, // Add more padding to replicate "pb-10" feel
-    borderBottomWidth: 0, // Removed border for seamlessness
+    backgroundColor: '#000', // Deep black as per target
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 0,
   },
   santaContainer: {
     backgroundColor: '#0F0F0F',
-    overflow: 'hidden', // Contain the pattern image
+    overflow: 'hidden',
   },
   santaText: {
     color: '#FFF',
   },
   eliteContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column', // Changed from row to column
     paddingHorizontal: SPACING.md,
     gap: SPACING.sm,
     zIndex: 10,
   },
-  logoContainer: {
-    marginRight: SPACING.xs,
-  },
-  logoText: {
-    fontSize: 18,
-    fontFamily: 'Inter_800ExtraBold',
-    color: '#FFFFFF',
-    letterSpacing: -0.8,
-  },
-  searchPill: {
-    flex: 1,
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    height: 48, // Taller search bar
-    borderRadius: RADIUS.md, // Rounded corners like web
-    paddingHorizontal: 12,
-    gap: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 4, // Slight spacing before search
+    height: 44, // Nav height
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  menuBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  logoContainer: {
+    // No margin right needed if in group
+  },
+  logoText: {
+    fontSize: 24, // Larger
+    fontFamily: 'Inter_900Black', // Heaviest weight
+    letterSpacing: -1,
+  },
+  searchPill: {
+    width: '100%', // Full width
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF', // White by default for Elite based on target screenshot (white pill on black bg)
+    height: 48,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   santaSearchPill: {
-    backgroundColor: '#FFF', // White search bar in Santa mode
+    backgroundColor: '#FFF',
   },
   searchPlaceholder: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
+    color: '#6B7280', // Gray-500 to match web placeholder
+    fontSize: 15, // Exact match to web text-[15px]
+    fontFamily: 'serif', // System serif to match web's Times font
+    lineHeight: 20,
   },
   santaPlaceholder: {
-    color: '#6B7280', // Gray-500
+    color: '#666',
   },
 
   // Minimal Styles

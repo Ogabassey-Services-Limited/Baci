@@ -35,13 +35,28 @@
     padding: 0;
 }
 
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+    background: var(--background);
+}
+
+body {
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+}
+
 .ogabassey-widget {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     background: var(--background);
     color: var(--text);
-    padding: 16px;
+    /* padding: 16px; -> Handled by body padding now */
     border-radius: var(--radius-lg);
-    max-width: 100%;
+    width: 100%;
+    max-width: 800px;
+    /* Optional constraint for readability on huge screens */
     overflow: hidden;
 }
 

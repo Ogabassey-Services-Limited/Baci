@@ -86,29 +86,27 @@ const DESKTOP_IPHONE_SLIDES = [
   },
 ];
 
-const RotatingWord = () => {
-  const words = ['Airtime!', 'Data!', 'TV!', 'Power!', 'Betting!'];
-  const [index, setIndex] = useState(0);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % words.length);
-    }, 5000); // 5 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <span className="text-red-600 font-bold transition-all duration-500 inline-block min-w-[80px] text-left">
-      {words[index]}
-    </span>
-  );
-};
 
 export const Hero: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentIphoneSlide, setCurrentIphoneSlide] = useState(0);
   const _videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+
+  // Utility Rotation Logic
+  const utilityWords = ['Airtime!', 'Data!', 'TV!', 'Power!', 'Gaming!'];
+  const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
+  const [isManualUtility, setIsManualUtility] = useState(false);
+
+  useEffect(() => {
+    if (isManualUtility) return;
+
+    const interval = setInterval(() => {
+      setActiveUtilityIndex((prev) => (prev + 1) % utilityWords.length);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isManualUtility]);
 
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [utilityTab, setUtilityTab] = useState('airtime');
@@ -436,10 +434,105 @@ export const Hero: React.FC = () => {
       </section>
 
       {/* Utility Panel - Full Width & No Drop Shadow as requested */}
-      <div className="w-full bg-white mt-3 md:mt-8 mb-6 border-y border-gray-100 py-5">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
+      <div className="w-full bg-white mt-3 md:mt-8 mb-6 border-y border-gray-100 md:py-5">
+        {/* Mobile: Integrated Card Design */}
+        <div className="md:hidden px-4">
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2">
+            {/* Header Pill */}
+            <div className="bg-[#FFF5F5] rounded-2xl py-3 px-4 mb-4 text-center">
+              <span className="text-gray-900 font-medium text-sm">
+                We Pay <span className="text-red-600 font-bold">YOU</span> When You Buy <span className="text-red-600 font-bold transition-all duration-500 inline-block min-w-[60px] text-left">{utilityWords[activeUtilityIndex]}</span>
+              </span>
+            </div>
+
+            {/* Icons Grid */}
+            <div className="grid grid-cols-5 gap-2 px-1 pb-2">
+              <div
+                onClick={() => {
+                  setUtilityTab('airtime');
+                  setShowUtilityModal(true);
+                  setIsManualUtility(true);
+                  setActiveUtilityIndex(0);
+                }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 0 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Airtime</span>
+              </div>
+              <div
+                onClick={() => {
+                  setUtilityTab('data');
+                  setShowUtilityModal(true);
+                  setIsManualUtility(true);
+                  setActiveUtilityIndex(1);
+                }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 1 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Data</span>
+              </div>
+              <div
+                onClick={() => {
+                  setUtilityTab('tv');
+                  setShowUtilityModal(true);
+                  setIsManualUtility(true);
+                  setActiveUtilityIndex(2);
+                }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="15" rx="2" ry="2" /><polyline points="17 2 12 7 7 2" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 2 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Tv</span>
+              </div>
+              <div
+                onClick={() => {
+                  setUtilityTab('power');
+                  setShowUtilityModal(true);
+                  setIsManualUtility(true);
+                  setActiveUtilityIndex(3);
+                }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 3 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Power</span>
+              </div>
+              <div
+                onClick={() => {
+                  setUtilityTab('betting');
+                  setShowUtilityModal(true);
+                  setIsManualUtility(true);
+                  setActiveUtilityIndex(4);
+                }}
+                className="flex flex-col items-center gap-2 group cursor-pointer"
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                  <Gamepad2 size={20} />
+                </div>
+                <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 4 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>Gaming</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: Original Layout */}
+        <div className="hidden md:flex max-w-[1400px] mx-auto px-4 md:px-6 flex-row items-center justify-between">
           {/* Left Promo Message */}
-          <div className="hidden md:block bg-red-50 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:-translate-x-[5%]">
+          <div className="bg-red-50 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:-translate-x-[5%]">
             <span className="text-gray-900 font-medium text-xl">
               We Pay <span className="text-red-600 font-bold">YOU</span> When
             </span>
@@ -451,10 +544,12 @@ export const Hero: React.FC = () => {
               onClick={() => {
                 setUtilityTab('airtime');
                 setShowUtilityModal(true);
+                setIsManualUtility(true);
+                setActiveUtilityIndex(0);
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -468,16 +563,18 @@ export const Hero: React.FC = () => {
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-gray-700">Airtime</span>
+              <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 0 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Airtime</span>
             </div>
             <div
               onClick={() => {
                 setUtilityTab('data');
                 setShowUtilityModal(true);
+                setIsManualUtility(true);
+                setActiveUtilityIndex(1);
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -494,16 +591,18 @@ export const Hero: React.FC = () => {
                   <line x1="12" y1="20" x2="12.01" y2="20" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-gray-700">Data</span>
+              <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 1 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Data</span>
             </div>
             <div
               onClick={() => {
                 setUtilityTab('tv');
                 setShowUtilityModal(true);
+                setIsManualUtility(true);
+                setActiveUtilityIndex(2);
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -518,16 +617,18 @@ export const Hero: React.FC = () => {
                   <polyline points="17 2 12 7 7 2" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-gray-700">Tv</span>
+              <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 2 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Tv</span>
             </div>
             <div
               onClick={() => {
                 setUtilityTab('power');
                 setShowUtilityModal(true);
+                setIsManualUtility(true);
+                setActiveUtilityIndex(3);
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -541,26 +642,28 @@ export const Hero: React.FC = () => {
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-gray-700">Power</span>
+              <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 3 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Power</span>
             </div>
             <div
               onClick={() => {
                 setUtilityTab('betting');
                 setShowUtilityModal(true);
+                setIsManualUtility(true);
+                setActiveUtilityIndex(4);
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <Gamepad2 size={20} />
               </div>
-              <span className="text-xs font-medium text-gray-700">Betting</span>
+              <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 4 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Gaming</span>
             </div>
           </div>
 
           {/* Right Promo Message - HIDDEN ON MOBILE */}
           <div className="hidden md:block bg-[#FFF5F5] px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-right xl:translate-x-[5%]">
             <span className="text-gray-900 font-medium text-xl">
-              You Buy <RotatingWord />
+              You Buy <span className="text-red-600 font-bold transition-all duration-500 inline-block min-w-[80px] text-left">{utilityWords[activeUtilityIndex]}</span>
             </span>
           </div>
         </div>
@@ -571,6 +674,6 @@ export const Hero: React.FC = () => {
         onClose={() => setShowUtilityModal(false)}
         initialTab={utilityTab as any}
       />
-    </div>
+    </div >
   );
 };

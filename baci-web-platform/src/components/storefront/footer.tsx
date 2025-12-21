@@ -220,7 +220,7 @@ export function StorefrontFooter() {
                 {availableSocialLinks.map((social) => {
                   const handle =
                     merchant.social_media?.[
-                      social.key as keyof typeof merchant.social_media
+                    social.key as keyof typeof merchant.social_media
                     ];
                   const url = handle?.startsWith('http')
                     ? handle
@@ -250,7 +250,7 @@ export function StorefrontFooter() {
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-white/10 text-center">
           <p className="text-sm opacity-80">
-            &copy; {new Date().getFullYear()} {merchant.business_name}. All
+            <span suppressHydrationWarning>&copy; {new Date().getFullYear()} {merchant.business_name}. All</span>
             rights reserved.
           </p>
         </div>

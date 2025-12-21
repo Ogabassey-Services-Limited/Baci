@@ -233,65 +233,91 @@ export function ProductCard({
     <AnimatedPressable
       style={[
         styles.gridContainer,
-        { backgroundColor: colors.card, borderColor: colors.border, shadowColor: colors.black },
+        { backgroundColor: '#FFF', borderColor: '#F3F4F6', shadowColor: colors.black },
         animatedStyle
       ]}
       onPress={handlePress}
       onPressIn={handleAnimateIn}
       onPressOut={handleAnimateOut}
-      accessibilityRole="button"
-      accessibilityLabel={`View details for ${product.name}`}
-      accessibilityHint="Opens the product details screen"
     >
-      <View style={[styles.imageWrapper, { backgroundColor: colors.placeholder }]}>
+      {/* Image Container */}
+      <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
+        {/* Wishlist - Top Right */}
+        <Pressable
+          onPress={handleWishlistPress}
+          style={styles.wishlistBtn}
+          hitSlop={8}
+        >
+          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
+            <Ionicons
+              name={isWishlisted ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isWishlisted ? BRAND.primary : '#9CA3AF'}
+            />
+          </Animated.View>
+        </Pressable>
+
+        {/* Condition Badge - Top Left */}
+        {product.condition && (
+          <View style={[styles.badgeContainer,
+          product.condition === 'New' ? { backgroundColor: '#111827' } :
+            product.condition === 'Open Box' ? { backgroundColor: '#4F46E5' } :
+              { backgroundColor: '#78716C' }
+          ]}>
+            <Text style={styles.badgeText}>{product.condition}</Text>
+          </View>
+        )}
+
+        {/* Platform Badge - Bottom Left */}
+        {product.variant_attributes?.Platform && product.variant_attributes.Platform.length > 0 && (
+          <View style={styles.platformBadge}>
+            <Text style={styles.platformText}>
+              {product.variant_attributes.Platform[0].replace('PlayStation ', 'PS').substring(0, 10)}
+            </Text>
+          </View>
+        )}
+
         <Image
           source={{ uri: product.image }}
           style={styles.gridImage}
           {...imageProps}
         />
-        {discount && <View style={styles.badge}><Text style={styles.badgeText}>-{discount}%</Text></View>}
-        {/* Real-time Scarcity Badge */}
-        {showScarcityBadge && (
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            exiting={FadeOut.duration(200)}
-            style={styles.scarcityBadge}
-            accessibilityRole="alert"
-          >
-            <Text style={styles.scarcityText}>
-              🔥 Only {stockQuantity} left!
-            </Text>
-          </Animated.View>
-        )}
-        <Pressable
-          onPress={handleWishlistPress}
-          style={[styles.wishlistBtn, { backgroundColor: colors.card }]}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          accessibilityState={{ selected: isWishlisted }}
-        >
-          <Animated.View style={heartAnimatedStyle}>
-            <Ionicons
-              name={isWishlisted ? 'heart' : 'heart-outline'}
-              size={18}
-              color={isWishlisted ? BRAND.primary : colors.icon}
-            />
-          </Animated.View>
+
+        {/* Floating Cart Button - Bottom Right */}
+        <Pressable onPress={handleAddToCart} style={styles.floatingCartBtn}>
+          <Ionicons name="cart" size={18} color={BRAND.primary} />
         </Pressable>
+
+        {/* Scarcity Overlay */}
+        {showScarcityBadge && (
+          <View style={styles.scarcityBadge}>
+            <Text style={styles.scarcityText}>Only {stockQuantity} left</Text>
+          </View>
+        )}
       </View>
+
+      {/* Content */}
       <View style={styles.gridContent}>
-        <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>{product.name}</Text>
+        {/* Color Swatches */}
+        {product.colors && product.colors.length > 0 && (
+          <View style={styles.swatchRow}>
+            {product.colors.slice(0, 4).map((c, i) => (
+              <View key={i} style={[styles.swatch, { backgroundColor: typeof c === 'string' ? c : c.value }]} />
+            ))}
+            {product.colors.length > 4 && <Text style={styles.moreColors}>+{product.colors.length - 4}</Text>}
+          </View>
+        )}
+
+        {/* Title */}
+        <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
+          {product.name}
+        </Text>
+
+        {/* Price Row */}
         <View style={styles.priceRow}>
-          <Text style={[styles.gridPrice, { color: colors.price }]}>{formatPrice(product.price)}</Text>
-          <Pressable 
-            onPress={handleAddToCart} 
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Add ${product.name} to cart`}
-          >
-            <Ionicons name="add-circle" size={24} color={BRAND.primary} />
-          </Pressable>
+          <Text style={[styles.gridPrice, { color: BRAND.primary }]}>{formatPrice(product.price)}</Text>
+          {/* Details Link */}
+          <Text style={styles.detailsText}>Details</Text>
         </View>
       </View>
     </AnimatedPressable>
@@ -299,29 +325,137 @@ export function ProductCard({
 }
 
 const styles = StyleSheet.create({
-  gridContainer: { width: GRID_WIDTH, borderRadius: RADIUS.xl, padding: 10, marginBottom: 16, borderWidth: 1, ...SHADOWS.sm },
-  imageWrapper: { width: '100%', aspectRatio: 1, borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: 10 },
+  gridContainer: {
+    width: GRID_WIDTH,
+    borderRadius: RADIUS.xl,
+    padding: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    backgroundColor: '#FFF',
+    // Slight shadow
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  imageWrapper: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    marginBottom: 10,
+    position: 'relative'
+  },
   gridImage: { width: '100%', height: '100%' },
-  gridContent: { paddingHorizontal: 4 },
-  gridName: { fontSize: 13, fontWeight: '600', marginBottom: 6, lineHeight: 18 },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  gridPrice: { fontSize: 15, fontWeight: '800' },
-  badge: { position: 'absolute', top: 8, left: 8, backgroundColor: BRAND.primary, paddingHorizontal: 6, paddingVertical: 3, borderRadius: RADIUS.sm },
-  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '800' },
-  scarcityBadge: { position: 'absolute', bottom: 8, left: 8, right: 8, backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 5, borderRadius: RADIUS.sm, alignItems: 'center' },
-  scarcityText: { color: '#D97706', fontSize: 11, fontWeight: '700' },
-  wishlistBtn: { position: 'absolute', top: 8, right: 8, width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center', ...SHADOWS.sm },
 
+  // Badges
+  badgeContainer: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    zIndex: 10,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase'
+  },
+  platformBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 10,
+    borderWidth: 1,
+    borderColor: '#F3F4F6'
+  },
+  platformText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#111827',
+    textTransform: 'uppercase'
+  },
+  scarcityBadge: {
+    position: 'absolute',
+    top: 30, // Below badge
+    left: 8,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 9
+  },
+  scarcityText: { color: '#D97706', fontSize: 10, fontWeight: '700' },
+
+  // Buttons
+  wishlistBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 20,
+  },
+  wishlistBlur: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  floatingCartBtn: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F3F4F6'
+  },
+
+  gridContent: { paddingHorizontal: 4 },
+  gridName: {
+    fontSize: 13,
+    fontFamily: 'serif', // System Serif
+    marginBottom: 4,
+    lineHeight: 18,
+    fontWeight: '500' // Serif normal/medium
+  },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 8 },
+  gridPrice: { fontSize: 16, fontFamily: 'serif', fontWeight: 'bold' },
+  detailsText: { fontSize: 11, fontFamily: 'serif', color: '#111827', fontWeight: '600' },
+
+  swatchRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  swatch: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 1 },
+  moreColors: { fontSize: 9, color: '#6B7280', fontWeight: '600' },
+
+
+  // Existing variants ...
   editorialContainer: { width: SCREEN_WIDTH - 32, marginBottom: 24, marginHorizontal: 16 },
   editorialImage: { width: '100%', aspectRatio: 0.8, borderRadius: RADIUS.md },
   editorialContent: { marginTop: 12, alignItems: 'center' },
-  editorialName: { fontSize: 18, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 1 },
+  editorialName: { fontSize: 18, fontFamily: 'serif', textTransform: 'uppercase', letterSpacing: 1 },
   editorialPrice: { fontSize: 16, marginTop: 4, fontWeight: '500' },
-
   listContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, gap: 16 },
   listImage: { width: 60, height: 60, borderRadius: RADIUS.md },
   listContent: { flex: 1 },
-  listName: { fontSize: 15, fontWeight: '500' },
-  listPrice: { fontSize: 14, fontWeight: '700', marginTop: 2 },
+  listName: { fontSize: 15, fontFamily: 'serif', fontWeight: '500' },
+  listPrice: { fontSize: 14, fontFamily: 'serif', fontWeight: '700', marginTop: 2 },
   listAddBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }
 });
