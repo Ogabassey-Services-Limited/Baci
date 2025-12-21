@@ -122,9 +122,6 @@ export default async function ContactPage({ params }: PageProps) {
       {/* ContactPage JSON-LD Schema */}
       <script
         type="application/ld+json"
-        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
-        // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
       />
       <StorefrontPageWrapper
