@@ -1,0 +1,64 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}",
+        "CONTEXT7_API_URL": "https://context7.com/api/v1"
+      }
+    },
+    "supabase": {
+      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "args": [
+        "-y",
+        "supabase-mcp"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}"
+      }
+    }
+  },
+  "enabledTools": {
+    "context7": [
+      "get-library-docs",
+      "resolve-library-id"
+    ],
+    "supabase": [
+      "search_docs",
+      "list_organizations",
+      "get_organization",
+      "list_projects",
+      "get_project",
+      "get_cost",
+      "confirm_cost",
+      "create_project",
+      "pause_project",
+      "restore_project",
+      "list_tables",
+      "list_extensions",
+      "list_migrations",
+      "apply_migration",
+      "execute_sql",
+      "get_logs",
+      "get_advisors",
+      "get_project_url",
+      "get_publishable_keys",
+      "generate_typescript_types",
+      "list_edge_functions",
+      "get_edge_function",
+      "deploy_edge_function",
+      "create_branch",
+      "list_branches",
+      "delete_branch",
+      "merge_branch",
+      "reset_branch",
+      "rebase_branch"
+    ]
+  }
+}
