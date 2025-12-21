@@ -20,6 +20,18 @@ import { parseCartAction } from '@/components/storefront/santa-chat/types';
 import { useV2Theme } from '../providers/v2-theme-context';
 
 /**
+ * Validates if a URL is safe for usage (http/https/mailto only)
+ */
+function isSafeUrl(url: string): boolean {
+  try {
+    const protocol = new URL(url, 'http://dummy.com').protocol;
+    return ['http:', 'https:', 'mailto:'].includes(protocol);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Enhanced markdown renderer for chat messages (2025 standards).
  * Supports: **bold**, *list items, [links](url), ![images](url), and line breaks.
  */
@@ -43,84 +55,91 @@ function renderMarkdown(text: string): React.ReactNode {
       while (remaining.length > 0) {
         // Check for image: ![alt](url)
         const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
-        if (imgMatch) {
+        const src = imgMatch[2];
+        if (isSafeUrl(src)) {
           elements.push(
             <img
               key={`${lineIndex}-img-${keyIndex++}`}
-              src={imgMatch[2]}
+              src={src}
               alt={imgMatch[1] || 'Image'}
               className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
               loading="lazy"
             />
           );
-          remaining = remaining.slice(imgMatch[0].length);
-          continue;
         }
-
-        // Check for link: [text](url)
-        const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
-        if (linkMatch) {
-          elements.push(
-            <a
-              key={`${lineIndex}-link-${keyIndex++}`}
-              href={linkMatch[2]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-red-600 underline hover:text-red-700 font-medium"
-            >
-              {linkMatch[1]}
-            </a>
-          );
-          remaining = remaining.slice(linkMatch[0].length);
-          continue;
-        }
-
-        // Check for bold: **text**
-        const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
-        if (boldMatch) {
-          elements.push(
-            <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
-              {boldMatch[1]}
-            </strong>
-          );
-          remaining = remaining.slice(boldMatch[0].length);
-          continue;
-        }
-
-        // Find next special pattern
-        const nextPattern = remaining.search(/!\[|\[|\*\*/);
-        if (nextPattern === -1) {
-          if (remaining) elements.push(remaining);
-          break;
-        } else if (nextPattern > 0) {
-          elements.push(remaining.slice(0, nextPattern));
-          remaining = remaining.slice(nextPattern);
-        } else {
-          elements.push(remaining[0]);
-          remaining = remaining.slice(1);
-        }
+        remaining = remaining.slice(imgMatch[0].length);
+        continue;
       }
 
-      return elements;
-    };
+      // Check for link: [text](url)
+      const href = linkMatch[2];
+      // Only allow safe protocols
+      if (isSafeUrl(href)) {
+        elements.push(
+          <a
+            key={`${lineIndex}-link-${keyIndex++}`}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-red-600 underline hover:text-red-700 font-medium"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      } else {
+        // Fallback to text if unsafe
+        elements.push(linkMatch[1]);
+      }
+      remaining = remaining.slice(linkMatch[0].length);
+      continue;
+    }
 
-    const renderedParts = parseInline(cleanLine);
-
-    if (isListItem) {
-      return (
-        <div key={lineIndex} className="flex items-start gap-2 my-1">
-          <span className="text-red-600 mt-0.5 flex-shrink-0">•</span>
-          <span className="flex-1">{renderedParts}</span>
-        </div>
+    // Check for bold: **text**
+    const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
+    if (boldMatch) {
+      elements.push(
+        <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
+          {boldMatch[1]}
+        </strong>
       );
+      remaining = remaining.slice(boldMatch[0].length);
+      continue;
     }
 
-    // Empty lines create spacing
-    if (!cleanLine.trim()) {
-      return <div key={lineIndex} className="h-2" />;
+    // Find next special pattern
+    const nextPattern = remaining.search(/!\[|\[|\*\*/);
+    if (nextPattern === -1) {
+      if (remaining) elements.push(remaining);
+      break;
+    } else if (nextPattern > 0) {
+      elements.push(remaining.slice(0, nextPattern));
+      remaining = remaining.slice(nextPattern);
+    } else {
+      elements.push(remaining[0]);
+      remaining = remaining.slice(1);
     }
+  }
 
-    return <div key={lineIndex}>{renderedParts}</div>;
+      return elements;
+};
+
+const renderedParts = parseInline(cleanLine);
+
+if (isListItem) {
+  return (
+    <div key={lineIndex} className="flex items-start gap-2 my-1">
+      <span className="text-red-600 mt-0.5 flex-shrink-0">•</span>
+      <span className="flex-1">{renderedParts}</span>
+    </div>
+  );
+}
+
+// Empty lines create spacing
+if (!cleanLine.trim()) {
+  return <div key={lineIndex} className="h-2" />;
+}
+
+return <div key={lineIndex}>{renderedParts}</div>;
   });
 }
 

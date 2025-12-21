@@ -107,8 +107,25 @@ interface ImeiCheckResult {
 /**
  * Strip HTML tags from a string
  */
+const TAG_REGEX = /<[^>]*>/g;
+
+/**
+ * Strip HTML tags from a string
+ */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  if (!html) return '';
+  let current = html;
+  let previous = '';
+  let loops = 0;
+
+  // Loop to handle recursive attacks like <scr<script>ipt>
+  while (current !== previous && loops < 5) {
+    previous = current;
+    current = current.replace(TAG_REGEX, '');
+    loops++;
+  }
+
+  return current.trim();
 }
 
 /**
@@ -158,22 +175,13 @@ function parseSickwResponse(
     data['device name'] ||
     '';
 
-  const icloudStatus =
-    data['icloud status'] ||
-    data.icloud ||
-    '';
+  const icloudStatus = data['icloud status'] || data.icloud || '';
 
   const icloudLock =
-    data['icloud lock'] ||
-    data['find my iphone'] ||
-    data.fmi ||
-    '';
+    data['icloud lock'] || data['find my iphone'] || data.fmi || '';
 
   const blacklist =
-    data['blacklist status'] ||
-    data.blacklist ||
-    data['gsma blacklist'] ||
-    '';
+    data['blacklist status'] || data.blacklist || data['gsma blacklist'] || '';
 
   const carrier =
     data['locked carrier'] ||
@@ -200,9 +208,20 @@ function parseSickwResponse(
   // Detect device type based on device name
   const deviceLower = device.toLowerCase();
   let deviceType: 'apple' | 'android' | 'other' = 'other';
-  if (deviceLower.includes('iphone') || deviceLower.includes('ipad') || deviceLower.includes('apple') || deviceLower.includes('mac')) {
+  if (
+    deviceLower.includes('iphone') ||
+    deviceLower.includes('ipad') ||
+    deviceLower.includes('apple') ||
+    deviceLower.includes('mac')
+  ) {
     deviceType = 'apple';
-  } else if (deviceLower.includes('samsung') || deviceLower.includes('pixel') || deviceLower.includes('xiaomi') || deviceLower.includes('oppo') || deviceLower.includes('android')) {
+  } else if (
+    deviceLower.includes('samsung') ||
+    deviceLower.includes('pixel') ||
+    deviceLower.includes('xiaomi') ||
+    deviceLower.includes('oppo') ||
+    deviceLower.includes('android')
+  ) {
     deviceType = 'android';
   }
 
@@ -244,19 +263,24 @@ function parseSickwResponse(
   let verdictType: 'safe' | 'caution' | 'danger' = 'safe';
 
   if (isBlacklisted) {
-    verdict = '🚫 DO NOT BUY - This device is reported stolen/lost and may be blacklisted. You could lose your money and face legal issues.';
+    verdict =
+      '🚫 DO NOT BUY - This device is reported stolen/lost and may be blacklisted. You could lose your money and face legal issues.';
     verdictType = 'danger';
   } else if (hasIcloudLockOn) {
-    verdict = '⚠️ CAUTION - Find My iPhone is ON. You cannot reset this device without the owner\'s Apple ID. Ensure seller disables it before purchase.';
+    verdict =
+      "⚠️ CAUTION - Find My iPhone is ON. You cannot reset this device without the owner's Apple ID. Ensure seller disables it before purchase.";
     verdictType = 'caution';
   } else if (isSimLocked) {
-    verdict = '⚠️ CAUTION - Device is carrier-locked. Check if it works with your network before buying.';
+    verdict =
+      '⚠️ CAUTION - Device is carrier-locked. Check if it works with your network before buying.';
     verdictType = 'caution';
   } else if (status === 'Clean') {
-    verdict = '✅ SAFE TO BUY - Device appears clean with no major issues. Always verify physically before payment.';
+    verdict =
+      '✅ SAFE TO BUY - Device appears clean with no major issues. Always verify physically before payment.';
     verdictType = 'safe';
   } else {
-    verdict = '❓ INCOMPLETE DATA - Could not verify all device information. Proceed with caution.';
+    verdict =
+      '❓ INCOMPLETE DATA - Could not verify all device information. Proceed with caution.';
     verdictType = 'caution';
   }
 
@@ -342,10 +366,11 @@ export async function POST(request: NextRequest) {
     const rawText = await response.text();
     console.log('[IMEI Check] Raw SICKW Response:', rawText);
 
-    let apiResponse;
+    // biome-ignore lint/suspicious/noExplicitAny: API structure is variable
+    let apiResponse: any;
     try {
       apiResponse = JSON.parse(rawText);
-    } catch (e) {
+    } catch (_e) {
       // Not JSON, likely plain text or HTML
       console.warn(
         '[IMEI Check] Response is not JSON, treating as text',
@@ -450,5 +475,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-

@@ -1,10 +1,10 @@
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
-import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
 import { snapchatCAPI } from '@/lib/snapchat-capi';
-import crypto from 'crypto';
+import { createClient } from '@/lib/supabase/server';
+import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
 
 /**
  * Unified Conversions API Endpoint
@@ -43,14 +43,22 @@ interface ConversionRequest {
     order_id?: string;
     value?: number;
     currency?: string;
-    contents?: Array<{ id: string; quantity: number; name?: string; price?: number }>;
+    contents?: Array<{
+      id: string;
+      quantity: number;
+      name?: string;
+      price?: number;
+    }>;
   };
   targets?: Array<'facebook' | 'tiktok' | 'snapchat' | 'google'>;
 }
 
 // SHA256 hash function for PII
 function sha256Hash(value: string): string {
-  return crypto.createHash('sha256').update(value.toLowerCase().trim()).digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(value.toLowerCase().trim())
+    .digest('hex');
 }
 
 // Map our event names to platform-specific event names
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
     const {
       event_name,
       event_id: clientEventId,
-      event_time,
+      _event_time,
       event_source,
       platform,
       user_data,
@@ -118,7 +126,9 @@ export async function POST(request: NextRequest) {
 
     // Use the merchant slug from the request origin or default to ogabassey
     const origin = request.headers.get('origin') || '';
-    const merchantSlug = origin.includes('ogabassey') ? 'ogabassey' : 'ogabassey';
+    const merchantSlug = origin.includes('ogabassey')
+      ? 'ogabassey'
+      : 'ogabassey';
 
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
@@ -147,8 +157,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare user data with hashing
-    const hashedEmail = user_data.em ? sha256Hash(user_data.em) : undefined;
-    const hashedPhone = user_data.ph ? sha256Hash(user_data.ph) : undefined;
+    const _hashedEmail = user_data.em ? sha256Hash(user_data.em) : undefined;
+    const _hashedPhone = user_data.ph ? sha256Hash(user_data.ph) : undefined;
 
     // Get IP and user agent from request
     const ipAddress =
@@ -158,7 +168,7 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || undefined;
 
     const currency = custom_data.currency || 'NGN';
-    const eventId = generateEventId();
+    // eventId is already defined above
 
     // Track results for each platform
     const results: Record<string, { success: boolean; error?: string }> = {};
@@ -180,7 +190,8 @@ export async function POST(request: NextRequest) {
           clientUserAgent: userAgent,
         };
 
-        const eventMapping = EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
+        const eventMapping =
+          EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
         if (eventMapping?.facebook) {
           switch (eventMapping.facebook) {
             case 'Purchase':
@@ -263,11 +274,16 @@ export async function POST(request: NextRequest) {
           userAgent,
         };
 
-        const eventMapping = EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
+        const eventMapping =
+          EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
         if (eventMapping?.tiktok) {
           switch (eventMapping.tiktok) {
             case 'purchase':
-              if (custom_data.value && custom_data.order_id && custom_data.contents) {
+              if (
+                custom_data.value &&
+                custom_data.order_id &&
+                custom_data.contents
+              ) {
                 const products = custom_data.contents.map((c) => ({
                   id: c.id,
                   name: c.id,
@@ -321,11 +337,16 @@ export async function POST(request: NextRequest) {
           userAgent,
         };
 
-        const eventMapping = EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
+        const eventMapping =
+          EVENT_MAPPING[event_name as keyof typeof EVENT_MAPPING];
         if (eventMapping?.snapchat) {
           switch (eventMapping.snapchat) {
             case 'purchase':
-              if (custom_data.value && custom_data.order_id && custom_data.contents) {
+              if (
+                custom_data.value &&
+                custom_data.order_id &&
+                custom_data.contents
+              ) {
                 results.snapchat = await snapchatCAPI.purchase(
                   merchant.snapchat_pixel_id as string,
                   merchant.snapchat_capi_token as string,
@@ -388,11 +409,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Log for debugging
-    console.log(`[Conversion] ${event_name} from ${event_source}/${platform}:`, {
-      value: custom_data.value,
-      currency,
-      results,
-    });
+    console.log(
+      '[Conversion]',
+      event_name,
+      'from',
+      event_source,
+      '/',
+      platform,
+      ':',
+      {
+        value: custom_data.value,
+        currency,
+        results,
+      }
+    );
 
     return NextResponse.json({
       success: true,

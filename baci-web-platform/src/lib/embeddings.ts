@@ -86,8 +86,9 @@ export function getProductEmbeddingText(product: {
   }
 
   if (product.description) {
-    // Strip HTML and limit length
+    // Strip HTML and limit length (max 10k chars processed for regex safety)
     const cleanDescription = product.description
+      .slice(0, 10000)
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -117,12 +118,13 @@ export function getBlogEmbeddingText(blog: {
   }
 
   if (blog.content) {
-    // Strip HTML and limit length
+    // Strip HTML and limit length (max 10k chars processed for regex safety)
     const cleanContent = blog.content
+      .slice(0, 10000)
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 5000); // Limit to first 5000 chars
+      .slice(0, 5000); // Final limit
     parts.push(cleanContent);
   }
 
