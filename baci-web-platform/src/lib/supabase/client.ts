@@ -13,6 +13,7 @@ export function createClient() {
  */
 export async function calculateCommerce(
   action: 'calculate_vtu' | 'calculate_order',
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic payload data
   data: any
 ) {
   const supabase = createClient();

@@ -12,7 +12,7 @@ export const repairBookingSchema = z
       .min(10, 'Phone number must be at least 10 digits')
       .regex(/^[+]?[\d\s-]{10,}$/, 'Please enter a valid phone number'),
     deviceType: z.enum(
-      ['Smartphone', 'Laptop', 'Tablet', 'Console', 'Smartwatch', 'Other'],
+      ['Smartphone', 'Laptop', 'Tablet', 'Console', 'Smartwatch', 'Other'] as [string, ...string[]],
       {
         errorMap: () => ({ message: 'Please select a device type' }),
       }

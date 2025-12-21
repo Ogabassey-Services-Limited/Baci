@@ -12,6 +12,7 @@
       "!**/.next",
       "!**/node_modules",
       "!**/scripts",
+      "!**/scripts-tmp",
       "!**/.gemini",
       "!**/reproduce_issue.ts",
       "!**/src/app/page.backup.tsx",
@@ -23,7 +24,9 @@
       "!**/src/components/storefront/lumina",
       "!**/src/app/template-preview",
       "!**/src/app/preview",
-      "!**/src/templates"
+      "!**/src/templates",
+      "!**/mcp-server",
+      "!**/baci-mobile-storefront"
     ]
   },
   "formatter": {
@@ -206,14 +209,19 @@
         "noConsole": {
           "level": "off",
           "options": {
-            "allow": ["log"]
+            "allow": [
+              "log"
+            ]
           }
         }
       }
     }
   },
   "javascript": {
-    "globals": ["Deno", "ColorThief"],
+    "globals": [
+      "Deno",
+      "ColorThief"
+    ],
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",

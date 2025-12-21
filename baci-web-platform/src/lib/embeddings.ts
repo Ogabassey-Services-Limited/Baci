@@ -88,7 +88,7 @@ export function getProductEmbeddingText(product: {
   if (product.description) {
     // Strip HTML safely - limit length first, then use simple character-based stripping
     // to avoid ReDoS on malformed HTML like strings with many '<' chars
-    let desc = product.description.slice(0, 10000);
+    const desc = product.description.slice(0, 10000);
     // Simple tag removal: find < and skip to > or end
     let result = '';
     let inTag = false;
@@ -130,7 +130,7 @@ export function getBlogEmbeddingText(blog: {
   if (blog.content) {
     // Strip HTML safely - limit length first, then use simple character-based stripping
     // to avoid ReDoS on malformed HTML like strings with many '<' chars
-    let content = blog.content.slice(0, 10000);
+    const content = blog.content.slice(0, 10000);
     // Simple tag removal: find < and skip to > or end
     let result = '';
     let inTag = false;

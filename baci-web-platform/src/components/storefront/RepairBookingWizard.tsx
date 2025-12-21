@@ -158,7 +158,7 @@ export function RepairBookingWizard({
           description: result.error,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Error',

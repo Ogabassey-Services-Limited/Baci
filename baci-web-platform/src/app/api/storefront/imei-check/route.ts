@@ -113,7 +113,7 @@ function stripHtml(html: string): string {
   if (!html) return '';
 
   // First, decode common HTML entities that could hide tags
-  let decoded = html
+  const decoded = html
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&#60;/g, '<')

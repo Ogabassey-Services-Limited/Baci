@@ -57,7 +57,9 @@ export async function sendFCMNotification(
       },
     });
     return { success: true, messageId: response };
-  } catch (error: any) {
+  }
+  // biome-ignore lint/suspicious/noExplicitAny: Error object is unknown
+  catch (error: any) {
     const errorCode = error?.code;
     const isUnregistered =
       errorCode === 'messaging/registration-token-not-registered' ||

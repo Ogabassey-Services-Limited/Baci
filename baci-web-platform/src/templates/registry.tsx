@@ -93,7 +93,8 @@ export interface TemplateComponents {
  */
 export interface TemplateBlogPageProps extends TemplatePageProps {
   posts?: BlogPostData[];
-  categories?: string[];
+
+  categories?: { name: string; slug: string }[];
   /** Current search query if filtering by search */
   searchQuery?: string;
 }

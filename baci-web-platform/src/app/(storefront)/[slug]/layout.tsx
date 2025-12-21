@@ -77,7 +77,7 @@ export async function generateMetadata({
   }
 
   // Fetch merchant data
-  let merchant;
+  let merchant: MerchantData | undefined;
   if (isDomainIdentifier(slug)) {
     merchant = await getCachedMerchantByDomain(slug.toLowerCase());
   } else {

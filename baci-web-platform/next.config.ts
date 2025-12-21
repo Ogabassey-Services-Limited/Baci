@@ -151,8 +151,8 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
 
   // SEO redirects - flat URL structure for legal pages + legacy WordPress URLs
-  async redirects() {
-    return [
+  redirects() {
+    return Promise.resolve([
       // Legal page redirects
       {
         source: '/:slug/pages/privacy',
@@ -195,7 +195,7 @@ const nextConfig: NextConfig = {
         destination: '/ogabassey/products',
         permanent: true,
       },
-    ];
+    ]);
   },
 
   // Security headers

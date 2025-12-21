@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
 
+    // biome-ignore lint/suspicious/noExplicitAny: Temporary loose typing for generation logic
     const processed: any[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: Temporary loose typing for error tracking
     const errors: any[] = [];
 
     // Filter locally
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
           const filename = `${product.id}/gen_${timestamp}.png`;
 
           // 4. Upload to Supabase Storage
-          const { data: uploadData, error: uploadError } =
+          const { data: _uploadData, error: uploadError } =
             await supabase.storage.from('images').upload(filename, buffer, {
               contentType: 'image/png',
               upsert: false,
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest) {
             new_image: publicUrl,
           });
         }
+        // biome-ignore lint/suspicious/noExplicitAny: Catch all error type
       } catch (err: any) {
         console.error(`Failed to process ${product.id}:`, err);
         errors.push({ id: product.id, error: err.message });
@@ -146,6 +149,7 @@ export async function POST(req: NextRequest) {
       processed,
       errors,
     });
+    // biome-ignore lint/suspicious/noExplicitAny: Catch all error type
   } catch (error: any) {
     console.error('API Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

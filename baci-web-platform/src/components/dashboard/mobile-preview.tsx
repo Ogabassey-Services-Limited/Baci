@@ -4,6 +4,7 @@ import { DevicePhoneMobileIcon } from '@heroicons/react/24/outline';
 import { BlockSchema, PageConfigSchema } from '@/schemas/page-blocks';
 
 interface MobilePreviewProps {
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic config object
   config: any;
 }
 
@@ -39,6 +40,7 @@ export function MobilePreview({ config }: MobilePreviewProps) {
             </div>
           </div>
 
+          {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic content blocks */}
           {content.map((block: any) => (
             <div key={block.props.id} className="border-b border-gray-100 p-2">
               <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">
