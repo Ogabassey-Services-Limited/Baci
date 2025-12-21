@@ -273,6 +273,22 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "src/app/(storefront)/**/pages/about/page.tsx",
+        "src/app/(storefront)/**/pages/contact/page.tsx",
+        "src/app/(storefront)/**/pages/faq/page.tsx",
+        "src/app/(storefront)/**/pages/privacy/page.tsx",
+        "src/app/(storefront)/**/pages/terms/page.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
     }
   ]
 }

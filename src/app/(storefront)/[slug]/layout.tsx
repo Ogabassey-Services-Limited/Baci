@@ -35,7 +35,7 @@ async function StorefrontLayoutRenderer({
       ? themeCookie
       : 'standard'; // Default to 'standard' for consistent SSR
 
-  const templateId = (merchant as any).template_id;
+  const templateId = merchant.template_id;
 
   if (templateId === 'ogabassey') {
     return (
