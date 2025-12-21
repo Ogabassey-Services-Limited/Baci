@@ -503,6 +503,23 @@ export function generateProductSchema(
     };
   }
 
+  // Add aggregateRating if product has reviews (improves Google rich results)
+  // Only add if we have valid rating data to avoid empty/invalid schema
+  if (
+    product.rating !== undefined &&
+    product.rating > 0 &&
+    product.review_count !== undefined &&
+    product.review_count > 0
+  ) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: product.rating,
+      reviewCount: product.review_count,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
   // Merge custom schema markup if provided (e.g. aggregateRating)
   // This allows merchants to extend the auto-generated schema with their own data
   if (product.schema_markup) {
