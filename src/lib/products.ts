@@ -53,6 +53,8 @@ export interface ProductSchemaMarkup {
     '@type': 'AggregateRating';
     ratingValue: number;
     reviewCount: number;
+    bestRating?: number;
+    worstRating?: number;
   };
   offers?: OfferSchema | OfferSchema[];
   // Index signature for compatibility with Record<string, unknown>
