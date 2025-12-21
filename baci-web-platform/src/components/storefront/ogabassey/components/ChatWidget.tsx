@@ -55,43 +55,47 @@ function renderMarkdown(text: string): React.ReactNode {
       while (remaining.length > 0) {
         // Check for image: ![alt](url)
         const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
-        const src = imgMatch[2];
-        if (isSafeUrl(src)) {
-          elements.push(
-            <img
-              key={`${lineIndex}-img-${keyIndex++}`}
-              src={src}
-              alt={imgMatch[1] || 'Image'}
-              className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
-              loading="lazy"
-            />
-          );
+        if (imgMatch) {
+          const src = imgMatch[2];
+          if (isSafeUrl(src)) {
+            elements.push(
+              <img
+                key={`${lineIndex}-img-${keyIndex++}`}
+                src={src}
+                alt={imgMatch[1] || 'Image'}
+                className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
+                loading="lazy"
+              />
+            );
+          }
+          remaining = remaining.slice(imgMatch[0].length);
+          continue;
         }
-        remaining = remaining.slice(imgMatch[0].length);
-        continue;
       }
 
       // Check for link: [text](url)
-      const href = linkMatch[2];
-      // Only allow safe protocols
-      if (isSafeUrl(href)) {
-        elements.push(
-          <a
-            key={`${lineIndex}-link-${keyIndex++}`}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-red-600 underline hover:text-red-700 font-medium"
-          >
-            {linkMatch[1]}
-          </a>
-        );
-      } else {
-        // Fallback to text if unsafe
-        elements.push(linkMatch[1]);
+      if (linkMatch) {
+        const href = linkMatch[2];
+        // Only allow safe protocols
+        if (isSafeUrl(href)) {
+          elements.push(
+            <a
+              key={`${lineIndex}-link-${keyIndex++}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-red-600 underline hover:text-red-700 font-medium"
+            >
+              {linkMatch[1]}
+            </a>
+          );
+        } else {
+          // Fallback to text if unsafe
+          elements.push(linkMatch[1]);
+        }
+        remaining = remaining.slice(linkMatch[0].length);
+        continue;
       }
-      remaining = remaining.slice(linkMatch[0].length);
-      continue;
     }
 
     // Check for bold: **text**
