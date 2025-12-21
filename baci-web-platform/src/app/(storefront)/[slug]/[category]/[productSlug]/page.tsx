@@ -12,7 +12,13 @@ import {
   safeJsonLdStringify,
   sanitizeLikePattern,
 } from '@/lib/sanitize-core';
-import { getProductUrl } from '@/lib/seo-utils';
+import {
+  constructCanonicalUrl,
+  generateBreadcrumbSchema,
+  generateProductSchema,
+  generateSlug,
+  getProductUrl,
+} from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 
@@ -29,7 +35,7 @@ interface KeySpecs {
   main_camera_mp?: number;
   battery_mah?: number;
   charging_watt?: number;
-  is_5g?: boolean;
+  has_5g?: boolean;
   android_version?: string;
   network_technology?: string;
   sim_type?: string;
@@ -156,7 +162,7 @@ function toOgabasseyProduct(
         fields: [
           { key: 'network_technology', label: 'Technology' },
           {
-            key: 'is_5g',
+            key: 'has_5g',
             label: '5G Support',
             transform: (v: boolean) => (v ? 'Yes' : 'No'),
           },
@@ -388,6 +394,33 @@ function toOgabasseyProduct(
     specs = (product.specifications as any)?.[0]?.items || [];
   }
 
+  // Derive storage options - check multiple sources
+  // Priority: storage_options > variant_attributes.Storage > extracted from variants
+  // variant_attributes is consolidated JSONB: {"Storage": ["256GB", "512GB"], "Platform": ["EU"]}
+  const variantAttrs = (product as { variant_attributes?: Record<string, string[]> }).variant_attributes;
+  let storageOptions: string[] = [];
+
+  if (product.storage_options && product.storage_options.length > 0) {
+    storageOptions = product.storage_options;
+  } else if (variantAttrs?.Storage && variantAttrs.Storage.length > 0) {
+    // Consolidated storage from variant_attributes (case-sensitive key)
+    storageOptions = variantAttrs.Storage;
+  } else if (variantAttrs?.storage && (variantAttrs as Record<string, string[]>).storage.length > 0) {
+    // Lowercase fallback
+    storageOptions = (variantAttrs as Record<string, string[]>).storage;
+  } else if (product.variants && product.variants.length > 0) {
+    // Extract unique storage values from variants attributes JSONB
+    storageOptions = Array.from(
+      new Set(
+        product.variants
+          .map((v: { attributes?: Record<string, string>; storage?: string }) =>
+            v.attributes?.storage || v.storage
+          )
+          .filter(Boolean) as string[]
+      )
+    );
+  }
+
   return {
     id: product.id,
     merchantId: product.merchant_id,
@@ -408,37 +441,53 @@ function toOgabasseyProduct(
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
     brand: product.brand,
     stock: product.stock,
+    // Storage options for variant selection UI
+    storage: storageOptions,
+    // Colors for variant selection UI
+    colors: product.colors,
+    // Consolidated variant attributes for Platform/etc selectors
+    variant_attributes: variantAttrs,
     detailedSpecs,
     specs,
     // Phase 4: Pass variants to frontend with mapping
+    // Variants use attributes JSONB: {"storage": "128GB", "color": "Black", "platform": "EU"}
     variants:
       product.variants?.map(
         (v: {
           id: string;
-          storage?: string;
-          ram_gb?: number;
           sku?: string;
-          color?: string;
-          attributes?: { platform?: string };
+          attributes?: {
+            storage?: string;
+            color?: string;
+            platform?: string;
+            ram?: string;
+          };
           price_override?: number;
           price_modifier?: number;
           stock_quantity?: number;
           images?: string[];
-        }) => ({
-          id: v.id,
-          name:
-            `Variant ${v.storage || ''} ${v.ram_gb ? `${v.ram_gb}GB` : ''}`.trim() ||
-            v.sku ||
-            'Variant',
-          storage: v.storage,
-          ram: v.ram_gb ? `${v.ram_gb}GB` : undefined,
-          color: v.color,
-          platform: v.attributes?.platform, // Map platform from JSON attributes
-          price_override: v.price_override,
-          price_modifier: v.price_modifier, // Map if it exists (but likely undefined in DB now)
-          stock: v.stock_quantity,
-          images: v.images,
-        })
+        }) => {
+          const storage = v.attributes?.storage;
+          const ram = v.attributes?.ram;
+          const color = v.attributes?.color;
+          const platform = v.attributes?.platform;
+
+          return {
+            id: v.id,
+            name:
+              `${storage || ''} ${ram || ''}`.trim() ||
+              v.sku ||
+              'Variant',
+            storage,
+            ram,
+            color,
+            platform,
+            price_override: v.price_override,
+            price_modifier: v.price_modifier,
+            stock: v.stock_quantity,
+            images: v.images,
+          };
+        }
       ) || [],
     // Phase 5: Condition offers for consolidated products
     has_condition_offers: product.has_condition_offers,
@@ -574,7 +623,7 @@ const getProduct = cache(
           main_camera_mp,
           battery_mah,
           charging_watt,
-          is_5g,
+          has_5g,
           android_version,
           network_technology,
           sim_type,
@@ -671,14 +720,15 @@ const getProduct = cache(
     const categoryMismatch =
       productCategorySlug && productCategorySlug !== categorySlug;
 
-    // Fetch variants if needed
-    if (product.has_variants) {
+    // Fetch variants if has_variants flag is set
+    // Also fetch as fallback if storage_options exist but flag wasn't set
+    if (product.has_variants || (product.storage_options && product.storage_options.length > 0)) {
       const { data: variants } = await supabase
         .from('product_variants')
         .select('*')
         .eq('product_id', product.id);
 
-      if (variants) {
+      if (variants && variants.length > 0) {
         productWithCategorySlug.variants = variants;
       }
     }

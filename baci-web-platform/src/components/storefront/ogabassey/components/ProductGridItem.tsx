@@ -21,6 +21,7 @@ interface ProductGridItemProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
   isAdded: boolean;
+  cartQuantity?: number;
   viewMode?: 'grid' | 'list';
   isWishlisted: boolean;
   onToggleWishlist: (e: React.MouseEvent) => void;
@@ -31,6 +32,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   product,
   onAddToCart,
   isAdded,
+  cartQuantity = 0,
   viewMode = 'grid',
   isWishlisted,
   onToggleWishlist,
@@ -225,6 +227,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           ) : (
             <ShoppingCart size={iconSize} />
           )}
+          {/* Quantity Badge */}
+          {cartQuantity > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-red-600 text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
+              {cartQuantity > 99 ? '99+' : cartQuantity}
+            </span>
+          )}
         </button>
       </div>
 
@@ -274,6 +282,18 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             Details
           </span>
         </div>
+
+        {/* View Cart Button - Desktop only, shown after adding to cart */}
+        {(cartQuantity > 0 || isAdded) && (
+          <Link
+            href={asRoute(`${basePath}/cart`)}
+            className="hidden md:flex items-center justify-center gap-2 mt-3 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-all duration-200 pointer-events-auto relative z-20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ShoppingCart size={16} />
+            View Cart{cartQuantity > 0 ? ` (${cartQuantity})` : ''}
+          </Link>
+        )}
       </div>
     </div>
   );

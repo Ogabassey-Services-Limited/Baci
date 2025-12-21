@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -179,7 +180,6 @@ export default async function StorefrontPage({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
   const themeCookie = cookieStore.get('storefront-theme')?.value;
   const initialTheme: V2ThemeMode | undefined =
     themeCookie === 'standard' || themeCookie === 'santa'
@@ -187,40 +187,53 @@ export default async function StorefrontPage({
       : undefined;
 
   let merchantProducts: Product[] = [];
+  let merchantCategories: { name: string; slug: string }[] = [];
 
   try {
-    const { data: products, error } = await supabase
-      .from('products')
-      .select(`
-        id,
-        name,
-        slug,
-        description,
-        price,
-        compare_at_price,
-        images,
-        category,
-        brand,
-        condition,
-        stock
-      `)
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'active')
-      .order('price', { ascending: false }) // Show expensive/hero items first
-      .limit(24); // PERFORMANCE: Reduced from 50 to 24 for faster homepage loads
+    // Parallel Fetching: Products + Categories
+    const [productsResult, categoriesResult] = await Promise.all([
+      supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          images,
+          category,
+          brand,
+          condition,
+          stock,
+          categories:category_id(name, slug)
+        `)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .order('price', { ascending: false })
+        .limit(500), // Load more products for instant client-side filtering
 
-    if (error) {
+      getCachedNavigationCategories(merchant.id)
+    ]);
+
+    const { data: products, error: productsError } = productsResult;
+    // getCachedNavigationCategories returns the array directly
+    const categories = categoriesResult;
+
+    if (productsError) {
       console.error(
         '[StorefrontPage] Error fetching products:',
-        JSON.stringify(error, null, 2)
+        JSON.stringify(productsError, null, 2)
       );
     } else {
-      // Type assertion: Supabase returns partial data for homepage listing
-      // StorefrontWrapper only uses the fields we fetch
-      merchantProducts = (products || []) as Product[];
+      merchantProducts = (products || []) as unknown as Product[];
     }
+
+    // Assign categories directly
+    merchantCategories = (categories || []) as any;
+
   } catch (err) {
-    console.error('[StorefrontPage] Failed to fetch products:', err);
+    console.error('[StorefrontPage] Failed to fetch data:', err);
   }
 
   // Check if store is published - show "coming soon" page if not
@@ -401,6 +414,7 @@ export default async function StorefrontPage({
         {/* Pass products and initialTheme to wrapper for use in template homepage */}
         <StorefrontWrapper
           products={merchantProducts}
+          categories={merchantCategories}
           initialTheme={initialTheme}
         />
       </Suspense>

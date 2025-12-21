@@ -113,8 +113,8 @@ function createCachedProductsFetcher(
           *,
           category_id,
           categories:category_id(id, name, slug),
-          product_categories!inner (
-            categories!inner (
+          product_categories (
+            categories (
               id,
               name,
               slug
@@ -124,13 +124,10 @@ function createCachedProductsFetcher(
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
-      // Apply Filters
+      // Apply category filter - match by category name (case-insensitive)
+      // Products store category as a direct text field (e.g., "Laptops", "Smartphones")
       if (filters.category && filters.category !== 'all') {
-        // Filter by category slug via the junction table
-        query = query.eq(
-          'product_categories.categories.slug',
-          filters.category
-        );
+        query = query.ilike('category', filters.category);
       }
 
       if (filters.brand && filters.brand !== 'all') {

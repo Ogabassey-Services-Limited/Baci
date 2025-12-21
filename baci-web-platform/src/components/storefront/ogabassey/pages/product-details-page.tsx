@@ -171,12 +171,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       }
     }
 
-    // Extract platforms from variants
-    const platforms = (serverProduct.variants
-      ? Array.from(new Set(serverProduct.variants
+    // Extract platforms - check variant_attributes first (consolidated), then variants
+    const variantAttrs = (serverProduct as Product & { variant_attributes?: Record<string, string[]> }).variant_attributes;
+    let platforms: string[] = [];
+    if (variantAttrs?.Platform && variantAttrs.Platform.length > 0) {
+      platforms = variantAttrs.Platform;
+    } else if (serverProduct.variants) {
+      platforms = Array.from(new Set(serverProduct.variants
         .map((v) => v.attributes?.platform || v.platform)
-        .filter(Boolean)))
-      : []) as string[];
+        .filter(Boolean))) as string[];
+    }
 
     return {
       ...serverProduct,
@@ -971,59 +975,47 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             )}
 
             {/* Desktop Actions (Hidden on Mobile) */}
-            <div className={`mb-8 hidden md:block transition-all duration-300 ${quantityInCart > 0 ? 'h-auto' : 'h-14'}`}>
+            <div className="mb-8 hidden md:block">
               {quantityInCart > 0 ? (
-                /* Counter State & View Cart - Stacked Layout */
-                <div className="flex flex-col gap-3 w-full animate-in fade-in duration-200">
-                  {/* Quantity Counter */}
-                  <div className="flex items-center justify-between w-full h-14 bg-white border-2 border-red-600 rounded-xl overflow-hidden">
-                    <button
-                      onClick={handleDecrement}
-                      className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
-                    >
-                      {quantityInCart === 1 ? (
-                        <Trash2 size={20} />
-                      ) : (
-                        <Minus size={20} />
-                      )}
-                    </button>
-                    <div className="flex-1 flex flex-col items-center justify-center">
-                      <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
-                        Quantity
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={inputValue}
-                        onChange={handleQuantityChange}
-                        onBlur={handleQuantityBlur}
-                        onKeyDown={handleKeyDown}
-                        className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
-                      />
-                    </div>
-                    <button
-                      onClick={handleIncrement}
-                      className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
-                    >
-                      <Plus size={20} />
-                    </button>
-                  </div>
-
-                  {/* View Cart Button - Stacked Below */}
+                /* Quantity Controls */
+                <div className="flex items-center justify-between w-full h-14 bg-white border-2 border-red-600 rounded-xl overflow-hidden animate-in fade-in duration-200">
                   <button
-                    onClick={() => router.push(asRoute(getHref('/cart')))}
-                    className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
+                    onClick={handleDecrement}
+                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
                   >
-                    <ShoppingCart size={20} />
-                    View Cart
+                    {quantityInCart === 1 ? (
+                      <Trash2 size={20} />
+                    ) : (
+                      <Minus size={20} />
+                    )}
+                  </button>
+                  <div className="flex-1 flex flex-col items-center justify-center">
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
+                      In Cart
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={inputValue}
+                      onChange={handleQuantityChange}
+                      onBlur={handleQuantityBlur}
+                      onKeyDown={handleKeyDown}
+                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
+                    />
+                  </div>
+                  <button
+                    onClick={handleIncrement}
+                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                  >
+                    <Plus size={20} />
                   </button>
                 </div>
               ) : (
                 /* Add to Cart Button */
                 <button
                   onClick={validateAndAddToCart}
-                  className="w-full h-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
+                  className="w-full h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
                 >
                   Add to Cart
                 </button>
@@ -1281,69 +1273,57 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         </div>
       </div >
 
-      {/* --- FIXED MOBILE BOTTOM BAR --- */}
-      {/* --- FIXED MOBILE BOTTOM BAR --- */}
-      < div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 z-50 md:hidden flex gap-3 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] pb-safe-area" >
-        <button
-          onClick={() => setIsNegotiationOpen(true)}
-          className="flex-1 bg-gray-100 active:bg-gray-200 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-2 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-200 active:scale-[0.98] text-sm"
-        >
-          <HandCoins size={18} className="text-red-600" />
-          Negotiate
-        </button>
-        {
-          quantityInCart > 0 ? (
-            <div className="flex-1 flex flex-col gap-2">
-              {/* Top Row: Quantity Controls */}
-              <div className="flex items-center justify-between bg-white border-2 border-red-600 rounded-xl px-1 h-10 w-full shrink-0">
-                <button
-                  onClick={handleDecrement}
-                  className="h-full w-10 flex items-center justify-center text-red-600 active:bg-red-50 rounded-lg"
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="font-bold text-gray-900 text-sm">{quantityInCart}</span>
-                <button
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    triggerFlyToCart(rect);
-                    handleIncrement();
-                  }}
-                  className="h-full w-10 flex items-center justify-center text-red-600 active:bg-red-50 rounded-lg"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              {/* Bottom Row: View Cart */}
-              <button
-                onClick={() => router.push(asRoute(getHref('/cart')))}
-                className="bg-green-600 text-white text-xs font-bold py-1.5 rounded-lg w-full shadow-sm active:scale-[0.98] transition-all"
-              >
-                View Cart
-              </button>
+      {/* --- FIXED MOBILE BOTTOM BAR (positioned above bottom nav) --- */}
+      <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-3 z-40 md:hidden shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+        {quantityInCart > 0 ? (
+          /* Quantity Controls - Full Width */
+          <div className="flex items-center justify-between bg-white border-2 border-red-600 rounded-xl h-14 w-full">
+            <button
+              onClick={handleDecrement}
+              className="h-full w-16 flex items-center justify-center text-red-600 active:bg-red-50 rounded-l-xl border-r border-red-100"
+            >
+              {quantityInCart === 1 ? (
+                <Trash2 size={20} />
+              ) : (
+                <Minus size={20} />
+              )}
+            </button>
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">In Cart</span>
+              <span className="font-bold text-gray-900 text-lg">{quantityInCart}</span>
             </div>
-          ) : (
             <button
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
-                // Validate first
-                const missing = [];
-                if (selectedColor === null && productData.colors.length > 0) missing.push('Color');
-                if (selectedStorage === null && productData.storage.length > 0) missing.push('Storage');
-
-                if (missing.length === 0) {
-                  triggerFlyToCart(rect);
-                }
-                validateAndAddToCart();
+                triggerFlyToCart(rect);
+                handleIncrement();
               }}
-              className="flex-1 bg-red-600 active:bg-red-700 md:hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:shadow-none active:scale-[0.98] text-sm"
+              className="h-full w-16 flex items-center justify-center text-red-600 active:bg-red-50 rounded-r-xl border-l border-red-100"
             >
-              <ShoppingCart size={18} />
-              Add to Cart
+              <Plus size={20} />
             </button>
-          )
-        }
-      </div >
+          </div>
+        ) : (
+          /* Add to Cart Button - Full Width */
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const missing = [];
+              if (selectedColor === null && productData.colors.length > 0) missing.push('Color');
+              if (selectedStorage === null && productData.storage.length > 0) missing.push('Storage');
+
+              if (missing.length === 0) {
+                triggerFlyToCart(rect);
+              }
+              validateAndAddToCart();
+            }}
+            className="w-full h-14 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg active:shadow-none active:scale-[0.98] transition-all"
+          >
+            <ShoppingCart size={20} />
+            Add to Cart
+          </button>
+        )}
+      </div>
 
       {/* Animation Portal */}
       {
