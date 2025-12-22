@@ -136,7 +136,12 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
           {/* Placeholder Pattern (Visible only until ad loads) */}
           {!isAdLoaded && (
-            <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 bg-[url('https://www.transparenttextures.com/patterns/diagonal-striped-brick.png')] -z-0 opacity-50">
+            <div
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 -z-0 opacity-50"
+              style={{
+                backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 1px, transparent 10px)'
+              }}
+            >
               <span className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">
                 Ad Space
               </span>

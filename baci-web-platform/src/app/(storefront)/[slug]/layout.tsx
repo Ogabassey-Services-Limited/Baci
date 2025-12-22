@@ -103,13 +103,29 @@ export async function generateMetadata({
     featureSettings?.google_site_verification ||
     publishedConfig?.google_site_verification;
 
+  // Build icons configuration for merchant favicon
+  // Fall back to logo_url if no dedicated favicon exists
+  const faviconSvg = merchant.favicon_svg_url;
+  const faviconPng32 = merchant.favicon_png_32_url;
+  const faviconAppleTouch = merchant.favicon_apple_touch_url;
+
+  // Build icons array only if merchant has custom favicons
+  const icons = (faviconSvg || faviconPng32 || faviconAppleTouch) ? {
+    icon: [
+      ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
+      ...(faviconPng32 ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }] : []),
+    ].filter(Boolean),
+    apple: faviconAppleTouch ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }] : undefined,
+  } : undefined;
+
   return {
     title: merchant.business_name,
     description: `Shop at ${merchant.business_name} on Baci`,
+    icons,
     verification: verificationCode
       ? {
-          google: verificationCode,
-        }
+        google: verificationCode,
+      }
       : undefined,
     openGraph: {
       title: merchant.business_name,
