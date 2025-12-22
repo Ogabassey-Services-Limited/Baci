@@ -41,6 +41,9 @@ jobs:
             --exclude-path 'supabase'
             --exclude-path 'baci-web-platform/scripts'
             --exclude-path 'baci-web-platform/supabase'
+            --exclude-path 'mcp-server'
+            --exclude-path 'baci-web-platform/mcp-server'
+            --exclude-path 'node_modules'
             --exclude 'localhost|127\.0\.0\.1'
             --exclude 'github\.com'
             --exclude 'via\.placeholder\.com|example\.com|yourcdn\.com|yoursite\.com'
@@ -100,6 +103,8 @@ jobs:
             --exclude 'snowtrace\.io'
             --exclude 'supabase\.com/docs'
             --exclude 'exp\.host'
+            --exclude 'usebaci\.com'
+            --exclude 'developer\.mozilla\.org'
           # Fail action if broken links are found
           fail: true
         env:
