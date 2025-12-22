@@ -92,7 +92,7 @@ export async function getProducts(
   if (search?.trim()) {
     const sanitizedPattern = sanitizeLikePattern(search);
     query = query.or(
-      `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%,description.ilike.%${sanitizedPattern}%,brand.ilike.%${sanitizedPattern}%`
+      `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%,description.ilike.%${sanitizedPattern}%`
     );
   }
 
