@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { experimental_generateImage } from 'ai';
+import { generateText } from 'ai';
 // import { imagen3 } from '../../src/ai/provider'; // Removed to use dynamic import
 import * as dotenv from 'dotenv';
 import fs from 'fs';
@@ -31,29 +31,58 @@ const PARENT_IDS_TO_PROCESS = [
     '974ee898-d819-4652-9b0d-c20cc29338ec', // Samsung S24 FE
 ];
 
-async function generateImageForProduct(product: any) {
-    console.log(`Generating image for: ${product.name} (${product.id})`);
+async function generateImageForProduct(product: any, retryCount = 0) {
+    if (retryCount > 3) {
+        console.error(`Max retries reached for ${product.name}. Skipping.`);
+        return false;
+    }
+
+    console.log(`Generating image for: ${product.name} (Attempt ${retryCount + 1})`);
 
     try {
-        const { imagen3 } = await import('../../src/ai/provider');
+        const { gemini25FlashImage } = await import('../../src/ai/provider');
         const prompt = `Professional product photography of ${product.name}, centered on a clean white background, high quality, commercial lighting, 4k.`;
 
-        // Generate image
-        const { image } = await experimental_generateImage({
-            model: imagen3,
+        // Generate content using multimodal model
+        const { response } = await generateText({
+            model: gemini25FlashImage,
             prompt,
-            n: 1,
+            providerOptions: {
+                google: {
+                    responseModalities: ['IMAGE'],
+                },
+            },
         });
 
-        const imageBase64 = image.base64;
-        const buffer = Buffer.from(imageBase64, 'base64');
+        // Parse response
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies
+        const parts = (response.body as any)?.candidates?.[0]?.content?.parts || [];
+        // biome-ignore lint/suspicious/noExplicitAny: provider type casting
+        const imagePart = parts.find((p: any) => p.inlineData);
+
+        let base64Data = null;
+        let contentType = 'image/png';
+
+        if (imagePart?.inlineData) {
+            base64Data = imagePart.inlineData.data;
+            contentType = imagePart.inlineData.mimeType || 'image/png';
+        }
+
+        if (!base64Data) {
+            console.warn('No image data found, retrying...');
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
+            return generateImageForProduct(product, retryCount + 1);
+        }
+
+        const buffer = Buffer.from(base64Data, 'base64');
         const filename = `generated/${product.slug}-${Date.now()}.png`;
 
         // Upload to Supabase Storage
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from(GENERATED_IMAGES_BUCKET)
             .upload(filename, buffer, {
-                contentType: 'image/png',
+                contentType,
                 upsert: false,
             });
 
@@ -80,8 +109,14 @@ async function generateImageForProduct(product: any) {
         console.log(`Successfully updated product: ${product.name}`);
         return true;
 
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Failed to generate/upload for ${product.name}:`, error);
+
+        if (error?.message?.includes('429') || error?.toString().includes('429')) {
+            console.log('Quota exceeded, waiting 10s before retry...');
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            return generateImageForProduct(product, retryCount + 1);
+        }
         return false;
     }
 }
