@@ -44,6 +44,12 @@ jobs:
             --exclude-path 'mcp-server'
             --exclude-path 'baci-web-platform/mcp-server'
             --exclude-path 'node_modules'
+            --exclude-path 'baci-web-platform/node_modules'
+            --exclude-path '.next'
+            --exclude-path 'baci-web-platform/.next'
+            --exclude-path 'out'
+            --exclude-path 'baci-web-platform/out'
+            --exclude-path 'baci-web-platform/build'
             --exclude 'localhost|127\.0\.0\.1'
             --exclude 'github\.com'
             --exclude 'via\.placeholder\.com|example\.com|yourcdn\.com|yoursite\.com'
@@ -64,7 +70,7 @@ jobs:
             --exclude 'ogabassey\.com'
             --exclude 'topship-staging\.africa|api-topship\.com'
             --exclude 'whogohost\.com'
-            --exclude 'docs\.google\.com/spreadsheets/d/$'
+            --exclude 'docs\.google\.com'
             --exclude 'api\.korapay\.com'
             --exclude 'store\.com'
             --exclude 'developers\.facebook\.com'
@@ -105,6 +111,8 @@ jobs:
             --exclude 'exp\.host'
             --exclude 'usebaci\.com'
             --exclude 'developer\.mozilla\.org'
+            --exclude 'schema\.org'
+            --exclude 'w3\.org'
           # Fail action if broken links are found
           fail: true
         env:
