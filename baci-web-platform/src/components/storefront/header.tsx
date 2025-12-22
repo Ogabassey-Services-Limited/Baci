@@ -128,9 +128,11 @@ export function StorefrontHeader() {
             <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
           </Link>
           {/* Repair Booking Link - Visible on relevant stores */}
-          <Link href={routes.storefrontRepair(merchant.slug)}>
-            <Button variant="ghost">Book Repair</Button>
-          </Link>
+          {merchant.slug && (
+            <Link href={routes.storefrontRepair(merchant.slug)}>
+              <Button variant="ghost">Book Repair</Button>
+            </Link>
+          )}
           <SheetTrigger asChild>
             {/* Touch target meets WCAG 2.5.5 minimum (44px) */}
             <Button

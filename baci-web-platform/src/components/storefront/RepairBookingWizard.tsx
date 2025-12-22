@@ -83,7 +83,8 @@ export function RepairBookingWizard({
   const { toast } = useToast();
 
   const form = useForm<RepairBookingInput>({
-    resolver: zodResolver(repairBookingSchema),
+    // biome-ignore lint/suspicious/noExplicitAny: Zod v4 + @hookform/resolvers type incompatibility workaround
+    resolver: zodResolver(repairBookingSchema) as any,
     defaultValues: {
       deviceType: 'Smartphone',
       deviceModel: '',
@@ -225,7 +226,8 @@ export function RepairBookingWizard({
         </div>
       </div>
 
-      <Form {...form}>
+      {/* biome-ignore lint/suspicious/noExplicitAny: Workaround for react-hook-form/zod generic mismatch */}
+      <Form {...(form as any)}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <AnimatePresence mode="wait">
             {currentStep === 0 && (

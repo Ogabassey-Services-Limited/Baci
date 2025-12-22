@@ -76,8 +76,8 @@ export async function generateMetadata({
     return { title: 'Store Not Found' };
   }
 
-  // Fetch merchant data
-  let merchant: MerchantData | undefined;
+  // Fetch merchant data (returns CachedMerchant | null)
+  let merchant = null as Awaited<ReturnType<typeof getCachedMerchant>> | null;
   if (isDomainIdentifier(slug)) {
     merchant = await getCachedMerchantByDomain(slug.toLowerCase());
   } else {
@@ -90,10 +90,13 @@ export async function generateMetadata({
 
   // Extract verification code from feature settings or published config
   // Prioritize feature_settings, check published_config fallback
-  const featureSettings = merchant.feature_settings as
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant config structure
+  const merchantConfig = merchant as any;
+  const featureSettings = merchantConfig.feature_settings as
     | Record<string, any>
     | undefined;
-  const publishedConfig = merchant.published_config as
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic config structure
+  const publishedConfig = merchantConfig.published_config as
     | Record<string, any>
     | undefined;
 

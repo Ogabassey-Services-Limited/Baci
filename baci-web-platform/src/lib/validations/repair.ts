@@ -12,10 +12,15 @@ export const repairBookingSchema = z
       .min(10, 'Phone number must be at least 10 digits')
       .regex(/^[+]?[\d\s-]{10,}$/, 'Please enter a valid phone number'),
     deviceType: z.enum(
-      ['Smartphone', 'Laptop', 'Tablet', 'Console', 'Smartwatch', 'Other'] as [string, ...string[]],
-      {
-        errorMap: () => ({ message: 'Please select a device type' }),
-      }
+      [
+        'Smartphone',
+        'Laptop',
+        'Tablet',
+        'Console',
+        'Smartwatch',
+        'Other',
+      ] as const,
+      { error: 'Please select a device type' }
     ),
     deviceModel: z
       .string()
@@ -25,8 +30,8 @@ export const repairBookingSchema = z
       .min(10, 'Please describe the issue in at least 10 characters'),
     preferredDate: z.string().optional(), // ISO date string
     serviceType: z
-      .enum(['dropoff', 'pickup'], {
-        errorMap: () => ({ message: 'Please select how you want to proceed' }),
+      .enum(['dropoff', 'pickup'] as const, {
+        error: 'Please select how you want to proceed',
       })
       .default('dropoff'),
     pickupAddress: z.string().optional(), // Required if serviceType is 'pickup'

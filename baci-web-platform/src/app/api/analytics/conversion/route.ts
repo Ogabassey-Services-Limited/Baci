@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const {
       event_name,
       event_id: clientEventId,
-      _event_time,
+      event_time: _eventTime,
       event_source,
       platform,
       user_data,

@@ -226,6 +226,7 @@ export default async function StorefrontPage({
     }
 
     // Assign categories directly
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic category structure
     merchantCategories = (categories || []) as any;
   } catch (err) {
     console.error('[StorefrontPage] Failed to fetch data:', err);

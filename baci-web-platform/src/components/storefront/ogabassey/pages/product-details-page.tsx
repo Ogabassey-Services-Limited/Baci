@@ -87,7 +87,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       });
       // Redirect to checkout after a short delay
       setTimeout(() => {
-        router.push(getHref('/checkout'));
+        router.push(asRoute(getHref('/checkout')));
       }, 500);
     }
   }, [searchParams, serverProduct, addToCart, toast, router, getHref]);

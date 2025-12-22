@@ -1,6 +1,5 @@
 'use client';
 
-import { DevicePhoneMobileIcon } from '@heroicons/react/24/outline';
 import { BlockSchema, PageConfigSchema } from '@/schemas/page-blocks';
 
 interface MobilePreviewProps {

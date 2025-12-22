@@ -3,11 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 
-declare global {
-    interface Window {
-        googletag: any;
-    }
-}
+
 
 export const GoogleAdManager = () => {
     const pathname = usePathname();
