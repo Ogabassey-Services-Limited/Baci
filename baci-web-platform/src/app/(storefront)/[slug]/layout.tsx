@@ -92,6 +92,7 @@ export async function generateMetadata({
   // Prioritize feature_settings, check published_config fallback
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant config structure
   const merchantConfig = merchant as any;
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic config structure
   const featureSettings = merchantConfig.feature_settings as
     | Record<string, any>
     | undefined;

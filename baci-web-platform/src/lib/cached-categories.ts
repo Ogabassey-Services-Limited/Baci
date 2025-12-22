@@ -69,7 +69,7 @@ export const getCachedNavigationCategories = cache(
       return -1; // Not found
     };
 
-    return categories.sort((a, b) => {
+    return categories.sort((a: CategoryNavItem, b: CategoryNavItem) => {
       const aIndex = getPriorityIndex(a.name);
       const bIndex = getPriorityIndex(b.name);
 

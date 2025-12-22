@@ -20,15 +20,21 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./baci-web-platform/src/*"]
     }
   },
   "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
+    "baci-web-platform/next-env.d.ts",
+    "baci-web-platform/**/*.ts",
+    "baci-web-platform/**/*.tsx",
+    "baci-web-platform/.next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "supabase/functions", "scripts"]
+  "exclude": [
+    "node_modules",
+    "**/supabase/functions",
+    "**/scripts",
+    "**/scripts-tmp",
+    "baci-mobile-admin",
+    "baci-mobile-storefront"
+  ]
 }

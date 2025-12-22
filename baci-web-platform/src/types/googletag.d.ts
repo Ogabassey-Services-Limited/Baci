@@ -22,6 +22,7 @@ declare namespace googletag {
   }>;
 
   interface PubAdsService {
+    // biome-ignore lint/suspicious/noExplicitAny: External GPT library event type
     addEventListener(eventName: string, callback: (event: any) => void): void;
     refresh(slots?: Slot[]): void;
     enableSingleRequest(): void;
