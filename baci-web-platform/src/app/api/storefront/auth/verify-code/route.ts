@@ -15,6 +15,7 @@ export async function POST(request: Request) {
 
     // Input validation - these checks are intentional guards, not bypasses
     // lgtm[js/user-controlled-bypass]
+    // codeql[js/user-controlled-bypass-of-security-check]
     if (!email || !token) {
       return NextResponse.json(
         { error: 'Email and verification code are required' },
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     }
 
     // lgtm[js/user-controlled-bypass]
+    // codeql[js/user-controlled-bypass-of-security-check]
     if (!merchantSlug) {
       return NextResponse.json(
         { error: 'Merchant slug is required' },

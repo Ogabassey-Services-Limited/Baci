@@ -404,7 +404,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Admin notifications POST error:', error);
+    // Safe error logging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(
+      'Admin notifications POST error:',
+      errorMessage.replace(/[\r\n]/g, ' ')
+    );
     return NextResponse.json(
       { error: 'Failed to create notification' },
       { status: 500 }

@@ -37,7 +37,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
 
     console.log(
       '[Santa Product] Found match:',
-      matchingProduct.name.slice(0, 100)
+      matchingProduct.name.slice(0, 100).replace(/[\r\n]/g, ' ')
     );
 
     // Now get the full product details from database

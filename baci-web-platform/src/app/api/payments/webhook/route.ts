@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
 
     // Input validation - intentional guard, not a bypass
     // lgtm[js/user-controlled-bypass]
+    // codeql[js/user-controlled-bypass-of-security-check]
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
@@ -591,6 +592,7 @@ export async function GET(request: NextRequest) {
 
     // Input validation - intentional guard
     // lgtm[js/user-controlled-bypass]
+    // codeql[js/user-controlled-bypass-of-security-check]
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
