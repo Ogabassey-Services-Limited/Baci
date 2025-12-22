@@ -1,7 +1,7 @@
-import { experimental_generateImage as generateImage } from 'ai';
+import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { imagen3 } from '@/ai/provider';
+import { gemini25FlashImage } from '@/ai/provider';
 import { createClient } from '@/lib/supabase/server';
 
 // Configure process limit to avoid timeouts
@@ -85,15 +85,32 @@ export async function POST(req: NextRequest) {
 
           console.log(`Generating image for ${product.name}...`);
 
-          const { image } = await generateImage({
-            model: imagen3,
+          // Use generateText with image modality for Gemini models
+          const { response } = await generateText({
+            model: gemini25FlashImage,
             prompt: prompt,
-            aspectRatio: '1:1',
+            providerOptions: {
+              google: {
+                responseModalities: ['IMAGE'],
+              },
+            },
           });
 
-          // 'image' is a base64 string or Uint8Array usually depending on provider,
-          // but Vercel AI SDK standardizes to base64.
-          const base64Data = image.base64;
+          // Check response parts for image data
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies by provider
+          const parts = (response.body as any)?.candidates?.[0]?.content?.parts || [];
+          // biome-ignore lint/suspicious/noExplicitAny: provider type casting
+          const imagePart = parts.find((p: any) => p.inlineData);
+
+          let base64Data = null;
+          let contentType = 'image/png';
+
+          if (imagePart && imagePart.inlineData) {
+            base64Data = imagePart.inlineData.data;
+            contentType = imagePart.inlineData.mimeType || 'image/png';
+          } else {
+            console.warn('No image data found in response parts', JSON.stringify(response.body));
+          }
 
           if (!base64Data) {
             throw new Error('No image data returned from AI');
