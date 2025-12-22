@@ -34,6 +34,8 @@ jobs:
             --verbose
             --no-progress
             './**/*.md' './**/*.html' './**/*.tsx' './**/*.ts'
+            --exclude-path 'baci-mobile-admin'
+            --exclude-path 'baci-mobile-storefront'
             --exclude 'localhost|127\.0\.0\.1'
             --exclude 'github\.com'
             --exclude 'via\.placeholder\.com|example\.com|yourcdn\.com|yoursite\.com'
