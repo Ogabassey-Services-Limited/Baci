@@ -8,7 +8,6 @@
  *
  * References:
  * - https://docs.peppol.eu/poacc/billing/3.0/
- * - https://blog.eezi.io/e-invoicing-in-nigeria-firs-b2b-and-b2c-mandate/
  */
 
 import jsPDF from 'jspdf';
@@ -490,7 +489,7 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
     const taxHeaders = ['Category', 'Rate', 'Taxable Amount', 'VAT Amount'];
     const taxData = data.tax_subtotals.map((subtotal) => [
       VAT_CATEGORY_NAMES[subtotal.vat_category_code] ||
-        subtotal.vat_category_code,
+      subtotal.vat_category_code,
       `${subtotal.vat_rate}%`,
       formatCurrency(subtotal.taxable_amount, data.currency),
       formatCurrency(subtotal.tax_amount, data.currency),

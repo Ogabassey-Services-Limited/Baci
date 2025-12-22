@@ -114,7 +114,6 @@ jobs:
             --exclude 'schema\.org'
             --exclude 'w3\.org'
             --exclude 'https://api.credpal.com/.*'
-            --exclude 'https://blog.eezi.io/.*'
             --exclude 'https://www.googletagservices.com/.*'
             --exclude 'googlesyndication\.com'
             --exclude 'doubleclick\.net'
