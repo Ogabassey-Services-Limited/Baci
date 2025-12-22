@@ -24,7 +24,7 @@ jobs:
           cache: "npm"
       
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Restore Next.js Build Cache
         uses: actions/cache@v4

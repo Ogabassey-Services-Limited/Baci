@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm install
       - run: npm run lint
 
   knip:
@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm install
       - run: npm run knip
 
   typecheck:
@@ -47,7 +47,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm install
       - run: npm run typecheck
 
   test:
@@ -60,7 +60,7 @@ jobs:
         with:
           node-version: "24"
           cache: "npm"
-      - run: npm ci
+      - run: npm install
       - run: npm run test
 
   build:
@@ -84,7 +84,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
-      - run: npm ci
+      - run: npm install
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
