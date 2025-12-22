@@ -96,7 +96,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Check response parts for image data
           const parts =
             // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies by provider
             (response.body as any)?.candidates?.[0]?.content?.parts || [];
@@ -130,7 +129,7 @@ export async function POST(req: NextRequest) {
           // 4. Upload to Supabase Storage
           const { data: _uploadData, error: uploadError } =
             await supabase.storage.from('images').upload(filename, buffer, {
-              contentType,
+              contentType: 'image/png',
               upsert: false,
             });
 
