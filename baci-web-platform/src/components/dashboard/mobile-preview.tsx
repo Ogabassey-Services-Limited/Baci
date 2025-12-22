@@ -1,6 +1,6 @@
 'use client';
 
-import { BlockSchema, PageConfigSchema } from '@/schemas/page-blocks';
+import { PageConfigSchema } from '@/schemas/page-blocks';
 
 interface MobilePreviewProps {
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic config object

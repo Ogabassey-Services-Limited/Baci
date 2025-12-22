@@ -144,8 +144,5 @@
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.47.0",
     "vitest": "^4.0.15"
-  },
-  "overrides": {
-    "@modelcontextprotocol/sdk": "1.24.2"
   }
 }

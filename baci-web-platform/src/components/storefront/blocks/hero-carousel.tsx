@@ -1,7 +1,7 @@
 'use client';
 
 import Autoplay from 'embla-carousel-autoplay';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRef } from 'react';
