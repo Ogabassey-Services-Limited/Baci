@@ -26,7 +26,8 @@
       "!**/src/app/preview",
       "!**/src/templates",
       "!**/mcp-server",
-      "!**/baci-mobile-storefront"
+      "!**/baci-mobile-storefront",
+      "!**/baci-mobile-admin"
     ]
   },
   "formatter": {
