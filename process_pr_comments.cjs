@@ -66,7 +66,7 @@ try {
       comment.body.replace(/\n/g, ' ').substring(0, 80) +
       (comment.body.length > 80 ? '...' : '');
     const path = thread.path || 'General';
-    const safeBody = body.replace(/\|/g, '\\|');
+    const safeBody = body.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
     md += `| \`${path}\` | ${comment.author?.login} | ${safeBody} | [View](${comment.url}) |\n`;
   });
 

@@ -17,6 +17,21 @@ import { getProductUrl } from '@/lib/seo-utils';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
+/**
+ * Safely strips HTML tags from a string using iterative approach
+ * to prevent bypass via nested tags like <<script>script>
+ */
+function stripHtml(html: string): string {
+  if (!html) return '';
+  let result = html;
+  let prev = '';
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(/<[^>]*>/g, '');
+  }
+  return result;
+}
+
 interface ProductGridItemProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
@@ -268,8 +283,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         <p
           className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
         >
-          {product.description?.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
-          {product.description && product.description.replace(/<[^>]*>?/gm, '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
+          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
+          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
           <span className="text-red-500 font-medium ml-1">View specs →</span>
         </p>
 

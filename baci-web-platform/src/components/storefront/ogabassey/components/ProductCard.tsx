@@ -17,8 +17,20 @@ const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Im
 // Note: The getProductImage helper was removed because product data is now
 // normalized upstream via normalizeProduct(), ensuring product.image is always set.
 
+/**
+ * Safely strips HTML tags from a string using iterative approach
+ * to prevent bypass via nested tags like <<script>script>
+ */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>?/gm, '') || '';
+  if (!html) return '';
+  let result = html;
+  let prev = '';
+  // Iterate until no more tags are found (handles nested/malformed tags)
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(/<[^>]*>/g, '');
+  }
+  return result;
 }
 
 interface ProductCardProps {

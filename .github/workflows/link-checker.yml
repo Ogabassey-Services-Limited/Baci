@@ -113,6 +113,10 @@ jobs:
             --exclude 'developer\.mozilla\.org'
             --exclude 'schema\.org'
             --exclude 'w3\.org'
+            --exclude 'api\.credpal\.com'
+            --exclude 'googletagservices\.com'
+            --exclude 'googlesyndication\.com'
+            --exclude 'doubleclick\.net'
           # Fail action if broken links are found
           fail: true
         env:

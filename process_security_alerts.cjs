@@ -88,6 +88,7 @@ try {
       const line = loc.startLine;
       const msg = alert.mostRecentInstance.message.text
         .replace(/\n/g, ' ')
+        .replace(/\\/g, '\\\\')
         .replace(/\|/g, '\\|');
       // Fix undefined env vars in link if needed, mostly for local dev we might construct manually or just omit if env vars missing
       const repoOwner = process.env.REPO_OWNER || 'ogabasseyy';
