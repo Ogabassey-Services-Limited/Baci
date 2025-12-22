@@ -100,7 +100,6 @@ export default async function PrivacyPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Privacy Policy JSON-LD Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}

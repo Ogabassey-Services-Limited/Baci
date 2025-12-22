@@ -86,7 +86,6 @@ export default async function FAQPage({ params }: PageProps) {
 
   return (
     <>
-      {/* FAQ JSON-LD Schema - enables FAQ rich results in Google */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}

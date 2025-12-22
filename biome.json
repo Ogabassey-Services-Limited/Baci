@@ -278,6 +278,22 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "**/pages/about/page.tsx",
+        "**/pages/contact/page.tsx",
+        "**/pages/faq/page.tsx",
+        "**/pages/privacy/page.tsx",
+        "**/pages/terms/page.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          }
+        }
+      }
     }
   ]
 }

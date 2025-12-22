@@ -100,7 +100,6 @@ export default async function TermsPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Terms of Service JSON-LD Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}

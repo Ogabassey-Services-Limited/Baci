@@ -119,7 +119,6 @@ export default async function ContactPage({ params }: PageProps) {
 
   return (
     <>
-      {/* ContactPage JSON-LD Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
