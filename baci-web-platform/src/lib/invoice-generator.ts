@@ -489,7 +489,7 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
     const taxHeaders = ['Category', 'Rate', 'Taxable Amount', 'VAT Amount'];
     const taxData = data.tax_subtotals.map((subtotal) => [
       VAT_CATEGORY_NAMES[subtotal.vat_category_code] ||
-      subtotal.vat_category_code,
+        subtotal.vat_category_code,
       `${subtotal.vat_rate}%`,
       formatCurrency(subtotal.taxable_amount, data.currency),
       formatCurrency(subtotal.tax_amount, data.currency),
