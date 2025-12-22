@@ -154,6 +154,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 ? 'bg-white border-red-100 text-red-600'
                 : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
                 }`}
+              aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
               title="Add to Wishlist"
             >
               <Heart
@@ -169,6 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 ? 'bg-red-50 border-red-100 text-red-600'
                 : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
                 }`}
+              aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title="Compare"
             >
               <ArrowRightLeft size={16} strokeWidth={2} />
@@ -178,6 +180,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Floating Cart Button - Inside Image Container for balance */}
           <button
             onClick={handleCartClick}
+            aria-label={`Add ${product.name} to cart`}
             className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-red-600 md:hover:text-white md:hover:border-red-600 overflow-visible`}
           >
             <ShoppingCart
@@ -326,6 +329,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 ? 'bg-red-50 border-red-100 text-red-600'
                 : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
                 }`}
+              aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title="Compare"
             >
               <ArrowRightLeft size={18} strokeWidth={2} />
@@ -349,6 +353,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Wishlist Button - Absolute Top Right of Card in List View */}
       <button
         onClick={toggleLike}
+        aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
         className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
           ? 'bg-red-50 text-red-600'
           : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
