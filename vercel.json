@@ -1,4 +1,8 @@
 {
+  "buildCommand": "cd baci-web-platform && npm run build",
+  "outputDirectory": "baci-web-platform/.next",
+  "installCommand": "npm install && cd baci-web-platform && npm install",
+  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/ai-jobs/worker",
