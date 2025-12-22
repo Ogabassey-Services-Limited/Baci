@@ -197,7 +197,7 @@ export async function POST(req: Request) {
     // Step 2: Check rate limit using IP address
     const rateLimitKey = `santa-chat:${clientIp}`;
 
-    const rateLimit = checkRateLimit(rateLimitKey, AI_RATE_LIMITS.builder);
+    const rateLimit = checkRateLimit(rateLimitKey, AI_RATE_LIMITS.santa);
     if (!rateLimit.allowed) {
       return new Response(
         JSON.stringify({
