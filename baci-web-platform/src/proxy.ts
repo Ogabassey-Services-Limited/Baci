@@ -113,7 +113,10 @@ function isRootDomain(hostname: string, rootDomain: string): boolean {
 
   return (
     normalizedHost === normalizedRoot ||
-    normalizedHost === `www.${normalizedRoot}`
+    normalizedHost === `www.${normalizedRoot}` ||
+    // Explicitly allow usebaci.com (platform domain) to handle legacy access
+    normalizedHost === 'usebaci.com' ||
+    normalizedHost === 'www.usebaci.com'
   );
 }
 
