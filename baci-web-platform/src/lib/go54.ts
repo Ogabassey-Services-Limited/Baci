@@ -130,9 +130,10 @@ function generateToken(): string {
   // nosemgrep
   // lgtm[js/insufficient-password-hash]
   // codeql[js/insufficient-password-hash] - False positive: This is HMAC-based API token generation, not password storage
+  // codeql[js/insufficient-password-hash] - This is API key signing (HMAC), not password hashing
   const signature = crypto
-    .createHmac('sha256', message)
-    .update(GO54_API_KEY)
+    .createHmac('sha256', process.env.GO54_API_KEY || '')
+    .update(message)
     .digest('hex');
 
   return Buffer.from(signature).toString('base64');
