@@ -23,7 +23,10 @@ import {
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+// Sanitize: trim whitespace and remove any stray newlines (env variable corruption protection)
+const ROOT_DOMAIN = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com')
+  .trim()
+  .replace(/[\r\n]/g, '');
 
 // Reserved subdomains that should not be treated as merchant stores
 const RESERVED_SUBDOMAINS = new Set([
