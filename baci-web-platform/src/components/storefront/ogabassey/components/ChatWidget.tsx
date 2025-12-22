@@ -32,6 +32,30 @@ function isSafeUrl(url: string): boolean {
 }
 
 /**
+ * Sanitizes a URL for safe usage in href/src attributes.
+ * Returns the sanitized URL or null if unsafe.
+ * This explicitly validates and normalizes the URL to prevent XSS.
+ */
+function sanitizeUrl(url: string): string | null {
+  try {
+    // Parse the URL to validate it
+    const parsed = new URL(url, 'http://dummy.com');
+    // Only allow safe protocols
+    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      return null;
+    }
+    // For mailto, return as-is (already validated)
+    if (parsed.protocol === 'mailto:') {
+      return url;
+    }
+    // Return the normalized href (properly encoded)
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Escapes HTML entities to prevent XSS when rendering user/AI text.
  * This ensures text content is safe before being placed in React nodes.
  */
@@ -74,14 +98,15 @@ function renderMarkdown(text: string): React.ReactNode {
         // Check for image: ![alt](url)
         const imgMatch = remaining.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
         if (imgMatch) {
-          const src = imgMatch[2];
-          // Escape alt text and validate URL
+          // Sanitize URL to prevent XSS - returns encoded URL or null
+          const safeSrc = sanitizeUrl(imgMatch[2]);
+          // Escape alt text
           const altText = escapeHtml(imgMatch[1] || 'Image');
-          if (isSafeUrl(src)) {
+          if (safeSrc) {
             elements.push(
               <img
                 key={`${lineIndex}-img-${keyIndex++}`}
-                src={src}
+                src={safeSrc}
                 alt={altText}
                 className="max-w-full rounded-lg my-2 shadow-sm border border-gray-100"
                 loading="lazy"
@@ -95,14 +120,14 @@ function renderMarkdown(text: string): React.ReactNode {
         // Check for link: [text](url)
         const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
         if (linkMatch) {
-          const href = linkMatch[2];
+          // Sanitize URL to prevent XSS - returns encoded URL or null
+          const safeHref = sanitizeUrl(linkMatch[2]);
           const linkText = escapeHtml(linkMatch[1]);
-          // Only allow safe protocols
-          if (isSafeUrl(href)) {
+          if (safeHref) {
             elements.push(
               <a
                 key={`${lineIndex}-link-${keyIndex++}`}
-                href={href}
+                href={safeHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-red-600 underline hover:text-red-700 font-medium"
