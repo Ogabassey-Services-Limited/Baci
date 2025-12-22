@@ -37,7 +37,7 @@ export function OgabasseyLayout({
   hideNavigation?: boolean;
 }) {
   const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
+  const basePath = merchantContext?.basePath ?? `/${merchant?.slug || 'ogabassey'}`;
   const pathname = usePathname();
 
   // Dynamic check for client-side navigation (fixes persistent layout causing stale props)
