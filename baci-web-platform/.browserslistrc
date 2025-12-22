@@ -1,0 +1,17 @@
+# Modern browsers only
+# This targets browsers that natively support ES2020+ features
+# Eliminates need for polyfills like Array.prototype.at, Object.hasOwn, etc.
+
+# Chrome/Edge (Chromium)
+chrome >= 90
+edge >= 90
+
+# Firefox
+firefox >= 88
+
+# Safari
+safari >= 14
+
+# Mobile browsers
+iOS >= 14
+ChromeAndroid >= 90

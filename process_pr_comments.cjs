@@ -1,4 +1,4 @@
-const fs = require('node:fs');
+const fs = require('fs');
 
 const prNumber = process.env.PR_NUMBER || 'unknown';
 const inputFile = `pr_${prNumber}_full_threads.json`;
@@ -12,27 +12,9 @@ try {
 
   const raw = fs.readFileSync(inputFile, 'utf8');
 
-  // Handle concatenated JSON objects from paginated output (line-delimited)
-  const trimmedRaw = raw.trim();
-  let pages;
-  try {
-    // Try parsing as a single JSON array first
-    pages = JSON.parse(trimmedRaw);
-    if (!Array.isArray(pages)) pages = [pages];
-  } catch {
-    // Fall back to line-delimited JSON
-    pages = trimmedRaw
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-  }
+  // Handle concatenated JSON objects from paginated output
+  const jsonStr = raw.trim().replace(/}{/g, '},{');
+  const pages = JSON.parse(`[${jsonStr}]`);
 
   const allThreads = [];
   const allGeneralComments = [];
@@ -84,13 +66,8 @@ try {
       comment.body.replace(/\n/g, ' ').substring(0, 80) +
       (comment.body.length > 80 ? '...' : '');
     const path = thread.path || 'General';
-    // Escape backslashes first, then pipes
     const safeBody = body.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
-    const safePath = path.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
-    const safeAuthor = (comment.author?.login || 'unknown')
-      .replace(/\\/g, '\\\\')
-      .replace(/\|/g, '\\|');
-    md += `| \`${safePath}\` | ${safeAuthor} | ${safeBody} | [View](${comment.url}) |\n`;
+    md += `| \`${path}\` | ${comment.author?.login} | ${safeBody} | [View](${comment.url}) |\n`;
   });
 
   md += '\n</details>\n';
@@ -138,8 +115,8 @@ try {
   if (allGeneralComments.length > 0) {
     md += '\n## 💬 General Discussion\n\n';
     allGeneralComments.forEach((c) => {
-      const body = c.body.replace(/\\/g, '\\\\').replace(/\n/g, ' <br> ');
-      md += `> **${c.author?.login || 'unknown'}**: ${body}\n\n`;
+      const body = c.body.replace(/\n/g, ' <br> ');
+      md += `> **${c.author?.login}**: ${body}\n\n`;
     });
   }
 

@@ -1,0 +1,837 @@
+Lint	Run npm run lint	﻿2025-12-13T19:18:53.0282691Z ##[group]Run npm run lint
+Lint	Run npm run lint	2025-12-13T19:18:53.0282994Z [36;1mnpm run lint[0m
+Lint	Run npm run lint	2025-12-13T19:18:53.0399512Z shell: /usr/bin/bash -e {0}
+Lint	Run npm run lint	2025-12-13T19:18:53.0399770Z ##[endgroup]
+Lint	Run npm run lint	2025-12-13T19:18:53.2044077Z 
+Lint	Run npm run lint	2025-12-13T19:18:53.2044902Z > nextn@0.1.0 lint
+Lint	Run npm run lint	2025-12-13T19:18:53.2046180Z > biome check .
+Lint	Run npm run lint	2025-12-13T19:18:53.2046418Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8942487Z src/services/insurance.ts:51:58 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.8944048Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8944491Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.8945287Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8952240Z     50 │     // 2. Filter for items that need assurance
+Lint	Run npm run lint	2025-12-13T19:18:56.8953483Z   > 51 │     const insuredItems = order.order_items.filter((item: any) => item.has_assurance);
+Lint	Run npm run lint	2025-12-13T19:18:56.8954783Z        │                                                          ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.8955299Z     52 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.8955765Z     53 │     if (insuredItems.length === 0) {
+Lint	Run npm run lint	2025-12-13T19:18:56.8956287Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8956789Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.8957490Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8957642Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8958526Z src/services/insurance.ts:132:25 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.8959162Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8959391Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.8959814Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8960628Z     130 │             results.push({ success: true, policyNumber: policy.policy_number, itemId: item.id });
+Lint	Run npm run lint	2025-12-13T19:18:56.8961358Z     131 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.8961762Z   > 132 │         } catch (error: any) {
+Lint	Run npm run lint	2025-12-13T19:18:56.8962282Z         │                         ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.8963129Z     133 │             logger.error({ message: 'MyCover Purchase Failed', error, itemId: item.id });
+Lint	Run npm run lint	2025-12-13T19:18:56.8964209Z     134 │             results.push({ success: false, error: error.message, itemId: item.id });
+Lint	Run npm run lint	2025-12-13T19:18:56.8964807Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8965360Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.8965894Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8966034Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8966892Z src/services/insurance.ts:161:39 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.8967663Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8967911Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.8968356Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8968805Z     159 │         let updateCount = 0;
+Lint	Run npm run lint	2025-12-13T19:18:56.8969297Z     160 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.8969864Z   > 161 │         for (const claim of claims as any[]) {
+Lint	Run npm run lint	2025-12-13T19:18:56.8970453Z         │                                       ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.8971142Z     162 │             // We need to match this claim to our local DB
+Lint	Run npm run lint	2025-12-13T19:18:56.8971824Z     163 │             // Typically via policy ID
+Lint	Run npm run lint	2025-12-13T19:18:56.8972259Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8972768Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.8973404Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8973553Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8974433Z src/services/insurance.ts:212:17 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.8975065Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8975290Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.8975704Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8976214Z     210 │         return { success: true, updated: updateCount };
+Lint	Run npm run lint	2025-12-13T19:18:56.8976738Z     211 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.8977129Z   > 212 │     } catch (e: any) {
+Lint	Run npm run lint	2025-12-13T19:18:56.8977758Z         │                 ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.8978473Z     213 │         logger.error({ message: 'Claims sync failed', error: e });
+Lint	Run npm run lint	2025-12-13T19:18:56.8979240Z     214 │         return { success: false, error: e.message };
+Lint	Run npm run lint	2025-12-13T19:18:56.8979709Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8980198Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.8980722Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8980872Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8981734Z src/services/insurance.ts:4:31 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.8982751Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.8982961Z   ! Several of these imports are unused.
+Lint	Run npm run lint	2025-12-13T19:18:56.8983363Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8983885Z     2 │ import { createClient } from '@/lib/supabase/server';
+Lint	Run npm run lint	2025-12-13T19:18:56.8984541Z     3 │ import { cookies } from 'next/headers';
+Lint	Run npm run lint	2025-12-13T19:18:56.8985329Z   > 4 │ import { createMyCoverClient, MyCoverError } from '@/lib/mycover';
+Lint	Run npm run lint	2025-12-13T19:18:56.8986056Z       │                               ^^^^^^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.8986630Z     5 │ import { logger } from '@/lib/logger';
+Lint	Run npm run lint	2025-12-13T19:18:56.8987075Z     6 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.8987488Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8987996Z   i Unused imports might be the result of an incomplete refactoring.
+Lint	Run npm run lint	2025-12-13T19:18:56.8988742Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.8989101Z   i Unsafe fix: Remove the unused imports.
+Lint	Run npm run lint	2025-12-13T19:18:56.8989508Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9039205Z     4 │ import·{·createMyCoverClient,·MyCoverError·}·from·'@/lib/mycover';
+Lint	Run npm run lint	2025-12-13T19:18:56.9040168Z       │                               -------------                       
+Lint	Run npm run lint	2025-12-13T19:18:56.9040498Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9041584Z src/services/insurance.ts:144:40 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9042254Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9042413Z   ! This parameter is unused.
+Lint	Run npm run lint	2025-12-13T19:18:56.9042763Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9043281Z     142 │  * Sync status of pending claims from MyCover API
+Lint	Run npm run lint	2025-12-13T19:18:56.9043794Z     143 │  */
+Lint	Run npm run lint	2025-12-13T19:18:56.9044431Z   > 144 │ export async function syncClaimsStatus(merchantId: string) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9045168Z         │                                        ^^^^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9045782Z     145 │     const cookieStore = await cookies();
+Lint	Run npm run lint	2025-12-13T19:18:56.9046480Z     146 │     const supabase = createClient(cookieStore);
+Lint	Run npm run lint	2025-12-13T19:18:56.9046933Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9047616Z   i Unused parameters might be the result of an incomplete refactoring.
+Lint	Run npm run lint	2025-12-13T19:18:56.9048201Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9048733Z   i Unsafe fix: If this is intentional, prepend merchantId with an underscore.
+Lint	Run npm run lint	2025-12-13T19:18:56.9049297Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9049829Z     142 142 │    * Sync status of pending claims from MyCover API
+Lint	Run npm run lint	2025-12-13T19:18:56.9050364Z     143 143 │    */
+Lint	Run npm run lint	2025-12-13T19:18:56.9051074Z     144     │ - export·async·function·syncClaimsStatus(merchantId:·string)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9052023Z         144 │ + export·async·function·syncClaimsStatus(_merchantId:·string)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9052820Z     145 145 │       const cookieStore = await cookies();
+Lint	Run npm run lint	2025-12-13T19:18:56.9053519Z     146 146 │       const supabase = createClient(cookieStore);
+Lint	Run npm run lint	2025-12-13T19:18:56.9053981Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9054132Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9055025Z supabase/functions/sync-gaming-prices/index.ts:119:46 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9055675Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9055913Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.9056355Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9056654Z     117 │ });
+Lint	Run npm run lint	2025-12-13T19:18:56.9056972Z     118 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9057852Z   > 119 │ async function sendNotification(newProducts: any[], priceChanges: any[]) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9058688Z         │                                              ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9059229Z     120 │     if (!ZEPTOMAIL_TOKEN) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9059855Z     121 │         console.error("Missing ZEPTOMAIL_TOKEN");
+Lint	Run npm run lint	2025-12-13T19:18:56.9060301Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9060787Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.9061310Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9061459Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9062328Z supabase/functions/sync-gaming-prices/index.ts:119:67 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9063010Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9063234Z   ! Unexpected any. Specify a different type.
+Lint	Run npm run lint	2025-12-13T19:18:56.9063653Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9063951Z     117 │ });
+Lint	Run npm run lint	2025-12-13T19:18:56.9064269Z     118 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9065385Z   > 119 │ async function sendNotification(newProducts: any[], priceChanges: any[]) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9087990Z         │                                                                   ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9088581Z     120 │     if (!ZEPTOMAIL_TOKEN) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9089210Z     121 │         console.error("Missing ZEPTOMAIL_TOKEN");
+Lint	Run npm run lint	2025-12-13T19:18:56.9089660Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9090164Z   i any disables many type checking rules. Its use should be avoided.
+Lint	Run npm run lint	2025-12-13T19:18:56.9090693Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9090835Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9091866Z supabase/functions/sync-gaming-prices/index.ts:14:14 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9092641Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9092785Z   ! This parameter is unused.
+Lint	Run npm run lint	2025-12-13T19:18:56.9093356Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9093910Z     12 │ const ADMIN_EMAIL = "admin@ogabassey.com"; // Configure this
+Lint	Run npm run lint	2025-12-13T19:18:56.9094454Z     13 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9094836Z   > 14 │ serve(async (req) => {
+Lint	Run npm run lint	2025-12-13T19:18:56.9095264Z        │              ^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9095623Z     15 │     try {
+Lint	Run npm run lint	2025-12-13T19:18:56.9096110Z     16 │         const supabaseClient = createClient(
+Lint	Run npm run lint	2025-12-13T19:18:56.9096545Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9097064Z   i Unused parameters might be the result of an incomplete refactoring.
+Lint	Run npm run lint	2025-12-13T19:18:56.9097762Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9098243Z   i Unsafe fix: If this is intentional, prepend req with an underscore.
+Lint	Run npm run lint	2025-12-13T19:18:56.9098758Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9099337Z      12  12 │   const ADMIN_EMAIL = "admin@ogabassey.com"; // Configure this
+Lint	Run npm run lint	2025-12-13T19:18:56.9099901Z      13  13 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9100353Z      14     │ - serve(async·(req)·=>·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9100889Z          14 │ + serve(async·(_req)·=>·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9101333Z      15  15 │       try {
+Lint	Run npm run lint	2025-12-13T19:18:56.9101890Z      16  16 │           const supabaseClient = createClient(
+Lint	Run npm run lint	2025-12-13T19:18:56.9102329Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9102472Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9103220Z apple_images_results.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9103751Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9104113Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9104574Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9104930Z     66 66 │       "success": false
+Lint	Run npm run lint	2025-12-13T19:18:56.9105345Z     67 67 │     }
+Lint	Run npm run lint	2025-12-13T19:18:56.9105689Z     68    │ - ]
+Lint	Run npm run lint	2025-12-13T19:18:56.9106032Z        68 │ + ]
+Lint	Run npm run lint	2025-12-13T19:18:56.9106347Z        69 │ + 
+Lint	Run npm run lint	2025-12-13T19:18:56.9106637Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9106776Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9107717Z sourcing_wishlist_laptops.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9108272Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9108665Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9109140Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9141984Z     1332 1332 │       "searchQuery": "HP ProBook 440 14 inch G10 (New) official render white background"
+Lint	Run npm run lint	2025-12-13T19:18:56.9143060Z     1333 1333 │     }
+Lint	Run npm run lint	2025-12-13T19:18:56.9143685Z     1334      │ - ]
+Lint	Run npm run lint	2025-12-13T19:18:56.9144072Z          1334 │ + ]
+Lint	Run npm run lint	2025-12-13T19:18:56.9144419Z          1335 │ + 
+Lint	Run npm run lint	2025-12-13T19:18:56.9144702Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9144854Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9147728Z src/schemas/onboarding.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9148701Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9154053Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9154554Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9163756Z       9   9 │       .string()
+Lint	Run npm run lint	2025-12-13T19:18:56.9168397Z      10  10 │       .min(2, { message: 'Business name must be at least 2 characters.' }),
+Lint	Run npm run lint	2025-12-13T19:18:56.9169792Z      11     │ - ··businessType:·z.string().min(1,·{·message:·'Please·select·a·business·type.'·}),
+Lint	Run npm run lint	2025-12-13T19:18:56.9170798Z          11 │ + ··businessType:·z
+Lint	Run npm run lint	2025-12-13T19:18:56.9171731Z          12 │ + ····.string()
+Lint	Run npm run lint	2025-12-13T19:18:56.9172702Z          13 │ + ····.min(1,·{·message:·'Please·select·a·business·type.'·}),
+Lint	Run npm run lint	2025-12-13T19:18:56.9173866Z      12  14 │     otherBusinessType: z.string().optional(),
+Lint	Run npm run lint	2025-12-13T19:18:56.9174397Z      13  15 │   });
+Lint	Run npm run lint	2025-12-13T19:18:56.9174760Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9175184Z      81  83 │           code: 'custom',
+Lint	Run npm run lint	2025-12-13T19:18:56.9175738Z      82  84 │           path: ['password'],
+Lint	Run npm run lint	2025-12-13T19:18:56.9176800Z      83     │ - ········message:·'Password·is·too·weak.·Add·more·characters·or·mix·letters,·numbers,·and·symbols.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9177820Z          85 │ + ········message:
+Lint	Run npm run lint	2025-12-13T19:18:56.9198512Z          86 │ + ··········'Password·is·too·weak.·Add·more·characters·or·mix·letters,·numbers,·and·symbols.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9199306Z      84  87 │         });
+Lint	Run npm run lint	2025-12-13T19:18:56.9199697Z      85  88 │       }
+Lint	Run npm run lint	2025-12-13T19:18:56.9200055Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9200517Z     105 108 │           code: 'custom',
+Lint	Run npm run lint	2025-12-13T19:18:56.9201058Z     106 109 │           path: ['password'],
+Lint	Run npm run lint	2025-12-13T19:18:56.9202024Z     107     │ - ········message:·'This·password·is·too·common.·Please·choose·a·more·unique·password.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9202844Z         110 │ + ········message:
+Lint	Run npm run lint	2025-12-13T19:18:56.9203679Z         111 │ + ··········'This·password·is·too·common.·Please·choose·a·more·unique·password.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9204356Z     108 112 │         });
+Lint	Run npm run lint	2025-12-13T19:18:56.9204723Z     109 113 │       }
+Lint	Run npm run lint	2025-12-13T19:18:56.9205071Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9205475Z     151 155 │             code: 'custom',
+Lint	Run npm run lint	2025-12-13T19:18:56.9206009Z     152 156 │             path: ['password'],
+Lint	Run npm run lint	2025-12-13T19:18:56.9207060Z     153     │ - ··········message:·'Password·is·too·weak.·Add·more·characters·or·mix·letters,·numbers,·and·symbols.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9208070Z         157 │ + ··········message:
+Lint	Run npm run lint	2025-12-13T19:18:56.9209017Z         158 │ + ············'Password·is·too·weak.·Add·more·characters·or·mix·letters,·numbers,·and·symbols.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9209795Z     154 159 │           });
+Lint	Run npm run lint	2025-12-13T19:18:56.9210172Z     155 160 │         }
+Lint	Run npm run lint	2025-12-13T19:18:56.9210549Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9210955Z     175 180 │             code: 'custom',
+Lint	Run npm run lint	2025-12-13T19:18:56.9211480Z     176 181 │             path: ['password'],
+Lint	Run npm run lint	2025-12-13T19:18:56.9212435Z     177     │ - ··········message:·'This·password·is·too·common.·Please·choose·a·more·unique·password.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9213216Z         182 │ + ··········message:
+Lint	Run npm run lint	2025-12-13T19:18:56.9214075Z         183 │ + ············'This·password·is·too·common.·Please·choose·a·more·unique·password.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9214749Z     178 184 │           });
+Lint	Run npm run lint	2025-12-13T19:18:56.9215123Z     179 185 │         }
+Lint	Run npm run lint	2025-12-13T19:18:56.9215416Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9215555Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9216373Z src/services/hero-image-generator.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9216949Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9238192Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9239093Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9244065Z     237 237 │         if (!autoGenerate) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9248501Z     238 238 │           logger.info({
+Lint	Run npm run lint	2025-12-13T19:18:56.9253051Z     239     │ - ··········message:·'No·hero·images·available,·skipping·generation·(autoGenerate=false)',
+Lint	Run npm run lint	2025-12-13T19:18:56.9257678Z         239 │ + ··········message:
+Lint	Run npm run lint	2025-12-13T19:18:56.9258868Z         240 │ + ············'No·hero·images·available,·skipping·generation·(autoGenerate=false)',
+Lint	Run npm run lint	2025-12-13T19:18:56.9259828Z     240 241 │             category,
+Lint	Run npm run lint	2025-12-13T19:18:56.9260412Z     241 242 │           });
+Lint	Run npm run lint	2025-12-13T19:18:56.9260882Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9261037Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9261921Z src/services/insurance.ts:2:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9262558Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9262869Z   × The imports and exports are not sorted.
+Lint	Run npm run lint	2025-12-13T19:18:56.9263278Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9264169Z   > 2 │ import { createClient } from '@/lib/supabase/server';
+Lint	Run npm run lint	2025-12-13T19:18:56.9264833Z       │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9265440Z     3 │ import { cookies } from 'next/headers';
+Lint	Run npm run lint	2025-12-13T19:18:56.9266224Z     4 │ import { createMyCoverClient, MyCoverError } from '@/lib/mycover';
+Lint	Run npm run lint	2025-12-13T19:18:56.9266774Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9267109Z   i Safe fix: Organize Imports (Biome)
+Lint	Run npm run lint	2025-12-13T19:18:56.9267647Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9267945Z       1   1 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9268554Z       2     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+Lint	Run npm run lint	2025-12-13T19:18:56.9269263Z       3     │ - import·{·cookies·}·from·'next/headers';
+Lint	Run npm run lint	2025-12-13T19:18:56.9269896Z           2 │ + import·{·cookies·}·from·'next/headers';
+Lint	Run npm run lint	2025-12-13T19:18:56.9270517Z           3 │ + import·{·logger·}·from·'@/lib/logger';
+Lint	Run npm run lint	2025-12-13T19:18:56.9271318Z       4   4 │   import { createMyCoverClient, MyCoverError } from '@/lib/mycover';
+Lint	Run npm run lint	2025-12-13T19:18:56.9272106Z       5     │ - import·{·logger·}·from·'@/lib/logger';
+Lint	Run npm run lint	2025-12-13T19:18:56.9272819Z           5 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+Lint	Run npm run lint	2025-12-13T19:18:56.9273345Z       6   6 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9274072Z       7   7 │   // Default MyCover Gadget Product ID (needs to be confirmed/configurable)
+Lint	Run npm run lint	2025-12-13T19:18:56.9274655Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9274796Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9298548Z src/services/insurance.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9299216Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9303359Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9307773Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9337087Z       1     │ - 
+Lint	Run npm run lint	2025-12-13T19:18:56.9341720Z       2   1 │   import { createClient } from '@/lib/supabase/server';
+Lint	Run npm run lint	2025-12-13T19:18:56.9345984Z       3   2 │   import { cookies } from 'next/headers';
+Lint	Run npm run lint	2025-12-13T19:18:56.9348759Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9352301Z       7   6 │   // Default MyCover Gadget Product ID (needs to be confirmed/configurable)
+Lint	Run npm run lint	2025-12-13T19:18:56.9370220Z       8   7 │   // This is often specific to the distributor and insurance plan
+Lint	Run npm run lint	2025-12-13T19:18:56.9371429Z       9     │ - const·DEFAULT_GADGET_PRODUCT_ID·=·process.env.MYCOVER_GADGET_PRODUCT_ID·||·'uuid-placeholder';
+Lint	Run npm run lint	2025-12-13T19:18:56.9372384Z           8 │ + const·DEFAULT_GADGET_PRODUCT_ID·=
+Lint	Run npm run lint	2025-12-13T19:18:56.9373170Z           9 │ + ··process.env.MYCOVER_GADGET_PRODUCT_ID·||·'uuid-placeholder';
+Lint	Run npm run lint	2025-12-13T19:18:56.9373767Z      10  10 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9374296Z      11  11 │   export interface DeviceInsuranceDetails {
+Lint	Run npm run lint	2025-12-13T19:18:56.9374881Z      12     │ - ····imei:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9375393Z      13     │ - ····serialNumber:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9375940Z      14     │ - ····deviceColor:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9376473Z      15     │ - ····deviceModel:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9377005Z      16     │ - ····deviceMake:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9377790Z      17     │ - ····deviceType:·'Phone'·|·'Laptop'·|·'Others';
+Lint	Run npm run lint	2025-12-13T19:18:56.9378420Z      18     │ - ····deviceValue:·number;
+Lint	Run npm run lint	2025-12-13T19:18:56.9379022Z      19     │ - ····purchaseDate:·string;·//·YYYY-MM-DD
+Lint	Run npm run lint	2025-12-13T19:18:56.9379824Z      20     │ - ····devicePhotos:·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9380371Z      21     │ - ········about:·string;·//·URL
+Lint	Run npm run lint	2025-12-13T19:18:56.9380829Z      22     │ - ····};
+Lint	Run npm run lint	2025-12-13T19:18:56.9381524Z      23     │ - ····customerPhoto?:·string;·//·Optional·(or·placeholder)·ID·URL
+Lint	Run npm run lint	2025-12-13T19:18:56.9382187Z          12 │ + ··imei:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9382670Z          13 │ + ··serialNumber:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9383186Z          14 │ + ··deviceColor:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9383700Z          15 │ + ··deviceModel:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9384204Z          16 │ + ··deviceMake:·string;
+Lint	Run npm run lint	2025-12-13T19:18:56.9384811Z          17 │ + ··deviceType:·'Phone'·|·'Laptop'·|·'Others';
+Lint	Run npm run lint	2025-12-13T19:18:56.9385382Z          18 │ + ··deviceValue:·number;
+Lint	Run npm run lint	2025-12-13T19:18:56.9385959Z          19 │ + ··purchaseDate:·string;·//·YYYY-MM-DD
+Lint	Run npm run lint	2025-12-13T19:18:56.9386698Z          20 │ + ··devicePhotos:·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9387252Z          21 │ + ····about:·string;·//·URL
+Lint	Run npm run lint	2025-12-13T19:18:56.9417948Z          22 │ + ··};
+Lint	Run npm run lint	2025-12-13T19:18:56.9418682Z          23 │ + ··customerPhoto?:·string;·//·Optional·(or·placeholder)·ID·URL
+Lint	Run npm run lint	2025-12-13T19:18:56.9419283Z      24  24 │   }
+Lint	Run npm run lint	2025-12-13T19:18:56.9419613Z      25  25 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9419952Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9420271Z      28  28 │    */
+Lint	Run npm run lint	2025-12-13T19:18:56.9420820Z      29  29 │   export async function purchaseOrderInsurance(
+Lint	Run npm run lint	2025-12-13T19:18:56.9421432Z      30     │ - ····orderId:·string,
+Lint	Run npm run lint	2025-12-13T19:18:56.9422074Z      31     │ - ····deviceDetails:·DeviceInsuranceDetails
+Lint	Run npm run lint	2025-12-13T19:18:56.9422660Z          30 │ + ··orderId:·string,
+Lint	Run npm run lint	2025-12-13T19:18:56.9423244Z          31 │ + ··deviceDetails:·DeviceInsuranceDetails
+Lint	Run npm run lint	2025-12-13T19:18:56.9423726Z      32  32 │   ) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9424243Z      33     │ - ····const·cookieStore·=·await·cookies();
+Lint	Run npm run lint	2025-12-13T19:18:56.9424971Z      34     │ - ····const·supabase·=·createClient(cookieStore);
+Lint	Run npm run lint	2025-12-13T19:18:56.9425645Z          33 │ + ··const·cookieStore·=·await·cookies();
+Lint	Run npm run lint	2025-12-13T19:18:56.9426347Z          34 │ + ··const·supabase·=·createClient(cookieStore);
+Lint	Run npm run lint	2025-12-13T19:18:56.9426841Z      35  35 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9427512Z      36     │ - ····//·1.·Fetch·Order·with·Customer·and·Items
+Lint	Run npm run lint	2025-12-13T19:18:56.9428365Z      37     │ - ····const·{·data:·order,·error:·orderError·}·=·await·supabase
+Lint	Run npm run lint	2025-12-13T19:18:56.9429038Z      38     │ - ········.from('orders')
+Lint	Run npm run lint	2025-12-13T19:18:56.9429536Z      39     │ - ········.select(`
+Lint	Run npm run lint	2025-12-13T19:18:56.9430125Z          36 │ + ··//·1.·Fetch·Order·with·Customer·and·Items
+Lint	Run npm run lint	2025-12-13T19:18:56.9430899Z          37 │ + ··const·{·data:·order,·error:·orderError·}·=·await·supabase
+Lint	Run npm run lint	2025-12-13T19:18:56.9431531Z          38 │ + ····.from('orders')
+Lint	Run npm run lint	2025-12-13T19:18:56.9431980Z          39 │ + ····.select(`
+Lint	Run npm run lint	2025-12-13T19:18:56.9432367Z      40  40 │         *,
+Lint	Run npm run lint	2025-12-13T19:18:56.9432841Z      41  41 │         order_items (*)
+Lint	Run npm run lint	2025-12-13T19:18:56.9433266Z      42  42 │       `)
+Lint	Run npm run lint	2025-12-13T19:18:56.9433721Z      43     │ - ········.eq('id',·orderId)
+Lint	Run npm run lint	2025-12-13T19:18:56.9434440Z      44     │ - ········.single();
+Lint	Run npm run lint	2025-12-13T19:18:56.9434933Z          43 │ + ····.eq('id',·orderId)
+Lint	Run npm run lint	2025-12-13T19:18:56.9435412Z          44 │ + ····.single();
+Lint	Run npm run lint	2025-12-13T19:18:56.9435796Z      45  45 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9436259Z      46     │ - ····if·(orderError·||·!order)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9437071Z      47     │ - ········throw·new·Error(`Order·not·found:·${orderError?.message}`);
+Lint	Run npm run lint	2025-12-13T19:18:56.9447243Z      48     │ - ····}
+Lint	Run npm run lint	2025-12-13T19:18:56.9447886Z          46 │ + ··if·(orderError·||·!order)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9448660Z          47 │ + ····throw·new·Error(`Order·not·found:·${orderError?.message}`);
+Lint	Run npm run lint	2025-12-13T19:18:56.9449257Z          48 │ + ··}
+Lint	Run npm run lint	2025-12-13T19:18:56.9449592Z      49  49 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9450136Z      50     │ - ····//·2.·Filter·for·items·that·need·assurance
+Lint	Run npm run lint	2025-12-13T19:18:56.9451337Z      51     │ - ····const·insuredItems·=·order.order_items.filter((item:·any)·=>·item.has_assurance);
+Lint	Run npm run lint	2025-12-13T19:18:56.9452232Z          50 │ + ··//·2.·Filter·for·items·that·need·assurance
+Lint	Run npm run lint	2025-12-13T19:18:56.9452968Z          51 │ + ··const·insuredItems·=·order.order_items.filter(
+Lint	Run npm run lint	2025-12-13T19:18:56.9453632Z          52 │ + ····(item:·any)·=>·item.has_assurance
+Lint	Run npm run lint	2025-12-13T19:18:56.9454102Z          53 │ + ··);
+Lint	Run npm run lint	2025-12-13T19:18:56.9454444Z      52  54 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9454931Z      53     │ - ····if·(insuredItems.length·===·0)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9455901Z      54     │ - ········return·{·success:·false,·message:·'No·items·in·this·order·require·assurance.'·};
+Lint	Run npm run lint	2025-12-13T19:18:56.9456609Z      55     │ - ····}
+Lint	Run npm run lint	2025-12-13T19:18:56.9457124Z          55 │ + ··if·(insuredItems.length·===·0)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9457777Z          56 │ + ····return·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9458245Z          57 │ + ······success:·false,
+Lint	Run npm run lint	2025-12-13T19:18:56.9458957Z          58 │ + ······message:·'No·items·in·this·order·require·assurance.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9459560Z          59 │ + ····};
+Lint	Run npm run lint	2025-12-13T19:18:56.9459929Z          60 │ + ··}
+Lint	Run npm run lint	2025-12-13T19:18:56.9460263Z      56  61 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9460807Z      57     │ - ····//·3.·Initialize·MyCover·Client
+Lint	Run npm run lint	2025-12-13T19:18:56.9461471Z      58     │ - ····const·myCover·=·createMyCoverClient();
+Lint	Run npm run lint	2025-12-13T19:18:56.9462049Z      59     │ - ····if·(!myCover)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9462943Z      60     │ - ········throw·new·Error('MyCover·client·could·not·be·initialized·(missing·config).');
+Lint	Run npm run lint	2025-12-13T19:18:56.9463652Z      61     │ - ····}
+Lint	Run npm run lint	2025-12-13T19:18:56.9464148Z          62 │ + ··//·3.·Initialize·MyCover·Client
+Lint	Run npm run lint	2025-12-13T19:18:56.9464787Z          63 │ + ··const·myCover·=·createMyCoverClient();
+Lint	Run npm run lint	2025-12-13T19:18:56.9465348Z          64 │ + ··if·(!myCover)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9465828Z          65 │ + ····throw·new·Error(
+Lint	Run npm run lint	2025-12-13T19:18:56.9466573Z          66 │ + ······'MyCover·client·could·not·be·initialized·(missing·config).'
+Lint	Run npm run lint	2025-12-13T19:18:56.9467209Z          67 │ + ····);
+Lint	Run npm run lint	2025-12-13T19:18:56.9507854Z          68 │ + ··}
+Lint	Run npm run lint	2025-12-13T19:18:56.9508212Z      62  69 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9508673Z      63     │ - ····const·results·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:56.9509264Z          70 │ + ··const·results·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:56.9509690Z      64  71 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9510642Z      65     │ - ····//·4.·Process·each·insured·item·(currently·assuming·1·device·per·confirm·action·for·simplicity,
+Lint	Run npm run lint	2025-12-13T19:18:56.9511880Z      66     │ - ····//·but·loop·handles·multiple·if·they·share·same·device·details·-·edge·case)
+Lint	Run npm run lint	2025-12-13T19:18:56.9512721Z      67     │ - ····for·(const·item·of·insuredItems)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9513257Z      68     │ - ········try·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9513817Z      69     │ - ············//·Construct·payload
+Lint	Run npm run lint	2025-12-13T19:18:56.9514722Z      70     │ - ············//·Use·placeholder·for·ID·image·if·not·provided·(negotiated/MVP·flow)
+Lint	Run npm run lint	2025-12-13T19:18:56.9516128Z      71     │ - ············const·idImageUrl·=·deviceDetails.customerPhoto·||·'https://via.placeholder.com/300x200?text=Customer+ID';
+Lint	Run npm run lint	2025-12-13T19:18:56.9517908Z          72 │ + ··//·4.·Process·each·insured·item·(currently·assuming·1·device·per·confirm·action·for·simplicity,
+Lint	Run npm run lint	2025-12-13T19:18:56.9519544Z          73 │ + ··//·but·loop·handles·multiple·if·they·share·same·device·details·-·edge·case)
+Lint	Run npm run lint	2025-12-13T19:18:56.9520502Z          74 │ + ··for·(const·item·of·insuredItems)·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9521140Z          75 │ + ····try·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9521631Z          76 │ + ······//·Construct·payload
+Lint	Run npm run lint	2025-12-13T19:18:56.9522706Z          77 │ + ······//·Use·placeholder·for·ID·image·if·not·provided·(negotiated/MVP·flow)
+Lint	Run npm run lint	2025-12-13T19:18:56.9523482Z          78 │ + ······const·idImageUrl·=
+Lint	Run npm run lint	2025-12-13T19:18:56.9524105Z          79 │ + ········deviceDetails.customerPhoto·||
+Lint	Run npm run lint	2025-12-13T19:18:56.9524887Z          80 │ + ········'https://via.placeholder.com/300x200?text=Customer+ID';
+Lint	Run npm run lint	2025-12-13T19:18:56.9525446Z      72  81 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9526366Z      73     │ - ············const·policy·=·await·myCover.purchaseGadgetInsurance({
+Lint	Run npm run lint	2025-12-13T19:18:56.9527105Z      74     │ - ················//·Customer·Info
+Lint	Run npm run lint	2025-12-13T19:18:56.9545898Z      75     │ - ················first_name:·order.customer_name.split('·')[0],
+Lint	Run npm run lint	2025-12-13T19:18:56.9546939Z      76     │ - ················last_name:·order.customer_name.split('·').slice(1).join('·')·||·'.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9547921Z      77     │ - ················email:·order.customer_email,
+Lint	Run npm run lint	2025-12-13T19:18:56.9548633Z      78     │ - ················phone_number:·order.customer_phone,
+Lint	Run npm run lint	2025-12-13T19:18:56.9549616Z      79     │ - ················address:·order.shipping_address?.address·||·'Lagos,·Nigeria',·//·Fallback
+Lint	Run npm run lint	2025-12-13T19:18:56.9550700Z      80     │ - ················gender:·'Male',·//·Default/Placeholder·as·we·don't·collect·gender
+Lint	Run npm run lint	2025-12-13T19:18:56.9551771Z      81     │ - ················date_of_birth:·'1990-01-01',·//·Default/Placeholder·as·we·don't·collect·DOB
+Lint	Run npm run lint	2025-12-13T19:18:56.9552642Z      82     │ - ················occupation:·'Professional',·//·Default
+Lint	Run npm run lint	2025-12-13T19:18:56.9553357Z      83     │ - ················title:·'Mr/Mrs',·//·Default
+Lint	Run npm run lint	2025-12-13T19:18:56.9554135Z          82 │ + ······const·policy·=·await·myCover.purchaseGadgetInsurance({
+Lint	Run npm run lint	2025-12-13T19:18:56.9554841Z          83 │ + ········//·Customer·Info
+Lint	Run npm run lint	2025-12-13T19:18:56.9555512Z          84 │ + ········first_name:·order.customer_name.split('·')[0],
+Lint	Run npm run lint	2025-12-13T19:18:56.9556401Z          85 │ + ········last_name:·order.customer_name.split('·').slice(1).join('·')·||·'.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9557177Z          86 │ + ········email:·order.customer_email,
+Lint	Run npm run lint	2025-12-13T19:18:56.9557989Z          87 │ + ········phone_number:·order.customer_phone,
+Lint	Run npm run lint	2025-12-13T19:18:56.9558900Z          88 │ + ········address:·order.shipping_address?.address·||·'Lagos,·Nigeria',·//·Fallback
+Lint	Run npm run lint	2025-12-13T19:18:56.9559914Z          89 │ + ········gender:·'Male',·//·Default/Placeholder·as·we·don't·collect·gender
+Lint	Run npm run lint	2025-12-13T19:18:56.9560916Z          90 │ + ········date_of_birth:·'1990-01-01',·//·Default/Placeholder·as·we·don't·collect·DOB
+Lint	Run npm run lint	2025-12-13T19:18:56.9561754Z          91 │ + ········occupation:·'Professional',·//·Default
+Lint	Run npm run lint	2025-12-13T19:18:56.9562381Z          92 │ + ········title:·'Mr/Mrs',·//·Default
+Lint	Run npm run lint	2025-12-13T19:18:56.9563049Z      84  93 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9563533Z      85     │ - ················//·Device·Info
+Lint	Run npm run lint	2025-12-13T19:18:56.9564207Z      86     │ - ················product_id:·DEFAULT_GADGET_PRODUCT_ID,
+Lint	Run npm run lint	2025-12-13T19:18:56.9565166Z      87     │ - ················model_number:·deviceDetails.deviceModel,·//·Often·same·as·model·name
+Lint	Run npm run lint	2025-12-13T19:18:56.9566071Z      88     │ - ················device_type:·deviceDetails.deviceType,
+Lint	Run npm run lint	2025-12-13T19:18:56.9566807Z      89     │ - ················device_make:·deviceDetails.deviceMake,
+Lint	Run npm run lint	2025-12-13T19:18:56.9574469Z      90     │ - ················device_model:·deviceDetails.deviceModel,
+Lint	Run npm run lint	2025-12-13T19:18:56.9575010Z   261 more lines truncated
+Lint	Run npm run lint	2025-12-13T19:18:56.9575341Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9575490Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9576578Z supabase/functions/send-auth-email/index.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9577196Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9577731Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9578221Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9578855Z       1     │ - import·"jsr:@supabase/functions-js/edge-runtime.d.ts";
+Lint	Run npm run lint	2025-12-13T19:18:56.9579759Z       2     │ - import·{·Webhook·}·from·"https://esm.sh/standardwebhooks@1.0.0";
+Lint	Run npm run lint	2025-12-13T19:18:56.9598116Z           1 │ + import·'jsr:@supabase/functions-js/edge-runtime.d.ts';
+Lint	Run npm run lint	2025-12-13T19:18:56.9599165Z           2 │ + import·{·Webhook·}·from·'https://esm.sh/standardwebhooks@1.0.0';
+Lint	Run npm run lint	2025-12-13T19:18:56.9599893Z       3   3 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9600676Z       4     │ - const·ZEPTOMAIL_TOKEN·=·Deno.env.get("ZEPTOMAIL_TOKEN")·||·"";
+Lint	Run npm run lint	2025-12-13T19:18:56.9601801Z       5     │ - const·SEND_EMAIL_HOOK_SECRET·=·Deno.env.get("SEND_EMAIL_HOOK_SECRET")·||·"";
+Lint	Run npm run lint	2025-12-13T19:18:56.9603358Z       6     │ - const·LOGO_URL·=·"https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png";
+Lint	Run npm run lint	2025-12-13T19:18:56.9604805Z           4 │ + const·ZEPTOMAIL_TOKEN·=·Deno.env.get('ZEPTOMAIL_TOKEN')·||·'';
+Lint	Run npm run lint	2025-12-13T19:18:56.9605951Z           5 │ + const·SEND_EMAIL_HOOK_SECRET·=·Deno.env.get('SEND_EMAIL_HOOK_SECRET')·||·'';
+Lint	Run npm run lint	2025-12-13T19:18:56.9606815Z           6 │ + const·LOGO_URL·=
+Lint	Run npm run lint	2025-12-13T19:18:56.9608130Z           7 │ + ··'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png';
+Lint	Run npm run lint	2025-12-13T19:18:56.9609127Z       7   8 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9609575Z       8   9 │   interface EmailPayload {
+Lint	Run npm run lint	2025-12-13T19:18:56.9627888Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9628285Z      20  21 │   }
+Lint	Run npm run lint	2025-12-13T19:18:56.9628621Z      21  22 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9629669Z      22     │ - const·EMAIL_CONFIG:·Record<string,·{·subject:·string;·heading:·string;·body:·string;·buttonText:·string·}>·=·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9630632Z          23 │ + const·EMAIL_CONFIG:·Record<
+Lint	Run npm run lint	2025-12-13T19:18:56.9631139Z          24 │ + ··string,
+Lint	Run npm run lint	2025-12-13T19:18:56.9631889Z          25 │ + ··{·subject:·string;·heading:·string;·body:·string;·buttonText:·string·}
+Lint	Run npm run lint	2025-12-13T19:18:56.9632531Z          26 │ + >·=·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9632931Z      23  27 │     signup: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9633489Z      24     │ - ····subject:·"Confirm·your·Baci·account",
+Lint	Run npm run lint	2025-12-13T19:18:56.9634144Z      25     │ - ····heading:·"Verify·your·email·address",
+Lint	Run npm run lint	2025-12-13T19:18:56.9635387Z      26     │ - ····body:·"Thanks·for·starting·your·journey·with·Baci!·Please·confirm·your·email·address·to·activate·your·account.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9636416Z      27     │ - ····buttonText:·"Confirm·Email"
+Lint	Run npm run lint	2025-12-13T19:18:56.9637044Z          28 │ + ····subject:·'Confirm·your·Baci·account',
+Lint	Run npm run lint	2025-12-13T19:18:56.9637853Z          29 │ + ····heading:·'Verify·your·email·address',
+Lint	Run npm run lint	2025-12-13T19:18:56.9639087Z          30 │ + ····body:·'Thanks·for·starting·your·journey·with·Baci!·Please·confirm·your·email·address·to·activate·your·account.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9640146Z          31 │ + ····buttonText:·'Confirm·Email',
+Lint	Run npm run lint	2025-12-13T19:18:56.9640623Z      28  32 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9641065Z      29  33 │     signup_confirmation: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9641915Z      30     │ - ····subject:·"Confirm·your·Baci·account",
+Lint	Run npm run lint	2025-12-13T19:18:56.9642579Z      31     │ - ····heading:·"Verify·your·email·address",
+Lint	Run npm run lint	2025-12-13T19:18:56.9643807Z      32     │ - ····body:·"Thanks·for·starting·your·journey·with·Baci!·Please·confirm·your·email·address·to·activate·your·account.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9644846Z      33     │ - ····buttonText:·"Confirm·Email"
+Lint	Run npm run lint	2025-12-13T19:18:56.9645476Z          34 │ + ····subject:·'Confirm·your·Baci·account',
+Lint	Run npm run lint	2025-12-13T19:18:56.9646117Z          35 │ + ····heading:·'Verify·your·email·address',
+Lint	Run npm run lint	2025-12-13T19:18:56.9647449Z          36 │ + ····body:·'Thanks·for·starting·your·journey·with·Baci!·Please·confirm·your·email·address·to·activate·your·account.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9648480Z          37 │ + ····buttonText:·'Confirm·Email',
+Lint	Run npm run lint	2025-12-13T19:18:56.9649143Z      34  38 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9649495Z      35  39 │     invite: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9650034Z      36  40 │       subject: "You've been invited to Baci",
+Lint	Run npm run lint	2025-12-13T19:18:56.9650683Z      37  41 │       heading: "You've been invited!",
+Lint	Run npm run lint	2025-12-13T19:18:56.9651841Z      38     │ - ····body:·"You·have·been·invited·to·join·Baci.·Click·the·button·below·to·set·up·your·account·and·get·started.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9652826Z      39     │ - ····buttonText:·"Accept·Invitation"
+Lint	Run npm run lint	2025-12-13T19:18:56.9653969Z          42 │ + ····body:·'You·have·been·invited·to·join·Baci.·Click·the·button·below·to·set·up·your·account·and·get·started.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9654947Z          43 │ + ····buttonText:·'Accept·Invitation',
+Lint	Run npm run lint	2025-12-13T19:18:56.9655416Z      40  44 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9655814Z      41  45 │     magiclink: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9656329Z      42     │ - ····subject:·"Log·in·to·Baci",
+Lint	Run npm run lint	2025-12-13T19:18:56.9656906Z      43     │ - ····heading:·"Your·Login·Link",
+Lint	Run npm run lint	2025-12-13T19:18:56.9679118Z      44     │ - ····body:·"Click·the·button·below·to·log·in·to·your·Baci·account.·This·link·will·expire·in·24·hours.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9680058Z      45     │ - ····buttonText:·"Log·In·Now"
+Lint	Run npm run lint	2025-12-13T19:18:56.9680677Z          46 │ + ····subject:·'Log·in·to·Baci',
+Lint	Run npm run lint	2025-12-13T19:18:56.9681246Z          47 │ + ····heading:·'Your·Login·Link',
+Lint	Run npm run lint	2025-12-13T19:18:56.9682303Z          48 │ + ····body:·'Click·the·button·below·to·log·in·to·your·Baci·account.·This·link·will·expire·in·24·hours.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9683192Z          49 │ + ····buttonText:·'Log·In·Now',
+Lint	Run npm run lint	2025-12-13T19:18:56.9683645Z      46  50 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9684019Z      47  51 │     recovery: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9684586Z      48     │ - ····subject:·"Reset·your·Baci·password",
+Lint	Run npm run lint	2025-12-13T19:18:56.9685222Z      49     │ - ····heading:·"Reset·Your·Password",
+Lint	Run npm run lint	2025-12-13T19:18:56.9686318Z      50     │ - ····body:·"We·received·a·request·to·reset·your·password.·Click·the·button·below·to·choose·a·new·one.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9687281Z      51     │ - ····buttonText:·"Reset·Password"
+Lint	Run npm run lint	2025-12-13T19:18:56.9688076Z          52 │ + ····subject:·'Reset·your·Baci·password',
+Lint	Run npm run lint	2025-12-13T19:18:56.9688698Z          53 │ + ····heading:·'Reset·Your·Password',
+Lint	Run npm run lint	2025-12-13T19:18:56.9689834Z          54 │ + ····body:·'We·received·a·request·to·reset·your·password.·Click·the·button·below·to·choose·a·new·one.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9690761Z          55 │ + ····buttonText:·'Reset·Password',
+Lint	Run npm run lint	2025-12-13T19:18:56.9691229Z      52  56 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9691642Z      53  57 │     email_change: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9692254Z      54     │ - ····subject:·"Confirm·your·new·email·address",
+Lint	Run npm run lint	2025-12-13T19:18:56.9692911Z      55     │ - ····heading:·"Confirm·Email·Change",
+Lint	Run npm run lint	2025-12-13T19:18:56.9693915Z      56     │ - ····body:·"Please·confirm·the·update·of·your·email·address·by·clicking·the·button·below.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9694791Z      57     │ - ····buttonText:·"Confirm·New·Email"
+Lint	Run npm run lint	2025-12-13T19:18:56.9695456Z          58 │ + ····subject:·'Confirm·your·new·email·address',
+Lint	Run npm run lint	2025-12-13T19:18:56.9696125Z          59 │ + ····heading:·'Confirm·Email·Change',
+Lint	Run npm run lint	2025-12-13T19:18:56.9697112Z          60 │ + ····body:·'Please·confirm·the·update·of·your·email·address·by·clicking·the·button·below.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9718581Z          61 │ + ····buttonText:·'Confirm·New·Email',
+Lint	Run npm run lint	2025-12-13T19:18:56.9719199Z      58  62 │     },
+Lint	Run npm run lint	2025-12-13T19:18:56.9719652Z      59  63 │     reauthentication: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9720441Z      60     │ - ····subject:·"Security·verification·required",
+Lint	Run npm run lint	2025-12-13T19:18:56.9722289Z      61     │ - ····heading:·"Security·Verification",
+Lint	Run npm run lint	2025-12-13T19:18:56.9724583Z      62     │ - ····body:·"A·sensitive·action·was·requested·on·your·account.·Please·verify·your·identity·to·proceed.",
+Lint	Run npm run lint	2025-12-13T19:18:56.9726701Z      63     │ - ····buttonText:·"Verify·Identity"
+Lint	Run npm run lint	2025-12-13T19:18:56.9728550Z      64     │ - ··}
+Lint	Run npm run lint	2025-12-13T19:18:56.9729131Z          64 │ + ····subject:·'Security·verification·required',
+Lint	Run npm run lint	2025-12-13T19:18:56.9731237Z          65 │ + ····heading:·'Security·Verification',
+Lint	Run npm run lint	2025-12-13T19:18:56.9734119Z          66 │ + ····body:·'A·sensitive·action·was·requested·on·your·account.·Please·verify·your·identity·to·proceed.',
+Lint	Run npm run lint	2025-12-13T19:18:56.9735108Z          67 │ + ····buttonText:·'Verify·Identity',
+Lint	Run npm run lint	2025-12-13T19:18:56.9735579Z          68 │ + ··},
+Lint	Run npm run lint	2025-12-13T19:18:56.9735929Z      65  69 │   };
+Lint	Run npm run lint	2025-12-13T19:18:56.9736257Z      66  70 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9737229Z      67     │ - function·generateEmailHtml(config:·typeof·EMAIL_CONFIG[string],·confirmationUrl:·string):·string·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9738333Z          71 │ + function·generateEmailHtml(
+Lint	Run npm run lint	2025-12-13T19:18:56.9738950Z          72 │ + ··config:·(typeof·EMAIL_CONFIG)[string],
+Lint	Run npm run lint	2025-12-13T19:18:56.9739530Z          73 │ + ··confirmationUrl:·string
+Lint	Run npm run lint	2025-12-13T19:18:56.9739992Z          74 │ + ):·string·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9740488Z      68  75 │     return `<!DOCTYPE html>
+Lint	Run npm run lint	2025-12-13T19:18:56.9740961Z      69  76 │   <html>
+Lint	Run npm run lint	2025-12-13T19:18:56.9741313Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9741671Z     110 117 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9742111Z     111 118 │   Deno.serve(async (req) => {
+Lint	Run npm run lint	2025-12-13T19:18:56.9742697Z     112     │ - ··if·(req.method·!==·"POST")·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9743507Z     113     │ - ····return·new·Response("Method·not·allowed",·{·status:·405·});
+Lint	Run npm run lint	2025-12-13T19:18:56.9744226Z         119 │ + ··if·(req.method·!==·'POST')·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9744994Z         120 │ + ····return·new·Response('Method·not·allowed',·{·status:·405·});
+Lint	Run npm run lint	2025-12-13T19:18:56.9745621Z     114 121 │     }
+Lint	Run npm run lint	2025-12-13T19:18:56.9745963Z     115 122 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9746305Z     116 123 │     // Debug
+Lint	Run npm run lint	2025-12-13T19:18:56.9767902Z     117     │ - ··console.log("Token·length:",·ZEPTOMAIL_TOKEN.length,·"Secret·length:",·SEND_EMAIL_HOOK_SECRET.length);
+Lint	Run npm run lint	2025-12-13T19:18:56.9769844Z         124 │ + ··console.log(
+Lint	Run npm run lint	2025-12-13T19:18:56.9770344Z         125 │ + ····'Token·length:',
+Lint	Run npm run lint	2025-12-13T19:18:56.9770878Z         126 │ + ····ZEPTOMAIL_TOKEN.length,
+Lint	Run npm run lint	2025-12-13T19:18:56.9771448Z         127 │ + ····'Secret·length:',
+Lint	Run npm run lint	2025-12-13T19:18:56.9772006Z         128 │ + ····SEND_EMAIL_HOOK_SECRET.length
+Lint	Run npm run lint	2025-12-13T19:18:56.9772480Z         129 │ + ··);
+Lint	Run npm run lint	2025-12-13T19:18:56.9772831Z     118 130 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9773535Z     119 131 │     const payload = await req.text();
+Lint	Run npm run lint	2025-12-13T19:18:56.9774033Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9774619Z     126 138 │       data = wh.verify(payload, headers) as EmailPayload;
+Lint	Run npm run lint	2025-12-13T19:18:56.9775241Z     127 139 │     } catch (error) {
+Lint	Run npm run lint	2025-12-13T19:18:56.9775960Z     128     │ - ····console.error("Webhook·verification·failed:",·error);
+Lint	Run npm run lint	2025-12-13T19:18:56.9776975Z     129     │ - ····return·new·Response(JSON.stringify({·error:·"Invalid·signature"·}),·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9778115Z         140 │ + ····console.error('Webhook·verification·failed:',·error);
+Lint	Run npm run lint	2025-12-13T19:18:56.9779094Z         141 │ + ····return·new·Response(JSON.stringify({·error:·'Invalid·signature'·}),·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9779829Z     130 142 │         status: 401,
+Lint	Run npm run lint	2025-12-13T19:18:56.9780681Z     131     │ - ······headers:·{·"Content-Type":·"application/json"·}
+Lint	Run npm run lint	2025-12-13T19:18:56.9781457Z         143 │ + ······headers:·{·'Content-Type':·'application/json'·},
+Lint	Run npm run lint	2025-12-13T19:18:56.9782022Z     132 144 │       });
+Lint	Run npm run lint	2025-12-13T19:18:56.9782380Z     133 145 │     }
+Lint	Run npm run lint	2025-12-13T19:18:56.9782712Z     ······· │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9783353Z     139 151 │     const htmlBody = generateEmailHtml(config, confirmationUrl);
+Lint	Run npm run lint	2025-12-13T19:18:56.9783947Z     140 152 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9784639Z     141     │ - ··console.log("Sending·email·to:",·user.email,·"Type:",·emailType);
+Lint	Run npm run lint	2025-12-13T19:18:56.9785592Z         153 │ + ··console.log('Sending·email·to:',·user.email,·'Type:',·emailType);
+Lint	Run npm run lint	2025-12-13T19:18:56.9786191Z     142 154 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9786607Z     143 155 │     // Send via ZeptoMail
+Lint	Run npm run lint	2025-12-13T19:18:56.9787043Z     144 156 │     try {
+Lint	Run npm run lint	2025-12-13T19:18:56.9805511Z     145     │ - ····const·response·=·await·fetch("https://api.zeptomail.com/v1.1/email",·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9806495Z     146     │ - ······method:·"POST",
+Lint	Run npm run lint	2025-12-13T19:18:56.9807498Z         157 │ + ····const·response·=·await·fetch('https://api.zeptomail.com/v1.1/email',·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9808268Z         158 │ + ······method:·'POST',
+Lint	Run npm run lint	2025-12-13T19:18:56.9808785Z     147 159 │         headers: {
+Lint	Run npm run lint	2025-12-13T19:18:56.9809356Z     148     │ - ········"Accept":·"application/json",
+Lint	Run npm run lint	2025-12-13T19:18:56.9810015Z     149     │ - ········"Content-Type":·"application/json",
+Lint	Run npm run lint	2025-12-13T19:18:56.9810800Z     150     │ - ········"Authorization":·`Zoho-enczapikey·${ZEPTOMAIL_TOKEN}`
+Lint	Run npm run lint	2025-12-13T19:18:56.9811518Z         160 │ + ········Accept:·'application/json',
+Lint	Run npm run lint	2025-12-13T19:18:56.9812160Z         161 │ + ········'Content-Type':·'application/json',
+Lint	Run npm run lint	2025-12-13T19:18:56.9812931Z         162 │ + ········Authorization:·`Zoho-enczapikey·${ZEPTOMAIL_TOKEN}`,
+Lint	Run npm run lint	2025-12-13T19:18:56.9813499Z     151 163 │         },
+Lint	Run npm run lint	2025-12-13T19:18:56.9813976Z     152 164 │         body: JSON.stringify({
+Lint	Run npm run lint	2025-12-13T19:18:56.9814711Z     153     │ - ········from:·{·address:·"noreply@usebaci.com",·name:·"Baci"·},
+Lint	Run npm run lint	2025-12-13T19:18:56.9815574Z         165 │ + ········from:·{·address:·'noreply@usebaci.com',·name:·'Baci'·},
+Lint	Run npm run lint	2025-12-13T19:18:56.9816097Z   47 more lines truncated
+Lint	Run npm run lint	2025-12-13T19:18:56.9816438Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9816587Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9817680Z supabase/functions/sync-gaming-prices/index.ts:36:27 lint/suspicious/useIterableCallbackReturn ━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9818379Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9818911Z   × This callback passed to forEach() iterable method should not return a value.
+Lint	Run npm run lint	2025-12-13T19:18:56.9819493Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9819934Z     35 │         const productMap = new Map();
+Lint	Run npm run lint	2025-12-13T19:18:56.9820752Z   > 36 │         existingProducts?.forEach((p) => productMap.set(p.external_id, p));
+Lint	Run npm run lint	2025-12-13T19:18:56.9821474Z        │                           ^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9821887Z     37 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9822276Z     38 │         const updates = [];
+Lint	Run npm run lint	2025-12-13T19:18:56.9822632Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9823058Z   i Either remove this return or remove the returned value.
+Lint	Run npm run lint	2025-12-13T19:18:56.9823565Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9823983Z     35 │         const productMap = new Map();
+Lint	Run npm run lint	2025-12-13T19:18:56.9824787Z   > 36 │         existingProducts?.forEach((p) => productMap.set(p.external_id, p));
+Lint	Run npm run lint	2025-12-13T19:18:56.9825820Z        │                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9826275Z     37 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9826662Z     38 │         const updates = [];
+Lint	Run npm run lint	2025-12-13T19:18:56.9827023Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9827165Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9853409Z supabase/functions/sync-gaming-prices/index.ts:56:31 lint/style/useNumberNamespace  FIXABLE  ━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9854111Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9854538Z   × Use Number.parseFloat instead of the equivalent global.
+Lint	Run npm run lint	2025-12-13T19:18:56.9855029Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9855523Z     54 │             if (!rawName || rawName === "NAME") continue;
+Lint	Run npm run lint	2025-12-13T19:18:56.9855999Z     55 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9856654Z   > 56 │             const costPrice = parseFloat(priceStr.replace(/["',]/g, "")) || 0;
+Lint	Run npm run lint	2025-12-13T19:18:56.9857756Z        │                               ^^^^^^^^^^
+Lint	Run npm run lint	2025-12-13T19:18:56.9858336Z     57 │             if (costPrice === 0) continue;
+Lint	Run npm run lint	2025-12-13T19:18:56.9858792Z     58 │ 
+Lint	Run npm run lint	2025-12-13T19:18:56.9859051Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9859553Z   i ES2015 moved some globals into the Number namespace for consistency.
+Lint	Run npm run lint	2025-12-13T19:18:56.9860089Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9860435Z   i Safe fix: Use Number.parseFloat instead.
+Lint	Run npm run lint	2025-12-13T19:18:56.9860839Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9861337Z      54  54 │               if (!rawName || rawName === "NAME") continue;
+Lint	Run npm run lint	2025-12-13T19:18:56.9861838Z      55  55 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9862610Z      56     │ - ············const·costPrice·=·parseFloat(priceStr.replace(/["',]/g,·""))·||·0;
+Lint	Run npm run lint	2025-12-13T19:18:56.9863716Z          56 │ + ············const·costPrice·=·Number.parseFloat(priceStr.replace(/["',]/g,·""))·||·0;
+Lint	Run npm run lint	2025-12-13T19:18:56.9864557Z      57  57 │               if (costPrice === 0) continue;
+Lint	Run npm run lint	2025-12-13T19:18:56.9865071Z      58  58 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9865341Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9865485Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9866319Z supabase/functions/sync-gaming-prices/index.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:56.9866955Z 
+Lint	Run npm run lint	2025-12-13T19:18:56.9867447Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:56.9867910Z   
+Lint	Run npm run lint	2025-12-13T19:18:56.9868223Z       1     │ - 
+Lint	Run npm run lint	2025-12-13T19:18:56.9889168Z       2     │ - import·{·serve·}·from·"https://deno.land/std@0.168.0/http/server.ts";
+Lint	Run npm run lint	2025-12-13T19:18:56.9890246Z       3     │ - import·{·createClient·}·from·"https://esm.sh/@supabase/supabase-js@2";
+Lint	Run npm run lint	2025-12-13T19:18:56.9891240Z           1 │ + import·{·serve·}·from·'https://deno.land/std@0.168.0/http/server.ts';
+Lint	Run npm run lint	2025-12-13T19:18:56.9892217Z           2 │ + import·{·createClient·}·from·'https://esm.sh/@supabase/supabase-js@2';
+Lint	Run npm run lint	2025-12-13T19:18:56.9892851Z       4   3 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9894494Z       5     │ - const·GOOGLE_SHEET_CSV_URL·=·"https://docs.google.com/spreadsheets/d/e/2PACX-1vQNLSf8iIWXHWqn_SPYRAr-oGVjZdf8PyEpKQ1P2TwHxNkaZPyfBhl1ncs_Fp_8tFE5mx1A-4e6WQYJ/pub?output=csv";
+Lint	Run npm run lint	2025-12-13T19:18:56.9895956Z           4 │ + const·GOOGLE_SHEET_CSV_URL·=
+Lint	Run npm run lint	2025-12-13T19:18:56.9897652Z           5 │ + ··'https://docs.google.com/spreadsheets/d/e/2PACX-1vQNLSf8iIWXHWqn_SPYRAr-oGVjZdf8PyEpKQ1P2TwHxNkaZPyfBhl1ncs_Fp_8tFE5mx1A-4e6WQYJ/pub?output=csv';
+Lint	Run npm run lint	2025-12-13T19:18:56.9898826Z       6   6 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9899237Z       7   7 │   // ZeptoMail Config
+Lint	Run npm run lint	2025-12-13T19:18:56.9899982Z       8     │ - const·ZEPTOMAIL_URL·=·"https://api.zeptomail.com/v1.1/email";
+Lint	Run npm run lint	2025-12-13T19:18:56.9900839Z       9     │ - const·ZEPTOMAIL_TOKEN·=·Deno.env.get("ZEPTOMAIL_TOKEN");
+Lint	Run npm run lint	2025-12-13T19:18:56.9901621Z      10     │ - const·FROM_EMAIL·=·"notifications@usebaci.com";
+Lint	Run npm run lint	2025-12-13T19:18:56.9902306Z      11     │ - const·FROM_NAME·=·"Baci·Notifications";
+Lint	Run npm run lint	2025-12-13T19:18:56.9903082Z      12     │ - const·ADMIN_EMAIL·=·"admin@ogabassey.com";·//·Configure·this
+Lint	Run npm run lint	2025-12-13T19:18:56.9903990Z           8 │ + const·ZEPTOMAIL_URL·=·'https://api.zeptomail.com/v1.1/email';
+Lint	Run npm run lint	2025-12-13T19:18:56.9904838Z           9 │ + const·ZEPTOMAIL_TOKEN·=·Deno.env.get('ZEPTOMAIL_TOKEN');
+Lint	Run npm run lint	2025-12-13T19:18:56.9905813Z          10 │ + const·FROM_EMAIL·=·'notifications@usebaci.com';
+Lint	Run npm run lint	2025-12-13T19:18:56.9906486Z          11 │ + const·FROM_NAME·=·'Baci·Notifications';
+Lint	Run npm run lint	2025-12-13T19:18:56.9907254Z          12 │ + const·ADMIN_EMAIL·=·'admin@ogabassey.com';·//·Configure·this
+Lint	Run npm run lint	2025-12-13T19:18:56.9907981Z      13  13 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9908392Z      14  14 │   serve(async (req) => {
+Lint	Run npm run lint	2025-12-13T19:18:56.9908849Z      15     │ - ····try·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9909421Z      16     │ - ········const·supabaseClient·=·createClient(
+Lint	Run npm run lint	2025-12-13T19:18:56.9910109Z      17     │ - ············Deno.env.get("SUPABASE_URL")·??·"",
+Lint	Run npm run lint	2025-12-13T19:18:56.9910854Z      18     │ - ············Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")·??·""
+Lint	Run npm run lint	2025-12-13T19:18:56.9911405Z      19     │ - ········);
+Lint	Run npm run lint	2025-12-13T19:18:56.9911985Z          15 │ + ··try·{
+Lint	Run npm run lint	2025-12-13T19:18:56.9912514Z          16 │ + ····const·supabaseClient·=·createClient(
+Lint	Run npm run lint	2025-12-13T19:18:56.9913159Z          17 │ + ······Deno.env.get('SUPABASE_URL')·??·'',
+Lint	Run npm run lint	2025-12-13T19:18:56.9913873Z          18 │ + ······Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')·??·''
+Lint	Run npm run lint	2025-12-13T19:18:56.9914409Z          19 │ + ····);
+Lint	Run npm run lint	2025-12-13T19:18:56.9914749Z      20  20 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9915174Z      21     │ - ········//·1.·Fetch·CSV
+Lint	Run npm run lint	2025-12-13T19:18:56.9915869Z      22     │ - ········const·response·=·await·fetch(GOOGLE_SHEET_CSV_URL);
+Lint	Run npm run lint	2025-12-13T19:18:56.9916736Z      23     │ - ········if·(!response.ok)·throw·new·Error("Failed·to·fetch·CSV");
+Lint	Run npm run lint	2025-12-13T19:18:56.9939013Z      24     │ - ········const·csvText·=·await·response.text();
+Lint	Run npm run lint	2025-12-13T19:18:56.9939970Z      25     │ - ········const·lines·=·csvText.split("\n").filter((l)·=>·l.trim().length·>·0);
+Lint	Run npm run lint	2025-12-13T19:18:56.9940684Z          21 │ + ····//·1.·Fetch·CSV
+Lint	Run npm run lint	2025-12-13T19:18:56.9941355Z          22 │ + ····const·response·=·await·fetch(GOOGLE_SHEET_CSV_URL);
+Lint	Run npm run lint	2025-12-13T19:18:56.9942214Z          23 │ + ····if·(!response.ok)·throw·new·Error('Failed·to·fetch·CSV');
+Lint	Run npm run lint	2025-12-13T19:18:56.9942948Z          24 │ + ····const·csvText·=·await·response.text();
+Lint	Run npm run lint	2025-12-13T19:18:56.9943823Z          25 │ + ····const·lines·=·csvText.split('\n').filter((l)·=>·l.trim().length·>·0);
+Lint	Run npm run lint	2025-12-13T19:18:56.9944438Z      26  26 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9944936Z      27     │ - ········//·2.·Fetch·Existing·Products
+Lint	Run npm run lint	2025-12-13T19:18:56.9945866Z      28     │ - ········const·{·data:·existingProducts,·error:·fetchError·}·=·await·supabaseClient
+Lint	Run npm run lint	2025-12-13T19:18:56.9946682Z      29     │ - ············.from("products")
+Lint	Run npm run lint	2025-12-13T19:18:56.9947645Z      30     │ - ············.select("id,·external_id,·cost_price,·price,·name,·stock")
+Lint	Run npm run lint	2025-12-13T19:18:56.9948488Z      31     │ - ············.eq("external_source",·"google_sheet_gaming");
+Lint	Run npm run lint	2025-12-13T19:18:56.9949172Z          27 │ + ····//·2.·Fetch·Existing·Products
+Lint	Run npm run lint	2025-12-13T19:18:56.9950074Z          28 │ + ····const·{·data:·existingProducts,·error:·fetchError·}·=·await·supabaseClient
+Lint	Run npm run lint	2025-12-13T19:18:56.9950871Z          29 │ + ······.from('products')
+Lint	Run npm run lint	2025-12-13T19:18:56.9951599Z          30 │ + ······.select('id,·external_id,·cost_price,·price,·name,·stock')
+Lint	Run npm run lint	2025-12-13T19:18:56.9952651Z          31 │ + ······.eq('external_source',·'google_sheet_gaming');
+Lint	Run npm run lint	2025-12-13T19:18:56.9953151Z      32  32 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9953660Z      33     │ - ········if·(fetchError)·throw·fetchError;
+Lint	Run npm run lint	2025-12-13T19:18:56.9954293Z          33 │ + ····if·(fetchError)·throw·fetchError;
+Lint	Run npm run lint	2025-12-13T19:18:56.9954755Z      34  34 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9955248Z      35     │ - ········const·productMap·=·new·Map();
+Lint	Run npm run lint	2025-12-13T19:18:56.9956121Z      36     │ - ········existingProducts?.forEach((p)·=>·productMap.set(p.external_id,·p));
+Lint	Run npm run lint	2025-12-13T19:18:56.9956920Z          35 │ + ····const·productMap·=·new·Map();
+Lint	Run npm run lint	2025-12-13T19:18:56.9978923Z          36 │ + ····existingProducts?.forEach((p)·=>·productMap.set(p.external_id,·p));
+Lint	Run npm run lint	2025-12-13T19:18:56.9979831Z      37  37 │   
+Lint	Run npm run lint	2025-12-13T19:18:56.9980298Z      38     │ - ········const·updates·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0047628Z      39     │ - ········const·newProducts·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0050032Z      40     │ - ········const·priceChanges·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0050610Z          38 │ + ····const·updates·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0051138Z          39 │ + ····const·newProducts·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0051687Z          40 │ + ····const·priceChanges·=·[];
+Lint	Run npm run lint	2025-12-13T19:18:57.0052213Z      41  41 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0053301Z      42     │ - ········const·startIdx·=·lines[0].includes("PRICE")·?·1·:·0;
+Lint	Run npm run lint	2025-12-13T19:18:57.0054407Z          42 │ + ····const·startIdx·=·lines[0].includes('PRICE')·?·1·:·0;
+Lint	Run npm run lint	2025-12-13T19:18:57.0055035Z      43  43 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0055685Z      44     │ - ········for·(let·i·=·startIdx;·i·<·lines.length;·i++)·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0056532Z      45     │ - ············const·line·=·lines[i];
+Lint	Run npm run lint	2025-12-13T19:18:57.0062281Z      46     │ - ············//·Simple·CSV·parse·(robust·enough·for·this·sheet)
+Lint	Run npm run lint	2025-12-13T19:18:57.0063421Z      47     │ - ············const·parts·=·line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+Lint	Run npm run lint	2025-12-13T19:18:57.0064283Z          44 │ + ····for·(let·i·=·startIdx;·i·<·lines.length;·i++)·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0064973Z          45 │ + ······const·line·=·lines[i];
+Lint	Run npm run lint	2025-12-13T19:18:57.0065673Z          46 │ + ······//·Simple·CSV·parse·(robust·enough·for·this·sheet)
+Lint	Run npm run lint	2025-12-13T19:18:57.0066518Z          47 │ + ······const·parts·=·line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+Lint	Run npm run lint	2025-12-13T19:18:57.0067073Z      48  48 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0067813Z      49     │ - ············if·(parts.length·<·2)·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0068470Z          49 │ + ······if·(parts.length·<·2)·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0068934Z      50  50 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0069580Z      51     │ - ············const·rawName·=·parts[0].trim().replace(/^"|"$/g,·"");
+Lint	Run npm run lint	2025-12-13T19:18:57.0070579Z      52     │ - ············const·priceStr·=·parts[1]·?·parts[1].trim().replace(/^"|"$/g,·"")·:·"0";
+Lint	Run npm run lint	2025-12-13T19:18:57.0071544Z          51 │ + ······const·rawName·=·parts[0].trim().replace(/^"|"$/g,·'');
+Lint	Run npm run lint	2025-12-13T19:18:57.0072482Z          52 │ + ······const·priceStr·=·parts[1]·?·parts[1].trim().replace(/^"|"$/g,·'')·:·'0';
+Lint	Run npm run lint	2025-12-13T19:18:57.0073128Z      53  53 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0073707Z      54     │ - ············if·(!rawName·||·rawName·===·"NAME")·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0074439Z          54 │ + ······if·(!rawName·||·rawName·===·'NAME')·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0074928Z      55  55 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0075666Z      56     │ - ············const·costPrice·=·parseFloat(priceStr.replace(/["',]/g,·""))·||·0;
+Lint	Run npm run lint	2025-12-13T19:18:57.0076491Z      57     │ - ············if·(costPrice·===·0)·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0098022Z          56 │ + ······const·costPrice·=·parseFloat(priceStr.replace(/["',]/g,·''))·||·0;
+Lint	Run npm run lint	2025-12-13T19:18:57.0098964Z          57 │ + ······if·(costPrice·===·0)·continue;
+Lint	Run npm run lint	2025-12-13T19:18:57.0099447Z      58  58 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0100401Z      59     │ - ············const·externalId·=·rawName.toLowerCase().replace(/[^\w\s-]/g,·"").replace(/\s+/g,·"-");
+Lint	Run npm run lint	2025-12-13T19:18:57.0101297Z          59 │ + ······const·externalId·=·rawName
+Lint	Run npm run lint	2025-12-13T19:18:57.0102120Z          60 │ + ········.toLowerCase()
+Lint	Run npm run lint	2025-12-13T19:18:57.0102675Z          61 │ + ········.replace(/[^\w\s-]/g,·'')
+Lint	Run npm run lint	2025-12-13T19:18:57.0103241Z          62 │ + ········.replace(/\s+/g,·'-');
+Lint	Run npm run lint	2025-12-13T19:18:57.0103669Z      60  63 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0104122Z      61     │ - ············//·Check·Existing
+Lint	Run npm run lint	2025-12-13T19:18:57.0104759Z      62     │ - ············if·(productMap.has(externalId))·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0105526Z      63     │ - ················const·existing·=·productMap.get(externalId);
+Lint	Run npm run lint	2025-12-13T19:18:57.0106149Z          64 │ + ······//·Check·Existing
+Lint	Run npm run lint	2025-12-13T19:18:57.0106742Z          65 │ + ······if·(productMap.has(externalId))·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0107634Z          66 │ + ········const·existing·=·productMap.get(externalId);
+Lint	Run npm run lint	2025-12-13T19:18:57.0108373Z      64  67 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0109042Z      65     │ - ················//·Check·for·significant·price·difference·(>·100·NGN)
+Lint	Run npm run lint	2025-12-13T19:18:57.0109933Z      66     │ - ················if·(Math.abs(existing.cost_price·-·costPrice)·>·100)·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0110965Z      67     │ - ····················const·newSellingPrice·=·Math.ceil((costPrice·*·1.2)·/·100)·*·100;
+Lint	Run npm run lint	2025-12-13T19:18:57.0111895Z          68 │ + ········//·Check·for·significant·price·difference·(>·100·NGN)
+Lint	Run npm run lint	2025-12-13T19:18:57.0112721Z          69 │ + ········if·(Math.abs(existing.cost_price·-·costPrice)·>·100)·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0113665Z          70 │ + ··········const·newSellingPrice·=·Math.ceil((costPrice·*·1.2)·/·100)·*·100;
+Lint	Run npm run lint	2025-12-13T19:18:57.0114282Z      68  71 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0114763Z      69     │ - ····················updates.push({
+Lint	Run npm run lint	2025-12-13T19:18:57.0115399Z      70     │ - ························id:·existing.id,
+Lint	Run npm run lint	2025-12-13T19:18:57.0116065Z      71     │ - ························cost_price:·costPrice,
+Lint	Run npm run lint	2025-12-13T19:18:57.0116782Z      72     │ - ························price:·newSellingPrice,
+Lint	Run npm run lint	2025-12-13T19:18:57.0127872Z      73     │ - ························last_price_sync:·new·Date().toISOString()
+Lint	Run npm run lint	2025-12-13T19:18:57.0128680Z      74     │ - ····················});
+Lint	Run npm run lint	2025-12-13T19:18:57.0129213Z          72 │ + ··········updates.push({
+Lint	Run npm run lint	2025-12-13T19:18:57.0129762Z          73 │ + ············id:·existing.id,
+Lint	Run npm run lint	2025-12-13T19:18:57.0130335Z          74 │ + ············cost_price:·costPrice,
+Lint	Run npm run lint	2025-12-13T19:18:57.0130949Z          75 │ + ············price:·newSellingPrice,
+Lint	Run npm run lint	2025-12-13T19:18:57.0131641Z          76 │ + ············last_price_sync:·new·Date().toISOString(),
+Lint	Run npm run lint	2025-12-13T19:18:57.0132184Z          77 │ + ··········});
+Lint	Run npm run lint	2025-12-13T19:18:57.0132567Z      75  78 │   
+Lint	Run npm run lint	2025-12-13T19:18:57.0133071Z      76     │ - ····················priceChanges.push({
+Lint	Run npm run lint	2025-12-13T19:18:57.0133737Z      77     │ - ························name:·existing.name,
+Lint	Run npm run lint	2025-12-13T19:18:57.0134428Z      78     │ - ························oldPrice:·existing.price,
+Lint	Run npm run lint	2025-12-13T19:18:57.0135150Z      79     │ - ························newPrice:·newSellingPrice
+Lint	Run npm run lint	2025-12-13T19:18:57.0135731Z      80     │ - ····················});
+Lint	Run npm run lint	2025-12-13T19:18:57.0136446Z      81     │ - ················}
+Lint	Run npm run lint	2025-12-13T19:18:57.0136931Z      82     │ - ············}·else·{
+Lint	Run npm run lint	2025-12-13T19:18:57.0137646Z      83     │ - ················//·New·Product
+Lint	Run npm run lint	2025-12-13T19:18:57.0138256Z      84     │ - ················newProducts.push({
+Lint	Run npm run lint	2025-12-13T19:18:57.0138850Z      85     │ - ····················name:·rawName,
+Lint	Run npm run lint	2025-12-13T19:18:57.0139470Z      86     │ - ····················costPrice:·costPrice
+Lint	Run npm run lint	2025-12-13T19:18:57.0140026Z      87     │ - ················});
+Lint	Run npm run lint	2025-12-13T19:18:57.0140473Z      88     │ - ············}
+Lint	Run npm run lint	2025-12-13T19:18:57.0140878Z      89     │ - ········}
+Lint	Run npm run lint	2025-12-13T19:18:57.0141369Z          79 │ + ··········priceChanges.push({
+Lint	Run npm run lint	2025-12-13T19:18:57.0141953Z          80 │ + ············name:·existing.name,
+Lint	Run npm run lint	2025-12-13T19:18:57.0142563Z          81 │ + ············oldPrice:·existing.price,
+Lint	Run npm run lint	2025-12-13T19:18:57.0143385Z          82 │ + ············newPrice:·newSellingPrice,
+Lint	Run npm run lint	2025-12-13T19:18:57.0143827Z   156 more lines truncated
+Lint	Run npm run lint	2025-12-13T19:18:57.0144178Z   
+Lint	Run npm run lint	2025-12-13T19:18:57.0144319Z 
+Lint	Run npm run lint	2025-12-13T19:18:57.0145054Z tsconfig.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:57.0145528Z 
+Lint	Run npm run lint	2025-12-13T19:18:57.0145885Z   × Formatter would have printed the following content:
+Lint	Run npm run lint	2025-12-13T19:18:57.0146336Z   
+Lint	Run npm run lint	2025-12-13T19:18:57.0146713Z      2  2 │     "compilerOptions": {
+Lint	Run npm run lint	2025-12-13T19:18:57.0147230Z      3  3 │       "target": "ES2022",
+Lint	Run npm run lint	2025-12-13T19:18:57.0178181Z      4    │ - ····"lib":·[
+Lint	Run npm run lint	2025-12-13T19:18:57.0178616Z      5    │ - ······"dom",
+Lint	Run npm run lint	2025-12-13T19:18:57.0179084Z      6    │ - ······"dom.iterable",
+Lint	Run npm run lint	2025-12-13T19:18:57.0179542Z      7    │ - ······"esnext"
+Lint	Run npm run lint	2025-12-13T19:18:57.0179942Z      8    │ - ····],
+Lint	Run npm run lint	2025-12-13T19:18:57.0180482Z         4 │ + ····"lib":·["dom",·"dom.iterable",·"esnext"],
+Lint	Run npm run lint	2025-12-13T19:18:57.0181080Z      9  5 │       "allowJs": true,
+Lint	Run npm run lint	2025-12-13T19:18:57.0181585Z     10  6 │       "skipLibCheck": true,
+Lint	Run npm run lint	2025-12-13T19:18:57.0182059Z     ····· │ 
+Lint	Run npm run lint	2025-12-13T19:18:57.0182529Z     18 14 │       "jsx": "react-jsx",
+Lint	Run npm run lint	2025-12-13T19:18:57.0183054Z     19 15 │       "incremental": true,
+Lint	Run npm run lint	2025-12-13T19:18:57.0183542Z     20    │ - ····"types":·[
+Lint	Run npm run lint	2025-12-13T19:18:57.0184037Z     21    │ - ······"vitest/globals",
+Lint	Run npm run lint	2025-12-13T19:18:57.0184607Z     22    │ - ······"@testing-library/jest-dom",
+Lint	Run npm run lint	2025-12-13T19:18:57.0185163Z     23    │ - ······"google.maps"
+Lint	Run npm run lint	2025-12-13T19:18:57.0185597Z     24    │ - ····],
+Lint	Run npm run lint	2025-12-13T19:18:57.0186322Z        16 │ + ····"types":·["vitest/globals",·"@testing-library/jest-dom",·"google.maps"],
+Lint	Run npm run lint	2025-12-13T19:18:57.0187005Z     25 17 │       "plugins": [
+Lint	Run npm run lint	2025-12-13T19:18:57.0187545Z     26 18 │         {
+Lint	Run npm run lint	2025-12-13T19:18:57.0187913Z     ····· │ 
+Lint	Run npm run lint	2025-12-13T19:18:57.0188239Z     29 21 │       ],
+Lint	Run npm run lint	2025-12-13T19:18:57.0188605Z     30 22 │       "paths": {
+Lint	Run npm run lint	2025-12-13T19:18:57.0189042Z     31    │ - ······"@/*":·[
+Lint	Run npm run lint	2025-12-13T19:18:57.0189483Z     32    │ - ········"./src/*"
+Lint	Run npm run lint	2025-12-13T19:18:57.0189883Z     33    │ - ······]
+Lint	Run npm run lint	2025-12-13T19:18:57.0190314Z        23 │ + ······"@/*":·["./src/*"]
+Lint	Run npm run lint	2025-12-13T19:18:57.0190754Z     34 24 │       }
+Lint	Run npm run lint	2025-12-13T19:18:57.0191081Z     35 25 │     },
+Lint	Run npm run lint	2025-12-13T19:18:57.0191427Z     ····· │ 
+Lint	Run npm run lint	2025-12-13T19:18:57.0191846Z     41 31 │       ".next/dev/types/**/*.ts"
+Lint	Run npm run lint	2025-12-13T19:18:57.0192292Z     42 32 │     ],
+Lint	Run npm run lint	2025-12-13T19:18:57.0192646Z     43    │ - ··"exclude":·[
+Lint	Run npm run lint	2025-12-13T19:18:57.0193101Z     44    │ - ····"node_modules",
+Lint	Run npm run lint	2025-12-13T19:18:57.0193606Z     45    │ - ····"supabase/functions",
+Lint	Run npm run lint	2025-12-13T19:18:57.0194064Z     46    │ - ····"scripts"
+Lint	Run npm run lint	2025-12-13T19:18:57.0194437Z     47    │ - ··]
+Lint	Run npm run lint	2025-12-13T19:18:57.0194769Z     48    │ - }
+Lint	Run npm run lint	2025-12-13T19:18:57.0195374Z        33 │ + ··"exclude":·["node_modules",·"supabase/functions",·"scripts"]
+Lint	Run npm run lint	2025-12-13T19:18:57.0195929Z        34 │ + }
+Lint	Run npm run lint	2025-12-13T19:18:57.0196236Z        35 │ + 
+Lint	Run npm run lint	2025-12-13T19:18:57.0196530Z   
+Lint	Run npm run lint	2025-12-13T19:18:57.0196671Z 
+Lint	Run npm run lint	2025-12-13T19:18:57.0197293Z The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Lint	Run npm run lint	2025-12-13T19:18:57.0204572Z Diagnostics not shown: 190.
+Lint	Run npm run lint	2025-12-13T19:18:57.0205071Z Checked 650 files in 3s. No fixes applied.
+Lint	Run npm run lint	2025-12-13T19:18:57.0205515Z Found 127 errors.
+Lint	Run npm run lint	2025-12-13T19:18:57.0205839Z Found 83 warnings.
+Lint	Run npm run lint	2025-12-13T19:18:57.0206757Z check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lint	Run npm run lint	2025-12-13T19:18:57.0207173Z 
+Lint	Run npm run lint	2025-12-13T19:18:57.0208410Z   × Some errors were emitted while running checks.
+Lint	Run npm run lint	2025-12-13T19:18:57.0208856Z   
+Lint	Run npm run lint	2025-12-13T19:18:57.0209000Z 
+Lint	Run npm run lint	2025-12-13T19:18:57.0345829Z ##[error]Process completed with exit code 1.

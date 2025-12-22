@@ -1,0 +1,145 @@
+# Samsung Product Audit Report (2025-12-15)
+
+## Summary
+- **Total Active Products**: 220
+- **Condition-Based Duplicate Groups**: 13
+- **Missing Images**: 61
+- **Missing Specs**: 181
+- **S24 Series Products**: 4
+
+## 1. S24 Series (Priority)
+- **Samsung Galaxy S24**: 1 rows (Conditions: new)
+- **Samsung Galaxy S24+**: 1 rows (Conditions: new)
+- **Samsung Galaxy S24 Ultra**: 1 rows (Conditions: new)
+- **Samsung Galaxy S24 FE**: 1 rows (Conditions: new)
+
+## 2. Condition Duplicates (To Consolidate)
+- **Samsung Galaxy Watch6 Classic 43mm Bluetooth**: 2 variants (new, used)
+- **Samsung Galaxy Tab S9 Ultra WiFi 256GB**: 2 variants (used, new)
+- **Samsung Galaxy Tab S9 WiFi 128GB**: 2 variants (used, new)
+- **Samsung Galaxy Buds FE**: 2 variants (new, used)
+- **Samsung Galaxy Buds2**: 2 variants (used, new)
+- **Samsung Galaxy Tab A8 WiFi 64GB**: 2 variants (new, used)
+- **Samsung Galaxy Tab A8 WiFi 32GB**: 2 variants (used, new)
+- **Samsung Galaxy Tab S9+ WiFi 256GB**: 2 variants (new, used)
+- **Samsung Galaxy Buds2 Pro**: 2 variants (new, used)
+- **Samsung Galaxy Watch6 44mm Bluetooth**: 2 variants (used, new)
+- **Samsung Galaxy Watch6 40mm Bluetooth**: 2 variants (used, new)
+- **Samsung Galaxy Watch6 Classic 47mm Bluetooth**: 2 variants (used, new)
+- **Samsung Galaxy Tab S6 Lite WiFi 64GB**: 2 variants (used, new)
+
+## 3. Missing Images (61)
+- [ ] Samsung Galaxy Tab A11 LTE 4GB 128GB (ID: 88ba8810-7fd5-40fa-ae85-25a5abbb6872)
+- [ ] Samsung Galaxy Watch 8 Classic (ID: 1c357b99-9dbd-43b3-a674-8ee707e2236b)
+- [ ] SAMSUNG SOUND BAR HW-T/C450 (Brand New) (ID: 3ca4f45f-dcf0-4eed-91e4-b829443a2a8e)
+- [ ] Samsung Galaxy Watch7 40mm Bluetooth (ID: 4f3ecc17-bb56-46de-b299-aa4596c4f182)
+- [ ] Samsung Galaxy Watch4 44mm Bluetooth (ID: d802fc97-9bb0-4824-b0ef-b9dfee7b7973)
+- [ ] Samsung Galaxy Watch4 40mm Bluetooth (ID: 39353659-1a9a-49a6-863a-749c1c19eb39)
+- [ ] Samsung Galaxy Watch4 40mm LTE (ID: 9e3a1ea4-680d-4c6d-bb7d-67b45404657c)
+- [ ] Samsung Galaxy Watch4 Classic 42mm Bluetooth (ID: 0f20e585-8857-49e3-a2cd-092bf16d5edc)
+- [ ] Samsung Galaxy Watch4 Classic 42mm LTE (ID: cd863876-3f1b-421e-862c-31ad0717000f)
+- [ ] Samsung Galaxy Watch4 Classic 46mm Bluetooth (ID: e2ad7fa7-530d-4698-ad7b-c4437608c0f8)
+- [ ] Samsung Galaxy Watch4 Classic 46mm LTE (ID: 77ec0f53-c471-4a38-93e3-515457f82dd3)
+- [ ] Samsung Galaxy Watch6 44mm Bluetooth (ID: 6beb8d45-ef3f-4432-ad44-15379be1f0b8)
+- [ ] Samsung Galaxy Watch6 44mm Bluetooth (ID: bbc7ec59-e8a4-47a9-ab26-a3626db64ff5)
+- [ ] SAMSUNG SOUND BAR HW-T/A450 (ID: edb93048-b84a-42c7-926b-8863590f5e20)
+- [ ] SAMSUNG SOUND BAR HW-Q800A (ID: 7297d639-a299-471e-81b7-9710f7e558b7)
+- [ ] Samsung Galaxy Z Fold 7 12GB 512GB (ID: 8f553f88-0167-4eb3-b30a-76d7e89925db)
+- [ ] Samsung Galaxy Tab A11 LTE 4GB 64GB (ID: 873b5bec-bbe1-4779-a7d8-ed7fb65b8a00)
+- [ ] Samsung Galaxy Watch 8 Large (ID: 2ffd2036-af59-4f9c-8204-fa596e99720d)
+- [ ] Samsung Galaxy Watch 8 Small (ID: bea928ac-dafc-4b89-9569-96c8ca1e4a6c)
+- [ ] Samsung Galaxy Tab A7 WiFi 32GB (ID: 9954c7ab-1572-41b1-afd7-5408d7e0d3ab)
+- [ ] Samsung Galaxy Watch7 44mm Bluetooth (ID: 07ac831a-86a8-4443-8ef0-e7db6535621e)
+- [ ] 75" SAMSUNG QLED QHDR SMART TV (ID: c494dc3c-aa5e-4c52-ae76-54afa1f3128f)
+- [ ] Samsung Galaxy Z Flip 7 12GB 256GB (ID: c93d538b-2e8a-4bcc-8dec-f390fd7f8b8b)
+- [ ] Samsung Galaxy Z Flip 7 12GB 512GB (ID: 548125cf-4321-4d8d-824c-d877037174a8)
+- [ ] Samsung Galaxy Z Flip 7 FE 8GB 128GB (ID: 5bba04c7-df50-46f3-877b-bdffd12be434)
+- [ ] Samsung Galaxy Z Flip 7 FE 8GB 256GB (ID: 09cefdda-3c99-4408-bd02-c3e97f3f29c7)
+- [ ] 65" SAMSUNG NEO QLED QHDR SMART TV (ID: 606e1ad3-846c-4a5a-ad13-702cc185e890)
+- [ ] 75" SAMSUNG CRYSTAL UHD 4K HDR 10 SMART TV (ID: 66ef9d66-bf28-44b9-b4ed-a83bb9620c2e)
+- [ ] Samsung Galaxy Z Fold 7 12GB 256GB (ID: e820fb7e-6837-4caa-a2f1-06e355f539b3)
+- [ ] Samsung Galaxy Z Fold 7 12GB 1TB (ID: 5c6a18d7-e470-4904-95e4-5e5634b4cad1)
+- [ ] 43" SAMSUNG QLED QHDR SMART TV (ID: 8de2313c-d9c0-483a-9e0d-29845a106bf3)
+- [ ] 50" SAMSUNG TIZEN OS SMART TV (ID: 808ddc95-af81-445a-b21b-a0dc8f61084f)
+- [ ] 50" SAMSUNG CRYSTAL UHD 4K HDR 10 SMART TV WITH APPLE AIRPLAY (ID: f48fb3a1-4302-4746-a496-73c95436d2b2)
+- [ ] 55" SAMSUNG CURVED UHD 4K HDR 10 SMART TV (ID: caebd4a2-e54b-4625-a01f-9e80fb2e195c)
+- [ ] 55" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 46885490-6955-4861-b2c9-a84b0e114511)
+- [ ] SAMSUNG SOUND BAR HW-K450 (ID: 507c2d36-73b6-438c-8c64-9567600c1a3e)
+- [ ] SAMSUNG SOUND BAR HW-Q800B (ID: 75bd6682-a259-4eb4-ab23-993bc9f8e8a1)
+- [ ] 32" SAMSUNG TIZEN OS SMART TV (ID: 83e7c0c6-85f7-4482-ace3-49b1841c9d52)
+- [ ] 32" SAMSUNG TIZEN OS SMART TV WITH HDR X APPLE AIRPLAY (ID: 03e51285-0f16-4cc4-a97a-6f36c2ee1a30)
+- [ ] 40" SAMSUNG TIZEN OS SMART TV (ID: 26cc8492-4686-4e69-9472-15c50af33f60)
+- [ ] 43" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 1730f2ea-c368-4cb4-89a1-2475f23365e7)
+- [ ] 40" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 1817e119-c830-4d2d-84db-f622ac3b0951)
+- [ ] 43" SAMSUNG CRYSTAL UHD 4K HDR 10 SMART TV (ID: dc6c022c-5e93-43a5-8c45-006a11701ba6)
+- [ ] 49" SAMSUNG QLED QHDR SMART TV (ID: 22daf77d-c143-46e2-a0d0-9c061c9eac4b)
+- [ ] 49/50" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 9eb0d30a-1443-45f5-a1bb-0631d398e931)
+- [ ] 50" SAMSUNG QLED QHDR SMART TV (ID: 50de05eb-6f96-45a7-b07a-de16ab95f58d)
+- [ ] 55" SAMSUNG QLED QHDR SMART TV (ID: 49e3aeba-e1b1-457c-aed9-bbe348f1e45b)
+- [ ] 55" SAMSUNG OLED SMART TV (ID: 3b7d3dce-d78d-47d9-b9a8-ccef9b471ba0)
+- [ ] 65" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 07c24cc9-74da-436e-a264-32ad802757b6)
+- [ ] 65" SAMSUNG CRYSTAL UHD 4K HDR 10 SMART TV (ID: 3c450e33-84dd-4c3f-b2e7-71f8e715a5f6)
+- [ ] 65" SAMSUNG OLED SMART TV (ID: 1c0bb407-7746-4119-99ed-1e5ec81e9e63)
+- [ ] 55" SAMSUNG NEO QLED QHDR SMART TV (ID: 32ff3602-321d-4302-b9e7-c49d1e0ab4b3)
+- [ ] 58" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 0d12b27a-6ce5-4b8d-9808-26b4787067b2)
+- [ ] 60" SAMSUNG UHD 4K HDR 10 SMART TV (ID: 17650b07-fb1e-472d-b894-337fe9ce3515)
+- [ ] 65" SAMSUNG CURVED CRYSTAL UHD 4K HDR 10 SMART TV (ID: 6e83185a-c73f-41b9-aa6b-e0cd8d95775a)
+- [ ] 65" SAMSUNG QLED QHDR SMART TV (ID: 138cc415-54b5-4619-98ce-d5421ff76614)
+- [ ] 75" SAMSUNG NEO QLED QHDR SMART TV (ID: 2067bba0-ef9f-475c-8823-edb6b9e38093)
+- [ ] SAMSUNG SOUND BAR HW-Q910C (ID: 455fa50f-3f65-45bc-8c8d-f5005d682108)
+- [ ] 49" SAMSUNG CURVED UHD 4K HDR 10 SMART TV (ID: 6bdb4600-63dd-4035-8d97-c8458225bf84)
+- [ ] 85" SAMSUNG NEO QLED SMART TV (ID: d4607e9d-eeac-4a7d-82cc-57001041d404)
+- [ ] 85" SAMSUNG QLED QHDR SMART TV (ID: c921a8a2-9440-4283-bcc6-b02d3c4266fa)
+
+## 4. Missing Specs (181)
+- [ ] Samsung Galaxy Tab S11 5G 8GB 256GB
+- [ ] Samsung Galaxy S24
+- [ ] Samsung Galaxy Watch6 Classic 43mm Bluetooth
+- [ ] Samsung Galaxy Tab S9 Ultra WiFi 256GB
+- [ ] Samsung Galaxy Z Flip 5 8GB 256GB
+- [ ] Samsung Galaxy Tab A9 LTE 4GB 128GB
+- [ ] Samsung Galaxy Watch6 Classic 43mm Bluetooth
+- [ ] Samsung Galaxy Tab S9 WiFi 128GB
+- [ ] Samsung Galaxy Watch5 44mm LTE
+- [ ] Samsung Galaxy S25 12GB 256GB
+- [ ] Samsung Galaxy Z Fold 6 12GB 1TB
+- [ ] Samsung Galaxy Tab A11 LTE 4GB 128GB
+- [ ] Samsung Galaxy Watch 8 Classic
+- [ ] Samsung Galaxy Fit 3
+- [ ] Samsung Galaxy Buds3
+- [ ] Samsung Galaxy Buds FE
+- [ ] Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (w/Keyboard)
+- [ ] Samsung Galaxy Buds2
+- [ ] Samsung Galaxy Tab A8 WiFi 64GB
+- [ ] Samsung Galaxy Tab A9+ LTE 64GB
+- [ ] Samsung Galaxy Tab S9 5G 256GB
+- [ ] Samsung Galaxy Tab A8 WiFi 32GB
+- [ ] Samsung Galaxy Tab S9 Ultra WiFi 256GB
+- [ ] Samsung Galaxy Tab S9+ WiFi 256GB
+- [ ] Samsung Galaxy Tab S7 WiFi 128GB
+- [ ] Samsung Galaxy Tab S8 Ultra WiFi 128GB
+- [ ] Samsung Galaxy Watch Ultra
+- [ ] Samsung Galaxy Watch7 40mm Bluetooth
+- [ ] Samsung Galaxy Watch4 44mm LTE
+- [ ] Samsung Galaxy Watch4 44mm Bluetooth
+- [ ] Samsung Galaxy Watch4 40mm Bluetooth
+- [ ] Samsung Galaxy Watch4 40mm LTE
+- [ ] Samsung Galaxy Watch4 Classic 42mm Bluetooth
+- [ ] Samsung Galaxy Watch4 Classic 42mm LTE
+- [ ] Samsung Galaxy Watch4 Classic 46mm Bluetooth
+- [ ] Samsung Galaxy Watch4 Classic 46mm LTE
+- [ ] Samsung Galaxy Buds2 Pro
+- [ ] Samsung Galaxy Watch6 44mm Bluetooth
+- [ ] Samsung Galaxy Watch6 40mm Bluetooth
+- [ ] Samsung Galaxy Watch6 44mm Bluetooth
+- [ ] Samsung Galaxy S25 Ultra 12GB 1TB
+- [ ] Samsung Galaxy Tab A9+ 5G 8GB 128GB
+- [ ] Samsung Galaxy Tab S10+ 5G 12GB 256GB
+- [ ] Samsung Galaxy Tab S10+ 5G 12GB 256GB (w/Keyboard)
+- [ ] Samsung Galaxy Z Fold 7 12GB 512GB
+- [ ] Samsung Galaxy Buds FE
+- [ ] Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (w/Keyboard)
+- [ ] Samsung Galaxy Z Flip 4 8GB 256GB (New Open Box)
+- [ ] Samsung Galaxy Tab S10 Ultra WiFi 256GB
+- [ ] Samsung Galaxy Z Flip 3 8GB 256GB (New Open Box)
+... and 131 more.

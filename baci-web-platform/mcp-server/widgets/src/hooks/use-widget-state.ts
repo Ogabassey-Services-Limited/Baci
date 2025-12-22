@@ -1,0 +1,52 @@
+import { type SetStateAction, useCallback, useEffect, useState } from 'react';
+import { useOpenAiGlobal } from './use-openai-global';
+
+type UnknownObject = Record<string, unknown>;
+
+/**
+ * Hook to manage widget state that persists across conversation turns
+ * Automatically syncs with window.openai.widgetState
+ */
+export function useWidgetState<T extends UnknownObject>(
+  defaultState: T | (() => T)
+): readonly [T, (state: SetStateAction<T>) => void];
+export function useWidgetState<T extends UnknownObject>(
+  defaultState?: T | (() => T | null) | null
+): readonly [T | null, (state: SetStateAction<T | null>) => void];
+export function useWidgetState<T extends UnknownObject>(
+  defaultState?: T | (() => T | null) | null
+): readonly [T | null, (state: SetStateAction<T | null>) => void] {
+  const widgetStateFromWindow = useOpenAiGlobal('widgetState') as T;
+
+  const [widgetState, _setWidgetState] = useState<T | null>(() => {
+    if (widgetStateFromWindow != null) {
+      return widgetStateFromWindow;
+    }
+
+    return typeof defaultState === 'function'
+      ? defaultState()
+      : (defaultState ?? null);
+  });
+
+  // Sync from window.openai.widgetState when it changes (e.g., from tool responses)
+  useEffect(() => {
+    if (widgetStateFromWindow != null) {
+      _setWidgetState(widgetStateFromWindow);
+    }
+  }, [widgetStateFromWindow]);
+
+  const setWidgetState = useCallback((state: SetStateAction<T | null>) => {
+    _setWidgetState((prevState) => {
+      const newState = typeof state === 'function' ? state(prevState) : state;
+
+      // Sync to window.openai.widgetState for persistence
+      if (newState != null && typeof window !== 'undefined') {
+        void window.openai?.setWidgetState?.(newState);
+      }
+
+      return newState;
+    });
+  }, []);
+
+  return [widgetState, setWidgetState] as const;
+}

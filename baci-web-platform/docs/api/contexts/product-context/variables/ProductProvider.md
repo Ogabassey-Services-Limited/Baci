@@ -1,0 +1,11 @@
+[**nextn**](../../../README.md)
+
+***
+
+[nextn](../../../README.md) / [contexts/product-context](../README.md) / ProductProvider
+
+# Variable: ProductProvider
+
+> `const` **ProductProvider**: `React.FC`\<\{ `children`: `ReactNode`; \}\>
+
+Defined in: [src/contexts/product-context.tsx:54](https://github.com/Ogabassey-Services-Limited/Baci/blob/102b2153aa76346cf4b296ddba430e8263a41fa0/src/contexts/product-context.tsx#L54)

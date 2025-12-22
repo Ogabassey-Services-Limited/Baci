@@ -1,0 +1,617 @@
+=== Querying Tablets without Specs ===
+
+Total tablets found: 103
+
+Tablets without specs: 102
+
+Products to populate:
+  - iPad 10th Gen (2022) (Apple) [ID: 9e197668-653e-461e-b217-b57a5a06f957]
+  - iPad 10th Gen 2022 256GB WiFi (Apple) [ID: d84efa29-d641-41f9-849f-48140d56f481]
+  - iPad 10th Gen 2022 64GB WiFi (Apple) [ID: faec886d-0cc5-4f60-9d14-5e32df91aa93]
+  - iPad 10th Gen 2022 64GB WiFi + Cellular (Apple) [ID: 24380a39-0a47-4f35-bca1-23d3e81ceadb]
+  - iPad 11th Gen 2024 128GB LTE (Apple) [ID: b6714b83-c9c7-4f2e-80e4-83ea10b84043]
+  - iPad 11th Gen 2024 128GB WiFi (Apple) [ID: d9978ec3-f6bd-455b-b98b-4779001f83cf]
+  - iPad 9th Gen 2021 256GB WiFi (Apple) [ID: 06c1f909-0ca2-4ac0-adbe-5b1d14410888]
+  - iPad 9th Gen 2021 256GB WiFi + Cellular (Apple) [ID: 0c46f8b3-c899-4dd9-9821-239be858e440]
+  - iPad Air 4th Gen 2020 256GB WiFi + Cellular (Apple) [ID: 32e106ed-ff65-4baf-b1c7-cc80f92ac821]
+  - iPad Air 6th Gen 2024 M2 128GB WiFi (Apple) [ID: e7c5f84d-fa4b-4e69-9159-53987e9ddafd]
+  - iPad Air 6th Gen 2024 M2 256GB 13-inch WiFi (Apple) [ID: 224f9c6e-15e5-4727-b6c6-4b02ddccf0b7]
+  - iPad Air 6th Gen 2024 M2 256GB WiFi (Apple) [ID: c42fcede-99de-4afe-a5cb-c4af7b007316]
+  - iPad Air 7th Gen 2025 M3 128GB WiFi (Apple) [ID: 8bd6d949-6e20-4c4a-9fd6-d1cf241d3b40]
+  - iPad Air 7th Gen 2025 M3 256GB WiFi (Apple) [ID: 865bb3b4-ea08-45c6-92e2-68d04e89c140]
+  - iPad Air 7th Gen 2025 M3 256GB WiFi + Cellular (Apple) [ID: 532c3c92-a4fa-4a2a-837c-7779ad97c0c3]
+  - iPad Air M2 (Apple) [ID: 7902001c-85d8-41b0-9126-51f08aaa4b56]
+  - iPad mini 6th Gen (Apple) [ID: ec0a74c2-f81d-47fc-b698-91141c1b8ac6]
+  - iPad Mini 6th Gen 2021 256GB 8.3-inch WiFi + Cellular (Apple) [ID: ab9a5ab7-18c8-42bd-96af-1fcfe59d3b65]
+  - iPad Mini 6th Gen 2021 256GB WiFi + Cellular (Apple) [ID: 08957913-32b3-4899-b8f7-02773dcc206c]
+  - iPad Mini 6th Gen 2021 64GB 8.3-inch WiFi (Apple) [ID: f1e8a6b6-83a0-47ee-a971-2384822d2939]
+  - iPad Mini 6th Gen 2021 64GB WiFi (Apple) [ID: a55c2baa-254e-4709-90de-719e43b8b87c]
+  - iPad Pro 2018 11-inch 1TB WiFi + Cellular (Apple) [ID: c23070c4-ace5-44ec-81b2-3d31fc3e9ca2]
+  - iPad Pro 2018 11-inch 256GB WiFi + Cellular (Apple) [ID: e14c58e7-bc80-49ce-85a6-2fd06b0e39f0]
+  - iPad Pro 2018 11-inch 512GB WiFi + Cellular (Apple) [ID: 62fb3a68-33ae-43ca-852b-0f1c942e15c9]
+  - iPad Pro 2018 11-inch 64GB WiFi + Cellular (Apple) [ID: 0263a994-36bc-4c8d-b2a9-c14a5cf00ed3]
+  - iPad Pro 2021 M1 11-inch 128GB WiFi + Cellular (Apple) [ID: 47403679-0ef7-434b-b7d2-375d7066605e]
+  - iPad Pro 2021 M1 11-inch 256GB WiFi + Cellular (Apple) [ID: 51ce3f61-4c1d-41c6-b721-11da90d78e00]
+  - iPad Pro 2021 M1 11-inch 512GB WiFi + Cellular (Apple) [ID: 9dadb9f1-cc6a-41e8-a0c1-be740571aad8]
+  - iPad Pro 2021 M1 12.9-inch 128GB WiFi + Cellular (Apple) [ID: e1e36a46-4aa3-4990-970a-b496df3f8ac8]
+  - iPad Pro 2022 M2 11-inch 128GB WiFi (Apple) [ID: 0758de2d-ca9b-4a3c-becf-0adc904000ca]
+  - iPad Pro 2022 M2 11-inch 128GB WiFi + Cellular (Apple) [ID: 77deaec3-bf91-4a3a-91fb-5b0303797105]
+  - iPad Pro 2022 M2 11-inch 1TB WiFi (Apple) [ID: dece7720-4766-4e49-aac2-080c7d9a3148]
+  - iPad Pro 2022 M2 11-inch 256GB WiFi (Apple) [ID: 0acf18d2-aac1-4db2-a388-6faaf0a3fc1c]
+  - iPad Pro 2022 M2 11-inch 256GB WiFi + Cellular (Apple) [ID: 599e93cb-6ede-4a51-b57a-59733a546343]
+  - iPad Pro 2024 M4 11-inch 256GB WiFi + Cellular (Apple) [ID: 3d4b631e-ea6a-4379-8106-a2ee4fa9084f]
+  - iPad Pro 2024 M4 13-inch 256GB WiFi (Apple) [ID: b71fa103-cea6-4093-aae8-374e8e15d9f9]
+  - iPad Pro M4 11" (Apple) [ID: 2b02858a-ddf7-49e7-bdc9-a244254d0324]
+  - Samsung Galaxy Tab A11 LTE 4GB 128GB (Samsung) [ID: 88ba8810-7fd5-40fa-ae85-25a5abbb6872]
+  - Samsung Galaxy Tab A11 LTE 4GB 64GB (Samsung) [ID: 873b5bec-bbe1-4779-a7d8-ed7fb65b8a00]
+  - Samsung Galaxy Tab A7 Lite WiFi 32GB (Samsung) [ID: 0e35b68b-c6ba-465d-98b5-4f7b372535e1]
+  - Samsung Galaxy Tab A7 WiFi 32GB (Samsung) [ID: 9954c7ab-1572-41b1-afd7-5408d7e0d3ab]
+  - Samsung Galaxy Tab A8 LTE 64GB (Samsung) [ID: 3489b804-b2fb-4ad6-80e6-5905afc32d59]
+  - Samsung Galaxy Tab A8 WiFi 32GB (Samsung) [ID: bd0a1ec9-0523-4773-8e88-1b3015b34ab2]
+  - Samsung Galaxy Tab A8 WiFi 32GB (Samsung) [ID: 849a4798-d2c2-46bd-8238-39717fc2feb5]
+  - Samsung Galaxy Tab A8 WiFi 64GB (Samsung) [ID: 4d74144e-33a8-417c-bb1d-321945eac7a2]
+  - Samsung Galaxy Tab A8 WiFi 64GB (Samsung) [ID: 2a79c735-ce40-409c-af43-d51c4ac277e0]
+  - Samsung Galaxy Tab A9 LTE 4GB 128GB (Samsung) [ID: 528e0c2e-79a4-484b-b252-5da7784f2449]
+  - Samsung Galaxy Tab A9 LTE 4GB 64GB (Samsung) [ID: 9dac0c04-1d01-443c-956f-9ff781a67cce]
+  - Samsung Galaxy Tab A9 WiFi 64GB (Samsung) [ID: c473ae2d-0feb-47d1-872c-10003bf76cb7]
+  - Samsung Galaxy Tab A9+ 5G 4GB 64GB (Samsung) [ID: 7c9cf56b-5fc6-4397-8930-a9e47c1d4221]
+  - Samsung Galaxy Tab A9+ 5G 8GB 128GB (Samsung) [ID: d782a42c-06df-4ab5-b033-e730a92d681b]
+  - Samsung Galaxy Tab A9+ LTE 64GB (Samsung) [ID: fd0270b5-7197-41aa-8a7a-56a43db9e904]
+  - Samsung Galaxy Tab A9+ WiFi 64GB (Samsung) [ID: 7420fa0f-98dc-4a29-8894-031db5c2e35f]
+  - Samsung Galaxy Tab S10 FE 5G 8GB 128GB (Samsung) [ID: 1bf3a715-7631-43f0-b953-cfc1677c0ce3]
+  - Samsung Galaxy Tab S10 FE+ 5G 8GB 256GB (Samsung) [ID: 802df320-3745-4b88-83ba-cab53ceea0fd]
+  - Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (Samsung) [ID: 2b831af8-9585-4e04-822e-bd0795b4aead]
+  - Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (w/Keyboard) (Samsung) [ID: 40ac8c93-3bda-487d-8edb-d49f63d249a4]
+  - Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (Samsung) [ID: 9ce83190-36ca-4380-8458-3b9ec9afcc75]
+  - Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (w/Keyboard) (Samsung) [ID: 3ebc49de-4b16-4a26-a4f8-260b29e1f3f2]
+  - Samsung Galaxy Tab S10 Ultra WiFi 256GB (Samsung) [ID: 3e31da49-c44f-4d04-8fcd-d2f781a575b4]
+  - Samsung Galaxy Tab S10+ 5G 12GB 256GB (Samsung) [ID: a2c94e3b-39e6-4f9c-895b-123ca8f2b962]
+  - Samsung Galaxy Tab S10+ 5G 12GB 256GB (w/Keyboard) (Samsung) [ID: 8c7d2bf6-f9fe-401a-aeb7-220737809e53]
+  - Samsung Galaxy Tab S10+ WiFi 256GB (Samsung) [ID: a73e5d90-cd6a-4fe1-9eb5-caf8c41c227a]
+  - Samsung Galaxy Tab S11 5G 8GB 256GB (Samsung) [ID: 483160a9-637f-415c-bd11-7477b0a7a2d4]
+  - Samsung Galaxy Tab S6 Lite WiFi 64GB (Samsung) [ID: ef0d2b74-c196-4760-ae4f-bc909f2cf69e]
+  - Samsung Galaxy Tab S6 Lite WiFi 64GB (Samsung) [ID: 4f8cb748-d230-4379-9900-2c98aa441a0f]
+  - Samsung Galaxy Tab S7 FE WiFi 64GB (Samsung) [ID: 3d721d38-e832-4f68-a55f-6c678a7eb820]
+  - Samsung Galaxy Tab S7 WiFi 128GB (Samsung) [ID: 408d74d8-02f5-41cd-9ab4-802eadb15a16]
+  - Samsung Galaxy Tab S8 Ultra WiFi 128GB (Samsung) [ID: 6dcee2e6-d8b4-410e-acda-199db58044b1]
+  - Samsung Galaxy Tab S8 WiFi 128GB (Samsung) [ID: 30a725fc-f576-4989-ab27-484199a3a814]
+  - Samsung Galaxy Tab S9 5G 256GB (Samsung) [ID: f5878814-068f-44f8-b1ee-2113b5930cef]
+  - Samsung Galaxy Tab S9 FE WiFi 128GB (Samsung) [ID: 9cf95ac1-b7f0-45a7-b776-786acc91bbf8]
+  - Samsung Galaxy Tab S9 Ultra WiFi 256GB (Samsung) [ID: b08c4602-3535-4940-ac5e-06103a0edc6f]
+  - Samsung Galaxy Tab S9 Ultra WiFi 256GB (Samsung) [ID: a03acb69-130b-4704-8dd3-27266833f7b8]
+  - Samsung Galaxy Tab S9 WiFi 128GB (Samsung) [ID: ead1b721-d01c-4c34-be09-acdde1a3ecb3]
+  - Samsung Galaxy Tab S9 WiFi 128GB (Samsung) [ID: c9fae3db-8af4-4324-b01f-7dfaea080e5d]
+  - Samsung Galaxy Tab S9+ WiFi 256GB (Samsung) [ID: 16c3b3de-c937-4953-b72e-ff2fe5f8e281]
+  - Samsung Galaxy Tab S9+ WiFi 256GB (Samsung) [ID: 323dacbd-e3de-46fb-8283-63a0f4144a65]
+  - Tecno Megapad 10 4GB 128GB (Tecno) [ID: 8841c83a-50fe-47c6-86f4-b33a7010e669]
+  - Redmi Pad 2 4GB 128GB (Xiaomi) [ID: 0feb1aa6-0885-4400-995c-cb15ecd47fa8]
+  - Redmi Pad 2 4GB 128GB (4G) (Xiaomi) [ID: f2ccaa39-e995-4b7e-9699-5b96f1ea2331]
+  - Redmi Pad 2 4GB 128GB (Pouch) (Xiaomi) [ID: b16df1b1-3744-4f8e-8c19-3eb38ef4855f]
+  - Redmi Pad 2 8GB 256GB (Xiaomi) [ID: b67754f4-033d-4558-91dc-3ae6324b996c]
+  - Redmi Pad 2 8GB 256GB (4G) (Xiaomi) [ID: 6252e2fe-1d35-49fb-902b-d2121c7cc907]
+  - Redmi Pad 2 8GB 256GB (Pouch) (Xiaomi) [ID: b6b64163-8452-4574-9328-1835e55e0861]
+  - Redmi Pad 2 Pro 6GB 128GB (Xiaomi) [ID: 13b3c320-fae8-480d-b38c-0f68fd8a47e5]
+  - Redmi Pad 2 Pro 6GB 128GB (5G) (Xiaomi) [ID: 31c226d8-3489-482e-af6b-991bcd4b79cd]
+  - Redmi Pad 2 Pro 8GB 256GB (Xiaomi) [ID: 9cdd97a0-6ed8-4e9a-8899-ec14e1d94145]
+  - Redmi Pad 2 Pro 8GB 256GB (5G) (Xiaomi) [ID: f72ad41e-892a-43d5-8953-a35ace972968]
+  - Redmi Pad 2 Pro 8GB 256GB (Pouch) (Xiaomi) [ID: f797aba9-8e78-4069-95f7-dde238bcbe92]
+  - Redmi Pad Pro 5G 6GB 128GB (Xiaomi) [ID: 8e07b5c7-76be-4dff-afe5-728f28275489]
+  - Redmi Pad Pro 5G 8GB 256GB (Xiaomi) [ID: d887e04c-3a12-49f0-a8dc-f5f8faa79328]
+  - Redmi Pad pro 6GB 128GB (Xiaomi) [ID: 34bfe2cf-965b-4689-85a0-a8f4480e7b06]
+  - Redmi Pad pro 8GB 256GB (Xiaomi) [ID: 0efd283b-bb4d-445f-b894-499646301889]
+  - Redmi Pad SE 4GB 128GB (Xiaomi) [ID: 0f214f65-195e-41f5-9992-240d71f54299]
+  - Redmi Pad SE 8.7 4GB 128GB (Xiaomi) [ID: 86308b03-b66a-4200-a37f-381f9f297d2e]
+  - Redmi Pad SE 8.7 4GB 128GB (4G) (Xiaomi) [ID: f9aacd63-71a8-40aa-bb11-cbabbdc7c868]
+  - Redmi Pad SE 8.7 4GB 64GB (Xiaomi) [ID: 557ffaff-a20d-42ce-bfbb-a9e824df6314]
+  - Redmi Pad SE 8.7 4GB 64GB (4G) (Xiaomi) [ID: 15d25142-7841-4d08-b9dd-9ff72211192c]
+  - Redmi Pad SE 8.7 6GB 128GB (Xiaomi) [ID: 85c71a4a-5290-4b8d-a8da-a04690606ed3]
+  - Redmi Pad SE 8.7 6GB 128GB (4G) (Xiaomi) [ID: 33b34dff-5c4b-4f00-951c-f3514db1c216]
+  - Redmi Pad SE 8GB 256GB (Xiaomi) [ID: 6f6bafa2-3c23-45aa-8158-f3e286ac4e05]
+
+============================================================
+
+Proceeding with populating specs...
+
+
+=== Populating Tablet Specs ===
+
+
+📱 Processing: iPad 10th Gen (2022)
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 10th Gen 2022 256GB WiFi
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 10th Gen 2022 64GB WiFi
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 10th Gen 2022 64GB WiFi + Cellular
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 11th Gen 2024 128GB LTE
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 11th Gen 2024 128GB WiFi
+   Matched to: iPad (10th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 9th Gen 2021 256GB WiFi
+   Matched to: iPad (9th Gen)
+   Specs: 10.2" | Apple A13 Bionic | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad 9th Gen 2021 256GB WiFi + Cellular
+   Matched to: iPad (9th Gen)
+   Specs: 10.2" | Apple A13 Bionic | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Air 4th Gen 2020 256GB WiFi + Cellular
+   Matched to: iPad Air (4th Gen)
+   Specs: 10.9" | Apple A14 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Air 6th Gen 2024 M2 128GB WiFi
+   Matched to: iPad Air 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Air 6th Gen 2024 M2 256GB 13-inch WiFi
+   Matched to: iPad Air 13" (M2)
+   Specs: 13" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Air 6th Gen 2024 M2 256GB WiFi
+   Matched to: iPad Air 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+⚠️  No spec match found for: iPad Air 7th Gen 2025 M3 128GB WiFi
+⚠️  No spec match found for: iPad Air 7th Gen 2025 M3 256GB WiFi
+⚠️  No spec match found for: iPad Air 7th Gen 2025 M3 256GB WiFi + Cellular
+
+📱 Processing: iPad Air M2
+   Matched to: iPad Air 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad mini 6th Gen
+   Matched to: iPad mini (6th Gen)
+   Specs: 8.3" | Apple A15 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Mini 6th Gen 2021 256GB 8.3-inch WiFi + Cellular
+   Matched to: iPad mini (6th Gen)
+   Specs: 8.3" | Apple A15 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Mini 6th Gen 2021 256GB WiFi + Cellular
+   Matched to: iPad mini (6th Gen)
+   Specs: 8.3" | Apple A15 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Mini 6th Gen 2021 64GB 8.3-inch WiFi
+   Matched to: iPad mini (6th Gen)
+   Specs: 8.3" | Apple A15 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Mini 6th Gen 2021 64GB WiFi
+   Matched to: iPad mini (6th Gen)
+   Specs: 8.3" | Apple A15 Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2018 11-inch 1TB WiFi + Cellular
+   Matched to: iPad Pro 11" (2018)
+   Specs: 11" | Apple A12X Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2018 11-inch 256GB WiFi + Cellular
+   Matched to: iPad Pro 11" (2018)
+   Specs: 11" | Apple A12X Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2018 11-inch 512GB WiFi + Cellular
+   Matched to: iPad Pro 11" (2018)
+   Specs: 11" | Apple A12X Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2018 11-inch 64GB WiFi + Cellular
+   Matched to: iPad Pro 11" (2018)
+   Specs: 11" | Apple A12X Bionic | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2021 M1 11-inch 128GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M1)
+   Specs: 11" | Apple M1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2021 M1 11-inch 256GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M1)
+   Specs: 11" | Apple M1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2021 M1 11-inch 512GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M1)
+   Specs: 11" | Apple M1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2021 M1 12.9-inch 128GB WiFi + Cellular
+   Matched to: iPad Pro 12.9" (M1)
+   Specs: 12.9" | Apple M1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2022 M2 11-inch 128GB WiFi
+   Matched to: iPad Pro 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2022 M2 11-inch 128GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2022 M2 11-inch 1TB WiFi
+   Matched to: iPad Pro 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2022 M2 11-inch 256GB WiFi
+   Matched to: iPad Pro 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2022 M2 11-inch 256GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M2)
+   Specs: 11" | Apple M2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2024 M4 11-inch 256GB WiFi + Cellular
+   Matched to: iPad Pro 11" (M4)
+   Specs: 11" | Apple M4 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: iPad Pro 2024 M4 13-inch 256GB WiFi
+   Matched to: iPad Pro 13" (M4)
+   Specs: 13" | Apple M4 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+⚠️  No spec match found for: iPad Pro M4 11"
+
+📱 Processing: Samsung Galaxy Tab A11 LTE 4GB 128GB
+   Matched to: Galaxy Tab A11
+   Specs: 10.5" | Unisoc T618 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A11 LTE 4GB 64GB
+   Matched to: Galaxy Tab A11
+   Specs: 10.5" | Unisoc T618 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A7 Lite WiFi 32GB
+   Matched to: Galaxy Tab A7
+   Specs: 10.4" | Snapdragon 662 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A7 WiFi 32GB
+   Matched to: Galaxy Tab A7
+   Specs: 10.4" | Snapdragon 662 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A8 LTE 64GB
+   Matched to: Galaxy Tab A8
+   Specs: 10.5" | Unisoc Tiger T618 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A8 WiFi 32GB
+   Matched to: Galaxy Tab A8
+   Specs: 10.5" | Unisoc Tiger T618 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A8 WiFi 32GB
+   Matched to: Galaxy Tab A8
+   Specs: 10.5" | Unisoc Tiger T618 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A8 WiFi 64GB
+   Matched to: Galaxy Tab A8
+   Specs: 10.5" | Unisoc Tiger T618 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A8 WiFi 64GB
+   Matched to: Galaxy Tab A8
+   Specs: 10.5" | Unisoc Tiger T618 | 3GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9 LTE 4GB 128GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9 LTE 4GB 64GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9 WiFi 64GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9+ 5G 4GB 64GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9+ 5G 8GB 128GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9+ LTE 64GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab A9+ WiFi 64GB
+   Matched to: Galaxy Tab A9
+   Specs: 8.7" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 FE 5G 8GB 128GB
+   Matched to: Galaxy Tab S10 FE
+   Specs: 10.9" | Exynos 1480 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 FE+ 5G 8GB 256GB
+   Matched to: Galaxy Tab S10 FE
+   Specs: 10.9" | Exynos 1480 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB
+   Matched to: Galaxy Tab S10 Ultra
+   Specs: 14.6" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 Ultra 5G 12GB 256GB (w/Keyboard)
+   Matched to: Galaxy Tab S10 Ultra
+   Specs: 14.6" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB
+   Matched to: Galaxy Tab S10 Ultra
+   Specs: 14.6" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 Ultra 5G 12GB 512GB (w/Keyboard)
+   Matched to: Galaxy Tab S10 Ultra
+   Specs: 14.6" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10 Ultra WiFi 256GB
+   Matched to: Galaxy Tab S10 Ultra
+   Specs: 14.6" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10+ 5G 12GB 256GB
+   Matched to: Galaxy Tab S10+
+   Specs: 12.4" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10+ 5G 12GB 256GB (w/Keyboard)
+   Matched to: Galaxy Tab S10+
+   Specs: 12.4" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S10+ WiFi 256GB
+   Matched to: Galaxy Tab S10+
+   Specs: 12.4" | MediaTek Dimensity 9300+ | 12GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S11 5G 8GB 256GB
+   Matched to: Galaxy Tab S11
+   Specs: 11" | Snapdragon 8 Gen 3 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S6 Lite WiFi 64GB
+   Matched to: Galaxy Tab S6 Lite
+   Specs: 10.4" | Exynos 9611 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S6 Lite WiFi 64GB
+   Matched to: Galaxy Tab S6 Lite
+   Specs: 10.4" | Exynos 9611 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S7 FE WiFi 64GB
+   Matched to: Galaxy Tab S7
+   Specs: 11" | Snapdragon 865+ | 6GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S7 WiFi 128GB
+   Matched to: Galaxy Tab S7
+   Specs: 11" | Snapdragon 865+ | 6GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S8 Ultra WiFi 128GB
+   Matched to: Galaxy Tab S8
+   Specs: 11" | Snapdragon 8 Gen 1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S8 WiFi 128GB
+   Matched to: Galaxy Tab S8
+   Specs: 11" | Snapdragon 8 Gen 1 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 5G 256GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 FE WiFi 128GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 Ultra WiFi 256GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 Ultra WiFi 256GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 WiFi 128GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9 WiFi 128GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9+ WiFi 256GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Samsung Galaxy Tab S9+ WiFi 256GB
+   Matched to: Galaxy Tab S9
+   Specs: 11" | Snapdragon 8 Gen 2 | 8GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Tecno Megapad 10 4GB 128GB
+   Matched to: Tecno Megapad 10
+   Specs: 10.1" | MediaTek Helio G80 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 4GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 4GB 128GB (4G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 4GB 128GB (Pouch)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 8GB 256GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 8GB 256GB (4G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 8GB 256GB (Pouch)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 Pro 6GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 Pro 6GB 128GB (5G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 Pro 8GB 256GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 Pro 8GB 256GB (5G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad 2 Pro 8GB 256GB (Pouch)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad Pro 5G 6GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad Pro 5G 8GB 256GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad pro 6GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad pro 8GB 256GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 4GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 4GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 4GB 128GB (4G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 4GB 64GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 4GB 64GB (4G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 6GB 128GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8.7 6GB 128GB (4G)
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+📱 Processing: Redmi Pad SE 8GB 256GB
+   Matched to: Redmi Pad
+   Specs: 10.61" | MediaTek Helio G99 | 4GB RAM
+   ❌ Error inserting specs: Could not find the 'charging_speed_w' column of 'product_key_specs' in the schema cache
+
+=== Summary ===
+✅ Successfully inserted: 0
+⚠️  Skipped (no match): 4
+❌ Errors: 98
+📊 Total processed: 102

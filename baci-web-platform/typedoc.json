@@ -1,0 +1,27 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/ai",
+    "src/components",
+    "src/config",
+    "src/contexts",
+    "src/hooks",
+    "src/lib",
+    "src/schemas",
+    "src/templates",
+    "src/types"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "cleanOutputDir": true,
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/node_modules/**"
+  ],
+  "hideGenerator": true,
+  "skipErrorChecking": true
+}

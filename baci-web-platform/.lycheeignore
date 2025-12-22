@@ -1,0 +1,22 @@
+# Yahoo MRSS Namespace (XML Namespace URI, not a visitable URL)
+http://search.yahoo.com/mrss/
+https://search.yahoo.com/mrss/
+
+# Broken/Timeout links
+http://alienryderflex.com/hsp.html
+https://gdpr.eu/cookies/
+
+# External product image CDN (hotlinking blocked)
+https://fdn2.gsmarena.com/
+
+# API docs requiring authentication
+https://www.namecheap.com/support/api/
+
+# Auth-walled API endpoints
+https://api.zeptomail.com/v1.1/email
+
+# Flaky external assets (Favicons/CDNs)
+https://creditdirect.ng/favicon.ico
+https://korapay.com/favicon.ico
+https://credpal.com/favicon.ico
+https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is

@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "6QLNK7TXM3.com.ogabassey.store",
+        "paths": [
+          "/product/*",
+          "/blog/*",
+          "/category/*",
+          "/"
+        ]
+      }
+    ]
+  }
+}

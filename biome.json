@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -12,6 +12,7 @@
       "!**/.next",
       "!**/node_modules",
       "!**/scripts",
+      "!**/scripts-tmp",
       "!**/.gemini",
       "!**/reproduce_issue.ts",
       "!**/src/app/page.backup.tsx",
@@ -23,7 +24,11 @@
       "!**/src/components/storefront/lumina",
       "!**/src/app/template-preview",
       "!**/src/app/preview",
-      "!**/src/templates"
+      "!**/src/templates",
+      "!**/mcp-server",
+      "!**/baci-mobile-storefront",
+      "!**/baci-mobile-admin",
+      "!process_*.cjs"
     ]
   },
   "formatter": {
@@ -276,11 +281,11 @@
     },
     {
       "includes": [
-        "src/app/(storefront)/**/pages/about/page.tsx",
-        "src/app/(storefront)/**/pages/contact/page.tsx",
-        "src/app/(storefront)/**/pages/faq/page.tsx",
-        "src/app/(storefront)/**/pages/privacy/page.tsx",
-        "src/app/(storefront)/**/pages/terms/page.tsx"
+        "**/pages/about/page.tsx",
+        "**/pages/contact/page.tsx",
+        "**/pages/faq/page.tsx",
+        "**/pages/privacy/page.tsx",
+        "**/pages/terms/page.tsx"
       ],
       "linter": {
         "rules": {

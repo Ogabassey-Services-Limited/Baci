@@ -1,0 +1,1 @@
+../../baci-web-platform/src/config/business-types.ts

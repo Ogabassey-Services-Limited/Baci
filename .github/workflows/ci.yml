@@ -22,6 +22,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
+      - run: cd baci-web-platform && npm ci
       - run: npm run lint
 
   knip:
@@ -35,6 +36,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
+      - run: cd baci-web-platform && npm ci
       - run: npm run knip
 
   typecheck:
@@ -48,6 +50,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
+      - run: cd baci-web-platform && npm ci
       - run: npm run typecheck
 
   test:
@@ -61,6 +64,7 @@ jobs:
           node-version: "20"
           cache: "npm"
       - run: npm ci
+      - run: cd baci-web-platform && npm ci
       - run: npm run test
 
   build:
@@ -85,6 +89,7 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
       - run: npm ci
+      - run: cd baci-web-platform && npm ci
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

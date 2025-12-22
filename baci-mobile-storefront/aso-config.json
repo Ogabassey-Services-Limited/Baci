@@ -1,0 +1,89 @@
+{
+  "aso": {
+    "methodology": "Moritz Daan's ASO Stack Framework (Phiture)",
+    "lastUpdated": "2025-12-18",
+
+    "ios": {
+      "appName": "Ogabassey - Shop Phones & Tech",
+      "subtitle": "Gadgets, Laptops & Accessories",
+      "keywords": "phones,gadgets,laptop,iphone,samsung,tech,electronics,nigeria,lagos,accessories,airpods,smartwatch",
+      "promotionalText": "Free delivery on orders over N50,000! Shop the latest phones and gadgets.",
+      "description": "Ogabassey is Nigeria's trusted destination for phones, laptops, and tech accessories.\n\nWHY SHOP WITH US:\n- Latest iPhones, Samsung Galaxy, and more\n- Laptops from Apple, HP, Lenovo, and Dell\n- Genuine accessories and gadgets\n- Fast delivery across Nigeria\n- Pay on delivery available\n- Secure payments via Paystack\n- 30-day warranty on all products\n\nFEATURES:\n- Browse thousands of products\n- Easy search and filters\n- Save items to wishlist\n- Track your orders in real-time\n- Earn loyalty points on every purchase\n- Push notifications for deals and order updates\n\nDownload now and get 10% off your first order!",
+      "category": "Shopping",
+      "secondaryCategory": "Lifestyle"
+    },
+
+    "android": {
+      "title": "Ogabassey - Shop Phones & Tech",
+      "shortDescription": "Buy phones, laptops, gadgets & accessories. Fast delivery across Nigeria.",
+      "fullDescription": "Ogabassey is Nigeria's trusted destination for phones, laptops, and tech accessories.\n\nWHY SHOP WITH US:\n★ Latest iPhones, Samsung Galaxy, and more\n★ Laptops from Apple, HP, Lenovo, and Dell\n★ Genuine accessories and gadgets\n★ Fast delivery across Nigeria\n★ Pay on delivery available\n★ Secure payments via Paystack\n★ 30-day warranty on all products\n\nFEATURES:\n✓ Browse thousands of products\n✓ Easy search and filters\n✓ Save items to wishlist\n✓ Track your orders in real-time\n✓ Earn loyalty points on every purchase\n✓ Push notifications for deals and order updates\n\nDownload now and get 10% off your first order!\n\nKeywords: phone store, gadget shop, buy iphone, samsung nigeria, laptop store, tech accessories, electronics nigeria",
+      "category": "Shopping",
+      "contentRating": "Everyone"
+    },
+
+    "localizations": {
+      "en-NG": {
+        "subtitle": "Phones, Laptops & Gadgets in Naira",
+        "promotionalText": "Pay on delivery available! Shop the latest phones."
+      }
+    },
+
+    "screenshots": {
+      "strategy": "Feature-benefit focused (Phiture methodology)",
+      "required": [
+        {
+          "order": 1,
+          "content": "Hero product showcase",
+          "caption": "Shop the Latest Phones",
+          "callToAction": "Browse Now"
+        },
+        {
+          "order": 2,
+          "content": "Category grid",
+          "caption": "iPhones, Samsung, Laptops & More",
+          "callToAction": "Explore Categories"
+        },
+        {
+          "order": 3,
+          "content": "Trust signals",
+          "caption": "Fast Delivery Across Nigeria",
+          "callToAction": "Free Shipping Over N50K"
+        },
+        {
+          "order": 4,
+          "content": "Product detail page",
+          "caption": "Detailed Specs & Reviews",
+          "callToAction": "Make Informed Choices"
+        },
+        {
+          "order": 5,
+          "content": "Cart and checkout",
+          "caption": "Secure Checkout",
+          "callToAction": "Pay on Delivery Available"
+        }
+      ]
+    },
+
+    "seasonalKeywords": {
+      "blackFriday": ["black friday deals", "phone deals", "tech sale"],
+      "christmas": ["christmas gifts", "gift ideas nigeria", "holiday deals"],
+      "backToSchool": ["student laptop", "back to school tech"]
+    },
+
+    "competitorKeywords": [
+      "jumia",
+      "konga",
+      "slot",
+      "pointek"
+    ],
+
+    "reviewStrategy": {
+      "promptTriggers": [
+        "After successful order delivery",
+        "After 3rd app open",
+        "After adding 5th item to wishlist"
+      ],
+      "responseTemplate": "Thank you for your feedback! We're constantly improving to serve you better."
+    }
+  }
+}

@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ogabassey-mcp:
+    build:
+      context: ..
+      dockerfile: mcp-server/Dockerfile
+    container_name: ogabassey-mcp-server
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      - NODE_ENV=production
+      - MCP_PORT=8787
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+    env_file:
+      - ../.env.local
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mcp.rule=Host(`mcp.ogabassey.com`)"
+      - "traefik.http.routers.mcp.entrypoints=websecure"
+      - "traefik.http.routers.mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mcp.loadbalancer.server.port=8787"
+
+  # Optional: ngrok for quick public access during development
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ogabassey-mcp-ngrok
+    restart: unless-stopped
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http ogabassey-mcp:8787 --log stdout
+    depends_on:
+      - ogabassey-mcp
+    profiles:
+      - dev

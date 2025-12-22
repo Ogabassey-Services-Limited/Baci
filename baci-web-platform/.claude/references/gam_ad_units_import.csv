@@ -1,0 +1,10 @@
+#Note: Please remove semicolon (;) from your file editor's list of delimiter or separator characters.
+#Code,Name,Sizes,Description,Enabled for AdSense,Placements,Target window,Labels
+homepage_large_strip,Homepage Large Strip,970x90;320x50,Wide banner separating hero content from products.,yes,,_blank,
+sidebar_half_page,Sidebar Half Page,300x600;300x250,Large vertical ad for product detail sidebars.,yes,,_blank,
+in_feed_mpu,In-Feed MPU,300x250,Square ad inserted naturally into product grids.,yes,,_blank,
+content_section_break,Content Section Break,728x90;320x50,Horizontal divider before deep content areas.,yes,,_blank,
+cart_drawer_mpu,Cart Drawer MPU,300x250,Square ad visible during checkout flow.,yes,,_blank,
+footer_banner,Footer Banner,970x250;320x100,Large footer placement for ending the user journey.,yes,,_blank,
+order_success_banner,Order Success Banner,728x90;320x100,Post-purchase placement for cross-selling or branding.,yes,,_blank,
+blog_sidebar_mpu,Blog Sidebar MPU,300x250,Square ad in the blog sidebar or between grid items.,yes,,_blank,

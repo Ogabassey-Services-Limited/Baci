@@ -1,0 +1,212 @@
+/**
+ * Analytics Hook - 2025 Best Practices
+ *
+ * Provides easy access to tracking functions in React components.
+ *
+ * TRACKING ARCHITECTURE:
+ * =======================
+ * 1. All events go to SERVER-SIDE CAPI first (primary source)
+ * 2. Client-side SDKs are backup with same event_id for deduplication
+ * 3. Platforms automatically deduplicate using event_id
+ *
+ * PLATFORMS:
+ * - PostHog (product analytics)
+ * - Firebase/Google Ads
+ * - Meta/Facebook CAPI
+ * - TikTok Events API
+ * - Snapchat CAPI
+ */
+
+import { useEffect, useCallback } from 'react';
+import { usePathname } from 'expo-router';
+import { useAuthStore } from '@/stores/auth-store';
+import {
+  trackScreenView,
+  trackProductViewed,
+  trackAddToCart,
+  trackCheckoutStarted,
+  trackPurchase,
+  trackSearch,
+  trackCustomEvent,
+  trackSignup,
+  trackPaymentInfoAdded,
+  identifyUser,
+  resetUserIdentity,
+  requestTrackingPermission,
+  isTrackingEnabled,
+} from '@/services/ad-tracking';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  currency?: string;
+  category?: string;
+}
+
+interface CartItem extends Product {
+  quantity: number;
+}
+
+interface Order {
+  orderId: string;
+  orderNumber: string;
+  total: number;
+  subtotal: number;
+  shipping?: number;
+  tax?: number;
+  currency?: string;
+  items: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    category?: string;
+  }>;
+  paymentMethod?: string;
+  couponCode?: string;
+  // User data for server-side tracking
+  email?: string;
+  phone?: string;
+  userId?: string;
+}
+
+export function useAnalytics() {
+  const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
+
+  // Auto-track screen views on route change
+  useEffect(() => {
+    if (pathname) {
+      // Convert pathname to readable screen name
+      const screenName = pathname
+        .replace(/^\/(tabs\/)?/, '') // Remove leading slash and tabs
+        .replace(/\[.*?\]/g, '') // Remove dynamic segments
+        .replace(/\//g, ' > ') // Replace slashes with arrows
+        .trim() || 'Home';
+
+      trackScreenView(screenName);
+    }
+  }, [pathname]);
+
+  // Identify user when they log in
+  useEffect(() => {
+    if (user?.id && customer) {
+      identifyUser(user.id, {
+        email: customer.email,
+        firstName: customer.first_name,
+        lastName: customer.last_name,
+        phone: customer.phone,
+      });
+    }
+  }, [user?.id, customer]);
+
+  // Product viewed
+  const onProductViewed = useCallback((product: Product) => {
+    trackProductViewed(product);
+  }, []);
+
+  // Add to cart
+  const onAddToCart = useCallback((item: CartItem, cartTotal?: number) => {
+    trackAddToCart(
+      {
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        currency: item.currency,
+        category: item.category,
+      },
+      cartTotal
+    );
+  }, []);
+
+  // Checkout started
+  const onCheckoutStarted = useCallback(
+    (checkout: {
+      itemCount: number;
+      subtotal: number;
+      currency?: string;
+      items?: CartItem[];
+    }) => {
+      trackCheckoutStarted(checkout);
+    },
+    []
+  );
+
+  // Purchase completed - includes user data for server-side tracking
+  const onPurchase = useCallback((order: Order) => {
+    // Include user data from auth store if not provided
+    const enrichedOrder = {
+      ...order,
+      email: order.email || customer?.email,
+      phone: order.phone || customer?.phone,
+      userId: order.userId || user?.id,
+    };
+    trackPurchase(enrichedOrder);
+  }, [customer, user]);
+
+  // Search
+  const onSearch = useCallback((query: string, resultCount: number) => {
+    trackSearch(query, resultCount);
+  }, []);
+
+  // Custom event
+  const trackEvent = useCallback(
+    (eventName: string, params?: Record<string, string | number | boolean>) => {
+      trackCustomEvent(eventName, params);
+    },
+    []
+  );
+
+  // Logout - reset identity
+  const onLogout = useCallback(async () => {
+    await resetUserIdentity();
+  }, []);
+
+  // Request ATT permission
+  const requestTracking = useCallback(async () => {
+    return await requestTrackingPermission();
+  }, []);
+
+  // Check if tracking is enabled
+  const isTracking = useCallback(() => {
+    return isTrackingEnabled();
+  }, []);
+
+  // Payment info added
+  const onPaymentInfoAdded = useCallback((paymentMethod: string) => {
+    trackPaymentInfoAdded(paymentMethod);
+  }, []);
+
+  // Signup tracking with user data
+  const onSignup = useCallback(
+    (method: string) => {
+      trackSignup(method, {
+        email: customer?.email,
+        phone: customer?.phone,
+        userId: user?.id,
+      });
+    },
+    [customer, user]
+  );
+
+  return {
+    // E-commerce events
+    onProductViewed,
+    onAddToCart,
+    onCheckoutStarted,
+    onPurchase,
+    onPaymentInfoAdded,
+    onSearch,
+    // Auth events
+    onSignup,
+    onLogout,
+    // Custom events
+    trackEvent,
+    // Tracking control
+    requestTracking,
+    isTracking,
+  };
+}
