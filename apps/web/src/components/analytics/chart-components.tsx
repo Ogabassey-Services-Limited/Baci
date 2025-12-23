@@ -188,7 +188,7 @@ export function SalesByChannelChart({ data, className }: ChartProps) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number) => `$${value.toLocaleString()}`}
+          formatter={(value) => `$${(value as number).toLocaleString()}`}
           contentStyle={{
             borderRadius: '12px',
             border: 'none',

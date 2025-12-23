@@ -1,0 +1,6 @@
+
+
+> @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
+> biome check .
+
+[0m[34mChecked [0m[0m[34m722[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m1755[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
