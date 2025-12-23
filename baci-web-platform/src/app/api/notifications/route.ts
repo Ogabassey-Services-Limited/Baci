@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         dismissed_at,
         banner_dismissed_at,
         created_at,
-        notification:notifications (
+        notification:notifications!inner (
           id,
           title,
           message,
@@ -101,9 +101,10 @@ export async function GET(request: NextRequest) {
 
     // PERFORMANCE: Filter expired notifications in the database
     const now = new Date().toISOString();
-    query = query.or(
-      `notification.expires_at.is.null,notification.expires_at.gt.${now}`
-    );
+    // Use foreignTable option to filter on the joined table
+    query = query.or(`expires_at.is.null,expires_at.gt.${now}`, {
+      foreignTable: 'notification',
+    });
 
     // Limit + 1 to check if there are more
     query = query.limit(limit + 1);

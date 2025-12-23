@@ -44,6 +44,7 @@ interface ProductContextType {
   setStatusFilter: (status: string) => void;
   setStockFilter: (stock: string) => void;
   setPage: (page: number) => void;
+  setLimit: (limit: number) => void;
   refetchProducts: () => Promise<void>;
   addProduct: (product: Product) => Promise<void>;
   workflowStep: WorkflowStep;
@@ -359,6 +360,8 @@ export const ProductProvider: React.FC<{
         setStatusFilter,
         setStockFilter,
         setPage,
+        setLimit: (limit: number) =>
+          setPagination((prev) => ({ ...prev, limit })),
         refetchProducts: fetchProducts,
         addProduct,
         workflowStep,
