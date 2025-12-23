@@ -671,7 +671,7 @@ export const ChatWidget: React.FC = () => {
       {/* Floating Toggle Button */}
       <div className="relative group">
         {!isOpen && isSanta && (
-          <div className="absolute bottom-[90%] right-[85%] mr-[-20px] mb-[-10px] w-32 bg-white px-4 py-3 rounded-2xl rounded-tr-none shadow-xl border-2 border-red-100 transform transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+          <div className="absolute bottom-[90%] right-[85%] mr-[-20px] mb-[-10px] w-32 bg-white px-4 py-3 rounded-2xl rounded-tr-none shadow-xl border-2 border-red-100 transform transition-[transform,opacity] duration-300 animate-in fade-in slide-in-from-bottom-4">
             <p className="text-sm font-bold text-gray-900 text-center leading-tight">Make a wish! ✨</p>
             {/* Thought bubble tail circles - adjusted for bottom-right origin */}
             <div className="absolute -bottom-2 -right-1 w-3 h-3 bg-white rounded-full border-r border-b border-red-100"></div>

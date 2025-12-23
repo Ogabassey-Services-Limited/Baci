@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd baci-web-platform && npm run build",
-  "outputDirectory": "baci-web-platform/.next",
-  "installCommand": "npm install && cd baci-web-platform && npm install",
+  "buildCommand": "pnpm turbo build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install",
   "framework": "nextjs",
   "crons": [
     {

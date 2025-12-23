@@ -1,0 +1,71 @@
+name: Jules AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  jules-review:
+    name: Jules Code Review
+    runs-on: ubuntu-latest
+    # Only run on PRs or when @jules is mentioned in comments
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && 
+       github.event.issue.pull_request && 
+       contains(github.event.comment.body, '@jules'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Jules AI Code Review
+        uses: google-labs-code/jules-action@v1
+        with:
+          prompt: |
+            You are a senior code reviewer for a Next.js 16 e-commerce platform called Baci.
+            
+            Review this pull request thoroughly and provide actionable feedback:
+
+            ## Code Quality
+            - Check for TypeScript best practices (no `any` types, proper typing)
+            - Ensure React 19 patterns are followed (Server Components by default)
+            - Verify proper error handling and edge cases
+            - Look for performance issues (unnecessary re-renders, missing memoization)
+
+            ## Security
+            - Check for XSS vulnerabilities (especially in AI-generated HTML)
+            - Verify proper input validation with Zod
+            - Ensure no secrets or API keys are exposed
+            - Check for SQL injection or path traversal risks
+
+            ## Accessibility (WCAG 2.1 AA)
+            - Verify proper semantic HTML usage
+            - Check for keyboard accessibility
+            - Ensure color contrast compliance (4.5:1 minimum)
+            - Validate meaningful alt text for images
+
+            ## Baci-Specific Patterns
+            - Verify themed components are used (never hardcoded colors)
+            - Check business type config usage (no hardcoded business types)
+            - Ensure AI integrations use try/catch with fallbacks
+
+            ## Output Format
+            Provide a structured review with:
+            1. **Summary**: Overall assessment and key findings
+            2. **Critical Issues**: Must fix before merging
+            3. **Suggestions**: Improvements that are nice-to-have
+            4. **Praise**: What was done well
+
+            Be constructive and helpful. Focus on the most impactful feedback.
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          include_last_commit: true
+          starting_branch: ${{ github.event.pull_request.base.ref || 'main' }}

@@ -218,7 +218,10 @@ export const Hero: React.FC = () => {
                     muted
                     loop
                     playsInline
-                  />
+                    aria-label={slide.title || 'Promotional video'}
+                  >
+                    <track kind="captions" src="" label="No captions available" default />
+                  </video>
                   <div className="absolute inset-0 bg-black/30 z-[1]" />
                   <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
                     <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
@@ -228,8 +231,12 @@ export const Hero: React.FC = () => {
                       {slide.title}
                     </h2>
                     <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
-                    <button className="text-[10px] font-bold px-4 py-2 rounded-full bg-white text-black flex items-center gap-1 w-fit">
-                      <Play size={10} fill="currentColor" /> Watch
+                    <button
+                      className="text-[10px] font-bold px-4 py-2 rounded-full bg-white text-black flex items-center gap-1 w-fit"
+                      aria-label="Watch video demo"
+                    >
+                      <Play size={10} fill="currentColor" aria-hidden="true" />
+                      Watch
                     </button>
                   </div>
                 </>
@@ -456,7 +463,7 @@ export const Hero: React.FC = () => {
                 }}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-all duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-[background-color,color] duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'}`}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                   </svg>
@@ -472,7 +479,7 @@ export const Hero: React.FC = () => {
                 }}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
                   </svg>
@@ -488,7 +495,7 @@ export const Hero: React.FC = () => {
                 }}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="15" rx="2" ry="2" /><polyline points="17 2 12 7 7 2" />
                   </svg>
@@ -504,7 +511,7 @@ export const Hero: React.FC = () => {
                 }}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
@@ -520,7 +527,7 @@ export const Hero: React.FC = () => {
                 }}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                   <Gamepad2 size={20} />
                 </div>
                 <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 4 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>Gaming</span>
@@ -549,7 +556,7 @@ export const Hero: React.FC = () => {
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -574,7 +581,7 @@ export const Hero: React.FC = () => {
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 1 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -602,7 +609,7 @@ export const Hero: React.FC = () => {
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 2 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -628,7 +635,7 @@ export const Hero: React.FC = () => {
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 3 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <svg
                   width="20"
                   height="20"
@@ -653,7 +660,7 @@ export const Hero: React.FC = () => {
               }}
               className="flex flex-col items-center gap-2 group cursor-pointer"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-[background-color,color] duration-300 ${activeUtilityIndex === 4 ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-600 group-hover:bg-red-600 group-hover:text-white'}`}>
                 <Gamepad2 size={20} />
               </div>
               <span className={`text-xs font-medium transition-colors duration-300 ${activeUtilityIndex === 4 ? 'text-gray-900 font-bold' : 'text-gray-700'}`}>Gaming</span>

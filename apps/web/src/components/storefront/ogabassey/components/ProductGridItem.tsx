@@ -144,7 +144,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           src={currentImage}
           alt={product.name}
           fill
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
           onLoad={() => setIsImageLoaded(true)}
           onError={(e) => {
             // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.

@@ -1,0 +1,35 @@
+name: Accessibility Scanner
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  accessibility:
+    name: Accessibility Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Accessibility Scanner
+        uses: github/accessibility-scanner@v2.7.0
+        with:
+          fail-on-violations: false
+          output-format: 'sarif'
+          output-file: 'accessibility-results.sarif'
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: accessibility-results.sarif
+          category: accessibility

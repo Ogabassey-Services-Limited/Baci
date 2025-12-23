@@ -120,7 +120,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
             >
               {/* Icon container */}
               <div className={`
-                relative p-2 rounded-xl transition-all duration-200
+                relative p-2 rounded-xl transition-[background-color,color] duration-200
                 ${active
                   ? 'text-white bg-white/10'
                   : 'text-gray-400 hover:text-gray-300'
@@ -130,7 +130,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
                   size={24}
                   strokeWidth={active ? 2.5 : 1.75}
                   fill={active ? 'currentColor' : 'none'}
-                  className="transition-all duration-200"
+                  className="transition-[stroke-width] duration-200"
                 />
 
                 {/* Badge for cart count */}
@@ -152,7 +152,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
 
               {/* Label - only shown for active item */}
               <span className={`
-                text-[10px] font-medium mt-1 transition-all duration-200
+                text-[10px] font-medium mt-1 transition-opacity duration-200
                 ${active ? 'text-white opacity-100' : 'text-gray-500 opacity-0 h-0'}
               `}>
                 {label}

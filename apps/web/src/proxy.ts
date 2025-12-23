@@ -280,7 +280,7 @@ function generateCSP(
       'connect-src':
         "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
       'frame-src':
-        "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google about:blank",
+        "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');
@@ -407,6 +407,15 @@ export async function proxy(request: NextRequest) {
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
       const domain = normalizeHostname(hostname);
+
+      // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
+      // This fixes 405 errors when calling APIs from custom domains
+      if (pathname.startsWith('/api')) {
+        const response = NextResponse.next();
+        response.headers.set('x-custom-domain', domain);
+        response.headers.set('x-merchant-domain', domain);
+        return response;
+      }
 
       // Prevent redirect loop: if the path already starts with the domain,
       // it means we've already rewritten. Just let it pass through.

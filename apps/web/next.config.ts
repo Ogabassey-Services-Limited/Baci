@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   // Reduces unnecessary re-renders without manual useMemo/useCallback
   reactCompiler: true,
 
+  // Enable source maps in production for better debugging and Lighthouse scores
+  // Note: Increases build size slightly but helps with error tracking
+  productionBrowserSourceMaps: true,
+
   // Fix Vercel middleware tracing issue with Next.js 16
   // See: https://github.com/vercel/next.js/issues/71818
   outputFileTracingIncludes: {
@@ -109,6 +113,13 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    // Enable Subresource Integrity (SRI) for hash-based CSP
+    // Adds integrity attributes to script tags at build time
+    // Allows strict CSP without nonces while maintaining static generation
+    sri: {
+      algorithm: 'sha256',
+    },
+
     // Inline CSS to eliminate render-blocking CSS requests
     // Replaces <link> tags with <style> tags for faster FCP/LCP
     inlineCss: true,

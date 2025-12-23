@@ -144,5 +144,13 @@
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.47.0",
     "vitest": "^4.0.15"
-  }
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions",
+    "not dead",
+    "not op_mini all"
+  ]
 }

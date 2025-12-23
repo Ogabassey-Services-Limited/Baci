@@ -665,12 +665,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 {productData.brand}
               </h2>
               <div className="flex gap-3">
-                <button className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600">
+                <button
+                  className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600"
+                  aria-label="Share this product"
+                >
                   <Share2 size={20} />
                 </button>
                 <button
                   onClick={handleToggleSaved}
                   className={`transition-colors active:text-red-600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'}`}
+                  aria-label={isLiked ? "Remove from wishlist" : "Add to wishlist"}
                 >
                   <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
                 </button>
@@ -682,7 +686,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             </h1>
 
             <div className="flex items-center gap-4 mb-6">
-              <div className="flex items-center text-yellow-400 gap-0.5">
+              <div
+                className="flex items-center text-yellow-400 gap-0.5"
+                role="img"
+                aria-label={`Rated ${productData.rating} out of 5 stars`}
+              >
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
@@ -695,6 +703,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                     className={
                       i >= Math.floor(productData.rating) ? 'text-gray-300' : ''
                     }
+                    aria-hidden="true"
                   />
                 ))}
               </div>
@@ -966,6 +975,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                         key={idx}
                         onClick={() => setSelectedStorage(idx)}
                         className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'}`}
+                        aria-label={`Select ${size} storage`}
+                        aria-pressed={selectedStorage === idx}
                       >
                         {size}
                       </button>
@@ -1004,6 +1015,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                       onBlur={handleQuantityBlur}
                       onKeyDown={handleKeyDown}
                       className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
+                      aria-label="Quantity"
                     />
                   </div>
                   <button
@@ -1085,28 +1097,44 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
         {/* Tabs Section */}
         <div className="mt-8">
-          <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
+          <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar" role="tablist">
             <button
               onClick={() => setActiveTab('description')}
               className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              role="tab"
+              aria-selected={activeTab === 'description'}
+              aria-controls="tab-description"
+              id="tab-btn-description"
             >
               Description
             </button>
             <button
               onClick={() => setActiveTab('specs')}
               className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              role="tab"
+              aria-selected={activeTab === 'specs'}
+              aria-controls="tab-specs"
+              id="tab-btn-specs"
             >
               Specifications
             </button>
             <button
               onClick={() => setActiveTab('reviews')}
               className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              role="tab"
+              aria-selected={activeTab === 'reviews'}
+              aria-controls="tab-reviews"
+              id="tab-btn-reviews"
             >
               Reviews (124)
             </button>
             <button
               onClick={() => setActiveTab('compare')}
               className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              role="tab"
+              aria-selected={activeTab === 'compare'}
+              aria-controls="tab-compare"
+              id="tab-btn-compare"
             >
               <ArrowRightLeft size={18} /> Compare
             </button>
@@ -1367,6 +1395,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 <button
                   onClick={() => setIsSelectionModalOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full"
+                  aria-label="Close"
                 >
                   <X size={20} className="text-gray-500" />
                 </button>
