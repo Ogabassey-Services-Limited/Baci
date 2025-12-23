@@ -2,7 +2,7 @@
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { geminiFlash, sanitizePromptInput, withRetry } from '@/ai/provider';
+import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 import { logger } from '@/lib/logger';
 
@@ -117,7 +117,7 @@ export async function autofillProductDetails(
   try {
     const { object } = await withRetry(async () => {
       return await generateObject({
-        model: geminiFlash,
+        model: activeTextModel,
         schema: ProductDetailsSchema,
         prompt: `
         You are an AI assistant for an e-commerce platform. Your task is to autofill product details based on a product name and business type.

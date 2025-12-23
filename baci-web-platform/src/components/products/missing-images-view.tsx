@@ -1,7 +1,7 @@
 'use client';
 
 import { Camera, CheckCircle2, ImageOff, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,9 +10,21 @@ import { useProductContext } from '@/contexts/product-context';
 import { AIStudio } from './ai-studio';
 
 export function MissingImagesView() {
-  const { products, updateProduct } = useProductContext();
+  const { products, updateProduct, setLimit, pagination } = useProductContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+
+  // Increase limit to find more missing images when in this view
+  useEffect(() => {
+    // Only increase if limit is low
+    if (pagination.limit < 50) {
+      setLimit(10000);
+    }
+    return () => {
+      // Create a comprehensive clean up that resets the limit
+      setLimit(10);
+    };
+  }, [pagination.limit, setLimit]); // Run only on mount/unmount
 
   // Filter products missing images
   const missingImages = products.filter(

@@ -1,5 +1,9 @@
 import { ImageResponse } from 'next/og';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isDomainIdentifier } from '@/lib/validation';
 
 export const runtime = 'edge';
 
@@ -16,7 +20,10 @@ interface ImageProps {
 
 export default async function Image({ params }: ImageProps) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   if (!merchant) {
     // Return a default fallback image

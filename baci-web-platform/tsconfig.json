@@ -31,5 +31,11 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "supabase", "supabase/**/*", "scripts"]
+  "exclude": [
+    "node_modules",
+    "supabase",
+    "supabase/**/*",
+    "scripts",
+    "src/scripts"
+  ]
 }

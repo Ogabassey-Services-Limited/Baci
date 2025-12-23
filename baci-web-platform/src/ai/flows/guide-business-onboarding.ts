@@ -3,8 +3,8 @@
 import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import {
-  gemini25FlashImage,
-  geminiFlash,
+  activeImageModel,
+  activeTextModel,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
@@ -88,7 +88,7 @@ export async function guideBusinessOnboarding(
     try {
       const { object } = await withRetry(async () => {
         return await generateObject({
-          model: geminiFlash,
+          model: activeTextModel,
           schema: BrandColorsSchema,
           messages: [
             {
@@ -154,7 +154,7 @@ Please generate the logo image now.`;
       // Imagen models are not available in Google AI API - only in Vertex AI
       const result = await withRetry(async () => {
         return await generateText({
-          model: gemini25FlashImage,
+          model: activeImageModel,
           prompt: prompt,
         });
       });
@@ -205,7 +205,7 @@ Please generate the logo image now.`;
     try {
       const { object } = await withRetry(async () => {
         return await generateObject({
-          model: geminiFlash,
+          model: activeTextModel,
           schema: z.object({
             businessNames: z
               .array(z.string())

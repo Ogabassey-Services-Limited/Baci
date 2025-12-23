@@ -4,7 +4,11 @@ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
 import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
 import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isDomainIdentifier } from '@/lib/validation';
 
 // Loading fallback for checkout page
 function CheckoutLoading() {
@@ -24,7 +28,10 @@ export default async function CheckoutPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   if (!merchant) {
     notFound();

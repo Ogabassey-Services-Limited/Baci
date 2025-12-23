@@ -3,6 +3,7 @@
 import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
+import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -90,6 +91,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // Build full URL with basePath for proper routing on custom domains
   const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
 
+  // Image optimization props for Next.js Image component
+  // Using exact dimensions from design but allowing responsive sizing
+  const imageSizes = viewMode === 'grid'
+    ? '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
+    : '(max-width: 768px) 100px, 200px';
+
   if (viewMode === 'grid') {
     return (
       <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
@@ -98,14 +105,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           title={linkTitle}
           aria-label={linkAriaLabel}
           className="absolute inset-0 z-0"
-        />
+        >
+          <span className="sr-only">
+            {product.name} - {product.price}
+          </span>
+        </Link>
 
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
-          <img
+          {/* Using Next.js Image for LCP/FCP optimization */}
+          {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
+          {/* We use fill={true} with sizes prop for best performance */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <Image
             src={product.image || PLACEHOLDER_IMAGE}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 md:group-hover:scale-105"
+            fill
+            sizes={imageSizes}
+            className="object-cover transition-transform duration-500 md:group-hover:scale-105"
           />
 
           {/* Badge */}
@@ -155,7 +172,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
                 }`}
               aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
-              title="Add to Wishlist"
+              title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
             >
               <Heart
                 size={16}
@@ -171,7 +188,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
-              title="Compare"
+              title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
             >
               <ArrowRightLeft size={16} strokeWidth={2} />
             </button>
@@ -244,14 +261,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         title={linkTitle}
         aria-label={linkAriaLabel}
         className="absolute inset-0 z-0"
-      />
+      >
+        <span className="sr-only">
+          {product.name} - {product.price}
+        </span>
+      </Link>
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
-        <img
+        <Image
           src={product.image || PLACEHOLDER_IMAGE}
           alt={product.name}
-          className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
+          fill
+          sizes="(max-width: 768px) 112px, 192px"
+          className="object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
         {((product as any).variant_attributes?.Platform || product.condition) && (
           (() => {
@@ -330,13 +353,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
-              title="Compare"
+              title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
             >
               <ArrowRightLeft size={18} strokeWidth={2} />
             </button>
 
             <button
               onClick={handleCartClick}
+              aria-label={`Add ${product.name} to cart`}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-red-600 relative overflow-visible`}
             >
               {showPlusOne && (
@@ -354,6 +378,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <button
         onClick={toggleLike}
         aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
+        title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
         className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
           ? 'bg-red-50 text-red-600'
           : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'

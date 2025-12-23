@@ -1,7 +1,7 @@
 import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { gemini25FlashImage } from '@/ai/provider';
+import { activeImageModel } from '@/ai/provider';
 import { createClient } from '@/lib/supabase/server';
 
 // Configure process limit to avoid timeouts
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
           // Use generateText with image modality for Gemini models
           const { response } = await generateText({
-            model: gemini25FlashImage,
+            model: activeImageModel,
             prompt: prompt,
             providerOptions: {
               google: {

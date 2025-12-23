@@ -16,12 +16,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
 
@@ -60,14 +60,8 @@ const getMerchantAndPosts = cache(
       template_id: cachedMerchant.template_id,
     };
 
-    // Check if blog is enabled (use service client to bypass RLS)
-    const adminSupabase = createServiceClient();
-    const { data: features } = await adminSupabase
-      .from('merchant_feature_settings')
-      .select('blog_enabled')
-      .eq('merchant_id', merchant.id)
-      .single();
-
+    // Check if blog is enabled using cached settings
+    const features = await getCachedFeatureSettings(merchant.id);
     if (!features?.blog_enabled) return null;
 
     // Build posts query

@@ -810,6 +810,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   )
                 }
                 className="text-xs font-bold text-red-600 hover:underline mt-1 active:scale-95 transition-transform"
+                aria-label="Change delivery location"
               >
                 Change
               </button>
@@ -982,6 +983,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   <button
                     onClick={handleDecrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
+                    aria-label="Decrease quantity"
                   >
                     {quantityInCart === 1 ? (
                       <Trash2 size={20} />
@@ -1007,6 +1009,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   <button
                     onClick={handleIncrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                    aria-label="Increase quantity"
                   >
                     <Plus size={20} />
                   </button>
@@ -1121,7 +1124,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
                 {/* Dynamic Product Highlights for SEO & Readability */}
                 <div className="mt-6 mb-6">
-                  <h4 className="font-bold text-gray-900 mb-3">Key Highlights</h4>
+                  <h2 className="font-bold text-gray-900 mb-3 text-lg">Key Highlights</h2>
                   <ul className="list-disc pl-5 space-y-2 text-gray-600">
                     {/* Priority 1: Use explicit highlights/features if available */}
                     {productData.specs && productData.specs.length > 0 ? (

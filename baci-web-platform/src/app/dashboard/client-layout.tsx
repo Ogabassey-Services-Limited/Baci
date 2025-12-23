@@ -660,9 +660,9 @@ export default function DashboardClientLayout({
             </div>
           </header>
 
-          {/* Desktop Header Actions (Floating) */}
-          <div className="hidden md:flex absolute top-6 right-8 z-20 items-center gap-3">
-            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm">
+          {/* Desktop Header Actions (Refactored to Block for safety) */}
+          <div className="hidden md:flex w-full justify-end items-center gap-3 px-6 pt-6 pb-2 z-20 bg-background/50 backdrop-blur-sm sticky top-0">
+            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm ml-auto">
               <StoreLink
                 isMobile={false}
                 isCollapsed={false}
@@ -747,7 +747,7 @@ export default function DashboardClientLayout({
 
           <main
             id="main-content"
-            className="flex-1 transition-all duration-300 ease-in-out md:pt-20 p-4 md:p-6 lg:p-8 overflow-auto"
+            className="flex-1 transition-all duration-300 ease-in-out p-4 md:p-6 lg:p-8 overflow-auto"
           >
             <NotificationBanner />
             <Suspense

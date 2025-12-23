@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedMerchant,
+  getCachedMerchantByDomain,
   getCachedProduct,
   getCachedProductRatingStats,
 } from '@/lib/cached-data';
@@ -40,8 +41,10 @@ async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<Product | null> {
-  // Get merchant first to get the merchant ID
-  const merchant = await getCachedMerchant(storeSlug);
+  // Get merchant first to get the merchant ID (handle custom domains)
+  const merchant = storeSlug.includes('.')
+    ? await getCachedMerchantByDomain(storeSlug)
+    : await getCachedMerchant(storeSlug);
 
   if (!merchant) {
     console.error('Merchant not found for slug:', storeSlug);
@@ -143,8 +146,10 @@ export async function generateMetadata(
     };
   }
 
-  // Get cached merchant data
-  const merchant = await getCachedMerchant(slug);
+  // Get cached merchant data (handle custom domains)
+  const merchant = slug.includes('.')
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
@@ -201,7 +206,10 @@ export async function generateMetadata(
     title:
       product.meta_title ||
       `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
-    description: product.meta_description || product.description,
+    description:
+      product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
@@ -249,8 +257,10 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  // Get cached merchant data for schema
-  const merchant = await getCachedMerchant(slug);
+  // Get cached merchant data for schema (handle custom domains)
+  const merchant = slug.includes('.')
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   // Fetch cached review stats for AggregateRating schema
   const reviewStats = await getCachedProductRatingStats(product.id);

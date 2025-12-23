@@ -10,6 +10,7 @@ import {
   Star,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
@@ -103,7 +104,11 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
       <Link
         href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
         className="absolute inset-0 z-0"
-      />
+      >
+        <span className="sr-only">
+          {product.name} - {product.price}
+        </span>
+      </Link>
 
       {/* Image Container - Gray Box with Overlapping Button */}
       {/* overflow-visible needed for the button to hang off the edge */}
@@ -135,17 +140,19 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           </div>
         )}
 
-        <img
+        <Image
           src={currentImage}
           alt={product.name}
-          loading="lazy"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
           onLoad={() => setIsImageLoaded(true)}
           onError={(e) => {
-            e.currentTarget.src = PLACEHOLDER_IMAGE;
-            e.currentTarget.onerror = null; // Prevent infinite loop if placeholder fails
+            // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.
+            // For now, simpler error handling or ensuring data is good is preferred.
+            // If strictly needed, we'd switch src state. However, next/image validates src.
             setIsImageLoaded(true);
           }}
-          className={`w-full h-full object-contain p-4 transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+          className={`object-contain p-4 transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         />
 
         {/* Condition Badge - Top Left */}

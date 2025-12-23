@@ -2,7 +2,7 @@
 
 import { generateText } from 'ai';
 import { z } from 'zod';
-import { geminiFlash, sanitizePromptInput, withRetry } from '@/ai/provider';
+import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 
 const GenerateProductDescriptionInputSchema = z.object({
@@ -67,7 +67,7 @@ Write a product description that is engaging, informative, and persuasive. Follo
     // Use retry wrapper for resilience
     const { text } = await withRetry(async () => {
       return await generateText({
-        model: geminiFlash,
+        model: activeTextModel,
         prompt,
       });
     });

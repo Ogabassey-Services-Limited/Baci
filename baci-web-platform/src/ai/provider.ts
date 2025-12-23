@@ -2,7 +2,10 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 // Configure Google AI provider with API key from environment
 const google = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY,
+  apiKey:
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
 /**
@@ -18,7 +21,15 @@ const google = createGoogleGenerativeAI({
  */
 
 // Primary models - Gemini 3 Flash (latest, December 2025)
-export const gemini3Flash = google('gemini-3-flash-preview'); // Latest Gemini 3 Flash with reasoning
+const gemini3Flash = google('gemini-3-flash-preview'); // Latest Gemini 3 Flash with reasoning
+
+// UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES
+// --------------------------------------------------------------------------
+export const activeTextModel = gemini3Flash; // The single standard text model for the platform
+export const activeImageModel = google('gemini-2.5-flash-image'); // Fast, cost-effective image generation
+// --------------------------------------------------------------------------
+
+// Legacy / Specific Aliases (Prefer activeTextModel where possible)
 export const geminiFlash = gemini3Flash; // Alias for backwards compatibility
 export const geminiPro = gemini3Flash; // Alias for pro-level tasks
 
@@ -26,10 +37,7 @@ export const geminiPro = gemini3Flash; // Alias for pro-level tasks
 export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash
 
 // Image generation models (December 2025)
-// - gemini25FlashImage: Fast, lower cost image generation (Nano Banana)
-// - gemini3ProImage: High quality image generation (Nano Banana Pro) - supports 1K/2K/4K, text rendering
-// Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
-export const gemini25FlashImage = google('gemini-2.5-flash-image'); // Fast image gen
+export const gemini25FlashImage = activeImageModel; // Alias for compatibility
 export const gemini3ProImage = google('gemini-3-pro-image-preview'); // High quality image gen (Nano Banana Pro)
 
 // Imagen 3 model for dedicated image generation (legacy)
