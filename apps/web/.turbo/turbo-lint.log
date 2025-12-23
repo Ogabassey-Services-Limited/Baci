@@ -1,29 +1,28 @@
 
-
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-[0msrc/components/storefront/header.tsx[0m[0m:[0m[0m16[0m[0m:[0m[0m8[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-unused-imports\lint/correctness/noUnusedImports]8;;\[0m[0m [0m[0m[30m[47m FIXABLE [0m[0m [0m[0m━━━━━━━━━━━━━━[0m[0m
+src/components/storefront/header.tsx:16:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mThis [0m[0m[1m[33mimport[0m[0m[33m is unused.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m14 │ [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mM[0m[0me[0m[0mr[0m[0mc[0m[0mh[0m[0ma[0m[0mn[0m[0mt[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m@[0m[0m/[0m[0mh[0m[0mo[0m[0mo[0m[0mk[0m[0ms[0m[0m/[0m[0mu[0m[0ms[0m[0me[0m[0m-[0m[0mm[0m[0me[0m[0mr[0m[0mc[0m[0mh[0m[0ma[0m[0mn[0m[0mt[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m15 │ [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0ma[0m[0ms[0m[0mR[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0m,[0m[0m [0m[0mr[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0ms[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m@[0m[0m/[0m[0ml[0m[0mi[0m[0mb[0m[0m/[0m[0mr[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0ms[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m16 │ [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0mi[0m[0ms[0m[0mS[0m[0ma[0m[0mf[0m[0me[0m[0mS[0m[0ml[0m[0mu[0m[0mg[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m@[0m[0m/[0m[0ml[0m[0mi[0m[0mb[0m[0m/[0m[0mv[0m[0ma[0m[0ml[0m[0mi[0m[0md[0m[0ma[0m[0mt[0m[0me[0m[0m-[0m[0ms[0m[0ml[0m[0mu[0m[0mg[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m17 │ [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0mS[0m[0me[0m[0ma[0m[0mr[0m[0mc[0m[0mh[0m[0mA[0m[0mu[0m[0mt[0m[0mo[0m[0mc[0m[0mo[0m[0mm[0m[0mp[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m.[0m[0m/[0m[0ms[0m[0me[0m[0ma[0m[0mr[0m[0mc[0m[0mh[0m[0m-[0m[0ma[0m[0mu[0m[0mt[0m[0mo[0m[0mc[0m[0mo[0m[0mm[0m[0mp[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m18 │ [0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mUnused imports might be the result of an incomplete refactoring.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mUnsafe fix: Remove the unused imports.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 14[0m[0m [0m[0m[1m 14[0m[0m[1m │ [0m[0m [0m[0m [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mM[0m[0me[0m[0mr[0m[0mc[0m[0mh[0m[0ma[0m[0mn[0m[0mt[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m@[0m[0m/[0m[0mh[0m[0mo[0m[0mo[0m[0mk[0m[0ms[0m[0m/[0m[0mu[0m[0ms[0m[0me[0m[0m-[0m[0mm[0m[0me[0m[0mr[0m[0mc[0m[0mh[0m[0ma[0m[0mn[0m[0mt[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 15[0m[0m [0m[0m[1m 15[0m[0m[1m │ [0m[0m [0m[0m [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0ma[0m[0ms[0m[0mR[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0m,[0m[0m [0m[0mr[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0ms[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m@[0m[0m/[0m[0ml[0m[0mi[0m[0mb[0m[0m/[0m[0mr[0m[0mo[0m[0mu[0m[0mt[0m[0me[0m[0ms[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 16[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[31mi[0m[0m[1m[31mm[0m[0m[1m[31mp[0m[0m[1m[31mo[0m[0m[1m[31mr[0m[0m[1m[31mt[0m[0m[1m[2m[31m·[0m[0m[1m[31m{[0m[0m[1m[2m[31m·[0m[0m[1m[31mi[0m[0m[1m[31ms[0m[0m[1m[31mS[0m[0m[1m[31ma[0m[0m[1m[31mf[0m[0m[1m[31me[0m[0m[1m[31mS[0m[0m[1m[31ml[0m[0m[1m[31mu[0m[0m[1m[31mg[0m[0m[1m[2m[31m·[0m[0m[1m[31m}[0m[0m[1m[2m[31m·[0m[0m[1m[31mf[0m[0m[1m[31mr[0m[0m[1m[31mo[0m[0m[1m[31mm[0m[0m[1m[2m[31m·[0m[0m[1m[31m'[0m[0m[1m[31m@[0m[0m[1m[31m/[0m[0m[1m[31ml[0m[0m[1m[31mi[0m[0m[1m[31mb[0m[0m[1m[31m/[0m[0m[1m[31mv[0m[0m[1m[31ma[0m[0m[1m[31ml[0m[0m[1m[31mi[0m[0m[1m[31md[0m[0m[1m[31ma[0m[0m[1m[31mt[0m[0m[1m[31me[0m[0m[1m[31m-[0m[0m[1m[31ms[0m[0m[1m[31ml[0m[0m[1m[31mu[0m[0m[1m[31mg[0m[0m[1m[31m'[0m[0m[1m[31m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 17[0m[0m [0m[0m[1m 16[0m[0m[1m │ [0m[0m [0m[0m [0m[0mi[0m[0mm[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0mS[0m[0me[0m[0ma[0m[0mr[0m[0mc[0m[0mh[0m[0mA[0m[0mu[0m[0mt[0m[0mo[0m[0mc[0m[0mo[0m[0mm[0m[0mp[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0m [0m[0m}[0m[0m [0m[0mf[0m[0mr[0m[0mo[0m[0mm[0m[0m [0m[0m'[0m[0m.[0m[0m/[0m[0ms[0m[0me[0m[0ma[0m[0mr[0m[0mc[0m[0mh[0m[0m-[0m[0ma[0m[0mu[0m[0mt[0m[0mo[0m[0mc[0m[0mo[0m[0mm[0m[0mp[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 18[0m[0m [0m[0m[1m 17[0m[0m[1m │ [0m[0m [0m[0m [0m[0m
-[0m[0m  [0m[0m
-[0m
-[0m[34mChecked [0m[0m[34m722[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m4[0m[0m[2m[34ms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m[0m
-[0m[0m[33mFound [0m[0m[33m1[0m[0m[33m warning.[0m
+  ! This import is unused.
+  
+    14 │ import { useMerchant } from '@/hooks/use-merchant';
+Checked 722 files in 10s. No fixes applied.
+Found 1 warning.
+    15 │ import { asRoute, routes } from '@/lib/routes';
+  > 16 │ import { isSafeSlug } from '@/lib/validate-slug';
+       │        ^^^^^^^^^^^^^^
+    17 │ import { SearchAutocomplete } from './search-autocomplete';
+    18 │ 
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     14  14 │   import { useMerchant } from '@/hooks/use-merchant';
+     15  15 │   import { asRoute, routes } from '@/lib/routes';
+     16     │ - import·{·isSafeSlug·}·from·'@/lib/validate-slug';
+     17  16 │   import { SearchAutocomplete } from './search-autocomplete';
+     18  17 │   
+  
+
