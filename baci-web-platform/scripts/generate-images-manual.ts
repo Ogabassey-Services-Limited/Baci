@@ -39,12 +39,12 @@ async function generateImageForProduct(product: any, retryCount = 0) {
     console.log(`Generating image for: ${product.name} (Attempt ${retryCount + 1})`);
 
     try {
-        const { gemini25FlashImage } = await import('../../src/ai/provider');
+        const { activeImageModel } = await import('../src/ai/provider');
         const prompt = `Professional product photography of ${product.name}, centered on a clean white background, high quality, commercial lighting, 4k.`;
 
         // Generate content using multimodal model
         const { response } = await generateText({
-            model: gemini25FlashImage,
+            model: activeImageModel,
             prompt,
             providerOptions: {
                 google: {

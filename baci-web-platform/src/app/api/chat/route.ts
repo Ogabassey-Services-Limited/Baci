@@ -1,5 +1,5 @@
 import { streamText } from 'ai';
-import { geminiFlash } from '@/ai/provider';
+import { activeTextModel } from '@/ai/provider';
 
 export const runtime = 'nodejs';
 
@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     const result = streamText({
-      model: geminiFlash,
+      model: activeTextModel,
       system:
         "You are Ogabassey's AI Customer Support Agent. You are helpful, polite, and knowledgeable about electronics (Phones, Laptops, Gaming). Keep answers short and sales-oriented. If you don't know an order status, ask them to provide an Order ID.",
       messages,

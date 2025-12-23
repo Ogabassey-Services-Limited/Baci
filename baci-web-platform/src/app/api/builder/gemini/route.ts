@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   AI_RATE_LIMITS,
+  activeTextModel,
   checkRateLimit,
-  geminiPro,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
@@ -179,7 +179,7 @@ export async function POST(req: Request) {
     // Generate the updated config using Vercel AI SDK with retry logic
     const result = await withRetry(async () => {
       return await generateObject({
-        model: geminiPro,
+        model: activeTextModel,
         schema: PuckConfigSchema,
         system: SYSTEM_PROMPT,
         prompt: `Current Configuration:

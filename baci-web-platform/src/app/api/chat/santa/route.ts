@@ -3,7 +3,7 @@ import { streamText } from 'ai';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
-import { AI_RATE_LIMITS, checkRateLimit, gemini25Flash } from '@/ai/provider';
+import { AI_RATE_LIMITS, activeTextModel, checkRateLimit } from '@/ai/provider';
 import { getSantaProductCatalog } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -266,7 +266,7 @@ export async function POST(req: Request) {
 
     // Stream the response using Gemini 2.5 Flash
     const result = streamText({
-      model: gemini25Flash,
+      model: activeTextModel,
       system: systemPrompt,
       messages: sanitizedMessages,
       onFinish: ({ text }) => {

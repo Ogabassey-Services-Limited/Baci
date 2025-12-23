@@ -2,7 +2,7 @@
 
 import { generateText } from 'ai';
 import { cookies } from 'next/headers';
-import { gemini25FlashImage } from '@/ai/provider';
+import { activeImageModel } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
@@ -105,7 +105,7 @@ export async function generateHeroImageBatch(
         try {
           // Use Gemini 2.5 Flash with image generation capabilities
           const { files } = await generateText({
-            model: gemini25FlashImage,
+            model: activeImageModel,
             providerOptions: {
               google: {
                 responseModalities: ['TEXT', 'IMAGE'],
