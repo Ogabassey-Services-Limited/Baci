@@ -47,6 +47,7 @@ export const AI_RATE_LIMITS = {
   autofill: { requests: 30, windowMs: 60 * 1000 },
   insights: { requests: 5, windowMs: 60 * 1000 },
   imageGeneration: { requests: 5, windowMs: 60 * 1000 },
+  santa: { requests: 1000, windowMs: 60 * 1000 },
 };
 
 /**

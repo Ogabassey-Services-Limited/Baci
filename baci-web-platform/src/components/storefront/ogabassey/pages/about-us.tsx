@@ -53,7 +53,7 @@ interface AboutProps {
 
 export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
   const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '/';
+  const basePath = merchantContext?.basePath ?? '';
 
   useEffect(() => {
     window.scrollTo(0, 0);

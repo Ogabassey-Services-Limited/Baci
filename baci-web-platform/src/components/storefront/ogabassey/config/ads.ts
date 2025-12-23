@@ -138,4 +138,18 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     mobileHeight: 250,
     type: 'sidebar',
   },
+
+  // 10. NATIVE PRODUCT CARD (In-Feed Native)
+  // Location: Inside product grids, styled to look like products
+  // Type: Native (fluid size, custom template)
+  NATIVE_PRODUCT_CARD: {
+    id: 'div-gpt-native-product',
+    name: 'native_product_card',
+    description: 'Product-style native ad for seamless grid integration.',
+    width: 300,
+    height: 400,
+    mobileWidth: 150,
+    mobileHeight: 280,
+    type: 'in-feed',
+  },
 };

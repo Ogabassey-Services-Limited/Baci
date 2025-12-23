@@ -59,7 +59,7 @@ jobs:
             --exclude 'puckeditor\.com/demo'
             --exclude 'martinfowler\.com'
             --exclude 'supabase\.co/$'
-            --exclude 'fonts\.googleapis\.com/$|fonts\.gstatic\.com/$'
+            --exclude 'fonts\.googleapis\.com/$|fonts\.gstatic\.com/$|www\.gstatic\.com/$'
             --exclude 'generativelanguage\.googleapis\.com/$'
             --exclude 'google-analytics\.com/mp/collect'
             --exclude 'api\.pwnedpasswords\.com'

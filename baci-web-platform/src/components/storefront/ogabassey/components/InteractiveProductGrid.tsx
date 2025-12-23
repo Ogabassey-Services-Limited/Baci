@@ -55,6 +55,10 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  // Pagination: Load 20 products initially, then more on demand
+  const PRODUCTS_PER_PAGE = 20;
+  const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
+
   // Derive categories: Use explicitly passed categories if available, otherwise derive from products
   const categories = useMemo(() => {
     // If explicit categories array provided:
@@ -148,6 +152,20 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
     setSelectedBrand('All');
     setSelectedCondition('All');
     setMinRating(0);
+    setDisplayCount(PRODUCTS_PER_PAGE); // Reset pagination on filter reset
+  };
+
+  // Reset pagination when any filter changes
+  React.useEffect(() => {
+    setDisplayCount(PRODUCTS_PER_PAGE);
+  }, [selectedCategory, priceRange.min, priceRange.max, selectedBrand, selectedCondition, minRating]);
+
+  // Slice products for pagination
+  const visibleProducts = filteredProducts.slice(0, displayCount);
+  const hasMoreProducts = displayCount < filteredProducts.length;
+
+  const handleLoadMore = () => {
+    setDisplayCount((prev) => prev + PRODUCTS_PER_PAGE);
   };
 
   return (
@@ -215,7 +233,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
                 : 'flex flex-col gap-3 md:gap-4'
             }
           >
-            {filteredProducts.map((product, index) => {
+            {visibleProducts.map((product, index) => {
               const pid =
                 typeof product.id === 'string'
                   ? Number.parseInt(product.id, 10)
@@ -243,6 +261,21 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
                 </React.Fragment>
               );
             })}
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {filteredProducts.length > 0 && hasMoreProducts && (
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <button
+              onClick={handleLoadMore}
+              className="px-8 py-3 bg-gray-900 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-200 active:scale-95"
+            >
+              Load More Products
+            </button>
+            <span className="text-sm text-gray-500">
+              Showing {visibleProducts.length} of {filteredProducts.length} products
+            </span>
           </div>
         )}
 

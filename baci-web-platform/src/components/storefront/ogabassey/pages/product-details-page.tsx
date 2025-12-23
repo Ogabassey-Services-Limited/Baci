@@ -599,7 +599,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         {/* Breadcrumb */}
         <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href={asRoute(basePath || '/')} className="md:hover:text-red-600 transition-colors">
+          <Link href={asRoute(basePath || '')} className="md:hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />

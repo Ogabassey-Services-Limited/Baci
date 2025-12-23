@@ -44,7 +44,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href={asRoute(storeSlug || '/')}
+              href={asRoute(storeSlug || '')}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-10 w-auto" />

@@ -21,7 +21,7 @@ import { asRoute } from '@/lib/routes';
 
 export const OgabasseyV2Sustainability: React.FC = () => {
   const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '/';
+  const basePath = merchantContext?.basePath ?? '';
 
   const initiatives = [
     {

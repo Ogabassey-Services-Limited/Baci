@@ -218,6 +218,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             e.stopPropagation();
             onToggleWishlist(e);
           }}
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
         >
           <Heart
@@ -232,6 +233,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {/* Floating Cart Button - Inside Bottom Right */}
         <button
           onClick={(e) => onAddToCart(e, product)}
+          aria-label={isAdded ? `${product.name} added to cart` : `Add ${product.name} to cart`}
           className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${isAdded
             ? 'bg-red-600 text-white md:hover:bg-red-700'
             : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'

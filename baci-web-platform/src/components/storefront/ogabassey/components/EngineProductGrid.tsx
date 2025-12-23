@@ -122,6 +122,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const [addedItems, setAddedItems] = useState<(number | string)[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 
+  // Pagination: Load 20 products initially, then more on demand
+  const PRODUCTS_PER_PAGE = 20;
+  const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
+
   // Categories from props
   const navCategories = merchantContext?.navigationCategories || [];
   const categoryList = externalCategories || navCategories;
@@ -199,7 +203,21 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     setMinPrice(0);
     setMaxPrice(100000000);
     setMinRating(0);
+    setDisplayCount(PRODUCTS_PER_PAGE);
     window.history.replaceState(null, '', pathname);
+  };
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setDisplayCount(PRODUCTS_PER_PAGE);
+  }, [selectedCategory, selectedBrand, selectedCondition, minPrice, maxPrice, minRating]);
+
+  // Slice filtered products for pagination (unless limit is set by parent)
+  const visibleProducts = limit ? filteredProducts : filteredProducts.slice(0, displayCount);
+  const hasMoreProducts = !limit && displayCount < filteredProducts.length;
+
+  const handleLoadMore = () => {
+    setDisplayCount((prev) => prev + PRODUCTS_PER_PAGE);
   };
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
@@ -286,7 +304,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
               ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6'
               : 'flex flex-col gap-3 md:gap-4'}
           >
-            {filteredProducts.map((product, index) => {
+            {visibleProducts.map((product, index) => {
               const isAdded = addedItems.includes(product.id);
               const isWishlisted = isSaved(String(product.id));
 
@@ -338,6 +356,22 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                 </React.Fragment>
               );
             })}
+          </div>
+        )}
+
+        {/* Load More Button */}
+        {filteredProducts.length > 0 && hasMoreProducts && (
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <button
+              onClick={handleLoadMore}
+              type="button"
+              className="px-8 py-3 bg-gray-900 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-200 active:scale-95"
+            >
+              Load More Products
+            </button>
+            <span className="text-sm text-gray-500">
+              Showing {visibleProducts.length} of {filteredProducts.length} products
+            </span>
           </div>
         )}
 

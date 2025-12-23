@@ -90,7 +90,7 @@ const orders: Order[] = [
 
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '/';
+  const basePath = merchantContext?.basePath ?? '';
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter Logic

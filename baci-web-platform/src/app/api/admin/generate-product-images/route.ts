@@ -96,20 +96,23 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Check response parts for image data
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies by provider
-          const parts = (response.body as any)?.candidates?.[0]?.content?.parts || [];
+          const parts =
+            // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies by provider
+            (response.body as any)?.candidates?.[0]?.content?.parts || [];
           // biome-ignore lint/suspicious/noExplicitAny: provider type casting
           const imagePart = parts.find((p: any) => p.inlineData);
 
           let base64Data = null;
           let contentType = 'image/png';
 
-          if (imagePart && imagePart.inlineData) {
+          if (imagePart?.inlineData) {
             base64Data = imagePart.inlineData.data;
             contentType = imagePart.inlineData.mimeType || 'image/png';
           } else {
-            console.warn('No image data found in response parts', JSON.stringify(response.body));
+            console.warn(
+              'No image data found in response parts',
+              JSON.stringify(response.body)
+            );
           }
 
           if (!base64Data) {
@@ -126,7 +129,7 @@ export async function POST(req: NextRequest) {
           // 4. Upload to Supabase Storage
           const { data: _uploadData, error: uploadError } =
             await supabase.storage.from('images').upload(filename, buffer, {
-              contentType: 'image/png',
+              contentType,
               upsert: false,
             });
 

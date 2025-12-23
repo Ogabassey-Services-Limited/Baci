@@ -54,7 +54,7 @@ const initialSavedItems: SavedProduct[] = [
 
 export const OgabasseyV2SavedItems: React.FC = () => {
   const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '/';
+  const basePath = merchantContext?.basePath ?? '';
   const [savedItems, setSavedItems] =
     useState<SavedProduct[]>(initialSavedItems);
 
