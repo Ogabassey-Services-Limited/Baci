@@ -28,43 +28,59 @@ Baci is an AI-native platform that allows merchants to create complete e-commerc
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 20+
-- npm
+- Node.js 22+
+- pnpm 10+ (`npm install -g pnpm`)
 - Supabase CLI (for local backend)
 
 ### Installation
 
 ```bash
-# Install dependencies
-npm install
+# Install dependencies (uses pnpm workspaces)
+pnpm install
 
 # Setup environment variables
-cp .env.example .env.local
+cp apps/web/.env.example apps/web/.env.local
 # (Fill in your Supabase and Google AI keys)
 ```
 
 ### Development
 
 ```bash
-# Run the development server
-npm run dev
+# Run the development server via Turborepo
+pnpm turbo dev
 
-# Run the AI Worker (if needed for background tasks)
-# See docs/ai/AI_WORKER_ENV.md
+# Or run just the web app
+pnpm turbo dev --filter=@baci/web
 ```
 
-### Generating Documentation
-
-We use **TypeDoc** to generate "dynamic" API documentation from the source code.
+### Common Commands
 
 ```bash
-# Generate/Update API docs in docs/api/
-npm run docs
+pnpm turbo build      # Build all apps
+pnpm turbo lint       # Lint all apps
+pnpm turbo typecheck  # Type check
+pnpm turbo test       # Run tests
+pnpm format           # Format code with Biome
+```
+
+## 📁 Monorepo Structure
+
+```
+Baci-app/
+├── apps/
+│   └── web/              # Main Next.js web platform (@baci/web)
+├── packages/             # Shared packages (future)
+├── docs/                 # Documentation
+├── pnpm-workspace.yaml   # pnpm workspace config
+├── turbo.json            # Turborepo pipeline config
+└── package.json          # Root package.json
 ```
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 15 (App Router), Tailwind CSS, shadcn/ui
+- **Frontend**: Next.js 16 (App Router), Tailwind CSS, shadcn/ui
 - **Backend**: Supabase (Auth, Postgres, Storage)
-- **AI**: Google Genkit + Gemini 2.0 Flash/Vision
-- **Language**: TypeScript
+- **AI**: Google Gemini 2.0/2.5 Flash + Imagen 3
+- **Language**: TypeScript (strict mode)
+- **Package Manager**: pnpm (workspaces)
+- **Build System**: Turborepo

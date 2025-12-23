@@ -81,7 +81,7 @@ Baci is a Next.js application that allows merchants to create an e-commerce stor
 AI features are orchestrated using Google Genkit. All flows are defined in `/src/ai/flows/`.
 
 *   **AI README:** `/src/ai/flows/_AI_README.md`
-*   **Genkit Dev UI:** Run `npm run genkit:dev` and go to `http://localhost:4000` to test flows.
+*   **Genkit Dev UI:** Run `pnpm turbo dev` in apps/web to test flows.
 
 ### Core AI Flows
 
