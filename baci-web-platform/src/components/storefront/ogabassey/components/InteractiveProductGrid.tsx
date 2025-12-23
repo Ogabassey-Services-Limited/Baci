@@ -256,7 +256,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
                     <div className="col-span-2 md:col-span-3 lg:col-span-4 w-full my-6">
                       <div className="w-full">
                         <NativeProductRow
-                          storeSlug={merchantContext?.slug}
+                          storeSlug={merchantContext?.merchant?.slug}
                           slotPrefix={`grid-native-${index}`}
                         />
                       </div>

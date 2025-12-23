@@ -89,6 +89,7 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
             if (definedNativeSlots.has(slotId)) return;
 
             // Define slot for Native format
+            // @ts-ignore - 'fluid' size type definition mismatch in strict mode
             const slot = window.googletag.defineSlot('/23331099951/native_product_card', ['fluid'], slotId);
 
             if (slot) {
@@ -184,7 +185,9 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
                 className="absolute inset-0 z-20"
                 onClick={handleSponsoredClick}
                 aria-label={`Sponsored: ${adProduct.name}`}
-            />
+            >
+                <span className="sr-only">Sponsored: {adProduct.name}</span>
+            </a>
             <div className="pointer-events-none">
                 <ProductGridItem
                     product={adProduct}
@@ -228,7 +231,9 @@ export const NativeProductAdStatic: React.FC<{
                 rel="noopener noreferrer sponsored"
                 className="absolute inset-0 z-20"
                 aria-label={`Sponsored: ${adProduct.name}`}
-            />
+            >
+                <span className="sr-only">Sponsored: {adProduct.name}</span>
+            </a>
 
             {/* Render using actual ProductGridItem */}
             <div className="pointer-events-none">
