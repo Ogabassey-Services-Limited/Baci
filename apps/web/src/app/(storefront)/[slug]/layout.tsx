@@ -114,21 +114,21 @@ export async function generateMetadata({
   const icons =
     faviconSvg || faviconPng32 || faviconAppleTouch
       ? {
-        icon: [
-          ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
-          ...(faviconPng32
-            ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }]
-            : []),
-        ].filter(Boolean),
-        apple: faviconAppleTouch
-          ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }]
-          : undefined,
-      }
+          icon: [
+            ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
+            ...(faviconPng32
+              ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }]
+              : []),
+          ].filter(Boolean),
+          apple: faviconAppleTouch
+            ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }]
+            : undefined,
+        }
       : merchant.logo_url
         ? {
-          icon: [{ url: merchant.logo_url }],
-          apple: [{ url: merchant.logo_url }],
-        }
+            icon: [{ url: merchant.logo_url }],
+            apple: [{ url: merchant.logo_url }],
+          }
         : undefined;
 
   return {
@@ -137,8 +137,8 @@ export async function generateMetadata({
     icons,
     verification: verificationCode
       ? {
-        google: verificationCode,
-      }
+          google: verificationCode,
+        }
       : undefined,
     openGraph: {
       title: merchant.business_name,
