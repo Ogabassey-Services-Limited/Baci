@@ -151,6 +151,54 @@ interface Merchant {
   slug: string;
 }
 
+/**
+ * Convert AVIF/WebP image URLs to JPG for GMC compatibility
+ * Google Merchant Center only supports: JPEG, PNG, GIF, BMP, TIFF
+ */
+function convertToGmcCompatibleImage(url: string): string {
+  if (!url) return '';
+
+  // Replace AVIF/WebP extensions with JPG
+  // Also try without the extension in case the CDN serves based on Accept header
+  if (url.endsWith('.avif')) {
+    return url.replace(/\.avif$/i, '.jpg');
+  }
+  if (url.endsWith('.webp')) {
+    return url.replace(/\.webp$/i, '.jpg');
+  }
+
+  return url;
+}
+
+/**
+ * Validate if a URL is valid for GMC
+ */
+function isValidGmcUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if product is valid for GMC feed
+ */
+function isValidForGmc(product: Product): boolean {
+  // Must have price > 0
+  if (!product.price || product.price <= 0) return false;
+
+  // Must have a name
+  if (!product.name || product.name.trim() === '') return false;
+
+  // Must have valid stock (treat null/undefined as 0)
+  // We still include out-of-stock items, GMC handles them
+
+  return true;
+}
+
 function generateGoogleMerchantFeed(
   products: Product[],
   merchant: Merchant,
@@ -159,37 +207,58 @@ function generateGoogleMerchantFeed(
   const currency = merchant.payout_currency || 'USD';
   const brandName = merchant.business_name;
 
-  const items = products
+  // Filter out invalid products
+  const validProducts = products.filter(isValidForGmc);
+
+  const items = validProducts
     .map((product) => {
       const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
 
+      // Validate product URL
+      if (!isValidGmcUrl(productUrl)) return null;
+
       const firstImage = product.images?.[0];
-      const imageUrl =
+      let imageUrl =
         typeof firstImage === 'string'
           ? firstImage
           : firstImage?.url || product.imageLarge || product.image || '';
 
-      // Additional images (max 10 additional images as per Google requirements)
+      // Convert AVIF/WebP to JPG for GMC compatibility
+      imageUrl = convertToGmcCompatibleImage(imageUrl);
+
+      // Skip products without valid images
+      if (!isValidGmcUrl(imageUrl)) {
+        imageUrl = ''; // GMC will flag this, but won't break the feed
+      }
+
+      // Additional images (max 10, converted to JPG)
       const additionalImages =
         product.images
           ?.slice(1, 11)
           .map((img) => {
             const url = typeof img === 'string' ? img : img.url;
-            return `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`;
+            const convertedUrl = convertToGmcCompatibleImage(url);
+            if (!isValidGmcUrl(convertedUrl)) return null;
+            return `        <g:additional_image_link>${escapeXml(convertedUrl)}</g:additional_image_link>`;
           })
+          .filter(Boolean)
           .join('\n') || '';
 
-      // Availability
-      const availability = product.stock > 0 ? 'in_stock' : 'out_of_stock';
+      // Availability - ensure stock is treated as number
+      const stockCount = typeof product.stock === 'number' ? product.stock : 0;
+      const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
 
       // Condition
       const condition = product.condition || 'new';
 
+      // Price formatting - ensure 2 decimal places
+      const formattedPrice = product.price.toFixed(2);
+
       // Sale price (if compare_at_price exists and is higher than current price)
       const salePrice =
         product.compare_at_price && product.compare_at_price > product.price
-          ? `        <g:sale_price>${product.price} ${currency}</g:sale_price>\n        <g:price>${product.compare_at_price} ${currency}</g:price>`
-          : `        <g:price>${product.price} ${currency}</g:price>`;
+          ? `        <g:sale_price>${formattedPrice} ${currency}</g:sale_price>\n        <g:price>${product.compare_at_price.toFixed(2)} ${currency}</g:price>`
+          : `        <g:price>${formattedPrice} ${currency}</g:price>`;
 
       // Shipping weight
       const shippingWeight =
@@ -205,6 +274,7 @@ function generateGoogleMerchantFeed(
         <g:image_link>${escapeXml(imageUrl)}</g:image_link>
 ${additionalImages}
         <g:availability>${availability}</g:availability>
+        <g:quantity>${stockCount}</g:quantity>
 ${salePrice}
         <g:brand>${escapeXml(product.brand || brandName)}</g:brand>
         <g:condition>${condition}</g:condition>
@@ -216,6 +286,7 @@ ${product.category ? `        <g:product_type>${escapeXml(product.category)}</g:
 ${shippingWeight}
     </item>`;
     })
+    .filter(Boolean)
     .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
