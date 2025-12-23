@@ -154,3 +154,4 @@ samsung_jumia_images/
 
 # Scripts directory (one-off scripts)
 /scripts/
+.env*.local
