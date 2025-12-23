@@ -117,6 +117,8 @@ jobs:
             --exclude 'https://www.googletagservices.com/.*'
             --exclude 'googlesyndication\.com'
             --exclude 'doubleclick\.net'
+            --exclude 'ep2\.adtrafficquality\.google'
+            --exclude 'cdn\.ampproject\.org'
           # Fail action if broken links are found
           fail: true
         env:
