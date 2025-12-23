@@ -16,9 +16,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
-  getCachedFeatureSettings,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';

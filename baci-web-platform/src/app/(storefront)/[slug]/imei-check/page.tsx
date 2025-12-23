@@ -1,15 +1,15 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Metadata } from 'next';
+import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
-import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import {
-  isValidMerchantIdentifier,
   isDomainIdentifier,
+  isValidMerchantIdentifier,
 } from '@/lib/validation';
 
 export const metadata: Metadata = {

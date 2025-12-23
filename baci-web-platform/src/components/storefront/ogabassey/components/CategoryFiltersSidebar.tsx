@@ -51,6 +51,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${title}...`}
+              aria-label={`Search ${title}`}
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-100"
             />
             <Search
@@ -162,6 +163,9 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
           <div className="relative flex-1">
             <input
               type="number"
+              id="sidebar-min-price"
+              name="sidebar-min-price"
+              aria-label="Minimum Price"
               value={filters.minPrice || ''}
               onChange={(e) =>
                 onFilterChange(
@@ -177,6 +181,9 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
           <div className="relative flex-1">
             <input
               type="number"
+              id="sidebar-max-price"
+              name="sidebar-max-price"
+              aria-label="Maximum Price"
               value={filters.maxPrice || ''}
               onChange={(e) =>
                 onFilterChange(

@@ -77,12 +77,12 @@ export function OgabasseyLayout({
 
 
 
-                <main className="flex-1">{children}</main>
+                <main id="main-content" className="flex-1">{children}</main>
 
                 {!shouldHideNavigation && (
                   <>
                     {/* Ad Placement: Footer Banner */}
-                    <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4">
+                    <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4 min-h-[120px]">
                       <AdUnit placementKey="FOOTER_BANNER" />
                     </div>
 

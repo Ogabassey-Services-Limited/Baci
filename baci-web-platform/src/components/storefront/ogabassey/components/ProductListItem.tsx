@@ -10,6 +10,7 @@ import {
   Star,
 } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
@@ -96,7 +97,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       <Link
         href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
         className="absolute inset-0 z-0"
-      />
+      >
+        <span className="sr-only">
+          {product.name} - {product.price}
+        </span>
+      </Link>
 
 
       {/* Image (Left Side) */}
@@ -106,12 +111,14 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           <>
             <button
               onClick={handlePrevColor}
+              aria-label="Previous color"
               className="absolute left-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
             >
               <ChevronLeft size={14} />
             </button>
             <button
               onClick={handleNextColor}
+              aria-label="Next color"
               className="absolute right-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
             >
               <ChevronRight size={14} />
@@ -126,13 +133,16 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           </div>
         )}
 
-        <img
-          src={currentImage}
-          alt={product.name}
-          loading="lazy"
-          onLoad={() => setIsImageLoaded(true)}
-          className={`w-3/4 h-3/4 object-contain md:group-hover:scale-110 transition-all duration-500 mix-blend-multiply z-10 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-        />
+        <div className="relative w-3/4 h-3/4 z-10 transition-all duration-500 md:group-hover:scale-110">
+          <Image
+            src={currentImage}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 100px, 200px"
+            onLoad={() => setIsImageLoaded(true)}
+            className={`object-contain mix-blend-multiply ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+          />
+        </div>
 
         {/* Condition Badge - Top Left */}
         {product.condition && (
@@ -158,16 +168,18 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                 ? (color.startsWith('#') ? color : '#cccccc')
                 : color.value;
               const isSelected = idx === activeColorIndex;
+              const colorName = typeof color === 'string' ? color : color.name;
               return (
                 <button
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
+                  aria-label={`Select ${colorName} color`}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${isSelected
                     ? 'w-3.5 h-3.5 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
                     : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
                     }`}
                   style={{ backgroundColor: hexColor }}
-                  title={typeof color === 'string' ? color : color.name}
+                  title={colorName}
                 />
               );
             })}
@@ -181,6 +193,8 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             e.stopPropagation();
             onToggleWishlist(e);
           }}
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
           className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
         >
           <Heart

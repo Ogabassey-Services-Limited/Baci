@@ -1,7 +1,11 @@
 import { notFound } from 'next/navigation';
 import { CustomerAuthProvider } from '@/contexts/customer-auth-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isDomainIdentifier } from '@/lib/validation';
 
 export default async function AccountLayout({
   children,
@@ -11,7 +15,13 @@ export default async function AccountLayout({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  let merchant;
+  if (slug.includes('.')) {
+    merchant = await getCachedMerchantByDomain(slug);
+  } else {
+    merchant = await getCachedMerchant(slug);
+  }
 
   if (!merchant) {
     notFound();

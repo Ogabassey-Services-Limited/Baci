@@ -4,7 +4,11 @@ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
 import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { isDomainIdentifier } from '@/lib/validation';
 
 export default async function CartPage({
   params,
@@ -12,7 +16,13 @@ export default async function CartPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  let merchant;
+  if (isDomainIdentifier(slug)) {
+    merchant = await getCachedMerchantByDomain(slug);
+  } else {
+    merchant = await getCachedMerchant(slug);
+  }
 
   if (!merchant) {
     notFound();

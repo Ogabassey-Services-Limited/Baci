@@ -96,7 +96,9 @@
     "web-vitals": "^5.1.0",
     "whois-json": "^2.0.4",
     "zeptomail": "^7.0.0",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "nanoid": "^5.0.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",

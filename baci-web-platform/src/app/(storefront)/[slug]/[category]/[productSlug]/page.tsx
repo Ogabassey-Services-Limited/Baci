@@ -810,7 +810,10 @@ export async function generateMetadata({
     title:
       product.meta_title ||
       `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
-    description: product.meta_description || product.description,
+    description:
+      product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,

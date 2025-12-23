@@ -1,16 +1,16 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Metadata } from 'next';
+import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
-import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
 import {
-  isValidMerchantIdentifier,
   isDomainIdentifier,
+  isValidMerchantIdentifier,
 } from '@/lib/validation';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 
 export const metadata: Metadata = {
   title: 'Book a Repair',
