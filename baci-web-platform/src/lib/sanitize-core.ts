@@ -8,7 +8,10 @@ import { z } from 'zod';
  * Strips HTML tags from a string by iteratively applying the regex until no more matches.
  * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
  */
-export function stripHtmlTags(text: string): string {
+export function stripHtmlTags(text: string | null | undefined): string {
+  // Handle null/undefined input
+  if (text == null) return '';
+
   // Limit input length to prevent ReDoS attacks
   const maxLength = 100000;
   const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
