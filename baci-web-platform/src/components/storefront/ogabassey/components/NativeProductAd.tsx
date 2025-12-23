@@ -1,18 +1,20 @@
 'use client';
 
-import { Star } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { ProductGridItem } from './ProductGridItem';
+import type { Product } from '../types';
 
 /**
- * Native ad data structure from Google Ad Manager
+ * Native ad data structure returned by GAM
+ * These fields match the custom native format in GAM
  */
 export interface NativeAdData {
     headline: string;
     image: string;
     body?: string;
     price?: string;
-    cta: string;
+    cta?: string;
     clickUrl: string;
     advertiserName?: string;
     advertiserLogo?: string;
@@ -22,60 +24,103 @@ export interface NativeAdData {
 interface NativeProductAdProps {
     /** Unique slot ID for this ad position */
     slotId: string;
+    /** Store slug for routing */
+    storeSlug?: string;
     /** Optional class name for styling */
     className?: string;
 }
 
-// Placeholder image for ads without images
-const PLACEHOLDER_IMAGE =
-    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="32" fill="%239ca3af"%3ESponsored%3C/text%3E%3C/svg%3E';
-
 // Network code from existing AdUnit
 const NETWORK_CODE = '/23331099951';
 
+// Track defined slots globally to prevent duplicates
+const definedNativeSlots = new Set<string>();
+
 /**
- * NativeProductAd - Renders a native ad that looks like a product card
+ * Converts native ad data to a Product object for ProductGridItem
+ */
+function nativeAdToProduct(ad: NativeAdData, index: number): Product {
+    // Parse price string (remove currency symbol and commas)
+    const priceMatch = ad.price?.match(/[\d,]+/);
+    const rawPrice = priceMatch
+        ? Number.parseInt(priceMatch[0].replace(/,/g, ''), 10)
+        : 0;
+
+    return {
+        id: `native-ad-${index}-${Date.now()}`,
+        slug: undefined, // No slug - link goes to advertiser
+        name: ad.headline,
+        price: ad.price || 'Sponsored',
+        rawPrice,
+        image: ad.image,
+        description: ad.body || '',
+        rating: ad.starRating || 4.5,
+        condition: 'New' as const,
+        brand: ad.advertiserName,
+        // Mark as sponsored for click handling
+        _isSponsored: true,
+        _clickUrl: ad.clickUrl,
+    } as Product & { _isSponsored: boolean; _clickUrl: string };
+}
+
+/**
+ * NativeProductAd - Fetches native ad from GAM and renders using ProductGridItem
  * 
- * This component matches the styling of ProductGridItem but displays
- * advertiser content with a "Sponsored" badge for compliance.
+ * This gives pixel-perfect matching with real products while showing
+ * a "Sponsored" badge overlay for compliance.
  */
 export const NativeProductAd: React.FC<NativeProductAdProps> = ({
     slotId,
+    storeSlug,
     className = '',
 }) => {
-    const adRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const slotRef = useRef<googletag.Slot | null>(null);
     const [adData, setAdData] = useState<NativeAdData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
+        // Skip if already defined
+        if (definedNativeSlots.has(slotId)) {
+            return;
+        }
+
         // Ensure googletag is available
         window.googletag = window.googletag || { cmd: [] };
 
         window.googletag.cmd.push(() => {
+            // Double-check inside queue
+            if (definedNativeSlots.has(slotId)) {
+                return;
+            }
+
             const slotPath = `${NETWORK_CODE}/native_product_card`;
 
-            // Define native ad slot - use a standard size, GAM handles responsiveness
+            // Define the slot with standard size (GAM returns native data)
             const slot = window.googletag.defineSlot(slotPath, [300, 400], slotId);
 
             if (slot) {
+                definedNativeSlots.add(slotId);
+                slotRef.current = slot;
                 slot.addService(window.googletag.pubads());
 
-                // Listen for native ad data
+                // Listen for slot render to extract native data
                 // biome-ignore lint/suspicious/noExplicitAny: External GPT library event type
                 window.googletag.pubads().addEventListener('slotRenderEnded', (event: any) => {
                     if (event.slot === slot) {
                         if (event.isEmpty) {
                             setHasError(true);
                             setIsLoading(false);
+                        } else {
+                            // For native ads, GAM provides the creative data
+                            // We extract it from the rendered slot
+                            extractNativeData(slotId);
                         }
                     }
                 });
 
-                // For native ads, we need to use the native template
-                // The ad data will be rendered by GAM into our container
                 window.googletag.display(slotId);
-                setIsLoading(false);
             } else {
                 setHasError(true);
                 setIsLoading(false);
@@ -83,149 +128,194 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         });
 
         return () => {
-            // Cleanup handled by GAM
+            // Cleanup if component unmounts
+            if (slotRef.current) {
+                window.googletag?.cmd.push(() => {
+                    if (slotRef.current) {
+                        window.googletag.destroySlots([slotRef.current]);
+                        definedNativeSlots.delete(slotId);
+                    }
+                });
+            }
         };
     }, [slotId]);
 
-    // If no ad or error, render a minimal placeholder that doesn't disrupt layout
+    /**
+     * Extract native ad data from the rendered GAM slot
+     * GAM renders native creatives with data attributes we can read
+     */
+    const extractNativeData = (elementId: string) => {
+        const container = document.getElementById(elementId);
+        if (!container) {
+            setHasError(true);
+            setIsLoading(false);
+            return;
+        }
+
+        // GAM native ads expose data via the rendered iframe/content
+        // Try to find native ad elements (this varies by GAM setup)
+        const iframe = container.querySelector('iframe');
+
+        if (iframe) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                    // Look for common native ad data attributes
+                    const headline = iframeDoc.querySelector('[data-native-headline]')?.textContent ||
+                        iframeDoc.querySelector('.native-headline')?.textContent ||
+                        iframeDoc.querySelector('h1, h2, h3')?.textContent;
+
+                    const image = iframeDoc.querySelector('[data-native-image]')?.getAttribute('src') ||
+                        iframeDoc.querySelector('.native-image img')?.getAttribute('src') ||
+                        iframeDoc.querySelector('img')?.getAttribute('src');
+
+                    const body = iframeDoc.querySelector('[data-native-body]')?.textContent ||
+                        iframeDoc.querySelector('.native-body')?.textContent ||
+                        iframeDoc.querySelector('p')?.textContent;
+
+                    const clickUrl = iframeDoc.querySelector('a')?.getAttribute('href') || '#';
+
+                    if (headline && image) {
+                        setAdData({
+                            headline,
+                            image,
+                            body: body || undefined,
+                            clickUrl,
+                        });
+                        setIsLoading(false);
+                        return;
+                    }
+                }
+            } catch {
+                // Cross-origin iframe - cannot access content
+            }
+        }
+
+        // Fallback: mark as error if we can't extract data
+        setHasError(true);
+        setIsLoading(false);
+    };
+
+    // Don't render if error
     if (hasError) {
         return null;
     }
 
     // Loading skeleton matching ProductGridItem
-    if (isLoading) {
+    if (isLoading || !adData) {
         return (
-            <div className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm flex flex-col h-full ${className}`}>
-                <div className="relative aspect-square mb-3 md:mb-4 bg-gray-100 rounded-2xl animate-pulse" />
-                <div className="flex flex-col flex-1 px-1 pt-1">
-                    <div className="h-3 bg-gray-100 rounded w-20 mb-2 animate-pulse" />
-                    <div className="h-5 bg-gray-100 rounded w-full mb-1 animate-pulse" />
-                    <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
+            <div className={`relative ${className}`}>
+                <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm flex flex-col h-full">
+                    <div className="relative aspect-square mb-3 md:mb-4 bg-gray-100 rounded-2xl animate-pulse" />
+                    <div className="flex flex-col flex-1 px-1 pt-1">
+                        <div className="h-3 bg-gray-100 rounded w-20 mb-2 animate-pulse" />
+                        <div className="h-5 bg-gray-100 rounded w-full mb-1 animate-pulse" />
+                        <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
+                    </div>
                 </div>
+                {/* Hidden container for GAM to render into */}
+                <div id={slotId} ref={containerRef} className="hidden" />
             </div>
         );
     }
 
-    // The actual native ad container - GAM will inject content here
-    // We wrap it in a styled container that matches ProductGridItem
+    // Convert ad to product format
+    const adProduct = nativeAdToProduct(adData, 0);
+
+    // Handle sponsored click - go to advertiser URL
+    const handleSponsoredClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(adData.clickUrl, '_blank', 'noopener,noreferrer');
+    };
+
     return (
-        <div
-            className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative ${className}`}
-        >
-            {/* Sponsored Badge - Required by Google Policy */}
-            <div className="absolute top-3 left-3 z-20 bg-gray-900/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide backdrop-blur-sm">
+        <div className={`relative group ${className}`}>
+            {/* Sponsored Badge Overlay - Required by Google Policy */}
+            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-lg">
                 Sponsored
             </div>
 
-            {/* Native ad container - GAM renders content here */}
-            <div
-                id={slotId}
-                ref={adRef}
-                className="native-product-ad w-full h-full"
-                style={{ minHeight: '280px' }}
+            {/* Advertiser click overlay */}
+            <a
+                href={adData.clickUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="absolute inset-0 z-20"
+                onClick={handleSponsoredClick}
+                aria-label={`Sponsored: ${adProduct.name}`}
             />
+
+            {/* Render using actual ProductGridItem (pointer-events-none to let overlay handle clicks) */}
+            <div className="pointer-events-none">
+                <ProductGridItem
+                    product={adProduct}
+                    onAddToCart={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // For sponsored products, clicking cart also goes to advertiser
+                        window.open(adData.clickUrl, '_blank', 'noopener,noreferrer');
+                    }}
+                    isAdded={false}
+                    cartQuantity={0}
+                    viewMode="grid"
+                    isWishlisted={false}
+                    onToggleWishlist={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }}
+                    storeSlug={storeSlug}
+                />
+            </div>
+
+            {/* Hidden container for GAM to render into */}
+            <div id={slotId} ref={containerRef} className="hidden" />
         </div>
     );
 };
 
 /**
- * NativeProductAdFallback - Static version for testing/fallback
- * Uses provided data instead of fetching from GAM
+ * NativeProductAdStatic - For testing/preview without GAM
+ * Renders a mock sponsored product using ProductGridItem
  */
-export const NativeProductAdFallback: React.FC<{
+export const NativeProductAdStatic: React.FC<{
     ad: NativeAdData;
+    storeSlug?: string;
     className?: string;
-}> = ({ ad, className = '' }) => {
-    const [isImageLoaded, setIsImageLoaded] = useState(false);
+}> = ({ ad, storeSlug, className = '' }) => {
+    const adProduct = nativeAdToProduct(ad, 0);
 
     return (
-        <a
-            href={ad.clickUrl}
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative block ${className}`}
-        >
-            {/* Sponsored Badge - Required by Google Policy */}
-            <div className="absolute top-5 left-5 z-20 bg-gray-900/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide backdrop-blur-sm">
+        <div className={`relative group ${className}`}>
+            {/* Sponsored Badge Overlay */}
+            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-lg">
                 Sponsored
             </div>
 
-            {/* Image Container */}
-            <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden">
-                {/* Skeleton Loader */}
-                {!isImageLoaded && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-2/3 h-2/3 bg-gray-200 rounded-lg animate-pulse" />
-                    </div>
-                )}
+            {/* Advertiser click overlay */}
+            <a
+                href={ad.clickUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="absolute inset-0 z-20"
+                aria-label={`Sponsored: ${adProduct.name}`}
+            />
 
-                <img
-                    src={ad.image || PLACEHOLDER_IMAGE}
-                    alt={ad.headline}
-                    loading="lazy"
-                    onLoad={() => setIsImageLoaded(true)}
-                    onError={(e) => {
-                        e.currentTarget.src = PLACEHOLDER_IMAGE;
-                        setIsImageLoaded(true);
-                    }}
-                    className={`w-full h-full object-contain p-4 transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-                        }`}
+            {/* Render using actual ProductGridItem */}
+            <div className="pointer-events-none">
+                <ProductGridItem
+                    product={adProduct}
+                    onAddToCart={(e) => e.preventDefault()}
+                    isAdded={false}
+                    cartQuantity={0}
+                    viewMode="grid"
+                    isWishlisted={false}
+                    onToggleWishlist={(e) => e.preventDefault()}
+                    storeSlug={storeSlug}
                 />
-
-                {/* Advertiser Logo - Bottom Right */}
-                {ad.advertiserLogo && (
-                    <img
-                        src={ad.advertiserLogo}
-                        alt={ad.advertiserName || 'Advertiser'}
-                        className="absolute bottom-2 right-2 w-8 h-8 rounded-full border-2 border-white shadow-sm object-cover"
-                    />
-                )}
             </div>
-
-            {/* Content */}
-            <div className="flex flex-col flex-1 px-1 pt-1">
-                {/* Star Rating (if available) */}
-                {ad.starRating && ad.starRating > 0 && (
-                    <div className="flex items-center mb-1.5">
-                        <div className="flex items-center gap-0.5">
-                            {[...Array(5)].map((_, i) => (
-                                <Star
-                                    key={i}
-                                    size={12}
-                                    className={`${i < Math.floor(ad.starRating || 0)
-                                        ? 'fill-amber-400 text-amber-400'
-                                        : 'text-gray-300'
-                                        }`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Headline (Product Name) */}
-                <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-red-600 transition-colors">
-                    {ad.headline}
-                </h3>
-
-                {/* Body (Description) */}
-                {ad.body && (
-                    <p className="text-gray-400 text-[11px] mb-2 line-clamp-1 hidden md:block">
-                        {ad.body}
-                    </p>
-                )}
-
-                {/* Price & CTA */}
-                <div className="mt-auto flex items-end justify-between border-t border-dashed border-gray-100 pt-3">
-                    {ad.price && (
-                        <span className="text-red-600 font-extrabold text-lg tracking-tight">
-                            {ad.price}
-                        </span>
-                    )}
-                    <span className="text-xs font-semibold text-gray-900 md:hover:text-red-600 cursor-pointer">
-                        {ad.cta || 'Learn More'} →
-                    </span>
-                </div>
-            </div>
-        </a>
+        </div>
     );
 };
+
+export default NativeProductAd;
