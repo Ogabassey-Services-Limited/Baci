@@ -49,16 +49,7 @@ export function OgabasseyLayout({
 
   const shouldHideNavigation = initialHideNavigation || isCheckout || isAuthPage;
 
-  if (typeof window !== 'undefined') {
-    console.log('[Layout Debug]', {
-      pathname,
-      isCheckout,
-      isAuthPage,
-      initialHideNavigation,
-      shouldHideNavigation,
-      theme: initialTheme
-    });
-  }
+  // No debug logging in production
 
   return (
     <V2ThemeProvider initialTheme={initialTheme}>

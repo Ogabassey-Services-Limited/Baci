@@ -12,6 +12,7 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
+import { NativeProductRow } from './NativeProductRow';
 import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductCard } from './ProductCard';
 
@@ -250,12 +251,15 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
                     viewMode={viewMode}
                   />
 
-                  {/* AUTOMATED AD INSERTION */}
-                  {(index + 1 === 4 || index + 1 === 8) && (
-                    <div
-                      className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'} flex items-center justify-center my-2 md:my-4`}
-                    >
-                      <AdUnit placementKey="PRODUCT_GRID_MPU" />
+                  {/* AUTOMATED AD INSERTION: Native Product Row after 2 rows (8 items) */}
+                  {(index + 1 === 8) && (
+                    <div className="col-span-2 md:col-span-3 lg:col-span-4 w-full my-6">
+                      <div className="w-full">
+                        <NativeProductRow
+                          storeSlug={merchantContext?.slug}
+                          slotPrefix={`grid-native-${index}`}
+                        />
+                      </div>
                     </div>
                   )}
                 </React.Fragment>

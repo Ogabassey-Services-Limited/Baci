@@ -1,8 +1,21 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { OgabasseyV2Wallet } from '@/components/storefront/ogabassey/pages/wallet';
+import { Metadata } from 'next';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
+import { OgabasseyV2Wallet } from '@/components/storefront/ogabassey/pages/wallet';
+import {
+  isValidMerchantIdentifier,
+  isDomainIdentifier,
+} from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'Wallet Balance',
+  description: 'Check your wallet balance',
+};
 
 export default async function WalletPage({
   params,
@@ -10,9 +23,24 @@ export default async function WalletPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  // Validate identifier
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  // Get merchant data handling both slugs and domains
+  const lookupKey = slug.toLowerCase();
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
 
   if (!merchant) {
+    notFound();
+  }
+
+  // Only show for Ogabassey template
+  if (merchant.template_id !== 'ogabassey') {
     notFound();
   }
 
@@ -24,7 +52,6 @@ export default async function WalletPage({
       ? themeCookie
       : undefined;
 
-  // Only for Ogabassey template
   if (
     (merchant as unknown as { template_id?: string }).template_id ===
     'ogabassey'

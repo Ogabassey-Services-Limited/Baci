@@ -1,8 +1,21 @@
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  isValidMerchantIdentifier,
+  isDomainIdentifier,
+} from '@/lib/validation';
+
+export const metadata: Metadata = {
+  title: 'IMEI Check',
+  description: 'Check your device IMEI status',
+};
 
 export default async function ImeiCheckPage({
   params,
@@ -10,7 +23,17 @@ export default async function ImeiCheckPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const merchant = await getCachedMerchant(slug);
+
+  // Validate identifier
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  // Get merchant data handling both slugs and domains
+  const lookupKey = slug.toLowerCase();
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
 
   if (!merchant) {
     notFound();
@@ -24,7 +47,6 @@ export default async function ImeiCheckPage({
       ? themeCookie
       : undefined;
 
-  // Only for Ogabassey template
   if (
     (merchant as unknown as { template_id?: string }).template_id ===
     'ogabassey'

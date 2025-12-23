@@ -81,45 +81,52 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
-        // Skip if already defined
-        if (definedNativeSlots.has(slotId)) {
-            return;
-        }
+        if (definedNativeSlots.has(slotId)) return;
 
-        // Ensure googletag is available
         window.googletag = window.googletag || { cmd: [] };
 
         window.googletag.cmd.push(() => {
-            // Double-check inside queue
-            if (definedNativeSlots.has(slotId)) {
-                return;
-            }
+            if (definedNativeSlots.has(slotId)) return;
 
-            const slotPath = `${NETWORK_CODE}/native_product_card`;
-
-            // Define the slot with standard size (GAM returns native data)
-            const slot = window.googletag.defineSlot(slotPath, [300, 400], slotId);
+            // Define slot for Native format
+            const slot = window.googletag.defineSlot('/23331099951/native_product_card', ['fluid'], slotId);
 
             if (slot) {
                 definedNativeSlots.add(slotId);
                 slotRef.current = slot;
                 slot.addService(window.googletag.pubads());
 
-                // Listen for slot render to extract native data
-                // biome-ignore lint/suspicious/noExplicitAny: External GPT library event type
-                window.googletag.pubads().addEventListener('slotRenderEnded', (event: any) => {
+                // CRITICAL: Listen for native ad load event to get the DATA, not the HTML
+                // biome-ignore lint/suspicious/noExplicitAny: GPT event type
+                window.googletag.pubads().addEventListener('slotNativeAdLoad', (event: any) => {
                     if (event.slot === slot) {
-                        if (event.isEmpty) {
-                            setHasError(true);
-                            setIsLoading(false);
-                        } else {
-                            // For native ads, GAM provides the creative data
-                            // We extract it from the rendered slot
-                            extractNativeData(slotId);
-                        }
+                        const nativeAd = event.nativeAd;
+                        // Map GPT Native Ad fields to our structure
+                        // Note: Keys depend on your specific GAM Native Ad configuration (vars)
+                        setAdData({
+                            headline: nativeAd.get('headline') || nativeAd.get('name') || 'Sponsored Product',
+                            image: nativeAd.get('image')?.url || nativeAd.get('main_image')?.url || '',
+                            body: nativeAd.get('body') || nativeAd.get('description'),
+                            price: nativeAd.get('price'),
+                            cta: nativeAd.get('cta') || 'View',
+                            clickUrl: nativeAd.get('clickUrl') || '#',
+                            advertiserName: nativeAd.get('advertiser'),
+                            starRating: Number(nativeAd.get('rating')) || 5,
+                        });
+                        setIsLoading(false);
                     }
                 });
 
+                // Handle render failure
+                // biome-ignore lint/suspicious/noExplicitAny: GPT event type
+                window.googletag.pubads().addEventListener('slotRenderEnded', (event: any) => {
+                    if (event.slot === slot && event.isEmpty) {
+                        setHasError(true);
+                        setIsLoading(false);
+                    }
+                });
+
+                window.googletag.enableServices();
                 window.googletag.display(slotId);
             } else {
                 setHasError(true);
@@ -128,80 +135,17 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
         });
 
         return () => {
-            // Cleanup if component unmounts
             if (slotRef.current) {
                 window.googletag?.cmd.push(() => {
-                    if (slotRef.current) {
-                        window.googletag.destroySlots([slotRef.current]);
-                        definedNativeSlots.delete(slotId);
-                    }
+                    window.googletag.destroySlots([slotRef.current!]);
+                    definedNativeSlots.delete(slotId);
                 });
             }
         };
     }, [slotId]);
 
-    /**
-     * Extract native ad data from the rendered GAM slot
-     * GAM renders native creatives with data attributes we can read
-     */
-    const extractNativeData = (elementId: string) => {
-        const container = document.getElementById(elementId);
-        if (!container) {
-            setHasError(true);
-            setIsLoading(false);
-            return;
-        }
+    if (hasError) return null;
 
-        // GAM native ads expose data via the rendered iframe/content
-        // Try to find native ad elements (this varies by GAM setup)
-        const iframe = container.querySelector('iframe');
-
-        if (iframe) {
-            try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-                if (iframeDoc) {
-                    // Look for common native ad data attributes
-                    const headline = iframeDoc.querySelector('[data-native-headline]')?.textContent ||
-                        iframeDoc.querySelector('.native-headline')?.textContent ||
-                        iframeDoc.querySelector('h1, h2, h3')?.textContent;
-
-                    const image = iframeDoc.querySelector('[data-native-image]')?.getAttribute('src') ||
-                        iframeDoc.querySelector('.native-image img')?.getAttribute('src') ||
-                        iframeDoc.querySelector('img')?.getAttribute('src');
-
-                    const body = iframeDoc.querySelector('[data-native-body]')?.textContent ||
-                        iframeDoc.querySelector('.native-body')?.textContent ||
-                        iframeDoc.querySelector('p')?.textContent;
-
-                    const clickUrl = iframeDoc.querySelector('a')?.getAttribute('href') || '#';
-
-                    if (headline && image) {
-                        setAdData({
-                            headline,
-                            image,
-                            body: body || undefined,
-                            clickUrl,
-                        });
-                        setIsLoading(false);
-                        return;
-                    }
-                }
-            } catch {
-                // Cross-origin iframe - cannot access content
-            }
-        }
-
-        // Fallback: mark as error if we can't extract data
-        setHasError(true);
-        setIsLoading(false);
-    };
-
-    // Don't render if error
-    if (hasError) {
-        return null;
-    }
-
-    // Loading skeleton matching ProductGridItem
     if (isLoading || !adData) {
         return (
             <div className={`relative ${className}`}>
@@ -213,30 +157,26 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
                         <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
                     </div>
                 </div>
-                {/* Hidden container for GAM to render into */}
+                {/* GPT Slot Container - must be present but hidden for data-only mode */}
                 <div id={slotId} ref={containerRef} className="hidden" />
             </div>
         );
     }
 
-    // Convert ad to product format
     const adProduct = nativeAdToProduct(adData, 0);
 
-    // Handle sponsored click - go to advertiser URL
     const handleSponsoredClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        // Use GPT's built-in click tracker if available, or just open URL
         window.open(adData.clickUrl, '_blank', 'noopener,noreferrer');
     };
 
     return (
         <div className={`relative group ${className}`}>
-            {/* Sponsored Badge Overlay - Required by Google Policy */}
             <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-lg">
                 Sponsored
             </div>
-
-            {/* Advertiser click overlay */}
             <a
                 href={adData.clickUrl}
                 target="_blank"
@@ -245,31 +185,20 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
                 onClick={handleSponsoredClick}
                 aria-label={`Sponsored: ${adProduct.name}`}
             />
-
-            {/* Render using actual ProductGridItem (pointer-events-none to let overlay handle clicks) */}
             <div className="pointer-events-none">
                 <ProductGridItem
                     product={adProduct}
-                    onAddToCart={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // For sponsored products, clicking cart also goes to advertiser
-                        window.open(adData.clickUrl, '_blank', 'noopener,noreferrer');
-                    }}
+                    onAddToCart={(e) => { e.preventDefault(); }}
                     isAdded={false}
                     cartQuantity={0}
                     viewMode="grid"
                     isWishlisted={false}
-                    onToggleWishlist={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }}
+                    onToggleWishlist={(e) => { e.preventDefault(); }}
                     storeSlug={storeSlug}
                 />
             </div>
-
-            {/* Hidden container for GAM to render into */}
-            <div id={slotId} ref={containerRef} className="hidden" />
+            {/* The slot div is still required for GPT to initialize, even if we render custom UI */}
+            <div id={slotId} className="hidden" />
         </div>
     );
 };
