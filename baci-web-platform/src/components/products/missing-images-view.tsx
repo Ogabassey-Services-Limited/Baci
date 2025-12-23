@@ -24,7 +24,7 @@ export function MissingImagesView() {
       // Create a comprehensive clean up that resets the limit
       setLimit(10);
     };
-  }, []); // Run only on mount/unmount
+  }, [pagination.limit, setLimit]); // Run only on mount/unmount
 
   // Filter products missing images
   const missingImages = products.filter(
