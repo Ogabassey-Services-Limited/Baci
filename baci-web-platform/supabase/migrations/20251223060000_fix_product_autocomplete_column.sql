@@ -1,7 +1,7 @@
--- Migration: Fix product_autocomplete column reference
+-- Migration: Fix product_autocomplete column reference (JSONB version)
 -- Created: 2025-12-23
 -- Description: The product_autocomplete function references p.image column which doesn't exist.
---              Changed to only use p.images[1] (the first element of the images array).
+--              Changed to use p.images->>0 (first element of the JSONB array).
 
 CREATE OR REPLACE FUNCTION product_autocomplete(
     merchant_id_param UUID, 
@@ -19,9 +19,9 @@ BEGIN
         p.name,
         p.category,
         p.price,
-        -- Use first element of images array (text[]), handle empty arrays gracefully
+        -- Use first element of images JSONB array
         COALESCE(
-            NULLIF(p.images[1], ''),
+            NULLIF(p.images->>0, ''),
             ''
         ) as image_small
     FROM public.products p
