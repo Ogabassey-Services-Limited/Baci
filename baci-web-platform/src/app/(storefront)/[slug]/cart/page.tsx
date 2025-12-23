@@ -17,12 +17,9 @@ export default async function CartPage({
 }) {
   const { slug } = await params;
 
-  let merchant;
-  if (isDomainIdentifier(slug)) {
-    merchant = await getCachedMerchantByDomain(slug);
-  } else {
-    merchant = await getCachedMerchant(slug);
-  }
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   if (!merchant) {
     notFound();
