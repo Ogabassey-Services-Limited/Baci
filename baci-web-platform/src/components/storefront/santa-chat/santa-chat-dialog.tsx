@@ -257,8 +257,8 @@ export function SantaChatDialog({
   }
 
   const containerClasses = isFullPage
-    ? 'flex flex-col h-screen bg-gray-50'
-    : 'flex flex-col h-full bg-gray-50 rounded-2xl overflow-hidden';
+    ? 'flex flex-col h-[100dvh] bg-gray-50'
+    : 'flex flex-col h-full bg-gray-50 md:rounded-2xl overflow-hidden';
 
   return (
     <div className={containerClasses}>
