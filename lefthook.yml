@@ -2,15 +2,15 @@ pre-commit:
   parallel: true
   commands:
     lint:
-      glob: "*.{js,ts,jsx,tsx}"
-      run: npx biome check --changed {staged_files}
+      glob: "*.{js,ts,jsx,tsx,json}"
+      run: pnpm turbo lint
     knip:
-      run: npx knip --no-exit-code # Warn only for now to avoid blocking commits on unused exports
+      run: pnpm knip
 
 pre-push:
   parallel: true
   commands:
     typecheck:
-      run: npm run typecheck
+      run: pnpm turbo typecheck
     test:
-      run: npm run test
+      run: pnpm turbo test
