@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { generateText } from 'ai';
-// import { imagen3 } from '../../src/ai/provider'; // Removed to use dynamic import
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
-// Load environment variables
+// Load environment variables for standalone execution
 dotenv.config({ path: '.env.local' });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -60,83 +59,83 @@ async function generateImageForProduct(product: any, retryCount = 0) {
         // biome-ignore lint/suspicious/noExplicitAny: provider type casting
         const imagePart = parts.find((p: any) => p.inlineData);
 
-        let base64Data = null;
-        let contentType = 'image/png';
+        if (imagePart && imagePart.inlineData) {
+            const imageBase64 = imagePart.inlineData.data;
+            const mimeType = imagePart.inlineData.mimeType || 'image/png';
+            const ext = mimeType.split('/')[1] || 'png';
 
-        if (imagePart?.inlineData) {
-            base64Data = imagePart.inlineData.data;
-            contentType = imagePart.inlineData.mimeType || 'image/png';
+            const buffer = Buffer.from(imageBase64, 'base64');
+            const filename = `generated/${product.slug}-${Date.now()}.${ext}`;
+
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from(GENERATED_IMAGES_BUCKET)
+                .upload(filename, buffer, {
+                    contentType: mimeType,
+                    upsert: false,
+                });
+
+            if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+            // Get Public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from(GENERATED_IMAGES_BUCKET)
+                .getPublicUrl(filename);
+
+            console.log(`Uploaded to: ${publicUrl}`);
+
+            // Update Product
+            const images = Array.isArray(product.images) ? product.images : [];
+            const newImages = [...images, publicUrl];
+
+            const { error: updateError } = await supabase
+                .from('products')
+                .update({ images: newImages })
+                .eq('id', product.id);
+
+            if (updateError) throw new Error(`Update failed: ${updateError.message}`);
+
+            console.log(`Successfully updated product: ${product.name}`);
+            return true;
+        } else {
+            // biome-ignore lint/suspicious/noExplicitAny: basic casting
+            const finishReason = (response.body as any)?.candidates?.[0]?.finishReason;
+            if (finishReason === 'NO_IMAGE') {
+                console.log("Model returned NO_IMAGE. It might interpret the prompt as text-only or refuse generation.");
+            } else {
+                console.log("No image data found in response.", JSON.stringify((response.body as any), null, 2));
+            }
+            return false;
         }
-
-        if (!base64Data) {
-            console.warn('No image data found, retrying...');
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
-            return generateImageForProduct(product, retryCount + 1);
-        }
-
-        const buffer = Buffer.from(base64Data, 'base64');
-        const filename = `generated/${product.slug}-${Date.now()}.png`;
-
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(GENERATED_IMAGES_BUCKET)
-            .upload(filename, buffer, {
-                contentType,
-                upsert: false,
-            });
-
-        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-        // Get Public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from(GENERATED_IMAGES_BUCKET)
-            .getPublicUrl(filename);
-
-        console.log(`Uploaded to: ${publicUrl}`);
-
-        // Update Product
-        const images = Array.isArray(product.images) ? product.images : [];
-        const newImages = [...images, publicUrl];
-
-        const { error: updateError } = await supabase
-            .from('products')
-            .update({ images: newImages })
-            .eq('id', product.id);
-
-        if (updateError) throw new Error(`Update failed: ${updateError.message}`);
-
-        console.log(`Successfully updated product: ${product.name}`);
-        return true;
 
     } catch (error: any) {
-        console.error(`Failed to generate/upload for ${product.name}:`, error);
-
-        if (error?.message?.includes('429') || error?.toString().includes('429')) {
-            console.log('Quota exceeded, waiting 10s before retry...');
-            await new Promise(resolve => setTimeout(resolve, 10000));
+        // Check for 429
+        if (error.statusCode === 429 || error.message?.includes('429') || error.message?.includes('Quota')) {
+            console.warn(`Quota exceeded. Waiting 35 seconds before retry...`);
+            await new Promise(r => setTimeout(r, 35000));
             return generateImageForProduct(product, retryCount + 1);
         }
+
+        console.error(`Failed to generate/upload for ${product.name}:`, error);
         return false;
     }
 }
 
 async function main() {
-    console.log("Starting image generation for repaired variants...");
+    console.log("Starting image generation test (Gemini 2.5 Flash Image)...");
 
-    // 1. Fetch target products (Children of the fixed families)
+    // 1. Fetch products
     const { data: products, error } = await supabase
         .from('products')
         .select('id, name, slug, images, parent_product_id')
         .in('parent_product_id', PARENT_IDS_TO_PROCESS)
-        .limit(100);
+        .limit(10); // Limit to 10 for batch testing
 
     if (error) {
         console.error("Error fetching products:", error);
         return;
     }
 
-    // Filter for empty images manually (handle null, empty array, or "[]" string)
     const targets = (products || []).filter((p: any) => {
         if (!p.images) return true;
         if (Array.isArray(p.images) && p.images.length === 0) return true;
@@ -144,12 +143,12 @@ async function main() {
         return false;
     });
 
-    console.log(`Found ${targets.length} products needing images.`);
+    console.log(`Found ${targets.length} candidates. Processing...`);
 
     for (const product of targets) {
         await generateImageForProduct(product);
-        // Add delay to respect rate limits
-        await new Promise(r => setTimeout(r, 5000));
+        // Wait 10s between successful calls to be nice to the quota
+        await new Promise(r => setTimeout(r, 10000));
     }
 
     console.log("Done.");
