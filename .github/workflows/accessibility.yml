@@ -23,14 +23,7 @@ jobs:
       - name: Run Accessibility Scanner
         uses: github/accessibility-scanner@v2.7.0
         with:
-          path: 'apps/web'
-          fail-on-violations: false
-          output-format: 'sarif'
-          output-file: 'accessibility-results.sarif'
+          # Uses repository default behavior - scans any deployed preview URLs
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: accessibility-results.sarif
-          category: accessibility
