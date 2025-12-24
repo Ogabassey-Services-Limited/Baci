@@ -54,7 +54,20 @@ export async function POST(
       customerPhoto, // Optional
     } = body;
 
-    // TODO: Verify order ownership
+    // Verify order ownership
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('id', id)
+      .eq('merchant_id', merchant.id)
+      .single();
+
+    if (orderError || !order) {
+      return NextResponse.json(
+        { error: 'Order not found or access denied' },
+        { status: 404 }
+      );
+    }
 
     // 1. Trigger Insurance Purchase (if strictly required)
     // We do this BEFORE confirming to ensure we don't confirm if purchase fails?
