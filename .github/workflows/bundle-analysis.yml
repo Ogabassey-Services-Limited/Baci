@@ -10,9 +10,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "package.json"
-      - "package-lock.json"
-      - "next.config.ts"
+      - "apps/web/package.json"
+      - "pnpm-lock.yaml"
+      - "apps/web/next.config.ts"
 
 jobs:
   analyze:
@@ -22,17 +22,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+          cache: "pnpm"
 
       - name: Install Dependencies
-        run: npm ci
+        run: pnpm install
 
       - name: Build & Analyze
-        run: npm run analyze
+        run: pnpm --filter @baci/web run analyze
         env:
           # Required for build to succeed
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -42,5 +45,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bundle-analysis-report
-          path: .next/analyze/
+          path: apps/web/.next/analyze/
           retention-days: 30
