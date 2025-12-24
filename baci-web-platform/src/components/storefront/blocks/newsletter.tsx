@@ -1,9 +1,11 @@
 'use client';
 
-import { Mail } from 'lucide-react';
+import { Loader2, Mail } from 'lucide-react';
 import { useState } from 'react';
 // import { cn } from '@/lib/utils';
 import { ThemedButton } from '@/components/themed';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 
 export interface NewsletterProps {
   title?: string;
@@ -12,6 +14,7 @@ export interface NewsletterProps {
   placeholder?: string;
   backgroundColor?: string;
   textColor?: string;
+  merchantId?: string;
 }
 
 export function Newsletter({
@@ -21,13 +24,60 @@ export function Newsletter({
   placeholder = 'Enter your email address',
   backgroundColor = '#f9fafb',
   textColor = '#111827',
+  merchantId: propMerchantId,
 }: NewsletterProps) {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const merchantContext = useMerchantSafe();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Determine merchant ID from props or context
+  const merchantId = propMerchantId || merchantContext?.merchant?.id;
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Handle newsletter subscription logic here
-    setEmail('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          merchantId,
+          source: 'widget',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to subscribe');
+      }
+
+      toast({
+        title: 'Success!',
+        description:
+          data.message || 'You have been subscribed to the newsletter.',
+        variant: 'default',
+      });
+
+      setEmail('');
+    } catch (error) {
+      console.error('Newsletter subscription error:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,10 +107,18 @@ export function Newsletter({
             onChange={(e) => setEmail(e.target.value)}
             placeholder={placeholder}
             required
-            className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            disabled={loading}
+            className="flex-1 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <ThemedButton type="submit" size="lg">
-            {buttonText}
+          <ThemedButton type="submit" size="lg" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Subscribing...
+              </>
+            ) : (
+              buttonText
+            )}
           </ThemedButton>
         </form>
       </div>
