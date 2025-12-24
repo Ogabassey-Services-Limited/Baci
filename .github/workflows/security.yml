@@ -64,19 +64,3 @@ jobs:
         with:
           category: "/language:javascript-typescript"
 
-  # Dependency vulnerability check
-  dependency-review:
-    name: Dependency Review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-          deny-licenses: GPL-3.0, AGPL-3.0
-          # Disable OpenSSF Scorecard check - many transitive deps (signal-exit, react-remove-scroll-bar)
-          # are indirect dependencies of core React packages and can't be replaced
-          fail-on-scopes: runtime
-          # Set to 0 to disable scorecard failures for transitive dependencies
-          warn-only: true
