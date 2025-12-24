@@ -3,7 +3,7 @@
  * Manage product details and inventory
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,31 +12,57 @@ import {
   TextInput,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../../lib/supabase';
 
-// Mock product data
-const MOCK_PRODUCT = {
-  id: '1',
-  name: 'iPhone 15 Pro Max',
-  sku: 'IPH15PM-256',
-  price: 1850000,
-  cost: 1600000,
-  stock: 5,
-  lowStockThreshold: 3,
-  description: 'Latest iPhone with A17 Pro chip and titanium design',
-  category: 'Smartphones',
+type Product = {
+  id: string;
+  name: string;
+  sku: string | null;
+  price: number;
+  cost_price: number | null;
+  stock: number;
+  low_stock_threshold: number | null;
+  description: string | null;
+  category: string | null;
+  images: any; // JSONB
+};
+
+type FormData = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  cost: number;
+  stock: number;
+  lowStockThreshold: number;
+  description: string;
+  category: string;
 };
 
 export default function ProductEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const queryClient = useQueryClient();
 
-  const [formData, setFormData] = useState(MOCK_PRODUCT);
+  const [formData, setFormData] = useState<FormData>({
+    id: '',
+    name: '',
+    sku: '',
+    price: 0,
+    cost: 0,
+    stock: 0,
+    lowStockThreshold: 0,
+    description: '',
+    category: '',
+  });
 
   const colors = {
     background: isDark ? '#0F172A' : '#F8FAFC',
@@ -47,10 +73,69 @@ export default function ProductEditScreen() {
     inputBg: isDark ? '#1E293B' : '#F1F5F9',
   };
 
+  const { data: product, isLoading, error } = useQuery({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      return data as Product;
+    },
+    enabled: !!id,
+  });
+
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        id: product.id,
+        name: product.name || '',
+        sku: product.sku || '',
+        price: product.price || 0,
+        cost: product.cost_price || 0,
+        stock: product.stock || 0,
+        lowStockThreshold: product.low_stock_threshold || 0,
+        description: product.description || '',
+        category: product.category || '',
+      });
+    }
+  }, [product]);
+
+  const updateProductMutation = useMutation({
+    mutationFn: async (updatedData: FormData) => {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: updatedData.name,
+          sku: updatedData.sku,
+          price: updatedData.price,
+          cost_price: updatedData.cost,
+          stock: updatedData.stock,
+          low_stock_threshold: updatedData.lowStockThreshold,
+          description: updatedData.description,
+          category: updatedData.category, // Writing to text column as per UI
+        })
+        .eq('id', updatedData.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product', id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] }); // Assuming list key
+      Alert.alert('Success', 'Product updated successfully');
+      router.back();
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', error.message);
+    },
+  });
+
   const handleSave = () => {
-    // TODO: Implement mutation to update product
-    Alert.alert('Success', 'Product updated successfully');
-    router.back();
+    if (!formData.id) return;
+    updateProductMutation.mutate(formData);
   };
 
   const adjustStock = (delta: number) => {
@@ -59,6 +144,25 @@ export default function ProductEditScreen() {
       stock: Math.max(0, prev.stock + delta),
     }));
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.text} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.text }}>Error loading product</Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: colors.textSecondary }}>Go Back</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -151,7 +255,7 @@ export default function ProductEditScreen() {
             <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Profit Margin</Text>
             <Text style={[styles.profitValue, { color: '#10B981' }]}>
               ₦{(formData.price - formData.cost).toLocaleString()} (
-              {(((formData.price - formData.cost) / formData.price) * 100).toFixed(1)}%)
+              {formData.price > 0 ? (((formData.price - formData.cost) / formData.price) * 100).toFixed(1) : '0.0'}%)
             </Text>
           </View>
         </View>
@@ -193,8 +297,19 @@ export default function ProductEditScreen() {
         </View>
 
         {/* Save Button */}
-        <Pressable style={[styles.saveButton, { backgroundColor: '#3B82F6' }]} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
+        <Pressable
+          style={[
+            styles.saveButton,
+            { backgroundColor: '#3B82F6', opacity: updateProductMutation.isPending ? 0.7 : 1 },
+          ]}
+          onPress={handleSave}
+          disabled={updateProductMutation.isPending}
+        >
+          {updateProductMutation.isPending ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
         </Pressable>
       </ScrollView>
     </SafeAreaView>
