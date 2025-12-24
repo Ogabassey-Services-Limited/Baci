@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/web && npm run build",
+  "buildCommand": "pnpm turbo build --filter=@baci/web",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
-  "framework": null,
+  "framework": "nextjs",
   "ignoreCommand": "npx turbo-ignore",
   "crons": [
     {
