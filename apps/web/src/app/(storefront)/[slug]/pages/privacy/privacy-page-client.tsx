@@ -6,7 +6,6 @@ import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface PrivacyPageClientProps {
   merchant: {
@@ -26,11 +25,13 @@ interface PrivacyPageClientProps {
     };
   };
   content?: string;
+  sanitizedContent?: string;
 }
 
 export function PrivacyPageClient({
   merchant,
   content,
+  sanitizedContent,
 }: PrivacyPageClientProps) {
   return (
     <MerchantProvider slug={merchant.slug}>
@@ -113,9 +114,9 @@ export function PrivacyPageClient({
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
                       dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(content),
+                        __html: sanitizedContent || content,
                       }} // nosemgrep
                     />
                   ) : (

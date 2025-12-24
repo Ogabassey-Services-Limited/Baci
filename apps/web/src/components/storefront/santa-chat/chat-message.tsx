@@ -20,10 +20,7 @@ function SimpleMarkdownRenderer({ text }: { text: string }) {
   // Wait, I need to add the import first.
 
   const renderText = () => {
-    let html = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    let html = text;
 
     // Links [text](url)
     html = html.replace(

@@ -2,7 +2,7 @@
 // This module includes DOMPurify for HTML sanitization (requires jsdom on server)
 // For server components that don't need HTML sanitization, import from './sanitize-core' instead
 
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeLib from 'sanitize-html';
 
 // Re-export all core sanitization functions for backwards compatibility
 export {
@@ -30,18 +30,18 @@ export {
 } from './sanitize-core';
 
 /**
- * Sanitize HTML content to prevent XSS attacks using DOMPurify.
+ * Sanitize HTML content to prevent XSS attacks using sanitize-html.
  *
  * **Security Note**: This function is safe to use with `dangerouslySetInnerHTML`
  * as it whitelists only safe HTML tags and attributes. All user-generated content
  * and AI-generated content MUST pass through this function before rendering.
  *
  * **Why this is secure**:
- * - Uses industry-standard DOMPurify library
+ * - Uses industry-standard sanitize-html library (server-side friendly)
  * - Whitelist-based approach (only allowed tags/attributes pass through)
  * - Prevents `<script>`, `<iframe>`, `<object>`, `onclick`, etc.
  * - Validates URLs to prevent `javascript:` and `data:` URIs
- * - Prevents DOM clobbering attacks
+ * - No dependency on jsdom (prevents ESM crashes in Vercel/Next.js)
  *
  * **Allowed content**:
  * - Text formatting (bold, italic, underline, etc.)
@@ -67,12 +67,12 @@ export {
  * @param dirty - Untrusted HTML string from user input or AI generation
  * @returns Sanitized HTML safe for rendering in React components
  *
- * @see https://github.com/cure53/DOMPurify for DOMPurify documentation
+ * @see https://github.com/apostrophecms/sanitize-html for documentation
  */
 export function sanitizeHtml(dirty: string): string {
-  return DOMPurify.sanitize(dirty, {
+  return sanitizeLib(dirty, {
     // Whitelist of allowed HTML tags
-    ALLOWED_TAGS: [
+    allowedTags: [
       // Text formatting
       'b',
       'i',
@@ -117,32 +117,39 @@ export function sanitizeHtml(dirty: string): string {
       'td',
     ],
     // Whitelist of allowed attributes
-    ALLOWED_ATTR: [
-      'href',
-      'target',
-      'rel', // Links
-      'src',
-      'alt',
-      'title',
-      'width',
-      'height', // Images
-      'class', // Styling (Tailwind classes)
-      'id', // Anchor links and references
-      'colspan',
-      'rowspan', // Table spanning
-    ],
+    allowedAttributes: {
+      '*': [
+        'class', // Styling (Tailwind classes)
+        'id', // Anchor links and references
+        'title',
+        'width',
+        'height',
+        'colspan',
+        'rowspan',
+      ],
+      a: ['href', 'target', 'rel'],
+      img: ['src', 'alt', 'width', 'height'],
+    },
     // Security configurations
     // Ensure all external links have rel="noopener noreferrer"
-    ADD_ATTR: ['rel'],
+    transformTags: {
+      a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    },
     // Only allow safe URL protocols (no javascript:, data:, etc.)
-    ALLOWED_URI_REGEXP:
-      /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
-    // Prevent DOM clobbering attacks
-    SANITIZE_DOM: true,
+    allowedSchemes: [
+      'http',
+      'https',
+      'mailto',
+      'tel',
+      'callto',
+      'sms',
+      'cid',
+      'xmpp',
+    ],
+    allowedSchemesByTag: {
+      img: ['http', 'https', 'data'], // Allow base64 images if needed
+    },
+    // Prevent DOM clobbering attacks (sanitize-html handles this by default)
     // Return clean HTML string (not DOM nodes)
-    RETURN_DOM: false,
-    RETURN_DOM_FRAGMENT: false,
-    // Keep safe HTML entities
-    KEEP_CONTENT: true,
   });
 }

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from './privacy-page-client';
 
@@ -111,6 +112,11 @@ export default async function PrivacyPage({ params }: PageProps) {
           <PrivacyPageClient
             merchant={merchant}
             content={merchant.pages?.privacy}
+            sanitizedContent={
+              merchant.pages?.privacy
+                ? sanitizeHtml(merchant.pages.privacy)
+                : undefined
+            }
           />
         }
       />

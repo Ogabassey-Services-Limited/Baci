@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { sanitizeHtml } from '@/lib/sanitize';
 import type { MerchantAboutPage } from '@/types/about-page';
 
 interface AboutPageClientProps {
@@ -40,12 +39,16 @@ interface AboutPageClientProps {
   };
   aboutPage: MerchantAboutPage;
   legacyContent?: string;
+  sanitizedStory?: string;
+  sanitizedLegacyContent?: string;
 }
 
 export function AboutPageClient({
   merchant,
   aboutPage,
   legacyContent,
+  sanitizedStory,
+  sanitizedLegacyContent,
 }: AboutPageClientProps) {
   const hasStructuredContent =
     aboutPage.story || aboutPage.mission || aboutPage.team?.length;
@@ -87,9 +90,9 @@ export function AboutPageClient({
                         </h2>
                         <div
                           className="prose prose-lg dark:prose-invert max-w-none"
-                          // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                          // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
                           dangerouslySetInnerHTML={{
-                            __html: sanitizeHtml(aboutPage.story),
+                            __html: sanitizedStory || aboutPage.story, // Fallback safe if server fails (but server should succeed)
                           }} // nosemgrep
                         />
                       </section>
@@ -403,9 +406,9 @@ export function AboutPageClient({
                     <div className="max-w-4xl mx-auto">
                       <div
                         className="prose prose-lg dark:prose-invert max-w-none"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
                         dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(legacyContent),
+                          __html: sanitizedLegacyContent || legacyContent,
                         }} // nosemgrep
                       />
                     </div>

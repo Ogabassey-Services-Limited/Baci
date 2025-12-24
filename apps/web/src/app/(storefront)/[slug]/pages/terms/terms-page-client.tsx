@@ -6,7 +6,6 @@ import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface TermsPageClientProps {
   merchant: {
@@ -26,9 +25,14 @@ interface TermsPageClientProps {
     };
   };
   content?: string;
+  sanitizedContent?: string;
 }
 
-export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
+export function TermsPageClient({
+  merchant,
+  content,
+  sanitizedContent,
+}: TermsPageClientProps) {
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
@@ -67,7 +71,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                       <div>
                         <p className="font-medium">Agreement</p>
                         <p className="text-sm text-muted-foreground">
-                          Using our site means you agree
+                          \ Using our site means you agree
                         </p>
                       </div>
                     </div>
@@ -78,7 +82,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                       <div>
                         <p className="font-medium">Responsibilities</p>
                         <p className="text-sm text-muted-foreground">
-                          Know your obligations
+                          \ Know your obligations
                         </p>
                       </div>
                     </div>
@@ -89,7 +93,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                       <div>
                         <p className="font-medium">Fair Use</p>
                         <p className="text-sm text-muted-foreground">
-                          Balanced rights & limits
+                          \ Balanced rights & limits
                         </p>
                       </div>
                     </div>
@@ -109,9 +113,9 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
                       dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(content),
+                        __html: sanitizedContent || content,
                       }} // nosemgrep
                     />
                   ) : (

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
@@ -96,9 +97,17 @@ export default async function FAQPage({ params }: PageProps) {
         fallback={
           <FAQPageClient
             merchant={merchant}
-            faqItems={faqItems}
+            faqItems={faqItems.map((item) => ({
+              ...item,
+              answer: sanitizeHtml(item.answer),
+            }))}
             legacyContent={
               !merchant.faq_items ? merchant.pages?.faq : undefined
+            }
+            sanitizedLegacyContent={
+              !merchant.faq_items && merchant.pages?.faq
+                ? sanitizeHtml(merchant.pages.faq)
+                : undefined
             }
           />
         }
