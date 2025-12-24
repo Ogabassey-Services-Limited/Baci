@@ -1,0 +1,11 @@
+# Vercel Ignore File
+# Recursively ignore node_modules and build artifacts
+node_modules
+.next
+.turbo
+dist
+build
+coverage
+.DS_Store
+.env*
+.git
