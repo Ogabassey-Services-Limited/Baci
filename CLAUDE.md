@@ -57,13 +57,12 @@ src/
 ## Common Commands
 
 ```bash
-npm run dev          # Start dev server
-npm run build        # Production build
-npm run lint         # Biome linting
-npm run format       # Code formatting
-npm run typecheck    # TypeScript check
-npm run test         # Run tests
-npm run analyze      # Bundle analysis
+pnpm turbo dev        # Start dev server
+pnpm turbo build      # Production build
+pnpm turbo lint       # Biome linting
+pnpm format           # Code formatting
+pnpm turbo typecheck  # TypeScript check
+pnpm turbo test       # Run tests
 ```
 
 ## Key Patterns
@@ -210,7 +209,7 @@ export function useMyContext() {
 
 ### Linting & Formatting
 - **Biome** for linting and formatting (replaces ESLint/Prettier)
-- Run `npm run lint` and `npm run format`
+- Run `pnpm turbo lint` and `pnpm format`
 
 ### TypeScript
 - Strict mode enabled

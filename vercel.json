@@ -1,8 +1,10 @@
 {
-  "buildCommand": "cd baci-web-platform && npm run build",
-  "outputDirectory": "baci-web-platform/.next",
-  "installCommand": "npm install && cd baci-web-platform && npm install",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm turbo build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install",
   "framework": "nextjs",
+  "ignoreCommand": "npx turbo-ignore",
   "crons": [
     {
       "path": "/api/ai-jobs/worker",

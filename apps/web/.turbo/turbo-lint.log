@@ -1,0 +1,28 @@
+
+> @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
+> biome check .
+
+src/components/storefront/header.tsx:16:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    14 │ import { useMerchant } from '@/hooks/use-merchant';
+Checked 722 files in 10s. No fixes applied.
+Found 1 warning.
+    15 │ import { asRoute, routes } from '@/lib/routes';
+  > 16 │ import { isSafeSlug } from '@/lib/validate-slug';
+       │        ^^^^^^^^^^^^^^
+    17 │ import { SearchAutocomplete } from './search-autocomplete';
+    18 │ 
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     14  14 │   import { useMerchant } from '@/hooks/use-merchant';
+     15  15 │   import { asRoute, routes } from '@/lib/routes';
+     16     │ - import·{·isSafeSlug·}·from·'@/lib/validate-slug';
+     17  16 │   import { SearchAutocomplete } from './search-autocomplete';
+     18  17 │   
+  
+

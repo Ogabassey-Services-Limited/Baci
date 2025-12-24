@@ -17,13 +17,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-      - run: npm install
-      - run: cd baci-web-platform && npm install
-      - run: npm run lint
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm turbo lint
 
   knip:
     name: Dead Code (Knip)
@@ -31,13 +31,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-      - run: npm install
-      - run: cd baci-web-platform && npm install
-      - run: npm run knip
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm knip
 
   typecheck:
     name: Type Check
@@ -45,13 +45,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-      - run: npm install
-      - run: cd baci-web-platform && npm install
-      - run: npm run typecheck
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm turbo typecheck
 
   test:
     name: Test (Vitest)
@@ -59,38 +59,39 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-      - run: npm install
-      - run: cd baci-web-platform && npm install
-      - run: npm run test
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm turbo test
 
   build:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, typecheck, test] # Build only if quality checks pass (optional, or run in parallel)
+    needs: [lint, typecheck, test]
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
-      - name: Restore Next.js cache
+      - name: Restore Turborepo cache
         uses: actions/cache@v4
         with:
           path: |
-            .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+            .turbo
+            apps/web/.next/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+            ${{ runner.os }}-turbo-${{ hashFiles('**/pnpm-lock.yaml') }}-
 
-      - run: npm install
-      - run: cd baci-web-platform && npm install
-      - run: npm run build
+      - run: pnpm install
+      - run: pnpm turbo build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

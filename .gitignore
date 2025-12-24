@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.turbo/
 /.reports/
 /.pnp
 .pnp.*
@@ -153,3 +154,4 @@ samsung_jumia_images/
 
 # Scripts directory (one-off scripts)
 /scripts/
+.env*.local
