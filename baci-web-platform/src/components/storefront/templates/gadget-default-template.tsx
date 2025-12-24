@@ -16,7 +16,10 @@ import { cn } from '@/lib/utils';
 
 import type { TemplatePageProps } from '@/templates/registry';
 
-export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
+export function GadgetDefaultTemplate({
+  isPreview,
+  products,
+}: TemplatePageProps) {
   const { merchant } = useMerchant();
   const theme = useIndustryTheme(merchant?.business_type);
 
@@ -229,6 +232,7 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
             title="Featured Products"
             columns={4}
             limit={4}
+            initialProducts={products}
             // We can pass styles to the grid if it supports them,
             // otherwise we rely on global theme vars or wrapper styles.
             // For now, the grid is standard, but we wrap it to control context if needed.

@@ -9,7 +9,10 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { TemplatePageProps } from '@/templates/registry';
 
-export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
+export function PremiumDefaultTemplate({
+  isPreview,
+  products,
+}: TemplatePageProps) {
   const { merchant } = useMerchant();
 
   // Default slides if no merchant data or specific config
@@ -99,6 +102,7 @@ export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
             columns={4}
             limit={8}
             showFilters={true}
+            initialProducts={products}
           />
         </div>
 

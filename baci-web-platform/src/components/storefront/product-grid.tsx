@@ -26,6 +26,7 @@ interface StorefrontProductGridProps {
   columns?: number;
   limit?: number;
   showFilters?: boolean;
+  initialProducts?: Product[];
 }
 
 // Static Tailwind class mappings to ensure classes are included in the build
@@ -53,6 +54,7 @@ export function StorefrontProductGrid({
   columns = 4,
   limit = 12,
   showFilters = false,
+  initialProducts,
 }: StorefrontProductGridProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant || null;
@@ -91,12 +93,17 @@ export function StorefrontProductGrid({
     merchant?.id?.endsWith('-preview') ||
     merchant?.id?.startsWith('demo-');
   const [products, setProducts] = useState<Product[]>(() => {
+    if (initialProducts) {
+      return initialProducts;
+    }
     if (isPreviewMode) {
       return sampleProductsByCategory.fashion || sampleProductsByCategory.other;
     }
     return [];
   });
-  const [isLoading, setIsLoading] = useState(!isPreviewMode);
+  const [isLoading, setIsLoading] = useState(
+    !isPreviewMode && !initialProducts
+  );
   const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>(
     'category'
   );
@@ -109,20 +116,23 @@ export function StorefrontProductGrid({
 
   useEffect(() => {
     if (merchant?.id && !isPreviewMode) {
-      // Fetch products
-      apiGet<{ products: Product[] }>(
-        `/api/storefront/products?merchant_id=${merchant.id}`
-      )
-        .then((data) => {
-          if (data.products) {
-            setProducts(data.products);
-          }
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          setIsLoading(false);
-        });
+      // Only fetch if initial products are not provided
+      if (!initialProducts) {
+        // Fetch products
+        apiGet<{ products: Product[] }>(
+          `/api/storefront/products?merchant_id=${merchant.id}`
+        )
+          .then((data) => {
+            if (data.products) {
+              setProducts(data.products);
+            }
+            setIsLoading(false);
+          })
+          .catch((err) => {
+            console.error(err);
+            setIsLoading(false);
+          });
+      }
 
       // Check if we should use server search
       apiGet<{ count: number; recommendedMethod: 'client' | 'server' }>(
@@ -136,7 +146,7 @@ export function StorefrontProductGrid({
           setUseServerSearch(false);
         });
     }
-  }, [merchant?.id, isPreviewMode]);
+  }, [merchant?.id, isPreviewMode, initialProducts]);
 
   // Perform server-side search when needed
   // Note: We use refs to check current state without adding to dependencies

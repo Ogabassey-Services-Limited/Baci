@@ -7,8 +7,9 @@ import { Footer } from '@/components/storefront/blocks/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { useMerchant } from '@/hooks/use-merchant';
+import type { TemplatePageProps } from '@/templates/registry';
 
-export function GadgetUniverseTemplate() {
+export function GadgetUniverseTemplate({ products }: TemplatePageProps) {
   const { merchant } = useMerchant();
 
   // Dynamic hero images based on merchant suggestion or defaults
@@ -66,6 +67,7 @@ export function GadgetUniverseTemplate() {
             columns={4}
             limit={8}
             showFilters={true}
+            initialProducts={products}
           />
         </div>
 
