@@ -19,9 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Run Semgrep scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/default
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
       - name: Run Mobb Autofix
         uses: mobb-dev/action@v1.1
         with:
-          report-file: ""
+          report-file: "semgrep.sarif"
           api-key: ${{ secrets.MOBB_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
