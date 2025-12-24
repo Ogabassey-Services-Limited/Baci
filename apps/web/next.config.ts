@@ -113,12 +113,12 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
-    // Enable Subresource Integrity (SRI) for hash-based CSP
-    // Adds integrity attributes to script tags at build time
-    // Allows strict CSP without nonces while maintaining static generation
-    sri: {
-      algorithm: 'sha256',
-    },
+    // SRI (Subresource Integrity) temporarily disabled
+    // Causes ENOENT subresource-integrity-manifest.json in Vercel CLI deploys
+    // Re-enable when Vercel monorepo support for SRI is stable
+    // sri: {
+    //   algorithm: 'sha256',
+    // },
 
     // Inline CSS to eliminate render-blocking CSS requests
     // Replaces <link> tags with <style> tags for faster FCP/LCP
