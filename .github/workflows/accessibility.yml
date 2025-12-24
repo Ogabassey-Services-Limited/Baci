@@ -23,6 +23,7 @@ jobs:
       - name: Run Accessibility Scanner
         uses: github/accessibility-scanner@v2.7.0
         with:
+          path: 'apps/web'
           fail-on-violations: false
           output-format: 'sarif'
           output-file: 'accessibility-results.sarif'

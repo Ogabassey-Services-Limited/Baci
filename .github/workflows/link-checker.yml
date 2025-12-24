@@ -33,21 +33,12 @@ jobs:
           args: >-
             --verbose
             --no-progress
-            './**/*.md' './**/*.html' './**/*.tsx' './**/*.ts'
-            --exclude-path 'baci-mobile-admin'
-            --exclude-path 'baci-mobile-storefront'
-            --exclude-path 'scripts'
-            --exclude-path 'scripts-tmp'
-            --exclude-path 'supabase'
+            './apps/web/**/*.md' './apps/web/**/*.html' './apps/web/**/*.tsx' './apps/web/**/*.ts'
             --exclude-path 'apps/web/scripts'
             --exclude-path 'apps/web/supabase'
-            --exclude-path 'mcp-server'
             --exclude-path 'apps/web/mcp-server'
-            --exclude-path 'node_modules'
             --exclude-path 'apps/web/node_modules'
-            --exclude-path '.next'
             --exclude-path 'apps/web/.next'
-            --exclude-path 'out'
             --exclude-path 'apps/web/out'
             --exclude-path 'apps/web/build'
             --exclude 'localhost|127\.0\.0\.1'
