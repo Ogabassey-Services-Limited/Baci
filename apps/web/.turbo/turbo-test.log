@@ -5,13 +5,15 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 2741[2mms[22m[39m
-     [33m[2m✓[22m[39m should render the button with its children [33m 2157[2mms[22m[39m
-     [33m[2m✓[22m[39m should apply the specified variant and size classes [33m 465[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 6016[2mms[22m[39m
+     [33m[2m✓[22m[39m should render the button with its children [33m 4493[2mms[22m[39m
+     [33m[2m✓[22m[39m should apply the specified variant and size classes [33m 595[2mms[22m[39m
+     [33m[2m✓[22m[39m should be disabled when the disabled prop is set [33m 450[2mms[22m[39m
+     [33m[2m✓[22m[39m should render as a different element when asChild is true [33m 318[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
 [2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
-[2m   Start at [22m 06:49:08
-[2m   Duration [22m 18.27s[2m (transform 3.46s, setup 5.03s, import 7.17s, tests 2.74s, environment 15.70s)[22m
+[2m   Start at [22m 06:55:03
+[2m   Duration [22m 21.54s[2m (transform 1.63s, setup 2.68s, import 4.53s, tests 6.02s, environment 17.38s)[22m
 
