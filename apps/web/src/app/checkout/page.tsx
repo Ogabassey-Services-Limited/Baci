@@ -1204,7 +1204,7 @@ function CheckoutPageContent() {
         subtotal,
         shipping_fee: finalShippingFee,
         payment_method: selectedGateway,
-        payment_status: 'pending', // Changed from 'paid'
+        payment_status: 'unpaid', // Order starts unpaid, changes to pending when payment initiated, then paid on confirmation
         shipping_status: 'pending',
         shipping_address: {
           firstName: data.firstName,

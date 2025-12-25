@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { normalizeSocialUrl } from '@/lib/social';
 import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
 import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { ContactPageClient } from './contact-page-client';
 
@@ -11,19 +12,39 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(slug: string) {
+async function getMerchant(identifier: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const lookupKey = identifier.toLowerCase();
 
-  const { data: merchant, error } = await supabase
+  // Handle custom domains (e.g., ogabassey.com) vs path-based slugs (e.g., ogabassey)
+  if (isDomainIdentifier(identifier)) {
+    // First, find the merchant_id from the domains table
+    const { data: domainData } = await supabase
+      .from('domains')
+      .select('merchant_id')
+      .eq('domain', lookupKey)
+      .eq('status', 'active')
+      .single();
+
+    if (!domainData) return null;
+
+    // Fetch full merchant data using the merchant_id
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('*')
+      .eq('id', domainData.merchant_id)
+      .single();
+
+    return merchant;
+  }
+
+  // Path-based slug lookup
+  const { data: merchant } = await supabase
     .from('merchants')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', lookupKey)
     .single();
-
-  if (error || !merchant) {
-    return null;
-  }
 
   return merchant;
 }
@@ -68,11 +89,12 @@ export default async function ContactPage({ params }: PageProps) {
     notFound();
   }
 
-  // Generate base URL for JSON-LD (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  // Generate base URL for JSON-LD
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const baseUrl = isDevelopment
+    ? `http://localhost:3000/${merchant.slug}`
+    : `https://${merchant.slug}.${rootDomain}`;
 
   // Generate ContactPage JSON-LD schema
   const contactSchema = {
@@ -96,12 +118,12 @@ export default async function ContactPage({ params }: PageProps) {
             normalizeSocialUrl(
               handle as string,
               platform as
-                | 'instagram'
-                | 'facebook'
-                | 'tiktok'
-                | 'twitter'
-                | 'youtube'
-                | 'linkedin'
+              | 'instagram'
+              | 'facebook'
+              | 'tiktok'
+              | 'twitter'
+              | 'youtube'
+              | 'linkedin'
             )
           )
           .filter((url): url is string => !!url),

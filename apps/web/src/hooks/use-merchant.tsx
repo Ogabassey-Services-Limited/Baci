@@ -328,7 +328,7 @@ export const MerchantProvider = ({
           .from('merchants')
           .select('*')
           .eq('slug', slug)
-          .single();
+          .maybeSingle();
 
         if (error && error.code !== 'PGRST116') {
           throw error;
@@ -349,7 +349,7 @@ export const MerchantProvider = ({
             .from('merchants')
             .select('*')
             .eq('user_id', user.id)
-            .single(),
+            .maybeSingle(),
           supabase
             .from('staff_members')
             .select(`
@@ -362,7 +362,7 @@ export const MerchantProvider = ({
             `)
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .single(),
+            .maybeSingle(),
         ]);
 
         const { data: ownedMerchant, error: ownerError } = ownerResult;
@@ -376,7 +376,7 @@ export const MerchantProvider = ({
             role: null,
             permissions: { full_access: { all: true } },
           };
-        } else if (ownerError && ownerError.code === 'PGRST116') {
+        } else if ((!ownedMerchant && !ownerError) || (ownerError && ownerError.code === 'PGRST116')) {
           // User is not a merchant owner, check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member
@@ -432,7 +432,7 @@ export const MerchantProvider = ({
           .eq('merchant_id', merchantData.id)
           .eq('is_primary', true)
           .eq('status', 'active')
-          .single();
+          .maybeSingle();
 
         if (primaryDomain) {
           merchantData.custom_domain = primaryDomain.domain;

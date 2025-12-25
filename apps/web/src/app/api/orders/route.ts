@@ -342,25 +342,25 @@ export async function POST(request: NextRequest) {
       // Enhanced with server-captured IP/User Agent for better Event Match Quality
       ad_tracking: ad_tracking
         ? {
-            ...ad_tracking,
-            // Server-side captured data for better EMQ
-            userIp: clientIp || ad_tracking.userIp,
-            userAgent: clientUserAgent || ad_tracking.userAgent,
-            // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse:
-              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-            // Store geo info for analytics
+          ...ad_tracking,
+          // Server-side captured data for better EMQ
+          userIp: clientIp || ad_tracking.userIp,
+          userAgent: clientUserAgent || ad_tracking.userAgent,
+          // Server-detected privacy compliance (overrides client if more restrictive)
+          limitedDataUse:
+            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+          // Store geo info for analytics
+          geoCountry: geoPrivacy.country,
+          geoRegion: geoPrivacy.region,
+        }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+            userIp: clientIp,
+            userAgent: clientUserAgent,
+            limitedDataUse: geoPrivacy.shouldApplyLDU,
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-              userIp: clientIp,
-              userAgent: clientUserAgent,
-              limitedDataUse: geoPrivacy.shouldApplyLDU,
-              geoCountry: geoPrivacy.country,
-              geoRegion: geoPrivacy.region,
-            }
           : null,
     };
 
@@ -479,6 +479,29 @@ export async function POST(request: NextRequest) {
         // Wait for all stock updates to complete in parallel
         await Promise.all(stockUpdatePromises);
       }
+
+      // Create transaction record for POD orders (2025 best practice: single source of truth)
+      if (payment_method === 'pod') {
+        const serviceClient = createServiceClient();
+        await serviceClient.from('transactions').insert({
+          merchant_id: merchant.id,
+          order_id: order.id,
+          transaction_type: 'payment',
+          amount: total,
+          currency: 'NGN',
+          status: 'pending', // POD is pending until delivery
+          gateway: 'pod',
+          gateway_reference: `POD-${order.id.slice(0, 8).toUpperCase()}`,
+          platform_fee: 0,
+          merchant_amount: total,
+          description: `Pay on Delivery for order ${order.order_number || order.id}`,
+          metadata: {
+            customer_email: customer_email,
+            customer_name: customer_name,
+            payment_type: 'pay_on_delivery',
+          },
+        });
+      }
     }
 
     // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
@@ -559,6 +582,27 @@ export async function POST(request: NextRequest) {
           payment_method: 'wallet',
         })
         .eq('id', order.id);
+
+      // Create transaction record for wallet payment (2025 best practice: single source of truth)
+      const serviceClient = createServiceClient();
+      await serviceClient.from('transactions').insert({
+        merchant_id: merchant.id,
+        order_id: order.id,
+        transaction_type: 'payment',
+        amount: walletAmountUsed,
+        currency: 'NGN',
+        status: 'completed',
+        gateway: 'wallet',
+        gateway_reference: `WALLET-${order.id.slice(0, 8).toUpperCase()}`,
+        platform_fee: 0,
+        merchant_amount: walletAmountUsed,
+        description: `Wallet payment for order ${order.order_number || order.id}`,
+        metadata: {
+          customer_email: customer_email,
+          customer_name: customer_name,
+          wallet_credit_used: walletAmountUsed,
+        },
+      });
 
       logger.info({
         message: 'Order fully paid with wallet credit',
@@ -669,10 +713,10 @@ export async function POST(request: NextRequest) {
         // Wallet redemption details for UI display
         wallet: walletRedemptionResult
           ? {
-              amountUsed: walletRedemptionResult.amountRedeemed,
-              newBalance: walletRedemptionResult.newBalance,
-              transactionId: walletRedemptionResult.transactionId,
-            }
+            amountUsed: walletRedemptionResult.amountRedeemed,
+            newBalance: walletRedemptionResult.newBalance,
+            transactionId: walletRedemptionResult.transactionId,
+          }
           : null,
         // Amount still due to payment gateway (for payment initialization)
         amountDueToGateway,

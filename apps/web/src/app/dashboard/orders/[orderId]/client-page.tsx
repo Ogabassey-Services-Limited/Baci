@@ -12,6 +12,7 @@ import {
   PackageCheck,
   Phone,
   Share2,
+  Send,
   Truck,
   Undo2,
   XCircle,
@@ -37,7 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import type { Order, ShippingStatus } from '../actions';
+import { resendOrderConfirmation, type Order, type ShippingStatus } from '../actions';
 import { SourceIcon, StatusBadge } from '../client-page';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
@@ -177,6 +178,21 @@ export default function OrderDetailsClientPage({
     }
   };
 
+  const handleResendNotification = async () => {
+    try {
+      toast({ title: 'Sending email...', description: 'Please wait.' });
+      const result = await resendOrderConfirmation(order.id);
+
+      if (result.success) {
+        toast({ title: 'Email Sent', description: result.message });
+      } else {
+        toast({ variant: 'destructive', title: 'Failed', description: result.message });
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send email.' });
+    }
+  };
+
   // Legacy mock handler - kept for backward compat if needed
   const handleFulfillmentConfirm = async (_fulfillmentData: unknown) => {
     // Placeholder for fulfillment confirmation logic
@@ -282,6 +298,9 @@ export default function OrderDetailsClientPage({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => handleResendNotification()}>
+                  <Send className="mr-2 h-4 w-4" /> Resend Email
+                </DropdownMenuItem>
                 <DropdownMenuItem>Print Invoice</DropdownMenuItem>
                 <DropdownMenuItem>Contact Customer</DropdownMenuItem>
               </DropdownMenuContent>
@@ -337,14 +356,18 @@ export default function OrderDetailsClientPage({
                     <p className="text-sm font-medium text-muted-foreground">
                       Contact Details
                     </p>
-                    <div className="flex items-center gap-2 text-sm mt-1">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span>09035576078</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm mt-1">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span>arinze.medu@gmail.com</span>
-                    </div>
+                    {order.customer_phone && (
+                      <div className="flex items-center gap-2 text-sm mt-1">
+                        <Phone className="w-4 h-4 text-muted-foreground" />
+                        <span>{order.customer_phone}</span>
+                      </div>
+                    )}
+                    {order.customer_email && (
+                      <div className="flex items-center gap-2 text-sm mt-1">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span>{order.customer_email}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -459,6 +482,18 @@ export default function OrderDetailsClientPage({
                   <span>Sub Total</span>{' '}
                   <span>{formatCurrency(order.total)}</span>
                 </div>
+                {order.paymentMethod && (
+                  <div className="flex justify-between">
+                    <span>Payment Method</span>{' '}
+                    <span className="capitalize">{order.paymentMethod}</span>
+                  </div>
+                )}
+                {order.payment_reference && (
+                  <div className="flex justify-between">
+                    <span>Payment Reference</span>{' '}
+                    <span className="font-mono text-xs">{order.payment_reference}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Shipping Fee</span>{' '}
                   <span>{formatCurrency(shippingFee)}</span>
@@ -480,6 +515,52 @@ export default function OrderDetailsClientPage({
               </CardHeader>
               <CardContent>
                 <StatusBadge status={order.paymentStatus} type="payment" />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Transaction History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {order.transactions && order.transactions.length > 0 ? (
+                  <div className="space-y-4">
+                    {order.transactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0"
+                      >
+                        <div>
+                          <p className="font-medium capitalize">
+                            {tx.gateway}
+                            <span
+                              className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${tx.status === 'completed' ||
+                                tx.status === 'success'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                                }`}
+                            >
+                              {tx.status}
+                            </span>
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {new Date(tx.created_at).toLocaleString()}
+                          </p>
+                          <p className="text-muted-foreground text-xs font-mono mt-0.5">
+                            {tx.reference}
+                          </p>
+                        </div>
+                        <div className="font-semibold">
+                          {formatCurrency(tx.amount)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No transactions found.
+                  </p>
+                )}
               </CardContent>
             </Card>
 

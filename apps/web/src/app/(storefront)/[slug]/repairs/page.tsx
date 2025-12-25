@@ -47,13 +47,13 @@ export default async function RepairsPage({
       ? themeCookie
       : undefined;
 
+  // Only show for Ogabassey template (merchant-specific feature)
   if (
-    (merchant as unknown as { template_id?: string }).template_id ===
+    (merchant as unknown as { template_id?: string }).template_id !==
     'ogabassey'
   ) {
-    return <OgabasseyV2Repairs />;
+    notFound();
   }
 
-  // Fallback
-  return notFound();
+  return <OgabasseyV2Repairs />;
 }

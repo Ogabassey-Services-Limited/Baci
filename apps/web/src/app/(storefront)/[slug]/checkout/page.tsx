@@ -49,27 +49,11 @@ export default async function CheckoutPage({
     );
   }
 
-  // Ogabassey Template
-  if (
-    (merchant as unknown as { template_id?: string }).template_id ===
-    'ogabassey'
-  ) {
-    return (
-      <Suspense fallback={<CheckoutLoading />}>
-        <OgabasseyCheckoutPage />
-      </Suspense>
-    );
-  }
-
-  // Fallback
+  // Ogabassey Template (or any template that doesn't have a custom checkout)
+  // Default to ogabassey checkout as it's the fully functional implementation
   return (
-    <>
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">Checkout</h1>
-        <p>Checkout functionality for this template is coming soon.</p>
-      </div>
-      <Footer />
-    </>
+    <Suspense fallback={<CheckoutLoading />}>
+      <OgabasseyCheckoutPage />
+    </Suspense>
   );
 }

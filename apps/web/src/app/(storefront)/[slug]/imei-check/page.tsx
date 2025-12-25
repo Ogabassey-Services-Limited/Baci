@@ -47,13 +47,13 @@ export default async function ImeiCheckPage({
       ? themeCookie
       : undefined;
 
+  // Only show for Ogabassey template (merchant-specific feature)
   if (
-    (merchant as unknown as { template_id?: string }).template_id ===
+    (merchant as unknown as { template_id?: string }).template_id !==
     'ogabassey'
   ) {
-    return <OgabasseyImeiChecker />;
+    notFound();
   }
 
-  // Fallback for other templates (e.g. 404 or coming soon)
-  return notFound();
+  return <OgabasseyImeiChecker />;
 }

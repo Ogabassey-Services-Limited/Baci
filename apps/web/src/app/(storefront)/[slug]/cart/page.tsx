@@ -27,26 +27,10 @@ export default async function CartPage({
 
   // Ogabassey Template - uses CartPageWrapper for item_id parameter handling
   // Supports direct add-to-cart links: /cart?item_id=123 or /cart?item_id=123,456
-  if (
-    (merchant as unknown as { template_id?: string }).template_id ===
-    'ogabassey'
-  ) {
-    return (
-      <Suspense fallback={<StorefrontPageSkeleton />}>
-        <CartPageWrapper merchantId={merchant.id} />
-      </Suspense>
-    );
-  }
-
-  // Fallback for other templates (e.g. new-template uses different system or standard fallback)
+  // Default to ogabassey cart as it's the fully functional implementation
   return (
-    <>
-      <Header />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">Cart</h1>
-        <p>Cart functionality for this template is coming soon.</p>
-      </div>
-      <Footer />
-    </>
+    <Suspense fallback={<StorefrontPageSkeleton />}>
+      <CartPageWrapper merchantId={merchant.id} />
+    </Suspense>
   );
 }

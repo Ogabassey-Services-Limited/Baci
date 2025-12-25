@@ -24,7 +24,10 @@
         "applinks:ogabassey.com",
         "applinks:ogabassey.usebaci.com"
       ],
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.ogabassey.store",

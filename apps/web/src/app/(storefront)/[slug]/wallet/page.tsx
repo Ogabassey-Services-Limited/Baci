@@ -40,7 +40,7 @@ export default async function WalletPage({
     notFound();
   }
 
-  // Only show for Ogabassey template
+  // Only show for Ogabassey template (merchant-specific feature)
   if (merchant.template_id !== 'ogabassey') {
     notFound();
   }
@@ -53,13 +53,5 @@ export default async function WalletPage({
       ? themeCookie
       : undefined;
 
-  if (
-    (merchant as unknown as { template_id?: string }).template_id ===
-    'ogabassey'
-  ) {
-    return <OgabasseyV2Wallet />;
-  }
-
-  // Fallback
-  return notFound();
+  return <OgabasseyV2Wallet />;
 }

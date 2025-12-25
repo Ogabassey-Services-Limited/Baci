@@ -280,9 +280,9 @@ const OrderCard = ({
           {/* Main Click Area */}
           <div
             className="flex-1 min-w-0"
-            /* Removed generic onClick to prevent conflict with Name Link.
-           Only expanding on row click if not clicking interactive elements.
-           But simpler to let user click Chevron or non-interactive areas. */
+          /* Removed generic onClick to prevent conflict with Name Link.
+         Only expanding on row click if not clicking interactive elements.
+         But simpler to let user click Chevron or non-interactive areas. */
           >
             {/* Header: Customer & Date & Urgency */}
             <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">
@@ -308,13 +308,12 @@ const OrderCard = ({
 
               {/* Urgency / Time Badge */}
               <div
-                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
-                  isUrgent
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${isUrgent
                     ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                     : isWarning
                       ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                       : 'bg-muted text-muted-foreground'
-                }`}
+                  }`}
               >
                 {isActionable && (isUrgent || isWarning) && (
                   <span className="font-semibold mr-1">{contextLabel}</span>
@@ -337,8 +336,8 @@ const OrderCard = ({
               </Badge>
             </div>
 
-            {/* Visual Row: Product Thumbnails */}
-            <div className="flex items-center gap-2 mb-1">
+            {/* Visual Row: Product Thumbnails - Hidden on mobile */}
+            <div className="hidden md:flex items-center gap-2 mb-1">
               {visibleItems.length > 0 ? (
                 visibleItems.map((item) => (
                   <div

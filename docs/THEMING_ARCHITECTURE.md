@@ -71,6 +71,14 @@ This document describes our scalable theming system that allows each merchant to
 - [x] Centralized barrel file for easy imports (`@/components/themed`).
 - [x/ `CREATE_TEMPLATE_GUIDE.md` for developers.
 
+### Phase 2.5: Checkout & Cart Theming ✅ (Current - December 2025)
+- [x] Refactored `checkout-page.tsx` to use CSS variables (`--store-primary`)
+- [x] Refactored `cart-page.tsx` to use CSS variables
+- [x] Refactored `cart-page-wrapper.tsx` to use CSS variables  
+- [x] Refactored `order-success-page.tsx` to use CSS variables
+- [x] Created `/components/storefront/shared/checkout-theme.ts` utility
+- [x] Validation error states kept as semantic red-500 for UX clarity
+
 ### Phase 3: Template Enhancement (Next)
 - [ ] Template-specific color usage patterns (e.g., Tech template uses more secondary, Artisan uses more primary).
 - [ ] Template-specific typography scales and spacing rules.

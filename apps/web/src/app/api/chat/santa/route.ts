@@ -3,8 +3,8 @@ import { streamText } from 'ai';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
-import { AI_RATE_LIMITS, activeTextModel, checkRateLimit } from '@/ai/provider';
-import { getSantaProductCatalog } from '@/ai/santa-data';
+import { AI_RATE_LIMITS, checkRateLimit, gemini25Flash } from '@/ai/provider';
+import { getCachedSantaProducts } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -66,12 +66,12 @@ async function logSantaInteraction(params: {
   sessionId: string;
   clientIp: string;
   interactionType:
-    | 'chat'
-    | 'wish_granted'
-    | 'wish_denied'
-    | 'add_to_cart'
-    | 'checkout_started'
-    | 'checkout_completed';
+  | 'chat'
+  | 'wish_granted'
+  | 'wish_denied'
+  | 'add_to_cart'
+  | 'checkout_started'
+  | 'checkout_completed';
   userMessage?: string;
   santaResponse?: string;
   productName?: string;
@@ -127,12 +127,19 @@ const santaChatSchema = z.object({
 });
 
 /**
- * Generate Santa system prompt with cached product catalog
+ * Generate dynamic Santa system instruction with actual product data
+ * Fetches products across multiple price ranges using cached utility
  */
-async function generateSantaPrompt(): Promise<string> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function generateSantaPrompt(supabase: SupabaseClient): Promise<string> {
   try {
-    // Get cached product catalog (uses unstable_cache with 5-min TTL)
-    const productList = await getSantaProductCatalog(OGABASSEY_MERCHANT_ID);
+    // Fetch merchant ID (Ogabassey)
+    // We hardcode the ID we found earlier to avoid another DB call if possible,
+    // but to stay robust we will use the constant we defined in route.ts
+    const merchantId = OGABASSEY_MERCHANT_ID;
+
+    // Use the optimized, cached data fetcher
+    const productList = await getCachedSantaProducts(merchantId);
 
     return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
 
@@ -158,9 +165,7 @@ Products are marked with either [HAS_COST] or [FLEX]:
     *   **If discount 10-40% AND budget >= Min Price:** Check with "chief elf". Tell them to ask "What did the elf say?"
     *   **If they ask for elf's decision:** Approve with "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
     *   **If discount > 40% for [FLEX] products:** Offer "Christmas Cheer" payment plan (30% now, rest monthly)
-    *   **If budget < Min Price:** First, **SEARCH THE CATALOG** for an alternative product (e.g., older model, different series) where the Min Price IS within User's Budget.
-        - **If alternative found:** Propose it enthusiastically! "I can't do the [Requested Item] for [Budget] (my elves would go on strike!), but I checked my sack and found a wonderful [Alternative Item] that fits your budget perfectly! Shall we wrap that up instead?"
-        - **If NO alternative found:** Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
+    *   **If budget < Min Price:** Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
 
 4.  **Product Catalog (Confidential - Internal Use Only):**
 ${productList}
@@ -169,7 +174,7 @@ ${productList}
 
 6.  **Handling Unknown Products:** If the user asks for a product not in the catalog, say the elves are checking if it's in the workshop and ask them to check back later.`;
   } catch (error) {
-    console.error('[Santa] Error generating prompt:', error);
+    console.error('[Santa] Error fetching products:', error);
     // Fallback to basic prompt
     return `You are Santa Claus, partnering with Ogabassey gadget store. Be jolly and warm. Help users with their Christmas gadget wishes. If they mention a budget, engage playfully about discounts.`;
   }

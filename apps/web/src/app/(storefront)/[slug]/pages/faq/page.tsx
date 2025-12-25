@@ -6,6 +6,7 @@ import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from './faq-page-client';
 
@@ -13,19 +14,39 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(slug: string) {
+async function getMerchant(identifier: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const lookupKey = identifier.toLowerCase();
 
-  const { data: merchant, error } = await supabase
+  // Handle custom domains (e.g., ogabassey.com) vs path-based slugs (e.g., ogabassey)
+  if (isDomainIdentifier(identifier)) {
+    // First, find the merchant_id from the domains table
+    const { data: domainData } = await supabase
+      .from('domains')
+      .select('merchant_id')
+      .eq('domain', lookupKey)
+      .eq('status', 'active')
+      .single();
+
+    if (!domainData) return null;
+
+    // Fetch full merchant data using the merchant_id
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('*')
+      .eq('id', domainData.merchant_id)
+      .single();
+
+    return merchant;
+  }
+
+  // Path-based slug lookup
+  const { data: merchant } = await supabase
     .from('merchants')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', lookupKey)
     .single();
-
-  if (error || !merchant) {
-    return null;
-  }
 
   return merchant;
 }

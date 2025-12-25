@@ -91,7 +91,7 @@ export const CartPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6 shrink-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingCart className="text-red-600 fill-red-600" />
+            <ShoppingCart className="text-[var(--store-primary)] fill-red-600" />
             Cart{' '}
             <span className="text-gray-400 text-lg font-medium">
               ({cart.length})
@@ -99,7 +99,7 @@ export const CartPage: React.FC = () => {
           </h1>
           <Link
             href={`/${merchantSlug || 'ogabassey'}` as any}
-            className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
+            className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)] hidden md:block"
           >
             Continue Shopping
           </Link>
@@ -153,7 +153,7 @@ export const CartPage: React.FC = () => {
                       {/* Content */}
                       <div className="flex-1 min-w-0 pr-8">
                         <Link href={`/product/${item.id}` as any}>
-                          <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 leading-tight mb-2 hover:text-red-600 transition-colors">
+                          <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 leading-tight mb-2 hover:text-[var(--store-primary)] transition-colors">
                             {item.name}
                           </h3>
                         </Link>
@@ -204,7 +204,7 @@ export const CartPage: React.FC = () => {
                       {/* Remove Button - Absolute Top Right */}
                       <button
                         onClick={() => removeFromCart(item.cartItemId)}
-                        className="absolute top-4 right-4 text-red-600 md:hover:text-red-700 p-1.5 md:hover:bg-red-50 rounded-full transition-colors active:bg-red-50"
+                        className="absolute top-4 right-4 text-[var(--store-primary)] md:hover:text-[var(--store-primary)] p-1.5 md:hover:bg-[var(--store-primary)]/5 rounded-full transition-colors active:bg-[var(--store-primary)]/5"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -269,11 +269,11 @@ export const CartPage: React.FC = () => {
                             onChange={() => toggleAssurance?.(item.cartItemId)}
                             className="peer sr-only"
                           />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--store-primary)]" />
                         </div>
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                            <ShieldCheck size={12} className="text-red-600" />
+                            <ShieldCheck size={12} className="text-[var(--store-primary)]" />
                             Ogabassey Assurance
                           </span>
                           <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
@@ -283,7 +283,7 @@ export const CartPage: React.FC = () => {
                                 <span className="font-bold text-gray-700">
                                   Screen & Liquid Damage
                                 </span>
-                                <span className="ml-1 text-red-600 font-bold">
+                                <span className="ml-1 text-[var(--store-primary)] font-bold">
                                   +₦{assuranceCost.toLocaleString()}
                                 </span>
                               </>
@@ -307,7 +307,7 @@ export const CartPage: React.FC = () => {
                         ) : (
                           <button
                             onClick={() => openItemNegotiation(item)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-red-600 md:hover:bg-red-50 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-red-200 active:bg-red-50 active:scale-95"
+                            className="flex items-center gap-1.5 text-xs font-bold text-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-[var(--store-primary)]/40 active:bg-[var(--store-primary)]/5 active:scale-95"
                           >
                             <HandCoins size={14} />
                             <span>Negotiate</span>
@@ -362,9 +362,9 @@ export const CartPage: React.FC = () => {
                   }, 0) > 0 && (
                       <div className="flex justify-between text-gray-600 text-sm animate-in fade-in slide-in-from-top-1">
                         <span className="flex items-center gap-1.5 ">
-                          <ShieldCheck size={14} className="text-red-600" />
+                          <ShieldCheck size={14} className="text-[var(--store-primary)]" />
                           Ogabassey Assurance
-                          <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full font-bold border border-red-100">
+                          <span className="text-[10px] bg-[var(--store-primary)]/5 text-[var(--store-primary)] px-1.5 py-0.5 rounded-full font-bold border border-red-100">
                             +5%
                           </span>
                         </span>
@@ -402,13 +402,13 @@ export const CartPage: React.FC = () => {
                     onClick={openTotalNegotiation}
                     className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
                   >
-                    <Calculator size={18} className="text-red-600" />
+                    <Calculator size={18} className="text-[var(--store-primary)]" />
                     Negotiate Total
                   </button>
 
                   <Link
                     href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
-                    className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none"
+                    className="w-full bg-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/90 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-[var(--store-primary)]/20 group active:scale-[0.98] active:shadow-none"
                   >
                     Proceed to Checkout
                     <ArrowRight
@@ -451,14 +451,14 @@ export const CartPage: React.FC = () => {
             aria-label="Bulk Negotiate"
             title="Bulk Negotiate"
           >
-            <HandCoins size={20} className="text-red-600" />
+            <HandCoins size={20} className="text-[var(--store-primary)]" />
             <span className="text-[9px] font-bold text-gray-600 mt-0.5">Bulk</span>
           </button>
 
           {/* Checkout Button */}
           <Link
             href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
-            className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+            className="flex-1 bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 active:bg-[var(--store-primary)]/90 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
           >
             <span>Checkout</span>
             <span className="text-white/80">•</span>

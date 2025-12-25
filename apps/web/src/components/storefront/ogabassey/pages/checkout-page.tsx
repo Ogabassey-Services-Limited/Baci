@@ -855,10 +855,12 @@ export const CheckoutPage: React.FC = () => {
             paymentMethod === 'paystack' || paymentMethod === 'korapay'
               ? 'card'
               : paymentMethod === 'credit_direct' || paymentMethod === 'credpal'
-                ? 'bnpl'
+                ? paymentMethod // Pass specific provider: 'credit_direct' or 'credpal'
                 : paymentMethod === 'invoice'
                   ? 'invoice'
-                  : 'pod',
+                  : paymentMethod === 'juicyway'
+                    ? 'juicyway'
+                    : 'pod',
           payment_status: 'unpaid',
           shipping_status: 'pending',
           shipping_address: shippingAddressData,
@@ -1154,7 +1156,7 @@ export const CheckoutPage: React.FC = () => {
           <button
             type="button"
             onClick={() => router.push(asRoute(getHref('/')))}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--store-primary)] text-white font-semibold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors"
           >
             Continue Shopping
             <ChevronRight size={18} />
@@ -1200,10 +1202,10 @@ export const CheckoutPage: React.FC = () => {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <button
             onClick={() => router.push(asRoute(getHref('/cart')))}
-            className="group flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+            className="group flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-[var(--store-primary)] transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-red-50 transition-colors">
-              <ChevronRight className="w-4 h-4 rotate-180 group-hover:text-red-600 transition-colors" />
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-[var(--store-primary)]/5 transition-colors">
+              <ChevronRight className="w-4 h-4 rotate-180 group-hover:text-[var(--store-primary)] transition-colors" />
             </div>
             <span className="hidden sm:inline">Return to Cart</span>
           </button>
@@ -1234,7 +1236,7 @@ export const CheckoutPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 p-4 flex items-center justify-between rounded-t-2xl">
+            <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-4 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <CreditCard size={16} className="text-white" />
@@ -1263,7 +1265,7 @@ export const CheckoutPage: React.FC = () => {
                     type="button"
                     onClick={() => handleCryptoCurrencyChange('USDT')}
                     className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDT'
-                      ? 'border-red-500 bg-red-50'
+                      ? 'border-red-500 bg-[var(--store-primary)]/5'
                       : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
@@ -1276,7 +1278,7 @@ export const CheckoutPage: React.FC = () => {
                     type="button"
                     onClick={() => handleCryptoCurrencyChange('USDC')}
                     className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoCurrency === 'USDC'
-                      ? 'border-red-500 bg-red-50'
+                      ? 'border-red-500 bg-[var(--store-primary)]/5'
                       : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
@@ -1298,7 +1300,7 @@ export const CheckoutPage: React.FC = () => {
                       type="button"
                       onClick={() => setSelectedCryptoChain(chain)}
                       className={`p-4 rounded-xl border-2 transition-all ${selectedCryptoChain === chain
-                        ? 'border-red-500 bg-red-50'
+                        ? 'border-red-500 bg-[var(--store-primary)]/5'
                         : 'border-gray-200 hover:border-gray-300'
                         }`}
                     >
@@ -1334,7 +1336,7 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={initializeCryptoPayment}
                 disabled={isInitializingCrypto}
-                className="w-full py-3.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors shadow-lg shadow-[var(--store-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isInitializingCrypto ? (
                   <>
@@ -1361,7 +1363,7 @@ export const CheckoutPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 p-4 flex items-center justify-between rounded-t-2xl">
+            <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-4 flex items-center justify-between rounded-t-2xl">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                   <CreditCard size={16} className="text-white" />
@@ -1402,7 +1404,7 @@ export const CheckoutPage: React.FC = () => {
                   <div>
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Send Exactly</p>
                     <p className="text-2xl font-black text-gray-900 leading-tight">
-                      {cryptoPaymentData.amount.toLocaleString()} <span className="text-red-600">{cryptoPaymentData.currency}</span>
+                      {cryptoPaymentData.amount.toLocaleString()} <span className="text-[var(--store-primary)]">{cryptoPaymentData.currency}</span>
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 border border-gray-200">
@@ -1428,7 +1430,7 @@ export const CheckoutPage: React.FC = () => {
                     onClick={() => copyToClipboard(cryptoPaymentData.address)}
                     className={`absolute right-1 top-1 bottom-1 px-3 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${copiedText === cryptoPaymentData.address
                       ? 'border-green-300 text-green-600'
-                      : 'border-gray-200 hover:border-red-200 hover:text-red-600'
+                      : 'border-gray-200 hover:border-[var(--store-primary)]/40 hover:text-[var(--store-primary)]'
                       }`}
                     title={copiedText === cryptoPaymentData.address ? 'Copied!' : 'Copy Address'}
                   >
@@ -1445,9 +1447,9 @@ export const CheckoutPage: React.FC = () => {
               </div>
 
               {/* Confirmation Time */}
-              <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4 border border-red-100">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Clock size={20} className="text-red-600" />
+              <div className="flex items-center gap-3 bg-[var(--store-primary)]/5 rounded-xl p-4 border border-[var(--store-primary)]/20">
+                <div className="w-10 h-10 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Clock size={20} className="text-[var(--store-primary)]" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">Expected confirmation</p>
@@ -1485,7 +1487,7 @@ export const CheckoutPage: React.FC = () => {
               )}
 
               {cryptoVerificationStatus === 'failed' && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                <div className="bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/30 rounded-xl p-4 text-center">
                   <p className="text-sm font-medium text-red-800">
                     Payment verification failed. Please contact support.
                   </p>
@@ -1499,7 +1501,7 @@ export const CheckoutPage: React.FC = () => {
                 disabled={isVerifyingCrypto}
                 className={`w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg ${isVerifyingCrypto
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200'
+                  : 'bg-[var(--store-primary)] text-white hover:bg-[var(--store-primary)]/90 shadow-[var(--store-primary)]/20'
                   }`}
               >
                 {isVerifyingCrypto ? (
@@ -1543,7 +1545,7 @@ export const CheckoutPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-            <span className="w-10 h-10 bg-red-600 text-white rounded-xl flex items-center justify-center shadow-red-200 shadow-lg">
+            <span className="w-10 h-10 bg-[var(--store-primary)] text-white rounded-xl flex items-center justify-center shadow-[var(--store-primary)]/20 shadow-lg">
               <ShieldCheck size={20} />
             </span>
             Secure Checkout
@@ -1572,21 +1574,21 @@ export const CheckoutPage: React.FC = () => {
           <div className="lg:col-span-8 space-y-6">
 
             {/* Accordion Step 1: Contact Information */}
-            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'contact' ? 'border-red-600 ring-1 ring-red-100' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
+            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'contact' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
               <button
                 type="button"
                 onClick={() => setCurrentStep('contact')}
                 className="w-full px-6 py-4 flex items-center justify-between text-left"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'
                     }`}>
                     {completedSteps.contact ? <Check size={14} /> : '1'}
                   </div>
                   Contact Information
                 </h2>
                 {completedSteps.contact && currentStep !== 'contact' && (
-                  <span className="text-sm font-medium text-red-600 hover:text-red-700">Edit</span>
+                  <span className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)]">Edit</span>
                 )}
               </button>
 
@@ -1605,7 +1607,7 @@ export const CheckoutPage: React.FC = () => {
                           onChange={(e) => setFirstName(e.target.value)}
                           placeholder="John"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !firstName.trim()
-                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
                             : 'border-gray-200 focus:border-red-500'
                             }`}
                           required
@@ -1624,7 +1626,7 @@ export const CheckoutPage: React.FC = () => {
                           onChange={(e) => setLastName(e.target.value)}
                           placeholder="Doe"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && !lastName.trim()
-                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
                             : 'border-gray-200 focus:border-red-500'
                             }`}
                           required
@@ -1643,7 +1645,7 @@ export const CheckoutPage: React.FC = () => {
                           onChange={(e) => setCustomerEmail(e.target.value)}
                           placeholder="john@example.com"
                           className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && (!customerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()))
-                            ? 'border-red-500 focus:border-red-500 bg-red-50'
+                            ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
                             : 'border-gray-200 focus:border-red-500'
                             }`}
                           required
@@ -1684,7 +1686,7 @@ export const CheckoutPage: React.FC = () => {
                           setCurrentStep('delivery');
                         }}
                         disabled={!isContactValid}
-                        className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
+                        className="px-6 py-3 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
                       >
                         Continue to Delivery
                       </button>
@@ -1695,7 +1697,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
 
             {/* Step 2: Delivery Method */}
-            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-red-600 ring-1 ring-red-100' : 'border-gray-100'} transition-all duration-300`}>
+            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} transition-all duration-300`}>
               <button
                 type="button"
                 onClick={() => completedSteps.contact && setCurrentStep('delivery')}
@@ -1703,14 +1705,14 @@ export const CheckoutPage: React.FC = () => {
                 className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'
                     }`}>
                     {completedSteps.delivery ? <Check size={14} /> : '2'}
                   </div>
                   Delivery Method
                 </h2>
                 {completedSteps.delivery && currentStep !== 'delivery' && (
-                  <span className="text-sm font-medium text-red-600 hover:text-red-700">Edit</span>
+                  <span className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)]">Edit</span>
                 )}
               </button>
 
@@ -1728,7 +1730,7 @@ export const CheckoutPage: React.FC = () => {
                             </label>
                             <button
                               onClick={() => setIsNewAddressMode(!isNewAddressMode)}
-                              className="text-xs font-bold text-red-600 hover:underline"
+                              className="text-xs font-bold text-[var(--store-primary)] hover:underline"
                             >
                               {isNewAddressMode ? 'Select Saved Address' : '+ New Address'}
                             </button>
@@ -1737,7 +1739,7 @@ export const CheckoutPage: React.FC = () => {
                             <label
                               key={addr.id}
                               className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
-                                ? 'border-red-600 bg-red-50/50'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                                 : 'border-gray-200 hover:border-gray-300'
                                 }`}
                             >
@@ -1755,7 +1757,7 @@ export const CheckoutPage: React.FC = () => {
                                     setNewAddressCity(parts[parts.length - 2] || '');
                                   }
                                 }}
-                                className="mt-1 w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
+                                className="mt-1 w-4 h-4 text-[var(--store-primary)] focus:ring-[var(--store-primary)] border-gray-300"
                               />
                               <div className="ml-3">
                                 <p className="font-bold text-gray-900 text-sm">
@@ -1856,11 +1858,11 @@ export const CheckoutPage: React.FC = () => {
                                   key={method}
                                   onClick={() => setDeliveryMethod(method)}
                                   className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
-                                    ? 'border-red-600 bg-red-50 text-red-700'
+                                    ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
                                     : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                                     }`}
                                 >
-                                  <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-red-600' : 'text-gray-400'}`} />
+                                  <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-[var(--store-primary)]' : 'text-gray-400'}`} />
                                   <span className="text-xs sm:text-sm font-bold">{label}</span>
                                   <span className="text-[10px] text-gray-400">{subtitle}</span>
                                 </button>
@@ -1900,7 +1902,7 @@ export const CheckoutPage: React.FC = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label
                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
-                                  ? 'border-red-600 bg-red-50'
+                                  ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
                               >
@@ -1912,10 +1914,10 @@ export const CheckoutPage: React.FC = () => {
                                   onChange={() => setAirportType('delivery')}
                                   className="sr-only"
                                 />
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-red-600' : 'border-gray-400'
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-[var(--store-primary)]' : 'border-gray-400'
                                   }`}>
                                   {airportType === 'delivery' && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />
                                   )}
                                 </div>
                                 <div className="flex-1">
@@ -1926,7 +1928,7 @@ export const CheckoutPage: React.FC = () => {
                               </label>
                               <label
                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
-                                  ? 'border-red-600 bg-red-50'
+                                  ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                                   : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
                               >
@@ -1938,10 +1940,10 @@ export const CheckoutPage: React.FC = () => {
                                   onChange={() => setAirportType('pickup')}
                                   className="sr-only"
                                 />
-                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-red-600' : 'border-gray-400'
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-[var(--store-primary)]' : 'border-gray-400'
                                   }`}>
                                   {airportType === 'pickup' && (
-                                    <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />
                                   )}
                                 </div>
                                 <div className="flex-1">
@@ -1968,8 +1970,8 @@ export const CheckoutPage: React.FC = () => {
                                 {shippingQuotes.map((quote) => (
                                   <label
                                     key={quote.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-red-300 transition-all ${selectedQuoteId === quote.id
-                                      ? 'border-red-500 bg-red-50 ring-1 ring-red-500'
+                                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-[var(--store-primary)]/60 transition-all ${selectedQuoteId === quote.id
+                                      ? 'border-red-500 bg-[var(--store-primary)]/5 ring-1 ring-[var(--store-primary)]'
                                       : 'border-gray-100 bg-white'
                                       }`}
                                   >
@@ -1979,7 +1981,7 @@ export const CheckoutPage: React.FC = () => {
                                         name="shipping_quote"
                                         checked={selectedQuoteId === quote.id}
                                         onChange={() => setSelectedQuoteId(quote.id)}
-                                        className="w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
+                                        className="w-4 h-4 text-[var(--store-primary)] focus:ring-[var(--store-primary)] border-gray-300"
                                       />
                                       <div>
                                         <div className="flex items-center gap-2">
@@ -2042,7 +2044,7 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, delivery: true }));
                           setCurrentStep('payment');
                         }}
-                        className="w-full md:w-auto px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-red-200 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+                        className="w-full md:w-auto px-6 py-3 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-[var(--store-primary)]/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
                         disabled={!isDeliveryValid}
                       >
                         Continue to Payment
@@ -2055,7 +2057,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
 
             {/* Step 3: Payment Method */}
-            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-red-600 ring-1 ring-red-100' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
+            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
               <button
                 type="button"
                 onClick={() => completedSteps.delivery && setCurrentStep('payment')}
@@ -2063,7 +2065,7 @@ export const CheckoutPage: React.FC = () => {
                 className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${paymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${paymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'
                     }`}>
                     {paymentMethod ? <Check size={14} /> : '3'}
                   </div>
@@ -2106,7 +2108,7 @@ export const CheckoutPage: React.FC = () => {
                           {/* Paystack */}
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
-                              ? 'border-red-600 bg-red-50'
+                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                               }`}
                           >
@@ -2118,8 +2120,8 @@ export const CheckoutPage: React.FC = () => {
                               onChange={() => setPaymentMethod('paystack')}
                               className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                              {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -2135,7 +2137,7 @@ export const CheckoutPage: React.FC = () => {
                           {/* TODO: Re-enable when KORAPAY_SECRET_KEY and KORAPAY_PUBLIC_KEY are added to .env.local
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
-                              ? 'border-red-600 bg-red-50'
+                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                               }`}
                           >
@@ -2147,8 +2149,8 @@ export const CheckoutPage: React.FC = () => {
                               onChange={() => setPaymentMethod('korapay')}
                               className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                              {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -2163,7 +2165,7 @@ export const CheckoutPage: React.FC = () => {
                           {/* Juicyway */}
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
-                              ? 'border-red-600 bg-red-50'
+                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                               }`}
                           >
@@ -2175,8 +2177,8 @@ export const CheckoutPage: React.FC = () => {
                               onChange={() => setPaymentMethod('juicyway')}
                               className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                              {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -2199,7 +2201,7 @@ export const CheckoutPage: React.FC = () => {
                           {/* CredPal */}
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credpal'
-                              ? 'border-red-600 bg-red-50'
+                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                               }`}
                           >
@@ -2211,8 +2213,8 @@ export const CheckoutPage: React.FC = () => {
                               onChange={() => setPaymentMethod('credpal')}
                               className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                              {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -2227,7 +2229,7 @@ export const CheckoutPage: React.FC = () => {
                           {/* Credit Direct */}
                           <label
                             className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_direct'
-                              ? 'border-red-600 bg-red-50'
+                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
                               : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                               }`}
                           >
@@ -2239,8 +2241,8 @@ export const CheckoutPage: React.FC = () => {
                               onChange={() => setPaymentMethod('credit_direct')}
                               className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                              {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
@@ -2306,7 +2308,7 @@ export const CheckoutPage: React.FC = () => {
                         (remainingAmount > 0 && !paymentMethod) ||
                         (paymentMethod === 'payforme' && !isPayForMeValid)
                       }
-                      className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98]"
+                      className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98]"
                     >
                       {isProcessing ? (
                         <Loader2 className="animate-spin" size={20} />
@@ -2463,7 +2465,7 @@ export const CheckoutPage: React.FC = () => {
                   (remainingAmount > 0 && !paymentMethod) ||
                   (paymentMethod === 'payforme' && !isPayForMeValid)
                 }
-                className="hidden lg:flex w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98]"
+                className="hidden lg:flex w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98]"
               >
                 {isProcessing ? (
                   <Loader2 className="animate-spin" />

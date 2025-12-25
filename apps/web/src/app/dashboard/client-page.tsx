@@ -646,28 +646,28 @@ export default function DashboardClientPage({
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
               {monthlyChartData.length > 0
                 ? monthlyChartData.map((data, _i) => {
-                    const maxRevenue = Math.max(
-                      ...monthlyChartData.map((d) => d.revenue)
-                    );
-                    const height =
-                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                    return (
-                      <div
-                        key={data.month}
-                        className="w-full bg-primary/30 rounded-t-sm transition-all"
-                        style={{ height: `${height}%` }}
-                        title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
-                      />
-                    );
-                  })
-                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  const maxRevenue = Math.max(
+                    ...monthlyChartData.map((d) => d.revenue)
+                  );
+                  const height =
+                    maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                  return (
                     <div
-                      // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                      key={i}
-                      className="w-full bg-primary/20 rounded-t-sm"
-                      style={{ height: `${h}%` }}
+                      key={data.month}
+                      className="w-full bg-primary/30 rounded-t-sm transition-all"
+                      style={{ height: `${height}%` }}
+                      title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
                     />
-                  ))}
+                  );
+                })
+                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                    key={i}
+                    className="w-full bg-primary/20 rounded-t-sm"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
             </div>
           </BentoCard>
         </div>
@@ -700,28 +700,26 @@ export default function DashboardClientPage({
           className="col-span-1 md:col-span-2 lg:col-span-1 row-span-2 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.6s' }}
         >
-          <BentoCard title="Recent Sales" icon={CreditCard} className="h-full">
-            <div className="space-y-4 mt-2">
+          <BentoCard title="Recent Sales" icon={CreditCard} className="h-full overflow-hidden">
+            <div className="space-y-3 mt-2">
               {recentSales.map((sale) => (
                 <div
                   key={sale.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors overflow-hidden"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                      {sale.name.charAt(0)}
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium leading-none truncate max-w-[120px] sm:max-w-none">
-                        {sale.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-none">
-                        {sale.email}
-                      </p>
-                    </div>
+                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary shrink-0">
+                    {sale.name.charAt(0)}
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium leading-none truncate">
+                      {sale.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {sale.email}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-medium whitespace-nowrap">
                       +{formatPrice(sale.amount, merchant?.country || null)}
                     </p>
                     <p

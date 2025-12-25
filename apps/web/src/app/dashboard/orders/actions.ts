@@ -1,8 +1,11 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
+import { logger } from '@/lib/logger';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/zeptomail';
 
 export type ShippingStatus =
   | 'Pending'
@@ -19,6 +22,16 @@ export type PaymentStatus =
   | 'Partially Paid'
   | 'Refunded';
 
+export interface Transaction {
+  id: string;
+  reference: string;
+  status: string;
+  amount: number;
+  currency: string;
+  gateway: string;
+  created_at: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -26,11 +39,16 @@ export interface Order {
   total: number;
   shippingStatus: ShippingStatus;
   paymentStatus: PaymentStatus;
+  paymentMethod: string | null;
   date: string;
   createdAt: number;
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  payment_reference?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  notes?: string;
   items: Array<{
     id: string;
     name: string;
@@ -40,6 +58,7 @@ export interface Order {
     variant?: string;
     hasAssurance?: boolean;
   }>;
+  transactions?: Transaction[];
 }
 
 export interface OrderStats {
@@ -121,6 +140,7 @@ export async function getOrders(
     total: Number.parseFloat(order.total),
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
+    paymentMethod: order.payment_method,
     date: new Date(order.created_at).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -217,6 +237,13 @@ export async function getOrder(
     return null;
   }
 
+  // Fetch transactions
+  const { data: transactions } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('order_id', order.id)
+    .order('created_at', { ascending: false });
+
   return {
     id: order.id,
     orderNumber: order.order_number,
@@ -224,6 +251,7 @@ export async function getOrder(
     total: Number.parseFloat(order.total),
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
+    paymentMethod: order.payment_method,
     date: new Date(order.created_at).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -233,6 +261,10 @@ export async function getOrder(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    payment_reference: order.payment_reference,
+    customer_email: order.customer_email,
+    customer_phone: order.customer_phone,
+    notes: order.notes,
     items: (order.order_items || []).map((item: OrderItem) => ({
       id: item.id,
       name: item.name || 'Unknown Product',
@@ -242,5 +274,130 @@ export async function getOrder(
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
+    transactions: (transactions || []).map((tx: any) => ({
+      id: tx.id,
+      reference: tx.gateway_reference,
+      status: tx.status,
+      amount: tx.amount,
+      currency: tx.currency,
+      gateway: tx.gateway,
+      created_at: tx.created_at,
+    })),
   };
+}
+
+export async function resendOrderConfirmation(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // 1. Fetch Order
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      logger.error({
+        message: 'Resend Notification: Order not found',
+        orderId,
+        error: orderError,
+      });
+      return { success: false, message: 'Order not found' };
+    }
+
+    if (!order.customer_email) {
+      return { success: false, message: 'Customer has no email address' };
+    }
+
+    // 2. Fetch Merchant Details
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('business_name, slug, support_email, email_sender_name, email')
+      .eq('id', order.merchant_id)
+      .single();
+
+    if (merchantError || !merchant) {
+      logger.error({
+        message: 'Resend Notification: Merchant not found',
+        merchantId: order.merchant_id,
+        error: merchantError,
+      });
+      return { success: false, message: 'Merchant profile not found' };
+    }
+
+    // 3. Prepare Email Data
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+
+    // biome-ignore lint/suspicious/noExplicitAny: items handling
+    const emailItems = (order.order_items || []).map((item: any) => ({
+      name: item.name || 'Product',
+      quantity: item.quantity || 1,
+      price: item.price || 0,
+    }));
+
+    const emailData = {
+      orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+      customerName: order.customer_name,
+      items: emailItems,
+      subtotal: Number.parseFloat(order.subtotal || '0'),
+      shippingFee: Number.parseFloat(order.shipping_fee || '0'),
+      total: Number.parseFloat(order.total || '0'),
+      shippingAddress: {
+        address: order.shipping_address?.address || '',
+        city: order.shipping_address?.city || '',
+        state: order.shipping_address?.state || '',
+        phone: order.customer_phone || '',
+      },
+      merchantName: merchant.business_name,
+      merchantUrl,
+    };
+
+    const htmlContent = generateOrderConfirmationEmail(emailData);
+    const textContent = generateOrderConfirmationText(emailData);
+
+    // 4. Send Email
+    const replyToEmail =
+      merchant.support_email ||
+      merchant.email ||
+      `support@${merchant.slug}.${rootDomain}`;
+
+    const senderName = merchant.email_sender_name
+      ? `${merchant.email_sender_name} Orders`
+      : merchant.business_name
+        ? `${merchant.business_name} Orders`
+        : undefined;
+
+    await sendEmail({
+      to: order.customer_email,
+      toName: order.customer_name,
+      subject: `Order Confirmation - #${emailData.orderNumber}`,
+      htmlContent,
+      textContent,
+      replyTo: replyToEmail,
+      emailType: 'orders',
+      fromName: senderName,
+    });
+
+    logger.info({
+      message: 'Order confirmation email resent manually',
+      orderId: order.id,
+      adminUser: (await supabase.auth.getUser()).data.user?.id,
+    });
+
+    return {
+      success: true,
+      message: 'Order confirmation email sent successfully',
+    };
+  } catch (error) {
+    logger.error({ message: 'Resend Notification: System error', error });
+    return {
+      success: false,
+      message: 'Failed to send email. Please try again.',
+    };
+  }
 }

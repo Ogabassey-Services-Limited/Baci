@@ -45,7 +45,7 @@ export function PlatformHeader() {
           <Button
             asChild
             variant="ghost"
-            className="hidden sm:inline-flex hover:bg-primary/10 hover:text-primary"
+            className="hover:bg-primary/10 hover:text-primary"
           >
             <Link href="/login">Login</Link>
           </Button>
