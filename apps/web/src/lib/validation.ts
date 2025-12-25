@@ -32,6 +32,7 @@ export const RESERVED_PATHS = new Set([
   'pricing',
   'terms',
   'privacy',
+  'faq',
   'features',
   'demo',
   'developers',

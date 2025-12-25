@@ -164,16 +164,43 @@ const nextConfig: NextConfig = {
   // SEO redirects - flat URL structure for legal pages + legacy WordPress URLs
   redirects() {
     return Promise.resolve([
-      // Legal page redirects
+      // === SEO-FRIENDLY LEGAL PAGE REDIRECTS ===
+      // Redirect old /pages/* URLs to new flat structure
       {
-        source: '/:slug/pages/privacy',
-        destination: '/:slug/privacy-policy',
+        source: '/:slug/pages/terms',
+        destination: '/:slug/terms',
         permanent: true, // 301 redirect
       },
       {
-        source: '/:slug/pages/terms',
-        destination: '/:slug/terms-of-service',
-        permanent: true, // 301 redirect
+        source: '/:slug/pages/privacy',
+        destination: '/:slug/privacy',
+        permanent: true,
+      },
+      {
+        source: '/:slug/pages/about',
+        destination: '/:slug/about',
+        permanent: true,
+      },
+      {
+        source: '/:slug/pages/faq',
+        destination: '/:slug/faq',
+        permanent: true,
+      },
+      {
+        source: '/:slug/pages/contact',
+        destination: '/:slug/contact',
+        permanent: true,
+      },
+      // Redirect legacy verbose URLs to short versions
+      {
+        source: '/:slug/terms-of-service',
+        destination: '/:slug/terms',
+        permanent: true,
+      },
+      {
+        source: '/:slug/privacy-policy',
+        destination: '/:slug/privacy',
+        permanent: true,
       },
       // === LEGACY WORDPRESS URL REDIRECTS (GSC Fix) ===
       // /user/* paths - redirect to homepage

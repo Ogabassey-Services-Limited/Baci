@@ -119,8 +119,8 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Menu
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${storeSlug}/pages/about`)} className="hover:text-red-500">About Us</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/pages/blog`)} className="hover:text-red-500">Blog</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/about`)} className="hover:text-red-500">About Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/blog`)} className="hover:text-red-500">Blog</Link></li>
                 <li><Link href={asRoute(`${storeSlug}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
               </ul>
             </div>
@@ -130,10 +130,10 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li><Link href={asRoute(`${storeSlug}/orders/track`)} className="hover:text-red-500">Track Order</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/pages/faq`)} className="hover:text-red-500">Help Center</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/pages/contact`)} className="hover:text-red-500">Contact Us</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/pages/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/pages/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/faq`)} className="hover:text-red-500">Help Center</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
               </ul>
             </div>
           </nav>

@@ -1,0 +1,133 @@
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
+import {
+    generateAboutPageJsonLd,
+    type MerchantAboutPage,
+} from '@/types/about-page';
+import { AboutPageClient } from '../pages/about/about-page-client';
+
+interface PageProps {
+    params: Promise<{ slug: string }>;
+}
+
+async function getMerchant(identifier: string) {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const lookupKey = identifier.toLowerCase();
+
+    if (isDomainIdentifier(identifier)) {
+        const { data: domainData } = await supabase
+            .from('domains')
+            .select('merchant_id')
+            .eq('domain', lookupKey)
+            .eq('status', 'active')
+            .single();
+
+        if (!domainData) return null;
+
+        const { data: merchant } = await supabase
+            .from('merchants')
+            .select('*')
+            .eq('id', domainData.merchant_id)
+            .single();
+
+        return merchant;
+    }
+
+    const { data: merchant } = await supabase
+        .from('merchants')
+        .select('*')
+        .eq('slug', lookupKey)
+        .single();
+
+    return merchant;
+}
+
+export async function generateMetadata({
+    params,
+}: PageProps): Promise<Metadata> {
+    const { slug } = await params;
+    const merchant = await getMerchant(slug);
+
+    if (!merchant) {
+        return { title: 'About Us' };
+    }
+
+    const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
+    const description =
+        aboutPage.story ||
+        aboutPage.mission ||
+        `Learn more about ${merchant.business_name}`;
+
+    return {
+        title: `About Us | ${merchant.business_name}`,
+        description: description.substring(0, 160),
+        openGraph: {
+            title: `About ${merchant.business_name}`,
+            description: description.substring(0, 160),
+            type: 'website',
+            ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
+        },
+    };
+}
+
+export default async function AboutPage({ params }: PageProps) {
+    const { slug } = await params;
+    const merchant = await getMerchant(slug);
+
+    if (!merchant) {
+        notFound();
+    }
+
+    const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
+    const legacyAboutContent = merchant.pages?.about;
+
+    if (!aboutPage.story && !aboutPage.mission && !legacyAboutContent) {
+        notFound();
+    }
+
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    const baseUrl = isDevelopment
+        ? `http://localhost:3000/${merchant.slug}`
+        : `https://${merchant.slug}.${rootDomain}`;
+
+    const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
+
+    const sanitizedStory = aboutPage.story
+        ? sanitizeHtml(aboutPage.story)
+        : undefined;
+    const sanitizedLegacyContent = legacyAboutContent
+        ? sanitizeHtml(legacyAboutContent)
+        : undefined;
+
+    return (
+        <>
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
+                }}
+            />
+            <StorefrontPageWrapper
+                pageName="About"
+                merchant={merchant}
+                fallback={
+                    <AboutPageClient
+                        merchant={merchant}
+                        aboutPage={aboutPage}
+                        legacyContent={legacyAboutContent}
+                        sanitizedStory={sanitizedStory}
+                        sanitizedLegacyContent={sanitizedLegacyContent}
+                    />
+                }
+            />
+        </>
+    );
+}
