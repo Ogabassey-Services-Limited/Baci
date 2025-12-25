@@ -47,7 +47,9 @@ export const RESERVED_PATHS = new Set([
   'help',
   'wallet',
   'repairs',
+  'repairs',
   'swap',
+  'delete-account',
 ]);
 
 /**

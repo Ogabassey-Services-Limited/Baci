@@ -1,0 +1,266 @@
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
+import Link from 'next/link';
+
+interface PageProps {
+    params: Promise<{ slug: string }>;
+}
+
+async function getMerchant(identifier: string) {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const lookupKey = identifier.toLowerCase();
+
+    if (isDomainIdentifier(identifier)) {
+        const { data: domainData } = await supabase
+            .from('domains')
+            .select('merchant_id')
+            .eq('domain', lookupKey)
+            .eq('status', 'active')
+            .single();
+
+        if (!domainData) return null;
+
+        const { data: merchant } = await supabase
+            .from('merchants')
+            .select('*')
+            .eq('id', domainData.merchant_id)
+            .single();
+
+        return merchant;
+    }
+
+    const { data: merchant } = await supabase
+        .from('merchants')
+        .select('*')
+        .eq('slug', lookupKey)
+        .single();
+
+    return merchant;
+}
+
+export async function generateMetadata({
+    params,
+}: PageProps): Promise<Metadata> {
+    const { slug } = await params;
+    const merchant = await getMerchant(slug);
+
+    if (!merchant) {
+        return { title: 'Delete Account' };
+    }
+
+    return {
+        title: `Delete Account | ${merchant.business_name}`,
+        description: `Request deletion of your ${merchant.business_name} account and associated data.`,
+        robots: {
+            index: false, // Usually these pages don't need to be indexed, but user asked for store listing which implies public. Keeping default or specifically true is handling robots.txt. Let's force index for compliance.
+            index: true,
+            follow: true,
+        },
+        openGraph: {
+            title: `Delete Account | ${merchant.business_name}`,
+            description: `Request deletion of your ${merchant.business_name} account.`,
+            type: 'website',
+            ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
+        },
+    };
+}
+
+export default async function StorefrontDeleteAccountPage({ params }: PageProps) {
+    const { slug } = await params;
+    const merchant = await getMerchant(slug);
+
+    if (!merchant) {
+        notFound();
+    }
+
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    const baseUrl = isDevelopment
+        ? `http://localhost:3000/${merchant.slug}`
+        : `https://${merchant.slug}.${rootDomain}`;
+
+    // Schema for the page
+    const pageSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: `Delete Account | ${merchant.business_name}`,
+        url: `${baseUrl}/delete-account`,
+        description: `Request request deletion of your ${merchant.business_name} account.`,
+        isPartOf: {
+            '@type': 'WebSite',
+            name: merchant.business_name,
+            url: baseUrl,
+        },
+        publisher: {
+            '@type': 'Organization',
+            name: merchant.business_name,
+            url: baseUrl,
+            ...(merchant.logo_url && { logo: merchant.logo_url }),
+        },
+    };
+
+    const DeleteAccountContent = () => (
+        <div className="max-w-3xl mx-auto px-4 py-12 sm:py-16">
+            {/* Header */}
+            <div className="text-center mb-12">
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                    Delete Your Account
+                </h1>
+                <p className="text-gray-600 text-lg">
+                    We&apos;re sorry to see you go. This page explains how to request
+                    deletion of your account with {merchant.business_name} and what happens to your data.
+                </p>
+            </div>
+
+            {/* Steps Section */}
+            <section className="mb-12">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    How to Request Account Deletion
+                </h2>
+                <div className="space-y-6">
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+                            1
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-gray-900">
+                                Log into Your Account
+                            </h3>
+                            <p className="text-gray-600 mt-1">
+                                Visit{' '}
+                                <Link
+                                    href="/"
+                                    className="text-primary underline font-medium"
+                                >
+                                    {merchant.business_name}
+                                </Link>{' '}
+                                and sign in to your account.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+                            2
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-gray-900">
+                                Navigate to Account Settings
+                            </h3>
+                            <p className="text-gray-600 mt-1">
+                                Go to <strong>My Account</strong> → <strong>Settings</strong>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+                            3
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-gray-900">
+                                Request Account Deletion
+                            </h3>
+                            <p className="text-gray-600 mt-1">
+                                Find the "Delete Account" option and confirm your request.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+                            4
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-gray-900">
+                                Alternative: Email Us
+                            </h3>
+                            <p className="text-gray-600 mt-1">
+                                If you cannot access your account, email us at{' '}
+                                <a
+                                    href={`mailto:${merchant.email}`}
+                                    className="text-primary underline"
+                                >
+                                    {merchant.email}
+                                </a>{' '}
+                                with your registered email address and we will process your request.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Data Deletion Section */}
+            <section className="mb-12">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                    What Data is Deleted
+                </h2>
+                <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="font-medium text-gray-900 mb-3">
+                        Immediately Deleted:
+                    </h3>
+                    <ul className="list-disc list-inside text-gray-600 space-y-2 mb-6">
+                        <li>Your profile information (name, email, phone number)</li>
+                        <li>Saved addresses</li>
+                        <li>Wishlist items</li>
+                        <li>Shopping cart contents</li>
+                    </ul>
+
+                    <h3 className="font-medium text-gray-900 mb-3">
+                        Retained for Legal/Business Purposes (90 days):
+                    </h3>
+                    <ul className="list-disc list-inside text-gray-600 space-y-2 mb-6">
+                        <li>Order history (for refunds, disputes, and warranty claims)</li>
+                        <li>Transaction records (legal/tax compliance)</li>
+                    </ul>
+
+                    <h3 className="font-medium text-gray-900 mb-3">
+                        Permanently Retained (Anonymized):
+                    </h3>
+                    <ul className="list-disc list-inside text-gray-600 space-y-2">
+                        <li>
+                            Aggregated analytics data (e.g., total orders, no personal
+                            identifiers)
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            {/* Contact Section */}
+            <section className="text-center border-t pt-8">
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                    Questions?
+                </h2>
+                <p className="text-gray-600">
+                    Contact our support team at{' '}
+                    <a
+                        href={`mailto:${merchant.email}`}
+                        className="text-primary underline"
+                    >
+                        {merchant.email}
+                    </a>
+                </p>
+            </section>
+        </div>
+    );
+
+    return (
+        <>
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(pageSchema) }}
+            />
+            <StorefrontPageWrapper
+                pageName="Delete Account"
+                merchant={merchant}
+                fallback={<DeleteAccountContent />}
+            />
+        </>
+    );
+}
