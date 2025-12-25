@@ -164,6 +164,19 @@ const nextConfig: NextConfig = {
   // SEO redirects - flat URL structure for legal pages + legacy WordPress URLs
   redirects() {
     return Promise.resolve([
+      // === SUBDOMAIN REDIRECTS ===
+      // Redirect installments.ogabassey.com to ogabassey.com
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'installments.ogabassey.com',
+          },
+        ],
+        destination: 'https://ogabassey.com/:path*',
+        permanent: true, // 301 redirect for SEO
+      },
       // Legal page redirects
       {
         source: '/:slug/pages/privacy',
