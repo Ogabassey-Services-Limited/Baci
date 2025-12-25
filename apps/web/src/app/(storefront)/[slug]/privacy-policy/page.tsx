@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
@@ -39,16 +39,23 @@ export async function generateMetadata({
     };
   }
 
+  // Use request headers to determine the actual domain (supports custom domains)
+  const headersList = await headers();
+  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const canonicalUrl = `${protocol}://${host}/privacy-policy`;
+
   return {
     title: `Privacy Policy | ${merchant.business_name}`,
     description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
     alternates: {
-      canonical: `/${slug}/privacy-policy`,
+      canonical: canonicalUrl,
     },
     openGraph: {
       title: `Privacy Policy | ${merchant.business_name}`,
       description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
   };
@@ -70,12 +77,11 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
     notFound();
   }
 
-  // Generate base URL for JSON-LD
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${slug}`
-    : `https://${slug}.${rootDomain}`;
+  // Generate base URL for JSON-LD (supports custom domains)
+  const headersList = await headers();
+  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
 
   // Generate WebPage JSON-LD schema for Privacy Policy
   const privacySchema = {
