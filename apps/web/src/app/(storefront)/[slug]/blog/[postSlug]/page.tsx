@@ -1,7 +1,7 @@
 import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
 import { marked } from 'marked';
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -107,7 +107,13 @@ export async function generateMetadata({
   const title = post.seo_title || post.title;
   const description =
     post.seo_description || post.excerpt || post.content.substring(0, 160);
-  const url = `https://${merchant.slug}.usebaci.com/blog/${post.slug}`;
+
+  // Use request headers to determine the actual domain (supports custom domains)
+  const headersList = await headers();
+  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
+  const url = `${baseUrl}/blog/${post.slug}`;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -165,8 +171,13 @@ export default async function BlogPostPage({ params }: PageProps) {
   const rawHtml = await marked(post.content);
   const htmlContent = sanitizeHtml(rawHtml);
 
+  // Use request headers to determine the actual domain (supports custom domains)
+  const headersList = await headers();
+  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
+
   // Generate schema
-  const baseUrl = `https://${merchant.slug}.usebaci.com`;
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
     description:
@@ -196,15 +207,15 @@ export default async function BlogPostPage({ params }: PageProps) {
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
       name: merchant.business_name,
-      url: `https://${merchant.slug}.usebaci.com`,
+      url: baseUrl,
     },
     {
       name: 'Blog',
-      url: `https://${merchant.slug}.usebaci.com/blog`,
+      url: `${baseUrl}/blog`,
     },
     {
       name: post.title,
-      url: `https://${merchant.slug}.usebaci.com/blog/${post.slug}`,
+      url: `${baseUrl}/blog/${post.slug}`,
     },
   ]);
 
@@ -349,7 +360,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://${merchant.slug}.usebaci.com/blog/${post.slug}`)}`}
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -358,7 +369,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://${merchant.slug}.usebaci.com/blog/${post.slug}`)}`}
+                    href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -367,7 +378,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://${merchant.slug}.usebaci.com/blog/${post.slug}`)}`}
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >

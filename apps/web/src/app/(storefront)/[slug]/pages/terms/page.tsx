@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { TermsPageClient } from './terms-page-client';
 
@@ -70,12 +70,11 @@ export default async function TermsPage({ params }: PageProps) {
     notFound();
   }
 
-  // Generate base URL for JSON-LD
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${slug}`
-    : `https://${slug}.${rootDomain}`;
+  // Generate base URL for JSON-LD (supports custom domains)
+  const headersList = await headers();
+  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
 
   // Generate WebPage JSON-LD schema for Terms of Service
   const termsSchema = {
