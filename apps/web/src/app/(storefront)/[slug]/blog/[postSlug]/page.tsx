@@ -106,7 +106,7 @@ export async function generateMetadata({
   const { merchant, post } = data;
   const title = post.seo_title || post.title;
   const description =
-    post.seo_description || post.excerpt || post.content.substring(0, 160);
+    post.seo_description || post.excerpt || (post.content?.substring(0, 160) ?? '');
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
@@ -167,8 +167,8 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const { merchant, post, relatedPosts } = data;
 
-  // Parse markdown content
-  const rawHtml = await marked(post.content);
+  // Parse markdown content (with null safety)
+  const rawHtml = post.content ? await marked(post.content) : '';
   const htmlContent = sanitizeHtml(rawHtml);
 
   // Use request headers to determine the actual domain (supports custom domains)
@@ -181,7 +181,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
     description:
-      post.seo_description || post.excerpt || post.content.substring(0, 160),
+      post.seo_description || post.excerpt || (post.content?.substring(0, 160) ?? ''),
     url: `${baseUrl}/blog/${post.slug}`,
     image: post.featured_image_url || `${baseUrl}/opengraph-image`,
     datePublished: post.published_at,
