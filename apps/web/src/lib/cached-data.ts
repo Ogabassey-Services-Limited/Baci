@@ -483,7 +483,7 @@ export const getCachedProduct = unstable_cache(
     if (isUuid) {
       query = query.eq('id', productSlug);
     } else {
-      query = query.eq('slug', productSlug);
+      query = query.eq('slug', productSlug.toLowerCase());
     }
 
     const { data, error } = await query.single();
@@ -779,24 +779,108 @@ export const getCachedPlatformAnalytics = unstable_cache(
  */
 export const getCachedFeatureSettings = unstable_cache(
   async (merchantId: string) => {
-    const supabase = getServiceSupabaseClient();
+    try {
+      const supabase = getServiceSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('merchant_feature_settings')
-      .select('blog_enabled')
-      .eq('merchant_id', merchantId)
-      .single();
+      const { data, error } = await supabase
+        .from('merchant_feature_settings')
+        .select('blog_enabled')
+        .eq('merchant_id', merchantId)
+        .single();
 
-    if (error) {
-      // If no settings found, default to disabled
+      if (error) {
+        // If no settings found, default to disabled
+        return { blog_enabled: false };
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching feature settings:', error);
+      // Fallback to disabled on crash (e.g. missing service key)
       return { blog_enabled: false };
     }
-
-    return data;
   },
   ['feature-settings'],
   {
     revalidate: 300, // 5 minutes
     tags: ['features'],
+  }
+);
+
+/**
+ * Cached blog post with related posts
+ */
+export const getCachedBlogPost = unstable_cache(
+  async (identifier: string, postSlug: string) => {
+    // 1. Resolve Merchant
+    // We can reuse the existing cached merchant helpers, but since we are inside a cached function,
+    // we want to be careful about nesting too many unstable_caches if it causes overhead.
+    // However, reusing them ensures consistency.
+    // Given the structure, we'll fetch the merchant first using our public client helpers.
+    // Since this outer function is cached, the inner calls will only run on miss.
+
+    const lookupKey = identifier.toLowerCase();
+    // Use the appropriate cached helper based on whether it looks like a domain
+    const merchant =
+      lookupKey.includes('.') && !lookupKey.includes('/') // Simple domain check
+        ? await getCachedMerchantByDomain(lookupKey)
+        : await getCachedMerchant(lookupKey);
+
+    if (!merchant) return null;
+
+    // Check if blog is enabled
+    const features = await getCachedFeatureSettings(merchant.id);
+    if (!features?.blog_enabled) return null;
+
+    const supabase = getPublicSupabaseClient();
+
+    // 2. Fetch Post
+    const { data: post, error: postError } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('merchant_id', merchant.id)
+      .eq('slug', postSlug.toLowerCase())
+      .eq('status', 'published')
+      .single();
+
+    if (postError || !post) {
+      if (postError && postError.code !== 'PGRST116') {
+        console.error('Error fetching blog post:', postError);
+      }
+      return null;
+    }
+
+    // 3. Fetch Related Posts
+    let relatedQuery = supabase
+      .from('blog_posts')
+      .select(
+        'id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes'
+      )
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'published')
+      .neq('id', post.id)
+      .limit(3);
+
+    if (post.category) {
+      relatedQuery = relatedQuery.eq('category', post.category);
+    }
+
+    const { data: relatedPosts } = await relatedQuery;
+
+    return {
+      merchant: {
+        id: merchant.id,
+        business_name: merchant.business_name,
+        slug: merchant.slug,
+        logo_url: merchant.logo_url,
+      },
+      post,
+      relatedPosts: relatedPosts || [],
+    };
+  },
+  ['blog-post-page'],
+  {
+    revalidate: CACHE_DURATIONS.storefront,
+    tags: ['blog-posts'],
   }
 );

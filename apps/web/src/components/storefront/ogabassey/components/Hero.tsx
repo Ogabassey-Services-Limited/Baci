@@ -150,6 +150,10 @@ export const Hero: React.FC = () => {
 
   return (
     <div className="w-full bg-white relative">
+      {/* SEO H1 - Visually hidden but accessible and indexable */}
+      <h1 className="sr-only">
+        OgaBassey - Buy Phones, Laptops, Gaming Consoles & More. Pay Later in Nigeria
+      </h1>
       {/* Background Extension - Hidden on Desktop to allow clean separation from white navbar */}
       <div
         id="hero-bg-extension"

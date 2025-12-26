@@ -202,6 +202,75 @@ const nextConfig: NextConfig = {
         destination: '/:slug/privacy',
         permanent: true,
       },
+      // === CONTENT REDIRECTS (Ahrefs Fixes) ===
+      // Renamed blog posts
+      {
+        source: '/blog/iphone-xr-in-2025-is-this-still-a-good-deal',
+        destination: '/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
+        permanent: true,
+      },
+      {
+        source: '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
+        destination: '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        permanent: true,
+      },
+      // Fix specific product suffix issues
+      {
+        source: '/phones/iphone-x-3gb-64gb-nfid',
+        destination: '/phones/iphone-x-3gb-64gb',
+        permanent: true,
+      },
+      // === CATEGORY REDIRECTS (Meta Refresh Fix) ===
+      // Redirect legacy category paths to canonical URLs (scoped to ogabassey.com)
+      {
+        source: '/macbook',
+        destination: '/laptops',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/macbook/:path*',
+        destination: '/laptops/:path*',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/samsung',
+        destination: '/smartphones',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/samsung/:path*',
+        destination: '/smartphones/:path*',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/phones',
+        destination: '/smartphones',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/phones/:path*',
+        destination: '/smartphones/:path*',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/oppo',
+        destination: '/oppo-phones',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+      {
+        source: '/oppo/:path*',
+        destination: '/oppo-phones/:path*',
+        permanent: true,
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+      },
+
       // === LEGACY WORDPRESS URL REDIRECTS (GSC Fix) ===
       // /user/* paths - redirect to homepage
       {
@@ -213,12 +282,6 @@ const nextConfig: NextConfig = {
       {
         source: '/home/:path*',
         destination: '/',
-        permanent: true,
-      },
-      // /cart - redirect to ogabassey cart
-      {
-        source: '/cart',
-        destination: '/ogabassey/cart',
         permanent: true,
       },
       // /product-category/* - redirect to products

@@ -96,8 +96,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
+        normalizedSlug.includes(key)
+      )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -125,7 +125,7 @@ const getCategoryData = cache(
     let productsError = null;
 
     if (category?.id) {
-      // Query products via category_id with join to categories table
+      // Query products via product_categories (Many-to-Many) with inner join for filtering
       const { data: productData, error: err } = await supabase
         .from('products')
         .select(`
@@ -140,12 +140,11 @@ const getCategoryData = cache(
           brand,
           condition,
           stock,
-          category_id,
-          categories:category_id(id, name, slug)
+          product_categories!inner(category_id, categories(name, slug))
         `)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .eq('category_id', category.id)
+        .eq('product_categories.category_id', category.id)
         .limit(50);
 
       products = (productData || []) as unknown as Product[];
@@ -169,8 +168,7 @@ const getCategoryData = cache(
           brand,
           condition,
           stock,
-          category_id,
-          categories:category_id(id, name, slug)
+          product_categories(categories(name, slug))
         `)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
@@ -245,13 +243,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-          images: [
-            {
-              url: products[0].images[0] as unknown as string,
-              alt: categoryData.name,
-            },
-          ],
-        }),
+        images: [
+          {
+            url: products[0].images[0] as unknown as string,
+            alt: categoryData.name,
+          },
+        ],
+      }),
     },
     twitter: {
       card: 'summary_large_image',

@@ -5,6 +5,10 @@ import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import {
   escapeHtml,
@@ -565,39 +569,13 @@ const getProduct = cache(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // 1. Get Merchant ID from store slug or custom domain
-    let merchantQuery = supabase
-      .from('merchants')
-      .select(
-        'id, business_name, social_media, payout_currency, business_type, template_id'
-      );
+    // 1. Get Merchant using cached functions (bypasses RLS, more reliable)
+    const merchant = isDomainIdentifier(storeSlug)
+      ? await getCachedMerchantByDomain(storeSlug)
+      : await getCachedMerchant(storeSlug);
 
-    if (isDomainIdentifier(storeSlug)) {
-      // Logic for custom domain: lookup domain first, then merchant
-      const { data: domainData } = await supabase
-        .from('domains')
-        .select('merchant_id')
-        .eq('domain', storeSlug.toLowerCase())
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (domainData) {
-        merchantQuery = merchantQuery.eq('id', domainData.merchant_id);
-      } else {
-        // Domain not found or not active return null early to trigger notFound()
-        console.error('Domain not found or inactive:', storeSlug);
-        return null;
-      }
-    } else {
-      // Standard slug lookup
-      merchantQuery = merchantQuery.eq('slug', storeSlug);
-    }
-
-    const { data: merchant, error: merchantError } =
-      await merchantQuery.maybeSingle();
-
-    if (merchantError || !merchant) {
-      console.error('Merchant not found:', merchantError);
+    if (!merchant) {
+      console.error('Merchant not found for slug/domain:', storeSlug);
       return null;
     }
 
@@ -778,9 +756,15 @@ export async function generateMetadata({
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  let baseUrl = `${protocol}://${host}`;
 
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+
+  // FIX: Ensure canonical URL always points to the production custom domain if it exists
+  if (!isLocalhost && merchant?.custom_domain) {
+    baseUrl = `https://${merchant.custom_domain}`;
+  }
+
   const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Construct canonical URL:
@@ -886,13 +870,20 @@ export default async function CategoryProductPage({ params }: PageProps) {
     }
   }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  let baseUrl = `${protocol}://${host}`;
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+
+  // FIX: Ensure schema URL always points to the production custom domain if it exists
+  if (!isLocalhost && merchant?.custom_domain) {
+    baseUrl = `https://${merchant.custom_domain}`;
+  }
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
     product,
     merchant?.business_name || 'Baci Store',
-    merchant?.payout_currency || 'USD'
+    merchant?.payout_currency || 'USD',
+    merchant?.country || 'NG'
   );
 
   // Build proper URL for schema
@@ -939,6 +930,21 @@ export default async function CategoryProductPage({ params }: PageProps) {
           __html: safeJsonLdStringify(breadcrumbSchema),
         }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
+      {/* SEO Content - Server-rendered for crawlers, hidden but accessible and indexable */}
+      <article className="sr-only">
+        <h1>{product.name}</h1>
+        <p>{product.description || `Buy ${product.name} at the best price in Nigeria. Pay later with flexible options.`}</p>
+        <dl>
+          <dt>Brand</dt>
+          <dd>{product.brand || 'OgaBassey'}</dd>
+          <dt>Category</dt>
+          <dd>{product.category || 'Electronics'}</dd>
+          <dt>Condition</dt>
+          <dd>{product.condition || 'New'}</dd>
+          <dt>Price</dt>
+          <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
+        </dl>
+      </article>
       <Suspense fallback={<ProductDetailSkeleton />}>
         <TemplateProductPage
           product={product}

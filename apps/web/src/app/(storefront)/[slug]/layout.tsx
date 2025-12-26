@@ -131,9 +131,15 @@ export async function generateMetadata({
         }
         : undefined;
 
+  // Build SEO-friendly description with proper fallbacks
+  const description =
+    merchant.site_description ||
+    merchant.site_tagline ||
+    `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
+
   return {
-    title: merchant.business_name,
-    description: `Shop at ${merchant.business_name} on Baci`,
+    title: merchant.site_title || `${merchant.business_name} | Buy Gadgets Pay Later`,
+    description,
     icons,
     verification: verificationCode
       ? {
@@ -141,7 +147,8 @@ export async function generateMetadata({
       }
       : undefined,
     openGraph: {
-      title: merchant.business_name,
+      title: merchant.site_title || merchant.business_name,
+      description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
