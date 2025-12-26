@@ -1,20 +1,13 @@
-import { Calendar, Clock, Rss, User } from 'lucide-react';
+import { Rss } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import Image from 'next/image';
+
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+
 import {
   getCachedFeatureSettings,
   getCachedMerchant,
@@ -25,6 +18,7 @@ import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
+import { BlogList } from './blog-list';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -180,13 +174,16 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const { merchant, posts, categories, totalPages, searchQuery } = data;
+  const { merchant, posts, categories, totalPosts, searchQuery } = data;
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
+
+  // Determine base path for internal links
+  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
 
   // Generate Blog schema with ItemList for SEO
   const blogSchema = {
@@ -200,9 +197,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       name: merchant.business_name,
       logo: merchant.logo_url
         ? {
-            '@type': 'ImageObject',
-            url: merchant.logo_url,
-          }
+          '@type': 'ImageObject',
+          url: merchant.logo_url,
+        }
         : undefined,
     },
     blogPost: posts.slice(0, 10).map((post) => ({
@@ -320,7 +317,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
                 </p>
                 {searchQuery && (
                   <Link
-                    href={asRoute(`/${slug}/blog`)}
+                    href={asRoute(`${basePath}/blog`)}
                     className="text-sm text-primary hover:underline mt-2 inline-block"
                   >
                     Clear search
@@ -344,7 +341,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
           {/* Categories */}
           {categories.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-8">
-              <Link href={asRoute(`/${slug}/blog`)}>
+              <Link href={asRoute(`${basePath}/blog`)}>
                 <Badge
                   variant={!category ? 'default' : 'outline'}
                   className="cursor-pointer"
@@ -356,7 +353,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
                 <Link
                   key={cat}
                   href={asRoute(
-                    `/${slug}/blog?category=${encodeURIComponent(cat)}`
+                    `${basePath}/blog?category=${encodeURIComponent(cat)}`
                   )}
                 >
                   <Badge
@@ -375,107 +372,15 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             <AdUnit placementKey="BLOG_SIDEBAR" />
           </div>
 
-          {/* Posts Grid */}
-          {posts.length === 0 ? (
-            <Card className="text-center py-12">
-              <CardContent>
-                <p className="text-muted-foreground">
-                  {category
-                    ? `No posts found in "${category}" category.`
-                    : 'No blog posts yet. Check back soon!'}
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {posts.map((post) => (
-                <Link key={post.id} href={`/${slug}/blog/${post.slug}`}>
-                  <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
-                    {post.featured_image_url && (
-                      <div className="aspect-video overflow-hidden relative">
-                        <Image
-                          src={post.featured_image_url}
-                          alt={post.featured_image_alt || post.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                    )}
-                    <CardHeader>
-                      {post.category && (
-                        <Badge variant="secondary" className="w-fit mb-2">
-                          {post.category}
-                        </Badge>
-                      )}
-                      <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors">
-                        {post.title}
-                      </CardTitle>
-                      {post.excerpt && (
-                        <CardDescription className="line-clamp-3">
-                          {post.excerpt}
-                        </CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="w-3.5 h-3.5" />
-                          <span className="truncate max-w-[100px]">
-                            {post.author_name}
-                          </span>
-                        </div>
-                        {post.published_at && (
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            <span>
-                              {new Date(post.published_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {post.reading_time_minutes && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{post.reading_time_minutes} min</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-8">
-              {currentPage > 1 && (
-                <Button variant="outline" asChild>
-                  <Link
-                    href={asRoute(
-                      `/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage - 1}`
-                    )}
-                  >
-                    Previous
-                  </Link>
-                </Button>
-              )}
-              <span className="flex items-center px-4 text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              {currentPage < totalPages && (
-                <Button variant="outline" asChild>
-                  <Link
-                    href={asRoute(
-                      `/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage + 1}`
-                    )}
-                  >
-                    Next
-                  </Link>
-                </Button>
-              )}
-            </div>
-          )}
+          {/* Posts Grid with Infinite Scroll */}
+          <BlogList
+            initialPosts={posts}
+            merchantId={merchant.id}
+            totalPosts={totalPosts}
+            category={category}
+            searchQuery={searchQuery}
+            basePath={basePath}
+          />
         </main>
       </div>
     </>
