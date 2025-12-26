@@ -36,6 +36,7 @@ import { SearchAutocomplete } from '@/components/storefront/search-autocomplete'
 import { asRoute } from '@/lib/routes';
 import { Logo } from './logo';
 import { MobileMenu } from './mobile-menu';
+import { GadgetPattern } from '../components/GadgetPattern';
 import { EmptyState } from '../components/empty-state';
 
 interface NavbarProps {
@@ -226,13 +227,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
         {/* --- TOP HEADER ROW (BLACK) --- */}
         <div className="bg-[#0F0F0F] relative z-20 text-white">
           {/* Dark Pattern Background Container - Optimized CSS-only implementation */}
-          <div
-            className="absolute inset-0 opacity-[0.05] pointer-events-none overflow-hidden"
-            style={{
-              backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)',
-              backgroundSize: '24px 24px',
-            }}
-          />
+          {/* Dark Pattern Background Container - Restored Gadget Pattern */}
+          <GadgetPattern opacity={0.1} />
 
           <div className="max-w-[1400px] mx-auto relative z-10">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 pt-3 pb-5 md:py-4 px-4 md:px-6">
@@ -514,7 +510,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MobileMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+      />
     </>
   );
 };
