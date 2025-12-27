@@ -503,6 +503,131 @@ export const getCachedProduct = unstable_cache(
 );
 
 /**
+ * Comprehensive cached product data with all relations for product pages.
+ * Fetches product + key_specs + variants + offers + category in a single query.
+ * Uses 5-minute cache for optimal performance.
+ */
+export const getCachedProductWithDetails = unstable_cache(
+  async (merchantId: string, productSlug: string) => {
+    const supabase = getPublicSupabaseClient();
+
+    // Check if the input looks like a UUID
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        productSlug
+      );
+
+    let query = supabase
+      .from('products')
+      .select(`
+        *,
+        category_id,
+        categories:category_id(id, name, slug, parent_id),
+        product_key_specs (
+          screen_size_inches,
+          refresh_rate_hz,
+          chipset,
+          ram_gb,
+          storage_gb,
+          main_camera_mp,
+          battery_mah,
+          charging_watt,
+          has_5g,
+          android_version,
+          network_technology,
+          sim_type,
+          has_nfc,
+          wifi_bands,
+          bluetooth_version,
+          usb_type,
+          has_usb_otg,
+          positioning,
+          has_fm_radio,
+          dimensions_mm,
+          weight_g,
+          build_materials,
+          ip_rating,
+          display_type,
+          display_resolution,
+          display_ppi,
+          display_protection,
+          display_peak_brightness,
+          front_camera_mp,
+          front_camera_features,
+          front_camera_video,
+          rear_camera_features,
+          rear_camera_video,
+          has_dual_camera,
+          has_triple_camera,
+          has_quad_camera,
+          has_stereo_speakers,
+          has_headphone_jack,
+          fingerprint_type,
+          sensors,
+          battery_removable,
+          has_wireless_charging,
+          wireless_charging_watt,
+          has_reverse_charging,
+          cpu_cores,
+          gpu,
+          has_card_slot,
+          card_slot_type,
+          available_colors,
+          model_numbers,
+          announced_date,
+          release_date
+        ),
+        product_variants (
+          id,
+          sku,
+          attributes,
+          price_override,
+          stock_quantity,
+          storage,
+          sim_type,
+          color,
+          images,
+          primary_image,
+          ram_gb,
+          condition
+        ),
+        product_offers (
+          id,
+          condition,
+          price,
+          compare_at_price,
+          stock_quantity,
+          images,
+          condition_notes,
+          grade,
+          status
+        )
+      `)
+      .eq('merchant_id', merchantId);
+
+    if (isUuid) {
+      query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
+    } else {
+      query = query.eq('slug', productSlug.toLowerCase());
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      console.error('Error fetching product with details:', error);
+      return null;
+    }
+
+    return data;
+  },
+  ['product-details'],
+  {
+    revalidate: CACHE_DURATIONS.products,
+    tags: ['product', 'product-details'],
+  }
+);
+
+/**
  * Cached categories for a merchant
  * Uses 1 hour cache for category structure
  */

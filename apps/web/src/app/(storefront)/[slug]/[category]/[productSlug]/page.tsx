@@ -8,6 +8,7 @@ import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
+  getCachedProductWithDetails,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import {
@@ -561,180 +562,68 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-import { cache } from 'react';
-import { createClient } from '@/lib/supabase/server';
 
-const getProduct = cache(
-  async (storeSlug: string, categorySlug: string, productSlug: string) => {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+const getProduct = async (
+  storeSlug: string,
+  categorySlug: string,
+  productSlug: string
+) => {
+  // 1. Get Merchant using cached functions (bypasses RLS, more reliable)
+  const merchant = isDomainIdentifier(storeSlug)
+    ? await getCachedMerchantByDomain(storeSlug)
+    : await getCachedMerchant(storeSlug);
 
-    // 1. Get Merchant using cached functions (bypasses RLS, more reliable)
-    const merchant = isDomainIdentifier(storeSlug)
-      ? await getCachedMerchantByDomain(storeSlug)
-      : await getCachedMerchant(storeSlug);
-
-    if (!merchant) {
-      console.error('Merchant not found for slug/domain:', storeSlug);
-      return null;
-    }
-
-    // 2. Get Product by slug and merchant_id
-    // Also verify category matches (for SEO canonical purposes)
-    const isUuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        productSlug
-      );
-
-    let query = supabase
-      .from('products')
-      .select(`
-        *,
-        category_id,
-        categories:category_id(id, name, slug, parent_id),
-        product_key_specs (
-          screen_size_inches,
-          refresh_rate_hz,
-          chipset,
-          ram_gb,
-          storage_gb,
-          main_camera_mp,
-          battery_mah,
-          charging_watt,
-          has_5g,
-          android_version,
-          network_technology,
-          sim_type,
-          has_nfc,
-          wifi_bands,
-          bluetooth_version,
-          usb_type,
-          has_usb_otg,
-          positioning,
-          has_fm_radio,
-          dimensions_mm,
-          weight_g,
-          build_materials,
-          ip_rating,
-          display_type,
-          display_resolution,
-          display_ppi,
-          display_protection,
-          display_peak_brightness,
-          front_camera_mp,
-          front_camera_features,
-          front_camera_video,
-          rear_camera_features,
-          rear_camera_video,
-          has_dual_camera,
-          has_triple_camera,
-          has_quad_camera,
-          has_stereo_speakers,
-          has_headphone_jack,
-          fingerprint_type,
-          sensors,
-          battery_removable,
-          has_wireless_charging,
-          wireless_charging_watt,
-          has_reverse_charging,
-          cpu_cores,
-          gpu,
-          has_card_slot,
-          card_slot_type,
-          available_colors,
-          model_numbers,
-          announced_date,
-          release_date
-        )
-      `)
-      .eq('merchant_id', merchant.id);
-
-    if (isUuid) {
-      // Validated by isUuid regex, but sanitizing to be safe against injection
-      const safeSlug = sanitizeLikePattern(productSlug);
-      query = query.or(`slug.eq.${safeSlug},id.eq.${safeSlug}`);
-    } else {
-      query = query.eq('slug', productSlug);
-    }
-
-    const { data: product, error: productError } = await query.maybeSingle();
-
-    if (productError || !product) {
-      console.error(
-        'Product not found:',
-        JSON.stringify(productError, null, 2)
-      );
-      return null;
-    }
-
-    // Verify category matches (optional - for strictness)
-    // Use joined category data if available, fallback to TEXT column
-    interface ProductWithCategory {
-      categories?: {
-        id: string;
-        name: string;
-        slug: string;
-        parent_id?: string;
-      } | null;
-    }
-    const productWithCat = product as unknown as ProductWithCategory;
-    const joinedCategory = productWithCat.categories;
-
-    // Determine category slug: prioritize joined category slug, then TEXT field slug generation
-    const dbCategorySlug = joinedCategory?.slug;
-    const dbCategoryName = joinedCategory?.name || product.category;
-
-    // Create extended product with category info
-    const productWithCategorySlug: Product = {
-      ...product,
-      category: dbCategoryName || product.category,
-      category_slug: dbCategorySlug,
-    } as Product;
-
-    const productCategorySlug =
-      dbCategorySlug ||
-      (product.category ? generateSlug(product.category) : null);
-
-    const categoryMismatch =
-      productCategorySlug && productCategorySlug !== categorySlug;
-
-    // Fetch variants if has_variants flag is set
-    // Also fetch as fallback if storage_options exist but flag wasn't set
-    if (
-      product.has_variants ||
-      (product.storage_options && product.storage_options.length > 0)
-    ) {
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('*')
-        .eq('product_id', product.id);
-
-      if (variants && variants.length > 0) {
-        productWithCategorySlug.variants = variants;
-      }
-    }
-
-    // Fetch condition offers if product has them
-    if (product.has_condition_offers) {
-      const { data: offers } = await supabase
-        .from('product_offers')
-        .select(
-          'id, condition, price, compare_at_price, stock_quantity, images, condition_notes, grade'
-        )
-        .eq('product_id', product.id)
-        .eq('status', 'active');
-
-      if (offers) {
-        // Filter out the offer that matches the main product's condition to avoid duplication
-        productWithCategorySlug.offers = offers.filter(
-          (o) => o.condition !== product.condition
-        );
-      }
-    }
-
-    return { product: productWithCategorySlug, categoryMismatch, merchant };
+  if (!merchant) {
+    console.error('Merchant not found for slug/domain:', storeSlug);
+    return null;
   }
-);
+
+  // 2. Get Product using the new cached function with full joins
+  const product = await getCachedProductWithDetails(merchant.id, productSlug);
+
+  if (!product) {
+    console.error('Product not found:', productSlug);
+    return null;
+  }
+
+  // 3. Process category data
+  interface ProductWithCategory {
+    categories?: {
+      id: string;
+      name: string;
+      slug: string;
+      parent_id?: string;
+    } | null;
+  }
+  const productWithCat = product as unknown as ProductWithCategory;
+  const joinedCategory = productWithCat.categories;
+
+  const dbCategorySlug = joinedCategory?.slug;
+  const dbCategoryName = joinedCategory?.name || product.category;
+
+  // Create extended product with category info
+  const productWithCategorySlug: Product = {
+    ...product,
+    category: dbCategoryName || product.category,
+    category_slug: dbCategorySlug,
+    // Filter offers to exclude main product condition
+    offers: product.product_offers?.filter(
+      (o: { condition: string; status: string }) =>
+        o.condition !== product.condition && o.status === 'active'
+    ),
+    // Map variants
+    variants: product.product_variants || [],
+  } as Product;
+
+  const productCategorySlug =
+    dbCategorySlug ||
+    (product.category ? generateSlug(product.category) : null);
+
+  const categoryMismatch =
+    productCategorySlug && productCategorySlug !== categorySlug;
+
+  return { product: productWithCategorySlug, categoryMismatch, merchant };
+};
 
 export async function generateMetadata({
   params,
