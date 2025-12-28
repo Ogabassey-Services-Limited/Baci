@@ -405,7 +405,7 @@ function getComplementaryCategories(category: string | null): string[] {
 // ADD TO CART (Returns product for frontend)
 // ============================================
 
-export async function handleAddToCart(
+export function handleAddToCart(
   params: AddToCartParams
 ): Promise<ProductSearchResult | null> {
   // Just return the product details - actual cart management happens on frontend
