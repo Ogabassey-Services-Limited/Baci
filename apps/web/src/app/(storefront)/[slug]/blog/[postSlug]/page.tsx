@@ -1,6 +1,6 @@
 import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
 import { marked } from 'marked';
-import type { Metadata } from 'next';
+import type { Metadata, Route } from 'next';
 import { headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -330,7 +330,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   {relatedPosts.map((related) => (
                     <Link
                       key={related.id}
-                      href={`${basePath}/blog/${related.slug}` as any}
+                      href={`${basePath}/blog/${related.slug}` as Route}
                     >
                       <Card className="h-full hover:shadow-lg transition-shadow group">
                         {related.featured_image_url && (

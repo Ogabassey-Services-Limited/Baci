@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  Loader2,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Save,
-  Trash2,
-  Wand2,
-} from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Save, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { ThemedCard } from '@/components/themed/themed-card';
@@ -58,7 +50,7 @@ export function FAQSettingsClient({
   const [faqs, setFaqs] = useState<FAQItem[]>(initialFAQs);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [_editingId, setEditingId] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -133,6 +125,7 @@ export function FAQSettingsClient({
       order: faqs.length,
     };
     setFaqs([...faqs, newFAQ]);
+    // biome-ignore lint/style/noNonNullAssertion: Created with ID locally
     setEditingId(newFAQ.id!);
   };
 
@@ -206,6 +199,7 @@ export function FAQSettingsClient({
             {faqs.map((faq, index) => (
               <AccordionItem
                 key={faq.id}
+                // biome-ignore lint/style/noNonNullAssertion: Guaranteed by DB
                 value={faq.id!}
                 className="rounded-lg border bg-card px-4"
               >
@@ -230,6 +224,7 @@ export function FAQSettingsClient({
                         id={`q-${faq.id}`}
                         value={faq.question}
                         onChange={(e) =>
+                          // biome-ignore lint/style/noNonNullAssertion: ID guaranteed
                           handleUpdateFAQ(faq.id!, { question: e.target.value })
                         }
                         placeholder="Enter question..."
@@ -241,6 +236,7 @@ export function FAQSettingsClient({
                         id={`a-${faq.id}`}
                         value={faq.answer}
                         onChange={(e) =>
+                          // biome-ignore lint/style/noNonNullAssertion: ID guaranteed
                           handleUpdateFAQ(faq.id!, { answer: e.target.value })
                         }
                         placeholder="Enter answer..."
@@ -253,6 +249,7 @@ export function FAQSettingsClient({
                         <Select
                           value={faq.category || 'General'}
                           onValueChange={(value) =>
+                            // biome-ignore lint/style/noNonNullAssertion: ID guaranteed by context
                             handleUpdateFAQ(faq.id!, { category: value })
                           }
                         >
@@ -272,6 +269,7 @@ export function FAQSettingsClient({
                         variant="ghost"
                         size="sm"
                         className="mt-6 text-destructive hover:text-destructive"
+                        // biome-ignore lint/style/noNonNullAssertion: ID guaranteed by context
                         onClick={() => handleDeleteFAQ(faq.id!)}
                       >
                         <Trash2 className="h-4 w-4" />

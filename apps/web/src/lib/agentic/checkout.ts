@@ -1,6 +1,3 @@
-import { stripHtmlTags } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
-
 // --- Interfaces based on Spec ---
 
 export interface GPTLineItem {
@@ -70,10 +67,11 @@ export interface GPTMessage {
 // --- Helpers ---
 
 export async function calculateCheckoutSession(
+  // biome-ignore lint/suspicious/noExplicitAny: Supabase client
   supabase: any,
   items: { id: string; quantity: number }[],
   fulfillmentOptionId?: string | null,
-  currency: string = 'NGN'
+  _currency: string = 'NGN'
 ) {
   // 1. Fetch products
   // We need to handle both Product IDs and Variant IDs.
@@ -105,10 +103,12 @@ export async function calculateCheckoutSession(
   const messages: GPTMessage[] = [];
 
   let itemsBaseAmount = 0;
-  let shippingWeightTotal = 0; // In kg presumably
+  let _shippingWeightTotal = 0; // In kg presumably
 
   for (const requestedItem of items) {
+    // biome-ignore lint/suspicious/noExplicitAny: Product type mismatch
     const product = foundProducts.find((p: any) => p.id === requestedItem.id);
+    // biome-ignore lint/suspicious/noExplicitAny: Variant type mismatch
     const variant = foundVariants.find((v: any) => v.id === requestedItem.id);
 
     let price = 0;
@@ -129,7 +129,7 @@ export async function calculateCheckoutSession(
       title = product.name;
       stock = product.stock;
       weight = product.weight_unit === 'kg' ? product.weight_value || 0 : 0; // Simplified
-      shippingWeightTotal += weight * requestedItem.quantity;
+      _shippingWeightTotal += weight * requestedItem.quantity;
     } else {
       // Not found
       messages.push({

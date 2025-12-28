@@ -109,6 +109,7 @@ function isVariantAvailable(
 
 export default function ProductDetailClient({
   product,
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: Reserved for future FAQ section implementation
   faqs,
 }: {
   product: Product;

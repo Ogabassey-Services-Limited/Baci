@@ -10,7 +10,7 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
-import type { Product, Review } from '@/lib/products';
+import type { Product } from '@/lib/products';
 import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   constructCanonicalUrl,

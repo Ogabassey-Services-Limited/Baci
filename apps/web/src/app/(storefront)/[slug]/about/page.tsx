@@ -114,6 +114,7 @@ export default async function AboutPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
         dangerouslySetInnerHTML={{
           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
         }}

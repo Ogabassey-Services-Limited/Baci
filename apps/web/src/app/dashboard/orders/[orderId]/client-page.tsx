@@ -196,7 +196,7 @@ export default function OrderDetailsClientPage({
           description: result.message,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Error',

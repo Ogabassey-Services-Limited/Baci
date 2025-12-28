@@ -225,6 +225,7 @@ export default async function StorefrontPage({
       );
     } else {
       // Manual mapping: Transform many-to-many result to Product interface shape
+      // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface
       merchantProducts = (products || []).map((p: any) => ({
         ...p,
         // Map the first category from the collection to the legacy text/object field expected by UI

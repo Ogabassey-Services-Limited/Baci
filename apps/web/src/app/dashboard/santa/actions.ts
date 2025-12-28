@@ -34,23 +34,6 @@ export async function getSantaStats(merchantId: string): Promise<SantaStats> {
   // Alternatively, just query the view and sum it up in JS or SQL.
   // Let's rely on raw table aggregation for real-time accuracy for the "Totals" cards.
 
-  const { data, error } = await supabase
-    .from('santa_interactions')
-    .select('interaction_type, approved_price, discount_percentage')
-    .eq('merchant_id', merchantId);
-
-  if (error) {
-    console.error('Error fetching santa stats:', error);
-    return {
-      total_chats: 0,
-      unique_sessions: 0,
-      wishes_granted: 0,
-      wishes_denied: 0,
-      total_revenue: 0,
-      avg_discount: 0,
-    };
-  }
-
   // Calculate stats in memory (since we might not have the view enabled/perfect yet)
   const stats: SantaStats = {
     total_chats: 0,
@@ -60,13 +43,6 @@ export async function getSantaStats(merchantId: string): Promise<SantaStats> {
     total_revenue: 0,
     avg_discount: 0,
   };
-
-  // Get unique sessions count separately if needed efficiently,
-  // but for MVP let's just do a count query
-  const { count: sessionCount } = await supabase
-    .from('santa_interactions')
-    .select('session_id', { count: 'exact', head: true })
-    .eq('merchant_id', merchantId); // This isn't distinct.
 
   // Better: use the view if it works.
   // Let's try the view first, fall back to simple counts.

@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         totals: sessionCalc.totals,
         fulfillment_options: sessionCalc.fulfillmentOptions,
         currency,
+        fulfillment_address, // Persist address
         status: 'not_ready_for_payment', // Default
       })
       .select('id')
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         'idempotency-key': idempotencyKey || '',
       },
     });
+    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
   } catch (err: any) {
     console.error('Agentic Checkout Create Error:', err);
     return NextResponse.json(

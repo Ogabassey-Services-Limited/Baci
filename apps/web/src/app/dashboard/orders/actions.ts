@@ -277,6 +277,7 @@ export async function getOrder(
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
+    // biome-ignore lint/suspicious/noExplicitAny: Transaction type mismatch
     transactions: (transactions || []).map((tx: any) => ({
       id: tx.id,
       reference: tx.gateway_reference,

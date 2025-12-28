@@ -252,6 +252,7 @@ export default async function StorefrontDeleteAccountPage({
     <>
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(pageSchema) }}
       />
       <StorefrontPageWrapper

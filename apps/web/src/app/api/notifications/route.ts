@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       (notifications || []) as unknown as MerchantNotificationWithDetails[];
 
     // In-memory filter for expiration (temporary fix/debug)
-    const nowTime = new Date().getTime();
+    const nowTime = Date.now();
     filteredNotifications = filteredNotifications.filter((n) => {
       if (!n.notification.expires_at) return true;
       return new Date(n.notification.expires_at).getTime() > nowTime;

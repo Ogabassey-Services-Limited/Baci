@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getIdempotencyKey, verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Helper to get session from DB
+// biome-ignore lint/suspicious/noExplicitAny: Supabase client type complexity
 async function getSession(supabase: any, id: string) {
   const { data, error } = await supabase
     .from('checkout_sessions')
@@ -41,6 +42,7 @@ export async function GET(
 
   const sessionCalc = await calculateCheckoutSession(
     supabase,
+    // biome-ignore lint/suspicious/noExplicitAny: Items type mismatch
     items as any[],
     fulfillmentOptionId,
     currency
@@ -94,6 +96,7 @@ export async function POST(
     // Recalculate
     const sessionCalc = await calculateCheckoutSession(
       supabase,
+      // biome-ignore lint/suspicious/noExplicitAny: Items type mismatch
       newItems as any[],
       newOptionId,
       session.currency
@@ -138,6 +141,7 @@ export async function POST(
         { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
       ],
     });
+    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
   } catch (err: any) {
     console.error('Agentic Checkout Update Error:', err);
     return NextResponse.json(

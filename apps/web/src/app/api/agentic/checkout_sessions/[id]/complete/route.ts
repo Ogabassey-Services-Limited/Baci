@@ -5,14 +5,6 @@ import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { chargeDelegatedPayment } from '@/lib/agentic/stripe';
 import { createServiceClient } from '@/lib/supabase/service';
 
-// Mock NextRequest for internal call
-function mockRequest(body: any, headers: Headers) {
-  return {
-    json: async () => body,
-    headers,
-  } as NextRequest;
-}
-
 export async function POST(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -50,11 +42,13 @@ export async function POST(
     // 1. Recalculate final totals to ensure accuracy
     const sessionCalc = await calculateCheckoutSession(
       supabase,
+      // biome-ignore lint/suspicious/noExplicitAny: Supabase return type mismatch
       session.items as any[],
       session.fulfillment_option_id,
       session.currency
     );
     const grandTotal = sessionCalc.totals.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Implicit any in find callback
       (t: any) => t.type === 'total'
     )?.amount;
 
@@ -159,6 +153,7 @@ export async function POST(
     sendAgenticWebhook('order.created', {
       id: orderId,
       currency: session.currency,
+      // biome-ignore lint/suspicious/noExplicitAny: Implicit any in find callback
       total: sessionCalc.totals.find((t: any) => t.type === 'total')?.amount,
       status: 'created',
       ...buyer,
@@ -178,6 +173,7 @@ export async function POST(
       messages: [],
       links: [],
     });
+    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
   } catch (err: any) {
     console.error('Agentic Checkout Complete Error:', err);
     return NextResponse.json(

@@ -1399,6 +1399,7 @@ function CheckoutPageContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
+                    {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic routing */}
                     <Link href={`${basePath || ''}/cart` as any}>
                       <Button
                         variant="ghost"

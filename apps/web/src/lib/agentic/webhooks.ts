@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 const OPENAI_WEBHOOK_URL = process.env.OPENAI_AGENTIC_WEBHOOK_URL;
 const MERCHANT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY; // Provided by OpenAI
@@ -8,10 +8,12 @@ const MERCHANT_NAME_HEADER =
 interface WebhookPayload {
   event: 'order.created' | 'order.updated';
   order_id: string;
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic payload structure
   payload: any;
   timestamp: string;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: Dynamic payload
 export async function sendAgenticWebhook(event: string, orderData: any) {
   if (!OPENAI_WEBHOOK_URL || !MERCHANT_SIGNING_KEY) {
     console.warn('OpenAI Webhook configuration missing. Skipping webhook.');
@@ -19,6 +21,7 @@ export async function sendAgenticWebhook(event: string, orderData: any) {
   }
 
   const payload: WebhookPayload = {
+    // biome-ignore lint/suspicious/noExplicitAny: Casting event string
     event: event as any,
     order_id: orderData.id,
     payload: orderData,

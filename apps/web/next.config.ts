@@ -206,12 +206,15 @@ const nextConfig: NextConfig = {
       // Renamed blog posts
       {
         source: '/blog/iphone-xr-in-2025-is-this-still-a-good-deal',
-        destination: '/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
+        destination:
+          '/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
         permanent: true,
       },
       {
-        source: '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
-        destination: '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        source:
+          '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
+        destination:
+          '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
         permanent: true,
       },
       // Fix specific product suffix issues

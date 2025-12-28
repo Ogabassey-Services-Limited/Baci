@@ -8,6 +8,7 @@ if (!stripeSecretKey) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const stripe = new Stripe(stripeSecretKey || '', {
+  // biome-ignore lint/suspicious/noExplicitAny: Cast to bypass version type checking for beta API
   apiVersion: '2025-03-31.basil' as any, // Cast to bypass version type checking
   typescript: true,
 });
@@ -63,6 +64,7 @@ export async function chargeDelegatedPayment(
       amount: paymentIntent.amount,
       raw: paymentIntent,
     };
+    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
   } catch (error: any) {
     console.error('Stripe Delegated Payment Error:', error);
     return {

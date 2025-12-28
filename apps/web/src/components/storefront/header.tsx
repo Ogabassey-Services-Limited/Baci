@@ -13,7 +13,7 @@ import { useStorefront } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute, routes } from '@/lib/routes';
-import { isSafeSlug } from '@/lib/validate-slug';
+
 import { SearchAutocomplete } from './search-autocomplete';
 
 /**

@@ -257,6 +257,7 @@ function generateOpenAIFeed(
 
     if (hasVariants) {
       // --- VARIANT MODE: Generate item for each variant ---
+      // biome-ignore lint/style/noNonNullAssertion: Checked hasVariants above
       for (const variant of product.variants!) {
         // Skip variants with no price if we can't fall back (though we usually fall back to parent)
         const finalPrice = variant.price_override || product.price;

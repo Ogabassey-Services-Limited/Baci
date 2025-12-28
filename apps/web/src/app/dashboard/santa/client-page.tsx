@@ -1,13 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import {
-  Gift,
-  MessageCircle,
-  ShoppingBag,
-  ThumbsDown,
-  ThumbsUp,
-} from 'lucide-react';
+import { MessageCircle, ShoppingBag, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';

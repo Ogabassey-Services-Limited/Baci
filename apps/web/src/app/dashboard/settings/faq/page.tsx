@@ -40,11 +40,16 @@ export default async function FAQSettingsPage() {
 
   // Get sample products for FAQ generation context
   const products = await getCachedProducts(merchant.id, { limit: 10 });
-  const sampleProducts = products.slice(0, 10).map((p: any) => ({
-    name: p.name,
-    category: p.product_categories?.[0]?.categories?.name || undefined,
-    price: p.base_price,
-  }));
+  const sampleProducts = products.slice(0, 10).map(
+    (
+      // biome-ignore lint/suspicious/noExplicitAny: Product type mismatch with DB
+      p: any
+    ) => ({
+      name: p.name,
+      category: p.product_categories?.[0]?.categories?.name || undefined,
+      price: p.base_price,
+    })
+  );
 
   return (
     <FAQSettingsClient
