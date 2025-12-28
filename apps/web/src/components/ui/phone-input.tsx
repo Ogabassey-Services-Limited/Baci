@@ -64,19 +64,23 @@ const InputComponent = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, onChange, ...props }, ref) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       let value = e.target.value;
-      // Strip leading zero after country code (except for Italy +39)
+
+      // 1. Sanitize: Allow only numbers, spaces, and +
+      value = value.replace(/[^0-9+\s]/g, '');
+
+      // 2. Strip leading zero after country code (except for Italy +39)
       if (value.startsWith('+') && !value.startsWith('+39')) {
         // Handle space case: +234 0...
         if (value.match(/^\+\d+\s0/)) {
           value = value.replace(/(\+\d+\s)0/, '$1');
-          e.target.value = value;
         }
         // Handle no-space case: +2340...
         else if (value.match(/^\+\d+0/)) {
           value = value.replace(/(\+\d+)0/, '$1');
-          e.target.value = value;
         }
       }
+
+      e.target.value = value;
       onChange?.(e);
     };
 

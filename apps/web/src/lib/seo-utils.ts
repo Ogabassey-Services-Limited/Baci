@@ -1,5 +1,5 @@
 import type { Route } from 'next';
-import type { Product, ProductSchemaMarkup } from './products';
+import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import {
   escapeHtml,
@@ -160,8 +160,9 @@ const THIRTY_DAYS_MS = 30 * MILLISECONDS_PER_DAY;
 export function generateProductSchema(
   product: Product,
   merchantName: string = 'Baci Store',
-  currency: string = 'USD'
-): ProductSchemaMarkup {
+  currency: string = 'USD',
+  country: string = 'NG' // Default to Nigeria
+): ProductSchemaMarkup & Record<string, unknown> {
   // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
   const safeName = escapeHtml(product.name);
   const safeDescription = escapeHtml(
@@ -171,14 +172,16 @@ export function generateProductSchema(
   const safeMerchantName = escapeHtml(merchantName);
   const safeImages =
     product.images?.map((img) => escapeHtml(img.url)) ||
-    (product.imageLarge ? [escapeHtml(product.imageLarge)] : []);
+    (product.imageLarge ? [escapeHtml(product.imageLarge)] : []) ||
+    (product.image ? [escapeHtml(product.image)] : []); // Added fallback to product.image
 
   const schema: ProductSchemaMarkup & Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: safeName,
     description: safeDescription,
-    image: safeImages,
+    image:
+      safeImages.length > 0 ? safeImages : [escapeHtml(product.image || '')], // Ensure at least one image
     brand: {
       '@type': 'Brand',
       name: safeBrand,
@@ -208,6 +211,42 @@ export function generateProductSchema(
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
+            shippingDetails: {
+              '@type': 'OfferShippingDetails',
+              shippingRate: {
+                '@type': 'MonetaryAmount',
+                value: 0,
+                currency: currency,
+              },
+              shippingDestination: {
+                '@type': 'DefinedRegion',
+                addressCountry: country,
+              },
+              deliveryTime: {
+                '@type': 'ShippingDeliveryTime',
+                handlingTime: {
+                  '@type': 'QuantitativeValue',
+                  minValue: 0,
+                  maxValue: 1,
+                  unitCode: 'DAY',
+                },
+                transitTime: {
+                  '@type': 'QuantitativeValue',
+                  minValue: 1,
+                  maxValue: 5,
+                  unitCode: 'DAY',
+                },
+              },
+            },
+            hasMerchantReturnPolicy: {
+              '@type': 'MerchantReturnPolicy',
+              applicableCountry: country,
+              returnPolicyCategory:
+                'https://schema.org/MerchantReturnFiniteReturnWindow',
+              merchantReturnDays: 7,
+              returnMethod: 'https://schema.org/ReturnInStore',
+              returnFees: 'https://schema.org/FreeReturn',
+            },
           }))
         : {
             '@type': 'Offer',
@@ -232,6 +271,42 @@ export function generateProductSchema(
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
+            shippingDetails: {
+              '@type': 'OfferShippingDetails',
+              shippingRate: {
+                '@type': 'MonetaryAmount',
+                value: 0,
+                currency: currency,
+              },
+              shippingDestination: {
+                '@type': 'DefinedRegion',
+                addressCountry: country,
+              },
+              deliveryTime: {
+                '@type': 'ShippingDeliveryTime',
+                handlingTime: {
+                  '@type': 'QuantitativeValue',
+                  minValue: 0,
+                  maxValue: 1,
+                  unitCode: 'DAY',
+                },
+                transitTime: {
+                  '@type': 'QuantitativeValue',
+                  minValue: 1,
+                  maxValue: 5,
+                  unitCode: 'DAY',
+                },
+              },
+            },
+            hasMerchantReturnPolicy: {
+              '@type': 'MerchantReturnPolicy',
+              applicableCountry: country,
+              returnPolicyCategory:
+                'https://schema.org/MerchantReturnFiniteReturnWindow',
+              merchantReturnDays: 7,
+              returnMethod: 'https://schema.org/ReturnInStore',
+              returnFees: 'https://schema.org/FreeReturn',
+            },
           },
   };
 
@@ -520,6 +595,30 @@ export function generateProductSchema(
     };
   }
 
+  // Add individual reviews if available - [NEW 2025]
+  if (product.reviews && product.reviews.length > 0) {
+    // Sort reviews: 5 stars, then 4 stars, etc. (Descending order)
+    const sortedReviews = [...product.reviews].sort(
+      (a, b) => b.reviewRating - a.reviewRating
+    );
+
+    schema.review = sortedReviews.map((review) => ({
+      '@type': 'Review',
+      author: {
+        '@type': 'Person',
+        name: escapeHtml(review.author),
+      },
+      datePublished: escapeHtml(review.datePublished),
+      reviewBody: escapeHtml(review.reviewBody),
+      reviewRating: {
+        '@type': 'Rating',
+        ratingValue: review.reviewRating,
+        bestRating: '5',
+        worstRating: '1',
+      },
+    }));
+  }
+
   // Merge custom schema markup if provided (e.g. aggregateRating)
   // This allows merchants to extend the auto-generated schema with their own data
   if (product.schema_markup) {
@@ -604,6 +703,7 @@ export interface LocalBusinessData {
   geo?: {
     latitude: number;
     longitude: number;
+    // ...
   };
   openingHours?: string[]; // e.g., ["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"]
   priceRange?: string; // e.g., "$$" or "₦₦"
@@ -613,13 +713,6 @@ export interface LocalBusinessData {
     reviewCount: number;
   };
   reviews?: Review[];
-}
-
-export interface Review {
-  author: string;
-  datePublished: string;
-  reviewBody: string;
-  reviewRating: number;
 }
 
 export function generateLocalBusinessSchema(

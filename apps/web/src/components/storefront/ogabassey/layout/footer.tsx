@@ -72,7 +72,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                 <Facebook size={20} />
               </a>
               <a
-                href="https://tiktok.com/@ogabasseyy"
+                href="https://www.tiktok.com/@ogabasseyy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"
@@ -185,8 +185,8 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
             </h3>
             <ul className="space-y-3 text-xs text-gray-400">
               <li className="flex items-start gap-2">
-                <MapPin className="shrink-0 text-red-600" size={16} />
-                <span>2 Olaide Tomori St, Ikeja, Lagos</span>
+                <MapPin className="shrink-0 text-red-600 mt-0.5" size={16} />
+                <span>1st Floor Taiyelolu Towers,<br />2 Olaide Tomori St, Ikeja, Lagos</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="shrink-0 text-red-600" size={16} />

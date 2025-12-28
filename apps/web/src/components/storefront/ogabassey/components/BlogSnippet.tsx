@@ -15,6 +15,7 @@ import { useParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 
 interface BlogSnippetProps {
   category: string;
@@ -37,8 +38,8 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
   productId,
   merchantId,
 }) => {
-  const params = useParams();
-  const storeSlug = params?.slug as string;
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -135,7 +136,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
         <h3 className="text-xl font-bold text-gray-900">From the Blog</h3>
       </div>
 
-      <Link href={`/${storeSlug}/blog/${post.slug}`} className="block">
+      <Link href={`${basePath}/blog/${post.slug}` as any} className="block">
         <div className="group relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
           <div className="flex flex-col md:flex-row">
             {/* Image Section */}

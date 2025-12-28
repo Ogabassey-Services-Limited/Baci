@@ -1,7 +1,10 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
+import {
+  generateOrderConfirmationEmail,
+  generateOrderConfirmationText,
+} from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';

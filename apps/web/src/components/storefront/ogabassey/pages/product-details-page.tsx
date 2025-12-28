@@ -989,42 +989,51 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             {/* Desktop Actions (Hidden on Mobile) */}
             <div className="mb-8 hidden md:block">
               {quantityInCart > 0 ? (
-                /* Quantity Controls */
-                <div className="flex items-center justify-between w-full h-14 bg-white border-2 border-red-600 rounded-xl overflow-hidden animate-in fade-in duration-200">
-                  <button
-                    onClick={handleDecrement}
-                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
-                    aria-label="Decrease quantity"
-                  >
-                    {quantityInCart === 1 ? (
-                      <Trash2 size={20} />
-                    ) : (
-                      <Minus size={20} />
-                    )}
-                  </button>
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
-                      In Cart
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={inputValue}
-                      onChange={handleQuantityChange}
-                      onBlur={handleQuantityBlur}
-                      onKeyDown={handleKeyDown}
-                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
-                      aria-label="Quantity"
-                    />
+                /* Quantity Controls + View Cart */
+                <div className="flex gap-3">
+                  <div className="flex items-center justify-between flex-1 h-14 bg-white border-2 border-red-600 rounded-xl overflow-hidden animate-in fade-in duration-200">
+                    <button
+                      onClick={handleDecrement}
+                      className="h-full w-14 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
+                      aria-label="Decrease quantity"
+                    >
+                      {quantityInCart === 1 ? (
+                        <Trash2 size={20} />
+                      ) : (
+                        <Minus size={20} />
+                      )}
+                    </button>
+                    <div className="flex-1 flex flex-col items-center justify-center">
+                      <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                        In Cart
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={inputValue}
+                        onChange={handleQuantityChange}
+                        onBlur={handleQuantityBlur}
+                        onKeyDown={handleKeyDown}
+                        className="text-lg font-bold text-gray-900 w-12 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none active:ring-0"
+                        aria-label="Quantity"
+                      />
+                    </div>
+                    <button
+                      onClick={handleIncrement}
+                      className="h-full w-14 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={20} />
+                    </button>
                   </div>
-                  <button
-                    onClick={handleIncrement}
-                    className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
-                    aria-label="Increase quantity"
+                  <Link
+                    href={`/${params?.slug}/cart`}
+                    className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-red-200 flex items-center justify-center gap-2"
                   >
-                    <Plus size={20} />
-                  </button>
+                    <ShoppingCart size={20} />
+                    View Cart
+                  </Link>
                 </div>
               ) : (
                 /* Add to Cart Button */
@@ -1307,32 +1316,41 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       {/* --- FIXED MOBILE BOTTOM BAR (positioned above bottom nav) --- */}
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-3 z-40 md:hidden shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
         {quantityInCart > 0 ? (
-          /* Quantity Controls - Full Width */
-          <div className="flex items-center justify-between bg-white border-2 border-red-600 rounded-xl h-14 w-full">
-            <button
-              onClick={handleDecrement}
-              className="h-full w-16 flex items-center justify-center text-red-600 active:bg-red-50 rounded-l-xl border-r border-red-100"
-            >
-              {quantityInCart === 1 ? (
-                <Trash2 size={20} />
-              ) : (
-                <Minus size={20} />
-              )}
-            </button>
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">In Cart</span>
-              <span className="font-bold text-gray-900 text-lg">{quantityInCart}</span>
+          /* Quantity Controls + View Cart */
+          <div className="flex gap-3">
+            <div className="flex items-center justify-between bg-white border-2 border-red-600 rounded-xl h-14 flex-1">
+              <button
+                onClick={handleDecrement}
+                className="h-full w-14 flex items-center justify-center text-red-600 active:bg-red-50 rounded-l-xl border-r border-red-100"
+              >
+                {quantityInCart === 1 ? (
+                  <Trash2 size={20} />
+                ) : (
+                  <Minus size={20} />
+                )}
+              </button>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">In Cart</span>
+                <span className="font-bold text-gray-900 text-lg">{quantityInCart}</span>
+              </div>
+              <button
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  triggerFlyToCart(rect);
+                  handleIncrement();
+                }}
+                className="h-full w-14 flex items-center justify-center text-red-600 active:bg-red-50 rounded-r-xl border-l border-red-100"
+              >
+                <Plus size={20} />
+              </button>
             </div>
-            <button
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                triggerFlyToCart(rect);
-                handleIncrement();
-              }}
-              className="h-full w-16 flex items-center justify-center text-red-600 active:bg-red-50 rounded-r-xl border-l border-red-100"
+            <Link
+              href={`/${params?.slug}/cart`}
+              className="flex-1 h-14 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg active:shadow-none active:scale-[0.98] transition-all"
             >
-              <Plus size={20} />
-            </button>
+              <ShoppingCart size={20} />
+              View Cart
+            </Link>
           </div>
         ) : (
           /* Add to Cart Button - Full Width */

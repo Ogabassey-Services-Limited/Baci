@@ -84,6 +84,8 @@ export interface TemplateComponents {
   Repairs?: ComponentType<TemplatePageProps>;
   Swap?: ComponentType<TemplatePageProps>;
   Help?: ComponentType<TemplatePageProps>;
+  /** Delete account page (optional) */
+  DeleteAccount?: ComponentType<TemplatePageProps>;
   /** Blog listing page (optional, uses default if not provided) */
   Blog?: ComponentType<TemplateBlogPageProps>;
 }

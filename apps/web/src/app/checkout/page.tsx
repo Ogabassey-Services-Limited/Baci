@@ -821,7 +821,7 @@ function CheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
   const { clearCart, cart, cartCount, cartTotal, merchantSlug } = useCart();
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
   const { currencyCode } = useCurrency();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [pageLoading, setPageLoading] = useState(true);
@@ -1399,7 +1399,7 @@ function CheckoutPageContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
-                    <Link href="/cart">
+                    <Link href={`${basePath || ''}/cart` as any}>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1594,9 +1594,30 @@ function CheckoutPageContent() {
 
 function CheckoutPageWrapper() {
   const { merchantSlug } = useCart();
+  const [routingMode, setRoutingMode] = useState<'domain' | 'path'>('path');
+
+  // Detect routing mode on client side to ensure basePath is correct
+  useEffect(() => {
+    // If not running on server and we have a window
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      // If the path starts with the merchant slug, it's path-based routing
+      // e.g. /ogabassey/checkout
+      if (merchantSlug && pathname.startsWith(`/${merchantSlug}`)) {
+        setRoutingMode('path');
+      } else {
+        // Otherwise, it's likely domain-based routing (e.g. custom domain or root)
+        // e.g. /checkout on ogabassey.com
+        setRoutingMode('domain');
+      }
+    }
+  }, [merchantSlug]);
 
   return (
-    <MerchantProvider slug={merchantSlug || undefined}>
+    <MerchantProvider
+      slug={merchantSlug || undefined}
+      initialRoutingMode={routingMode}
+    >
       <CheckoutThemeProvider>
         <CheckoutPageContent />
       </CheckoutThemeProvider>

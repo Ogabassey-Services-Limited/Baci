@@ -410,11 +410,18 @@ export async function proxy(request: NextRequest) {
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
+      // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
+      // This fixes 405 errors when calling APIs from custom domains
       if (pathname.startsWith('/api')) {
-        const response = NextResponse.next();
-        response.headers.set('x-custom-domain', domain);
-        response.headers.set('x-merchant-domain', domain);
-        return response;
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+
+        return NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
       }
 
       // Prevent redirect loop: if the path already starts with the domain,
@@ -425,9 +432,15 @@ export async function proxy(request: NextRequest) {
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
-        const response = NextResponse.next();
-        response.headers.set('x-custom-domain', domain);
-        response.headers.set('x-merchant-domain', domain);
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        });
 
         const routeType = getRouteType(pathname);
         const nonce =
@@ -450,9 +463,15 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
 
-      const response = NextResponse.rewrite(url);
-      response.headers.set('x-custom-domain', domain);
-      response.headers.set('x-merchant-domain', domain);
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-custom-domain', domain);
+      requestHeaders.set('x-merchant-domain', domain);
+
+      const response = NextResponse.rewrite(url, {
+        request: {
+          headers: requestHeaders,
+        },
+      });
 
       // Generate route-specific CSP
       const routeType = getRouteType(pathname);
@@ -485,11 +504,18 @@ export async function proxy(request: NextRequest) {
 
     // Rewrite subdomain requests to path-based storefront routes
     // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
+    // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
-    const response = NextResponse.rewrite(url);
-    response.headers.set('x-merchant-slug', subdomain);
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-merchant-slug', subdomain as string);
+
+    const response = NextResponse.rewrite(url, {
+      request: {
+        headers: requestHeaders,
+      },
+    });
 
     // Generate route-specific CSP
     const routeType = getRouteType(pathname);

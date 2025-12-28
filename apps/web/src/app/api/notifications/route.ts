@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
 
     // In-memory filter for expiration (temporary fix/debug)
     const nowTime = new Date().getTime();
-    filteredNotifications = filteredNotifications.filter(n => {
+    filteredNotifications = filteredNotifications.filter((n) => {
       if (!n.notification.expires_at) return true;
       return new Date(n.notification.expires_at).getTime() > nowTime;
     });

@@ -1,103 +1,32 @@
 import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
 import { marked } from 'marked';
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  getCachedFeatureSettings,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
+import { ViewCounter } from './view-counter';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
-const getPostData = cache(async (identifier: string, postSlug: string) => {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  // Get merchant - support both slugs and custom domains
-  // Custom domains (like ogabassey.com) are rewritten by proxy.ts
-  const lookupKey = identifier.toLowerCase();
-  const cachedMerchant = isDomainIdentifier(identifier)
-    ? await getCachedMerchantByDomain(lookupKey)
-    : await getCachedMerchant(lookupKey);
-
-  if (!cachedMerchant) return null;
-
-  // Map cached merchant to the format we need
-  const merchant = {
-    id: cachedMerchant.id,
-    business_name: cachedMerchant.business_name,
-    slug: cachedMerchant.slug,
-    logo_url: cachedMerchant.logo_url,
-  };
-
-  // Check if blog is enabled
-  const features = await getCachedFeatureSettings(merchant.id);
-
-  if (!features?.blog_enabled) return null;
-
-  // Get post
-  const { data: post } = await supabase
-    .from('blog_posts')
-    .select('*')
-    .eq('merchant_id', merchant.id)
-    .eq('slug', postSlug)
-    .eq('status', 'published')
-    .single();
-
-  if (!post) return null;
-
-  // Increment view count (fire and forget)
-  supabase
-    .from('blog_posts')
-    .update({ view_count: (post.view_count || 0) + 1 })
-    .eq('id', post.id)
-    .then(({ error }) => {
-      if (error) console.error('Failed to update view count', error);
-    });
-
-  // Get related posts (same category or matching tags)
-  let relatedQuery = supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .neq('id', post.id)
-    .limit(3);
-
-  if (post.category) {
-    relatedQuery = relatedQuery.eq('category', post.category);
-  }
-
-  const { data: relatedPosts } = await relatedQuery;
-
-  return { merchant, post, relatedPosts: relatedPosts || [] };
-});
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
-  const data = await getPostData(slug, postSlug);
+  const data = await getCachedBlogPost(slug, postSlug);
 
   if (!data) {
     return { title: 'Post Not Found' };
@@ -159,7 +88,7 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug, postSlug } = await params;
-  const data = await getPostData(slug, postSlug);
+  const data = await getCachedBlogPost(slug, postSlug);
 
   if (!data) {
     notFound();
@@ -176,6 +105,9 @@ export default async function BlogPostPage({ params }: PageProps) {
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
+
+  // Determine base path for internal links
+  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
 
   // Generate schema
   const blogSchema = generateBlogPostSchema({
@@ -232,6 +164,8 @@ export default async function BlogPostPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
+      <ViewCounter postId={post.id} />
+
       <div
         className="min-h-screen bg-gray-50"
         style={
@@ -262,7 +196,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         <div className="border-b bg-white">
           <div className="container mx-auto px-4 py-4">
             <Link
-              href={asRoute(`/${slug}/blog`)}
+              href={asRoute(`${basePath}/blog`)}
               className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -396,7 +330,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   {relatedPosts.map((related) => (
                     <Link
                       key={related.id}
-                      href={`/${slug}/blog/${related.slug}`}
+                      href={`${basePath}/blog/${related.slug}` as any}
                     >
                       <Card className="h-full hover:shadow-lg transition-shadow group">
                         {related.featured_image_url && (
@@ -447,7 +381,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* Back to top */}
         <footer className="border-t py-8">
           <div className="container mx-auto px-4 text-center">
-            <Link href={asRoute(`/${slug}/blog`)}>
+            <Link href={asRoute(`${basePath}/blog`)}>
               <Button variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to all articles

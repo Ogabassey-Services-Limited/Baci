@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { fetchSantaProducts } from '@/ai/santa-data';
+import { getCachedSantaProductList } from '@/ai/santa-data';
 import { createServiceClient } from '@/lib/supabase/service';
 
-const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
 
 /**
  * Common handler for product lookup
@@ -12,7 +12,9 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
   const safeProductName = productName.replace(/[\r\n\t]/g, ' ').slice(0, 200);
   try {
     // Get products directly (bypass cache to ensure consistency)
-    const santaProducts = await fetchSantaProducts(OGABASSEY_MERCHANT_ID);
+    const santaProducts = await getCachedSantaProductList(
+      OGABASSEY_MERCHANT_ID
+    );
 
     console.log(
       '[Santa Product] Searching in',

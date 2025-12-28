@@ -34,11 +34,30 @@ export async function POST(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Verify merchant exists and is published
-    const { data: merchant, error: merchantError } = await supabase
+    // Support both slug (e.g., 'ogabassey') and custom domain (e.g., 'ogabassey.com')
+    let merchant = null;
+    let merchantError = null;
+
+    // First, try by slug (standard lookup)
+    const slugResult = await supabase
       .from('merchants')
-      .select('id, business_name, is_published')
+      .select('id, slug, business_name, is_published')
       .eq('slug', merchantSlug)
       .single();
+
+    if (slugResult.data) {
+      merchant = slugResult.data;
+    } else {
+      // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
+      const domainResult = await supabase
+        .from('merchants')
+        .select('id, slug, business_name, is_published')
+        .eq('custom_domain', merchantSlug.toLowerCase())
+        .single();
+
+      merchant = domainResult.data;
+      merchantError = domainResult.error;
+    }
 
     if (merchantError || !merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });

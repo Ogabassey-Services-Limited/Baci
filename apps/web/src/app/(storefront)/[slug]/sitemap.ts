@@ -181,6 +181,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   };
 
+  // FAQ page entry (if merchant has FAQ content)
+  const faqEntry: MetadataRoute.Sitemap[0] = {
+    url: `${storeUrl}/faq`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: 0.5,
+  };
+
   return [
     {
       url: storeUrl,
@@ -188,6 +196,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'daily',
       priority: 1,
     },
+    faqEntry,
     ...categoryEntries,
     ...productEntries,
     // Only include blog entries if there are blog posts

@@ -233,27 +233,13 @@ async function initializeJuicyway(
   const cryptoChain = (data.crypto_chain || 'TRX') as JuicywayCryptoChain;
   const cryptoCurrency = (data.crypto_currency || 'USDT') as JuicywayStablecoin;
 
-  // For crypto payments, use the stablecoin currency (USDT/USDC)
+  // For crypto payments:
+  // - Send amount in NGN and let Juicyway handle real-time conversion
+  // - Juicyway locks the rate for 15 minutes and uses aggregated exchange rates
   // For other payments, use NGN or the provided currency
-  // Juicyway requires the currency to match the payment method
-  const paymentCurrency = isCryptoPayment
-    ? cryptoCurrency
-    : isJuicywayCurrency(data.currency)
-      ? data.currency
-      : 'NGN';
-
-  // For crypto payments, we need to convert NGN amount to USDT equivalent
-  // Using approximate rate: 1 USD ≈ 1650 NGN
-  const NGN_TO_USD_RATE = 1650;
-
-  // Calculate equivalent USD amount in cents (minor units)
-  // Ensure we send at least 100 cents (1 USD) to avoid "too small" errors,
-  // though Juicyway might require more (e.g. 15-20 USDT) depending on the chain.
-  const calculatedUsdAmount = Math.round(amountInMinor / NGN_TO_USD_RATE);
-
-  const cryptoAmountInMinor = isCryptoPayment
-    ? calculatedUsdAmount
-    : amountInMinor;
+  const paymentCurrency = isJuicywayCurrency(data.currency)
+    ? data.currency
+    : 'NGN';
 
   // Validate chain/currency compatibility for crypto payments
   if (isCryptoPayment) {
@@ -267,14 +253,15 @@ async function initializeJuicyway(
 
   // Log the payment request for debugging
   console.log('Juicyway payment request:', {
-    amount: isCryptoPayment ? cryptoAmountInMinor : amountInMinor,
+    amount: amountInMinor,
     currency: paymentCurrency,
     isCryptoPayment,
-    originalNgnAmount: amountInMinor,
+    cryptoChain: isCryptoPayment ? cryptoChain : undefined,
+    cryptoCurrency: isCryptoPayment ? cryptoCurrency : undefined,
   });
 
   const juicywayData = await initializeJuicywayPayment({
-    amount: isCryptoPayment ? cryptoAmountInMinor : amountInMinor,
+    amount: amountInMinor, // Always send in NGN minor units (kobo), Juicyway handles conversion
     currency: paymentCurrency,
     customer: {
       first_name: firstName,
@@ -349,57 +336,68 @@ async function initializeJuicyway(
       currency: cryptoCurrency,
     });
 
-    const captureResult = await capturePaymentWithCrypto(
-      juicywayData.id,
-      cryptoChain,
-      cryptoCurrency
-    );
-
-    if (!captureResult.success) {
-      console.error('Failed to capture crypto payment:', captureResult.error);
-      throw new Error(
-        captureResult.error || 'Failed to generate crypto payment address'
+    try {
+      const captureResult = await capturePaymentWithCrypto(
+        juicywayData.id,
+        cryptoChain,
+        cryptoCurrency
       );
-    }
 
-    const cryptoData = captureResult.data;
-    const paymentMethod = cryptoData.payment?.payment_method;
+      if (!captureResult.success) {
+        console.error('Failed to capture crypto payment:', captureResult.error);
+        throw new Error(
+          captureResult.error || 'Failed to generate crypto payment address'
+        );
+      }
 
-    if (!paymentMethod?.address) {
-      console.error('No crypto address in capture response:', cryptoData);
-      throw new Error('Failed to generate crypto payment address');
-    }
+      const cryptoData = captureResult.data;
+      const paymentMethod = cryptoData.payment?.payment_method;
 
-    // IMPORTANT: We need BOTH the session ID and the payment ID:
-    // - session_id (juicywayData.id): Used for initial tracking
-    // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
-    const paymentId = cryptoData.payment?.id;
+      if (!paymentMethod?.address) {
+        console.error('No crypto address in capture response:', cryptoData);
+        throw new Error(
+          'Failed to generate crypto payment address: partial response'
+        );
+      }
 
-    console.log('Crypto payment captured successfully:', {
-      sessionId: juicywayData.id,
-      paymentId,
-      address: paymentMethod.address,
-      chain: paymentMethod.chain,
-      currency: paymentMethod.currency,
-      amount: cryptoData.payment?.amount,
-    });
+      // IMPORTANT: We need BOTH the session ID and the payment ID:
+      // - session_id (juicywayData.id): Used for initial tracking
+      // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
+      const paymentId = cryptoData.payment?.id;
 
-    return {
-      authorization_url: '', // No redirect needed for crypto payments
-      crypto_payment: {
+      console.log('Crypto payment captured successfully:', {
+        sessionId: juicywayData.id,
+        paymentId,
         address: paymentMethod.address,
         chain: paymentMethod.chain,
         currency: paymentMethod.currency,
-        amount: cryptoData.payment?.amount || amountInMinor,
-        confirmation_time: getChainConfirmationTime(paymentMethod.chain),
-        qrcode: paymentMethod.qrcode, // Pass through QR code from API
-        payment_id: paymentId, // Include payment ID for verification
-      },
-      reference,
-      platformFee: fees.platformFee,
-      merchantAmount: fees.merchantAmount,
-      sessionId: juicywayData.id,
-    };
+        amount: cryptoData.payment?.amount,
+      });
+
+      return {
+        authorization_url: '', // No redirect needed for crypto payments
+        crypto_payment: {
+          address: paymentMethod.address,
+          chain: paymentMethod.chain,
+          currency: paymentMethod.currency,
+          amount: cryptoData.payment?.amount || amountInMinor,
+          confirmation_time: getChainConfirmationTime(paymentMethod.chain),
+          qrcode: paymentMethod.qrcode, // Pass through QR code from API
+          payment_id: paymentId, // Include payment ID for verification
+        },
+        reference,
+        platformFee: fees.platformFee,
+        merchantAmount: fees.merchantAmount,
+        sessionId: juicywayData.id,
+      };
+    } catch (captureError) {
+      console.error('Crypto capture exception:', captureError);
+      throw new Error(
+        captureError instanceof Error
+          ? captureError.message
+          : 'Crypto payment address generation failed. Please try again.'
+      );
+    }
   }
 
   // For card payments, check if we have a checkout URL

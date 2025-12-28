@@ -1,4 +1,3 @@
-
 import { unstable_cache } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -8,102 +7,116 @@ const CACHE_TTL = 300;
 /**
  * Validated product shape from DB
  */
-type ProductRow = {
+export type ProductRow = {
   name: string;
   price: number;
   cost_price: number | null;
 };
 
 /**
- * Internal fetch function - exported for testing/verification scripts
+ * Fetch and bucket products returning raw array
  */
-export const fetchSantaProducts = async (merchantId: string): Promise<string> => {
+const fetchSantaProductList = async (
+  merchantId: string
+): Promise<ProductRow[]> => {
   try {
     const supabase = createAdminClient();
 
     // 1. Single DB Query: Fetch ALL active products for this merchant
-    // efficient for ~1000 items
     const { data: allProducts, error } = await supabase
       .from('products')
       .select('name, price, cost_price')
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('price', { ascending: false })
-      .limit(5000); // Ensure we get full catalogue (default is 1000)
+      .limit(5000);
 
     if (error) {
       console.error('[Santa Data] Error fetching products:', error);
-      return '(Error fetching product catalog)';
+      return [];
     }
 
     const products = (allProducts as unknown as ProductRow[]) || [];
-    console.log(`[Santa Data] Fetched ${products.length} total active products`);
 
     // 2. Define Price Ranges (Buckets)
     const priceRanges = [
-      { min: 5000000, max: 999999999, limit: 30 },  // Premium
-      { min: 2000000, max: 5000000, limit: 50 },    // High-end
-      { min: 1200000, max: 2000000, limit: 80 },    // High-end Phones
-      { min: 800000, max: 1200000, limit: 100 },    // Flagships (S24 Ultra here)
-      { min: 500000, max: 800000, limit: 80 },      // Mid-range
-      { min: 200000, max: 500000, limit: 80 },      // Budget
-      { min: 50000, max: 200000, limit: 50 },       // Accessories
-      { min: 0, max: 50000, limit: 30 },            // Small items
+      { min: 5000000, max: 999999999, limit: 30 },
+      { min: 2000000, max: 5000000, limit: 50 },
+      { min: 1200000, max: 2000000, limit: 80 },
+      { min: 800000, max: 1200000, limit: 100 },
+      { min: 500000, max: 800000, limit: 80 },
+      { min: 200000, max: 500000, limit: 80 },
+      { min: 50000, max: 200000, limit: 50 },
+      { min: 0, max: 50000, limit: 30 },
     ];
 
     const selectedProducts: ProductRow[] = [];
 
     // 3. In-Memory Bucketing & Selection
-    // We iterate through our buckets and pick top items from the full list
     for (const range of priceRanges) {
       const productsInRange = products.filter(
-        p => (p.price ?? 0) >= range.min && (p.price ?? 0) < range.max
+        (p) => (p.price ?? 0) >= range.min && (p.price ?? 0) < range.max
       );
-
-      // They are already sorted by price desc from DB query
       const topProducts = productsInRange.slice(0, range.limit);
       selectedProducts.push(...topProducts);
     }
 
-    // 4. Deduplicate (just in case)
+    // 4. Deduplicate
     const uniqueProducts = Array.from(
-      new Map(selectedProducts.map(p => [p.name, p])).values()
+      new Map(selectedProducts.map((p) => [p.name, p])).values()
     );
-    console.log(`[Santa Data] Selected ${uniqueProducts.length} items for context`);
 
-    // 5. Format for LLM Prompt
-    const productList = uniqueProducts
-      .map((p) => {
-        const price = Number(p.price) || 0;
-        if (p.cost_price) {
-          // Product has cost price - use min approved price rule
-          const minPrice = (Number(p.cost_price) || 0) + 10000;
-          return `*   ${p.name}: ₦${price.toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()}) [HAS_COST]`;
-        } else {
-          // No cost price - use percentage discount rule (max 40% off selling price)
-          const minPrice = Math.round(price * 0.6); // 40% max discount
-          return `*   ${p.name}: ₦${price.toLocaleString()} (Min: ₦${minPrice.toLocaleString()}) [FLEX]`;
-        }
-      })
-      .join('\n') || '(No products available)';
-
-    return productList;
-
+    return uniqueProducts;
   } catch (err) {
     console.error('[Santa Data] Unexpected error:', err);
-    return '(Error generating catalog)';
+    return [];
   }
 };
 
 /**
- * Generates the Santa product catalog string by fetching ALL active products
- * and bucketing them in-memory. reducing DB calls from 8 to 1.
+ * Cached function to get the raw product list
  */
-export const getCachedSantaProducts = unstable_cache(
-  fetchSantaProducts,
-  ['santa-products-catalog'],
+export const getCachedSantaProductList = unstable_cache(
+  fetchSantaProductList,
+  ['santa-product-list'],
   {
     revalidate: CACHE_TTL,
-    tags: ['products'] // Invalidate when products change
+    tags: ['products'],
+  }
+);
+
+/**
+ * Formats the product list into the prompt string
+ */
+const formatSantaCatalog = async (merchantId: string): Promise<string> => {
+  const products = await getCachedSantaProductList(merchantId);
+
+  if (!products.length) return '(No products available)';
+
+  // 5. Format for LLM Prompt
+  return products
+    .map((p) => {
+      const price = Number(p.price) || 0;
+      if (p.cost_price) {
+        const minPrice = (Number(p.cost_price) || 0) + 10000;
+        return `*   ${p.name}: ₦${price.toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()}) [HAS_COST]`;
+      } else {
+        const minPrice = Math.round(price * 0.6);
+        return `*   ${p.name}: ₦${price.toLocaleString()} (Min: ₦${minPrice.toLocaleString()}) [FLEX]`;
+      }
+    })
+    .join('\n');
+};
+
+/**
+ * @deprecated Use getCachedSantaProductList for raw data if needed
+ * Generates the Santa product catalog STRING for the prompt
+ */
+export const getCachedSantaProducts = unstable_cache(
+  formatSantaCatalog,
+  ['santa-products-catalog-string'],
+  {
+    revalidate: CACHE_TTL,
+    tags: ['products'],
   }
 );

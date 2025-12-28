@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
 import { TermsPageClient } from './terms-page-client';
@@ -69,6 +69,9 @@ export async function generateMetadata({
       description: `Terms of Service for ${merchant.business_name}. Read our terms and conditions.`,
       type: 'website',
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
+    },
+    alternates: {
+      canonical: '/terms',
     },
   };
 }

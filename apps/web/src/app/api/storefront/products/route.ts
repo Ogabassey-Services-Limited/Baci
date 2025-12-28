@@ -156,7 +156,10 @@ function createCachedProductsFetcher(
 
       if (filters.q) {
         const sanitizedQuery = filters.q.slice(0, 100);
-        query = query.ilike('name', `%${sanitizedQuery}%`);
+        // Search in both name and description to catch specs like "Core i3"
+        query = query.or(
+          `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
+        );
       }
 
       // Apply Sort

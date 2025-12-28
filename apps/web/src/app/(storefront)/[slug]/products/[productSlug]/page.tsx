@@ -8,17 +8,20 @@ import {
   getCachedMerchantByDomain,
   getCachedProduct,
   getCachedProductRatingStats,
+  getCachedProductReviews,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import type { Product, Review } from '@/lib/products';
 import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   constructCanonicalUrl,
   generateAggregateRating,
   generateBreadcrumbSchema,
+  generateFAQSchema,
   generateProductSchema,
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 
 // Enable ISR (Incremental Static Regeneration) with 5 minute revalidation
@@ -154,12 +157,22 @@ export async function generateMetadata(
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  let baseUrl = `${protocol}://${host}`;
 
   // Only include slug in URL path for localhost (development)
   // For subdomains (merchant.usebaci.com) and custom domains (merchant.com),
   // the merchant identity is in the domain itself, not the path
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+
+  // FIX: Ensure canonical URL always points to the production custom domain if it exists
+  // This prevents Vercel deployment URLs (e.g. baci-xyz.vercel.app) from being used as canonicals
+  if (!isLocalhost && merchant?.custom_domain) {
+    baseUrl = `https://${merchant.custom_domain}`;
+  } else if (!isLocalhost && merchant?.slug && !host.includes(merchant.slug)) {
+    // If we are on a generic domain but merchant has a slug-based subdomain (and not custom domain)
+    // We generally trust the host, but if we are on vercel.app, we might want to enforce subdomain.
+    // For now, custom_domain is the primary fix for the reported issue.
+  }
 
   // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
   // This ensures /products/ URLs are always canonicalized to their category-based counterparts
@@ -265,6 +278,20 @@ export default async function ProductPage({ params }: PageProps) {
   // Fetch cached review stats for AggregateRating schema
   const reviewStats = await getCachedProductRatingStats(product.id);
 
+  // Fetch recent reviews for Review schema (SEO best practice)
+  const recentReviews = await getCachedProductReviews(product.id, {
+    limit: 10,
+  });
+
+  if (recentReviews && recentReviews.length > 0) {
+    product.reviews = recentReviews.map((r) => ({
+      author: r.reviewer_name || 'Anonymous',
+      datePublished: r.created_at,
+      reviewBody: r.review_text || '',
+      reviewRating: r.rating,
+    }));
+  }
+
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -278,7 +305,8 @@ export default async function ProductPage({ params }: PageProps) {
   const productSchema = generateProductSchema(
     product,
     merchant?.business_name || 'Baci Store',
-    merchant?.payout_currency || 'USD'
+    merchant?.payout_currency || 'USD',
+    merchant?.country || 'NG'
   );
 
   // Add URL to the schema offers (sanitized to prevent XSS)
@@ -317,6 +345,14 @@ export default async function ProductPage({ params }: PageProps) {
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
 
+  // Generate FAQ schema if product has FAQs (2025 SEO best practice)
+  // FAQs are stored in the product's faqs column as JSONB array
+  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
+  const faqSchema =
+    productFaqs && productFaqs.length > 0
+      ? generateFAQSchema(productFaqs)
+      : null;
+
   return (
     <>
       {/* Product Schema.org JSON-LD */}
@@ -335,8 +371,19 @@ export default async function ProductPage({ params }: PageProps) {
         }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
 
+      {/* FAQ Schema.org JSON-LD (2025 SEO best practice) */}
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(faqSchema),
+          }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        />
+      )}
+
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailClient product={product} />
+        <ProductDetailClient product={product} faqs={productFaqs} />
       </Suspense>
     </>
   );

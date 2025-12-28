@@ -64,7 +64,7 @@ export const Footer: React.FC = () => {
                 <Facebook size={20} />
               </a>
               <a
-                href="https://tiktok.com/@ogabasseyy"
+                href="https://www.tiktok.com/@ogabasseyy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 hover:text-white transition-colors"

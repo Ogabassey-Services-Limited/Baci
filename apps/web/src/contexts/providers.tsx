@@ -1,9 +1,9 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { useNonce } from './NonceProvider';
-import { AuthProvider } from './auth-context';
 import { CartProvider } from '@/hooks/use-cart';
+import { AuthProvider } from './auth-context';
+import { useNonce } from './NonceProvider';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const { nonce } = useNonce();

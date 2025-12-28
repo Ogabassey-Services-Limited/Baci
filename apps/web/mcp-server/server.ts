@@ -1074,6 +1074,8 @@ function createOgabasseyServer() {
     'search_products',
     {
       title: 'Search Products',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Search for products in Ogabassey store. Returns rich details including variants (colors/sizes), stock confidence, and price trends. Always use this for general product queries.',
       inputSchema: {
@@ -1248,6 +1250,10 @@ function createOgabasseyServer() {
             products: formatted,
             meta: { total: count, query: sanitizedQuery },
           },
+          _meta: {
+            'openai/outputTemplate': 'ui://widget/store.html',
+            'openai/widgetPrefersBorder': true,
+          },
         };
       } catch (err: any) {
         console.error('Search Critical Error:', err);
@@ -1275,6 +1281,8 @@ function createOgabasseyServer() {
     'add_to_cart',
     {
       title: 'Add to Cart',
+      isReadOnly: false,
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       description:
         'Add a product to the shopping cart. This tool is accessible from the in-chat widget for real-time cart updates.',
       inputSchema: {
@@ -1317,10 +1325,10 @@ function createOgabasseyServer() {
         const productName = product?.name || 'Product';
         const price = product?.price
           ? new Intl.NumberFormat('en-NG', {
-              style: 'currency',
-              currency: 'NGN',
-              minimumFractionDigits: 0,
-            }).format(product.price)
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+          }).format(product.price)
           : '';
 
         return {
@@ -1352,6 +1360,8 @@ function createOgabasseyServer() {
     'get_product',
     {
       title: 'Get Product Details',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Get detailed information about a specific product including variants, conditions, specifications, and reviews.',
       inputSchema: {
@@ -1548,6 +1558,10 @@ function createOgabasseyServer() {
           })),
           condition_offers: conditionOffers,
         },
+        _meta: {
+          'openai/outputTemplate': 'ui://widget/store.html',
+          'openai/widgetPrefersBorder': true,
+        },
       };
     }
   );
@@ -1557,6 +1571,8 @@ function createOgabasseyServer() {
     'check_order',
     {
       title: 'Check Order Status',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Look up order status by order number or phone.',
       inputSchema: {
         order_number: z
@@ -1675,6 +1691,8 @@ function createOgabasseyServer() {
     'get_store_info',
     {
       title: 'Get Store Information',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get information about Ogabassey store.',
       inputSchema: {
         topic: z
@@ -1711,6 +1729,8 @@ function createOgabasseyServer() {
     'get_recommendations',
     {
       title: 'Get Recommendations',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get product recommendations based on use case and budget.',
       inputSchema: {
         use_case: z
@@ -1797,941 +1817,27 @@ function createOgabasseyServer() {
           },
         ],
         structuredContent: { products: formatted },
-      };
-    }
-  );
-
-  // Tool: Smart Recommendations (AI-powered)
-  server.registerTool(
-    'smart_recommend',
-    {
-      title: 'Smart Product Recommendations',
-      description:
-        'Get AI-powered product recommendations based on user needs, preferences, and context. Supports scenarios like "gaming laptop under 1M", "gift for teenager", "best phone for photography", "budget work laptop".',
-      inputSchema: {
-        query: z
-          .string()
-          .min(3)
-          .max(200)
-          .describe(
-            'Natural language description of what the user needs (e.g., "gaming laptop under 1 million naira", "gift for my mom who likes cooking", "best phone for night photography")'
-          ),
-        budget: z
-          .number()
-          .min(0)
-          .max(10000000000)
-          .optional()
-          .describe('Maximum budget in NGN'),
-        priority: z
-          .enum(['price', 'quality', 'features', 'value'])
-          .optional()
-          .describe(
-            'What matters most: price (cheapest), quality (best rated), features (most capable), value (best bang for buck)'
-          ),
-      },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Finding perfect recommendations...',
-        'openai/toolInvocation/invoked': 'Recommendations ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-          structuredContent: { products: [] },
-        };
-      }
-
-      const query = sanitizeString(args.query, 200).toLowerCase();
-
-      // Extract keywords and intent from the query
-      const categoryKeywords: Record<string, string[]> = {
-        phone: [
-          'phone',
-          'iphone',
-          'samsung',
-          'android',
-          'smartphone',
-          'mobile',
-        ],
-        laptop: [
-          'laptop',
-          'macbook',
-          'notebook',
-          'computer',
-          'pc',
-          'work laptop',
-          'gaming laptop',
-        ],
-        tablet: ['tablet', 'ipad', 'tab'],
-        gaming: ['gaming', 'game', 'ps5', 'playstation', 'xbox', 'console'],
-        accessories: [
-          'accessory',
-          'charger',
-          'case',
-          'cable',
-          'headphone',
-          'earbuds',
-          'airpods',
-        ],
-      };
-
-      const useKeywords: Record<string, string[]> = {
-        gaming: ['gaming', 'game', 'play', 'gamer'],
-        photography: [
-          'photo',
-          'camera',
-          'photography',
-          'portrait',
-          'night photo',
-        ],
-        work: ['work', 'office', 'business', 'professional', 'productivity'],
-        student: ['student', 'school', 'study', 'university', 'college'],
-        gift: [
-          'gift',
-          'present',
-          'birthday',
-          'christmas',
-          'mom',
-          'dad',
-          'friend',
-          'boyfriend',
-          'girlfriend',
-        ],
-        budget: ['budget', 'cheap', 'affordable', 'inexpensive', 'value'],
-        premium: ['premium', 'best', 'top', 'flagship', 'high-end', 'luxury'],
-      };
-
-      // Detect category
-      let detectedCategory: string | null = null;
-      for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-        if (keywords.some((kw) => query.includes(kw))) {
-          detectedCategory = cat;
-          break;
-        }
-      }
-
-      // Detect use case
-      const detectedUses: string[] = [];
-      for (const [use, keywords] of Object.entries(useKeywords)) {
-        if (keywords.some((kw) => query.includes(kw))) {
-          detectedUses.push(use);
-        }
-      }
-
-      // Build the product query
-      let dbQuery = supabase
-        .from('products')
-        .select(
-          'id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup'
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .gt('stock_quantity', 0);
-
-      // Apply budget filter
-      if (args.budget) {
-        dbQuery = dbQuery.lte('price', args.budget);
-      }
-
-      // Apply category filter if detected
-      if (detectedCategory) {
-        dbQuery = dbQuery.ilike('category', `%${detectedCategory}%`);
-      }
-
-      // Order by priority
-      if (args.priority === 'price') {
-        dbQuery = dbQuery.order('price', { ascending: true });
-      } else {
-        dbQuery = dbQuery.order('created_at', { ascending: false });
-      }
-
-      const { data: products } = await dbQuery.limit(20);
-
-      if (!products || products.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `No products found matching "${args.query}". Try a different search or browse our categories.`,
-            },
-          ],
-          structuredContent: { products: [] },
-        };
-      }
-
-      // Score products based on relevance to query
-      const scoredProducts = products.map((p) => {
-        let score = 0;
-        const name = p.name.toLowerCase();
-        const desc = (p.description || '').toLowerCase();
-
-        // Name match bonus
-        if (query.split(' ').some((word) => name.includes(word))) score += 10;
-
-        // Use case bonuses
-        if (
-          detectedUses.includes('gaming') &&
-          (name.includes('gaming') || name.includes('pro'))
-        )
-          score += 5;
-        if (
-          detectedUses.includes('photography') &&
-          (name.includes('pro') ||
-            name.includes('ultra') ||
-            desc.includes('camera'))
-        )
-          score += 5;
-        if (detectedUses.includes('budget') && p.price < 200000) score += 5;
-        if (detectedUses.includes('premium') && p.price > 500000) score += 5;
-
-        // Value score (discount percentage)
-        if (p.compare_at_price && p.compare_at_price > p.price) {
-          const discount = (p.compare_at_price - p.price) / p.compare_at_price;
-          score += Math.round(discount * 10);
-        }
-
-        // Rating bonus
-        const rating = p.schema_markup?.aggregateRating?.ratingValue;
-        if (rating) score += rating;
-
-        return { ...p, score };
-      });
-
-      // Sort by score and take top results
-      scoredProducts.sort((a, b) => b.score - a.score);
-      const topProducts = scoredProducts.slice(0, 4);
-
-      const formatted = topProducts.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: p.price,
-        compare_at_price: p.compare_at_price,
-        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
-        condition: p.condition || 'new',
-        brand: p.brand,
-        in_stock: true,
-      }));
-
-      // Build personalized response
-      let text = `**Recommended for "${args.query}"**\n\n`;
-      if (detectedUses.includes('gift')) {
-        text = `**Perfect Gift Ideas**\n\nBased on your request, here are some thoughtful options:\n\n`;
-      } else if (detectedUses.includes('gaming')) {
-        text = `**Top Gaming Picks**\n\nHere are the best options for gaming:\n\n`;
-      } else if (detectedUses.includes('budget')) {
-        text = `**Best Value Picks**\n\nGreat options that won't break the bank:\n\n`;
-      }
-
-      for (const p of topProducts.slice(0, 3)) {
-        const discount =
-          p.compare_at_price && p.compare_at_price > p.price
-            ? ` (${Math.round((1 - p.price / p.compare_at_price) * 100)}% off)`
-            : '';
-        text += `• **${p.name}** - ${formatPrice(p.price)}${discount}\n`;
-      }
-
-      if (args.budget) {
-        text += `\n_All within your ${formatPrice(args.budget)} budget_`;
-      }
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { products: formatted },
-      };
-    }
-  );
-
-  // Tool: Trade-In/Swap Estimate
-  server.registerTool(
-    'estimate_trade_in',
-    {
-      title: 'Trade-In Value Estimator',
-      description:
-        'Estimate the trade-in value of your current device and calculate the upgrade cost to a new product. Provide details about your current device to get a swap estimate.',
-      inputSchema: {
-        current_device: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe(
-            'Your current device (e.g., "iPhone 12 Pro", "Samsung S21", "MacBook Pro 2019")'
-          ),
-        current_condition: z
-          .enum(['new', 'used', 'open_box'])
-          .describe(
-            'Current device condition: new (sealed/unused), used (previously owned), open_box (opened but unused)'
-          ),
-        current_storage: z
-          .string()
-          .max(20)
-          .optional()
-          .describe('Storage capacity if applicable (e.g., "128GB", "256GB")'),
-        target_product: z
-          .string()
-          .min(2)
-          .max(100)
-          .optional()
-          .describe('Product you want to upgrade to (optional)'),
-      },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Calculating trade-in value...',
-        'openai/toolInvocation/invoked': 'Estimate ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-        };
-      }
-
-      const deviceName = sanitizeString(args.current_device, 100).toLowerCase();
-
-      // Base trade-in values by device category (approximate Nigerian market values)
-      const tradeInRates: Record<
-        string,
-        { base: number; depreciation: number }
-      > = {
-        'iphone 15': { base: 850000, depreciation: 0.15 },
-        'iphone 14': { base: 650000, depreciation: 0.2 },
-        'iphone 13': { base: 450000, depreciation: 0.25 },
-        'iphone 12': { base: 320000, depreciation: 0.3 },
-        'iphone 11': { base: 200000, depreciation: 0.35 },
-        'iphone x': { base: 120000, depreciation: 0.4 },
-        'samsung s24': { base: 700000, depreciation: 0.18 },
-        'samsung s23': { base: 500000, depreciation: 0.22 },
-        'samsung s22': { base: 350000, depreciation: 0.28 },
-        'samsung s21': { base: 250000, depreciation: 0.32 },
-        'macbook pro': { base: 800000, depreciation: 0.15 },
-        'macbook air': { base: 500000, depreciation: 0.18 },
-        'ipad pro': { base: 450000, depreciation: 0.2 },
-        'ipad air': { base: 300000, depreciation: 0.22 },
-        ps5: { base: 350000, depreciation: 0.1 },
-        xbox: { base: 300000, depreciation: 0.12 },
-      };
-
-      // Condition multipliers (matching store conditions: new, used, open_box)
-      const conditionMultipliers: Record<string, number> = {
-        new: 1.0, // Unused/sealed - full value
-        open_box: 0.85, // Opened but unused - slight discount
-        used: 0.65, // Previously owned - standard used discount
-      };
-
-      // Find matching device category
-      let baseValue = 100000; // Default minimum
-      let deviceCategory = 'device';
-      for (const [device, rates] of Object.entries(tradeInRates)) {
-        if (deviceName.includes(device.split(' ')[0])) {
-          baseValue = rates.base;
-          deviceCategory = device;
-          break;
-        }
-      }
-
-      // Calculate trade-in value
-      const conditionMultiplier = conditionMultipliers[args.current_condition];
-      const estimatedValue = Math.round(baseValue * conditionMultiplier);
-      const valueRange = {
-        low: Math.round(estimatedValue * 0.85),
-        high: Math.round(estimatedValue * 1.15),
-      };
-
-      let text = `**Trade-In Estimate for ${args.current_device}**\n\n`;
-      text += `📱 **Device:** ${args.current_device}${args.current_storage ? ` (${args.current_storage})` : ''}\n`;
-      text += `📊 **Condition:** ${args.current_condition.charAt(0).toUpperCase() + args.current_condition.slice(1)}\n\n`;
-      text += `💰 **Estimated Trade-In Value:**\n`;
-      text += `• Range: ${formatPrice(valueRange.low)} - ${formatPrice(valueRange.high)}\n`;
-      text += `• Best Estimate: **${formatPrice(estimatedValue)}**\n\n`;
-
-      // If target product specified, calculate upgrade cost
-      let targetProduct = null;
-      if (args.target_product) {
-        const { data: product, error: targetError } = await supabase
-          .from('products')
-          .select(
-            'id, name, slug, price, compare_at_price, images, condition, brand'
-          )
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .ilike('name', `%${sanitizeString(args.target_product, 100)}%`)
-          .limit(1)
-          .single();
-
-        if (targetError && targetError.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'trade_in_estimate',
-              message: targetError.message,
-            })
-          );
-        }
-
-        if (product) {
-          targetProduct = product;
-          const upgradeCost = Math.max(0, product.price - estimatedValue);
-          const savings = estimatedValue;
-
-          text += `🎯 **Upgrade to ${product.name}:**\n`;
-          text += `• New Price: ${formatPrice(product.price)}\n`;
-          text += `• Your Trade-In: -${formatPrice(estimatedValue)}\n`;
-          text += `• **You Pay: ${formatPrice(upgradeCost)}**\n\n`;
-
-          if (upgradeCost === 0) {
-            text += `✨ _Your trade-in covers the full cost!_\n`;
-          } else if (savings > product.price * 0.3) {
-            text += `✨ _Great deal! You save ${Math.round((savings / product.price) * 100)}% with trade-in_\n`;
-          }
-        }
-      }
-
-      text += `\n_Trade-in values are estimates and may vary. Final value determined upon device inspection._`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          trade_in: {
-            device: args.current_device,
-            condition: args.current_condition,
-            estimated_value: estimatedValue,
-            value_range: valueRange,
-          },
-          target_product: targetProduct
-            ? {
-                id: targetProduct.id,
-                name: targetProduct.name,
-                slug: targetProduct.slug,
-                price: targetProduct.price,
-                image:
-                  targetProduct.images?.[0]?.url ||
-                  targetProduct.images?.[0] ||
-                  null,
-                upgrade_cost: Math.max(0, targetProduct.price - estimatedValue),
-              }
-            : null,
-          products: targetProduct
-            ? [
-                {
-                  id: targetProduct.id,
-                  name: targetProduct.name,
-                  slug: targetProduct.slug,
-                  price: targetProduct.price,
-                  image:
-                    targetProduct.images?.[0]?.url ||
-                    targetProduct.images?.[0] ||
-                    null,
-                  condition: targetProduct.condition || 'new',
-                  brand: targetProduct.brand,
-                  in_stock: true,
-                },
-              ]
-            : [],
+        _meta: {
+          'openai/outputTemplate': 'ui://widget/store.html',
+          'openai/widgetPrefersBorder': true,
         },
       };
     }
   );
+  // [REMOVED] smart_recommend
+  // [REMOVED] estimate_trade_in
+  // [REMOVED] find_gift
+  // [REMOVED] calculate_installment
+  // [REMOVED] find_deals
 
-  // Tool: Gift Finder
-  server.registerTool(
-    'find_gift',
-    {
-      title: 'Gift Finder',
-      description:
-        'Find the perfect gift based on recipient details, occasion, and budget. Describe who the gift is for and get personalized suggestions.',
-      inputSchema: {
-        recipient: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe(
-            'Who is the gift for? (e.g., "my dad who loves tech", "teenage gamer", "mom who takes lots of photos")'
-          ),
-        occasion: z
-          .enum([
-            'birthday',
-            'christmas',
-            'anniversary',
-            'graduation',
-            'just_because',
-            'other',
-          ])
-          .optional()
-          .describe('Gift occasion'),
-        budget: z
-          .number()
-          .min(10000)
-          .max(10000000)
-          .optional()
-          .describe('Maximum budget in NGN'),
-        interests: z
-          .string()
-          .max(200)
-          .optional()
-          .describe('Their interests or hobbies'),
-      },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Finding perfect gifts...',
-        'openai/toolInvocation/invoked': 'Gift ideas ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-          structuredContent: { products: [] },
-        };
-      }
-
-      const recipient = sanitizeString(args.recipient, 100).toLowerCase();
-      const interests = args.interests
-        ? sanitizeString(args.interests, 200).toLowerCase()
-        : '';
-      const combined = `${recipient} ${interests}`;
-
-      // Gift persona mapping
-      const personaKeywords: Record<
-        string,
-        { categories: string[]; priceRange: { min: number; max: number } }
-      > = {
-        gamer: {
-          categories: ['gaming', 'console', 'accessories'],
-          priceRange: { min: 20000, max: 500000 },
-        },
-        photographer: {
-          categories: ['phone', 'camera', 'accessories'],
-          priceRange: { min: 50000, max: 1000000 },
-        },
-        student: {
-          categories: ['laptop', 'tablet', 'accessories'],
-          priceRange: { min: 30000, max: 400000 },
-        },
-        professional: {
-          categories: ['laptop', 'phone', 'accessories'],
-          priceRange: { min: 100000, max: 1500000 },
-        },
-        teen: {
-          categories: ['phone', 'gaming', 'accessories', 'audio'],
-          priceRange: { min: 20000, max: 300000 },
-        },
-        parent: {
-          categories: ['phone', 'tablet', 'accessories'],
-          priceRange: { min: 50000, max: 500000 },
-        },
-        music_lover: {
-          categories: ['audio', 'accessories'],
-          priceRange: { min: 15000, max: 200000 },
-        },
-      };
-
-      // Detect persona
-      let detectedPersona = 'general';
-      if (combined.includes('gam')) detectedPersona = 'gamer';
-      else if (combined.includes('photo') || combined.includes('camera'))
-        detectedPersona = 'photographer';
-      else if (combined.includes('student') || combined.includes('school'))
-        detectedPersona = 'student';
-      else if (
-        combined.includes('work') ||
-        combined.includes('business') ||
-        combined.includes('professional')
-      )
-        detectedPersona = 'professional';
-      else if (combined.includes('teen') || combined.includes('young'))
-        detectedPersona = 'teen';
-      else if (
-        combined.includes('mom') ||
-        combined.includes('dad') ||
-        combined.includes('parent')
-      )
-        detectedPersona = 'parent';
-      else if (combined.includes('music') || combined.includes('audio'))
-        detectedPersona = 'music_lover';
-
-      const persona = personaKeywords[detectedPersona] || {
-        categories: [],
-        priceRange: { min: 20000, max: 500000 },
-      };
-
-      // Build query
-      let query = supabase
-        .from('products')
-        .select(
-          'id, name, slug, price, compare_at_price, images, description, condition, brand, category'
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .gt('stock_quantity', 0);
-
-      // Apply budget
-      const maxBudget = args.budget || persona.priceRange.max;
-      query = query.lte('price', maxBudget).gte('price', 10000);
-
-      const { data: products } = await query
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (!products || products.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `No gift ideas found within your budget. Try adjusting your criteria.`,
-            },
-          ],
-          structuredContent: { products: [] },
-        };
-      }
-
-      // Score products for gift suitability
-      const scored = products.map((p) => {
-        let score = 0;
-        const cat = (p.category || '').toLowerCase();
-        const name = p.name.toLowerCase();
-
-        // Category match
-        if (persona.categories.some((c) => cat.includes(c) || name.includes(c)))
-          score += 10;
-
-        // Price sweet spot (not too cheap for a gift)
-        if (p.price > 30000) score += 3;
-        if (p.price > 50000) score += 2;
-
-        // New condition preferred for gifts
-        if (p.condition === 'new') score += 5;
-
-        // Popular brands
-        if (
-          ['apple', 'samsung', 'sony', 'jbl'].some((b) =>
-            (p.brand || '').toLowerCase().includes(b)
-          )
-        )
-          score += 3;
-
-        return { ...p, score };
-      });
-
-      scored.sort((a, b) => b.score - a.score);
-      const topGifts = scored.slice(0, 4);
-
-      const formatted = topGifts.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: p.price,
-        compare_at_price: p.compare_at_price,
-        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
-        condition: p.condition || 'new',
-        brand: p.brand,
-        in_stock: true,
-      }));
-
-      const occasionEmoji: Record<string, string> = {
-        birthday: '🎂',
-        christmas: '🎄',
-        anniversary: '💕',
-        graduation: '🎓',
-        just_because: '💝',
-        other: '🎁',
-      };
-
-      let text = `**${occasionEmoji[args.occasion || 'other']} Gift Ideas for ${args.recipient}**\n\n`;
-
-      if (args.budget) {
-        text += `_Budget: up to ${formatPrice(args.budget)}_\n\n`;
-      }
-
-      text += `Based on their interests, here are my top picks:\n\n`;
-
-      for (const p of topGifts.slice(0, 3)) {
-        text += `🎁 **${p.name}** - ${formatPrice(p.price)}\n`;
-      }
-
-      text += `\n_All items are gift-ready and can be shipped directly!_`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { products: formatted },
-      };
-    }
-  );
-
-  // Tool: Installment/BNPL Calculator
-  server.registerTool(
-    'calculate_installment',
-    {
-      title: 'Installment Payment Calculator',
-      description:
-        'Calculate monthly installment payments for any product. See how you can afford expensive items with flexible payment plans.',
-      inputSchema: {
-        product_name: z
-          .string()
-          .min(2)
-          .max(100)
-          .optional()
-          .describe('Product to calculate installments for'),
-        amount: z
-          .number()
-          .min(10000)
-          .max(10000000)
-          .optional()
-          .describe('Or specify an amount directly in NGN'),
-        months: z
-          .enum(['3', '6', '9', '12'])
-          .optional()
-          .describe('Number of months for payment plan'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Calculating payment plan...',
-        'openai/toolInvocation/invoked': 'Payment options ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-        };
-      }
-
-      let productPrice = args.amount;
-      let productName = 'your purchase';
-
-      // If product name provided, look it up
-      if (args.product_name) {
-        const { data: product, error: lookupError } = await supabase
-          .from('products')
-          .select('name, price')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
-          .limit(1)
-          .single();
-
-        if (lookupError && lookupError.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'calculate_installments',
-              message: lookupError.message,
-            })
-          );
-        }
-
-        if (product) {
-          productPrice = product.price;
-          productName = product.name;
-        }
-      }
-
-      if (!productPrice) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Please specify a product name or amount to calculate installments.',
-            },
-          ],
-        };
-      }
-
-      // Interest rates by duration (typical Nigerian BNPL rates)
-      const rates: Record<string, { rate: number; fee: number }> = {
-        '3': { rate: 0.05, fee: 0.02 }, // 5% interest, 2% processing
-        '6': { rate: 0.1, fee: 0.025 }, // 10% interest, 2.5% processing
-        '9': { rate: 0.15, fee: 0.03 }, // 15% interest, 3% processing
-        '12': { rate: 0.2, fee: 0.035 }, // 20% interest, 3.5% processing
-      };
-
-      let text = `**💳 Payment Plan for ${productName}**\n\n`;
-      text += `**Product Price:** ${formatPrice(productPrice)}\n\n`;
-      text += `**Available Payment Options:**\n\n`;
-
-      const options = args.months ? [args.months] : ['3', '6', '9', '12'];
-
-      for (const months of options) {
-        const { rate, fee } = rates[months];
-        const totalInterest = productPrice * rate;
-        const processingFee = productPrice * fee;
-        const totalAmount = productPrice + totalInterest + processingFee;
-        const monthlyPayment = Math.ceil(totalAmount / Number.parseInt(months));
-
-        text += `**${months} Months:**\n`;
-        text += `• Monthly: ${formatPrice(monthlyPayment)}/month\n`;
-        text += `• Total: ${formatPrice(totalAmount)} (${Math.round(rate * 100)}% interest)\n\n`;
-      }
-
-      text += `---\n`;
-      text += `_Powered by Credit Direct. Subject to approval. Terms apply._\n`;
-      text += `_Pay a small deposit and spread the rest over months!_`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          product_name: productName,
-          product_price: productPrice,
-          payment_plans: Object.entries(rates).map(
-            ([months, { rate, fee }]) => {
-              const totalInterest = productPrice! * rate;
-              const processingFee = productPrice! * fee;
-              const totalAmount = productPrice! + totalInterest + processingFee;
-              return {
-                months: Number.parseInt(months),
-                monthly_payment: Math.ceil(
-                  totalAmount / Number.parseInt(months)
-                ),
-                total_amount: totalAmount,
-                interest_rate: rate,
-              };
-            }
-          ),
-        },
-      };
-    }
-  );
-
-  // Tool: Deal Finder / Price Drop Alert
-  server.registerTool(
-    'find_deals',
-    {
-      title: 'Deal Finder',
-      description:
-        'Find the best deals, discounts, and price drops in the store. Get notified about products with the biggest savings.',
-      inputSchema: {
-        category: z
-          .string()
-          .max(50)
-          .optional()
-          .describe('Category to search for deals (e.g., phones, laptops)'),
-        min_discount: z
-          .number()
-          .min(5)
-          .max(90)
-          .optional()
-          .describe('Minimum discount percentage (default: 10%)'),
-      },
-      _meta: {
-        'openai/outputTemplate': 'ui://widget/store.html',
-        'openai/toolInvocation/invoking': 'Finding best deals...',
-        'openai/toolInvocation/invoked': 'Deals found',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-          structuredContent: { products: [] },
-        };
-      }
-
-      let query = supabase
-        .from('products')
-        .select(
-          'id, name, slug, price, compare_at_price, images, condition, brand, category'
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .gt('stock_quantity', 0)
-        .not('compare_at_price', 'is', null);
-
-      if (args.category) {
-        query = query.ilike(
-          'category',
-          `%${sanitizeString(args.category, 50)}%`
-        );
-      }
-
-      const { data: products } = await query.limit(50);
-
-      if (!products || products.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'No deals found at the moment. Check back soon!',
-            },
-          ],
-          structuredContent: { products: [] },
-        };
-      }
-
-      // Calculate discounts and filter
-      const minDiscount = args.min_discount || 10;
-      const deals = products
-        .map((p) => {
-          const discount =
-            p.compare_at_price && p.compare_at_price > p.price
-              ? Math.round((1 - p.price / p.compare_at_price) * 100)
-              : 0;
-          const savings = p.compare_at_price ? p.compare_at_price - p.price : 0;
-          return { ...p, discount, savings };
-        })
-        .filter((p) => p.discount >= minDiscount)
-        .sort((a, b) => b.discount - a.discount)
-        .slice(0, 6);
-
-      if (deals.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `No products with ${minDiscount}%+ discount found. Try a lower threshold.`,
-            },
-          ],
-          structuredContent: { products: [] },
-        };
-      }
-
-      const formatted = deals.slice(0, 4).map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: p.price,
-        compare_at_price: p.compare_at_price,
-        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
-        condition: p.condition || 'new',
-        brand: p.brand,
-        in_stock: true,
-      }));
-
-      let text = `**🔥 Hot Deals${args.category ? ` in ${args.category}` : ''}**\n\n`;
-
-      for (const deal of deals.slice(0, 5)) {
-        text += `• **${deal.name}**\n`;
-        text += `  ~~${formatPrice(deal.compare_at_price!)}~~ → **${formatPrice(deal.price)}** (-${deal.discount}%)\n`;
-        text += `  _You save ${formatPrice(deal.savings)}_\n\n`;
-      }
-
-      const totalSavings = deals.reduce((sum, d) => sum + d.savings, 0);
-      text += `---\n_${deals.length} deals found with up to ${deals[0].discount}% off!_`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          products: formatted,
-          deals_summary: {
-            total_deals: deals.length,
-            max_discount: deals[0]?.discount || 0,
-            total_potential_savings: totalSavings,
-          },
-        },
-      };
-    }
-  );
 
   // Tool: Get product variants
   server.registerTool(
     'get_product_variants',
     {
       title: 'Get Product Variants',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Get all available variants (colors, storage options, conditions) for a product.',
       inputSchema: {
@@ -2867,6 +1973,8 @@ function createOgabasseyServer() {
     'browse_categories',
     {
       title: 'Browse Categories',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get a list of product categories available in the store.',
       inputSchema: {},
       _meta: {
@@ -2912,6 +2020,8 @@ function createOgabasseyServer() {
     'get_brands',
     {
       title: 'Get Available Brands',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get a list of brands available in the store.',
       inputSchema: {
         category: z
@@ -2966,773 +2076,20 @@ function createOgabasseyServer() {
   );
 
   // Tool: Compare products
-  // Tool: Compare Products
-  server.registerTool(
-    'compare_products',
-    {
-      title: 'Compare Products',
-      description:
-        'Compare 2-3 products side by side with spec-sheet precision. Analyzes price, condition, specs (RAM, storage, etc.), and ratings to help users choose.',
-      inputSchema: {
-        products: z
-          .string()
-          .describe(
-            'Comma-separated product names or IDs (e.g., "iPhone 15, iPhone 14 Pro")'
-          ),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Analyzing product specs...',
-        'openai/toolInvocation/invoked': 'Comparison complete',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-          structuredContent: { products: [] },
-        };
-      }
+  // [REMOVED] compare_products
+  // [REMOVED] search_blog
+  // [REMOVED] get_faq
+  // [REMOVED] quick_help
+  // [REMOVED] book_repair
 
-      // 1. Parse and sanitize inputs
-      const queries = args.products
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s.length > 1)
-        .slice(0, 3); // Limit to 3 max
-
-      if (queries.length < 2) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Please provide at least 2 distinct products to compare (e.g., "iPhone 13, iPhone 12").',
-            },
-          ],
-        };
-      }
-
-      // 2. Fetch products details (Parallel fetch for speed)
-      const products: any[] = [];
-
-      for (const q of queries) {
-        let product = null;
-
-        // Try ID match first
-        const { data: byId } = await supabase
-          .from('products')
-          .select(
-            'id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup'
-          )
-          .eq('id', q)
-          .eq('merchant_id', merchantId)
-          .single();
-
-        if (byId) {
-          product = byId;
-        } else {
-          // Fallback to fuzzy name match
-          const { data: byName } = await supabase
-            .from('products')
-            .select(
-              'id, name, slug, price, compare_at_price, images, description, condition, brand, category, stock_quantity, schema_markup'
-            )
-            .eq('merchant_id', merchantId)
-            .eq('status', 'active')
-            .ilike('name', `%${sanitizeString(q, 100)}%`)
-            .limit(1)
-            .single();
-          product = byName;
-        }
-
-        if (product) products.push(product);
-      }
-
-      if (products.length < 2) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `❌ I couldn't find enough products matching "${args.products}" to compare. Please check the names.`,
-            },
-          ],
-        };
-      }
-
-      // 3. Extract & Normalize Attributes
-      const allAttrKeys = new Set<string>();
-      products.forEach((p) => {
-        if (p.attributes) {
-          Object.keys(p.attributes).forEach((k) => allAttrKeys.add(k));
-        }
-      });
-      // Prioritize common tech specs
-      const prioritySpecs = [
-        'Storage',
-        'RAM',
-        'Screen',
-        'Battery',
-        'Processor',
-        'Camera',
-        'Color',
-      ];
-      const sortedKeys = Array.from(allAttrKeys).sort((a, b) => {
-        const idxA = prioritySpecs.indexOf(a);
-        const idxB = prioritySpecs.indexOf(b);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-        return a.localeCompare(b);
-      });
-
-      // 4. Build Markdown Table
-      let text = `**📊 Product Comparison**\n\n`;
-
-      // Header
-      text += `| Feature | ${products.map((p) => `**${p.name.substring(0, 30)}**`).join(' | ')} |\n`;
-      text += `|:---|${products.map(() => ':---').join('|')}|\n`;
-
-      // Core Data
-      text += `| **Price** | ${products.map((p) => `**${formatPrice(p.price)}**`).join(' | ')} |\n`;
-      text += `| Savings | ${products.map((p) => (p.compare_at_price > p.price ? `Save ${Math.round((1 - p.price / p.compare_at_price) * 100)}%` : '-')).join(' | ')} |\n`;
-      text += `| Condition | ${products.map((p) => p.condition || 'New').join(' | ')} |\n`;
-      text += `| Rating | ${products.map((p) => (p.schema_markup?.aggregateRating?.ratingValue ? `⭐ ${p.schema_markup.aggregateRating.ratingValue}/5` : '-')).join(' | ')} |\n`;
-
-      // Dynamic Attributes
-      sortedKeys.slice(0, 8).forEach((key) => {
-        text += `| ${key} | ${products.map((p) => p.attributes?.[key] || '-').join(' | ')} |\n`;
-      });
-
-      // 5. Intelligent Verdict
-      const sortedByPrice = [...products].sort((a, b) => a.price - b.price);
-      const cheapest = sortedByPrice[0];
-      const expensive = sortedByPrice[sortedByPrice.length - 1];
-      const diff = expensive.price - cheapest.price;
-
-      text += `\n**💡 Analysis:**\n`;
-      text += `• **Best Value:** ${cheapest.name} is the most affordable options at ${formatPrice(cheapest.price)}.\n`;
-      if (diff > 0) {
-        text += `• **Price Gap:** There is a ${formatPrice(diff)} difference between the highest and lowest price.\n`;
-      }
-
-      const formattedProducts = products.map((p) => ({
-        id: p.id,
-        name: p.name,
-        slug: p.slug,
-        price: p.price,
-        image: ensureJpgImageUrl(p.images?.[0]?.url || p.images?.[0]),
-        condition: p.condition,
-        in_stock: p.stock_quantity > 0,
-      }));
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          type: 'comparison_table',
-          products: formattedProducts,
-        },
-      };
-    }
-  );
-
-  // Tool: Search Blog / Articles
-  server.registerTool(
-    'search_blog',
-    {
-      title: 'Search Blog & Articles',
-      description:
-        'Search Ogabassey blog for articles, guides, reviews, and tips about tech products. Great for learning about products before buying.',
-      inputSchema: {
-        query: z
-          .string()
-          .min(2)
-          .max(100)
-          .optional()
-          .describe(
-            'Search query (e.g., "iPhone 15 review", "best gaming laptop 2024", "how to choose a phone")'
-          ),
-        category: z
-          .string()
-          .max(50)
-          .optional()
-          .describe('Blog category (e.g., reviews, guides, news, tips)'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Searching articles...',
-        'openai/toolInvocation/invoked': 'Articles found',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: 'Store temporarily unavailable.' }],
-        };
-      }
-
-      let query = supabase
-        .from('blog_posts')
-        .select(
-          'id, title, slug, excerpt, category, tags, author_name, published_at, reading_time_minutes'
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
-        .limit(5);
-
-      if (args.query) {
-        const sanitizedQuery = sanitizeString(args.query, 100);
-        // Use parameterized filter pattern instead of string concatenation
-        query = query.or(
-          `title.ilike.%${sanitizedQuery.replace(/%/g, '')}%,excerpt.ilike.%${sanitizedQuery.replace(/%/g, '')}%`
-        );
-      }
-
-      if (args.category) {
-        query = query.eq('category', sanitizeString(args.category, 50));
-      }
-
-      const { data: posts, error } = await query;
-
-      if (error || !posts || posts.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: args.query
-                ? `No articles found for "${args.query}". Browse our blog at ogabassey.com/blog for more content.`
-                : 'No blog articles found. Check out our blog at ogabassey.com/blog for the latest content.',
-            },
-          ],
-        };
-      }
-
-      let text = `**📚 Blog Articles${args.query ? ` for "${args.query}"` : ''}**\n\n`;
-
-      for (const post of posts) {
-        const date = new Date(post.published_at).toLocaleDateString('en-NG', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        });
-        text += `📖 **${post.title}**\n`;
-        text += `   ${post.excerpt?.slice(0, 100)}${post.excerpt && post.excerpt.length > 100 ? '...' : ''}\n`;
-        text += `   _${date} • ${post.reading_time_minutes || 5} min read_\n`;
-        text += `   🔗 [Read Article](https://ogabassey.com/ogabassey/blog/${post.slug})\n\n`;
-      }
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          articles: posts.map((p) => ({
-            title: p.title,
-            slug: p.slug,
-            excerpt: p.excerpt,
-            category: p.category,
-            url: `https://ogabassey.com/ogabassey/blog/${p.slug}`,
-          })),
-        },
-      };
-    }
-  );
-
-  // Tool: Get FAQ / Common Questions
-  server.registerTool(
-    'get_faq',
-    {
-      title: 'Get FAQ & Help',
-      description:
-        'Get answers to frequently asked questions about ordering, shipping, returns, payments, and store policies.',
-      inputSchema: {
-        topic: z
-          .enum([
-            'shipping',
-            'returns',
-            'payment',
-            'warranty',
-            'order',
-            'general',
-          ])
-          .optional()
-          .describe('FAQ topic'),
-        question: z
-          .string()
-          .max(200)
-          .optional()
-          .describe('Specific question to answer'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Finding answers...',
-        'openai/toolInvocation/invoked': 'Answers ready',
-      },
-    },
-    async () => {
-      // Pre-built FAQ responses based on Ogabassey policies
-      const faqs: Record<
-        string,
-        { emoji: string; title: string; items: Array<{ q: string; a: string }> }
-      > = {
-        shipping: {
-          emoji: '🚚',
-          title: 'Shipping & Delivery',
-          items: [
-            {
-              q: 'How long does delivery take?',
-              a: 'Lagos: 1-2 business days. Other states: 3-5 business days. We ship via GIGL, Topship, and Shiip.',
-            },
-            {
-              q: 'Do you deliver nationwide?',
-              a: 'Yes! We deliver to all 36 states in Nigeria. International shipping available on request.',
-            },
-            {
-              q: 'How much is shipping?',
-              a: 'Shipping cost is calculated at checkout based on your location. Lagos deliveries start from ₦2,500.',
-            },
-            {
-              q: 'Can I track my order?',
-              a: "Yes! You'll receive a tracking number via email/SMS once your order ships.",
-            },
-          ],
-        },
-        returns: {
-          emoji: '↩️',
-          title: 'Returns & Refunds',
-          items: [
-            {
-              q: 'What is your return policy?',
-              a: 'We offer a 7-day return window for unused items in original packaging. Defective items are exchanged or refunded.',
-            },
-            {
-              q: 'How do I return an item?',
-              a: "Contact our support team via WhatsApp or email to initiate a return. We'll provide instructions and pickup.",
-            },
-            {
-              q: 'When will I get my refund?',
-              a: 'Refunds are processed within 3-5 business days after we receive and verify the returned item.',
-            },
-          ],
-        },
-        payment: {
-          emoji: '💳',
-          title: 'Payment Options',
-          items: [
-            {
-              q: 'What payment methods do you accept?',
-              a: 'Bank Transfer, Debit/Credit Cards (Visa, Mastercard), Pay on Delivery (Lagos only), and Buy Now Pay Later.',
-            },
-            {
-              q: 'Is Pay on Delivery available?',
-              a: 'Yes, for orders in Lagos. A ₦5,000 deposit may be required for high-value items.',
-            },
-            {
-              q: 'Do you offer installment payments?',
-              a: 'Yes! Through Credit Direct, you can pay in 3-12 monthly installments. Ask me to calculate installments for any product.',
-            },
-          ],
-        },
-        warranty: {
-          emoji: '🛡️',
-          title: 'Warranty & Support',
-          items: [
-            {
-              q: 'Do products come with warranty?',
-              a: 'Yes! New products come with manufacturer warranty (usually 12 months). Used items have a 30-day warranty.',
-            },
-            {
-              q: 'What does warranty cover?',
-              a: 'Manufacturing defects and hardware failures. Physical damage and water damage are not covered.',
-            },
-            {
-              q: 'How do I claim warranty?',
-              a: "Contact us with your order number and issue description. We'll guide you through the process.",
-            },
-          ],
-        },
-        order: {
-          emoji: '📦',
-          title: 'Orders & Tracking',
-          items: [
-            {
-              q: 'How do I track my order?',
-              a: 'You can track your order by providing your order number or phone number. Just ask me!',
-            },
-            {
-              q: 'Can I cancel my order?',
-              a: "Orders can be cancelled before shipping. Once shipped, you'll need to wait for delivery and return if needed.",
-            },
-            {
-              q: 'What if my order is delayed?',
-              a: "Contact our support team. We'll investigate and provide updates. Delays are rare but may occur during peak periods.",
-            },
-          ],
-        },
-        general: {
-          emoji: '❓',
-          title: 'General Questions',
-          items: [
-            {
-              q: 'Are your products authentic?',
-              a: 'Absolutely! We only sell genuine, authentic products. No fakes or clones.',
-            },
-            {
-              q: 'Do you sell used products?',
-              a: 'Yes! We offer certified used and open-box items at great prices, clearly labeled with condition grades.',
-            },
-            {
-              q: 'How can I contact support?',
-              a: 'WhatsApp, email, or through our website. We respond within 24 hours, usually much faster!',
-            },
-            {
-              q: 'Do you have a physical store?',
-              a: "We're primarily online, but you can arrange pickup in Lagos for some orders.",
-            },
-          ],
-        },
-      };
-
-      let text = `**❓ Frequently Asked Questions**\n\n`;
-
-      for (const [key, section] of Object.entries(faqs)) {
-        text += `**${section.emoji} ${section.title}**\n`;
-        for (const item of section.items.slice(0, 2)) {
-          text += `• _${item.q}_\n  ${item.a}\n`;
-        }
-        text += '\n';
-      }
-
-      text += `---\n_Have another question? Just ask me directly!_\n`;
-      text += `_Or visit our [FAQ page](https://ogabassey.com/ogabassey/pages/faq) for more._`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { faqs },
-      };
-    }
-  );
-
-  // Tool: Quick Help / Ask Anything
-  server.registerTool(
-    'quick_help',
-    {
-      title: 'Quick Help',
-      description:
-        'Get quick help on any topic. Ask about products, orders, shipping, returns, or anything else.',
-      inputSchema: {
-        question: z
-          .string()
-          .min(3)
-          .max(300)
-          .describe('Your question or what you need help with'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Finding help...',
-        'openai/toolInvocation/invoked': 'Help ready',
-      },
-    },
-    async (args) => {
-      const question = sanitizeString(args.question, 300).toLowerCase();
-
-      // Quick response patterns
-      const patterns: Array<{ keywords: string[]; response: string }> = [
-        {
-          keywords: ['whatsapp', 'contact', 'call', 'phone', 'reach'],
-          response:
-            '📱 **Contact Us**\n\nWhatsApp: Available on our website\nEmail: support@ogabassey.com\nWebsite: ogabassey.com\n\nWe respond within 24 hours, usually much faster!',
-        },
-        {
-          keywords: ['lagos', 'location', 'address', 'pickup', 'store'],
-          response:
-            "📍 **Location**\n\nWe're primarily an online store, but Lagos customers can arrange pickup for some orders. Contact us to coordinate!",
-        },
-        {
-          keywords: ['authentic', 'genuine', 'original', 'fake', 'real'],
-          response:
-            '✅ **Authenticity Guarantee**\n\nAll our products are 100% genuine and authentic. We source directly from authorized distributors. No fakes, ever!',
-        },
-        {
-          keywords: ['swap', 'trade', 'exchange', 'old phone', 'upgrade'],
-          response:
-            "🔄 **Trade-In Program**\n\nYes! We accept trade-ins for your old devices. Use the trade-in estimator to see your device's value and calculate upgrade costs.",
-        },
-        {
-          keywords: [
-            'installment',
-            'credit',
-            'loan',
-            'bnpl',
-            'pay later',
-            'monthly',
-          ],
-          response:
-            '💳 **Buy Now, Pay Later**\n\nPay in 3-12 monthly installments through Credit Direct. Ask me to calculate installments for any product!',
-        },
-        {
-          keywords: ['discount', 'promo', 'code', 'coupon', 'sale'],
-          response:
-            '🏷️ **Deals & Discounts**\n\nUse the deal finder to see current discounts! We also run special promotions—follow us on social media for updates.',
-        },
-        {
-          keywords: ['repair', 'fix', 'broken', 'screen', 'battery', 'cracked'],
-          response:
-            '🔧 **Repair Services**\n\nWe offer device repairs including:\n• Screen replacement\n• Battery replacement\n• Charging port repair\n• Software fixes\n• Water damage repair\n\nAsk me to book a repair!',
-        },
-        {
-          keywords: [
-            'shipping',
-            'delivery',
-            'deliver',
-            'ship',
-            'how much shipping',
-          ],
-          response:
-            '🚚 **Delivery Options**\n\nWe deliver nationwide! Rates vary by location:\n• Lagos: ₦2,500-3,500 (1-2 days)\n• Other states: ₦4,000-8,000 (2-5 days)\n\nFree shipping on orders over ₦150,000! Ask me to calculate delivery to your state.',
-        },
-      ];
-
-      // Find matching pattern
-      for (const pattern of patterns) {
-        if (pattern.keywords.some((kw) => question.includes(kw))) {
-          return { content: [{ type: 'text', text: pattern.response }] };
-        }
-      }
-
-      // Default helpful response
-      const text = `**💡 How Can I Help?**\n\nI can help you with:\n\n• 🔍 **Finding Products** - Search by name, brand, category, or budget\n• 💰 **Trade-In Estimates** - Value your old device for upgrade\n• 🎁 **Gift Ideas** - Find perfect gifts for anyone\n• 📦 **Order Tracking** - Check order status\n• 💳 **Installment Plans** - Calculate monthly payments\n• 🔥 **Deals** - Find the best discounts\n• 🔧 **Repairs** - Book device repair services\n• 🚚 **Delivery** - Calculate shipping costs\n• ❓ **FAQ** - Shipping, returns, warranty info\n\nJust ask your question naturally, and I'll help!`;
-
-      return { content: [{ type: 'text', text }] };
-    }
-  );
-
-  // Tool: Book Repair Service
-  server.registerTool(
-    'book_repair',
-    {
-      title: 'Book Repair Service',
-      description:
-        'Book a device repair service at Ogabassey. Available services include screen replacement, battery replacement, charging port repair, and software fixes.',
-      inputSchema: {
-        device_type: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe(
-            'Type of device (e.g., iPhone 14 Pro, Samsung Galaxy S23, MacBook Pro)'
-          ),
-        issue: z
-          .enum([
-            'screen',
-            'battery',
-            'charging_port',
-            'software',
-            'water_damage',
-            'speaker',
-            'camera',
-            'other',
-          ])
-          .describe('Type of repair needed'),
-        issue_description: z
-          .string()
-          .max(500)
-          .optional()
-          .describe('Detailed description of the issue'),
-        customer_name: z
-          .string()
-          .min(2)
-          .max(100)
-          .describe('Customer full name'),
-        customer_phone: z
-          .string()
-          .min(10)
-          .max(15)
-          .describe('Customer phone number (Nigerian format)'),
-        customer_email: z
-          .string()
-          .email()
-          .optional()
-          .describe('Customer email address'),
-        preferred_date: z
-          .string()
-          .optional()
-          .describe('Preferred date for repair (YYYY-MM-DD format)'),
-        location: z
-          .enum(['lagos', 'pickup', 'remote'])
-          .optional()
-          .describe('Service location preference'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Booking your repair...',
-        'openai/toolInvocation/invoked': 'Repair booked!',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '❌ Unable to process repair booking. Please try again later or contact us directly.',
-            },
-          ],
-        };
-      }
-
-      // Validate phone number
-      const phone = sanitizeString(args.customer_phone, 15);
-      if (!isValidPhone(phone)) {
-        return {
-          content: [
-            { type: 'text', text: '❌ Please provide a valid phone number.' },
-          ],
-        };
-      }
-
-      // Service prices (estimated)
-      const servicePrices: Record<
-        string,
-        { name: string; priceRange: string; estimatedDays: string }
-      > = {
-        screen: {
-          name: 'Screen Replacement',
-          priceRange: '₦25,000 - ₦150,000',
-          estimatedDays: '1-2 days',
-        },
-        battery: {
-          name: 'Battery Replacement',
-          priceRange: '₦15,000 - ₦50,000',
-          estimatedDays: '1 day',
-        },
-        charging_port: {
-          name: 'Charging Port Repair',
-          priceRange: '₦10,000 - ₦30,000',
-          estimatedDays: '1-2 days',
-        },
-        software: {
-          name: 'Software Fix/Restore',
-          priceRange: '₦5,000 - ₦15,000',
-          estimatedDays: 'Same day',
-        },
-        water_damage: {
-          name: 'Water Damage Repair',
-          priceRange: '₦20,000 - ₦80,000',
-          estimatedDays: '2-5 days',
-        },
-        speaker: {
-          name: 'Speaker Repair',
-          priceRange: '₦8,000 - ₦25,000',
-          estimatedDays: '1-2 days',
-        },
-        camera: {
-          name: 'Camera Repair/Replacement',
-          priceRange: '₦15,000 - ₦60,000',
-          estimatedDays: '1-2 days',
-        },
-        other: {
-          name: 'Diagnostic & Repair',
-          priceRange: 'Quote after diagnosis',
-          estimatedDays: 'TBD',
-        },
-      };
-
-      const service = servicePrices[args.issue] || servicePrices.other;
-      const bookingRef = `REP-${Date.now().toString(36).toUpperCase()}`;
-
-      // Submit repair booking via form submission system
-      try {
-        const formData = {
-          booking_reference: bookingRef,
-          device_type: sanitizeString(args.device_type, 100),
-          issue_type: args.issue,
-          issue_description: args.issue_description
-            ? sanitizeString(args.issue_description, 500)
-            : 'Not provided',
-          customer_name: sanitizeString(args.customer_name, 100),
-          customer_phone: phone,
-          customer_email: args.customer_email || 'Not provided',
-          preferred_date: args.preferred_date || 'Flexible',
-          location_preference: args.location || 'lagos',
-          estimated_price: service.priceRange,
-          estimated_time: service.estimatedDays,
-          submitted_via: 'ChatGPT MCP',
-          submitted_at: new Date().toISOString(),
-        };
-
-        // Insert into form_submissions table
-        const { error } = await supabase.from('form_submissions').insert({
-          merchant_id: merchantId,
-          form_name: 'repair_booking',
-          form_data: formData,
-          status: 'unread',
-        });
-
-        if (error) {
-          console.error('Error saving repair booking:', error);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: '❌ Unable to complete booking. Please contact us directly via WhatsApp or call.',
-              },
-            ],
-          };
-        }
-
-        const locationText =
-          args.location === 'pickup'
-            ? "We'll arrange pickup of your device."
-            : args.location === 'remote'
-              ? 'Remote support will be provided where possible.'
-              : 'You can drop off your device at our Lagos location.';
-
-        const text =
-          `**🔧 Repair Booking Confirmed!**\n\n` +
-          `**Booking Reference:** \`${bookingRef}\`\n\n` +
-          `**Device:** ${sanitizeString(args.device_type, 100)}\n` +
-          `**Service:** ${service.name}\n` +
-          `**Estimated Cost:** ${service.priceRange}\n` +
-          `**Estimated Time:** ${service.estimatedDays}\n\n` +
-          `**Your Details:**\n` +
-          `• Name: ${sanitizeString(args.customer_name, 100)}\n` +
-          `• Phone: ${phone}\n` +
-          (args.preferred_date
-            ? `• Preferred Date: ${args.preferred_date}\n`
-            : '') +
-          `\n${locationText}\n\n` +
-          `---\n` +
-          `📞 **What's Next?**\n` +
-          `Our team will contact you within 2 hours to confirm your appointment and provide a precise quote after assessing your device.\n\n` +
-          `_Save your booking reference for tracking!_`;
-
-        return {
-          content: [{ type: 'text', text }],
-          structuredContent: {
-            booking_reference: bookingRef,
-            device: args.device_type,
-            service: service.name,
-            estimated_price: service.priceRange,
-            estimated_time: service.estimatedDays,
-            status: 'confirmed',
-          },
-        };
-      } catch (err) {
-        console.error('Repair booking error:', err);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '❌ Something went wrong. Please try again or contact us directly.',
-            },
-          ],
-        };
-      }
-    }
-  );
 
   // Tool: Get Shipping Quote / Calculate Delivery Fee
   server.registerTool(
     'get_shipping_quote',
     {
       title: 'Calculate Delivery Fee',
+      isReadOnly: true,
+      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Calculate shipping/delivery cost based on location. Provides real-time quotes from multiple carriers (GIGL, Topship).',
       inputSchema: {
@@ -3941,1201 +2298,325 @@ function createOgabasseyServer() {
       };
     }
   );
+  // [REMOVED] save_delivery_address
+  // [REMOVED] get_related_products
+  // [REMOVED] suggest_cart_addons
+  // [REMOVED] set_price_alert
+  // [REMOVED] manage_wishlist
+  // [REMOVED] ask_santa
 
-  // Tool: Save Delivery Address
+
+  // Tool: Generate Payment Account (DVA for bank transfers)
   server.registerTool(
-    'save_delivery_address',
+    'generate_payment_account',
     {
-      title: 'Save Delivery Address',
+      title: 'Generate Payment Account',
       description:
-        'Save customer delivery address for easy checkout. The address is stored for the current session and can be used when adding items to cart.',
+        'Use this when a customer wants to pay via bank transfer. Generates a dedicated bank account (DVA) for them to transfer money to. REQUIRED: customer email, name, phone, and amount. Do NOT use if customer just wants to browse or hasn\'t decided to buy yet.',
       inputSchema: {
-        full_name: z.string().min(2).max(100).describe('Recipient full name'),
-        phone: z.string().min(10).max(15).describe('Phone number'),
-        email: z.string().email().optional().describe('Email address'),
-        address: z.string().min(5).max(200).describe('Street address'),
-        city: z.string().min(2).max(100).describe('City'),
-        state: z.string().min(2).max(50).describe('State'),
-        landmark: z.string().max(100).optional().describe('Nearby landmark'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Saving address...',
-        'openai/toolInvocation/invoked': 'Address saved',
-      },
-    },
-    async (args) => {
-      // Validate phone
-      const phone = sanitizeString(args.phone, 15);
-      if (!isValidPhone(phone)) {
-        return {
-          content: [
-            { type: 'text', text: '❌ Please provide a valid phone number.' },
-          ],
-        };
-      }
-
-      // Create checkout URL with pre-filled address
-      const addressParams = new URLSearchParams({
-        name: sanitizeString(args.full_name, 100),
-        phone: phone,
-        email: args.email || '',
-        address: sanitizeString(args.address, 200),
-        city: sanitizeString(args.city, 100),
-        state: sanitizeString(args.state, 50),
-        landmark: args.landmark ? sanitizeString(args.landmark, 100) : '',
-      });
-
-      const checkoutUrl = `https://ogabassey.com/ogabassey/checkout?${addressParams.toString()}`;
-
-      const text =
-        `**✅ Delivery Address Saved!**\n\n` +
-        `**Recipient:** ${sanitizeString(args.full_name, 100)}\n` +
-        `**Phone:** ${phone}\n` +
-        (args.email ? `**Email:** ${args.email}\n` : '') +
-        `**Address:** ${sanitizeString(args.address, 200)}\n` +
-        `**City:** ${sanitizeString(args.city, 100)}, ${sanitizeString(args.state, 50)}\n` +
-        (args.landmark
-          ? `**Landmark:** ${sanitizeString(args.landmark, 100)}\n`
-          : '') +
-        `\n---\n` +
-        `🛒 Your address is ready! When you add items to cart and proceed to checkout, this address will be pre-filled.\n\n` +
-        `[Proceed to Checkout with this address](${checkoutUrl})`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          address_saved: true,
-          checkout_url: checkoutUrl,
-          address: {
-            name: args.full_name,
-            phone,
-            email: args.email,
-            street: args.address,
-            city: args.city,
-            state: args.state,
-            landmark: args.landmark,
-          },
-        },
-      };
-    }
-  );
-
-  // Tool: Get Related Products (Upsell & Cross-sell)
-  server.registerTool(
-    'get_related_products',
-    {
-      title: 'Related Products & Accessories',
-      description:
-        'Get related products, accessories, and upgrades for upselling and cross-selling. Use this when a customer is viewing or has added a product to cart to suggest complementary items.',
-      inputSchema: {
-        product_id: z
-          .string()
-          .optional()
-          .describe('Product ID to find related items for'),
-        product_name: z
-          .string()
-          .optional()
-          .describe('Product name if ID not available'),
-        category: z
-          .string()
-          .optional()
-          .describe('Product category for broader matching'),
-        type: z
-          .enum(['accessories', 'upgrades', 'bundles', 'all'])
-          .optional()
-          .describe('Type of recommendations to show'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Finding related products...',
-        'openai/toolInvocation/invoked': 'Recommendations ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [
-            { type: 'text', text: '❌ Unable to find related products.' },
-          ],
-        };
-      }
-
-      // Detect product type from name or category
-      const productName = args.product_name?.toLowerCase() || '';
-      const category = args.category?.toLowerCase() || '';
-
-      // Product-specific accessories mapping
-      const accessoryMappings: Record<string, string[]> = {
-        iphone: [
-          'airpods',
-          'case',
-          'charger',
-          'screen protector',
-          'magsafe',
-          'cable',
-          'power bank',
-        ],
-        samsung: [
-          'galaxy buds',
-          'case',
-          'charger',
-          'screen protector',
-          'wireless charger',
-          'cable',
-        ],
-        macbook: [
-          'magic mouse',
-          'magic keyboard',
-          'adapter',
-          'sleeve',
-          'stand',
-          'hub',
-          'monitor',
-        ],
-        laptop: [
-          'mouse',
-          'keyboard',
-          'bag',
-          'stand',
-          'cooling pad',
-          'adapter',
-          'monitor',
-        ],
-        phone: [
-          'case',
-          'charger',
-          'screen protector',
-          'earbuds',
-          'power bank',
-          'cable',
-        ],
-        ps5: [
-          'controller',
-          'headset',
-          'charging dock',
-          'camera',
-          'media remote',
-        ],
-        xbox: [
-          'controller',
-          'headset',
-          'play and charge kit',
-          'expansion card',
-        ],
-        gaming: [
-          'headset',
-          'controller',
-          'monitor',
-          'chair',
-          'mouse',
-          'keyboard',
-        ],
-      };
-
-      // Determine accessory keywords based on product
-      let accessoryKeywords: string[] = [];
-      for (const [key, accessories] of Object.entries(accessoryMappings)) {
-        if (productName.includes(key) || category.includes(key)) {
-          accessoryKeywords = [...accessoryKeywords, ...accessories];
-        }
-      }
-
-      // Default to general accessories if no specific match
-      if (accessoryKeywords.length === 0) {
-        accessoryKeywords = [
-          'case',
-          'charger',
-          'cable',
-          'adapter',
-          'accessory',
-        ];
-      }
-
-      const recommendations: {
-        accessories: Array<{
-          id: string;
-          name: string;
-          price: number;
-          image?: string;
-          compare_at_price?: number;
-        }>;
-        upgrades: Array<{
-          id: string;
-          name: string;
-          price: number;
-          image?: string;
-          compare_at_price?: number;
-        }>;
-        bundles: Array<{ name: string; items: string[]; savings: string }>;
-      } = { accessories: [], upgrades: [], bundles: [] };
-
-      // Fetch current product if ID provided (to find price for upgrades)
-      let currentPrice = 0;
-      let currentCategory = '';
-      if (args.product_id) {
-        const { data: currentProduct, error: productError } = await supabase
-          .from('products')
-          .select('price, category')
-          .eq('id', args.product_id)
-          .single();
-        if (productError && productError.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'get_related_products',
-              message: productError.message,
-            })
-          );
-        }
-        if (currentProduct) {
-          currentPrice = currentProduct.price || 0;
-          currentCategory = currentProduct.category || '';
-        }
-      }
-
-      // Fetch accessories
-      if (args.type === 'accessories' || args.type === 'all' || !args.type) {
-        // Validate accessory keywords are safe alphanumeric strings
-        const safeKeywords = accessoryKeywords
-          .map((k) => k.replace(/[^a-zA-Z0-9-]/g, ''))
-          .filter((k) => k.length > 0 && k.length <= 30);
-
-        const { data: accessories, error: accessoryError } = await supabase
-          .from('products')
-          .select('id, name, price, compare_at_price, images')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .lt('price', 50000) // Accessories are usually < ₦50k
-          .or(safeKeywords.map((k) => `name.ilike.%${k}%`).join(','))
-          .limit(6);
-
-        if (!accessoryError && accessories) {
-          recommendations.accessories = accessories.map((p) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            compare_at_price: p.compare_at_price,
-            image: ensureJpgImageUrl(p.images?.[0]),
-          }));
-        }
-      }
-
-      // Fetch upgrades (higher priced items in same category)
-      if (
-        (args.type === 'upgrades' || args.type === 'all' || !args.type) &&
-        currentPrice > 0
-      ) {
-        const { data: upgrades } = await supabase
-          .from('products')
-          .select('id, name, price, compare_at_price, images')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .gt('price', currentPrice * 1.1) // At least 10% higher
-          .lt('price', currentPrice * 2) // But not more than 2x
-          .ilike('category', `%${currentCategory}%`)
-          .order('price', { ascending: true })
-          .limit(4);
-
-        if (upgrades) {
-          recommendations.upgrades = upgrades.map((p) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            compare_at_price: p.compare_at_price,
-            image: ensureJpgImageUrl(p.images?.[0]),
-          }));
-        }
-      }
-
-      // Generate bundle suggestions based on product type
-      if (args.type === 'bundles' || args.type === 'all' || !args.type) {
-        if (productName.includes('iphone') || productName.includes('phone')) {
-          recommendations.bundles = [
-            {
-              name: 'Complete Protection Bundle',
-              items: ['Phone Case', 'Screen Protector', 'Power Bank'],
-              savings: 'Save ₦5,000',
-            },
-            {
-              name: 'Audio Bundle',
-              items: ['AirPods/Earbuds', 'Charging Cable'],
-              savings: 'Save ₦3,000',
-            },
-          ];
-        } else if (
-          productName.includes('macbook') ||
-          productName.includes('laptop')
-        ) {
-          recommendations.bundles = [
-            {
-              name: 'Productivity Bundle',
-              items: ['Laptop Bag', 'Mouse', 'USB-C Hub'],
-              savings: 'Save ₦8,000',
-            },
-            {
-              name: 'Home Office Bundle',
-              items: ['Monitor Stand', 'External Keyboard', 'Mouse Pad'],
-              savings: 'Save ₦6,000',
-            },
-          ];
-        } else if (
-          productName.includes('ps5') ||
-          productName.includes('xbox') ||
-          category.includes('gaming')
-        ) {
-          recommendations.bundles = [
-            {
-              name: 'Gaming Essentials Bundle',
-              items: ['Extra Controller', 'Gaming Headset'],
-              savings: 'Save ₦10,000',
-            },
-            {
-              name: 'Ultimate Gaming Bundle',
-              items: ['Extra Controller', 'Headset', 'Charging Dock'],
-              savings: 'Save ₦15,000',
-            },
-          ];
-        }
-      }
-
-      // Format response
-      let text = `**✨ Complete Your Purchase**\n\n`;
-
-      // Accessories section
-      if (recommendations.accessories.length > 0) {
-        text += `**🎧 Recommended Accessories:**\n`;
-        recommendations.accessories.slice(0, 4).forEach((item) => {
-          const hasDiscount =
-            item.compare_at_price && item.compare_at_price > item.price;
-          text += `• **${item.name}** - ${formatPrice(item.price)}`;
-          if (hasDiscount) {
-            const pct = Math.round(
-              (1 - item.price / (item.compare_at_price || item.price)) * 100
-            );
-            text += ` ~~${formatPrice(item.compare_at_price || 0)}~~ (-${pct}%)`;
-          }
-          text += `\n`;
-        });
-        text += '\n';
-      }
-
-      // Upgrades section
-      if (recommendations.upgrades.length > 0) {
-        text += `**⬆️ Consider Upgrading:**\n`;
-        recommendations.upgrades.slice(0, 3).forEach((item) => {
-          const priceDiff = item.price - currentPrice;
-          text += `• **${item.name}** - ${formatPrice(item.price)} (+${formatPrice(priceDiff)})\n`;
-        });
-        text += '\n';
-      }
-
-      // Bundles section
-      if (recommendations.bundles.length > 0) {
-        text += `**📦 Value Bundles:**\n`;
-        recommendations.bundles.forEach((bundle) => {
-          text += `• **${bundle.name}** - ${bundle.savings}\n`;
-          text += `  _Includes: ${bundle.items.join(', ')}_\n`;
-        });
-        text += '\n';
-      }
-
-      if (
-        recommendations.accessories.length === 0 &&
-        recommendations.upgrades.length === 0
-      ) {
-        text = `**🛍️ Great Choice!**\n\nThis product is excellent as-is. If you need any accessories or have questions, just ask!`;
-      } else {
-        text += `---\n_Ask me about any of these items for more details!_`;
-      }
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: recommendations,
-      };
-    }
-  );
-
-  // Tool: Check Cart & Suggest Add-ons (Proactive Cross-sell)
-  server.registerTool(
-    'suggest_cart_addons',
-    {
-      title: 'Smart Cart Suggestions',
-      description:
-        'Analyze customer cart and proactively suggest add-ons, protection plans, and complementary products. Use this when a customer has items in cart or is about to checkout.',
-      inputSchema: {
-        cart_items: z
-          .string()
-          .describe('Comma-separated product IDs or names in the cart'),
-        cart_total: z.number().optional().describe('Current cart total in NGN'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': 'Analyzing your cart...',
-        'openai/toolInvocation/invoked': 'Suggestions ready',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: '❌ Unable to analyze cart.' }],
-        };
-      }
-
-      const cartItems = args.cart_items
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const cartTotal = args.cart_total || 0;
-
-      // Analyze cart items
-      const suggestions: Array<{
-        type: string;
-        title: string;
-        description: string;
-        action?: string;
-      }> = [];
-
-      // Free shipping threshold
-      const freeShippingThreshold = 150000;
-      if (cartTotal > 0 && cartTotal < freeShippingThreshold) {
-        const remaining = freeShippingThreshold - cartTotal;
-        suggestions.push({
-          type: 'free_shipping',
-          title: '🚚 Almost Free Shipping!',
-          description: `Add ${formatPrice(remaining)} more to get FREE shipping!`,
-          action: 'Browse accessories under ' + formatPrice(remaining),
-        });
-      }
-
-      // Protection plan for high-value items
-      if (cartTotal > 100000) {
-        suggestions.push({
-          type: 'protection',
-          title: '🛡️ Protect Your Purchase',
-          description: 'Consider our extended warranty for peace of mind.',
-          action: 'Add 2-year protection plan',
-        });
-      }
-
-      // Financing for expensive items
-      if (cartTotal > 200000) {
-        const monthlyPayment = Math.round((cartTotal * 1.15) / 12); // 15% interest over 12 months
-        suggestions.push({
-          type: 'financing',
-          title: '💳 Pay in Installments',
-          description: `Only ${formatPrice(monthlyPayment)}/month for 12 months!`,
-          action: 'Apply for Buy Now Pay Later',
-        });
-      }
-
-      // Analyze cart for accessories
-      const cartNames = cartItems.join(' ').toLowerCase();
-      const accessorySuggestions: string[] = [];
-
-      if (
-        cartNames.includes('phone') ||
-        cartNames.includes('iphone') ||
-        cartNames.includes('samsung')
-      ) {
-        accessorySuggestions.push(
-          'Screen protector',
-          'Phone case',
-          'Fast charger'
-        );
-      }
-      if (cartNames.includes('laptop') || cartNames.includes('macbook')) {
-        accessorySuggestions.push('Laptop bag', 'Mouse', 'USB-C hub');
-      }
-      if (cartNames.includes('airpods') || cartNames.includes('buds')) {
-        accessorySuggestions.push('Protective case');
-      }
-      if (cartNames.includes('ps5') || cartNames.includes('xbox')) {
-        accessorySuggestions.push('Extra controller', 'Gaming headset');
-      }
-
-      if (accessorySuggestions.length > 0) {
-        suggestions.push({
-          type: 'accessories',
-          title: "🎧 Don't Forget",
-          description: accessorySuggestions.slice(0, 3).join(', '),
-          action: 'Add popular accessories',
-        });
-      }
-
-      // Trade-in reminder
-      if (cartTotal > 150000) {
-        suggestions.push({
-          type: 'trade_in',
-          title: '🔄 Trade In & Save',
-          description: 'Got an old device? Trade it in and reduce your total!',
-          action: 'Estimate trade-in value',
-        });
-      }
-
-      // Format response
-      let text = `**🛒 Smart Cart Suggestions**\n\n`;
-
-      if (suggestions.length === 0) {
-        text += `Your cart looks great! Ready to checkout?\n\n[Proceed to Checkout](https://ogabassey.com/ogabassey/checkout)`;
-      } else {
-        suggestions.forEach((s) => {
-          text += `**${s.title}**\n${s.description}\n`;
-          if (s.action) text += `→ _${s.action}_\n`;
-          text += '\n';
-        });
-
-        text += `---\n_These suggestions can save you money and enhance your purchase!_`;
-      }
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: { suggestions, cart_total: cartTotal },
-      };
-    }
-  );
-
-  // Tool: Price Drop Alert
-  server.registerTool(
-    'set_price_alert',
-    {
-      title: 'Price Drop Alert',
-      description:
-        "Subscribe to price drop alerts for a product. Get notified when the price drops below your target or when there's a sale.",
-      inputSchema: {
-        product_id: z.string().optional().describe('Product ID to track'),
-        product_name: z
-          .string()
-          .optional()
-          .describe('Product name if ID not available'),
-        target_price: z
-          .number()
-          .optional()
-          .describe('Target price to alert at (NGN)'),
         customer_email: z
           .string()
           .email()
-          .describe('Email address to receive alerts'),
+          .describe('Customer email address (REQUIRED)'),
+        customer_name: z
+          .string()
+          .min(2)
+          .max(100)
+          .describe('Customer full name (REQUIRED)'),
         customer_phone: z
           .string()
+          .min(10)
+          .max(20)
+          .describe('Customer phone number (REQUIRED)'),
+        amount: z
+          .number()
+          .min(100)
+          .describe('Payment amount in Naira (REQUIRED)'),
+        order_id: z
+          .string()
           .optional()
-          .describe('Phone number for SMS alerts'),
+          .describe('Order ID to link payment to (optional)'),
+      },
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false, // Does not delete data
+        openWorldHint: true,    // Calls external Paystack API
+        idempotentHint: false,  // Creates new order each time
       },
       _meta: {
-        'openai/toolInvocation/invoking': 'Setting up price alert...',
-        'openai/toolInvocation/invoked': 'Alert created!',
+        'openai/toolInvocation/invoking': 'Generating your bank account for payment...',
+        'openai/toolInvocation/invoked': 'Payment account ready!',
       },
     },
     async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: '❌ Unable to set price alert.' }],
-        };
-      }
+      try {
+        const { customer_email, customer_name, customer_phone, amount, order_id } = args;
 
-      // Find product
-      let product: {
-        id: string;
-        name: string;
-        price: number;
-        images?: string[];
-      } | null = null;
+        // Import the paystack function dynamically to avoid circular deps
+        const { generatePaymentAccount } = await import('./src/lib/paystack');
 
-      if (args.product_id) {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, images')
-          .eq('id', args.product_id)
-          .eq('merchant_id', merchantId)
-          .single();
-        if (error && error.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'set_price_alert_by_id',
-              message: error.message,
-            })
-          );
+        // Split name into first/last
+        const nameParts = customer_name?.split(' ') || [];
+        const firstName = nameParts[0] || undefined;
+        const lastName = nameParts.slice(1).join(' ') || undefined;
+
+        // Get merchant ID for chat order
+        const merchantId = await getMerchantId();
+        if (!merchantId) {
+          return {
+            content: [{ type: 'text', text: '❌ Store configuration error. Please try again later.' }],
+          };
         }
-        product = data;
-      } else if (args.product_name) {
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, images')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
-          .limit(1)
+
+        // Generate unique payment reference for this transaction
+        const paymentReference = `CHAT-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+        // Create chat order in database for tracking
+        // Note: 'total' is a generated column (subtotal + shipping_fee), so we don't insert it
+        const { data: chatOrder, error: orderError } = await supabase
+          .from('chat_orders')
+          .insert({
+            merchant_id: merchantId,
+            customer_email,
+            customer_name,
+            customer_phone,
+            subtotal: amount,
+            shipping_fee: 0,
+            status: 'pending_payment',
+            payment_method: 'bank_transfer',
+            payment_reference: paymentReference,
+            metadata: {
+              source: 'chatbot',
+              created_via: 'mcp_tool',
+            },
+          })
+          .select()
           .single();
-        if (error && error.code !== 'PGRST116') {
-          console.error(
-            JSON.stringify({
-              type: 'error',
-              context: 'set_price_alert_by_name',
-              message: error.message,
-            })
-          );
+
+        if (orderError) {
+          console.error('Failed to create chat order:', orderError);
+          // Continue anyway - payment account can still be generated
         }
-        product = data;
-      }
 
-      if (!product) {
+        const result = await generatePaymentAccount({
+          email: customer_email,
+          firstName,
+          lastName,
+          phone: customer_phone,
+          orderId: chatOrder?.id || order_id,
+        });
+
+        if (!result.success) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ Sorry, I couldn't generate a payment account right now. ${result.error}. Please try using card payment instead.`,
+              },
+            ],
+          };
+        }
+
+        const { bank_name, account_number, account_name } = result.data;
+
+        // Update chat order with payment account details
+        if (chatOrder) {
+          await supabase
+            .from('chat_orders')
+            .update({
+              metadata: {
+                ...chatOrder.metadata,
+                bank_name,
+                account_number,
+                account_name,
+                customer_code: result.data.customer_code,
+              },
+            })
+            .eq('id', chatOrder.id);
+        }
+
+        // Format beautiful response
+        let text = `💳 **Bank Transfer Payment Details**\n\n`;
+        text += `To complete your payment of **₦${amount.toLocaleString()}**, transfer to:\n\n`;
+        text += `┌────────────────────────────────┐\n`;
+        text += `│  **Bank:** ${bank_name}\n`;
+        text += `│  **Account Number:** ${account_number}\n`;
+        text += `│  **Account Name:** ${account_name}\n`;
+        text += `└────────────────────────────────┘\n\n`;
+        if (chatOrder) {
+          text += `🧾 **Order Reference:** ${paymentReference}\n\n`;
+        }
+        text += `📱 **How to pay:**\n`;
+        text += `1. Open your bank app\n`;
+        text += `2. Transfer exactly ₦${amount.toLocaleString()}\n`;
+        text += `3. Come back and say "I've paid" or ask me to check your payment status!\n\n`;
+        text += `⏰ This account is yours permanently - you can use it for future payments too.\n\n`;
+        text += `_Your payment will be confirmed automatically once received._`;
+
         return {
-          content: [
-            {
-              type: 'text',
-              text: '❌ Product not found. Please provide a valid product name or ID.',
-            },
-          ],
-        };
-      }
-
-      const targetPrice = args.target_price || Math.round(product.price * 0.9); // Default: 10% below current
-      const alertId = `PA-${Date.now().toString(36).toUpperCase()}`;
-
-      // Store alert in form_submissions (can be migrated to dedicated table later)
-      const { error } = await supabase.from('form_submissions').insert({
-        merchant_id: merchantId,
-        form_name: 'price_alert',
-        form_data: {
-          alert_id: alertId,
-          product_id: product.id,
-          product_name: product.name,
-          current_price: product.price,
-          target_price: targetPrice,
-          customer_email: args.customer_email,
-          customer_phone: args.customer_phone || null,
-          status: 'active',
-          created_via: 'ChatGPT MCP',
-          created_at: new Date().toISOString(),
-        },
-        status: 'unread',
-      });
-
-      if (error) {
-        console.error('Error saving price alert:', error);
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '❌ Failed to create alert. Please try again.',
-            },
-          ],
-        };
-      }
-
-      const text =
-        `**🔔 Price Alert Set!**\n\n` +
-        `**Product:** ${product.name}\n` +
-        `**Current Price:** ${formatPrice(product.price)}\n` +
-        `**Alert When:** ${formatPrice(targetPrice)} or lower\n` +
-        `**Notify via:** ${args.customer_email}${args.customer_phone ? ` & ${args.customer_phone}` : ''}\n\n` +
-        `**Alert ID:** \`${alertId}\`\n\n` +
-        `---\n` +
-        `📧 We'll email you as soon as the price drops!\n` +
-        `_Save your alert ID to manage this alert later._`;
-
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          alert_id: alertId,
-          product: {
-            id: product.id,
-            name: product.name,
-            current_price: product.price,
+          content: [{ type: 'text', text }],
+          structuredContent: {
+            payment_method: 'bank_transfer',
+            bank_name,
+            account_number,
+            account_name,
+            amount,
+            currency: 'NGN',
+            order_id: chatOrder?.id || order_id || null,
+            payment_reference: paymentReference,
           },
-          target_price: targetPrice,
-          status: 'active',
-        },
-      };
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Error generating payment account: ${message}. Please try card payment instead.`,
+            },
+          ],
+        };
+      }
     }
   );
 
-  // Tool: Wishlist Management
+  // Tool: Check Payment Status
   server.registerTool(
-    'manage_wishlist',
+    'check_payment_status',
     {
-      title: 'Wishlist',
+      title: 'Check Payment Status',
       description:
-        'Add products to wishlist, view wishlist, or get notified about deals on wishlist items.',
+        'Use this when a customer says they have paid, transferred money, or asks about their payment status. Trigger phrases: "I\'ve paid", "I sent it", "I transferred", "check my payment", "did you receive it", "payment done". REQUIRED: customer email. Do NOT use for generating new payment accounts.',
       inputSchema: {
-        action: z
-          .enum(['add', 'view', 'remove', 'check_deals'])
-          .describe('Action to perform'),
-        product_id: z
-          .string()
-          .optional()
-          .describe('Product ID for add/remove actions'),
-        product_name: z
-          .string()
-          .optional()
-          .describe('Product name if ID not available'),
         customer_email: z
           .string()
           .email()
+          .describe('Customer email address (REQUIRED)'),
+        payment_reference: z
+          .string()
           .optional()
-          .describe('Email to associate wishlist with'),
+          .describe('Payment reference (CHAT-xxx format) if known'),
+      },
+      annotations: {
+        readOnlyHint: true,     // Only reads payment status
+        destructiveHint: false,
+        openWorldHint: true,    // Checks external payment status
+        idempotentHint: true,   // Same result on repeated calls
       },
       _meta: {
-        'openai/toolInvocation/invoking': 'Managing wishlist...',
-        'openai/toolInvocation/invoked': 'Wishlist updated',
+        'openai/toolInvocation/invoking': 'Checking your payment status...',
+        'openai/toolInvocation/invoked': 'Payment status retrieved!',
       },
     },
     async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [{ type: 'text', text: '❌ Unable to manage wishlist.' }],
-        };
-      }
+      try {
+        const { customer_email, payment_reference } = args;
 
-      const action = args.action;
-
-      if (action === 'add') {
-        // Find product
-        let product: {
-          id: string;
-          name: string;
-          price: number;
-          images?: string[];
-        } | null = null;
-
-        if (args.product_id) {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, name, price, images')
-            .eq('id', args.product_id)
-            .eq('merchant_id', merchantId)
-            .single();
-          if (error && error.code !== 'PGRST116') {
-            console.error(
-              JSON.stringify({
-                type: 'error',
-                context: 'wishlist_add_by_id',
-                message: error.message,
-              })
-            );
-          }
-          product = data;
-        } else if (args.product_name) {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, name, price, images')
-            .eq('merchant_id', merchantId)
-            .eq('status', 'active')
-            .ilike('name', `%${sanitizeString(args.product_name, 100)}%`)
-            .limit(1)
-            .single();
-          if (error && error.code !== 'PGRST116') {
-            console.error(
-              JSON.stringify({
-                type: 'error',
-                context: 'wishlist_add_by_name',
-                message: error.message,
-              })
-            );
-          }
-          product = data;
-        }
-
-        if (!product) {
+        const merchantId = await getMerchantId();
+        if (!merchantId) {
           return {
-            content: [
-              {
-                type: 'text',
-                text: '❌ Product not found. Please provide a valid product name.',
-              },
-            ],
+            content: [{ type: 'text', text: '❌ Store configuration error.' }],
           };
         }
 
-        // Store in form_submissions as wishlist item
-        const { error } = await supabase.from('form_submissions').insert({
-          merchant_id: merchantId,
-          form_name: 'wishlist_item',
-          form_data: {
-            product_id: product.id,
-            product_name: product.name,
-            price_when_added: product.price,
-            customer_email: args.customer_email || 'anonymous',
-            added_via: 'ChatGPT MCP',
-            added_at: new Date().toISOString(),
-          },
-          status: 'unread',
-        });
-
-        if (error) {
-          console.error('Error adding to wishlist:', error);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: '❌ Failed to add to wishlist. Please try again.',
-              },
-            ],
-          };
-        }
-
-        const text =
-          `**❤️ Added to Wishlist!**\n\n` +
-          `**${product.name}**\n` +
-          `${formatPrice(product.price)}\n\n` +
-          `---\n` +
-          `💡 I'll let you know if the price drops or if there's a sale!\n` +
-          `_To view your wishlist, just ask "show my wishlist"._`;
-
-        return {
-          content: [{ type: 'text', text }],
-          structuredContent: {
-            action: 'added',
-            product: {
-              id: product.id,
-              name: product.name,
-              price: product.price,
-            },
-          },
-        };
-      } else if (action === 'view' || action === 'check_deals') {
-        // Get wishlist items
-        const { data: wishlistItems } = await supabase
-          .from('form_submissions')
-          .select('form_data')
+        // Find recent chat orders for this customer
+        let query = supabase
+          .from('chat_orders')
+          .select('*')
           .eq('merchant_id', merchantId)
-          .eq('form_name', 'wishlist_item')
+          .eq('customer_email', customer_email)
           .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (!wishlistItems || wishlistItems.length === 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: '📋 Your wishlist is empty!\n\nBrowse our products and ask me to add items to your wishlist.',
-              },
-            ],
-          };
-        }
-
-        // Get current prices for wishlist items
-        const productIds = wishlistItems.map(
-          (w) => (w.form_data as Record<string, unknown>).product_id as string
-        );
-        const { data: currentProducts } = await supabase
-          .from('products')
-          .select('id, name, price, compare_at_price')
-          .in('id', productIds)
-          .eq('merchant_id', merchantId);
-
-        const productMap = new Map(
-          currentProducts?.map((p) => [p.id, p]) || []
-        );
-
-        let text = `**❤️ Your Wishlist**\n\n`;
-        let hasDeals = false;
-
-        wishlistItems.forEach((item, index) => {
-          const formData = item.form_data as Record<string, unknown>;
-          const product = productMap.get(formData.product_id as string);
-
-          if (product) {
-            const priceWhenAdded = formData.price_when_added as number;
-            const currentPrice = product.price;
-            const priceDrop = priceWhenAdded - currentPrice;
-            const hasDiscount =
-              product.compare_at_price &&
-              product.compare_at_price > currentPrice;
-
-            text += `${index + 1}. **${product.name}**\n`;
-            text += `   ${formatPrice(currentPrice)}`;
-
-            if (priceDrop > 0) {
-              text += ` 🔥 **Price dropped ${formatPrice(priceDrop)}!**`;
-              hasDeals = true;
-            } else if (hasDiscount) {
-              const pct = Math.round(
-                (1 -
-                  currentPrice / (product.compare_at_price || currentPrice)) *
-                  100
-              );
-              text += ` 🏷️ **${pct}% OFF**`;
-              hasDeals = true;
-            }
-            text += `\n\n`;
-          }
-        });
-
-        if (action === 'check_deals' && !hasDeals) {
-          text += `---\n_No deals on your wishlist items right now. I'll notify you when prices drop!_`;
-        } else if (hasDeals) {
-          text += `---\n🎉 **Great news!** Some items on your wishlist have deals. Don't miss out!`;
-        }
-
-        return {
-          content: [{ type: 'text', text }],
-          structuredContent: {
-            wishlist_count: wishlistItems.length,
-            has_deals: hasDeals,
-          },
-        };
-      } else if (action === 'remove') {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '❌ Remove functionality coming soon! For now, items stay on your wishlist.',
-            },
-          ],
-        };
-      }
-
-      return { content: [{ type: 'text', text: '❌ Unknown action.' }] };
-    }
-  );
-
-  // Tool: Santa Chatbot (Festive Gift Helper)
-  server.registerTool(
-    'ask_santa',
-    {
-      title: 'Ask Santa 🎅',
-      description:
-        'A festive gift helper! Ask Santa for gift recommendations, holiday deals, and seasonal suggestions. Perfect for Christmas shopping!',
-      inputSchema: {
-        message: z
-          .string()
-          .min(3)
-          .max(300)
-          .describe('Your message or question for Santa'),
-        recipient: z
-          .string()
-          .optional()
-          .describe('Who is the gift for? (e.g., mom, dad, friend, colleague)'),
-        budget: z.number().optional().describe('Gift budget in NGN'),
-      },
-      _meta: {
-        'openai/toolInvocation/invoking': '🎅 Santa is thinking...',
-        'openai/toolInvocation/invoked': '🎄 Ho ho ho!',
-      },
-    },
-    async (args) => {
-      const merchantId = await getMerchantId();
-      if (!merchantId) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '🎅 Ho ho ho! Santa is taking a break. Please try again!',
-            },
-          ],
-        };
-      }
-
-      const message = args.message.toLowerCase();
-      const recipient = args.recipient?.toLowerCase() || '';
-      const budget = args.budget;
-
-      // Santa's personality responses
-      const santaGreetings = [
-        'Ho ho ho! 🎅',
-        'Merry Christmas! 🎄',
-        "Season's Greetings! ❄️",
-        'Happy Holidays! 🎁',
-      ];
-      const greeting =
-        santaGreetings[Math.floor(Math.random() * santaGreetings.length)];
-
-      // Determine gift category based on recipient
-      let giftKeywords: string[] = [];
-      let giftSuggestions: string[] = [];
-
-      if (
-        recipient.includes('dad') ||
-        recipient.includes('father') ||
-        recipient.includes('husband') ||
-        recipient.includes('boyfriend')
-      ) {
-        giftKeywords = [
-          'laptop',
-          'headphone',
-          'watch',
-          'ps5',
-          'xbox',
-          'speaker',
-        ];
-        giftSuggestions = [
-          'A powerful laptop for work',
-          'Premium headphones',
-          'Gaming console',
-          'Smart watch',
-        ];
-      } else if (
-        recipient.includes('mom') ||
-        recipient.includes('mother') ||
-        recipient.includes('wife') ||
-        recipient.includes('girlfriend')
-      ) {
-        giftKeywords = ['iphone', 'airpods', 'tablet', 'watch', 'speaker'];
-        giftSuggestions = [
-          'Latest iPhone',
-          'AirPods Pro',
-          'iPad for creativity',
-          'Smart home devices',
-        ];
-      } else if (
-        recipient.includes('kid') ||
-        recipient.includes('child') ||
-        recipient.includes('son') ||
-        recipient.includes('daughter')
-      ) {
-        giftKeywords = ['ps5', 'xbox', 'nintendo', 'tablet', 'headphone'];
-        giftSuggestions = [
-          'Gaming console',
-          'Tablet for learning',
-          'Fun headphones',
-          'Gaming accessories',
-        ];
-      } else if (
-        recipient.includes('friend') ||
-        recipient.includes('colleague')
-      ) {
-        giftKeywords = ['airpods', 'power bank', 'speaker', 'accessory'];
-        giftSuggestions = [
-          'Wireless earbuds',
-          'Portable speaker',
-          'Power bank',
-          'Phone accessories',
-        ];
-      } else if (recipient.includes('gamer')) {
-        giftKeywords = ['ps5', 'xbox', 'controller', 'headset', 'gaming'];
-        giftSuggestions = [
-          'Gaming console',
-          'Pro controller',
-          'Gaming headset',
-          'Game titles',
-        ];
-      } else {
-        giftKeywords = ['iphone', 'airpods', 'laptop', 'tablet', 'speaker'];
-        giftSuggestions = [
-          'Smartphone',
-          'Wireless earbuds',
-          'Laptop',
-          'Smart accessories',
-        ];
-      }
-
-      // Search for gift products
-      // Validate gift keywords are safe alphanumeric strings (these are hardcoded but validate anyway)
-      const safeGiftKeywords = giftKeywords
-        .map((k) => k.replace(/[^a-zA-Z0-9-]/g, ''))
-        .filter((k) => k.length > 0 && k.length <= 30);
-
-      let query = supabase
-        .from('products')
-        .select('id, name, price, compare_at_price, images')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .or(safeGiftKeywords.map((k) => `name.ilike.%${k}%`).join(','))
-        .order('price', { ascending: true });
-
-      if (budget) {
-        query = query.lte('price', budget);
-      }
-
-      const { data: products, error: giftError } = await query.limit(6);
-      if (giftError) {
-        console.error(
-          JSON.stringify({
-            type: 'error',
-            context: 'ask_santa',
-            message: giftError.message,
-          })
-        );
-      }
-
-      // Build Santa's response
-      let text = `**${greeting}**\n\n`;
-
-      if (
-        message.includes('help') ||
-        message.includes('suggest') ||
-        message.includes('recommend') ||
-        message.includes('gift')
-      ) {
-        text += `🎁 **Santa's Gift Guide${recipient ? ` for ${args.recipient}` : ''}**\n\n`;
-
-        if (products && products.length > 0) {
-          text += `Here are my top picks from the nice list:\n\n`;
-          products.slice(0, 4).forEach((p, i) => {
-            const hasDiscount =
-              p.compare_at_price && p.compare_at_price > p.price;
-            text += `${i + 1}. **${p.name}**\n`;
-            text += `   ${formatPrice(p.price)}`;
-            if (hasDiscount) {
-              text += ` 🎄 _Holiday Sale!_`;
-            }
-            text += `\n`;
-          });
-        } else {
-          text += `My elves are working hard to find the perfect gift! Here are some ideas:\n\n`;
-          giftSuggestions.forEach((s, i) => {
-            text += `${i + 1}. ${s}\n`;
-          });
-        }
-
-        text += `\n🎅 _Santa's tip: Order early for delivery before Christmas!_`;
-      } else if (
-        message.includes('deal') ||
-        message.includes('sale') ||
-        message.includes('discount')
-      ) {
-        text += `🎄 **Holiday Deals from Santa's Workshop!**\n\n`;
-
-        // Find discounted products
-        const { data: deals } = await supabase
-          .from('products')
-          .select('id, name, price, compare_at_price')
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active')
-          .not('compare_at_price', 'is', null)
-          .order('compare_at_price', { ascending: false })
           .limit(5);
 
-        if (deals && deals.length > 0) {
-          deals.forEach((d) => {
-            if (d.compare_at_price && d.compare_at_price > d.price) {
-              const pct = Math.round((1 - d.price / d.compare_at_price) * 100);
-              text += `🎁 **${d.name}**\n`;
-              text += `   ${formatPrice(d.price)} ~~${formatPrice(d.compare_at_price)}~~ (-${pct}%)\n\n`;
-            }
-          });
-        } else {
-          text += `No special deals right now, but everything at Ogabassey is priced fairly!\n`;
+        if (payment_reference) {
+          query = query.eq('payment_reference', payment_reference);
         }
 
-        text += `🔔 _Set a price alert to catch the next sale!_`;
-      } else {
-        // General festive response
-        text += `I'm Santa's digital helper at Ogabassey! 🎄\n\n`;
-        text += `I can help you with:\n`;
-        text += `• 🎁 **Gift recommendations** - Tell me who you're shopping for\n`;
-        text += `• 🏷️ **Holiday deals** - Find the best discounts\n`;
-        text += `• 💰 **Budget gifts** - Set a budget and I'll find options\n`;
-        text += `• ❤️ **Wishlist** - Save items for Santa to remember\n\n`;
-        text += `_Try saying: "Santa, find a gift for my dad under ₦200,000"_\n\n`;
-        text += `🎅 **Merry Christmas and Happy Shopping!**`;
-      }
+        const { data: orders, error } = await query;
 
-      return {
-        content: [{ type: 'text', text }],
-        structuredContent: {
-          santa_mode: true,
-          recipient,
-          budget,
-          products:
-            products
-              ?.slice(0, 4)
-              .map((p) => ({ id: p.id, name: p.name, price: p.price })) || [],
-        },
-      };
+        if (error || !orders || orders.length === 0) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `🔍 I couldn't find any recent orders for ${customer_email}. Did you complete the checkout process first?`,
+              },
+            ],
+          };
+        }
+
+        // Check the most recent order
+        const order = orders[0];
+
+        if (order.status === 'paid') {
+          let text = `✅ **Payment Confirmed!**\n\n`;
+          text += `Your payment of **₦${Number(order.total).toLocaleString()}** has been received.\n\n`;
+          text += `🧾 **Order Reference:** ${order.payment_reference}\n`;
+          text += `📅 **Paid at:** ${new Date(order.paid_at).toLocaleString()}\n\n`;
+          text += `Thank you for your purchase! Your order is now being processed. 🎉`;
+
+          return {
+            content: [{ type: 'text', text }],
+            structuredContent: {
+              status: 'paid',
+              order_id: order.id,
+              amount: order.total,
+              payment_reference: order.payment_reference,
+              paid_at: order.paid_at,
+            },
+          };
+        } else if (order.status === 'pending_payment') {
+          const metadata = order.metadata || {};
+          let text = `⏳ **Payment Pending**\n\n`;
+          text += `We haven't received your payment of **₦${Number(order.total).toLocaleString()}** yet.\n\n`;
+
+          if (metadata.account_number) {
+            text += `Please transfer to:\n`;
+            text += `• **Bank:** ${metadata.bank_name}\n`;
+            text += `• **Account:** ${metadata.account_number}\n`;
+            text += `• **Name:** ${metadata.account_name}\n\n`;
+          }
+
+          text += `💡 Bank transfers can take a few minutes to process. If you've already transferred, please wait 2-3 minutes and check again.\n\n`;
+          text += `🧾 **Order Reference:** ${order.payment_reference}`;
+
+          return {
+            content: [{ type: 'text', text }],
+            structuredContent: {
+              status: 'pending',
+              order_id: order.id,
+              amount: order.total,
+              payment_reference: order.payment_reference,
+              account_number: metadata.account_number,
+              bank_name: metadata.bank_name,
+            },
+          };
+        } else {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `ℹ️ Order status: **${order.status}**\n\nReference: ${order.payment_reference}`,
+              },
+            ],
+            structuredContent: {
+              status: order.status,
+              order_id: order.id,
+              payment_reference: order.payment_reference,
+            },
+          };
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Error checking payment status: ${message}`,
+            },
+          ],
+        };
+      }
     }
   );
 
@@ -5262,6 +2743,42 @@ const httpServer = createServer(
           JSON.stringify({ status: 'unhealthy', database: 'connection failed' })
         );
       }
+      return;
+    }
+
+    // OpenAI Domain Verification
+    if (req.method === 'GET' && url.pathname === '/.well-known/openai-apps-challenge') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('hpAeivM-F3G9_j9zte4YtD-0zugwbDAHBW0OcdxplWQ');
+      logAudit({
+        timestamp: new Date().toISOString(),
+        requestId,
+        ip,
+        method: 'GET',
+        path: '/.well-known/openai-apps-challenge',
+        statusCode: 200,
+        durationMs: Date.now() - startTime,
+      });
+      return;
+    }
+
+    // Widget render endpoint for ChatGPT
+    if (req.method === 'GET' && url.pathname.startsWith('/mcp/render/')) {
+      // Serve widget HTML for ChatGPT to render
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'text/html+skybridge; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.writeHead(200);
+      res.end(widgetHtml);
+      logAudit({
+        timestamp: new Date().toISOString(),
+        requestId,
+        ip,
+        method: 'GET',
+        path: url.pathname,
+        statusCode: 200,
+        durationMs: Date.now() - startTime,
+      });
       return;
     }
 

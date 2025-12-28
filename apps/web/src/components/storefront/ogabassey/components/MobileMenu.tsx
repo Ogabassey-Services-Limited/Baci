@@ -26,9 +26,14 @@ import { Logo } from './Logo';
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  storeSlug?: string;
 }
 
-export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
+export const MobileMenu: React.FC<MobileMenuProps> = ({
+  isOpen,
+  onClose,
+  storeSlug: propStoreSlug,
+}) => {
   const router = useRouter();
   const pathname = usePathname();
   const { theme, toggleTheme } = useV2Theme();
@@ -36,9 +41,22 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   // Extract store slug from pathname (first segment that's not a known page route)
   // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
   const pathSegments = pathname?.split('/').filter(Boolean) || [];
-  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages'];
+  const knownRoutes = [
+    'account',
+    'cart',
+    'checkout',
+    'products',
+    'wishlist',
+    'wallet',
+    'repairs',
+    'imei-check',
+    'pages',
+  ];
   const firstSegment = pathSegments[0] || '';
-  const storeSlug = knownRoutes.includes(firstSegment) ? '' : firstSegment;
+  const derivedStoreSlug = knownRoutes.includes(firstSegment)
+    ? ''
+    : firstSegment;
+  const storeSlug = propStoreSlug || derivedStoreSlug;
 
   if (!isOpen) return null;
 

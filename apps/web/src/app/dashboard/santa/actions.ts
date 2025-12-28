@@ -1,0 +1,117 @@
+'use server';
+
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+
+export interface SantaStats {
+  total_chats: number;
+  unique_sessions: number;
+  wishes_granted: number;
+  wishes_denied: number;
+  total_revenue: number;
+  avg_discount: number;
+}
+
+export interface SantaInteraction {
+  id: string;
+  created_at: string;
+  interaction_type: string;
+  user_message: string;
+  santa_response: string;
+  product_name?: string;
+  approved_price?: number;
+  discount_percentage?: number;
+  session_id: string;
+}
+
+export async function getSantaStats(merchantId: string): Promise<SantaStats> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  // We can query the view directly, but for now let's manually aggregate
+  // to ensure we get a single total object, as the view is daily stats.
+
+  // Alternatively, just query the view and sum it up in JS or SQL.
+  // Let's rely on raw table aggregation for real-time accuracy for the "Totals" cards.
+
+  const { data, error } = await supabase
+    .from('santa_interactions')
+    .select('interaction_type, approved_price, discount_percentage')
+    .eq('merchant_id', merchantId);
+
+  if (error) {
+    console.error('Error fetching santa stats:', error);
+    return {
+      total_chats: 0,
+      unique_sessions: 0,
+      wishes_granted: 0,
+      wishes_denied: 0,
+      total_revenue: 0,
+      avg_discount: 0,
+    };
+  }
+
+  // Calculate stats in memory (since we might not have the view enabled/perfect yet)
+  const stats: SantaStats = {
+    total_chats: 0,
+    unique_sessions: 0, // We'd need to query distinct sessions separately or fetch all
+    wishes_granted: 0,
+    wishes_denied: 0,
+    total_revenue: 0,
+    avg_discount: 0,
+  };
+
+  // Get unique sessions count separately if needed efficiently,
+  // but for MVP let's just do a count query
+  const { count: sessionCount } = await supabase
+    .from('santa_interactions')
+    .select('session_id', { count: 'exact', head: true })
+    .eq('merchant_id', merchantId); // This isn't distinct.
+
+  // Better: use the view if it works.
+  // Let's try the view first, fall back to simple counts.
+
+  const { data: viewData, error: viewError } = await supabase
+    .from('santa_campaign_stats')
+    .select('*')
+    .eq('merchant_id', merchantId);
+
+  if (!viewError && viewData) {
+    // Aggregate the daily view data
+    return viewData.reduce(
+      (acc, curr) => ({
+        total_chats: acc.total_chats + (curr.total_chats || 0),
+        unique_sessions: acc.unique_sessions + (curr.unique_sessions || 0), // Summing unique daily sessions is roughly ok but technically overlaps
+        wishes_granted: acc.wishes_granted + (curr.wishes_granted || 0),
+        wishes_denied: acc.wishes_denied + (curr.wishes_denied || 0),
+        total_revenue: acc.total_revenue + (curr.total_revenue || 0),
+        avg_discount: curr.avg_discount || acc.avg_discount, // Rough avg
+      }),
+      { ...stats }
+    );
+  }
+
+  return stats;
+}
+
+export async function getRecentInteractions(
+  merchantId: string,
+  limit = 20
+): Promise<SantaInteraction[]> {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const { data, error } = await supabase
+    .from('santa_interactions')
+    .select('*')
+    .eq('merchant_id', merchantId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching interactions:', error);
+    return [];
+  }
+
+  return data as SantaInteraction[];
+}

@@ -232,6 +232,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ============================================
+    // CHAT ORDER HANDLING (Virtual Account Payments)
+    // ============================================
+    // Check if this is a chat order payment (CHAT-* prefix)
+    if (reference.startsWith('CHAT-')) {
+      logger.info({
+        message: 'Processing chat order payment',
+        reference,
+        gateway,
+      });
+
+      // Find and update the chat order
+      const { data: chatOrder, error: chatOrderError } = await supabase
+        .from('chat_orders')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('payment_reference', reference)
+        .eq('status', 'pending_payment')
+        .select()
+        .single();
+
+      if (chatOrderError || !chatOrder) {
+        logger.warn({
+          message: 'Chat order not found for payment reference',
+          reference,
+          error: chatOrderError,
+        });
+        // Don't fail - might be a regular order with CHAT prefix by coincidence
+      } else {
+        logger.info({
+          message: 'Chat order payment confirmed',
+          orderId: chatOrder.id,
+          reference,
+          amount: chatOrder.subtotal,
+        });
+
+        // TODO: Emit Supabase Realtime event for frontend notification
+        // await supabase.channel(`chat-${chatOrder.session_id}`).send({
+        //   type: 'payment_confirmed',
+        //   order: chatOrder,
+        // });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Chat order payment processed',
+          orderId: chatOrder.id,
+        });
+      }
+    }
+
+    // ============================================
+    // STANDARD ORDER HANDLING
+    // ============================================
+
     // Find transaction record
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')

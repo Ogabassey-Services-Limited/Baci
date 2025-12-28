@@ -248,6 +248,7 @@ export const MerchantProvider = ({
             slug: slug,
             published_config: null,
             plan_tier: 'pro',
+            template_id: 'ogabassey',
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -376,7 +377,10 @@ export const MerchantProvider = ({
             role: null,
             permissions: { full_access: { all: true } },
           };
-        } else if ((!ownedMerchant && !ownerError) || (ownerError && ownerError.code === 'PGRST116')) {
+        } else if (
+          (!ownedMerchant && !ownerError) ||
+          (ownerError && ownerError.code === 'PGRST116')
+        ) {
           // User is not a merchant owner, check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member

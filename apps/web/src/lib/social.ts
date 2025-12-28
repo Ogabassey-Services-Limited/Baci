@@ -30,7 +30,7 @@ export function normalizeSocialUrl(
     case 'facebook':
       return `https://facebook.com/${handle}`;
     case 'tiktok':
-      return `https://tiktok.com/@${handle}`;
+      return `https://www.tiktok.com/@${handle}`;
     case 'twitter':
       return `https://twitter.com/${handle}`;
     case 'youtube':

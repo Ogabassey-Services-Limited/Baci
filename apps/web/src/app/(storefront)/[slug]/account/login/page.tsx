@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { OgabasseyLoginPage } from '@/components/storefront/ogabassey/components/OgabasseyLoginPage';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,6 +39,19 @@ function sanitizeRedirect(redirect: string | null): string {
 }
 
 export default function CustomerLoginPage() {
+  const { merchant, loading: merchantLoading } = useMerchant();
+
+  // Template-based login page switching
+  // Ogabassey merchants get the premium glassmorphism design
+  if (!merchantLoading && merchant?.template_id === 'ogabassey') {
+    return <OgabasseyLoginPage />;
+  }
+
+  // Default login page for other merchants
+  return <DefaultLoginPage />;
+}
+
+function DefaultLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = sanitizeRedirect(searchParams.get('redirect'));

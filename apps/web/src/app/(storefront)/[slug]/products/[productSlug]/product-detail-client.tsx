@@ -21,6 +21,7 @@ import { trackEvent } from '@/lib/event-tracking';
 import type { Product, ProductVariant } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import type { FAQItem } from '@/types/faq';
 
 // Placeholder image for products without images
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
@@ -106,7 +107,13 @@ function isVariantAvailable(
   });
 }
 
-export default function ProductDetailClient({ product }: { product: Product }) {
+export default function ProductDetailClient({
+  product,
+  faqs,
+}: {
+  product: Product;
+  faqs?: FAQItem[];
+}) {
   const { merchant, basePath } = useMerchant();
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath || ''}${path}`;

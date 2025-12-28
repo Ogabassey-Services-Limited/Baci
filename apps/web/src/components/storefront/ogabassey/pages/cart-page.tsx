@@ -63,7 +63,8 @@ export const CartPage: React.FC = () => {
     }
   };
 
-  const openItemNegotiation = (item: CartItem) => {
+  // Helper function to actually open item negotiation
+  const actuallyOpenItemNegotiation = (item: CartItem) => {
     const currentUnitPrice = item.negotiatedPrice || item.price || 0;
     const currentTotal = currentUnitPrice * item.quantity;
 
@@ -74,6 +75,35 @@ export const CartPage: React.FC = () => {
       currentPrice: currentTotal,
       name: item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
     });
+    setShowNegotiateWarning(false);
+    setPendingNegotiateItem(null);
+  };
+
+  // State for negotiate mode warning
+  const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
+  const [pendingNegotiateItem, setPendingNegotiateItem] = useState<CartItem | null>(null);
+
+  const openItemNegotiation = (item: CartItem) => {
+    // Check if any item already has individual negotiation
+    const hasAnyIndividualNegotiation = cart.some(i => i.negotiatedPrice != null);
+
+    // Check if cart-wide discount is active (would need to check cartDiscount in items)
+    const hasBulkDiscount = cart.some(i => (i as any).cartDiscount > 0);
+
+    if (hasBulkDiscount) {
+      // Bulk mode is active, show error
+      alert('You already have a bulk discount applied. Remove it before negotiating items individually.');
+      return;
+    }
+
+    if (hasAnyIndividualNegotiation) {
+      // Already using individual mode, proceed directly
+      actuallyOpenItemNegotiation(item);
+    } else {
+      // First negotiation - show warning modal
+      setPendingNegotiateItem(item);
+      setShowNegotiateWarning(true);
+    }
   };
 
   const openTotalNegotiation = () => {
@@ -465,6 +495,55 @@ export const CartPage: React.FC = () => {
             <span>₦{cartTotal.toLocaleString()}</span>
             <ArrowRight size={18} className="ml-1" />
           </Link>
+        </div>
+      )}
+      {/* Negotiate Mode Warning Dialog */}
+      {showNegotiateWarning && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <HandCoins className="text-amber-600" size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Choose Negotiation Mode</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Negotiating items individually will disable bulk cart negotiation.
+              <span className="font-semibold"> You can only use one approach.</span>
+            </p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  if (pendingNegotiateItem) {
+                    actuallyOpenItemNegotiation(pendingNegotiateItem);
+                  }
+                }}
+                className="w-full bg-[var(--store-primary)] text-white font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Negotiate This Item
+              </button>
+              <button
+                onClick={() => {
+                  setShowNegotiateWarning(false);
+                  setPendingNegotiateItem(null);
+                  openTotalNegotiation();
+                }}
+                className="w-full bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <HandCoins size={18} />
+                Bulk Negotiate Entire Cart
+              </button>
+              <button
+                onClick={() => {
+                  setShowNegotiateWarning(false);
+                  setPendingNegotiateItem(null);
+                }}
+                className="w-full text-gray-500 font-medium py-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

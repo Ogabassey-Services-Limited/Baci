@@ -11,7 +11,7 @@ import { Footer } from './components/Footer';
 import { MobileFooter } from './components/MobileFooter';
 import { OfflineNotice } from './components/OfflineNotice';
 import { PopupSystem } from './components/PopupSystem';
-import { SnowEffect } from './components/SnowEffect';
+import { GadgetPattern } from './components/GadgetPattern';
 import { OgabasseyNavbar as Navbar } from './layout/navbar';
 import { V2ComparisonProvider } from './providers/v2-comparison-context';
 import { V2NotificationProvider } from './providers/v2-notification-context';
@@ -59,8 +59,8 @@ export function OgabasseyLayout({
           <V2ComparisonProvider>
             <V2NotificationProvider>
               <GoogleAdManager />
-              <div className="text-gray-900 bg-white min-h-screen flex flex-col">
-                <SnowEffect />
+              <div className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden">
+                <GadgetPattern />
 
                 {!shouldHideNavigation && (
                   <Suspense fallback={<div className="h-16 bg-[#0F0F0F]" />}>

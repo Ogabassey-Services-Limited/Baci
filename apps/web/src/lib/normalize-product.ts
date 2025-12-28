@@ -26,6 +26,10 @@ export interface RawDbProduct {
   description?: string;
   images?: (string | { url: string; alt?: string })[];
   categories?: { id?: string; name: string; slug: string } | null;
+  // Support for Many-to-Many relation (preferred over single category_id)
+  product_categories?: {
+    categories: { id?: string; name: string; slug: string } | null;
+  }[];
   category?: string; // Legacy TEXT field
   category_id?: string;
   brand?: string;
@@ -118,12 +122,16 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
   const primaryImage = extractPrimaryImage(raw.images);
   const normalizedImages = normalizeImages(raw.images);
 
-  // Determine category name: prioritize joined category, fallback to TEXT field
-  const categoryName = raw.categories?.name || raw.category || 'General';
+  // Determine category source: prioritize direct join, then many-to-many (first), then legacy text
+  const joinedCategory =
+    raw.categories || raw.product_categories?.[0]?.categories;
 
-  // Determine category slug: prioritize joined category slug, generate from name if needed
+  // Determine category name
+  const categoryName = joinedCategory?.name || raw.category || 'General';
+
+  // Determine category slug
   const categorySlug =
-    raw.categories?.slug ||
+    joinedCategory?.slug ||
     (raw.category ? generateSlug(raw.category) : 'general');
 
   // Determine stock availability

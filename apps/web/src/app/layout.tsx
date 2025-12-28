@@ -89,9 +89,6 @@ export const metadata: Metadata = {
     creator: '@usebaci',
     images: ['/opengraph-image'],
   },
-  alternates: {
-    canonical: PLATFORM_CONFIG.url,
-  },
 };
 
 export const viewport: Viewport = {

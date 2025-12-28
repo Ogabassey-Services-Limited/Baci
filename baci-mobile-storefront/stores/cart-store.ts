@@ -1,36 +1,12 @@
 /**
  * Shopping Cart Store using Zustand
- * Manages shopping cart state with MMKV persistence
- * Updated for react-native-mmkv v4 API (2025)
+ * Manages shopping cart state with AsyncStorage persistence
+ * Compatible with Expo Go (no native modules required)
  */
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { createMMKV, type MMKV } from 'react-native-mmkv';
-
-// Initialize MMKV storage (v4 API uses createMMKV)
-let storage: MMKV | null = null;
-
-const getStorage = (): MMKV => {
-  if (!storage) {
-    storage = createMMKV({ id: 'ogabassey-cart' });
-  }
-  return storage;
-};
-
-// Custom storage adapter for Zustand persist
-const mmkvStorage = {
-  getItem: (name: string) => {
-    const value = getStorage().getString(name);
-    return value ?? null;
-  },
-  setItem: (name: string, value: string) => {
-    getStorage().set(name, value);
-  },
-  removeItem: (name: string) => {
-    getStorage().remove(name);
-  },
-};
+import { syncStorage } from '../lib/storage';
 
 export interface CartItem {
   id: string;
@@ -169,7 +145,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'cart-storage',
-      storage: createJSONStorage(() => mmkvStorage),
+      storage: createJSONStorage(() => syncStorage),
       partialize: (state) => ({ items: state.items }), // Only persist items
     }
   )

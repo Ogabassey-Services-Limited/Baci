@@ -40,6 +40,7 @@ export interface OfferSchema {
     priceCurrency: string;
     valueAddedTaxIncluded?: boolean;
   };
+  [key: string]: unknown;
 }
 
 export interface ProductSchemaMarkup {
@@ -74,6 +75,13 @@ export interface ProductVariant {
   stock_quantity: number;
   sku?: string;
   inventory_items?: VariantInventoryItem[]; // Loaded on demand
+}
+
+export interface Review {
+  author: string;
+  datePublished: string;
+  reviewBody: string;
+  reviewRating: number;
 }
 
 export interface Product {
@@ -134,6 +142,7 @@ export interface Product {
   // Display fields for UI (flattened from schema_markup for convenience)
   rating?: number; // 0-5 star rating, flattened from schema_markup.aggregateRating
   review_count?: number; // Number of reviews, flattened from schema_markup.aggregateRating
+  reviews?: Review[]; // Array of reviews for schema markup
 
   // Denormalized variant attributes for fast UI rendering (auto-populated on save)
   colors?: string[]; // Unique colors from variants, e.g., ["Black", "Silver", "Gold"]

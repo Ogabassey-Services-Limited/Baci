@@ -450,6 +450,238 @@ export async function verifyTransaction(
 }
 
 // =============================================================================
+// Dedicated Virtual Account (DVA) Functions
+// =============================================================================
+
+/**
+ * Customer creation data for DVA
+ */
+export interface CustomerData {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * DVA creation response from Paystack
+ */
+export interface DedicatedAccountResponse {
+  bank: {
+    name: string;
+    id: number;
+    slug: string;
+  };
+  account_name: string;
+  account_number: string;
+  assigned: boolean;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+  active: boolean;
+  id: number;
+  created_at: string;
+  updated_at: string;
+  customer: {
+    id: number;
+    email: string;
+    customer_code: string;
+    first_name: string | null;
+    last_name: string | null;
+  };
+}
+
+/**
+ * Customer response from Paystack
+ */
+export interface PaystackCustomer {
+  id: number;
+  email: string;
+  customer_code: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+}
+
+/**
+ * Create or retrieve a Paystack customer
+ * Required before creating a DVA
+ */
+export async function createOrGetCustomer(
+  data: CustomerData
+): Promise<PaystackResult<PaystackCustomer>> {
+  if (!data.email) {
+    return {
+      success: false,
+      error: 'Customer email is required',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await paystackRequest<PaystackCustomer>('/customer', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: data.email,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      phone: data.phone,
+      metadata: data.metadata,
+    }),
+  });
+
+  return result;
+}
+
+/**
+ * Create a Dedicated Virtual Account for a customer
+ * This generates a unique bank account number that the customer can transfer to
+ *
+ * @param customerCode - Paystack customer code (e.g., CUS_xxx)
+ * @param options - Additional options including preferredBank, phone, firstName, lastName
+ */
+export async function createDedicatedAccount(
+  customerCode: string,
+  options: {
+    preferredBank?: string;
+    phone?: string;
+    firstName?: string;
+    lastName?: string;
+  } = {}
+): Promise<PaystackResult<DedicatedAccountResponse>> {
+  // Validate customer code format
+  if (!customerCode || !customerCode.startsWith('CUS_')) {
+    return {
+      success: false,
+      error: 'Invalid customer code format. Expected CUS_xxx',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const { preferredBank = 'wema-bank', phone, firstName, lastName } = options;
+
+  const result = await paystackRequest<DedicatedAccountResponse>(
+    '/dedicated_account',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        customer: customerCode,
+        preferred_bank: preferredBank,
+        ...(phone && { phone }),
+        ...(firstName && { first_name: firstName }),
+        ...(lastName && { last_name: lastName }),
+      }),
+    }
+  );
+
+  if (!result.success) {
+    logger.error({
+      message: 'Failed to create DVA',
+      customerCode,
+      error: result.error,
+    });
+  } else {
+    logger.info({
+      message: 'DVA created successfully',
+      customerCode,
+      accountNumber: result.data.account_number,
+      bank: result.data.bank.name,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Fetch existing DVAs for a customer
+ */
+export async function getDedicatedAccounts(
+  customerCode: string
+): Promise<PaystackResult<DedicatedAccountResponse[]>> {
+  if (!customerCode || !customerCode.startsWith('CUS_')) {
+    return {
+      success: false,
+      error: 'Invalid customer code format',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await paystackRequest<DedicatedAccountResponse[]>(
+    `/dedicated_account?customer=${encodeURIComponent(customerCode)}`
+  );
+
+  return result;
+}
+
+/**
+ * High-level function: Create customer and DVA in one call
+ * This is the main function for chatbot payment integration
+ */
+export async function generatePaymentAccount(data: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  orderId?: string;
+}): Promise<
+  PaystackResult<{
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+    customer_code: string;
+  }>
+> {
+  // Step 1: Create or get customer
+  const customerResult = await createOrGetCustomer({
+    email: data.email,
+    first_name: data.firstName,
+    last_name: data.lastName,
+    phone: data.phone,
+    metadata: data.orderId ? { order_id: data.orderId } : undefined,
+  });
+
+  if (!customerResult.success) {
+    return customerResult;
+  }
+
+  const customerCode = customerResult.data.customer_code;
+
+  // Step 2: Check for existing DVA
+  const existingResult = await getDedicatedAccounts(customerCode);
+  if (existingResult.success && existingResult.data.length > 0) {
+    const existing = existingResult.data[0];
+    return {
+      success: true,
+      data: {
+        bank_name: existing.bank.name,
+        account_number: existing.account_number,
+        account_name: existing.account_name,
+        customer_code: customerCode,
+      },
+    };
+  }
+
+  // Step 3: Create new DVA
+  const dvaResult = await createDedicatedAccount(customerCode, {
+    phone: data.phone,
+    firstName: data.firstName,
+    lastName: data.lastName,
+  });
+  if (!dvaResult.success) {
+    return dvaResult;
+  }
+
+  return {
+    success: true,
+    data: {
+      bank_name: dvaResult.data.bank.name,
+      account_number: dvaResult.data.account_number,
+      account_name: dvaResult.data.account_name,
+      customer_code: customerCode,
+    },
+  };
+}
+
+// =============================================================================
 // Utility Functions
 // =============================================================================
 

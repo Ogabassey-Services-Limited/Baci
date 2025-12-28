@@ -96,7 +96,7 @@ export function StorefrontFooter() {
       key: 'tiktok',
       icon: TikTokIcon,
       label: 'TikTok',
-      urlPrefix: 'https://tiktok.com/@',
+      urlPrefix: 'https://www.tiktok.com/@',
     },
     {
       key: 'youtube',

@@ -202,7 +202,9 @@ export default async function StorefrontPage({
           brand,
           condition,
           stock,
-          categories:category_id(name, slug)
+          product_categories!inner(
+            categories(name, slug)
+          )
         `)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
@@ -222,7 +224,14 @@ export default async function StorefrontPage({
         JSON.stringify(productsError, null, 2)
       );
     } else {
-      merchantProducts = (products || []) as unknown as Product[];
+      // Manual mapping: Transform many-to-many result to Product interface shape
+      merchantProducts = (products || []).map((p: any) => ({
+        ...p,
+        // Map the first category from the collection to the legacy text/object field expected by UI
+        categories: p.product_categories?.[0]?.categories || null,
+        // Clean up the join result to match Product interface
+        product_categories: undefined,
+      })) as unknown as Product[];
     }
 
     // Assign categories directly
@@ -266,7 +275,7 @@ export default async function StorefrontPage({
       if (socialMedia.twitter)
         socialMediaUrls.twitter = `https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`;
       if (socialMedia.tiktok)
-        socialMediaUrls.tiktok = `https://tiktok.com/@${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`;
+        socialMediaUrls.tiktok = `https://www.tiktok.com/@${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`;
       if (socialMedia.youtube)
         socialMediaUrls.youtube = `https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`;
       if (socialMedia.linkedin)

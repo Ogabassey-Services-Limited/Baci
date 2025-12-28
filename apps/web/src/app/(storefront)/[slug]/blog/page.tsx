@@ -197,9 +197,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       name: merchant.business_name,
       logo: merchant.logo_url
         ? {
-          '@type': 'ImageObject',
-          url: merchant.logo_url,
-        }
+            '@type': 'ImageObject',
+            url: merchant.logo_url,
+          }
         : undefined,
     },
     blogPost: posts.slice(0, 10).map((post) => ({

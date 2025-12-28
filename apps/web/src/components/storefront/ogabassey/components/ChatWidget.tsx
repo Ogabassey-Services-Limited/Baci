@@ -217,7 +217,7 @@ const SUGGESTIONS = [
     icon: <Zap size={14} className="text-red-600" />,
   },
   {
-    label: 'Return policy',
+    label: "I've sent my payment",
     icon: <ShoppingBag size={14} className="text-red-600" />,
   },
   {
@@ -226,9 +226,19 @@ const SUGGESTIONS = [
   },
 ];
 
+const PROACTIVE_MESSAGES = [
+  "Looking for a new phone? 📱",
+  "Need help checking an IMEI? 🔍",
+  "Want to see gaming laptops? 🎮",
+  "I can help you swap your device! 🔄",
+  "Searching for a specific spec? ⚡",
+  "Check out our daily deals! 🏷️",
+  "Need a repair quote? 🔧"
+];
+
 const SnowOverlay: React.FC = () => (
   <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-    <style jsx>{`
+    <style>{`
       @keyframes snowfall {
         0% { transform: translateY(-10px) translateX(0); opacity: 0; }
         10% { opacity: 1; }
@@ -274,7 +284,26 @@ export const ChatWidget: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [proactiveMsg, setProactiveMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Proactive Nudge Logic
+  useEffect(() => {
+    // Show a random helpful message after 3 seconds if chat is closed
+    const timer = setTimeout(() => {
+      if (!isOpen) {
+        const randomMsg = PROACTIVE_MESSAGES[Math.floor(Math.random() * PROACTIVE_MESSAGES.length)];
+        setProactiveMsg(randomMsg);
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Hide proactive message when chat opens
+  useEffect(() => {
+    if (isOpen) setProactiveMsg(null);
+  }, [isOpen]);
 
   // Note: The mounted state workaround was removed because the theme is now passed
   // from the server via cookies, ensuring SSR/CSR consistency.
@@ -455,7 +484,7 @@ export const ChatWidget: React.FC = () => {
       {
         isOpen && (
           <div
-            className={`w-[calc(100vw-32px)] md:w-[400px] h-[calc(100vh-120px)] md:h-[600px] max-h-[calc(100vh-120px)] md:max-h-[600px] bg-white rounded-2xl shadow-2xl border ${isSanta ? 'border-red-200' : 'border-gray-200'} overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 origin-bottom-right ring-1 ring-black/5`}
+            className={`w-[calc(100vw-32px)] md:w-[400px] h-[400px] md:h-[500px] max-h-[70vh] bg-white rounded-2xl shadow-2xl border ${isSanta ? 'border-red-200' : 'border-gray-200'} overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 fade-in duration-300 origin-bottom-right ring-1 ring-black/5`}
           >
             {/* Header */}
             <div
@@ -676,6 +705,24 @@ export const ChatWidget: React.FC = () => {
             {/* Thought bubble tail circles - adjusted for bottom-right origin */}
             <div className="absolute -bottom-2 -right-1 w-3 h-3 bg-white rounded-full border-r border-b border-red-100"></div>
             <div className="absolute -bottom-4 -right-3 w-2 h-2 bg-white/90 rounded-full border border-red-50"></div>
+          </div>
+        )}
+
+        {/* Proactive Nudge Bubble (Standard Mode) */}
+        {!isOpen && !isSanta && proactiveMsg && (
+          <div className="absolute bottom-[90%] right-[85%] mr-[-20px] mb-[-10px] w-48 bg-white px-4 py-3 rounded-2xl rounded-tr-none shadow-lg border border-red-50 transform transition-[transform,opacity] duration-300 animate-in fade-in slide-in-from-bottom-4 z-40">
+            <div className="text-gray-800 text-xs font-medium leading-relaxed">
+              {proactiveMsg}
+            </div>
+            {/* Pointer */}
+            <div className="absolute -bottom-1.5 -right-1 w-4 h-4 bg-white rotate-45 border-r border-b border-red-50" />
+
+            <button
+              onClick={(e) => { e.stopPropagation(); setProactiveMsg(null); }}
+              className="absolute -top-2 -left-2 bg-gray-100 hover:bg-gray-200 rounded-full p-1 transition-colors"
+            >
+              <X size={10} className="text-gray-500" />
+            </button>
           </div>
         )}
         <button

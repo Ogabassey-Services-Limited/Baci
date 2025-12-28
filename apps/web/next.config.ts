@@ -299,6 +299,20 @@ const nextConfig: NextConfig = {
     ]);
   },
 
+  // Proxy MCP requests to VPS
+  async rewrites() {
+    return [
+      {
+        source: '/mcp/sse',
+        destination: 'http://82.29.190.219:8787/sse',
+      },
+      {
+        source: '/mcp/messages',
+        destination: 'http://82.29.190.219:8787/messages',
+      },
+    ];
+  },
+
   // Security headers
   headers() {
     return [

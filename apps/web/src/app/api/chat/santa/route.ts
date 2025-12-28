@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { streamText } from 'ai';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
-import { AI_RATE_LIMITS, checkRateLimit, gemini25Flash } from '@/ai/provider';
+import { AI_RATE_LIMITS, activeTextModel, checkRateLimit } from '@/ai/provider';
 import { getCachedSantaProducts } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -66,12 +67,12 @@ async function logSantaInteraction(params: {
   sessionId: string;
   clientIp: string;
   interactionType:
-  | 'chat'
-  | 'wish_granted'
-  | 'wish_denied'
-  | 'add_to_cart'
-  | 'checkout_started'
-  | 'checkout_completed';
+    | 'chat'
+    | 'wish_granted'
+    | 'wish_denied'
+    | 'add_to_cart'
+    | 'checkout_started'
+    | 'checkout_completed';
   userMessage?: string;
   santaResponse?: string;
   productName?: string;
@@ -131,7 +132,9 @@ const santaChatSchema = z.object({
  * Fetches products across multiple price ranges using cached utility
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function generateSantaPrompt(supabase: SupabaseClient): Promise<string> {
+async function generateSantaPrompt(
+  _supabase?: SupabaseClient
+): Promise<string> {
   try {
     // Fetch merchant ID (Ogabassey)
     // We hardcode the ID we found earlier to avoid another DB call if possible,

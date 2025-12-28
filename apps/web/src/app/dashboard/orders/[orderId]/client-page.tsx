@@ -11,8 +11,8 @@ import {
   Package,
   PackageCheck,
   Phone,
-  Share2,
   Send,
+  Share2,
   Truck,
   Undo2,
   XCircle,
@@ -38,7 +38,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { resendOrderConfirmation, type Order, type ShippingStatus } from '../actions';
+import {
+  type Order,
+  resendOrderConfirmation,
+  type ShippingStatus,
+} from '../actions';
 import { SourceIcon, StatusBadge } from '../client-page';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
@@ -186,10 +190,18 @@ export default function OrderDetailsClientPage({
       if (result.success) {
         toast({ title: 'Email Sent', description: result.message });
       } else {
-        toast({ variant: 'destructive', title: 'Failed', description: result.message });
+        toast({
+          variant: 'destructive',
+          title: 'Failed',
+          description: result.message,
+        });
       }
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send email.' });
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to send email.',
+      });
     }
   };
 
@@ -491,7 +503,9 @@ export default function OrderDetailsClientPage({
                 {order.payment_reference && (
                   <div className="flex justify-between">
                     <span>Payment Reference</span>{' '}
-                    <span className="font-mono text-xs">{order.payment_reference}</span>
+                    <span className="font-mono text-xs">
+                      {order.payment_reference}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -534,11 +548,12 @@ export default function OrderDetailsClientPage({
                           <p className="font-medium capitalize">
                             {tx.gateway}
                             <span
-                              className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${tx.status === 'completed' ||
+                              className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                                tx.status === 'completed' ||
                                 tx.status === 'success'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                                }`}
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                              }`}
                             >
                               {tx.status}
                             </span>

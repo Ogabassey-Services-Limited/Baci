@@ -191,7 +191,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
       )}
 
       {/* CSS for magical placeholder animation */}
-      <style jsx>{`
+      <style>{`
         @keyframes magical-reveal {
           0% {
             opacity: 0;

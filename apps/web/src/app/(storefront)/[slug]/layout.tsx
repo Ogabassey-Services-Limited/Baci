@@ -114,21 +114,21 @@ export async function generateMetadata({
   const icons =
     faviconSvg || faviconPng32 || faviconAppleTouch
       ? {
-        icon: [
-          ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
-          ...(faviconPng32
-            ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }]
-            : []),
-        ].filter(Boolean),
-        apple: faviconAppleTouch
-          ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }]
-          : undefined,
-      }
+          icon: [
+            ...(faviconSvg ? [{ url: faviconSvg, type: 'image/svg+xml' }] : []),
+            ...(faviconPng32
+              ? [{ url: faviconPng32, sizes: '32x32', type: 'image/png' }]
+              : []),
+          ].filter(Boolean),
+          apple: faviconAppleTouch
+            ? [{ url: faviconAppleTouch, sizes: '180x180', type: 'image/png' }]
+            : undefined,
+        }
       : merchant.logo_url
         ? {
-          icon: [{ url: merchant.logo_url }],
-          apple: [{ url: merchant.logo_url }],
-        }
+            icon: [{ url: merchant.logo_url }],
+            apple: [{ url: merchant.logo_url }],
+          }
         : undefined;
 
   // Build SEO-friendly description with proper fallbacks
@@ -138,13 +138,15 @@ export async function generateMetadata({
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
 
   return {
-    title: merchant.site_title || `${merchant.business_name} | Buy Gadgets Pay Later`,
+    title:
+      merchant.site_title ||
+      `${merchant.business_name} | Buy Gadgets Pay Later`,
     description,
     icons,
     verification: verificationCode
       ? {
-        google: verificationCode,
-      }
+          google: verificationCode,
+        }
       : undefined,
     openGraph: {
       title: merchant.site_title || merchant.business_name,

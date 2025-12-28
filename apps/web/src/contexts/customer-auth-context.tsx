@@ -207,9 +207,18 @@ export function CustomerAuthProvider({
     try {
       // Use the current browser origin to support custom domains (e.g., ogabassey.com)
       // This automatically handles: localhost, subdomains (*.usebaci.com), and custom domains
+      let redirectPath = '/account';
+      if (typeof window !== 'undefined') {
+        const pathname = window.location.pathname;
+        // If we are using path-based routing (e.g. /ogabassey/...), preserve the slug
+        if (pathname.startsWith(`/${merchantSlug}`)) {
+          redirectPath = `/${merchantSlug}/account`;
+        }
+      }
+
       const redirectUrl =
         typeof window !== 'undefined'
-          ? `${window.location.origin}/account`
+          ? `${window.location.origin}${redirectPath}`
           : '/account';
 
       const response = await fetch('/api/storefront/auth/google', {
@@ -232,12 +241,19 @@ export function CustomerAuthProvider({
         // Validate that the URL is a Google OAuth URL
         try {
           const url = new URL(data.url);
-          const validHosts = ['accounts.google.com', 'www.google.com'];
-          const isGoogleDomain =
+          const validHosts = [
+            'accounts.google.com',
+            'www.google.com',
+            'supabase.co',
+            '127.0.0.1',
+            'localhost',
+          ];
+          const isValidDomain =
             validHosts.some((h) => url.hostname === h) ||
-            url.hostname.endsWith('.google.com');
+            url.hostname.endsWith('.google.com') ||
+            url.hostname.endsWith('.supabase.co');
 
-          if (!isGoogleDomain) {
+          if (!isValidDomain) {
             return {
               success: false,
               error: 'Invalid OAuth provider URL',

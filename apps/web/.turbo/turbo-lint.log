@@ -2,3 +2,420 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/ai/chat-tool-handlers.ts:8:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+     6 │  */
+     7 │ 
+   > 8 │ import { cookies } from 'next/headers';
+       │        ^^^^^^^^^^^
+     9 │ import { createAdminClient } from '@/lib/supabase/admin';
+    10 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+      1     │ - /**
+      2     │ - ·*·Chat·Tool·Handlers
+      3     │ - ·*
+      4     │ - ·*·Implements·the·actual·logic·for·each·AI·tool.
+      5     │ - ·*·These·handlers·are·called·when·the·AI·invokes·a·tool.
+      6     │ - ·*/
+      7     │ - 
+      8     │ - import·{·cookies·}·from·'next/headers';
+          1 │ + /**
+          2 │ + ·*·Chat·Tool·Handlers
+          3 │ + ·*
+          4 │ + ·*·Implements·the·actual·logic·for·each·AI·tool.
+          5 │ + ·*·These·handlers·are·called·when·the·AI·invokes·a·tool.
+          6 │ + ·*/
+          7 │ + 
+      9   8 │   import { createAdminClient } from '@/lib/supabase/admin';
+     10   9 │   import { createClient } from '@/lib/supabase/server';
+  
+
+src/ai/chat-tool-handlers.ts:10:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+     8 │ import { cookies } from 'next/headers';
+     9 │ import { createAdminClient } from '@/lib/supabase/admin';
+  > 10 │ import { createClient } from '@/lib/supabase/server';
+       │        ^^^^^^^^^^^^^^^^
+    11 │ import type {
+    12 │   AddToCartParams,
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+      8   8 │   import { cookies } from 'next/headers';
+      9   9 │   import { createAdminClient } from '@/lib/supabase/admin';
+     10     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+     11  10 │   import type {
+     12  11 │     AddToCartParams,
+  
+
+src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx:2:10 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    1 │ import type { Metadata } from 'next';
+  > 2 │ import { cookies, headers } from 'next/headers';
+      │          ^^^^^^^
+    3 │ import { notFound, permanentRedirect } from 'next/navigation';
+    4 │ import { Suspense } from 'react';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+    2 │ import·{·cookies,·headers·}·from·'next/headers';
+      │          ---------                              
+
+src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx:17:3 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    15 │   escapeHtml,
+    16 │   safeJsonLdStringify,
+  > 17 │   sanitizeLikePattern,
+       │   ^^^^^^^^^^^^^^^^^^^
+    18 │ } from '@/lib/sanitize-core';
+    19 │ import {
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     15  15 │     escapeHtml,
+     16  16 │     safeJsonLdStringify,
+     17     │ - ··sanitizeLikePattern,
+     18  17 │   } from '@/lib/sanitize-core';
+     19  18 │   import {
+  
+
+src/app/(storefront)/[slug]/about/page.tsx:117:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    115 │       <script
+    116 │         type="application/ld+json"
+  > 117 │         dangerouslySetInnerHTML={{
+        │         ^^^^^^^^^^^^^^^^^^^^^^^
+    118 │           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
+    119 │         }}
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx:333:67 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    331 │                     <Link
+    332 │                       key={related.id}
+  > 333 │                       href={`${basePath}/blog/${related.slug}` as any}
+        │                                                                   ^^^
+    334 │                     >
+    335 │                       <Card className="h-full hover:shadow-lg transition-shadow group">
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(storefront)/[slug]/cart/page.tsx:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    1 │ import { notFound } from 'next/navigation';
+    2 │ import { Suspense } from 'react';
+  > 3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
+    5 │ import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     1  1 │   import { notFound } from 'next/navigation';
+     2  2 │   import { Suspense } from 'react';
+     3    │ - import·{·StorefrontFooter·as·Footer·}·from·'@/components/storefront/footer';
+     4  3 │   import { StorefrontHeader as Header } from '@/components/storefront/header';
+     5  4 │   import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+  
+
+src/app/(storefront)/[slug]/cart/page.tsx:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    2 │ import { Suspense } from 'react';
+    3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+  > 4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    5 │ import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+    6 │ import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     2  2 │   import { Suspense } from 'react';
+     3  3 │   import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+     4    │ - import·{·StorefrontHeader·as·Header·}·from·'@/components/storefront/header';
+     5  4 │   import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+     6  5 │   import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+  
+
+src/app/(storefront)/[slug]/checkout/page.tsx:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    1 │ import { notFound } from 'next/navigation';
+    2 │ import { Suspense } from 'react';
+  > 3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
+    5 │ import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     1  1 │   import { notFound } from 'next/navigation';
+     2  2 │   import { Suspense } from 'react';
+     3    │ - import·{·StorefrontFooter·as·Footer·}·from·'@/components/storefront/footer';
+     4  3 │   import { StorefrontHeader as Header } from '@/components/storefront/header';
+     5  4 │   import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+  
+
+src/app/(storefront)/[slug]/checkout/page.tsx:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    2 │ import { Suspense } from 'react';
+    3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+  > 4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    5 │ import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+    6 │ import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     2  2 │   import { Suspense } from 'react';
+     3  3 │   import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+     4    │ - import·{·StorefrontHeader·as·Header·}·from·'@/components/storefront/header';
+     5  4 │   import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+     6  5 │   import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
+  
+
+src/app/(storefront)/[slug]/contact/page.tsx:137:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    135 │       <script
+    136 │         type="application/ld+json"
+  > 137 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
+        │         ^^^^^^^^^^^^^^^^^^^^^^^
+    138 │       />
+    139 │       <StorefrontPageWrapper
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/app/(storefront)/[slug]/faq/page.tsx:105:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    103 │       <script
+    104 │         type="application/ld+json"
+  > 105 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
+        │         ^^^^^^^^^^^^^^^^^^^^^^^
+    106 │       />
+    107 │       <StorefrontPageWrapper
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/app/(storefront)/[slug]/page.tsx:228:51 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    226 │     } else {
+    227 │       // Manual mapping: Transform many-to-many result to Product interface shape
+  > 228 │       merchantProducts = (products || []).map((p: any) => ({
+        │                                                   ^^^
+    229 │         ...p,
+    230 │         // Map the first category from the collection to the legacy text/object field expected by UI
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(storefront)/[slug]/privacy/page.tsx:119:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    117 │       <script
+    118 │         type="application/ld+json"
+  > 119 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
+        │         ^^^^^^^^^^^^^^^^^^^^^^^
+    120 │       />
+    121 │       <StorefrontPageWrapper
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/app/(storefront)/[slug]/products/[productSlug]/page.tsx:13:24 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    11 │   getCachedProductReviews,
+    12 │ } from '@/lib/cached-data';
+  > 13 │ import type { Product, Review } from '@/lib/products';
+       │                        ^^^^^^
+    14 │ import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
+    15 │ import {
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+    13 │ import·type·{·Product,·Review·}·from·'@/lib/products';
+       │                        -------                        
+
+src/app/(storefront)/[slug]/products/[productSlug]/product-detail-client.tsx:112:3 lint/correctness/noUnusedFunctionParameters ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    110 │ export default function ProductDetailClient({
+    111 │   product,
+  > 112 │   faqs,
+        │   ^^^^
+    113 │ }: {
+    114 │   product: Product;
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+
+next.config.ts:303:3 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    302 │   // Proxy MCP requests to VPS
+  > 303 │   async rewrites() {
+        │   ^^^^^^^^^^^^^^^^^^
+  > 304 │     return [
+         ...
+  > 313 │     ];
+  > 314 │   },
+        │   ^
+    315 │ 
+    316 │   // Security headers
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    302 │   // Proxy MCP requests to VPS
+  > 303 │   async rewrites() {
+        │   ^^^^^^^^^^^^^^^^^^
+  > 304 │     return [
+         ...
+  > 313 │     ];
+  > 314 │   },
+        │   ^
+    315 │ 
+    316 │   // Security headers
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+next.config.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    207 207 │         {
+    208 208 │           source: '/blog/iphone-xr-in-2025-is-this-still-a-good-deal',
+    209     │ - ········destination:·'/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
+        209 │ + ········destination:
+        210 │ + ··········'/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
+    210 211 │           permanent: true,
+    211 212 │         },
+    212 213 │         {
+    213     │ - ········source:·'/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
+    214     │ - ········destination:·'/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        214 │ + ········source:
+        215 │ + ··········'/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
+        216 │ + ········destination:
+        217 │ + ··········'/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+    215 218 │           permanent: true,
+    216 219 │         },
+  
+
+src/ai/chat-tool-handlers.ts:193:22 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Template literals are preferred over string concatenation.
+  
+    191 │     // Simulated virtual account (replace with real Kuda integration)
+    192 │     const virtualAccount = {
+  > 193 │       accountNumber: '999' + Math.random().toString().slice(2, 9),
+        │                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    194 │       bankName: 'Kuda Bank',
+    195 │       accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
+  
+  i Unsafe fix: Use a template literal.
+  
+    191 191 │       // Simulated virtual account (replace with real Kuda integration)
+    192 192 │       const virtualAccount = {
+    193     │ - ······accountNumber:·'999'·+·Math.random().toString().slice(2,·9),
+        193 │ + ······accountNumber:·`999${Math.random().toString().slice(2,·9)}`,
+    194 194 │         bankName: 'Kuda Bank',
+    195 195 │         accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
+  
+
+src/ai/chat-tool-handlers.ts:408:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    406 │ // ============================================
+    407 │ 
+  > 408 │ export async function handleAddToCart(
+        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 409 │   params: AddToCartParams
+  > 410 │ ): Promise<ProductSearchResult | null> {
+  > 411 │   // Just return the product details - actual cart management happens on frontend
+  > 412 │   return handleGetProductDetails({ productId: params.productId });
+  > 413 │ }
+        │ ^
+    414 │ 
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    406 │ // ============================================
+    407 │ 
+  > 408 │ export async function handleAddToCart(
+        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 409 │   params: AddToCartParams
+  > 410 │ ): Promise<ProductSearchResult | null> {
+  > 411 │   // Just return the product details - actual cart management happens on frontend
+  > 412 │   return handleGetProductDetails({ productId: params.productId });
+  > 413 │ }
+        │ ^
+    414 │ 
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 50.
+Checked 755 files in 953ms. No fixes applied.
+Found 12 errors.
+Found 58 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

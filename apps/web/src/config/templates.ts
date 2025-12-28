@@ -216,7 +216,7 @@ export const getTemplateData = (
           ],
           socialLinks: {
             instagram: 'https://instagram.com',
-            tiktok: 'https://tiktok.com',
+            tiktok: 'https://www.tiktok.com',
           },
           showNewsletter: true,
           backgroundColor: '#000000',

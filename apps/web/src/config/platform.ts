@@ -3,9 +3,11 @@ import type { SoftwareApplicationData } from '@/lib/seo-utils';
 export const PLATFORM_CONFIG = {
   name: 'Baci',
   legalName: 'Baci AI E-commerce',
-  url: process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3000',
+  url: process.env.NEXT_PUBLIC_SITE_URL
+    ? process.env.NEXT_PUBLIC_SITE_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000',
   description:
     'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
   version: '2.0.0',

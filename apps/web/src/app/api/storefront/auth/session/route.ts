@@ -49,14 +49,30 @@ export async function GET(request: Request) {
       });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
+    // Get merchant - support both slug and custom_domain
+    let merchant = null;
+
+    // First, try by slug (standard lookup)
+    const slugResult = await supabase
       .from('merchants')
       .select('id')
       .eq('slug', merchantSlug)
       .single();
 
-    if (merchantError || !merchant) {
+    if (slugResult.data) {
+      merchant = slugResult.data;
+    } else {
+      // Fallback: try by custom_domain (for custom domain access like ogabassey.com)
+      const domainResult = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('custom_domain', merchantSlug.toLowerCase())
+        .single();
+
+      merchant = domainResult.data;
+    }
+
+    if (!merchant) {
       return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 

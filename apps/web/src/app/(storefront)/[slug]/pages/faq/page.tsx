@@ -72,6 +72,9 @@ export async function generateMetadata({
       type: 'website',
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
+    alternates: {
+      canonical: '/faq',
+    },
   };
 }
 
