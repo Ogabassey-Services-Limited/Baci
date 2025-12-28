@@ -299,16 +299,20 @@ const nextConfig: NextConfig = {
     ]);
   },
 
-  // Proxy MCP requests to VPS
+  // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
   async rewrites() {
+    const mcpServerUrl = process.env.MCP_SERVER_URL;
+    if (!mcpServerUrl) {
+      return [];
+    }
     return [
       {
         source: '/mcp/sse',
-        destination: 'http://82.29.190.219:8787/sse',
+        destination: `${mcpServerUrl}/sse`,
       },
       {
         source: '/mcp/messages',
-        destination: 'http://82.29.190.219:8787/messages',
+        destination: `${mcpServerUrl}/messages`,
       },
     ];
   },
