@@ -1,0 +1,942 @@
+/**
+ * Orders Screen - Order Management Dashboard
+ * Real-time order management with status updates
+ */
+
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StatusBar,
+  ActivityIndicator,
+  TextInput,
+  Modal,
+  Animated,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useOrders, useUpdateOrderStatus, type Order } from '@/hooks/useOrders';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { BaciLogo } from '@/components/BaciLogo';
+// Shared types and constants from monorepo
+import {
+  type ShippingStatus,
+  type PaymentStatus,
+  SHIPPING_STATUS_CONFIG,
+  PAYMENT_STATUS_CONFIG,
+  SHIPPING_STATUS_ACTIONS,
+  ORDER_SOURCE_CONFIG,
+  BRAND_COLORS,
+} from '@baci/shared';
+
+export default function OrdersScreen() {
+  const { colors, shadows, isDark } = useTheme();
+  const { storeUrl } = useMerchant();
+  const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(undefined);
+  const [showInsight, setShowInsight] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
+    start: null,
+    end: null,
+  });
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+
+  // Status update mutation
+  const updateStatus = useUpdateOrderStatus();
+
+  // Collapsible search bar animation
+  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  const lastScrollY = useRef(0);
+  const isSearchVisible = useRef(true);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
+
+    // Only trigger animation if scrolled more than 10px and not at top
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        // Scrolling down - hide search bar
+        isSearchVisible.current = false;
+        Animated.timing(searchBarHeight, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        // Scrolling up - show search bar
+        isSearchVisible.current = true;
+        Animated.timing(searchBarHeight, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+
+    lastScrollY.current = currentScrollY;
+  }, [searchBarHeight]);
+
+  // Fetch orders with filter
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useOrders({ status: statusFilter });
+
+  // Flatten pages into single array
+  const allOrders = useMemo(() => {
+    return data?.pages.flatMap((page) => page.orders) ?? [];
+  }, [data]);
+
+  // Filter orders by search query and date range
+  const orders = useMemo(() => {
+    let filtered = allOrders;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (order) =>
+          order.order_number.toLowerCase().includes(query) ||
+          order.customer_name.toLowerCase().includes(query)
+      );
+    }
+
+    // Date range filter
+    if (dateRange.start || dateRange.end) {
+      filtered = filtered.filter((order) => {
+        const orderDate = new Date(order.created_at);
+        if (dateRange.start && orderDate < dateRange.start) return false;
+        if (dateRange.end) {
+          const endOfDay = new Date(dateRange.end);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (orderDate > endOfDay) return false;
+        }
+        return true;
+      });
+    }
+
+    return filtered;
+  }, [allOrders, searchQuery, dateRange]);
+
+  const pendingCount = useMemo(() => {
+    return allOrders.filter((o) => o.shipping_status === 'pending').length ?? 0;
+  }, [allOrders]);
+
+  // Format date range for display
+  const formatDateRange = () => {
+    if (!dateRange.start && !dateRange.end) return null;
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
+    if (dateRange.start && dateRange.end) {
+      return `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`;
+    }
+    if (dateRange.start) return `From ${formatDate(dateRange.start)}`;
+    if (dateRange.end) return `Until ${formatDate(dateRange.end)}`;
+    return null;
+  };
+
+  const clearDateRange = () => {
+    setDateRange({ start: null, end: null });
+  };
+
+  // Map color key from shared config to actual theme color
+  const getColorFromKey = (colorKey: string): string => {
+    const colorMap: Record<string, string> = {
+      pending: colors.pending,
+      processing: colors.processing,
+      shipped: colors.shipped,
+      delivered: colors.delivered,
+      cancelled: colors.cancelled,
+      returned: colors.returned || colors.textMuted,
+      success: colors.success,
+      error: colors.error,
+      warning: colors.warning,
+      info: colors.info || colors.primary,
+      textMuted: colors.textMuted,
+      primary: colors.primary,
+      gold: colors.gold,
+      whatsapp: BRAND_COLORS.whatsapp,
+      instagram: BRAND_COLORS.instagram,
+    };
+    return colorMap[colorKey] ?? colors.textMuted;
+  };
+
+  // Get available status actions based on current status (from shared config)
+  const getStatusActions = (currentStatus: ShippingStatus): { status: ShippingStatus; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] => {
+    const actions = SHIPPING_STATUS_ACTIONS[currentStatus] ?? [];
+    return actions.map((action) => ({
+      status: action.nextStatus,
+      label: action.label,
+      icon: action.icon as keyof typeof Ionicons.glyphMap,
+      color: getColorFromKey(SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'),
+    }));
+  };
+
+  // Handle status update
+  const handleStatusUpdate = async (newStatus: ShippingStatus) => {
+    if (!selectedOrder) return;
+
+    try {
+      await updateStatus.mutateAsync({ orderId: selectedOrder.id, status: newStatus });
+      setShowStatusDropdown(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
+  };
+
+  // Open status dropdown for an order
+  const openStatusDropdown = (order: Order, event: any) => {
+    // Get the position of the pressed element
+    event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+      setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
+      setSelectedOrder(order);
+      setShowStatusDropdown(true);
+    });
+  };
+
+  // Close dropdown
+  const closeStatusDropdown = () => {
+    setShowStatusDropdown(false);
+    setSelectedOrder(null);
+  };
+
+  // Get shipping status display config (using shared config + theme colors)
+  const getShippingStatusConfig = (status: ShippingStatus) => {
+    const config = SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
+    return {
+      color: getColorFromKey(config.colorKey),
+      label: config.label,
+    };
+  };
+
+  // Get payment status display config (using shared config + theme colors)
+  const getPaymentStatusConfig = (status: PaymentStatus) => {
+    const config = PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
+    return {
+      color: getColorFromKey(config.colorKey),
+      label: config.label,
+    };
+  };
+
+  // Source icon config (using shared config + theme colors)
+  const getSourceConfig = (source: string | null) => {
+    const config = ORDER_SOURCE_CONFIG[source ?? 'online_store'] ?? ORDER_SOURCE_CONFIG.online_store;
+    return {
+      icon: config.icon as keyof typeof Ionicons.glyphMap,
+      color: getColorFromKey(config.colorKey),
+      label: config.label,
+    };
+  };
+
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const formatPrice = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderOrder = ({ item }: { item: Order }) => {
+    const shippingConfig = getShippingStatusConfig(item.shipping_status as ShippingStatus);
+    const paymentConfig = getPaymentStatusConfig(item.payment_status as PaymentStatus);
+    const sourceConfig = getSourceConfig(item.source);
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.orderCard,
+          { backgroundColor: colors.card },
+          shadows.sm,
+          pressed && { backgroundColor: colors.cardHover },
+        ]}
+        onPress={() => router.push(`/order/${item.id}`)}
+      >
+        <View style={styles.orderHeader}>
+          <View style={styles.orderNumberRow}>
+            {/* Source Icon */}
+            <View style={[styles.sourceIcon, { backgroundColor: sourceConfig.color + '15' }]}>
+              <Ionicons name={sourceConfig.icon} size={16} color={sourceConfig.color} />
+            </View>
+            <Text style={[styles.customerName, { color: colors.text }]}>{item.customer_name}</Text>
+          </View>
+          <View style={styles.statusBadges}>
+            {/* Payment Status Badge */}
+            <View style={[styles.paymentBadge, { backgroundColor: paymentConfig.color + '20' }]}>
+              <Text style={[styles.paymentText, { color: paymentConfig.color }]}>
+                {paymentConfig.label}
+              </Text>
+            </View>
+            {/* Shipping Status Badge - Tappable */}
+            <Pressable
+              style={[styles.statusBadge, { backgroundColor: shippingConfig.color + '20' }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                openStatusDropdown(item, e);
+              }}
+              hitSlop={8}
+            >
+              <View style={[styles.statusDot, { backgroundColor: shippingConfig.color }]} />
+              <Text style={[styles.statusText, { color: shippingConfig.color }]}>
+                {shippingConfig.label}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color={shippingConfig.color} />
+            </Pressable>
+          </View>
+        </View>
+
+        <Text style={[styles.orderNumber, { color: colors.textSecondary }]}>{item.order_number}</Text>
+
+        <View style={styles.orderFooter}>
+          <Text style={[styles.orderTotal, { color: colors.text }]}>{formatPrice(item.total)}</Text>
+          <View style={styles.orderMetaRow}>
+            <Text style={[styles.orderMetaBold, { color: colors.textSecondary }]}>
+              {item.item_count ?? 0} {(item.item_count ?? 0) === 1 ? 'item' : 'items'}
+            </Text>
+            <Text style={[styles.orderMetaDot, { color: colors.textMuted }]}>•</Text>
+            <Text style={[styles.orderMeta, { color: colors.textMuted }]}>
+              {formatTime(item.created_at)}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const FilterTab = ({ status, label }: { status: ShippingStatus | 'all'; label: string }) => {
+    const isActive = (status === 'all' && !statusFilter) || statusFilter === status;
+    return (
+      <Pressable
+        style={[
+          styles.filterTab,
+          { backgroundColor: isActive ? colors.gold : colors.card },
+        ]}
+        onPress={() => setStatusFilter(status === 'all' ? undefined : status as ShippingStatus)}
+      >
+        <Text style={[
+          styles.filterText,
+          { color: isActive ? '#FFFFFF' : colors.textSecondary },
+        ]}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Orders</Text>
+        <Pressable
+          style={[styles.calendarButton, { backgroundColor: colors.card }]}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={22}
+            color={dateRange.start || dateRange.end ? colors.gold : colors.text}
+          />
+        </Pressable>
+      </View>
+
+      {/* Collapsible Search Bar */}
+      <Animated.View
+        style={[
+          styles.searchContainer,
+          {
+            maxHeight: searchBarHeight.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 60],
+            }),
+            opacity: searchBarHeight,
+            overflow: 'hidden',
+          },
+        ]}
+      >
+        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+          <Ionicons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search orders or customers..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </View>
+      </Animated.View>
+
+      {/* Date Range Chip */}
+      {formatDateRange() && (
+        <View style={styles.dateChipContainer}>
+          <View style={[styles.dateChip, { backgroundColor: colors.goldLight }]}>
+            <Ionicons name="calendar" size={14} color={colors.gold} />
+            <Text style={[styles.dateChipText, { color: colors.gold }]}>{formatDateRange()}</Text>
+            <Pressable onPress={clearDateRange} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={colors.gold} />
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Insight Card */}
+      {showInsight && pendingCount > 0 && (
+        <View style={[styles.insightCard, { backgroundColor: colors.card }, shadows.sm]}>
+          <View style={styles.insightHeader}>
+            <BaciLogo size={32} borderRadius={RADIUS.sm} />
+            <View style={styles.storeInfo}>
+              <Text style={[styles.storeName, { color: colors.gold }]}>{storeUrl}</Text>
+            </View>
+            <Pressable
+              onPress={() => setShowInsight(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={[styles.dismissButton, { backgroundColor: colors.backgroundLight }]}>
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+          </View>
+          <Text style={[styles.insightMessage, { color: colors.textSecondary }]}>
+            You have {pendingCount} pending orders awaiting confirmation. Process them to keep customers happy!
+          </Text>
+          <Pressable
+            style={styles.insightLink}
+            onPress={() => {
+              setStatusFilter('pending');
+              setShowInsight(false);
+            }}
+          >
+            <Text style={[styles.insightLinkText, { color: colors.gold }]}>View pending</Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.gold} />
+          </Pressable>
+        </View>
+      )}
+
+      {/* Filter Tabs - aligned with web app shipping statuses */}
+      <View style={styles.filterContainer}>
+        <FilterTab status="all" label="All" />
+        <FilterTab status="pending" label="Pending" />
+        <FilterTab status="processing" label="Processing" />
+        <FilterTab status="shipped" label="Shipped" />
+        <FilterTab status="delivered" label="Delivered" />
+      </View>
+
+      {/* Orders List */}
+      <FlatList
+        data={orders}
+        renderItem={renderOrder}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refetch}
+            tintColor={colors.gold}
+            colors={[colors.gold]}
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={colors.gold} />
+            </View>
+          ) : null
+        }
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={56} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No orders found</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Orders will appear here when customers place them</Text>
+            </View>
+          ) : null
+        }
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* Floating Action Button */}
+      <Pressable
+        style={({ pressed }) => [
+          styles.fab,
+          { backgroundColor: colors.gold },
+          shadows.lg,
+          pressed && { opacity: 0.9, transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={() => router.push('/order/new')}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </Pressable>
+
+      {/* Date Range Picker Modal */}
+      <Modal
+        visible={showDatePicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDatePicker(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDatePicker(false)}
+        >
+          <View
+            style={[styles.datePickerModal, { backgroundColor: colors.card }, shadows.lg]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.datePickerHeader}>
+              <Text style={[styles.datePickerTitle, { color: colors.text }]}>Select Date Range</Text>
+              <Pressable onPress={() => setShowDatePicker(false)}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </Pressable>
+            </View>
+
+            {/* Quick Presets */}
+            <View style={styles.presetContainer}>
+              {[
+                { label: 'Today', days: 0 },
+                { label: 'Last 7 Days', days: 7 },
+                { label: 'Last 30 Days', days: 30 },
+                { label: 'This Month', days: -1 },
+              ].map((preset) => (
+                <Pressable
+                  key={preset.label}
+                  style={[styles.presetButton, { borderColor: colors.border }]}
+                  onPress={() => {
+                    const end = new Date();
+                    let start: Date;
+                    if (preset.days === 0) {
+                      start = new Date();
+                      start.setHours(0, 0, 0, 0);
+                    } else if (preset.days === -1) {
+                      start = new Date();
+                      start.setDate(1);
+                      start.setHours(0, 0, 0, 0);
+                    } else {
+                      start = new Date();
+                      start.setDate(start.getDate() - preset.days);
+                    }
+                    setDateRange({ start, end });
+                    setShowDatePicker(false);
+                  }}
+                >
+                  <Text style={[styles.presetText, { color: colors.text }]}>{preset.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Clear Button */}
+            <Pressable
+              style={[styles.clearButton, { backgroundColor: colors.backgroundLight }]}
+              onPress={() => {
+                clearDateRange();
+                setShowDatePicker(false);
+              }}
+            >
+              <Text style={[styles.clearButtonText, { color: colors.textSecondary }]}>Clear Filter</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Status Dropdown */}
+      {showStatusDropdown && selectedOrder && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <Pressable
+            style={styles.dropdownBackdrop}
+            onPress={closeStatusDropdown}
+          />
+          {/* Dropdown Menu */}
+          <View
+            style={[
+              styles.statusDropdown,
+              { backgroundColor: colors.card, top: dropdownPosition.y, left: dropdownPosition.x },
+              shadows.lg,
+            ]}
+          >
+            {getStatusActions(selectedOrder.shipping_status as ShippingStatus).length > 0 ? (
+              getStatusActions(selectedOrder.shipping_status as ShippingStatus).map((action, index) => (
+                <Pressable
+                  key={action.status}
+                  style={({ pressed }) => [
+                    styles.dropdownItem,
+                    index > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                    pressed && { backgroundColor: colors.backgroundLight },
+                  ]}
+                  onPress={() => handleStatusUpdate(action.status)}
+                  disabled={updateStatus.isPending}
+                >
+                  <Ionicons name={action.icon} size={18} color={action.color} />
+                  <Text style={[styles.dropdownItemText, { color: action.color }]}>
+                    {action.label}
+                  </Text>
+                  {updateStatus.isPending && (
+                    <ActivityIndicator size="small" color={action.color} />
+                  )}
+                </Pressable>
+              ))
+            ) : (
+              <View style={styles.dropdownItem}>
+                <Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>
+                  No actions
+                </Text>
+              </View>
+            )}
+          </View>
+        </>
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  title: {
+    fontSize: TYPOGRAPHY.size['3xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  calendarButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchContainer: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    paddingVertical: SPACING.xs,
+  },
+  dateChipContainer: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    gap: SPACING.xs,
+  },
+  dateChipText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: SPACING.xl,
+    right: SPACING.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  datePickerModal: {
+    width: '100%',
+    maxWidth: 320,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg,
+  },
+  datePickerTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  presetContainer: {
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  presetButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+  },
+  presetText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
+  },
+  clearButton: {
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  clearButtonText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textAlign: 'center',
+  },
+  // Status Dropdown Styles
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99,
+  },
+  statusDropdown: {
+    position: 'absolute',
+    zIndex: 100,
+    borderRadius: RADIUS.md,
+    minWidth: 160,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+  },
+  dropdownItemText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  insightCard: {
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  storeInfo: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  storeName: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  dismissButton: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insightMessage: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  insightLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  insightLinkText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  filterTab: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+  },
+  filterText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  listContent: {
+    padding: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: 80, // Extra space for FAB
+    gap: SPACING.md,
+  },
+  orderCard: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  orderNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  sourceIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderNumber: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginBottom: SPACING.md,
+  },
+  statusBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paymentBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  paymentText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  customerName: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  orderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderTotal: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  orderMeta: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  orderMetaBold: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  orderMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  orderMetaDot: {
+    marginHorizontal: 6,
+    fontSize: TYPOGRAPHY.size.xs,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: SPACING.sm,
+  },
+  emptyTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginTop: SPACING.md,
+  },
+  emptyText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: SPACING.lg,
+    alignItems: 'center',
+  },
+});

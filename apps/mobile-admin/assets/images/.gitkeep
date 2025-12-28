@@ -1,0 +1,9 @@
+# Asset Images Directory
+
+Place the following images here:
+- icon.png (1024x1024) - App icon
+- adaptive-icon.png (1024x1024) - Android adaptive icon foreground
+- splash-icon.png (1024x1024) - Splash screen logo
+- favicon.png (48x48) - Web favicon
+
+You can use the same assets from the storefront or create admin-specific branding.

@@ -1,0 +1,86 @@
+/**
+ * Order Status Constants
+ * Single source of truth for status labels, colors, and transitions
+ */
+
+import type { ShippingStatus, PaymentStatus } from '../types/order';
+
+// Shipping Status Configuration
+export const SHIPPING_STATUS_CONFIG: Record<
+  ShippingStatus,
+  { label: string; colorKey: string }
+> = {
+  pending: { label: 'Pending', colorKey: 'pending' },
+  processing: { label: 'Processing', colorKey: 'processing' },
+  shipped: { label: 'Shipped', colorKey: 'shipped' },
+  delivered: { label: 'Delivered', colorKey: 'delivered' },
+  cancelled: { label: 'Cancelled', colorKey: 'cancelled' },
+  returned: { label: 'Returned', colorKey: 'returned' },
+};
+
+// Payment Status Configuration
+export const PAYMENT_STATUS_CONFIG: Record<
+  PaymentStatus,
+  { label: string; colorKey: string }
+> = {
+  paid: { label: 'Paid', colorKey: 'success' },
+  unpaid: { label: 'Unpaid', colorKey: 'error' },
+  pending: { label: 'Pending', colorKey: 'pending' },
+  failed: { label: 'Failed', colorKey: 'error' },
+  refunded: { label: 'Refunded', colorKey: 'textMuted' },
+  partially_paid: { label: 'Partial', colorKey: 'warning' },
+  bnpl_approved: { label: 'BNPL Approved', colorKey: 'info' },
+  bnpl_pending: { label: 'BNPL Pending', colorKey: 'pending' },
+};
+
+// Allowed status transitions (from -> to[])
+export const SHIPPING_STATUS_TRANSITIONS: Record<ShippingStatus, ShippingStatus[]> = {
+  pending: ['processing', 'cancelled'],
+  processing: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: ['returned'],
+  cancelled: [],
+  returned: [],
+};
+
+// Status action labels
+export const SHIPPING_STATUS_ACTIONS: Record<
+  ShippingStatus,
+  { nextStatus: ShippingStatus; label: string; icon: string }[]
+> = {
+  pending: [
+    { nextStatus: 'processing', label: 'Confirm Order', icon: 'checkmark-circle-outline' },
+    { nextStatus: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline' },
+  ],
+  processing: [
+    { nextStatus: 'shipped', label: 'Ship Order', icon: 'airplane-outline' },
+    { nextStatus: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline' },
+  ],
+  shipped: [
+    { nextStatus: 'delivered', label: 'Mark as Delivered', icon: 'checkmark-done-outline' },
+  ],
+  delivered: [
+    { nextStatus: 'returned', label: 'Process Return', icon: 'return-down-back-outline' },
+  ],
+  cancelled: [],
+  returned: [],
+};
+
+// Order source configuration
+export const ORDER_SOURCE_CONFIG: Record<
+  string,
+  { label: string; icon: string; colorKey: string }
+> = {
+  online_store: { label: 'Store', icon: 'storefront-outline', colorKey: 'gold' },
+  storefront: { label: 'Store', icon: 'storefront-outline', colorKey: 'gold' },
+  whatsapp: { label: 'WhatsApp', icon: 'logo-whatsapp', colorKey: 'whatsapp' },
+  instagram: { label: 'Instagram', icon: 'logo-instagram', colorKey: 'instagram' },
+  web: { label: 'Website', icon: 'globe-outline', colorKey: 'primary' },
+  manual: { label: 'Manual', icon: 'create-outline', colorKey: 'textMuted' },
+};
+
+// Brand colors (hex values)
+export const BRAND_COLORS = {
+  whatsapp: '#25D366',
+  instagram: '#E4405F',
+} as const;

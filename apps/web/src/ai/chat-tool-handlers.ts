@@ -5,9 +5,7 @@
  * These handlers are called when the AI invokes a tool.
  */
 
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 import type {
   AddToCartParams,
   CheckPaymentStatusParams,
@@ -190,7 +188,7 @@ export async function handleCreateVirtualAccount(
 
     // Simulated virtual account (replace with real Kuda integration)
     const virtualAccount = {
-      accountNumber: '999' + Math.random().toString().slice(2, 9),
+      accountNumber: `999${Math.random().toString().slice(2, 9)}`,
       bankName: 'Kuda Bank',
       accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
     };

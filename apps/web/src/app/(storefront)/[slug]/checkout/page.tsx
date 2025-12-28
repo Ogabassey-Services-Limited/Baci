@@ -1,7 +1,5 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
 import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
 import {

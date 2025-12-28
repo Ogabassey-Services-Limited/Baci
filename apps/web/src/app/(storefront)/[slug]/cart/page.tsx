@@ -1,7 +1,5 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import {

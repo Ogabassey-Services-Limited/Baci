@@ -1,0 +1,71 @@
+/**
+ * QuickActionButton Component
+ * Grid button for quick access to common merchant actions
+ */
+
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/hooks/useTheme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+
+interface QuickActionButtonProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  iconColor?: string;
+  backgroundColor?: string;
+}
+
+export function QuickActionButton({
+  icon,
+  label,
+  onPress,
+  iconColor,
+  backgroundColor,
+}: QuickActionButtonProps) {
+  const { colors, shadows } = useTheme();
+  const finalIconColor = iconColor || colors.primary;
+  const finalBgColor = backgroundColor || colors.primaryLight;
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.container,
+        { backgroundColor: colors.card },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={onPress}
+    >
+      <View style={[styles.iconContainer, { backgroundColor: finalBgColor }]}>
+        <Ionicons name={icon} size={24} color={finalIconColor} />
+      </View>
+      <Text style={[styles.label, { color: colors.text }]} numberOfLines={2}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+    flex: 1,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  label: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    textAlign: 'center',
+  },
+});

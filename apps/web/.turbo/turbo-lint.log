@@ -125,6 +125,130 @@ src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx:333:67 lint/suspicious/noEx
   i any disables many type checking rules. Its use should be avoided.
   
 
+src/app/(storefront)/[slug]/blog/blog-list.tsx:127:74 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    125 │         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    126 │           {posts.map((post) => (
+  > 127 │             <Link key={post.id} href={`${basePath}/blog/${post.slug}` as any}>
+        │                                                                          ^^^
+    128 │               <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
+    129 │                 {post.featured_image_url && (
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(storefront)/[slug]/blog/blog-list.tsx:56:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: category, searchQuery.
+  
+    55 │   // Reset state when filters change
+  > 56 │   useEffect(() => {
+       │   ^^^^^^^^^
+    57 │     setPosts(initialPosts);
+    58 │     setPage(1);
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    58 │     setPage(1);
+    59 │     setHasMore(initialPosts.length < totalPosts);
+  > 60 │   }, [initialPosts, totalPosts, category, searchQuery]);
+       │                                 ^^^^^^^^
+    61 │ 
+    62 │   useEffect(() => {
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    58 │     setPage(1);
+    59 │     setHasMore(initialPosts.length < totalPosts);
+  > 60 │   }, [initialPosts, totalPosts, category, searchQuery]);
+       │                                           ^^^^^^^^^^^
+    61 │ 
+    62 │   useEffect(() => {
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    60 │ ··},·[initialPosts,·totalPosts,·category,·searchQuery]);
+       │                               -----------------------   
+
+src/app/(storefront)/[slug]/blog/blog-list.tsx:62:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook does not specify its dependency on loadMore.
+  
+    60 │   }, [initialPosts, totalPosts, category, searchQuery]);
+    61 │ 
+  > 62 │   useEffect(() => {
+       │   ^^^^^^^^^
+    63 │     const observer = new IntersectionObserver(
+    64 │       (entries) => {
+  
+  i This dependency is being used here, but is not specified in the hook dependency list.
+  
+    64 │       (entries) => {
+    65 │         if (entries[0].isIntersecting && hasMore && !isPending) {
+  > 66 │           loadMore();
+       │           ^^^^^^^^
+    67 │         }
+    68 │       },
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Failing to specify dependencies can result in Effects not updating correctly when state changes.
+    These "stale closures" are a common source of surprising bugs.
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    77 │ ··},·[hasMore,·isPending,·page,·category,·searchQuery,·loadMore]);
+       │                                                      ++++++++++   
+
+src/app/(storefront)/[slug]/blog/blog-list.tsx:62:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
+
+  ! This hook specifies more dependencies than necessary: page, category, searchQuery.
+  
+    60 │   }, [initialPosts, totalPosts, category, searchQuery]);
+    61 │ 
+  > 62 │   useEffect(() => {
+       │   ^^^^^^^^^
+    63 │     const observer = new IntersectionObserver(
+    64 │       (entries) => {
+  
+  i This dependency can be removed from the list.
+  
+    76 │     return () => observer.disconnect();
+  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
+       │                           ^^^^
+    78 │ 
+    79 │   const loadMore = () => {
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    76 │     return () => observer.disconnect();
+  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
+       │                                 ^^^^^^^^
+    78 │ 
+    79 │   const loadMore = () => {
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
+  
+    76 │     return () => observer.disconnect();
+  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
+       │                                           ^^^^^^^^^^^
+    78 │ 
+    79 │   const loadMore = () => {
+  
+  i React relies on hook dependencies to determine when to re-compute Effects.
+    Specifying more dependencies than required can lead to unnecessary re-rendering
+    and degraded performance.
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    77 │ ··},·[hasMore,·isPending,·page,·category,·searchQuery]);
+       │                         -----------------------------   
+
 src/app/(storefront)/[slug]/cart/page.tsx:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━
 
   ! This import is unused.
@@ -241,93 +365,33 @@ src/app/(storefront)/[slug]/faq/page.tsx:105:9 lint/security/noDangerouslySetInn
   ! Setting content using code can expose users to cross-site scripting (XSS) attacks
   
 
-src/app/(storefront)/[slug]/page.tsx:228:51 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    226 │     } else {
-    227 │       // Manual mapping: Transform many-to-many result to Product interface shape
-  > 228 │       merchantProducts = (products || []).map((p: any) => ({
-        │                                                   ^^^
-    229 │         ...p,
-    230 │         // Map the first category from the collection to the legacy text/object field expected by UI
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/(storefront)/[slug]/privacy/page.tsx:119:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
-
-  ! Avoid passing content using the dangerouslySetInnerHTML prop.
-  
-    117 │       <script
-    118 │         type="application/ld+json"
-  > 119 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
-        │         ^^^^^^^^^^^^^^^^^^^^^^^
-    120 │       />
-    121 │       <StorefrontPageWrapper
-  
-  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
-  
-
-src/app/(storefront)/[slug]/products/[productSlug]/page.tsx:13:24 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    11 │   getCachedProductReviews,
-    12 │ } from '@/lib/cached-data';
-  > 13 │ import type { Product, Review } from '@/lib/products';
-       │                        ^^^^^^
-    14 │ import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
-    15 │ import {
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-    13 │ import·type·{·Product,·Review·}·from·'@/lib/products';
-       │                        -------                        
-
-src/app/(storefront)/[slug]/products/[productSlug]/product-detail-client.tsx:112:3 lint/correctness/noUnusedFunctionParameters ━━━━━━━━━━
-
-  ! This parameter is unused.
-  
-    110 │ export default function ProductDetailClient({
-    111 │   product,
-  > 112 │   faqs,
-        │   ^^^^
-    113 │ }: {
-    114 │   product: Product;
-  
-  i Unused parameters might be the result of an incomplete refactoring.
-  
-
 next.config.ts:303:3 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × This async function lacks an await expression.
   
-    302 │   // Proxy MCP requests to VPS
+    302 │   // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
   > 303 │   async rewrites() {
         │   ^^^^^^^^^^^^^^^^^^
-  > 304 │     return [
+  > 304 │     const mcpServerUrl = process.env.MCP_SERVER_URL;
          ...
-  > 313 │     ];
-  > 314 │   },
+  > 317 │     ];
+  > 318 │   },
         │   ^
-    315 │ 
-    316 │   // Security headers
+    319 │ 
+    320 │   // Security headers
   
   i Remove this async modifier, or add an await expression in the function.
   
-    302 │   // Proxy MCP requests to VPS
+    302 │   // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
   > 303 │   async rewrites() {
         │   ^^^^^^^^^^^^^^^^^^
-  > 304 │     return [
+  > 304 │     const mcpServerUrl = process.env.MCP_SERVER_URL;
          ...
-  > 313 │     ];
-  > 314 │   },
+  > 317 │     ];
+  > 318 │   },
         │   ^
-    315 │ 
-    316 │   // Security headers
+    319 │ 
+    320 │   // Security headers
   
   i Async functions without await expressions may not need to be declared async.
   
@@ -385,6 +449,11 @@ src/ai/chat-tool-handlers.ts:408:8 lint/suspicious/useAwait ━━━━━━�
         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   > 409 │   params: AddToCartParams
   > 410 │ ): Promise<ProductSearchResult | null> {
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 51.
+Checked 755 files in 1504ms. No fixes applied.
+Found 12 errors.
+Found 59 warnings.
   > 411 │   // Just return the product details - actual cart management happens on frontend
   > 412 │   return handleGetProductDetails({ productId: params.productId });
   > 413 │ }
@@ -408,11 +477,6 @@ src/ai/chat-tool-handlers.ts:408:8 lint/suspicious/useAwait ━━━━━━�
   i Async functions without await expressions may not need to be declared async.
   
 
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 50.
-Checked 755 files in 953ms. No fixes applied.
-Found 12 errors.
-Found 58 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.
