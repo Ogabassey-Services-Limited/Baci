@@ -68,8 +68,7 @@ export async function GET() {
         is_published,
         nin,
         bvn,
-        cac_number,
-        cac_number
+        cac_rc_number
       `)
       .eq('user_id', user.id)
       .single();
@@ -98,7 +97,7 @@ export async function GET() {
         id: 'verify_kyc',
         label: 'Verify your identity (KYC)',
         description: 'NIN, BVN, or CAC required for payments',
-        completed: !!(merchant.nin || merchant.bvn || merchant.cac_number),
+        completed: !!(merchant.nin || merchant.bvn || merchant.cac_rc_number),
         href: '/dashboard/settings/kyc',
         priority: 'required',
         category: 'payments',

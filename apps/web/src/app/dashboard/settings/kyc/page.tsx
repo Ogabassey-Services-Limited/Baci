@@ -17,7 +17,7 @@ export default async function KycSettingsPage() {
   const initialData = {
     nin: m.nin || '',
     bvn: m.bvn || '',
-    cac_number: m.cac_number || '',
+    cac_number: m.cac_rc_number || '',
     kyc_status: m.kyc_status || null,
   };
 

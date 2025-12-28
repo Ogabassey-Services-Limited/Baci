@@ -107,7 +107,7 @@ export async function submitKyc(data: KycData) {
       .update({
         nin: validatedData.nin,
         bvn: validatedData.bvn,
-        cac_number: validatedData.cac_number,
+        cac_rc_number: validatedData.cac_number,
         kyc_status: 'pending',
       })
       .eq('id', merchant.id);
