@@ -1,29 +1,28 @@
-
 import { type NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // GET /api/storefront/orders/[id] - Public endpoint to fetch order for checkout resumption
 export async function GET(
-    _request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-    try {
-        const { id } = await params;
+  try {
+    const { id } = await params;
 
-        // Validate UUID to prevent basic injection/scanning
-        if (!isValidUuid(id)) {
-            return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
-        }
+    // Validate UUID to prevent basic injection/scanning
+    if (!isValidUuid(id)) {
+      return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
+    }
 
-        // Use service client because user is likely a guest (not logged in)
-        const supabase = createServiceClient();
+    // Use service client because user is likely a guest (not logged in)
+    const supabase = createServiceClient();
 
-        // Fetch order with items
-        // We select specifically what's needed for the checkout UI to be safe
-        const { data: order, error } = await supabase
-            .from('orders')
-            .select(`
+    // Fetch order with items
+    // We select specifically what's needed for the checkout UI to be safe
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
         id,
         short_id,
         subtotal,
@@ -44,20 +43,23 @@ export async function GET(
           price
         )
       `)
-            .eq('id', id)
-            .single();
+      .eq('id', id)
+      .single();
 
-        if (error || !order) {
-            console.error('Storefront order fetch error:', error);
-            return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-        }
-
-        return NextResponse.json(order);
-    } catch (error) {
-        console.error('Unexpected error in GET /api/storefront/orders/[id]:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+    if (error || !order) {
+      console.error('Storefront order fetch error:', error);
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
+
+    return NextResponse.json(order);
+  } catch (error) {
+    console.error(
+      'Unexpected error in GET /api/storefront/orders/[id]:',
+      error
+    );
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

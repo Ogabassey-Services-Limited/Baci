@@ -61,11 +61,13 @@ export async function POST(
     // 2. Generate Paystack DVA (User Request: "Let the agentic payment module b our paystack dvas")
     // Instead of charging a card immediately, we generate a virtual account for the user to transfer to.
 
-    // Check if we already have DVA details in metadata or similar? 
+    // Check if we already have DVA details in metadata or similar?
     // For now, generate new one or retrieve existing.
-    const { createDedicatedVirtualAccount } = await import('@/lib/agentic/paystack');
+    const { createDedicatedVirtualAccount } = await import(
+      '@/lib/agentic/paystack'
+    );
 
-    let dvaResult;
+    let dvaResult: Awaited<ReturnType<typeof createDedicatedVirtualAccount>>;
     try {
       dvaResult = await createDedicatedVirtualAccount({
         email: buyer.email,
@@ -73,12 +75,14 @@ export async function POST(
         last_name: buyer.last_name,
         phone: buyer.phone_number,
       });
-    } catch (dvaError: any) {
+    } catch (dvaError: unknown) {
       console.error('DVA Creation Failed:', dvaError);
+      const errorMessage =
+        dvaError instanceof Error ? dvaError.message : 'Unknown error';
       return NextResponse.json(
         {
           error: 'Failed to generate payment account',
-          details: dvaError.message
+          details: errorMessage,
         },
         { status: 502 }
       );
@@ -140,7 +144,7 @@ export async function POST(
         metadata: {
           ...session.metadata,
           dva_account: dvaResult,
-        }
+        },
       })
       .eq('id', params.id);
 
@@ -171,7 +175,8 @@ export async function POST(
         bank_name: dvaResult.bank_name,
         account_number: dvaResult.account_number,
         account_name: dvaResult.account_name,
-        message: 'Please transfer the exact total to this account to complete your order.'
+        message:
+          'Please transfer the exact total to this account to complete your order.',
       },
       messages: [],
       links: [],
