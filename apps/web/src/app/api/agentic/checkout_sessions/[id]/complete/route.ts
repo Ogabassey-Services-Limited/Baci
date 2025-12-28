@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing logic
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import { chargeDelegatedPayment } from '@/lib/agentic/stripe';
+
 import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(
@@ -58,28 +58,33 @@ export async function POST(
         { status: 500 }
       );
 
-    // 2. Charge Stripe
-    const chargeResult = await chargeDelegatedPayment(
-      payment_data.token,
-      typeof grandTotal === 'number'
-        ? grandTotal
-        : Number.parseFloat(grandTotal),
-      session.currency
-    );
+    // 2. Generate Paystack DVA (User Request: "Let the agentic payment module b our paystack dvas")
+    // Instead of charging a card immediately, we generate a virtual account for the user to transfer to.
 
-    if (!chargeResult.success) {
+    // Check if we already have DVA details in metadata or similar? 
+    // For now, generate new one or retrieve existing.
+    const { createDedicatedVirtualAccount } = await import('@/lib/agentic/paystack');
+
+    let dvaResult;
+    try {
+      dvaResult = await createDedicatedVirtualAccount({
+        email: buyer.email,
+        first_name: buyer.first_name,
+        last_name: buyer.last_name,
+        phone: buyer.phone_number,
+      });
+    } catch (dvaError: any) {
+      console.error('DVA Creation Failed:', dvaError);
       return NextResponse.json(
         {
-          error: 'Payment Failed',
-          details: chargeResult.error,
-          code: 'payment_declined',
+          error: 'Failed to generate payment account',
+          details: dvaError.message
         },
-        { status: 402 }
+        { status: 502 }
       );
     }
 
-    // 3. Create Order via internal API call (Reuse Logic)
-    // Map Agentic data to Baci Order Schema
+    // 3. Create Order via internal API call (Reuse Logic) - Status: Pending Payment
     const orderPayload = {
       merchant_id: session.merchant_id,
       customer_email: buyer.email,
@@ -94,42 +99,29 @@ export async function POST(
         sessionCalc.totals.find((t) => t.type === 'subtotal')?.amount || 0,
       shipping_fee:
         sessionCalc.totals.find((t) => t.type === 'fulfillment')?.amount || 0,
-      payment_method: 'card', // Agentic/Stripe
-      payment_status: 'paid',
-      payment_provider_reference: chargeResult.id,
+      payment_method: 'bank_transfer', // Paystack DVA
+      payment_status: 'pending', // Waiting for transfer
+      payment_provider_reference: dvaResult.account_number, // Store Account Number as Ref
       shipping_status: 'pending',
-      shipping_address: session.fulfillment_address, // Map correctly?
-      // session.fulfillment_address has name, line_one, city, etc.
-      // internal order API expects `shipping_address` object.
+      shipping_address: session.fulfillment_address,
       source: 'agentic_ai',
-      notes: `Agentic Checkout Session: ${session.id}`,
+      notes: `Agentic Checkout Session: ${session.id} | DVA: ${dvaResult.bank_name} - ${dvaResult.account_number}`,
     };
-
-    // Call existing POST /api/orders
-    // We need to simulate a request.
-    // Or extract function? `orders/route.ts` exports POST.
-    // We can call it directly passing a specific request object.
 
     const internalReq = new NextRequest('http://localhost:3000/api/orders', {
       method: 'POST',
       body: JSON.stringify(orderPayload),
       headers: {
         'content-type': 'application/json',
-        'x-agentic-internal': 'true', // Flag to bypass certain checks if needed
+        'x-agentic-internal': 'true',
       },
     });
-
-    // NOTE: calling route handler directly might fail if it relies on headers/cookies too heavily.
-    // Ideally we refactor `createOrder` logic into a lib function.
-    // But per task instructions: "Reuse existing order creation logic".
-    // Calling the route handler is one way.
 
     const orderRes = await createOrder(internalReq);
     const orderData = await orderRes.json();
 
     if (orderRes.status !== 200 && orderRes.status !== 201) {
       console.error('Order creation failed:', orderData);
-      // Refund Stripe? (Critical logic for production)
       return NextResponse.json(
         { error: 'Order creation failed', details: orderData.error },
         { status: 500 }
@@ -137,25 +129,29 @@ export async function POST(
     }
 
     // 4. Update Session
-    const orderId = orderData.order?.id || orderData.id; // Check response structure of orders API
+    const orderId = orderData.order?.id || orderData.id;
 
     await supabase
       .from('checkout_sessions')
       .update({
-        status: 'completed',
+        status: 'payment_pending', // New status for DVA flow
         order_id: orderId,
         buyer: buyer,
+        metadata: {
+          ...session.metadata,
+          dva_account: dvaResult,
+        }
       })
       .eq('id', params.id);
 
-    // 5. Send Webhook (Async, don't block response)
+    // 5. Send Webhook (Async)
     const { sendAgenticWebhook } = await import('@/lib/agentic/webhooks');
     sendAgenticWebhook('order.created', {
       id: orderId,
       currency: session.currency,
       // biome-ignore lint/suspicious/noExplicitAny: Implicit any in find callback
       total: sessionCalc.totals.find((t: any) => t.type === 'total')?.amount,
-      status: 'created',
+      status: 'pending',
       ...buyer,
     }).catch((err) => console.error('Webhook trigger failed', err));
 
@@ -163,13 +159,20 @@ export async function POST(
     return NextResponse.json({
       id: session.id,
       buyer,
-      status: 'completed',
+      status: 'payment_pending',
       currency: session.currency.toLowerCase(),
       line_items: sessionCalc.lineItems,
       fulfillment_address: session.fulfillment_address,
       fulfillment_option_id: session.fulfillment_option_id,
       totals: sessionCalc.totals,
       order_id: orderId, // Extra field helpful for debugging
+      payment_details: {
+        type: 'bank_transfer',
+        bank_name: dvaResult.bank_name,
+        account_number: dvaResult.account_number,
+        account_name: dvaResult.account_name,
+        message: 'Please transfer the exact total to this account to complete your order.'
+      },
       messages: [],
       links: [],
     });
