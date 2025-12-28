@@ -473,7 +473,7 @@ export const CheckoutPage: React.FC = () => {
     const fetchResumedOrder = async () => {
       setIsLoadingResumedOrder(true);
       try {
-        const res = await fetch(`/api/orders/${resumeOrderId}`);
+        const res = await fetch(`/api/storefront/orders/${resumeOrderId}`);
         if (res.ok) {
           const orderData = await res.json();
           setResumedOrder({
