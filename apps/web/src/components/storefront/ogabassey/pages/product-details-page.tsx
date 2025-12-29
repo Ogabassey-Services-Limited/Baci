@@ -766,7 +766,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             )}
 
             {/* Platform Selector (Phase 4 Extension) */}
-            {productData.platforms && productData.platforms.length > 0 && (
+            {Array.isArray(productData.platforms) && productData.platforms.length > 0 && (
               <div className="mb-6">
                 <label className="text-sm font-bold text-gray-900 block mb-3">
                   Platform: <span className="text-red-600">{selectedPlatform || 'Select'}</span>

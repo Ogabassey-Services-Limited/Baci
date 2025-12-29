@@ -2,6 +2,146 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { Suspense } from 'react';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { notFound } from 'next/navigation';
+    3 │ import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1    │ - import·{·Suspense·}·from·'react';
+     2    │ - import·{·notFound·}·from·'next/navigation';
+        1 │ + import·{·notFound·}·from·'next/navigation';
+        2 │ + import·{·Suspense·}·from·'react';
+     3  3 │   import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
+     4  4 │   import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
+  
+
+src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:11:17 lint/style/useSelfClosingElements  FIXABLE  ━━━━━━━━━━
+
+  × JSX elements without children should be marked as self-closing. In JSX, it is valid for any element to be self-closing.
+  
+     9 │         <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    10 │             <div className="animate-pulse flex flex-col items-center">
+  > 11 │                 <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
+       │                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    12 │                 <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
+    13 │             </div>
+  
+  i Safe fix: Use a self-closing element instead.
+  
+     9  9 │           <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    10 10 │               <div className="animate-pulse flex flex-col items-center">
+    11    │ - ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
+       11 │ + ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"·/>
+    12 12 │                   <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
+    13 13 │               </div>
+  
+
+src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:12:17 lint/style/useSelfClosingElements  FIXABLE  ━━━━━━━━━━
+
+  × JSX elements without children should be marked as self-closing. In JSX, it is valid for any element to be self-closing.
+  
+    10 │             <div className="animate-pulse flex flex-col items-center">
+    11 │                 <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
+  > 12 │                 <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
+       │                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    13 │             </div>
+    14 │         </div>
+  
+  i Safe fix: Use a self-closing element instead.
+  
+    10 10 │               <div className="animate-pulse flex flex-col items-center">
+    11 11 │                   <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
+    12    │ - ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
+       12 │ + ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"·/>
+    13 13 │               </div>
+    14 14 │           </div>
+  
+
+src/app/(storefront)/[slug]/checkout/bnpl/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     2  2 │   import { notFound } from 'next/navigation';
+     3  3 │   import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
+     4    │ - import·{·getCachedMerchant,·getCachedMerchantByDomain·}·from·'@/lib/cached-data';
+        4 │ + import·{
+        5 │ + ··getCachedMerchant,
+        6 │ + ··getCachedMerchantByDomain,
+        7 │ + }·from·'@/lib/cached-data';
+     5  8 │   import { isDomainIdentifier } from '@/lib/validation';
+     6  9 │   
+     7 10 │   function BnplLoading() {
+     8    │ - ····return·(
+     9    │ - ········<div·className="min-h-screen·flex·items-center·justify-center·bg-gray-50">
+    10    │ - ············<div·className="animate-pulse·flex·flex-col·items-center">
+    11    │ - ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
+    12    │ - ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
+    13    │ - ············</div>
+    14    │ - ········</div>
+    15    │ - ····);
+       11 │ + ··return·(
+       12 │ + ····<div·className="min-h-screen·flex·items-center·justify-center·bg-gray-50">
+       13 │ + ······<div·className="animate-pulse·flex·flex-col·items-center">
+       14 │ + ········<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
+       15 │ + ········<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
+       16 │ + ······</div>
+       17 │ + ····</div>
+       18 │ + ··);
+    16 19 │   }
+    17 20 │   
+    18 21 │   export default async function BnplCheckoutPage({
+    19    │ - ····params,
+       22 │ + ··params,
+    20 23 │   }: {
+    21    │ - ····params:·Promise<{·slug:·string·}>;
+       24 │ + ··params:·Promise<{·slug:·string·}>;
+    22 25 │   }) {
+    23    │ - ····const·{·slug·}·=·await·params;
+       26 │ + ··const·{·slug·}·=·await·params;
+    24 27 │   
+    25    │ - ····//·Verify·merchant·exists
+    26    │ - ····const·merchant·=·isDomainIdentifier(slug)
+    27    │ - ········?·await·getCachedMerchantByDomain(slug)
+    28    │ - ········:·await·getCachedMerchant(slug);
+       28 │ + ··//·Verify·merchant·exists
+       29 │ + ··const·merchant·=·isDomainIdentifier(slug)
+       30 │ + ····?·await·getCachedMerchantByDomain(slug)
+       31 │ + ····:·await·getCachedMerchant(slug);
+    29 32 │   
+    30    │ - ····if·(!merchant)·{
+    31    │ - ········notFound();
+    32    │ - ····}
+       33 │ + ··if·(!merchant)·{
+       34 │ + ····notFound();
+       35 │ + ··}
+    33 36 │   
+    34    │ - ····//·We·rely·on·the·client·component·to·handle·the·specific·logic
+    35    │ - ····//·This·page·wrapper·mainly·ensures·we·have·a·valid·merchant·context·if·needed
+    36    │ - ····//·and·provides·the·Suspense·boundary·for·useSearchParams
+       37 │ + ··//·We·rely·on·the·client·component·to·handle·the·specific·logic
+       38 │ + ··//·This·page·wrapper·mainly·ensures·we·have·a·valid·merchant·context·if·needed
+       39 │ + ··//·and·provides·the·Suspense·boundary·for·useSearchParams
+    37 40 │   
+    38    │ - ····return·(
+    39    │ - ········<Suspense·fallback={<BnplLoading·/>}>
+    40    │ - ············<BnplLauncher·/>
+    41    │ - ········</Suspense>
+    42    │ - ····);
+       41 │ + ··return·(
+       42 │ + ····<Suspense·fallback={<BnplLoading·/>}>
+       43 │ + ······<BnplLauncher·/>
+       44 │ + ····</Suspense>
+       45 │ + ··);
+    43 46 │   }
+    44 47 │   
+  
+
 src/app/api/payments/initialize/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
@@ -40,8 +180,8 @@ src/app/api/payments/initialize/route.ts format ━━━━━━━━━━�
     591 594 │   
   
 
-Checked 761 files in 445ms. No fixes applied.
-Found 1 error.
+Checked 762 files in 751ms. No fixes applied.
+Found 5 errors.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.
