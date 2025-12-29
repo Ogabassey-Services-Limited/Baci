@@ -19,7 +19,23 @@ function getPublicSupabaseClient() {
     throw new Error('Supabase configuration is missing');
   }
 
-  return createSupabaseClient(url, key);
+  return createSupabaseClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'baci-web-cached',
+      },
+      fetch: (url, options = {}) => {
+        return fetch(url, {
+          ...options,
+          signal: AbortSignal.timeout(10000), // 10 second timeout
+        });
+      },
+    },
+  });
 }
 
 // Cache durations in seconds
