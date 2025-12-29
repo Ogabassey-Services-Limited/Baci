@@ -469,6 +469,7 @@ export const CheckoutPage: React.FC = () => {
 
   // Note: newAddressState, newAddressCity, newAddressStreet are now part of checkoutForm (persisted)
 
+
   // Fetch resumed order from mobile app when orderId is in URL
   useEffect(() => {
     if (!resumeOrderId) return;
@@ -511,6 +512,17 @@ export const CheckoutPage: React.FC = () => {
             currentStep: 'payment',
             completedSteps: { contact: true, delivery: true },
           });
+
+          // 2025 FIX: Sync paymentTab with preferredGateway to prevent UI crash
+          // If a BNPL gateway is selected, we MUST switch to the 'installments' tab
+          if (preferredGateway === 'credit_direct' || preferredGateway === 'credpal') {
+            setPaymentTab('installments');
+            setPaymentMethod(preferredGateway);
+          } else if (preferredGateway) {
+            setPaymentTab('full');
+            setPaymentMethod(preferredGateway);
+          }
+
         } else {
           console.error('Failed to fetch resumed order');
           setResumeOrderError('Order not found. It may have been completed or expired.');
@@ -523,7 +535,7 @@ export const CheckoutPage: React.FC = () => {
       }
     };
     fetchResumedOrder();
-  }, [resumeOrderId, setCheckoutFields]);
+  }, [resumeOrderId, setCheckoutFields, preferredGateway]);
 
   // Fetch States on mount
   useEffect(() => {
@@ -1195,10 +1207,11 @@ export const CheckoutPage: React.FC = () => {
           customerEmail,
           customerPhone,
           customerName: `${firstName} ${lastName}`.trim(),
-          items: cart.map(item => ({
-            id: String(item.id),
-            name: item.name,
-            price: item.negotiatedPrice || item.price,
+
+          items: (cart.length > 0 ? cart : resumedOrder?.items || []).map(item => ({
+            id: String(item.id || item.product_id), // Handle both cart items and resumed order items
+            name: item.name || item.product_name,
+            price: item.price,
             quantity: item.quantity,
           })),
           onSuccess: (transactionId) => {
@@ -1403,7 +1416,11 @@ export const CheckoutPage: React.FC = () => {
 
   // Empty cart check - only show after hydration confirms cart is genuinely empty
   // Skip this check when resuming an order (cart is empty during order resumption)
-  if (isHydrated && cart.length === 0 && !resumeOrderId && !resumedOrder) {
+
+  // Empty cart check - only show after hydration confirms cart is genuinely empty
+  // Skip this check when resuming an order (cart is empty during order resumption)
+  // 2025 FIX: Ensure resumedOrder is fully loaded before showing "Cart Empty"
+  if (isHydrated && cart.length === 0 && !resumeOrderId && !resumedOrder && !isLoadingResumedOrder) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="text-center max-w-md mx-auto px-4">
@@ -1818,16 +1835,17 @@ export const CheckoutPage: React.FC = () => {
         </div>
 
         {/* MOBILE ORDER SUMMARY (Collapsible) */}
+        {/* MOBILE ORDER SUMMARY (Collapsible) */}
         <MobileOrderSummary
-          cart={cart}
-          cartTotal={cartTotal}
-          deliveryCost={deliveryCost}
+          cart={cart.length > 0 ? cart : (resumedOrder?.items as any[]) || []}
+          cartTotal={cartTotal > 0 ? cartTotal : resumedOrder?.subtotal || 0}
+          deliveryCost={deliveryCost || resumedOrder?.shipping_cost || 0}
           deliveryMethod={deliveryMethod as any}
           giftWrappingCost={giftWrappingCost}
           walletBalance={walletBalance}
           payWithWallet={payWithWallet}
           walletAmountUsed={walletAmountUsed}
-          remainingAmount={remainingAmount}
+          remainingAmount={remainingAmount > 0 ? remainingAmount : resumedOrder?.total || remainingAmount}
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
@@ -2598,12 +2616,12 @@ export const CheckoutPage: React.FC = () => {
 
               {/* Items List (Collapsed View) */}
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
-                {cart.map((item) => (
-                  <div key={item.cartItemId} className="flex gap-3">
+                {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item) => (
+                  <div key={item.cartItemId || item.id} className="flex gap-3">
                     <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
                       <img
-                        src={item.image || '/placeholder.png'}
-                        alt={item.name}
+                        src={item.image || item.image_url || '/placeholder.png'}
+                        alt={item.name || item.product_name}
                         className="w-full h-full object-contain mix-blend-multiply"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
@@ -2613,7 +2631,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 line-clamp-1">
-                        {item.name}
+                        {item.name || item.product_name}
                       </p>
                       <div className="flex justify-between items-center text-xs text-gray-500 mt-0.5">
                         <span>Qty: {item.quantity}</span>

@@ -178,6 +178,12 @@ export async function openCreditDirectCheckout(
     };
 
     // Step 4: Open checkout popup
+    console.log('Initializing Credit Direct Connect with:', {
+      publicKey: signData.publicKey ? 'Present' : 'Missing',
+      signature: signData.signature ? 'Present' : 'Missing',
+      sessionId: signData.sessionId,
+    });
+
     const checkout = new window.Connect({
       publicKey: signData.publicKey,
       signature: signData.signature,
@@ -194,9 +200,11 @@ export async function openCreditDirectCheckout(
       onPopup: (response) => {
         console.log(
           'Credit Direct popup opened:',
-          response.checkoutTransactionId
+          response?.checkoutTransactionId || 'No ID returned'
         );
-        onPopup?.(response.checkoutTransactionId);
+        if (response?.checkoutTransactionId) {
+          onPopup?.(response.checkoutTransactionId);
+        }
       },
     });
 
