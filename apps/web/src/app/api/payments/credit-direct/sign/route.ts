@@ -8,6 +8,7 @@ import {
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get merchant and verify Credit Direct is enabled
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use admin client to ensure we can read settings regardless of RLS policies
+    const supabase = createAdminClient();
 
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
