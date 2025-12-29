@@ -402,7 +402,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       price = parseInt(productData.price.replace(/[^0-9]/g, ''), 10) || 0;
     }
 
-    let stock = productData.stock ?? 10;
+    // NULL or 0 = unlimited stock, > 0 = exact quantity
+    let stock = (productData.stock === null || productData.stock === 0) ? 999 : productData.stock;
 
     // 1. Resolve Base Price based on Condition
     // If selected is NOT main condition, look for offer
