@@ -41,7 +41,7 @@ import { createClient } from '@/lib/supabase/server';
 // Types & Constants
 // =============================================================================
 
-const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway'] as const;
+const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway', 'credit_direct', 'credpal'] as const;
 type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 interface GatewaySettings {
@@ -624,6 +624,19 @@ export async function POST(request: NextRequest) {
           reference
         );
         break;
+      case 'credit_direct':
+      case 'credpal':
+        // For client-side BNPL gateways, we redirect to the specialized launcher page
+        // This page handles the client-side SDK loading and prevents checkout crashes
+        paymentResult = {
+          authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+          checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+          reference, // Use the generated reference
+          platformFee: 0, // Fees calculated client-side or by gateway
+          merchantAmount: data.amount, // Full amount (fees handled separately)
+        };
+        break;
+
       default:
         paymentResult = await initializeKorapay(
           data,
