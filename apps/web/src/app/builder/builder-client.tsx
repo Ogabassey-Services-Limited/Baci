@@ -55,6 +55,7 @@ import {
   StoreSettingsPanel,
 } from '@/components/builder/store-settings-panel';
 import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
+import { useCopilotBuilderActions } from '@/components/builder/use-copilot-builder-actions';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { StorefrontProvider } from '@/contexts/storefront-context';
@@ -62,7 +63,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
-import { useCopilotBuilderActions } from '@/components/builder/use-copilot-builder-actions';
 
 // Component icon mapping - using component functions for dynamic sizing
 const componentIcons: Record<
@@ -505,9 +505,9 @@ export default function BuilderClient() {
                             newContent[componentIndex - 1],
                             newContent[componentIndex],
                           ] = [
-                              newContent[componentIndex],
-                              newContent[componentIndex - 1],
-                            ];
+                            newContent[componentIndex],
+                            newContent[componentIndex - 1],
+                          ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -518,9 +518,9 @@ export default function BuilderClient() {
                             newContent[componentIndex],
                             newContent[componentIndex + 1],
                           ] = [
-                              newContent[componentIndex + 1],
-                              newContent[componentIndex],
-                            ];
+                            newContent[componentIndex + 1],
+                            newContent[componentIndex],
+                          ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -840,42 +840,26 @@ export default function BuilderClient() {
                 {/* Viewport Controls - Above Canvas */}
                 <div className="h-12 bg-white border-b flex items-center justify-center gap-2 px-4 shrink-0">
                   <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                    <button
-                      type="button"
-                      onClick={() => setViewportWidth(375)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 375
-                        ? 'bg-white shadow-sm'
-                        : 'hover:bg-white'
+                    {[
+                      { width: 375, label: 'Mobile', Icon: Smartphone },
+                      { width: 768, label: 'Tablet', Icon: Tablet },
+                      { width: 1200, label: 'Desktop', Icon: Monitor },
+                    ].map(({ width, label, Icon }) => (
+                      <button
+                        key={width}
+                        type="button"
+                        onClick={() => setViewportWidth(width)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                          viewportWidth === width
+                            ? 'bg-white shadow-sm'
+                            : 'hover:bg-white'
                         }`}
-                      title="Mobile Portrait (375px)"
-                    >
-                      <Smartphone className="w-4 h-4 text-primary" />
-                      <span className="text-xs font-medium">Mobile</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewportWidth(768)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 768
-                        ? 'bg-white shadow-sm'
-                        : 'hover:bg-white'
-                        }`}
-                      title="Tablet (768px)"
-                    >
-                      <Tablet className="w-4 h-4 text-primary" />
-                      <span className="text-xs font-medium">Tablet</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewportWidth(1200)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 1200
-                        ? 'bg-white shadow-sm'
-                        : 'hover:bg-white'
-                        }`}
-                      title="Desktop (1200px)"
-                    >
-                      <Monitor className="w-4 h-4 text-primary" />
-                      <span className="text-xs font-medium">Desktop</span>
-                    </button>
+                        title={`${label} (${width}px)`}
+                      >
+                        <Icon className="w-4 h-4 text-primary" />
+                        <span className="text-xs font-medium">{label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 

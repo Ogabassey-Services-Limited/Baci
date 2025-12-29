@@ -1,7 +1,7 @@
 'use client';
 
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
-import { type Data } from '@measured/puck';
+import type { Data } from '@measured/puck';
 import { COMPONENT_SCHEMA } from './component-schema';
 
 interface UseCopilotBuilderActionsProps {
@@ -52,8 +52,7 @@ export function useCopilotBuilderActions({
       {
         name: 'position',
         type: 'number',
-        description:
-          'Index to insert at (0 = top). Default is bottom (-1).',
+        description: 'Index to insert at (0 = top). Default is bottom (-1).',
         required: false,
       },
       {
@@ -64,7 +63,7 @@ export function useCopilotBuilderActions({
         required: false,
       },
     ],
-    handler: async ({ componentType, position = -1, props }) => {
+    handler: ({ componentType, position = -1, props }) => {
       if (!Object.keys(COMPONENT_SCHEMA).includes(componentType)) {
         return `Invalid component type: ${componentType}.`;
       }
@@ -118,7 +117,7 @@ export function useCopilotBuilderActions({
         required: true,
       },
     ],
-    handler: async ({ index, updates }) => {
+    handler: ({ index, updates }) => {
       const newContent = [...(data.content || [])];
 
       if (index < 0 || index >= newContent.length) {
@@ -128,7 +127,7 @@ export function useCopilotBuilderActions({
       let parsedUpdates = {};
       try {
         parsedUpdates = JSON.parse(updates);
-      } catch (e) {
+      } catch (_e) {
         return 'Failed to parse updates JSON.';
       }
 
@@ -157,7 +156,7 @@ export function useCopilotBuilderActions({
         required: true,
       },
     ],
-    handler: async ({ index }) => {
+    handler: ({ index }) => {
       const newContent = [...(data.content || [])];
       if (index >= 0 && index < newContent.length) {
         const removed = newContent.splice(index, 1)[0];
