@@ -93,17 +93,26 @@ export async function POST(request: NextRequest) {
       .eq('merchant_id', merchant.id)
       .maybeSingle();
 
+    console.log('Credit Direct Sign Debug:', {
+      requestSlug: merchantSlug,
+      foundMerchantId: merchant.id,
+      settingsFound: !!settings,
+      creditDirectEnabled: settings?.credit_direct_enabled,
+      settingsError,
+    });
+
     if (settingsError) {
       console.error('Error fetching merchant feature settings:', settingsError);
       // Continue with defaults if there's an error
     }
 
     const creditDirectEnabled = settings?.credit_direct_enabled ?? false;
-    const merchantPublicKey = settings?.credit_direct_public_key;
-    const minAmount = settings?.credit_direct_min_amount ?? 10000;
-    const maxAmount = settings?.credit_direct_max_amount ?? 5000000;
 
     if (!creditDirectEnabled) {
+      console.error('Credit Direct Sign Blocked: Feature disabled', {
+        merchant: merchantSlug,
+        settings,
+      });
       return NextResponse.json(
         { error: 'Credit Direct BNPL is not enabled for this merchant' },
         { status: 403 }
