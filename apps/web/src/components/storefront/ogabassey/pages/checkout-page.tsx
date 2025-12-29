@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  AlertCircle,
   Building2,
   ChevronRight,
   CreditCard,
@@ -223,6 +224,7 @@ export const CheckoutPage: React.FC = () => {
     }>;
   } | null>(null);
   const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState(!!resumeOrderId);
+  const [resumeOrderError, setResumeOrderError] = useState<string | null>(null);
 
   // Chain/currency compatibility
   const cryptoChainSupport: Record<'USDT' | 'USDC', Array<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>> = {
@@ -510,9 +512,11 @@ export const CheckoutPage: React.FC = () => {
           });
         } else {
           console.error('Failed to fetch resumed order');
+          setResumeOrderError('Order not found. It may have been completed or expired.');
         }
       } catch (error) {
         console.error('Error fetching resumed order:', error);
+        setResumeOrderError('Failed to load order details. Please try again.');
       } finally {
         setIsLoadingResumedOrder(false);
       }
@@ -1327,9 +1331,51 @@ export const CheckoutPage: React.FC = () => {
       ? payForMeDetails.name && payForMeDetails.contact
       : true;
 
+  // Error state for order resumption
+  if (resumeOrderId && resumeOrderError) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-red-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Something Went Wrong</h1>
+          <p className="text-gray-500 mb-6">{resumeOrderError}</p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[var(--store-primary)] text-white font-semibold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors"
+            >
+              Try Again
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(asRoute(getHref('/')))}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Go to Homepage
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mt-6">
+            If this problem persists, please{' '}
+            <button
+              type="button"
+              onClick={() => router.push(asRoute(getHref('/contact')))}
+              className="text-[var(--store-primary)] underline"
+            >
+              contact support
+            </button>
+            .
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Empty cart check - only show after hydration confirms cart is genuinely empty
-  // Before hydration, cart is always [], so we skip this check until hydrated
-  if (isHydrated && cart.length === 0) {
+  // Skip this check when resuming an order (cart is empty during order resumption)
+  if (isHydrated && cart.length === 0 && !resumeOrderId && !resumedOrder) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
         <div className="text-center max-w-md mx-auto px-4">
