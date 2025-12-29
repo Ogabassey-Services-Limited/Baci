@@ -90,11 +90,11 @@ export async function POST(request: NextRequest) {
         'credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount'
       )
       .eq('merchant_id', merchant.id)
-      .single();
+      .maybeSingle();
 
     if (settingsError) {
-      // Settings might not exist yet, use defaults
-      console.warn('No merchant feature settings found, using defaults');
+      console.error('Error fetching merchant feature settings:', settingsError);
+      // Continue with defaults if there's an error
     }
 
     const creditDirectEnabled = settings?.credit_direct_enabled ?? false;
