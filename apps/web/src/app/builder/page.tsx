@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CopilotBuilderWrapper } from '@/components/builder/copilot-builder-wrapper';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import BuilderClient from './builder-client';
@@ -9,11 +10,12 @@ export const metadata: Metadata = {
 };
 
 export default function BuilderPage() {
-  // Force update
   return (
     <MerchantProvider>
       <StorefrontProvider>
-        <BuilderClient />
+        <CopilotBuilderWrapper>
+          <BuilderClient />
+        </CopilotBuilderWrapper>
       </StorefrontProvider>
     </MerchantProvider>
   );

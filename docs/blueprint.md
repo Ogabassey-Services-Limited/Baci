@@ -1,4 +1,10 @@
-# **App Name**: Baci - AI E-commerce Builder
+# ⚠️ DEPRECATED DOCUMENT
+> **NOTE:** This blueprint is outdated. Please refer to:
+> - **`GEMINI.md`** for the current Monorepo architecture and project context.
+> - **`docs/FUTURE_DEVELOPMENT_PROJECT.md`** for the latest roadmap and feature plans.
+
+# Project Blueprint: Baci - AI E-commerce Builder
+
 
 ## Core Features:
 

@@ -3,6 +3,8 @@ import { isValidUuid } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // GET /api/storefront/orders/[id] - Public endpoint to fetch order for checkout resumption
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,13 +20,12 @@ export async function GET(
     // Use service client because user is likely a guest (not logged in)
     const supabase = createServiceClient();
 
-    // Fetch order with items
-    // We select specifically what's needed for the checkout UI to be safe
-    const { data: order, error } = await supabase
+    // 1. Fetch order details first (without join)
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`
         id,
-        short_id,
+        order_number,
         subtotal,
         shipping_cost:shipping_fee,
         total,
@@ -34,31 +35,46 @@ export async function GET(
         shipping_address,
         payment_status,
         shipping_status,
-        merchant_id,
-        items:order_items(
-          id,
-          product_id,
-          product_name:name,
-          quantity,
-          price
-        )
+        merchant_id
       `)
       .eq('id', id)
       .single();
 
-    if (error || !order) {
-      console.error('Storefront order fetch error:', error);
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    if (orderError || !order) {
+      console.error('Storefront order fetch error:', orderError);
+      return NextResponse.json(
+        { error: 'Order not found', details: orderError },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(order);
+    // 2. Fetch order items separately to avoid complex join issues or RLS edge cases
+    const { data: items, error: itemsError } = await supabase
+      .from('order_items')
+      .select('id, product_id, product_name:name, quantity, price')
+      .eq('order_id', order.id);
+
+    if (itemsError) {
+      console.error('Storefront order items fetch error:', itemsError);
+      // We can sort of proceed, or fail. Let's return empty items but log it.
+    }
+
+    // Combine result
+    const result = {
+      ...order,
+      // Frontend expects short_id
+      short_id: order.order_number,
+      items: items || [],
+    };
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error(
       'Unexpected error in GET /api/storefront/orders/[id]:',
       error
     );
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(error) },
       { status: 500 }
     );
   }

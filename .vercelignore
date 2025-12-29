@@ -1,189 +1,24 @@
 # Vercel Ignore File
-# Recursively ignore node_modules and build artifacts
+# Exclude large directories and build artifacts from upload
 node_modules
 .next
-.turbo
-dist
-build
-coverage
-.DS_Store
-.env*
+apps/web/.next
+apps/web/node_modules
+apps/mobile-admin/.expo
+apps/mobile-admin/node_modules
+
+# Git
 .git
-
-# Mobile Apps (Not deployed to Vercel)
-baci-mobile-admin
-baci-mobile-storefront
-
-# Documentation
-docs
-
-# Temporary Image/Data Directories
-samsung_*
-orphaned_*
-scripts-tmp
-.reports
-.gemini
-.claude
-.github/workflows/bundle-analysis.yml
-.github/workflows/unlighthouse.yml
-
-# Append .gitignore contents for completeness (simplified manual copy)
-*.log
-*.tar.gz
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-node_modules
-/.turbo/
-/.reports/
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-.next/
-/out/
-
-# production
-/build
-
-# misc
 .DS_Store
-*.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Reports & Logs
+.reports
+*.log
+coverage
 
-# vercel
-.vercel
+# Temporary scripts
+scripts-tmp
+repro-bug.js
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-.genkit/*
-.env*
-
-# firebase
-firebase-debug.log
-firestore-debug.log
-# MCP config (contains secrets)
-.mcp.json
-.idx/mcp.json
-
-# Claude Code local settings (may contain credentials)
-.claude/settings.local.json
-src_backup_*.tar.gz
-knip-results.json
-.gemini/bin/
-extract_bag.py
-
-# Temporary data and image directories
-apple_downloaded_images/
-gaming_branded_images/
-gaming_raw_images/
-hp_downloaded_images/
-orphaned_images_full/
-gift_card_images/
-lg_tv_images/
-hp_printer_images/
-
-# Temporary export/data files
-*.tar.gz
-*_result.txt
-*_result.json
-*_matches.json
-*_wishlist.json
-*_export.txt
-test_sheet*.csv
-user_provided_sheet.csv
-hp_*.xml
-hp_*.json
-migration_map.json
-final_migration*.json
-unmatched_*.json
-timestamp_matches.json
-supabase-updates.json
-vps_*.txt
-vps_*.sh
-files_to_tar.txt
-correct_source.png
-baci_product_names.txt
-
-# Disabled middleware
-middleware.ts.disabled
-
-# Staging and uploaded images (large files)
-scripts/staging_gallery/
-scripts/staging_upload/
-public/images/
-public/website designs/
-
-# Generated data and logs
-scripts/*.jsonl
-scripts/log*.txt
-scripts/deploy_log*.txt
-scripts/match_log*.txt
-
-# Migration files (contains local data/credentials)
-migration_db.sql
-migration_upload.sh
-
-# Audit reports (generated)
-CONDITION_DUPLICATION_AUDIT.md
-IMMEDIATE_ACTION_REQUIRED.md
-MISSING_IMAGES_REPORT.md
-scripts/DEPLOYMENT_SUMMARY.md
-pr_120*.json
-
-# PR todo/report files (temporary)
-pr_*_todo.md
-pr_*_report.md
-.gemini/pr_*.json
-
-# Koray SEO audit reports (generated)
-KORAY_*.json
-KORAY_*.md
-
-# Image audit and population reports (generated)
-COLOR_IMAGES_*.json
-COLOR_IMAGES_*.md
-CDN_COLOR_LINK_*.md
-UPLOAD_IMAGES_*.md
-
-# Specs reports (generated)
-AUDIO_SPECS_*.md
-TABLET_SPECS_*.md
-TV_SPECS_*.md
-OPEN_BOX_CONSOLIDATION_*.md
-
-# HP/Dell/Lenovo laptop image download guides (temporary)
-HP_*.md
-HP_*.txt
-QUICKSTART_*.md
-
-# Security alerts (temporary)
-*_alerts*.json
-security_alerts_todo.md
-
-# Downloaded image directories (large files, not tracked)
-*_laptop_images/
-*_printer_images/
-*_downloaded_images/
-*_branded_images/
-*_raw_images/
-samsung_jumia_images/
-
-# Scripts directory (one-off scripts)
-/scripts/
-.env*.local
+# Gemini/Antigravity
+.gemini

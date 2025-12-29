@@ -225,6 +225,7 @@ export const CheckoutPage: React.FC = () => {
   } | null>(null);
   const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState(!!resumeOrderId);
   const [resumeOrderError, setResumeOrderError] = useState<string | null>(null);
+  const autoTriggerRef = useRef(false);
 
   // Chain/currency compatibility
   const cryptoChainSupport: Record<'USDT' | 'USDC', Array<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>> = {
@@ -829,6 +830,113 @@ export const CheckoutPage: React.FC = () => {
     fetchTotals();
   }, [cartTotal, deliveryCost]);
 
+  // Handler for direct payment execution (CredPal/Credit Direct)
+  const executeDirectPayment = async () => {
+    if (!resumedOrder || !preferredGateway) return;
+
+    setIsProcessing(true);
+    try {
+      const paymentAmount = resumedOrder.total;
+
+      // For CredPal, use the inline checkout widget
+      if (preferredGateway === 'credpal') {
+        const { openCredPalCheckout, getCredPalKey } = await import('@/lib/credpal');
+        const productNames = resumedOrder.items.map(item => item.product_name).join(', ') || 'Purchase';
+
+        await openCredPalCheckout({
+          key: getCredPalKey(),
+          amount: paymentAmount,
+          product: productNames,
+          customerEmail: resumedOrder.customer_email,
+          customerName: resumedOrder.customer_name,
+          customerPhone: resumedOrder.customer_phone,
+          onSuccess: async (data) => {
+            // Update order with payment reference
+            await fetch(`/api/orders/update-payment-ref`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: resumedOrder.id,
+                paymentRef: data.order_no,
+                gateway: 'credpal',
+              }),
+            });
+            clearCheckoutSession();
+            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credpal`)));
+          },
+          onError: (error) => {
+            toast({
+              title: 'Payment Failed',
+              description: error.message || 'CredPal payment failed',
+              variant: 'destructive',
+            });
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            setIsProcessing(false);
+          },
+        });
+        return;
+      }
+
+      // For Credit Direct, use their checkout widget
+      if (preferredGateway === 'credit_direct') {
+        const { openCreditDirectCheckout } = await import('@/lib/credit-direct-client');
+
+        await openCreditDirectCheckout({
+          merchantSlug: merchant?.slug || 'ogabassey',
+          orderId: resumedOrder.id,
+          amount: paymentAmount,
+          customerEmail: resumedOrder.customer_email,
+          customerPhone: resumedOrder.customer_phone,
+          customerName: resumedOrder.customer_name,
+          items: resumedOrder.items.map(item => ({
+            id: item.product_id,
+            name: item.product_name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          onSuccess: async (transactionId) => {
+            await fetch(`/api/orders/update-payment-ref`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: resumedOrder.id,
+                paymentRef: transactionId,
+                gateway: 'credit_direct',
+              }),
+            });
+            clearCheckoutSession();
+            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credit_direct`)));
+          },
+          onError: (error) => {
+            toast({
+              title: 'Payment Failed',
+              description: error || 'Credit Direct payment failed',
+              variant: 'destructive',
+            });
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            setIsProcessing(false);
+          },
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Payment execution error:', error);
+      setIsProcessing(false);
+    }
+  };
+
+  // Auto-trigger payment for resumed orders
+  useEffect(() => {
+    if (resumedOrder && preferredGateway && !autoTriggerRef.current && !isProcessing) {
+      autoTriggerRef.current = true;
+      executeDirectPayment();
+    }
+  }, [resumedOrder, preferredGateway]);
+
   const handlePlaceOrder = async () => {
     if (!merchant?.id) {
       toast({
@@ -852,105 +960,8 @@ export const CheckoutPage: React.FC = () => {
 
     // Handle resumed orders from mobile app (order already exists, just need payment)
     if (resumedOrder && preferredGateway) {
-      try {
-        // Use the existing order - skip creation
-        const paymentAmount = resumedOrder.total;
-
-        // For CredPal, use the inline checkout widget
-        if (preferredGateway === 'credpal') {
-          const { openCredPalCheckout, getCredPalKey } = await import('@/lib/credpal');
-          const productNames = resumedOrder.items.map(item => item.product_name).join(', ') || 'Purchase';
-
-          await openCredPalCheckout({
-            key: getCredPalKey(),
-            amount: paymentAmount,
-            product: productNames,
-            customerEmail: resumedOrder.customer_email,
-            customerName: resumedOrder.customer_name,
-            customerPhone: resumedOrder.customer_phone,
-            onSuccess: async (data) => {
-              // Update order with payment reference
-              await fetch(`/api/orders/update-payment-ref`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: resumedOrder.id,
-                  paymentRef: data.order_no,
-                  gateway: 'credpal',
-                }),
-              });
-              clearCheckoutSession();
-              router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credpal`)));
-            },
-            onError: (error) => {
-              toast({
-                title: 'Payment Failed',
-                description: error.message || 'CredPal payment failed',
-                variant: 'destructive',
-              });
-              setIsProcessing(false);
-            },
-            onClose: () => {
-              setIsProcessing(false);
-            },
-          });
-          return;
-        }
-
-        // For Credit Direct, use their checkout widget
-        if (preferredGateway === 'credit_direct') {
-          const { openCreditDirectCheckout } = await import('@/lib/credit-direct-client');
-
-          await openCreditDirectCheckout({
-            merchantSlug: merchant?.slug || 'ogabassey',
-            orderId: resumedOrder.id,
-            amount: paymentAmount,
-            customerEmail: resumedOrder.customer_email,
-            customerPhone: resumedOrder.customer_phone,
-            customerName: resumedOrder.customer_name,
-            items: resumedOrder.items.map(item => ({
-              id: item.product_id,
-              name: item.product_name,
-              price: item.price,
-              quantity: item.quantity,
-            })),
-            onSuccess: async (transactionId) => {
-              await fetch(`/api/orders/update-payment-ref`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: resumedOrder.id,
-                  paymentRef: transactionId,
-                  gateway: 'credit_direct',
-                }),
-              });
-              clearCheckoutSession();
-              router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credit_direct`)));
-            },
-            onError: (error) => {
-              toast({
-                title: 'Payment Failed',
-                description: error || 'Credit Direct payment failed',
-                variant: 'destructive',
-              });
-              setIsProcessing(false);
-            },
-            onClose: () => {
-              setIsProcessing(false);
-            },
-          });
-          return;
-        }
-      } catch (error) {
-        console.error('Resumed order payment error:', error);
-        toast({
-          title: 'Payment Error',
-          description: 'Failed to initialize payment. Please try again.',
-          variant: 'destructive',
-        });
-        setIsProcessing(false);
-        return;
-      }
+      await executeDirectPayment();
+      return;
     }
 
     const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
@@ -1330,6 +1341,23 @@ export const CheckoutPage: React.FC = () => {
     paymentMethod === 'payforme'
       ? payForMeDetails.name && payForMeDetails.contact
       : true;
+
+  // Loading state (Initial fetch OR waiting for auto-trigger)
+  // This prevents the form from flashing briefly before the payment widget opens
+  const isAutoTriggerProcessing = resumedOrder && !!preferredGateway && !isProcessing;
+
+  if (isLoadingResumedOrder || isAutoTriggerProcessing) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-[var(--store-primary)]" />
+          <p className="text-gray-500 font-medium animate-pulse">
+            {isLoadingResumedOrder ? 'Loading order...' : 'Initializing secure checkout...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Error state for order resumption
   if (resumeOrderId && resumeOrderError) {

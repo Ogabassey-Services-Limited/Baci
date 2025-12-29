@@ -20,6 +20,9 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.46",
     "@ai-sdk/rsc": "^1.0.114",
+    "@copilotkit/react-core": "^1.50.1",
+    "@copilotkit/react-ui": "^1.50.1",
+    "@copilotkit/runtime": "^1.50.1",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
     "@imgly/background-removal": "^1.7.0",
@@ -95,7 +98,6 @@
     "react-resizable": "^3.0.5",
     "recharts": "^3.5.1",
     "sanitize-html": "^2.17.0",
-    "stripe": "^20.1.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.0",
     "web-vitals": "^5.1.0",

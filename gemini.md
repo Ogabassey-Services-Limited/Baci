@@ -1,7 +1,7 @@
 # Gemini AI Assistant Context File
 
 **Project:** Baci AI E-commerce Builder
-**Last Updated:** 2025-11-02
+**Last Updated:** 2025-12-29
 
 This document provides essential context for AI assistants working on this codebase. Please review it carefully before making any changes.
 
@@ -9,152 +9,143 @@ This document provides essential context for AI assistants working on this codeb
 
 ## 🚨 Critical Rules - READ THIS FIRST
 
-1.  **Business Types are Configuration-Driven:**
-    *   **Single Source of Truth:** `/src/config/business-types.ts`.
+1.  **Monorepo Structure & Paths:**
+    *   This is a Monorepo. Always verify you are in the correct application directory.
+    *   **Web Builder:** `apps/web/` (Next.js 15, App Router).
+    *   **Mobile Storefront:** `baci-mobile-storefront/` (Expo, React Native).
+    *   **Shared Logic:** Supabase Edge Functions and common packages.
+
+2.  **Business Types are Configuration-Driven:**
+    *   **Single Source of Truth:** `apps/web/src/config/business-types.ts`.
     *   **NEVER** hardcode business types in components or AI flows. Import from the config file.
     *   To add or modify business types, edit this file. The UI and AI prompts will update automatically.
-    *   See ADR 001 for the full architecture: `/docs/adr/001-business-type-journey-architecture.md`.
 
-2.  **AI Flow Signatures are Strict:**
-    *   AI flows are located in `/src/ai/flows/`.
+3.  **AI Flow Signatures are Strict:**
+    *   AI flows are located in `apps/web/src/ai/flows/`.
     *   Input and output schemas are defined with Zod.
     *   **NEVER** modify a flow's signature without updating all calling components. Use `grep` to find all usages before changing schemas.
 
-3.  **Theming is CSS Variable-Based:**
+4.  **Theming is CSS Variable-Based:**
     *   Merchant brand colors are applied via CSS variables (e.g., `var(--store-primary)`).
-    *   Color definitions are in `/src/app/globals.css`.
-    *   Use themed components from `/src/components/themed/` which automatically use these variables.
+    *   Color definitions are in `apps/web/src/app/globals.css`.
+    *   Use themed components from `apps/web/src/components/themed/`.
     *   **DO NOT** hardcode colors.
-    *   See the architecture guide: `/docs/THEMING_ARCHITECTURE.md`.
 
-4.  **Forms use React Hook Form + Zod:**
-    *   Define a Zod schema first for validation.
-    *   Use the `zodResolver`.
-    *   Use the `<FormField>` components from `/src/components/ui/form.tsx`.
-
-5.  **Data Access through Hooks and Services:**
-    *   All Supabase operations (authentication, database queries) are abstracted into hooks (e.g., `useAuth`, `useMerchant`) and server actions.
-    *   Components should use these abstractions and **NOT** interact with the Supabase client directly.
+5.  **"Shared Brain" Architecture:**
+    *   Business logic (VAT, Delivery, Commissions) is shared between Web and Mobile via Supabase Edge Functions (e.g., `calculate-commerce`).
+    *   **DO NOT** duplicate complex logic in the client; use the shared edge functions.
 
 ---
 
 ## 🚀 Project Overview
 
-Baci is a Next.js application that allows merchants to create an e-commerce store using AI. The core features include an AI-driven onboarding flow for logo and brand color generation, AI-powered product description creation, and a customizable storefront.
+Baci is an AI-powered platform that enables merchants to build and launch e-commerce stores in minutes. The platform generates a branded web storefront and a native mobile app from a single configuration.
 
-*   **Project Blueprint:** `/docs/blueprint.md`
-*   **Initial Project Brief:** `/project_brief.md`
+### Monorepo Structure
+
+| Directory | Purpose | Tech Stack |
+| :--- | :--- | :--- |
+| **`apps/web/`** | The core "Builder" platform & Web Storefronts. | Next.js 15, React 19, Tailwind |
+| **`baci-mobile-storefront/`** | The template for Merchant Mobile Apps. | Expo, React Native, NativeWind |
+| **`docs/`** | Project documentation. | Markdown |
 
 ### Technology Stack
 
-| Category      | Technology                                       | Why                                                                                             |
-| :------------ | :----------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-| **Framework** | Next.js 15 (App Router)                          | Server Components for performance, Client Components for interactivity.                         |
-| **Language**  | TypeScript                                       | Enforces type safety, reducing bugs and improving developer experience.                         |
-| **Styling**   | Tailwind CSS + shadcn/ui                         | Utility-first CSS for rapid development and a set of accessible, customizable components.       |
-| **Branding**  | Custom Themed Components (`/src/components/themed`) | A performant, CSS variable-driven system to apply merchant brand colors.                        |
-| **Backend**   | Supabase                                         | A full-featured, open-source backend-as-a-service providing auth, database, and storage.      |
-| **AI**        | Google Genkit + Gemini Models                    | An open-source framework for building robust, production-ready AI flows with powerful models.     |
-| **Forms**     | React Hook Form + Zod                            | A performant solution for form state management with robust, type-safe validation.              |
-
-*   **Detailed Tech Stack:** `techstack.md`
+| Category | Technology | Why |
+| :--- | :--- | :--- |
+| **Framework** | Next.js 15 (Web) / Expo (Mobile) | Performance & Native capabilities. |
+| **Backend** | Supabase | Auth, Database, Storage, Edge Functions. |
+| **AI** | Google Genkit + Gemini Models | Robust, production-ready AI flows. |
+| **State** | TanStack Query + Zustand | Server state syncing & global client state. |
+| **Styling** | Tailwind CSS + shadcn/ui | Unified design system across web & mobile. |
 
 ---
 
 ## 📁 Key File Locations
 
-| Path                                                     | Purpose                                                                                             |
-| :------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-| `/AI_CONTEXT.md`                                         | The original, more detailed AI context file. **Refer to it for in-depth information.**              |
-| `/src/config/business-types.ts`                          | **Single source of truth for all business categories.** Defines AI prompts, icons, and journeys.    |
-| `/src/app/onboarding/onboarding-form.tsx`                | The main 3-step onboarding wizard component. Contains core business logic for setup.                |
-| `/src/app/dashboard/products/add/add-product-form.tsx`   | The form for adding new products, with AI-assisted description generation.                          |
-| `/src/ai/flows/`                                         | Directory containing all Genkit AI flows (logo generation, product descriptions, etc.).             |
-| `/src/components/themed/`                                | Our custom, brand-aware component library that wraps shadcn/ui components.                          |
-| `/src/templates/`                                        | Storefront templates that define the layout and style of the merchant's shop.                       |
-| `/docs/`                                                 | Contains all high-level documentation, including ADRs, guides, and summaries.                       |
+| Path | Purpose |
+| :--- | :--- |
+| `apps/web/src/config/business-types.ts` | **Source of Truth** for business categories & AI prompts. |
+| `apps/web/src/ai/flows/` | Directory containing all Genkit AI flows. |
+| `apps/web/src/app/onboarding/` | The main AI-driven onboarding wizard. |
+| `apps/web/src/components/themed/` | Brand-aware component library. |
+| `baci-mobile-storefront/app.json` | Mobile app configuration & deep linking setup. |
+| `baci-mobile-storefront/MOBILE_ARCHITECTURE.md` | Detailed mobile architectural guide. |
 
 ---
 
 ## 🤖 AI Integration (Genkit)
 
-AI features are orchestrated using Google Genkit. All flows are defined in `/src/ai/flows/`.
+AI features are orchestrated using Google Genkit.
 
-*   **AI README:** `/src/ai/flows/_AI_README.md`
-*   **Genkit Dev UI:** Run `pnpm turbo dev` in apps/web to test flows.
+*   **Location:** `apps/web/src/ai/flows/`
+*   **Documentation:** `apps/web/src/ai/flows/_AI_README.md`
 
 ### Core AI Flows
 
 1.  **`guideBusinessOnboarding`**
     *   **File:** `guide-business-onboarding.ts`
-    *   **Purpose:** Generates a logo and/or extracts a 5-color brand palette from an uploaded logo.
-    *   **Input:** `businessName`, `businessType`, `brandPreferences`, optional `logoDataUri`.
-- **Output:** `logoDataUri` (if generated), `brandColors` (array of 3 hex codes).
+    *   **Purpose:** Generates a logo/brand palette from business description.
+    *   **Input:** `businessName`, `businessType`, `brandPreferences`.
+    *   **Output:** `logoDataUri`, `brandColors`.
 
 2.  **`generateProductDescription`**
     *   **File:** `generate-product-descriptions.ts`
-    *   **Purpose:** Creates a compelling product description tailored to the business type.
+    *   **Purpose:** Creates SEO-optimized product descriptions.
     *   **Input:** `productName`, `businessType`, `productDetails`.
-    *   **Output:** `description` (string).
-3.  **enhanceProductImage**
+
+3.  **`generateProductFaq`**
+    *   **File:** `generate-product-faq.ts`
+    *   **Purpose:** Generates common questions and answers for a product.
+    *   **Input:** `productName`, `description`.
+
+4.  **`enhanceProductImage`**
     *   **File:** `enhance-product-images.ts`
-    *   **Purpose:** Removes the background from a product photo and enhances the lighting.
+    *   **Purpose:** Background removal and lighting enhancement.
     *   **Input:** `photoDataUri`.
-    *   **Output:** `enhancedPhotoDataUri`.
 
 ---
 
 ## 🏗️ Architecture & Patterns
 
-### Business Type System (ADR 001)
+### 1. The "Shared Brain" (Web & Mobile)
+To ensure data consistency between the Web Storefront and the Mobile App, we use a centralized logic layer:
+*   **Supabase Edge Functions:** Handle complex calculations (Pricing, Tax, Shipping).
+*   **TanStack Query:** Synchronizes server state.
+*   **Real-time:** Both platforms listen to Supabase `postgres_changes`.
 
-The platform uses a configuration-driven system to manage business types. This allows for easy extension and customization without code changes.
+### 2. Business Type System
+Configuration-driven system to manage business types.
+*   **Config:** `apps/web/src/config/business-types.ts`
+*   Each type defines a `journey` with specific AI prompts.
 
-*   **ADR:** `/docs/adr/001-business-type-journey-architecture.md`
-*   **Configuration:** `/src/config/business-types.ts`
-
-Each business type in the config defines its own `journey`, including specific AI prompt guidance for logo style, color schemes, and product description styles.
-
-### Theming & Template Architecture
-
-The storefront's look and feel is determined by a combination of the merchant's brand colors and a selected template.
-
-*   **Theming Guide:** `/docs/THEMING_ARCHITECTURE.md`
-*   **Template Creation Guide:** `/docs/CREATE_TEMPLATE_GUIDE.md`
-
-1.  **Color Extraction:** A web worker extracts 3 key colors from the merchant's logo.
-2.  **CSS Variables:** These colors are injected as CSS variables (e.g., `--store-primary`).
-3.  **Themed Components:** Components in `/src/components/themed/` use these variables.
-4.  **Templates:** Components in `/src/templates/` provide the overall page structure and layout, using the themed components.
+### 3. Theming System
+*   **Web:** Uses CSS Variables injected at runtime (`--store-primary`).
+*   **Mobile:** Uses a dynamic theme provider that fetches brand config on launch.
 
 ---
 
 ## 🐛 Known Issues & Quick Fixes
 
 1.  **Product Descriptions Use Hardcoded Business Type:**
-    *   **File:** `/src/app/dashboard/products/add/add-product-form.tsx`
-    *   **Issue:** The `generateProductDescription` flow is always called with `"Handmade & Crafts"`.
-    *   **Fix:** This needs to be updated to use the actual business type of the merchant, which should be fetched from the user's profile/session.
+    *   **File:** `apps/web/src/app/dashboard/products/add/add-product-form.tsx`
+    *   **Issue:** `generateProductDescription` call uses hardcoded "Handmade & Crafts".
+    *   **Fix:** Inject actual `businessType` from user profile.
 
 2.  **Duplicate AI Calls in Onboarding:**
-    *   **File:** `/src/app/onboarding/onboarding-form.tsx`
-    *   **Issue:** If a user uploads a logo, the color extraction flow is called once for the preview and again on final submission.
-    *   **Fix:** Cache the result of the first call in the form state and skip the second call on submit.
+    *   **File:** `apps/web/src/app/onboarding/onboarding-form.tsx`
+    *   **Issue:** Logo generation runs twice (preview + submit).
+    *   **Fix:** Implement result caching in form state.
 
 ---
 
 ## ✅ Common Tasks Guide
 
 ### How to Add a New Business Type
+1.  Edit `apps/web/src/config/business-types.ts`.
+2.  Add entry to `BUSINESS_TYPES`.
+3.  The UI updates automatically.
 
-1.  **Edit the config file:** `/src/config/business-types.ts`.
-2.  Add a new entry to the `BUSINESS_TYPES` object, following the existing structure. Define the `id`, `label`, `description`, `icon`, `aiPromptContext`, and `journey` properties.
-3.  **That's it.** The onboarding dropdown and AI prompts will automatically use the new configuration.
-
-### How to Create a New Storefront Template
-
-1.  **Create a new component:** Create a file like `my-template.tsx` in `/src/templates/`.
-2.  The component should accept `{ children: React.ReactNode }` as a prop and render the children within your custom layout.
-3.  Use themed components (`ThemedButton`, `ThemedCard`, etc.) and CSS variables (`var(--store-primary)`) to make your template brand-aware.
-4.  **Register the template:** Import your new template in `/src/config/business-types.ts` and assign it to one or more business types.
-5.  **Read the guide:** For a detailed walkthrough, see `/docs/CREATE_TEMPLATE_GUIDE.md`.
+### How to Verify Mobile Builds
+1.  Check `baci-mobile-storefront/app.json` for the correct `bundleIdentifier`.
+2.  Ensure `expo.extra.supabaseUrl` matches the project environment.

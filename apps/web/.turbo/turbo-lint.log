@@ -2,481 +2,794 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/ai/chat-tool-handlers.ts:8:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! This import is unused.
-  
-     6 │  */
-     7 │ 
-   > 8 │ import { cookies } from 'next/headers';
-       │        ^^^^^^^^^^^
-     9 │ import { createAdminClient } from '@/lib/supabase/admin';
-    10 │ import { createClient } from '@/lib/supabase/server';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-      1     │ - /**
-      2     │ - ·*·Chat·Tool·Handlers
-      3     │ - ·*
-      4     │ - ·*·Implements·the·actual·logic·for·each·AI·tool.
-      5     │ - ·*·These·handlers·are·called·when·the·AI·invokes·a·tool.
-      6     │ - ·*/
-      7     │ - 
-      8     │ - import·{·cookies·}·from·'next/headers';
-          1 │ + /**
-          2 │ + ·*·Chat·Tool·Handlers
-          3 │ + ·*
-          4 │ + ·*·Implements·the·actual·logic·for·each·AI·tool.
-          5 │ + ·*·These·handlers·are·called·when·the·AI·invokes·a·tool.
-          6 │ + ·*/
-          7 │ + 
-      9   8 │   import { createAdminClient } from '@/lib/supabase/admin';
-     10   9 │   import { createClient } from '@/lib/supabase/server';
-  
-
-src/ai/chat-tool-handlers.ts:10:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! This import is unused.
-  
-     8 │ import { cookies } from 'next/headers';
-     9 │ import { createAdminClient } from '@/lib/supabase/admin';
-  > 10 │ import { createClient } from '@/lib/supabase/server';
-       │        ^^^^^^^^^^^^^^^^
-    11 │ import type {
-    12 │   AddToCartParams,
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-      8   8 │   import { cookies } from 'next/headers';
-      9   9 │   import { createAdminClient } from '@/lib/supabase/admin';
-     10     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-     11  10 │   import type {
-     12  11 │     AddToCartParams,
-  
-
-src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx:2:10 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    1 │ import type { Metadata } from 'next';
-  > 2 │ import { cookies, headers } from 'next/headers';
-      │          ^^^^^^^
-    3 │ import { notFound, permanentRedirect } from 'next/navigation';
-    4 │ import { Suspense } from 'react';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-    2 │ import·{·cookies,·headers·}·from·'next/headers';
-      │          ---------                              
-
-src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx:17:3 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    15 │   escapeHtml,
-    16 │   safeJsonLdStringify,
-  > 17 │   sanitizeLikePattern,
-       │   ^^^^^^^^^^^^^^^^^^^
-    18 │ } from '@/lib/sanitize-core';
-    19 │ import {
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     15  15 │     escapeHtml,
-     16  16 │     safeJsonLdStringify,
-     17     │ - ··sanitizeLikePattern,
-     18  17 │   } from '@/lib/sanitize-core';
-     19  18 │   import {
-  
-
-src/app/(storefront)/[slug]/about/page.tsx:117:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━
-
-  ! Avoid passing content using the dangerouslySetInnerHTML prop.
-  
-    115 │       <script
-    116 │         type="application/ld+json"
-  > 117 │         dangerouslySetInnerHTML={{
-        │         ^^^^^^^^^^^^^^^^^^^^^^^
-    118 │           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
-    119 │         }}
-  
-  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
-  
-
-src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx:333:67 lint/suspicious/noExplicitAny ━━━━━━━━━━
+src/app/api/agentic/checkout_sessions/[id]/complete/route.ts:76:24 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    331 │                     <Link
-    332 │                       key={related.id}
-  > 333 │                       href={`${basePath}/blog/${related.slug}` as any}
-        │                                                                   ^^^
-    334 │                     >
-    335 │                       <Card className="h-full hover:shadow-lg transition-shadow group">
+    74 │         phone: buyer.phone_number,
+    75 │       });
+  > 76 │     } catch (dvaError: any) {
+       │                        ^^^
+    77 │       console.error('DVA Creation Failed:', dvaError);
+    78 │       return NextResponse.json(
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(storefront)/[slug]/blog/blog-list.tsx:127:74 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+src/app/api/copilotkit/route.ts:6:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! All these imports are only used as types.
+  
+    4 │     copilotRuntimeNextJSAppRouterEndpoint,
+    5 │ } from '@copilotkit/runtime';
+  > 6 │ import { NextRequest } from 'next/server';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    7 │ 
+    8 │ const serviceAdapter = new GoogleGenerativeAIAdapter({
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Use import type.
+  
+    6 │ import·type·{·NextRequest·}·from·'next/server';
+      │        +++++                                   
+
+src/components/builder/use-copilot-builder-actions.ts:4:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━
+
+  ! All these imports are only used as types.
+  
+    3 │ import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+  > 4 │ import { type Data } from '@measured/puck';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    5 │ import { useCallback } from 'react';
+    6 │ 
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Use import type.
+  
+      2   2 │   
+      3   3 │   import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+      4     │ - import·{·type·Data·}·from·'@measured/puck';
+          4 │ + import·type·{·Data·}·from·'@measured/puck';
+      5   5 │   import { useCallback } from 'react';
+      6   6 │   
+  
+
+src/components/builder/use-copilot-builder-actions.ts:5:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    3 │ import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+    4 │ import { type Data } from '@measured/puck';
+  > 5 │ import { useCallback } from 'react';
+      │        ^^^^^^^^^^^^^^^
+    6 │ 
+    7 │ /**
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+      3   3 │   import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+      4   4 │   import { type Data } from '@measured/puck';
+      5     │ - import·{·useCallback·}·from·'react';
+      6   5 │   
+      7   6 │   /**
+  
+
+src/lib/agentic/paystack.ts:24:73 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    125 │         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-    126 │           {posts.map((post) => (
-  > 127 │             <Link key={post.id} href={`${basePath}/blog/${post.slug}` as any}>
-        │                                                                          ^^^
-    128 │               <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
-    129 │                 {post.featured_image_url && (
+    22 │ }
+    23 │ 
+  > 24 │ async function paystackRequest(endpoint: string, method: string, body?: any) {
+       │                                                                         ^^^
+    25 │     // Build-time safety: If key is missing during build, don't crash, but fail at runtime
+    26 │     const secretKey = PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(storefront)/[slug]/blog/blog-list.tsx:56:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
-
-  ! This hook specifies more dependencies than necessary: category, searchQuery.
-  
-    55 │   // Reset state when filters change
-  > 56 │   useEffect(() => {
-       │   ^^^^^^^^^
-    57 │     setPosts(initialPosts);
-    58 │     setPage(1);
-  
-  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
-  
-    58 │     setPage(1);
-    59 │     setHasMore(initialPosts.length < totalPosts);
-  > 60 │   }, [initialPosts, totalPosts, category, searchQuery]);
-       │                                 ^^^^^^^^
-    61 │ 
-    62 │   useEffect(() => {
-  
-  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
-  
-    58 │     setPage(1);
-    59 │     setHasMore(initialPosts.length < totalPosts);
-  > 60 │   }, [initialPosts, totalPosts, category, searchQuery]);
-       │                                           ^^^^^^^^^^^
-    61 │ 
-    62 │   useEffect(() => {
-  
-  i React relies on hook dependencies to determine when to re-compute Effects.
-    Specifying more dependencies than required can lead to unnecessary re-rendering
-    and degraded performance.
-  
-  i Unsafe fix: Remove the extra dependencies from the list.
-  
-    60 │ ··},·[initialPosts,·totalPosts,·category,·searchQuery]);
-       │                               -----------------------   
-
-src/app/(storefront)/[slug]/blog/blog-list.tsx:62:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
-
-  ! This hook does not specify its dependency on loadMore.
-  
-    60 │   }, [initialPosts, totalPosts, category, searchQuery]);
-    61 │ 
-  > 62 │   useEffect(() => {
-       │   ^^^^^^^^^
-    63 │     const observer = new IntersectionObserver(
-    64 │       (entries) => {
-  
-  i This dependency is being used here, but is not specified in the hook dependency list.
-  
-    64 │       (entries) => {
-    65 │         if (entries[0].isIntersecting && hasMore && !isPending) {
-  > 66 │           loadMore();
-       │           ^^^^^^^^
-    67 │         }
-    68 │       },
-  
-  i React relies on hook dependencies to determine when to re-compute Effects.
-    Failing to specify dependencies can result in Effects not updating correctly when state changes.
-    These "stale closures" are a common source of surprising bugs.
-  
-  i Unsafe fix: Add the missing dependency to the list.
-  
-    77 │ ··},·[hasMore,·isPending,·page,·category,·searchQuery,·loadMore]);
-       │                                                      ++++++++++   
-
-src/app/(storefront)/[slug]/blog/blog-list.tsx:62:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
-
-  ! This hook specifies more dependencies than necessary: page, category, searchQuery.
-  
-    60 │   }, [initialPosts, totalPosts, category, searchQuery]);
-    61 │ 
-  > 62 │   useEffect(() => {
-       │   ^^^^^^^^^
-    63 │     const observer = new IntersectionObserver(
-    64 │       (entries) => {
-  
-  i This dependency can be removed from the list.
-  
-    76 │     return () => observer.disconnect();
-  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
-       │                           ^^^^
-    78 │ 
-    79 │   const loadMore = () => {
-  
-  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
-  
-    76 │     return () => observer.disconnect();
-  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
-       │                                 ^^^^^^^^
-    78 │ 
-    79 │   const loadMore = () => {
-  
-  i Outer scope values aren't valid dependencies because mutating them doesn't re-render the component.
-  
-    76 │     return () => observer.disconnect();
-  > 77 │   }, [hasMore, isPending, page, category, searchQuery]);
-       │                                           ^^^^^^^^^^^
-    78 │ 
-    79 │   const loadMore = () => {
-  
-  i React relies on hook dependencies to determine when to re-compute Effects.
-    Specifying more dependencies than required can lead to unnecessary re-rendering
-    and degraded performance.
-  
-  i Unsafe fix: Remove the extra dependencies from the list.
-  
-    77 │ ··},·[hasMore,·isPending,·page,·category,·searchQuery]);
-       │                         -----------------------------   
-
-src/app/(storefront)/[slug]/cart/page.tsx:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━
+src/lib/agentic/paystack.ts:1:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! This import is unused.
   
-    1 │ import { notFound } from 'next/navigation';
-    2 │ import { Suspense } from 'react';
-  > 3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
-    5 │ import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+  > 1 │ import { NextRequest } from 'next/server';
+      │        ^^^^^^^^^^^^^^^
+    2 │ 
+    3 │ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
   
   i Unused imports might be the result of an incomplete refactoring.
   
   i Unsafe fix: Remove the unused imports.
   
-     1  1 │   import { notFound } from 'next/navigation';
-     2  2 │   import { Suspense } from 'react';
-     3    │ - import·{·StorefrontFooter·as·Footer·}·from·'@/components/storefront/footer';
-     4  3 │   import { StorefrontHeader as Header } from '@/components/storefront/header';
-     5  4 │   import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
+    1 │ import·{·NextRequest·}·from·'next/server';
+      │ ------------------------------------------
+
+src/app/api/agentic/checkout_sessions/[id]/complete/route.ts:68:9 lint/suspicious/noImplicitAnyLet ━━━━━━━━━━
+
+  × This variable implicitly has the any type.
+  
+    66 │     const { createDedicatedVirtualAccount } = await import('@/lib/agentic/paystack');
+    67 │ 
+  > 68 │     let dvaResult;
+       │         ^^^^^^^^^
+    69 │     try {
+    70 │       dvaResult = await createDedicatedVirtualAccount({
+  
+  i Variable declarations without type annotation and initialization implicitly have the any type. Declare a type or initialize the variable with some value.
   
 
-src/app/(storefront)/[slug]/cart/page.tsx:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━
-
-  ! This import is unused.
-  
-    2 │ import { Suspense } from 'react';
-    3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-  > 4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
-      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    5 │ import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
-    6 │ import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     2  2 │   import { Suspense } from 'react';
-     3  3 │   import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-     4    │ - import·{·StorefrontHeader·as·Header·}·from·'@/components/storefront/header';
-     5  4 │   import { CartPageWrapper } from '@/components/storefront/ogabassey/pages/cart-page-wrapper';
-     6  5 │   import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-  
-
-src/app/(storefront)/[slug]/checkout/page.tsx:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! This import is unused.
-  
-    1 │ import { notFound } from 'next/navigation';
-    2 │ import { Suspense } from 'react';
-  > 3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
-    5 │ import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     1  1 │   import { notFound } from 'next/navigation';
-     2  2 │   import { Suspense } from 'react';
-     3    │ - import·{·StorefrontFooter·as·Footer·}·from·'@/components/storefront/footer';
-     4  3 │   import { StorefrontHeader as Header } from '@/components/storefront/header';
-     5  4 │   import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
-  
-
-src/app/(storefront)/[slug]/checkout/page.tsx:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! This import is unused.
-  
-    2 │ import { Suspense } from 'react';
-    3 │ import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-  > 4 │ import { StorefrontHeader as Header } from '@/components/storefront/header';
-      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    5 │ import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
-    6 │ import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     2  2 │   import { Suspense } from 'react';
-     3  3 │   import { StorefrontFooter as Footer } from '@/components/storefront/footer';
-     4    │ - import·{·StorefrontHeader·as·Header·}·from·'@/components/storefront/header';
-     5  4 │   import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
-     6  5 │   import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
-  
-
-src/app/(storefront)/[slug]/contact/page.tsx:137:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
-
-  ! Avoid passing content using the dangerouslySetInnerHTML prop.
-  
-    135 │       <script
-    136 │         type="application/ld+json"
-  > 137 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
-        │         ^^^^^^^^^^^^^^^^^^^^^^^
-    138 │       />
-    139 │       <StorefrontPageWrapper
-  
-  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
-  
-
-src/app/(storefront)/[slug]/faq/page.tsx:105:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━━━
-
-  ! Avoid passing content using the dangerouslySetInnerHTML prop.
-  
-    103 │       <script
-    104 │         type="application/ld+json"
-  > 105 │         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-        │         ^^^^^^^^^^^^^^^^^^^^^^^
-    106 │       />
-    107 │       <StorefrontPageWrapper
-  
-  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
-  
-
-next.config.ts:303:3 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × This async function lacks an await expression.
-  
-    302 │   // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
-  > 303 │   async rewrites() {
-        │   ^^^^^^^^^^^^^^^^^^
-  > 304 │     const mcpServerUrl = process.env.MCP_SERVER_URL;
-         ...
-  > 317 │     ];
-  > 318 │   },
-        │   ^
-    319 │ 
-    320 │   // Security headers
-  
-  i Remove this async modifier, or add an await expression in the function.
-  
-    302 │   // Proxy MCP requests to VPS (only if MCP_SERVER_URL is configured)
-  > 303 │   async rewrites() {
-        │   ^^^^^^^^^^^^^^^^^^
-  > 304 │     const mcpServerUrl = process.env.MCP_SERVER_URL;
-         ...
-  > 317 │     ];
-  > 318 │   },
-        │   ^
-    319 │ 
-    320 │   // Security headers
-  
-  i Async functions without await expressions may not need to be declared async.
-  
-
-next.config.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/agentic/checkout_sessions/[id]/complete/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    207 207 │         {
-    208 208 │           source: '/blog/iphone-xr-in-2025-is-this-still-a-good-deal',
-    209     │ - ········destination:·'/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
-        209 │ + ········destination:
-        210 │ + ··········'/blog/moving-on-from-iphone-xr-in-2025-heres-what-to-buy-next',
-    210 211 │           permanent: true,
-    211 212 │         },
-    212 213 │         {
-    213     │ - ········source:·'/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
-    214     │ - ········destination:·'/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
-        214 │ + ········source:
-        215 │ + ··········'/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
-        216 │ + ········destination:
-        217 │ + ··········'/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
-    215 218 │           permanent: true,
-    216 219 │         },
+     62  62 │       // Instead of charging a card immediately, we generate a virtual account for the user to transfer to.
+     63  63 │   
+     64     │ - ····//·Check·if·we·already·have·DVA·details·in·metadata·or·similar?·
+         64 │ + ····//·Check·if·we·already·have·DVA·details·in·metadata·or·similar?
+     65  65 │       // For now, generate new one or retrieve existing.
+     66     │ - ····const·{·createDedicatedVirtualAccount·}·=·await·import('@/lib/agentic/paystack');
+         66 │ + ····const·{·createDedicatedVirtualAccount·}·=·await·import(
+         67 │ + ······'@/lib/agentic/paystack'
+         68 │ + ····);
+     67  69 │   
+     68  70 │       let dvaResult;
+    ······· │ 
+     79  81 │           {
+     80  82 │             error: 'Failed to generate payment account',
+     81     │ - ··········details:·dvaError.message
+         83 │ + ··········details:·dvaError.message,
+     82  84 │           },
+     83  85 │           { status: 502 }
+    ······· │ 
+    141 143 │             ...session.metadata,
+    142 144 │             dva_account: dvaResult,
+    143     │ - ········}
+        145 │ + ········},
+    144 146 │         })
+    145 147 │         .eq('id', params.id);
+    ······· │ 
+    172 174 │           account_number: dvaResult.account_number,
+    173 175 │           account_name: dvaResult.account_name,
+    174     │ - ········message:·'Please·transfer·the·exact·total·to·this·account·to·complete·your·order.'
+        176 │ + ········message:
+        177 │ + ··········'Please·transfer·the·exact·total·to·this·account·to·complete·your·order.',
+    175 178 │         },
+    176 179 │         messages: [],
   
 
-src/ai/chat-tool-handlers.ts:193:22 lint/style/useTemplate  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/copilotkit/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × Template literals are preferred over string concatenation.
+  × The imports and exports are not sorted.
   
-    191 │     // Simulated virtual account (replace with real Kuda integration)
-    192 │     const virtualAccount = {
-  > 193 │       accountNumber: '999' + Math.random().toString().slice(2, 9),
-        │                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    194 │       bankName: 'Kuda Bank',
-    195 │       accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
+  > 1 │ import {
+      │ ^^^^^^^^
+  > 2 │     CopilotRuntime,
+  > 3 │     GoogleGenerativeAIAdapter,
+  > 4 │     copilotRuntimeNextJSAppRouterEndpoint,
+  > 5 │ } from '@copilotkit/runtime';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    6 │ import { NextRequest } from 'next/server';
+    7 │ 
   
-  i Unsafe fix: Use a template literal.
+  i Safe fix: Organize Imports (Biome)
   
-    191 191 │       // Simulated virtual account (replace with real Kuda integration)
-    192 192 │       const virtualAccount = {
-    193     │ - ······accountNumber:·'999'·+·Math.random().toString().slice(2,·9),
-        193 │ + ······accountNumber:·`999${Math.random().toString().slice(2,·9)}`,
-    194 194 │         bankName: 'Kuda Bank',
-    195 195 │         accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
+     1  1 │   import {
+     2  2 │       CopilotRuntime,
+     3    │ - ····GoogleGenerativeAIAdapter,
+     4    │ - ····copilotRuntimeNextJSAppRouterEndpoint,
+        3 │ + ····copilotRuntimeNextJSAppRouterEndpoint,
+        4 │ + ····GoogleGenerativeAIAdapter,
+     5  5 │   } from '@copilotkit/runtime';
+     6  6 │   import { NextRequest } from 'next/server';
   
 
-src/ai/chat-tool-handlers.ts:408:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/copilotkit/route.ts:14:21 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × This async function lacks an await expression.
   
-    406 │ // ============================================
-    407 │ 
-  > 408 │ export async function handleAddToCart(
-        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  > 409 │   params: AddToCartParams
-  > 410 │ ): Promise<ProductSearchResult | null> {
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 51.
-Checked 755 files in 1504ms. No fixes applied.
-Found 12 errors.
-Found 59 warnings.
-  > 411 │   // Just return the product details - actual cart management happens on frontend
-  > 412 │   return handleGetProductDetails({ productId: params.productId });
-  > 413 │ }
-        │ ^
-    414 │ 
+    12 │ const runtime = new CopilotRuntime();
+    13 │ 
+  > 14 │ export const POST = async (req: NextRequest) => {
+       │                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 15 │     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        ...
+  > 20 │ 
+  > 21 │     return handleRequest(req);
+  > 22 │ };
+       │ ^
+    23 │ 
   
   i Remove this async modifier, or add an await expression in the function.
   
-    406 │ // ============================================
-    407 │ 
-  > 408 │ export async function handleAddToCart(
-        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  > 409 │   params: AddToCartParams
-  > 410 │ ): Promise<ProductSearchResult | null> {
-  > 411 │   // Just return the product details - actual cart management happens on frontend
-  > 412 │   return handleGetProductDetails({ productId: params.productId });
-  > 413 │ }
-        │ ^
-    414 │ 
+    12 │ const runtime = new CopilotRuntime();
+    13 │ 
+  > 14 │ export const POST = async (req: NextRequest) => {
+       │                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 15 │     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        ...
+  > 20 │ 
+  > 21 │     return handleRequest(req);
+  > 22 │ };
+       │ ^
+    23 │ 
   
   i Async functions without await expressions may not need to be declared async.
   
 
+src/app/api/copilotkit/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     1  1 │   import {
+     2    │ - ····CopilotRuntime,
+     3    │ - ····GoogleGenerativeAIAdapter,
+     4    │ - ····copilotRuntimeNextJSAppRouterEndpoint,
+        2 │ + ··CopilotRuntime,
+        3 │ + ··GoogleGenerativeAIAdapter,
+        4 │ + ··copilotRuntimeNextJSAppRouterEndpoint,
+     5  5 │   } from '@copilotkit/runtime';
+     6  6 │   import { NextRequest } from 'next/server';
+     7  7 │   
+     8  8 │   const serviceAdapter = new GoogleGenerativeAIAdapter({
+     9    │ - ····model:·'gemini-2.0-flash',
+        9 │ + ··model:·'gemini-2.0-flash',
+    10 10 │   });
+    11 11 │   
+    ····· │ 
+    13 13 │   
+    14 14 │   export const POST = async (req: NextRequest) => {
+    15    │ - ····const·{·handleRequest·}·=·copilotRuntimeNextJSAppRouterEndpoint({
+    16    │ - ········runtime,
+    17    │ - ········serviceAdapter,
+    18    │ - ········endpoint:·'/api/copilotkit',
+    19    │ - ····});
+       15 │ + ··const·{·handleRequest·}·=·copilotRuntimeNextJSAppRouterEndpoint({
+       16 │ + ····runtime,
+       17 │ + ····serviceAdapter,
+       18 │ + ····endpoint:·'/api/copilotkit',
+       19 │ + ··});
+    20 20 │   
+    21    │ - ····return·handleRequest(req);
+       21 │ + ··return·handleRequest(req);
+    22 22 │   };
+    23 23 │   
+  
+
+src/app/api/storefront/orders/[id]/route.ts:2:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 2 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    3 │ import { createServiceClient } from '@/lib/supabase/service';
+    4 │ import { isValidUuid } from '@/lib/sanitize-core';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1  1 │   
+     2  2 │   import { type NextRequest, NextResponse } from 'next/server';
+     3    │ - import·{·createServiceClient·}·from·'@/lib/supabase/service';
+     4    │ - import·{·isValidUuid·}·from·'@/lib/sanitize-core';
+        3 │ + import·{·isValidUuid·}·from·'@/lib/sanitize-core';
+        4 │ + import·{·createServiceClient·}·from·'@/lib/supabase/service';
+     5  5 │   
+     6  6 │   // GET /api/storefront/orders/[id] - Public endpoint to fetch order for checkout resumption
+  
+
+src/app/api/storefront/orders/[id]/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     1    │ - 
+     2  1 │   import { type NextRequest, NextResponse } from 'next/server';
+     3  2 │   import { createServiceClient } from '@/lib/supabase/service';
+    ····· │ 
+     6  5 │   // GET /api/storefront/orders/[id] - Public endpoint to fetch order for checkout resumption
+     7  6 │   export async function GET(
+     8    │ - ····_request:·NextRequest,
+     9    │ - ····{·params·}:·{·params:·Promise<{·id:·string·}>·}
+        7 │ + ··_request:·NextRequest,
+        8 │ + ··{·params·}:·{·params:·Promise<{·id:·string·}>·}
+    10  9 │   ) {
+    11    │ - ····try·{
+    12    │ - ········const·{·id·}·=·await·params;
+       10 │ + ··try·{
+       11 │ + ····const·{·id·}·=·await·params;
+    13 12 │   
+    14    │ - ········//·Validate·UUID·to·prevent·basic·injection/scanning
+    15    │ - ········if·(!isValidUuid(id))·{
+    16    │ - ············return·NextResponse.json({·error:·'Invalid·order·ID'·},·{·status:·400·});
+    17    │ - ········}
+       13 │ + ····//·Validate·UUID·to·prevent·basic·injection/scanning
+       14 │ + ····if·(!isValidUuid(id))·{
+       15 │ + ······return·NextResponse.json({·error:·'Invalid·order·ID'·},·{·status:·400·});
+       16 │ + ····}
+    18 17 │   
+    19    │ - ········//·Use·service·client·because·user·is·likely·a·guest·(not·logged·in)
+    20    │ - ········const·supabase·=·createServiceClient();
+       18 │ + ····//·Use·service·client·because·user·is·likely·a·guest·(not·logged·in)
+       19 │ + ····const·supabase·=·createServiceClient();
+    21 20 │   
+    22    │ - ········//·Fetch·order·with·items
+    23    │ - ········//·We·select·specifically·what's·needed·for·the·checkout·UI·to·be·safe
+    24    │ - ········const·{·data:·order,·error·}·=·await·supabase
+    25    │ - ············.from('orders')
+    26    │ - ············.select(`
+       21 │ + ····//·Fetch·order·with·items
+       22 │ + ····//·We·select·specifically·what's·needed·for·the·checkout·UI·to·be·safe
+       23 │ + ····const·{·data:·order,·error·}·=·await·supabase
+       24 │ + ······.from('orders')
+       25 │ + ······.select(`
+    27 26 │           id,
+    28 27 │           short_id,
+    ····· │ 
+    45 44 │           )
+    46 45 │         `)
+    47    │ - ············.eq('id',·id)
+    48    │ - ············.single();
+       46 │ + ······.eq('id',·id)
+       47 │ + ······.single();
+    49 48 │   
+    50    │ - ········if·(error·||·!order)·{
+    51    │ - ············console.error('Storefront·order·fetch·error:',·error);
+    52    │ - ············return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+    53    │ - ········}
+       49 │ + ····if·(error·||·!order)·{
+       50 │ + ······console.error('Storefront·order·fetch·error:',·error);
+       51 │ + ······return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+       52 │ + ····}
+    54 53 │   
+    55    │ - ········return·NextResponse.json(order);
+    56    │ - ····}·catch·(error)·{
+    57    │ - ········console.error('Unexpected·error·in·GET·/api/storefront/orders/[id]:',·error);
+    58    │ - ········return·NextResponse.json(
+    59    │ - ············{·error:·'Internal·server·error'·},
+    60    │ - ············{·status:·500·}
+    61    │ - ········);
+    62    │ - ····}
+       54 │ + ····return·NextResponse.json(order);
+       55 │ + ··}·catch·(error)·{
+       56 │ + ····console.error(
+       57 │ + ······'Unexpected·error·in·GET·/api/storefront/orders/[id]:',
+       58 │ + ······error
+       59 │ + ····);
+       60 │ + ····return·NextResponse.json(
+       61 │ + ······{·error:·'Internal·server·error'·},
+       62 │ + ······{·status:·500·}
+       63 │ + ····);
+       64 │ + ··}
+    63 65 │   }
+    64 66 │   
+  
+
+src/app/builder/builder-client.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+     1 │ 'use client';
+     2 │ 
+   > 3 │ import {
+       │ ^^^^^^^^
+   > 4 │   type Data,
+   > 5 │   type DefaultComponentProps,
+   > 6 │   Drawer,
+   > 7 │   Puck,
+   > 8 │ } from '@measured/puck';
+       │ ^^^^^^^^^^^^^^^^^^^^^^^^
+     9 │ import '@measured/puck/puck.css';
+    10 │ import {
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     56  56 │   } from '@/components/builder/store-settings-panel';
+     57  57 │   import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
+     58     │ - import·{·Button·}·from·'@/components/ui/button';
+     59     │ - import·{·useAuth·}·from·'@/contexts/auth-context';
+     60     │ - import·{·StorefrontProvider·}·from·'@/contexts/storefront-context';
+     61     │ - import·{·useMerchant·}·from·'@/hooks/use-merchant';
+     62     │ - import·{·useToast·}·from·'@/hooks/use-toast';
+     63     │ - import·{·defaultTheme,·type·ThemeConfiguration·}·from·'@/lib/theme-config';
+     64     │ - import·{·applyTheme·}·from·'@/lib/theme-manager';
+     65     │ - import·{·useCopilotBuilderActions·}·from·'@/components/builder/use-copilot-builder-actions';
+         58 │ + import·{·useCopilotBuilderActions·}·from·'@/components/builder/use-copilot-builder-actions';
+         59 │ + import·{·Button·}·from·'@/components/ui/button';
+         60 │ + import·{·useAuth·}·from·'@/contexts/auth-context';
+         61 │ + import·{·StorefrontProvider·}·from·'@/contexts/storefront-context';
+         62 │ + import·{·useMerchant·}·from·'@/hooks/use-merchant';
+         63 │ + import·{·useToast·}·from·'@/hooks/use-toast';
+         64 │ + import·{·defaultTheme,·type·ThemeConfiguration·}·from·'@/lib/theme-config';
+         65 │ + import·{·applyTheme·}·from·'@/lib/theme-manager';
+     66  66 │   
+     67  67 │   // Component icon mapping - using component functions for dynamic sizing
+  
+
+src/app/builder/builder-client.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    506 506 │                               newContent[componentIndex],
+    507 507 │                             ] = [
+    508     │ - ······························newContent[componentIndex],
+    509     │ - ······························newContent[componentIndex·-·1],
+    510     │ - ····························];
+        508 │ + ····························newContent[componentIndex],
+        509 │ + ····························newContent[componentIndex·-·1],
+        510 │ + ··························];
+    511 511 │                             setData({ ...data, content: newContent });
+    512 512 │                           }
+    ······· │ 
+    519 519 │                               newContent[componentIndex + 1],
+    520 520 │                             ] = [
+    521     │ - ······························newContent[componentIndex·+·1],
+    522     │ - ······························newContent[componentIndex],
+    523     │ - ····························];
+        521 │ + ····························newContent[componentIndex·+·1],
+        522 │ + ····························newContent[componentIndex],
+        523 │ + ··························];
+    524 524 │                             setData({ ...data, content: newContent });
+    525 525 │                           }
+    ······· │ 
+    844 844 │                         type="button"
+    845 845 │                         onClick={() => setViewportWidth(375)}
+    846     │ - ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${viewportWidth·===·375
+    847     │ - ························?·'bg-white·shadow-sm'
+    848     │ - ························:·'hover:bg-white'
+    849     │ - ························}`}
+        846 │ + ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${
+        847 │ + ························viewportWidth·===·375
+        848 │ + ··························?·'bg-white·shadow-sm'
+        849 │ + ··························:·'hover:bg-white'
+        850 │ + ······················}`}
+    850 851 │                         title="Mobile Portrait (375px)"
+    851 852 │                       >
+    ······· │ 
+    856 857 │                         type="button"
+    857 858 │                         onClick={() => setViewportWidth(768)}
+    858     │ - ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${viewportWidth·===·768
+    859     │ - ························?·'bg-white·shadow-sm'
+    860     │ - ························:·'hover:bg-white'
+    861     │ - ························}`}
+        859 │ + ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${
+        860 │ + ························viewportWidth·===·768
+        861 │ + ··························?·'bg-white·shadow-sm'
+        862 │ + ··························:·'hover:bg-white'
+        863 │ + ······················}`}
+    862 864 │                         title="Tablet (768px)"
+    863 865 │                       >
+    ······· │ 
+    868 870 │                         type="button"
+    869 871 │                         onClick={() => setViewportWidth(1200)}
+    870     │ - ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${viewportWidth·===·1200
+    871     │ - ························?·'bg-white·shadow-sm'
+    872     │ - ························:·'hover:bg-white'
+    873     │ - ························}`}
+        872 │ + ······················className={`flex·items-center·gap-2·px-3·py-1.5·rounded-md·transition-colors·text-sm·${
+        873 │ + ························viewportWidth·===·1200
+        874 │ + ··························?·'bg-white·shadow-sm'
+        875 │ + ··························:·'hover:bg-white'
+        876 │ + ······················}`}
+    874 877 │                         title="Desktop (1200px)"
+    875 878 │                       >
+  
+
+src/components/builder/copilot-builder-wrapper.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     6  6 │   
+     7  7 │   interface CopilotBuilderWrapperProps {
+     8    │ - ····children:·React.ReactNode;
+        8 │ + ··children:·React.ReactNode;
+     9  9 │   }
+    10 10 │   
+    ····· │ 
+    13 13 │    * Provides AI chat sidebar alongside Puck editor.
+    14 14 │    */
+    15    │ - export·function·CopilotBuilderWrapper({·children·}:·CopilotBuilderWrapperProps)·{
+    16    │ - ····return·(
+    17    │ - ········<CopilotKit·runtimeUrl="/api/copilotkit">
+    18    │ - ············<div·className="flex·h-screen">
+    19    │ - ················<div·className="flex-1">{children}</div>
+    20    │ - ················<CopilotSidebar
+    21    │ - ····················labels={{
+    22    │ - ························title:·'AI·Builder·Assistant',
+    23    │ - ························initial:·'Describe·your·storefront·and·I\'ll·help·you·build·it!',
+    24    │ - ····················}}
+    25    │ - ····················defaultOpen={false}
+    26    │ - ····················clickOutsideToClose={true}
+    27    │ - ················/>
+    28    │ - ············</div>
+    29    │ - ········</CopilotKit>
+    30    │ - ····);
+       15 │ + export·function·CopilotBuilderWrapper({
+       16 │ + ··children,
+       17 │ + }:·CopilotBuilderWrapperProps)·{
+       18 │ + ··return·(
+       19 │ + ····<CopilotKit·runtimeUrl="/api/copilotkit">
+       20 │ + ······<div·className="flex·h-screen">
+       21 │ + ········<div·className="flex-1">{children}</div>
+       22 │ + ········<CopilotSidebar
+       23 │ + ··········labels={{
+       24 │ + ············title:·'AI·Builder·Assistant',
+       25 │ + ············initial:·"Describe·your·storefront·and·I'll·help·you·build·it!",
+       26 │ + ··········}}
+       27 │ + ··········defaultOpen={false}
+       28 │ + ··········clickOutsideToClose={true}
+       29 │ + ········/>
+       30 │ + ······</div>
+       31 │ + ····</CopilotKit>
+       32 │ + ··);
+    31 33 │   }
+    32 34 │   
+  
+
+src/components/builder/use-copilot-builder-actions.ts:69:18 lint/suspicious/useAwait ━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    67 │             },
+    68 │         ],
+  > 69 │         handler: async ({ componentType, position = -1 }) => {
+       │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 70 │             if (!COMPONENT_TYPES.includes(componentType as ComponentType)) {
+        ...
+  > 89 │             return `Added ${componentType} component to the page.`;
+  > 90 │         },
+       │         ^
+    91 │     });
+    92 │ 
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    67 │             },
+    68 │         ],
+  > 69 │         handler: async ({ componentType, position = -1 }) => {
+       │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 70 │             if (!COMPONENT_TYPES.includes(componentType as ComponentType)) {
+        ...
+  > 89 │             return `Added ${componentType} component to the page.`;
+  > 90 │         },
+       │         ^
+    91 │     });
+    92 │ 
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/components/builder/use-copilot-builder-actions.ts:111:18 lint/suspicious/useAwait ━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    109 │             },
+    110 │         ],
+  > 111 │         handler: async ({ componentType, position }) => {
+        │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 112 │             if (position !== undefined) {
+         ...
+  > 133 │             return 'Please specify either componentType or position.';
+  > 134 │         },
+        │         ^
+    135 │     });
+    136 │ 
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    109 │             },
+    110 │         ],
+  > 111 │         handler: async ({ componentType, position }) => {
+        │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 112 │             if (position !== undefined) {
+         ...
+  > 133 │             return 'Please specify either componentType or position.';
+  > 134 │         },
+        │         ^
+    135 │     });
+    136 │ 
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/components/builder/use-copilot-builder-actions.ts:173:18 lint/suspicious/useAwait ━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    171 │             },
+    172 │         ],
+  > 173 │         handler: async ({
+        │                  ^^^^^^^^
+  > 174 │             businessType,
+         ...
+  > 212 │             return `Generated ${businessType} storefront with ${components.length} sections.`;
+  > 213 │         },
+        │         ^
+    214 │     });
+    215 │ }
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    171 │             },
+    172 │         ],
+  > 173 │         handler: async ({
+        │                  ^^^^^^^^
+  > 174 │             businessType,
+         ...
+  > 212 │             return `Generated ${businessType} storefront with ${components.length} sections.`;
+  > 213 │         },
+        │         ^
+    214 │     });
+    215 │ }
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/components/builder/use-copilot-builder-actions.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      9   9 │    */
+     10  10 │   const COMPONENT_TYPES = [
+     11     │ - ····'Hero',
+     12     │ - ····'HeroCarousel',
+     13     │ - ····'ProductGrid',
+     14     │ - ····'Features',
+     15     │ - ····'Testimonial',
+     16     │ - ····'Newsletter',
+     17     │ - ····'Text',
+     18     │ - ····'Image',
+     19     │ - ····'Button',
+     20     │ - ····'Spacer',
+     21     │ - ····'Header',
+     22     │ - ····'Footer',
+     23     │ - ····'Video',
+     24     │ - ····'ContactForm',
+         11 │ + ··'Hero',
+         12 │ + ··'HeroCarousel',
+         13 │ + ··'ProductGrid',
+         14 │ + ··'Features',
+         15 │ + ··'Testimonial',
+         16 │ + ··'Newsletter',
+         17 │ + ··'Text',
+         18 │ + ··'Image',
+         19 │ + ··'Button',
+         20 │ + ··'Spacer',
+         21 │ + ··'Header',
+         22 │ + ··'Footer',
+         23 │ + ··'Video',
+         24 │ + ··'ContactForm',
+     25  25 │   ] as const;
+     26  26 │   
+    ······· │ 
+     28  28 │   
+     29  29 │   interface UseCopilotBuilderActionsProps {
+     30     │ - ····data:·Data;
+     31     │ - ····setData:·(data:·Data)·=>·void;
+         30 │ + ··data:·Data;
+         31 │ + ··setData:·(data:·Data)·=>·void;
+     32  32 │   }
+     33  33 │   
+    ······· │ 
+     36  36 │    * Allows AI to add, remove, and modify components.
+     37  37 │    */
+     38     │ - export·function·useCopilotBuilderActions({·data,·setData·}:·UseCopilotBuilderActionsProps)·{
+     39     │ - ····//·Make·current·config·readable·by·AI
+     40     │ - ····useCopilotReadable({
+     41     │ - ········description:·'The·current·storefront·page·configuration·with·all·components',
+     42     │ - ········value:·JSON.stringify({
+     43     │ - ············componentCount:·data.content?.length·||·0,
+     44     │ - ············components:·data.content?.map((c)·=>·({
+     45     │ - ················type:·c.type,
+     46     │ - ················id:·c.props?.id,
+     47     │ - ············})),
+     48     │ - ········}),
+     49     │ - ····});
+         38 │ + export·function·useCopilotBuilderActions({
+         39 │ + ··data,
+         40 │ + ··setData,
+         41 │ + }:·UseCopilotBuilderActionsProps)·{
+         42 │ + ··//·Make·current·config·readable·by·AI
+         43 │ + ··useCopilotReadable({
+         44 │ + ····description:
+         45 │ + ······'The·current·storefront·page·configuration·with·all·components',
+         46 │ + ····value:·JSON.stringify({
+         47 │ + ······componentCount:·data.content?.length·||·0,
+         48 │ + ······components:·data.content?.map((c)·=>·({
+         49 │ + ········type:·c.type,
+         50 │ + ········id:·c.props?.id,
+         51 │ + ······})),
+         52 │ + ····}),
+         53 │ + ··});
+     50  54 │   
+     51     │ - ····//·Action:·Add·a·component
+     52     │ - ····useCopilotAction({
+     53     │ - ········name:·'addComponent',
+     54     │ - ········description:·'Add·a·new·component·to·the·storefront·page',
+     55     │ - ········parameters:·[
+     56     │ - ············{
+     57     │ - ················name:·'componentType',
+     58     │ - ················type:·'string',
+     59     │ - ················description:·`Type·of·component·to·add.·Must·be·one·of:·${COMPONENT_TYPES.join(',·')}`,
+     60     │ - ················required:·true,
+     61     │ - ············},
+     62     │ - ············{
+     63     │ - ················name:·'position',
+     64     │ - ················type:·'number',
+     65     │ - ················description:·'Position·in·the·page·(0·=·top,·-1·=·bottom).·Default·is·bottom.',
+     66     │ - ················required:·false,
+     67     │ - ············},
+     68     │ - ········],
+     69     │ - ········handler:·async·({·componentType,·position·=·-1·})·=>·{
+     70     │ - ············if·(!COMPONENT_TYPES.includes(componentType·as·ComponentType))·{
+     71     │ - ················return·`Invalid·component·type:·${componentType}.·Use·one·of:·${COMPONENT_TYPES.join(',·')}`;
+     72     │ - ············}
+         55 │ + ··//·Action:·Add·a·component
+         56 │ + ··useCopilotAction({
+         57 │ + ····name:·'addComponent',
+         58 │ + ····description:·'Add·a·new·component·to·the·storefront·page',
+         59 │ + ····parameters:·[
+         60 │ + ······{
+         61 │ + ········name:·'componentType',
+         62 │ + ········type:·'string',
+         63 │ + ········description:·`Type·of·component·to·add.·Must·be·one·of:·${COMPONENT_TYPES.join(',·')}`,
+         64 │ + ········required:·true,
+         65 │ + ······},
+         66 │ + ······{
+         67 │ + ········name:·'position',
+         68 │ + ········type:·'number',
+         69 │ + ········description:
+         70 │ + ··········'Position·in·the·page·(0·=·top,·-1·=·bottom).·Default·is·bottom.',
+         71 │ + ········required:·false,
+         72 │ + ······},
+         73 │ + ····],
+         74 │ + ····handler:·async·({·componentType,·position·=·-1·})·=>·{
+         75 │ + ······if·(!COMPONENT_TYPES.includes(componentType·as·ComponentType))·{
+         76 │ + ········return·`Invalid·component·type:·${componentType}.·Use·one·of:·${COMPONENT_TYPES.join(',·')}`;
+         77 │ + ······}
+     73  78 │   
+     74     │ - ············const·newComponent·=·{
+     75     │ - ················type:·componentType,
+     76     │ - ················props:·{
+     77     │ - ····················id:·`${componentType}-${Date.now()}`,
+     78     │ - ················},
+     79     │ - ············};
+         79 │ + ······const·newComponent·=·{
+         80 │ + ········type:·componentType,
+         81 │ + ········props:·{
+         82 │ + ··········id:·`${componentType}-${Date.now()}`,
+         83 │ + ········},
+         84 │ + ······};
+     80  85 │   
+     81     │ - ············const·newContent·=·[...(data.content·||·[])];
+     82     │ - ············if·(position·===·-1·||·position·>=·newContent.length)·{
+     83     │ - ················newContent.push(newComponent);
+     84     │ - ············}·else·{
+     85     │ - ················newContent.splice(Math.max(0,·position),·0,·newComponent);
+     86     │ - ············}
+         86 │ + ······const·newContent·=·[...(data.content·||·[])];
+         87 │ + ······if·(position·===·-1·||·position·>=·newContent.length)·{
+         88 │ + ········newContent.push(newComponent);
+         89 │ + ······}·else·{
+         90 │ + ········newContent.splice(Math.max(0,·position),·0,·newComponent);
+         91 │ + ······}
+     87  92 │   
+     88     │ - ············setData({·...data,·content:·newContent·});
+     89     │ - ············return·`Added·${componentType}·component·to·the·page.`;
+     90     │ - ········},
+     91     │ - ····});
+         93 │ + ······setData({·...data,·content:·newContent·});
+         94 │ + ······return·`Added·${componentType}·component·to·the·page.`;
+         95 │ + ····},
+  256 more lines truncated
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 1.
+Checked 759 files in 699ms. No fixes applied.
+Found 15 errors.
+Found 6 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

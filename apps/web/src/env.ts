@@ -109,6 +109,26 @@ export const getGeminiApiKey = (): string | undefined => {
   return key;
 };
 
+export const getCreditDirectPublicKey = (): string | undefined => {
+  const key = process.env.CREDIT_DIRECT_PUBLIC_KEY;
+  if (!key && typeof window === 'undefined') {
+    console.warn(
+      'CREDIT_DIRECT_PUBLIC_KEY is not defined. BNPL features will not work.'
+    );
+  }
+  return key;
+};
+
+export const getCreditDirectPrivateKey = (): string | undefined => {
+  const key = process.env.CREDIT_DIRECT_PRIVATE_KEY;
+  if (!key && typeof window === 'undefined') {
+    console.warn(
+      'CREDIT_DIRECT_PRIVATE_KEY is not defined. BNPL signing will not work.'
+    );
+  }
+  return key;
+};
+
 export const getRootDomain = (): string => {
   return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 };
@@ -168,6 +188,12 @@ export const validateEnvironment = (): {
   }
   if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
     warnings.push('GOOGLE_GENAI_API_KEY is missing (AI features disabled)');
+  }
+  if (!process.env.CREDIT_DIRECT_PUBLIC_KEY) {
+    warnings.push('CREDIT_DIRECT_PUBLIC_KEY is missing (BNPL disabled)');
+  }
+  if (!process.env.CREDIT_DIRECT_PRIVATE_KEY) {
+    warnings.push('CREDIT_DIRECT_PRIVATE_KEY is missing (BNPL disabled)');
   }
 
   if (warnings.length > 0 && typeof window === 'undefined') {

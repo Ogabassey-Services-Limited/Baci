@@ -374,20 +374,11 @@ export default function Checkout() {
                         });
                     } else {
                         // Payment might still be processing or user dismissed early
-                        Alert.alert(
-                            'Payment Status',
-                            'Your order has been saved. If you completed payment, you will receive confirmation shortly.',
-                            [
-                                { text: 'OK', style: 'cancel' },
-                                {
-                                    text: 'View Order',
-                                    onPress: () => router.push({
-                                        pathname: '/order-success',
-                                        params: { orderId: order.id, pending: 'true', merchantId: merchantId }
-                                    })
-                                }
-                            ]
-                        );
+                        // Payment might still be processing or user dismissed early
+                        router.push({
+                            pathname: '/order-success',
+                            params: { orderId: order.id, pending: 'true', merchantId: merchantId }
+                        });
                     }
                 } else {
                     throw new Error("Payment URL not returned");
@@ -419,20 +410,11 @@ export default function Checkout() {
                     });
                 } else {
                     // Payment might still be processing or user didn't complete
-                    Alert.alert(
-                        'Payment Status',
-                        'Your order has been saved. If you completed payment on the website, you will receive confirmation shortly.',
-                        [
-                            { text: 'OK', style: 'cancel' },
-                            {
-                                text: 'View Order',
-                                onPress: () => router.push({
-                                    pathname: '/order-success',
-                                    params: { orderId: order.id, pending: 'true', merchantId: merchantId }
-                                })
-                            }
-                        ]
-                    );
+                    // Payment might still be processing or user didn't complete
+                    router.push({
+                        pathname: '/order-success',
+                        params: { orderId: order.id, pending: 'true', merchantId: merchantId }
+                    });
                 }
                 setIsSubmitting(false);
                 return;
