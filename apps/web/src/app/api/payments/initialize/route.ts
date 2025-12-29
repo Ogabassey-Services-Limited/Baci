@@ -354,9 +354,9 @@ async function initializeJuicyway(
       const paymentMethod = cryptoData.payment?.payment_method;
 
       if (!paymentMethod?.address) {
-        console.error('No crypto address in capture response:', cryptoData);
+        console.error('No crypto address in capture response. Full Data:', JSON.stringify(cryptoData, null, 2));
         throw new Error(
-          'Failed to generate crypto payment address: partial response'
+          `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
         );
       }
 
@@ -578,15 +578,15 @@ export async function POST(request: NextRequest) {
 
     const gatewaySettings: GatewaySettings = featureSettings
       ? {
-          paystack_enabled: featureSettings.paystack_enabled ?? true,
-          korapay_enabled: featureSettings.korapay_enabled ?? true,
-          preferred_local_gateway:
-            (featureSettings.preferred_local_gateway as PaymentGateway) ||
-            'paystack',
-          preferred_international_gateway:
-            (featureSettings.preferred_international_gateway as PaymentGateway) ||
-            'korapay',
-        }
+        paystack_enabled: featureSettings.paystack_enabled ?? true,
+        korapay_enabled: featureSettings.korapay_enabled ?? true,
+        preferred_local_gateway:
+          (featureSettings.preferred_local_gateway as PaymentGateway) ||
+          'paystack',
+        preferred_international_gateway:
+          (featureSettings.preferred_international_gateway as PaymentGateway) ||
+          'korapay',
+      }
       : DEFAULT_GATEWAY_SETTINGS;
 
     // Generate reference and URLs

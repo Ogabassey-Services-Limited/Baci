@@ -2,4 +2,49 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 761 files in 752ms. No fixes applied.
+src/app/api/payments/initialize/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    355 355 │   
+    356 356 │         if (!paymentMethod?.address) {
+    357     │ - ········console.error('No·crypto·address·in·capture·response.·Full·Data:',·JSON.stringify(cryptoData,·null,·2));
+        357 │ + ········console.error(
+        358 │ + ··········'No·crypto·address·in·capture·response.·Full·Data:',
+        359 │ + ··········JSON.stringify(cryptoData,·null,·2)
+        360 │ + ········);
+    358 361 │           throw new Error(
+    359 362 │             `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
+    ······· │ 
+    579 582 │       const gatewaySettings: GatewaySettings = featureSettings
+    580 583 │         ? {
+    581     │ - ········paystack_enabled:·featureSettings.paystack_enabled·??·true,
+    582     │ - ········korapay_enabled:·featureSettings.korapay_enabled·??·true,
+    583     │ - ········preferred_local_gateway:
+    584     │ - ··········(featureSettings.preferred_local_gateway·as·PaymentGateway)·||
+    585     │ - ··········'paystack',
+    586     │ - ········preferred_international_gateway:
+    587     │ - ··········(featureSettings.preferred_international_gateway·as·PaymentGateway)·||
+    588     │ - ··········'korapay',
+    589     │ - ······}
+        584 │ + ··········paystack_enabled:·featureSettings.paystack_enabled·??·true,
+        585 │ + ··········korapay_enabled:·featureSettings.korapay_enabled·??·true,
+        586 │ + ··········preferred_local_gateway:
+        587 │ + ············(featureSettings.preferred_local_gateway·as·PaymentGateway)·||
+        588 │ + ············'paystack',
+        589 │ + ··········preferred_international_gateway:
+        590 │ + ············(featureSettings.preferred_international_gateway·as·PaymentGateway)·||
+        591 │ + ············'korapay',
+        592 │ + ········}
+    590 593 │         : DEFAULT_GATEWAY_SETTINGS;
+    591 594 │   
+  
+
+Checked 761 files in 445ms. No fixes applied.
+Found 1 error.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.
