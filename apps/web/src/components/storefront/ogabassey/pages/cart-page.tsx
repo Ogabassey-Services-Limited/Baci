@@ -438,7 +438,7 @@ export const CartPage: React.FC = () => {
 
                   <Link
                     href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
-                    className="w-full bg-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/90 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-[var(--store-primary)]/20 group active:scale-[0.98] active:shadow-none"
+                    className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none"
                   >
                     Proceed to Checkout
                     <ArrowRight
@@ -488,7 +488,7 @@ export const CartPage: React.FC = () => {
           {/* Checkout Button */}
           <Link
             href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
-            className="flex-1 bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 active:bg-[var(--store-primary)]/90 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
+            className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
           >
             <span>Checkout</span>
             <span className="text-white/80">•</span>
