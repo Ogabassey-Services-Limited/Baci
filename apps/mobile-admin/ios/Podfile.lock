@@ -260,7 +260,11 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - ExpoPrint (15.0.8):
+    - ExpoModulesCore
   - ExpoSecureStore (15.0.8):
+    - ExpoModulesCore
+  - ExpoSharing (14.0.8):
     - ExpoModulesCore
   - ExpoSplashScreen (31.0.13):
     - ExpoModulesCore
@@ -2342,7 +2346,7 @@ DEPENDENCIES:
   - "EXJSONUtils (from `../../../node_modules/.pnpm/expo-json-utils@0.15.0/node_modules/expo-json-utils/ios`)"
   - "EXManifests (from `../../../node_modules/.pnpm/expo-manifests@1.0.10_expo@54.0.30/node_modules/expo-manifests/ios`)"
   - "EXNotifications (from `../../../node_modules/.pnpm/expo-notifications@0.32.15_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+r_a2cb09cf050d01d7b7e3b393c1bde6f7/node_modules/expo-notifications/ios`)"
-  - "Expo (from `../../../node_modules/.pnpm/expo@54.0.30_@babel+core@7.28.5_@expo+metro-runtime@6.1.2_expo-router@6.0.21_react-nati_e5fdef06ea6eba6591f770e2a63f651e/node_modules/expo`)"
+  - "Expo (from `../../../node_modules/.pnpm/expo@54.0.30_@babel+core@7.28.5_@expo+metro-runtime@6.1.2_expo-router@6.0.21_graphql@16_61d679c83a54d525b19386eb4b4970eb/node_modules/expo`)"
   - "expo-dev-client (from `../../../node_modules/.pnpm/expo-dev-client@6.0.20_expo@54.0.30/node_modules/expo-dev-client/ios`)"
   - "expo-dev-launcher (from `../../../node_modules/.pnpm/expo-dev-launcher@6.0.20_expo@54.0.30/node_modules/expo-dev-launcher`)"
   - "expo-dev-menu (from `../../../node_modules/.pnpm/expo-dev-menu@7.0.18_expo@54.0.30/node_modules/expo-dev-menu`)"
@@ -2352,14 +2356,16 @@ DEPENDENCIES:
   - "ExpoDevice (from `../../../node_modules/.pnpm/expo-device@8.0.10_expo@54.0.30/node_modules/expo-device/ios`)"
   - "ExpoFileSystem (from `../../../node_modules/.pnpm/expo-file-system@19.0.21_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0_/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@14.0.10_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-font/ios`)"
-  - "ExpoHead (from `../../../node_modules/.pnpm/expo-router@6.0.21_c40e05fd747eaec9b2670562010ca581/node_modules/expo-router/ios`)"
+  - "ExpoHead (from `../../../node_modules/.pnpm/expo-router@6.0.21_bacae8f56a86dce39db0c2d76ed16341/node_modules/expo-router/ios`)"
   - "ExpoImage (from `../../../node_modules/.pnpm/expo-image@3.0.11_expo@54.0.30_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__r_2d248783aeb24b592b087c746b95d6c8/node_modules/expo-image/ios`)"
   - "ExpoImagePicker (from `../../../node_modules/.pnpm/expo-image-picker@17.0.10_expo@54.0.30/node_modules/expo-image-picker/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.pnpm/expo-keep-awake@15.0.8_expo@54.0.30_react@19.1.0/node_modules/expo-keep-awake/ios`)"
   - "ExpoLinearGradient (from `../../../node_modules/.pnpm/expo-linear-gradient@15.0.8_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+_410d30ff0d77c02f875cfd1491def9a8/node_modules/expo-linear-gradient/ios`)"
   - "ExpoLinking (from `../../../node_modules/.pnpm/expo-linking@8.0.11_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-linking/ios`)"
   - "ExpoModulesCore (from `../../../node_modules/.pnpm/expo-modules-core@3.0.29_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-modules-core`)"
+  - "ExpoPrint (from `../../../node_modules/.pnpm/expo-print@15.0.8_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0_/node_modules/expo-print/ios`)"
   - "ExpoSecureStore (from `../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.30/node_modules/expo-secure-store/ios`)"
+  - "ExpoSharing (from `../../../node_modules/.pnpm/expo-sharing@14.0.8_expo@54.0.30/node_modules/expo-sharing/ios`)"
   - "ExpoSplashScreen (from `../../../node_modules/.pnpm/expo-splash-screen@31.0.13_expo@54.0.30/node_modules/expo-splash-screen/ios`)"
   - "EXUpdatesInterface (from `../../../node_modules/.pnpm/expo-updates-interface@2.0.0_expo@54.0.30/node_modules/expo-updates-interface/ios`)"
   - "FBLazyVector (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0/node_modules/react-native/Libraries/FBLazyVector`)"
@@ -2467,7 +2473,7 @@ EXTERNAL SOURCES:
   EXNotifications:
     :path: "../../../node_modules/.pnpm/expo-notifications@0.32.15_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+r_a2cb09cf050d01d7b7e3b393c1bde6f7/node_modules/expo-notifications/ios"
   Expo:
-    :path: "../../../node_modules/.pnpm/expo@54.0.30_@babel+core@7.28.5_@expo+metro-runtime@6.1.2_expo-router@6.0.21_react-nati_e5fdef06ea6eba6591f770e2a63f651e/node_modules/expo"
+    :path: "../../../node_modules/.pnpm/expo@54.0.30_@babel+core@7.28.5_@expo+metro-runtime@6.1.2_expo-router@6.0.21_graphql@16_61d679c83a54d525b19386eb4b4970eb/node_modules/expo"
   expo-dev-client:
     :path: "../../../node_modules/.pnpm/expo-dev-client@6.0.20_expo@54.0.30/node_modules/expo-dev-client/ios"
   expo-dev-launcher:
@@ -2487,7 +2493,7 @@ EXTERNAL SOURCES:
   ExpoFont:
     :path: "../../../node_modules/.pnpm/expo-font@14.0.10_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-font/ios"
   ExpoHead:
-    :path: "../../../node_modules/.pnpm/expo-router@6.0.21_c40e05fd747eaec9b2670562010ca581/node_modules/expo-router/ios"
+    :path: "../../../node_modules/.pnpm/expo-router@6.0.21_bacae8f56a86dce39db0c2d76ed16341/node_modules/expo-router/ios"
   ExpoImage:
     :path: "../../../node_modules/.pnpm/expo-image@3.0.11_expo@54.0.30_react-native-web@0.21.2_react-dom@19.1.0_react@19.1.0__r_2d248783aeb24b592b087c746b95d6c8/node_modules/expo-image/ios"
   ExpoImagePicker:
@@ -2500,8 +2506,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/expo-linking@8.0.11_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-linking/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/.pnpm/expo-modules-core@3.0.29_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0__react@19.1.0/node_modules/expo-modules-core"
+  ExpoPrint:
+    :path: "../../../node_modules/.pnpm/expo-print@15.0.8_expo@54.0.30_react-native@0.81.5_@babel+core@7.28.5_@types+react@19.1.17_react@19.1.0_/node_modules/expo-print/ios"
   ExpoSecureStore:
     :path: "../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.30/node_modules/expo-secure-store/ios"
+  ExpoSharing:
+    :path: "../../../node_modules/.pnpm/expo-sharing@14.0.8_expo@54.0.30/node_modules/expo-sharing/ios"
   ExpoSplashScreen:
     :path: "../../../node_modules/.pnpm/expo-splash-screen@31.0.13_expo@54.0.30/node_modules/expo-splash-screen/ios"
   EXUpdatesInterface:
@@ -2686,7 +2696,9 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: 809102bdb979f590083af49f7fa4805cd931bd58
   ExpoLinking: 8f0aaf69aa56f832913030503b6263dc6f647f37
   ExpoModulesCore: f3da4f1ab5a8375d0beafab763739dbee8446583
+  ExpoPrint: 813bfa965eda2ecc4b1cdc61612c820e239c382a
   ExpoSecureStore: d32f751874a2ceb5aaeebeb3578e165c1ba2b24a
+  ExpoSharing: 0d983394ed4a80334bab5a0d5384f75710feb7e8
   ExpoSplashScreen: bc3cffefca2716e5f22350ca109badd7e50ec14d
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12

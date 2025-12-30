@@ -41,7 +41,13 @@ import { createClient } from '@/lib/supabase/server';
 // Types & Constants
 // =============================================================================
 
-const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway', 'credit_direct', 'credpal'] as const;
+const PAYMENT_GATEWAYS = [
+  'paystack',
+  'korapay',
+  'juicyway',
+  'credit_direct',
+  'credpal',
+] as const;
 type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
 
 interface GatewaySettings {
@@ -329,6 +335,7 @@ async function initializeJuicyway(
 
   // For crypto payments, we need to capture the payment to get the wallet address
   // This is a two-step process: 1) Initialize session, 2) Capture with crypto details
+  // Juicyway may return 'pending' status initially - we retry a few times
   if (isCryptoPayment && juicywayData.id) {
     console.log('Capturing crypto payment session:', {
       sessionId: juicywayData.id,
@@ -336,34 +343,93 @@ async function initializeJuicyway(
       currency: cryptoCurrency,
     });
 
-    try {
-      const captureResult = await capturePaymentWithCrypto(
-        juicywayData.id,
-        cryptoChain,
-        cryptoCurrency
-      );
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 2000; // 2 seconds between retries
 
-      if (!captureResult.success) {
-        console.error('Failed to capture crypto payment:', captureResult.error);
-        throw new Error(
-          captureResult.error || 'Failed to generate crypto payment address'
+    try {
+      let captureResult:
+        | Awaited<ReturnType<typeof capturePaymentWithCrypto>>
+        | undefined;
+      let attempt = 0;
+      let paymentMethod:
+        | {
+            address: string;
+            chain: JuicywayCryptoChain;
+            currency: JuicywayStablecoin;
+            qrcode?: string;
+          }
+        | undefined;
+      let cryptoData:
+        | {
+            payment?: {
+              id?: string;
+              amount?: number;
+              status?: string;
+              payment_method?: typeof paymentMethod;
+            };
+          }
+        | undefined;
+
+      while (attempt < MAX_RETRIES) {
+        attempt++;
+        console.log(`Crypto capture attempt ${attempt}/${MAX_RETRIES}`);
+
+        captureResult = await capturePaymentWithCrypto(
+          juicywayData.id,
+          cryptoChain,
+          cryptoCurrency
         );
+
+        if (!captureResult.success) {
+          console.error(
+            `Capture attempt ${attempt} failed:`,
+            captureResult.error
+          );
+          if (attempt === MAX_RETRIES) {
+            throw new Error(
+              captureResult.error || 'Failed to generate crypto payment address'
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+
+        cryptoData = captureResult.data;
+        paymentMethod = cryptoData.payment?.payment_method;
+
+        if (paymentMethod?.address) {
+          // Success! We have the address
+          break;
+        }
+
+        // Address not ready yet, check status
+        console.log(
+          `Attempt ${attempt}: Status=${cryptoData.payment?.status}, Address not ready`
+        );
+
+        if (attempt === MAX_RETRIES) {
+          console.error(
+            'No crypto address after all retries. Full Data:',
+            JSON.stringify(cryptoData, null, 2)
+          );
+          throw new Error(
+            `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
+          );
+        }
+
+        // Wait before retry
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       }
 
-      const cryptoData = captureResult.data;
-      const paymentMethod = cryptoData.payment?.payment_method;
-
+      // At this point, we should have paymentMethod with address
       if (!paymentMethod?.address) {
-        console.error('No crypto address in capture response. Full Data:', JSON.stringify(cryptoData, null, 2));
-        throw new Error(
-          `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
-        );
+        throw new Error('Crypto address generation failed after retries');
       }
 
       // IMPORTANT: We need BOTH the session ID and the payment ID:
       // - session_id (juicywayData.id): Used for initial tracking
       // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
-      const paymentId = cryptoData.payment?.id;
+      const paymentId = cryptoData?.payment?.id;
 
       console.log('Crypto payment captured successfully:', {
         sessionId: juicywayData.id,
@@ -371,7 +437,8 @@ async function initializeJuicyway(
         address: paymentMethod.address,
         chain: paymentMethod.chain,
         currency: paymentMethod.currency,
-        amount: cryptoData.payment?.amount,
+        amount: cryptoData?.payment?.amount,
+        attempts: attempt,
       });
 
       return {
@@ -380,7 +447,7 @@ async function initializeJuicyway(
           address: paymentMethod.address,
           chain: paymentMethod.chain,
           currency: paymentMethod.currency,
-          amount: cryptoData.payment?.amount || amountInMinor,
+          amount: cryptoData?.payment?.amount || amountInMinor,
           confirmation_time: getChainConfirmationTime(paymentMethod.chain),
           qrcode: paymentMethod.qrcode, // Pass through QR code from API
           payment_id: paymentId, // Include payment ID for verification
@@ -578,15 +645,15 @@ export async function POST(request: NextRequest) {
 
     const gatewaySettings: GatewaySettings = featureSettings
       ? {
-        paystack_enabled: featureSettings.paystack_enabled ?? true,
-        korapay_enabled: featureSettings.korapay_enabled ?? true,
-        preferred_local_gateway:
-          (featureSettings.preferred_local_gateway as PaymentGateway) ||
-          'paystack',
-        preferred_international_gateway:
-          (featureSettings.preferred_international_gateway as PaymentGateway) ||
-          'korapay',
-      }
+          paystack_enabled: featureSettings.paystack_enabled ?? true,
+          korapay_enabled: featureSettings.korapay_enabled ?? true,
+          preferred_local_gateway:
+            (featureSettings.preferred_local_gateway as PaymentGateway) ||
+            'paystack',
+          preferred_international_gateway:
+            (featureSettings.preferred_international_gateway as PaymentGateway) ||
+            'korapay',
+        }
       : DEFAULT_GATEWAY_SETTINGS;
 
     // Generate reference and URLs

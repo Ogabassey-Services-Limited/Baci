@@ -438,12 +438,12 @@ export const CartPage: React.FC = () => {
 
                   <Link
                     href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
-                    className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none"
+                    className="w-full bg-black hover:bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] active:shadow-none relative z-10"
                   >
                     Proceed to Checkout
                     <ArrowRight
                       size={20}
-                      className="md:group-hover:translate-x-1 transition-transform"
+                      className="transition-transform group-hover:translate-x-1"
                     />
                   </Link>
                 </div>

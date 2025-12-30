@@ -143,6 +143,55 @@ export default function HomeScreen() {
     return `₦${amount.toLocaleString()}`;
   };
 
+  const getPeriodLabel = () => {
+    switch (period) {
+      case 'today':
+        return 'yesterday';
+      case 'week':
+        return 'last week';
+      case 'month':
+        return 'last month';
+      default:
+        return '';
+    }
+  };
+
+  const getRevenueInsightText = (): string | undefined => {
+    if (period === 'all' || !stats) return undefined;
+
+    const current = stats.revenue;
+    const previous = stats.previousPeriodRevenue;
+
+    if (previous === 0 && current === 0) {
+      return 'No revenue data to compare';
+    }
+
+    if (previous === 0) {
+      return `New revenue this ${period === 'today' ? 'day' : period}!`;
+    }
+
+    const percentChange = ((current - previous) / previous) * 100;
+    const absChange = Math.abs(percentChange).toFixed(0);
+
+    if (percentChange > 0) {
+      return `Revenue is up ${absChange}% vs ${getPeriodLabel()}`;
+    } else if (percentChange < 0) {
+      return `Revenue is down ${absChange}% vs ${getPeriodLabel()}`;
+    } else {
+      return `Revenue unchanged from ${getPeriodLabel()}`;
+    }
+  };
+
+  const getRevenueInsightTrend = (): 'up' | 'down' | 'neutral' => {
+    if (period === 'all' || !stats) return 'neutral';
+
+    const current = stats.revenue;
+    const previous = stats.previousPeriodRevenue;
+
+    if (previous === 0 || current === previous) return 'neutral';
+    return current > previous ? 'up' : 'down';
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
@@ -166,7 +215,7 @@ export default function HomeScreen() {
           avatarUrl={merchant?.favicon_png_192_url ?? merchant?.logo_url ?? undefined}
           isLive={isLive}
           notificationCount={3}
-          onNotificationPress={() => {}}
+          onNotificationPress={() => { }}
           onAvatarPress={handleAvatarPress}
         />
 
@@ -176,7 +225,7 @@ export default function HomeScreen() {
             title="Finish Setup"
             subtitle="Complete your store setup"
             progress={54}
-            onPress={() => {}}
+            onPress={() => { }}
           />
         </View>
 
@@ -186,8 +235,8 @@ export default function HomeScreen() {
             title={`Good ${getTimeOfDay()}, ${firstName}`}
             message="Your store had 12 new visitors yesterday. Consider running a promotion to convert them!"
             icon="sparkles"
-            onPress={() => {}}
-            onDismiss={() => {}}
+            onPress={() => { }}
+            onDismiss={() => { }}
           />
         </View>
 
@@ -200,6 +249,8 @@ export default function HomeScreen() {
               period={currentPeriodLabel}
               totalRevenue={formatCurrency(stats?.revenue ?? 0)}
               onPeriodPress={() => setShowPeriodPicker(!showPeriodPicker)}
+              insightText={getRevenueInsightText()}
+              insightTrend={getRevenueInsightTrend()}
             />
 
             {/* Period Picker Dropdown */}
@@ -279,11 +330,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/order/new')}
             />
             <QuickActionButton
-              icon="analytics-outline"
-              label="Insights"
+              icon="mail-outline"
+              label="Send Emails"
               iconColor={colors.gold}
               backgroundColor={colors.goldLight}
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <QuickActionButton
               icon="cube-outline"
@@ -293,11 +344,11 @@ export default function HomeScreen() {
               onPress={() => router.push('/product/new')}
             />
             <QuickActionButton
-              icon="people-outline"
-              label="Customers"
+              icon="newspaper-outline"
+              label="Blog Manager"
               iconColor={colors.success}
               backgroundColor={colors.successLight}
-              onPress={() => router.push('/(tabs)/customers')}
+              onPress={() => { }}
             />
           </View>
         </View>
@@ -342,10 +393,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.md,
     gap: SPACING.xs,
-  },
-  periodText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   periodDropdownWrapper: {
     position: 'absolute',

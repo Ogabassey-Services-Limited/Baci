@@ -2,186 +2,193 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+src/app/dashboard/wallet/actions.ts:5:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! This import is unused.
   
-  > 1 │ import { Suspense } from 'react';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { notFound } from 'next/navigation';
-    3 │ import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
+    3 │ import { revalidatePath } from 'next/cache';
+    4 │ import { cookies } from 'next/headers';
+  > 5 │ import { payoutMerchantCommission } from '@/lib/kuda';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    6 │ import { createClient } from '@/lib/supabase/server';
+    7 │ 
   
-  i Safe fix: Organize Imports (Biome)
+  i Unused imports might be the result of an incomplete refactoring.
   
-     1    │ - import·{·Suspense·}·from·'react';
-     2    │ - import·{·notFound·}·from·'next/navigation';
-        1 │ + import·{·notFound·}·from·'next/navigation';
-        2 │ + import·{·Suspense·}·from·'react';
-     3  3 │   import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
-     4  4 │   import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
+  i Unsafe fix: Remove the unused imports.
   
-
-src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:11:17 lint/style/useSelfClosingElements  FIXABLE  ━━━━━━━━━━
-
-  × JSX elements without children should be marked as self-closing. In JSX, it is valid for any element to be self-closing.
-  
-     9 │         <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    10 │             <div className="animate-pulse flex flex-col items-center">
-  > 11 │                 <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
-       │                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    12 │                 <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
-    13 │             </div>
-  
-  i Safe fix: Use a self-closing element instead.
-  
-     9  9 │           <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    10 10 │               <div className="animate-pulse flex flex-col items-center">
-    11    │ - ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
-       11 │ + ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"·/>
-    12 12 │                   <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
-    13 13 │               </div>
+      3   3 │   import { revalidatePath } from 'next/cache';
+      4   4 │   import { cookies } from 'next/headers';
+      5     │ - import·{·payoutMerchantCommission·}·from·'@/lib/kuda';
+      6   5 │   import { createClient } from '@/lib/supabase/server';
+      7   6 │   
   
 
-src/app/(storefront)/[slug]/checkout/bnpl/page.tsx:12:17 lint/style/useSelfClosingElements  FIXABLE  ━━━━━━━━━━
+src/app/dashboard/wallet/actions.ts:301:37 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
 
-  × JSX elements without children should be marked as self-closing. In JSX, it is valid for any element to be self-closing.
+  ! This parameter is unused.
   
-    10 │             <div className="animate-pulse flex flex-col items-center">
-    11 │                 <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
-  > 12 │                 <div className="h-4 w-48 bg-gray-200 rounded mb-2"></div>
-       │                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    13 │             </div>
-    14 │         </div>
+    299 │ }
+    300 │ 
+  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
+        │                                     ^^^^^^^^^^
+    302 │   return {
+    303 │     success: false,
   
-  i Safe fix: Use a self-closing element instead.
+  i Unused parameters might be the result of an incomplete refactoring.
   
-    10 10 │               <div className="animate-pulse flex flex-col items-center">
-    11 11 │                   <div className="w-12 h-12 bg-gray-200 rounded-full mb-4"></div>
-    12    │ - ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
-       12 │ + ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"·/>
-    13 13 │               </div>
-    14 14 │           </div>
+  i Unsafe fix: If this is intentional, prepend merchantId with an underscore.
   
-
-src/app/(storefront)/[slug]/checkout/bnpl/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     2  2 │   import { notFound } from 'next/navigation';
-     3  3 │   import { BnplLauncher } from '@/components/storefront/ogabassey/pages/bnpl-launcher';
-     4    │ - import·{·getCachedMerchant,·getCachedMerchantByDomain·}·from·'@/lib/cached-data';
-        4 │ + import·{
-        5 │ + ··getCachedMerchant,
-        6 │ + ··getCachedMerchantByDomain,
-        7 │ + }·from·'@/lib/cached-data';
-     5  8 │   import { isDomainIdentifier } from '@/lib/validation';
-     6  9 │   
-     7 10 │   function BnplLoading() {
-     8    │ - ····return·(
-     9    │ - ········<div·className="min-h-screen·flex·items-center·justify-center·bg-gray-50">
-    10    │ - ············<div·className="animate-pulse·flex·flex-col·items-center">
-    11    │ - ················<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
-    12    │ - ················<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
-    13    │ - ············</div>
-    14    │ - ········</div>
-    15    │ - ····);
-       11 │ + ··return·(
-       12 │ + ····<div·className="min-h-screen·flex·items-center·justify-center·bg-gray-50">
-       13 │ + ······<div·className="animate-pulse·flex·flex-col·items-center">
-       14 │ + ········<div·className="w-12·h-12·bg-gray-200·rounded-full·mb-4"></div>
-       15 │ + ········<div·className="h-4·w-48·bg-gray-200·rounded·mb-2"></div>
-       16 │ + ······</div>
-       17 │ + ····</div>
-       18 │ + ··);
-    16 19 │   }
-    17 20 │   
-    18 21 │   export default async function BnplCheckoutPage({
-    19    │ - ····params,
-       22 │ + ··params,
-    20 23 │   }: {
-    21    │ - ····params:·Promise<{·slug:·string·}>;
-       24 │ + ··params:·Promise<{·slug:·string·}>;
-    22 25 │   }) {
-    23    │ - ····const·{·slug·}·=·await·params;
-       26 │ + ··const·{·slug·}·=·await·params;
-    24 27 │   
-    25    │ - ····//·Verify·merchant·exists
-    26    │ - ····const·merchant·=·isDomainIdentifier(slug)
-    27    │ - ········?·await·getCachedMerchantByDomain(slug)
-    28    │ - ········:·await·getCachedMerchant(slug);
-       28 │ + ··//·Verify·merchant·exists
-       29 │ + ··const·merchant·=·isDomainIdentifier(slug)
-       30 │ + ····?·await·getCachedMerchantByDomain(slug)
-       31 │ + ····:·await·getCachedMerchant(slug);
-    29 32 │   
-    30    │ - ····if·(!merchant)·{
-    31    │ - ········notFound();
-    32    │ - ····}
-       33 │ + ··if·(!merchant)·{
-       34 │ + ····notFound();
-       35 │ + ··}
-    33 36 │   
-    34    │ - ····//·We·rely·on·the·client·component·to·handle·the·specific·logic
-    35    │ - ····//·This·page·wrapper·mainly·ensures·we·have·a·valid·merchant·context·if·needed
-    36    │ - ····//·and·provides·the·Suspense·boundary·for·useSearchParams
-       37 │ + ··//·We·rely·on·the·client·component·to·handle·the·specific·logic
-       38 │ + ··//·This·page·wrapper·mainly·ensures·we·have·a·valid·merchant·context·if·needed
-       39 │ + ··//·and·provides·the·Suspense·boundary·for·useSearchParams
-    37 40 │   
-    38    │ - ····return·(
-    39    │ - ········<Suspense·fallback={<BnplLoading·/>}>
-    40    │ - ············<BnplLauncher·/>
-    41    │ - ········</Suspense>
-    42    │ - ····);
-       41 │ + ··return·(
-       42 │ + ····<Suspense·fallback={<BnplLoading·/>}>
-       43 │ + ······<BnplLauncher·/>
-       44 │ + ····</Suspense>
-       45 │ + ··);
-    43 46 │   }
-    44 47 │   
+    299 299 │   }
+    300 300 │   
+    301     │ - export·async·function·withdrawFunds(merchantId:·string,·amount?:·number)·{
+        301 │ + export·async·function·withdrawFunds(_merchantId:·string,·amount?:·number)·{
+    302 302 │     return {
+    303 303 │       success: false,
   
 
-src/app/api/payments/initialize/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/dashboard/wallet/actions.ts:301:57 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    299 │ }
+    300 │ 
+  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
+        │                                                         ^^^^^^
+    302 │   return {
+    303 │     success: false,
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend amount with an underscore.
+  
+    299 299 │   }
+    300 300 │   
+    301     │ - export·async·function·withdrawFunds(merchantId:·string,·amount?:·number)·{
+        301 │ + export·async·function·withdrawFunds(merchantId:·string,·_amount?:·number)·{
+    302 302 │     return {
+    303 303 │       success: false,
+  
+
+src/app/dashboard/wallet/wallet-client.tsx:15:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    13 │ import { useRouter } from 'next/navigation';
+    14 │ import { useState, useTransition } from 'react';
+  > 15 │ import {
+       │        ^
+  > 16 │   AlertDialog,
+        ...
+  > 24 │   AlertDialogTrigger,
+  > 25 │ } from '@/components/ui/alert-dialog';
+       │ ^
+    26 │ import { Badge } from '@/components/ui/badge';
+    27 │ import { Button } from '@/components/ui/button';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     13  13 │   import { useRouter } from 'next/navigation';
+     14  14 │   import { useState, useTransition } from 'react';
+     15     │ - import·{
+     16     │ - ··AlertDialog,
+     17     │ - ··AlertDialogAction,
+     18     │ - ··AlertDialogCancel,
+     19     │ - ··AlertDialogContent,
+     20     │ - ··AlertDialogDescription,
+     21     │ - ··AlertDialogFooter,
+     22     │ - ··AlertDialogHeader,
+     23     │ - ··AlertDialogTitle,
+     24     │ - ··AlertDialogTrigger,
+     25     │ - }·from·'@/components/ui/alert-dialog';
+     26  15 │   import { Badge } from '@/components/ui/badge';
+     27  16 │   import { Button } from '@/components/ui/button';
+  
+
+src/app/dashboard/wallet/actions.ts:301:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    299 │ }
+    300 │ 
+  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
+        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 302 │   return {
+  > 303 │     success: false,
+  > 304 │     error: 'Withdrawals are currently disabled.',
+  > 305 │   };
+  > 306 │ }
+        │ ^
+    307 │ 
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    299 │ }
+    300 │ 
+  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
+        │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 302 │   return {
+  > 303 │     success: false,
+  > 304 │     error: 'Withdrawals are currently disabled.',
+  > 305 │   };
+  > 306 │ }
+        │ ^
+    307 │ 
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/app/dashboard/wallet/wallet-client.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    355 355 │   
-    356 356 │         if (!paymentMethod?.address) {
-    357     │ - ········console.error('No·crypto·address·in·capture·response.·Full·Data:',·JSON.stringify(cryptoData,·null,·2));
-        357 │ + ········console.error(
-        358 │ + ··········'No·crypto·address·in·capture·response.·Full·Data:',
-        359 │ + ··········JSON.stringify(cryptoData,·null,·2)
-        360 │ + ········);
-    358 361 │           throw new Error(
-    359 362 │             `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
+     82  82 │     };
+     83  83 │   
+     84     │ - 
+     85     │ - 
+     86  84 │     const updateSettings = async (updates: {
+     87  85 │       autoPayoutEnabled?: boolean;
     ······· │ 
-    579 582 │       const gatewaySettings: GatewaySettings = featureSettings
-    580 583 │         ? {
-    581     │ - ········paystack_enabled:·featureSettings.paystack_enabled·??·true,
-    582     │ - ········korapay_enabled:·featureSettings.korapay_enabled·??·true,
-    583     │ - ········preferred_local_gateway:
-    584     │ - ··········(featureSettings.preferred_local_gateway·as·PaymentGateway)·||
-    585     │ - ··········'paystack',
-    586     │ - ········preferred_international_gateway:
-    587     │ - ··········(featureSettings.preferred_international_gateway·as·PaymentGateway)·||
-    588     │ - ··········'korapay',
-    589     │ - ······}
-        584 │ + ··········paystack_enabled:·featureSettings.paystack_enabled·??·true,
-        585 │ + ··········korapay_enabled:·featureSettings.korapay_enabled·??·true,
-        586 │ + ··········preferred_local_gateway:
-        587 │ + ············(featureSettings.preferred_local_gateway·as·PaymentGateway)·||
-        588 │ + ············'paystack',
-        589 │ + ··········preferred_international_gateway:
-        590 │ + ············(featureSettings.preferred_international_gateway·as·PaymentGateway)·||
-        591 │ + ············'korapay',
-        592 │ + ········}
-    590 593 │         : DEFAULT_GATEWAY_SETTINGS;
-    591 594 │   
+    261 259 │             </CardHeader>
+    262 260 │             <CardContent>
+    263     │ - ············<p·className="text-xs·text-muted-foreground">
+    264     │ - ··············Pending·Payouts
+    265     │ - ············</p>
+        261 │ + ············<p·className="text-xs·text-muted-foreground">Pending·Payouts</p>
+    266 262 │             </CardContent>
+    267 263 │           </Card>
+    ······· │ 
+    457 453 │                         </TableCell>
+    458 454 │                         <TableCell
+    459     │ - ························className={`text-right·font-medium·${tx.type·===·'credit'
+    460     │ - ··························?·'text-green-600'
+    461     │ - ··························:·'text-gray-900·dark:text-gray-100'
+    462     │ - ··························}`}
+        455 │ + ························className={`text-right·font-medium·${
+        456 │ + ··························tx.type·===·'credit'
+        457 │ + ····························?·'text-green-600'
+        458 │ + ····························:·'text-gray-900·dark:text-gray-100'
+        459 │ + ························}`}
+    463 460 │                         >
+    464 461 │                           {tx.type === 'credit' ? '+' : '-'}₦
   
 
-Checked 762 files in 751ms. No fixes applied.
-Found 5 errors.
+vercel.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    10 10 │       }
+    11 11 │     ]
+    12    │ - }
+       12 │ + }
+       13 │ + 
+  
+
+Checked 762 files in 615ms. No fixes applied.
+Found 3 errors.
+Found 4 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

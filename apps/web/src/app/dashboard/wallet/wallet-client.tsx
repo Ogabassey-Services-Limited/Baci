@@ -55,7 +55,6 @@ import {
   type Transaction,
   updateWalletSettings,
   type WalletData,
-  withdrawFunds,
 } from './actions';
 
 interface WalletClientProps {
@@ -74,7 +73,6 @@ export default function WalletClient({
   const { toast } = useToast();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [withdrawing, setWithdrawing] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
   const handleRefresh = () => {
@@ -83,35 +81,7 @@ export default function WalletClient({
     });
   };
 
-  const handleWithdraw = async () => {
-    if (!wallet?.canWithdraw) return;
 
-    setWithdrawing(true);
-    try {
-      const result = await withdrawFunds(merchantId);
-
-      if (!result.success) {
-        throw new Error(result.error || 'Withdrawal failed');
-      }
-
-      toast({
-        title: 'Success',
-        description: `Successfully withdrew ₦${result.amount?.toLocaleString()}`,
-      });
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description:
-          error instanceof Error ? error.message : 'Withdrawal failed',
-        variant: 'destructive',
-      });
-    } finally {
-      setWithdrawing(false);
-    }
-  };
 
   const updateSettings = async (updates: {
     autoPayoutEnabled?: boolean;
@@ -241,47 +211,12 @@ export default function WalletClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  className="w-full"
-                  disabled={!wallet?.canWithdraw || withdrawing}
-                >
-                  {withdrawing ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowUpFromLine className="h-4 w-4 mr-2" />
-                      Withdraw to Bank
-                    </>
-                  )}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Confirm Withdrawal</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will transfer ₦
-                    {wallet?.availableBalance.toLocaleString()} to your bank
-                    account. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleWithdraw}>
-                    Withdraw ₦{wallet?.availableBalance.toLocaleString()}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            {!wallet?.canWithdraw && (
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Minimum ₦1,000 to withdraw
-              </p>
-            )}
+            <Button className="w-full" disabled>
+              Withdrawals Disabled
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              Withdrawals are currently disabled
+            </p>
           </CardContent>
         </Card>
 
@@ -326,7 +261,7 @@ export default function WalletClient({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Withdrawals in progress
+              Pending Payouts
             </p>
           </CardContent>
         </Card>
@@ -521,11 +456,10 @@ export default function WalletClient({
                         {tx.description}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium ${
-                          tx.type === 'credit'
-                            ? 'text-green-600'
-                            : 'text-gray-900 dark:text-gray-100'
-                        }`}
+                        className={`text-right font-medium ${tx.type === 'credit'
+                          ? 'text-green-600'
+                          : 'text-gray-900 dark:text-gray-100'
+                          }`}
                       >
                         {tx.type === 'credit' ? '+' : '-'}₦
                         {tx.amount.toLocaleString()}

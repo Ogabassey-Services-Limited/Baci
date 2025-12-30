@@ -155,3 +155,6 @@ samsung_jumia_images/
 # Scripts directory (one-off scripts)
 /scripts/
 .env*.local
+full_migration_backup.zip
+ogabassey-agents-backup.zip
+*.zip

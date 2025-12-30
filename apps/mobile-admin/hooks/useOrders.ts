@@ -4,7 +4,7 @@
  * 2025 best practices: React Query v5, proper typing, optimistic updates
  */
 
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 // Import shared types from monorepo
@@ -138,6 +138,7 @@ export function useUpdateOrderStatus() {
       // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', merchant?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order-counts', merchant?.id] });
     },
   });
 }
@@ -145,7 +146,7 @@ export function useUpdateOrderStatus() {
 export function useOrder(orderId: string) {
   const { merchant } = useMerchant();
 
-  return useInfiniteQuery({
+  return useQuery({
     queryKey: ['order', orderId],
     queryFn: async () => {
       const { data: order, error } = await supabase
@@ -163,8 +164,21 @@ export function useOrder(orderId: string) {
         .select('*, products(name, images)')
         .eq('order_id', orderId);
 
+      // Fetch transactions
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('amount')
+        .eq('order_id', orderId)
+        .eq('status', 'success');
+
+      const transTotal = transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
+      const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
+      const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
+
       return {
         ...order,
+        amount_paid: amountPaid,
+        balance: balance,
         items: items?.map((item: any) => ({
           id: item.id,
           product_id: item.product_id,
@@ -175,8 +189,6 @@ export function useOrder(orderId: string) {
         })),
       };
     },
-    getNextPageParam: () => null,
-    initialPageParam: 0,
     enabled: !!orderId && !!merchant?.id,
   });
 }

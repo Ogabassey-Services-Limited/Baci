@@ -18,6 +18,7 @@ export interface DashboardStats {
   totalCustomers: number;
   pendingOrders: number;
   revenue: number;
+  previousPeriodRevenue: number;
 }
 
 export interface RevenueDataPoint {
@@ -41,6 +42,33 @@ function getDateRange(period: TimePeriod): { start: string | null; end: string }
       return { start: startOfMonth.toISOString(), end };
     case 'all':
       return { start: null, end };
+  }
+}
+
+function getPreviousPeriodDateRange(period: TimePeriod): { start: string | null; end: string } | null {
+  const now = new Date();
+
+  switch (period) {
+    case 'today': {
+      // Yesterday
+      const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return { start: yesterdayStart.toISOString(), end: yesterdayEnd.toISOString() };
+    }
+    case 'week': {
+      // Previous 7 days (8-14 days ago)
+      const prevWeekEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const prevWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      return { start: prevWeekStart.toISOString(), end: prevWeekEnd.toISOString() };
+    }
+    case 'month': {
+      // Previous month
+      const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start: prevMonthStart.toISOString(), end: prevMonthEnd.toISOString() };
+    }
+    case 'all':
+      return null; // No comparison for all time
   }
 }
 
@@ -115,6 +143,20 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
   const revenue = revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
 
+  // Fetch previous period revenue for comparison
+  let previousPeriodRevenue = 0;
+  const prevPeriod = getPreviousPeriodDateRange(period);
+  if (prevPeriod) {
+    const { data: prevRevenueData } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('merchant_id', merchantId)
+      .eq('payment_status', 'paid')
+      .gte('created_at', prevPeriod.start!)
+      .lt('created_at', prevPeriod.end);
+    previousPeriodRevenue = prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
+  }
+
   // Fetch visits for period
   let visitsQuery = supabase
     .from('analytics_events')
@@ -137,6 +179,7 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
     totalCustomers: totalCustomers ?? 0,
     pendingOrders: pendingOrders ?? 0,
     revenue,
+    previousPeriodRevenue,
   };
 }
 

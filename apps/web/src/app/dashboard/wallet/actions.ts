@@ -139,7 +139,7 @@ export async function getWalletData(merchantId: string) {
         lastPayoutAmount: wallet.last_payout_amount
           ? Number(wallet.last_payout_amount)
           : null,
-        canWithdraw: Number(wallet.available_balance) >= MIN_WITHDRAWAL_AMOUNT,
+        canWithdraw: false, // Withdrawals are disabled
         nextSettlementDate: null,
         nextSettlementAmount: null,
       } as WalletData,
@@ -174,7 +174,7 @@ export async function getWalletData(merchantId: string) {
       lastPayoutAmount: walletSettings?.last_payout_amount
         ? Number(walletSettings.last_payout_amount)
         : null,
-      canWithdraw: summary.can_withdraw,
+      canWithdraw: false, // Withdrawals are disabled
       nextSettlementDate: summary.next_settlement_date,
       nextSettlementAmount: summary.next_settlement_amount
         ? Number(summary.next_settlement_amount)
@@ -299,166 +299,8 @@ export async function updateWalletSettings(
 }
 
 export async function withdrawFunds(merchantId: string, amount?: number) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  // Verify ownership and get merchant bank details in one query
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { success: false, error: 'Unauthorized' };
-  }
-
-  // Get merchant bank details with ownership check
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select(
-      'id, business_name, bank_account_number, bank_code, bank_account_name'
-    )
-    .eq('id', merchantId)
-    .eq('user_id', user.id)
-    .single();
-
-  if (
-    !merchant?.bank_account_number ||
-    !merchant?.bank_code ||
-    !merchant?.bank_account_name
-  ) {
-    return {
-      success: false,
-      error: 'Bank details not configured. Please check your Payment settings.',
-    };
-  }
-
-  // Get wallet
-  const { data: wallet } = await supabase
-    .from('merchant_wallets')
-    .select('id, available_balance')
-    .eq('merchant_id', merchantId)
-    .single();
-
-  if (!wallet) {
-    return { success: false, error: 'Wallet not found' };
-  }
-
-  const availableBalance = Number(wallet.available_balance);
-  const withdrawAmount = amount ? Number(amount) : availableBalance;
-
-  if (withdrawAmount < MIN_WITHDRAWAL_AMOUNT) {
-    return {
-      success: false,
-      error: `Minimum withdrawal amount is ₦${MIN_WITHDRAWAL_AMOUNT.toLocaleString()}`,
-    };
-  }
-
-  if (withdrawAmount > availableBalance) {
-    return { success: false, error: 'Insufficient balance' };
-  }
-
-  // Debit wallet (creates pending transaction)
-  const { data: debitResult, error: debitError } = await supabase.rpc(
-    'debit_merchant_wallet',
-    {
-      p_merchant_id: merchantId,
-      p_amount: withdrawAmount,
-      p_type: 'withdrawal',
-      p_description: `Manual withdrawal to ${merchant.bank_account_name}`,
-    }
-  );
-
-  if (debitError || !debitResult?.[0]?.success) {
-    return {
-      success: false,
-      error: debitResult?.[0]?.error_message || 'Failed to process withdrawal',
-    };
-  }
-
-  const transactionId = debitResult[0].transaction_id;
-
-  // Execute bank transfer via Kuda
-  try {
-    const transferResult = await payoutMerchantCommission(
-      {
-        accountNumber: merchant.bank_account_number,
-        bankCode: merchant.bank_code,
-        accountName: merchant.bank_account_name,
-      },
-      withdrawAmount,
-      merchantId
-    );
-
-    // Complete withdrawal with result
-    const { error: completeError } = await supabase.rpc(
-      'complete_wallet_withdrawal',
-      {
-        p_transaction_id: transactionId,
-        p_success: transferResult.success,
-        p_transfer_reference: transferResult.reference,
-        p_transfer_message: transferResult.message,
-      }
-    );
-
-    if (completeError) {
-      // Critical: Log for manual reconciliation - funds may have transferred
-      console.error(
-        'Critical: Failed to complete withdrawal record after transfer:',
-        completeError,
-        { transactionId, transferResult }
-      );
-    }
-
-    if (!transferResult.success) {
-      return {
-        success: false,
-        error: completeError
-          ? 'Transfer failed. Please contact support to verify your balance.'
-          : 'Transfer failed. Your balance has been restored.',
-      };
-    }
-
-    revalidatePath('/dashboard/wallet');
-    return {
-      success: true,
-      amount: withdrawAmount,
-      reference: transferResult.reference,
-    };
-  } catch (transferError) {
-    console.error('Transfer execution error:', transferError);
-
-    // Attempt to refund balance on error
-    const { error: refundError } = await supabase.rpc(
-      'complete_wallet_withdrawal',
-      {
-        p_transaction_id: transactionId,
-        p_success: false,
-        p_transfer_reference: null,
-        p_transfer_message:
-          transferError instanceof Error
-            ? transferError.message
-            : 'Transfer failed',
-      }
-    );
-
-    if (refundError) {
-      // Critical: Balance restoration failed - requires manual intervention
-      console.error(
-        'Critical: Failed to restore balance after failed transfer:',
-        refundError,
-        { transactionId, transferError }
-      );
-      return {
-        success: false,
-        error:
-          'Transfer failed and balance restoration encountered an issue. Please contact support immediately.',
-      };
-    }
-
-    return {
-      success: false,
-      error: 'Transfer failed. Your balance has been restored.',
-    };
-  }
+  return {
+    success: false,
+    error: 'Withdrawals are currently disabled.',
+  };
 }

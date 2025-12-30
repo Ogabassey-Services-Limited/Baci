@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
+  CREDIT_DIRECT_CONFIG,
   generateSessionId,
   getPrivateKey,
   getPublicKey,
@@ -9,7 +9,6 @@ import {
   signTransaction,
 } from '@/lib/credit-direct';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/payments/credit-direct/sign
@@ -118,6 +117,12 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+
+    const merchantPublicKey = settings?.credit_direct_public_key;
+    const minAmount =
+      settings?.credit_direct_min_amount ?? CREDIT_DIRECT_CONFIG.minAmount;
+    const maxAmount =
+      settings?.credit_direct_max_amount ?? CREDIT_DIRECT_CONFIG.maxAmount;
 
     // Validate amount is within eligible range
     if (!isAmountEligible(totalAmount, minAmount, maxAmount)) {

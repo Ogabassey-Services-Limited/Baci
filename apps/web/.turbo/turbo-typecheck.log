@@ -2,3 +2,33 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(6,26): error TS2307: Cannot find module '@/components/ui/use-toast' or its corresponding type declarations.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(8,37): error TS2307: Cannot find module '@/lib/credpal-client' or its corresponding type declarations.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(9,10): error TS2305: Module '"@/lib/utils"' has no exported member 'asRoute'.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(9,19): error TS2305: Module '"@/lib/utils"' has no exported member 'getHref'.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(10,29): error TS2307: Cannot find module '@/context/merchant-context' or its corresponding type declarations.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(57,25): error TS2353: Object literal may only specify known properties, and 'customer' does not exist in type 'CreditDirectCheckoutOptions'.
+src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(81,37): error TS7006: Parameter 'ref' implicitly has an 'any' type.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(1212,40): error TS2339: Property 'product_id' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'product_id' does not exist on type 'CartItem'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(1213,24): error TS2339: Property 'name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'name' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(1213,37): error TS2339: Property 'product_name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'product_name' does not exist on type 'CartItem'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2620,34): error TS2339: Property 'cartItemId' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'cartItemId' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2623,35): error TS2339: Property 'image' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'image' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2623,49): error TS2339: Property 'image_url' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'image_url' does not exist on type 'CartItem'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2624,35): error TS2339: Property 'name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'name' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2624,48): error TS2339: Property 'product_name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'product_name' does not exist on type 'CartItem'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2634,31): error TS2339: Property 'name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'name' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2634,44): error TS2339: Property 'product_name' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'product_name' does not exist on type 'CartItem'.
+src/components/storefront/ogabassey/pages/checkout-page.tsx(2641,34): error TS2339: Property 'negotiatedPrice' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+  Property 'negotiatedPrice' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
+ ELIFECYCLE  Command failed with exit code 1.

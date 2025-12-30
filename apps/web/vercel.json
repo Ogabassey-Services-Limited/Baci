@@ -3,6 +3,10 @@
     {
       "path": "/api/ai-jobs/worker",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/wallet-payouts",
+      "schedule": "0 6 * * *"
     }
   ]
 }

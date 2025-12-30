@@ -21,6 +21,8 @@ interface RevenueChartProps {
   totalRevenue?: string;
   onPeriodPress?: () => void;
   showPeriodSelector?: boolean;
+  insightText?: string;
+  insightTrend?: 'up' | 'down' | 'neutral';
 }
 
 export function RevenueChart({
@@ -30,6 +32,8 @@ export function RevenueChart({
   totalRevenue,
   onPeriodPress,
   showPeriodSelector = false,
+  insightText,
+  insightTrend = 'neutral',
 }: RevenueChartProps) {
   const { colors, shadows, chartColors } = useTheme();
   const { width } = Dimensions.get('window');
@@ -86,6 +90,38 @@ export function RevenueChart({
           })}
         </View>
       </View>
+
+      {/* Insight Text */}
+      {insightText && (
+        <View style={styles.insightContainer}>
+          <Ionicons
+            name={insightTrend === 'up' ? 'trending-up' : insightTrend === 'down' ? 'trending-down' : 'remove'}
+            size={16}
+            color={
+              insightTrend === 'up'
+                ? colors.success
+                : insightTrend === 'down'
+                  ? colors.error
+                  : colors.textMuted
+            }
+          />
+          <Text
+            style={[
+              styles.insightText,
+              {
+                color:
+                  insightTrend === 'up'
+                    ? colors.success
+                    : insightTrend === 'down'
+                      ? colors.error
+                      : colors.textMuted,
+              },
+            ]}
+          >
+            {insightText}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -157,5 +193,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginTop: 4,
+  },
+  insightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: SPACING.sm, // Reduced from md
+    borderTopWidth: 1,
+    borderTopColor: 'transparent',
+    marginTop: SPACING.xs, // Reduced from sm
+  },
+  insightText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 });

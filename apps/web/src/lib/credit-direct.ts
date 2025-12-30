@@ -60,11 +60,13 @@ export type CreditDirectWebhookEvent =
 // Configuration
 // ============================================================================
 
-const CREDIT_DIRECT_CONFIG = {
+export const CREDIT_DIRECT_CONFIG = {
   checkoutScriptUrl: 'https://checkout.creditdirect.ng/bnpl/checkout.min.js',
   // Default amount limits (in NGN)
   defaultMinAmount: 10000,
   defaultMaxAmount: 5000000,
+  minAmount: 10000, // Alias for easier access
+  maxAmount: 5000000, // Alias for easier access
 };
 
 // ============================================================================

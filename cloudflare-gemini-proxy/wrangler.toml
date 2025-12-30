@@ -1,0 +1,9 @@
+name = "gemini-image-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Account ID - replace with yours
+# account_id = "your-account-id"
+
+[vars]
+# No secrets stored here - API key passed per-request

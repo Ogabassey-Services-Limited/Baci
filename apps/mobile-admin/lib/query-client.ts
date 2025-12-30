@@ -22,7 +22,7 @@ const mmkvStorageAdapter = {
     queryStorage.set(key, value);
   },
   removeItem: (key: string): void => {
-    queryStorage.delete(key);
+    queryStorage.remove(key);
   },
 };
 

@@ -18,6 +18,7 @@ import {
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrders, useUpdateOrderStatus, type Order } from '@/hooks/useOrders';
+import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { BaciLogo } from '@/components/BaciLogo';
 // Shared types and constants from monorepo
@@ -135,9 +137,10 @@ export default function OrdersScreen() {
     return filtered;
   }, [allOrders, searchQuery, dateRange]);
 
-  const pendingCount = useMemo(() => {
-    return allOrders.filter((o) => o.shipping_status === 'pending').length ?? 0;
-  }, [allOrders]);
+  const pendingCount = counts?.pending ?? 0;
+
+  // Fetch order counts
+  const { data: counts } = useOrderCounts();
 
   // Format date range for display
   const formatDateRange = () => {
@@ -238,12 +241,64 @@ export default function OrdersScreen() {
 
   // Source icon config (using shared config + theme colors)
   const getSourceConfig = (source: string | null) => {
-    const config = ORDER_SOURCE_CONFIG[source ?? 'online_store'] ?? ORDER_SOURCE_CONFIG.online_store;
-    return {
-      icon: config.icon as keyof typeof Ionicons.glyphMap,
-      color: getColorFromKey(config.colorKey),
-      label: config.label,
-    };
+    if (!source) return { icon: 'globe-outline' as const, color: colors.textSecondary, label: 'Website' };
+
+    const normalizedSource = source.toLowerCase().trim();
+
+    switch (normalizedSource) {
+      // --- Social Media ---
+      case 'instagram':
+        return { icon: 'logo-instagram' as const, color: '#C13584', label: 'Instagram' };
+      case 'whatsapp':
+        return { icon: 'logo-whatsapp' as const, color: '#25D366', label: 'WhatsApp' };
+      case 'facebook':
+        return { icon: 'logo-facebook' as const, color: '#1877F2', label: 'Facebook' };
+      case 'twitter':
+      case 'x':
+        return { icon: 'logo-twitter' as const, color: '#1DA1F2', label: 'Twitter' };
+      case 'tiktok':
+        return { icon: 'logo-tiktok' as const, color: '#000000', label: 'TikTok' };
+      case 'snapchat':
+        return { icon: 'logo-snapchat' as const, color: '#FFFC00', label: 'Snapchat' };
+      case 'youtube':
+        return { icon: 'logo-youtube' as const, color: '#FF0000', label: 'YouTube' };
+      case 'pinterest':
+        return { icon: 'logo-pinterest' as const, color: '#BD081C', label: 'Pinterest' };
+      case 'linkedin':
+        return { icon: 'logo-linkedin' as const, color: '#0A66C2', label: 'LinkedIn' };
+      case 'telegram':
+        // 'logo-telegram' exists in newer Ionicons, fallback to 'send' if issue
+        return { icon: 'paper-plane' as const, color: '#0088CC', label: 'Telegram' };
+
+      // --- Marketplaces ---
+      case 'amazon':
+        return { icon: 'logo-amazon' as const, color: '#FF9900', label: 'Amazon' };
+      case 'jumia':
+        return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
+      case 'konga':
+        return { icon: 'cart' as const, color: '#ED017F', label: 'Konga' };
+      case 'jiji':
+        return { icon: 'cart' as const, color: '#3DBE29', label: 'Jiji' };
+
+      // --- System ---
+      case 'mobile_app':
+        return { icon: 'phone-portrait-outline' as const, color: colors.primary, label: 'Mobile App' };
+      case 'online_store':
+      case 'website':
+        return { icon: 'globe-outline' as const, color: colors.info || colors.textSecondary, label: 'Website' };
+      case 'pos':
+        return { icon: 'calculator-outline' as const, color: colors.success, label: 'POS' };
+
+      // --- Custom/Fallback ---
+      default:
+        // Capitalize first letter for display
+        const label = source.charAt(0).toUpperCase() + source.slice(1);
+        return {
+          icon: 'pricetag-outline' as const,
+          color: colors.textSecondary,
+          label: label,
+        };
+    }
   };
 
   const handleLoadMore = useCallback(() => {
@@ -333,6 +388,8 @@ export default function OrdersScreen() {
 
   const FilterTab = ({ status, label }: { status: ShippingStatus | 'all'; label: string }) => {
     const isActive = (status === 'all' && !statusFilter) || statusFilter === status;
+    const count = counts ? (status === 'all' ? counts.all : counts[status] ?? 0) : 0;
+
     return (
       <Pressable
         style={[
@@ -343,9 +400,9 @@ export default function OrdersScreen() {
       >
         <Text style={[
           styles.filterText,
-          { color: isActive ? '#FFFFFF' : colors.textSecondary },
+          { color: isActive ? '#000000' : colors.textSecondary },
         ]}>
-          {label}
+          {label} ({count})
         </Text>
       </Pressable>
     );
@@ -450,12 +507,22 @@ export default function OrdersScreen() {
       )}
 
       {/* Filter Tabs - aligned with web app shipping statuses */}
-      <View style={styles.filterContainer}>
-        <FilterTab status="all" label="All" />
-        <FilterTab status="pending" label="Pending" />
-        <FilterTab status="processing" label="Processing" />
-        <FilterTab status="shipped" label="Shipped" />
-        <FilterTab status="delivered" label="Delivered" />
+      {/* Filter Tabs - aligned with web app shipping statuses */}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+          style={styles.filterContainer}
+        >
+          <FilterTab status="all" label="All" />
+          <FilterTab status="pending" label="Pending" />
+          <FilterTab status="processing" label="Processing" />
+          <FilterTab status="shipped" label="Shipped" />
+          <FilterTab status="delivered" label="Delivered" />
+          <FilterTab status="cancelled" label="Cancelled" />
+          <FilterTab status="returned" label="Returned" />
+        </ScrollView>
       </View>
 
       {/* Orders List */}
@@ -813,10 +880,13 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
+    maxHeight: 50, // Constrain height to prevent layout shifts
+  },
+  filterContent: {
+    paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
+    paddingRight: SPACING.xl, // Extra padding for last item
   },
   filterTab: {
     paddingHorizontal: SPACING.md,
