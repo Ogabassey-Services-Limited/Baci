@@ -3,12 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
-import { asRoute, getHref } from '@/lib/utils';
 import { useMerchant } from '@/hooks/use-merchant';
-
 
 export function BnplLauncher() {
     const router = useRouter();
@@ -17,9 +15,14 @@ export function BnplLauncher() {
     const { merchant } = useMerchant();
 
     const orderId = searchParams.get('orderId');
-    const gateway = searchParams.get('gateway') as 'credit_direct' | 'credpal' | null;
+    const gateway = searchParams.get('gateway') as
+        | 'credit_direct'
+        | 'credpal'
+        | null;
 
-    const [status, setStatus] = useState<'loading' | 'processing' | 'error'>('loading');
+    const [status, setStatus] = useState<'loading' | 'processing' | 'error'>(
+        'loading'
+    );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
@@ -46,15 +49,24 @@ export function BnplLauncher() {
 
                 if (gateway === 'credit_direct') {
                     await openCreditDirectCheckout({
-                        merchantSlug: merchant?.slug || 'ogabassey', // Fallback if context not ready
+                        merchantSlug: merchant?.slug || 'ogabassey',
                         orderId: order.id,
                         amount: order.total,
-                        items: order.items.map((item: any) => ({
-                            id: String(item.product_id || item.id),
-                            name: item.product_name || item.name,
-                            price: item.price,
-                            quantity: item.quantity,
-                        })),
+                        items: order.items.map(
+                            (item: {
+                                product_id?: string;
+                                id?: string;
+                                product_name?: string;
+                                name?: string;
+                                price: number;
+                                quantity: number;
+                            }) => ({
+                                id: String(item.product_id || item.id),
+                                name: item.product_name || item.name,
+                                price: item.price,
+                                quantity: item.quantity,
+                            })
+                        ),
                         customer: {
                             email: order.customer_email,
                             phone: order.customer_phone,
@@ -63,12 +75,10 @@ export function BnplLauncher() {
                         },
                         onSuccess: (ref) => {
                             console.log('Credit Direct Success:', ref);
-                            router.push(asRoute(getHref(`/order-success?orderId=${order.id}&reference=${ref}`)));
+                            router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
                         },
                         onClose: () => {
                             console.log('Credit Direct Closed');
-                            // Optional: Redirect back to checkout or show message?
-                            // For now, staying on page allows retry.
                             setStatus('error');
                             setErrorMessage('Payment cancelled. Please try again.');
                         },
@@ -80,22 +90,23 @@ export function BnplLauncher() {
                         email: order.customer_email,
                         orderId: order.id,
                         onSuccess: (ref) => {
-                            router.push(asRoute(getHref(`/order-success?orderId=${order.id}&reference=${ref}`)));
+                            router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
                         },
                         onClose: () => {
                             setStatus('error');
                             setErrorMessage('Payment cancelled.');
                         },
-                        toast
+                        toast,
                     });
                 } else {
                     throw new Error('Unsupported gateway for this launcher.');
                 }
-
             } catch (error) {
                 console.error('BNPL Launch Error:', error);
                 setStatus('error');
-                setErrorMessage(error instanceof Error ? error.message : 'Failed to launch payment.');
+                setErrorMessage(
+                    error instanceof Error ? error.message : 'Failed to launch payment.'
+                );
             }
         };
 
@@ -109,7 +120,9 @@ export function BnplLauncher() {
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <AlertCircle className="w-8 h-8 text-red-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">
+                        Something went wrong
+                    </h2>
                     <p className="text-gray-600 mb-6">{errorMessage}</p>
                     <button
                         onClick={() => window.location.reload()}
@@ -118,7 +131,7 @@ export function BnplLauncher() {
                         Try Again
                     </button>
                     <button
-                        onClick={() => router.push(asRoute(getHref('/')))}
+                        onClick={() => router.push('/')}
                         className="w-full mt-3 py-3 text-gray-600 font-medium hover:text-gray-900 transition-colors"
                     >
                         Return to Home
@@ -136,9 +149,13 @@ export function BnplLauncher() {
                     <div className="absolute inset-0 border-4 border-[var(--store-primary)] rounded-full border-t-transparent animate-spin"></div>
                     <ShieldCheck className="absolute inset-0 m-auto text-[var(--store-primary)] w-8 h-8" />
                 </div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Secure Checkout</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                    Secure Checkout
+                </h1>
                 <p className="text-gray-500">Launching payment gateway...</p>
-                <p className="text-xs text-gray-400 mt-8">Please do not close this window.</p>
+                <p className="text-xs text-gray-400 mt-8">
+                    Please do not close this window.
+                </p>
             </div>
         </div>
     );
