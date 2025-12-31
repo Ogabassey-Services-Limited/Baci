@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
-import { openCredPalCheckout } from '@/lib/credpal-client';
+import { openCredPalCheckout } from '@/lib/credpal';
 import { asRoute, getHref } from '@/lib/utils';
-import { useMerchant } from '@/context/merchant-context';
+import { useMerchant } from '@/hooks/use-merchant';
+
 
 export function BnplLauncher() {
     const router = useRouter();
