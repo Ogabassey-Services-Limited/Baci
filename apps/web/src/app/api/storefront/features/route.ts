@@ -67,6 +67,10 @@ export interface StorefrontFeatures {
   vtuCheckoutAddonEnabled: boolean;
   vtuCheckoutAddonAmounts: number[];
   vtuLoyaltyRewardEnabled: boolean;
+
+  // Blog
+  blogEnabled: boolean;
+  autoBlogEnabled: boolean;
 }
 
 // Default public features
@@ -112,6 +116,9 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   vtuCheckoutAddonEnabled: false,
   vtuCheckoutAddonAmounts: [100, 200, 500, 1000],
   vtuLoyaltyRewardEnabled: false,
+  // Blog defaults
+  blogEnabled: false,
+  autoBlogEnabled: false,
 };
 
 export async function GET(request: NextRequest) {

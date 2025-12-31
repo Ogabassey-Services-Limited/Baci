@@ -72,7 +72,7 @@ export function KycForm({ initialData }: KycFormProps) {
   const [saving, setSaving] = useState(false);
 
   const form = useForm<KycFormValues>({
-    resolver: zodResolver(kycSchema),
+    resolver: zodResolver(kycSchema as any),
     defaultValues: {
       nin: initialData.nin || '',
       bvn: initialData.bvn || '',

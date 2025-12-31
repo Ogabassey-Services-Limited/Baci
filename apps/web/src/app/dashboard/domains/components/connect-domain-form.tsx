@@ -49,7 +49,7 @@ export function ConnectDomainForm() {
   } | null>(null);
 
   const form = useForm<DomainFormValues>({
-    resolver: zodResolver(domainSchema),
+    resolver: zodResolver(domainSchema as any),
     defaultValues: { domain: '' },
   });
 

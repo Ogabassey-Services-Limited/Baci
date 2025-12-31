@@ -99,7 +99,7 @@ export function CreateOrderForm() {
 
   // Zod 4 + react-hook-form: specify input, context, and output types
   const form = useForm<CreateOrderFormInput, unknown, CreateOrderFormValues>({
-    resolver: zodResolver(createOrderSchema),
+    resolver: zodResolver(createOrderSchema as any),
     defaultValues: {
       customerName: '',
       customerEmail: '',

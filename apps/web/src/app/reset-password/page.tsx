@@ -81,7 +81,7 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
 
   const form = useForm<ResetPasswordFormValues>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: zodResolver(resetPasswordSchema as any),
     defaultValues: { password: '', confirmPassword: '' },
   });
 

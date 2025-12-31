@@ -84,7 +84,7 @@ export function RepairBookingWizard({
 
   const form = useForm<RepairBookingInput>({
     // biome-ignore lint/suspicious/noExplicitAny: Zod v4 + @hookform/resolvers type incompatibility workaround
-    resolver: zodResolver(repairBookingSchema) as any,
+    resolver: zodResolver(repairBookingSchema as any) as any,
     defaultValues: {
       deviceType: 'Smartphone',
       deviceModel: '',

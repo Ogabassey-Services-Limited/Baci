@@ -159,7 +159,7 @@ export default function AddProductForm({
 
   // Zod 4 + react-hook-form: specify input, context, and output types
   const form = useForm<AddProductFormInput, unknown, AddProductFormValues>({
-    resolver: zodResolver(addProductSchema),
+    resolver: zodResolver(addProductSchema as any),
     defaultValues: {
       name: initialData?.name || '',
       description: initialData?.description || '',

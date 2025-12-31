@@ -1,11 +1,13 @@
 import { generateText } from 'ai';
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { activeTextModel, sanitizePromptInput } from '@/ai/provider';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();

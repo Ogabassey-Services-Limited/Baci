@@ -1208,7 +1208,7 @@ export const CheckoutPage: React.FC = () => {
           customerPhone,
           customerName: `${firstName} ${lastName}`.trim(),
 
-          items: (cart.length > 0 ? cart : resumedOrder?.items || []).map(item => ({
+          items: (cart.length > 0 ? cart : resumedOrder?.items || []).map((item: any) => ({
             id: String(item.id || item.product_id), // Handle both cart items and resumed order items
             name: item.name || item.product_name,
             price: item.price,
@@ -2616,7 +2616,7 @@ export const CheckoutPage: React.FC = () => {
 
               {/* Items List (Collapsed View) */}
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
-                {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item) => (
+                {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item: any) => (
                   <div key={item.cartItemId || item.id} className="flex gap-3">
                     <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
                       <img

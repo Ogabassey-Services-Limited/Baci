@@ -215,7 +215,7 @@ export function SettingsForm({
   );
 
   const form = useForm<SettingsFormValues>({
-    resolver: zodResolver(settingsSchema),
+    resolver: zodResolver(settingsSchema as any),
     defaultValues: {
       business_name: initialMerchant?.business_name || '',
       country: initialMerchant?.country || 'NG',

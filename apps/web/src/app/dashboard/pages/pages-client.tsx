@@ -98,7 +98,7 @@ export default function PagesClient() {
   const [togglingPage, setTogglingPage] = useState<string | null>(null);
 
   const form = useForm<PagesFormValues>({
-    resolver: zodResolver(pagesSchema),
+    resolver: zodResolver(pagesSchema as any),
     defaultValues: {
       about: '',
       contact: '',

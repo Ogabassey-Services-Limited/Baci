@@ -174,7 +174,7 @@ export default function OnboardingForm() {
   const searchParams = useSearchParams();
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(onboardingSchema),
+    resolver: zodResolver(onboardingSchema as any),
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     shouldUnregister: false,

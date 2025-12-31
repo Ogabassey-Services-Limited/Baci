@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -11,7 +10,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 export function BnplLauncher() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { toast } = useToast();
     const { merchant } = useMerchant();
 
     const orderId = searchParams.get('orderId');
@@ -52,6 +50,9 @@ export function BnplLauncher() {
                         merchantSlug: merchant?.slug || 'ogabassey',
                         orderId: order.id,
                         amount: order.total,
+                        customerEmail: order.customer_email,
+                        customerPhone: order.customer_phone || '',
+                        customerName: order.customer_name,
                         items: order.items.map(
                             (item: {
                                 product_id?: string;
@@ -62,17 +63,11 @@ export function BnplLauncher() {
                                 quantity: number;
                             }) => ({
                                 id: String(item.product_id || item.id),
-                                name: item.product_name || item.name,
+                                name: item.product_name || item.name || '',
                                 price: item.price,
                                 quantity: item.quantity,
                             })
                         ),
-                        customer: {
-                            email: order.customer_email,
-                            phone: order.customer_phone,
-                            firstName: order.customer_name.split(' ')[0],
-                            lastName: order.customer_name.split(' ').slice(1).join(' '),
-                        },
                         onSuccess: (ref) => {
                             console.log('Credit Direct Success:', ref);
                             router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
@@ -82,21 +77,32 @@ export function BnplLauncher() {
                             setStatus('error');
                             setErrorMessage('Payment cancelled. Please try again.');
                         },
-                        toast,
+                        onError: (error) => {
+                            console.error('Credit Direct Error:', error);
+                            setStatus('error');
+                            setErrorMessage(error);
+                        },
                     });
                 } else if (gateway === 'credpal') {
+                    const { getCredPalKey } = await import('@/lib/credpal');
                     await openCredPalCheckout({
+                        key: getCredPalKey(),
                         amount: order.total,
-                        email: order.customer_email,
-                        orderId: order.id,
-                        onSuccess: (ref) => {
-                            router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
+                        product: `Order #${order.id}`,
+                        customerEmail: order.customer_email,
+                        customerName: order.customer_name,
+                        customerPhone: order.customer_phone,
+                        onSuccess: (data) => {
+                            router.push(`/order-success?orderId=${order.id}&reference=${data.order_no}`);
                         },
                         onClose: () => {
                             setStatus('error');
                             setErrorMessage('Payment cancelled.');
                         },
-                        toast,
+                        onError: (error) => {
+                            setStatus('error');
+                            setErrorMessage(error.message);
+                        },
                     });
                 } else {
                     throw new Error('Unsupported gateway for this launcher.');
@@ -111,7 +117,7 @@ export function BnplLauncher() {
         };
 
         launchPayment();
-    }, [orderId, gateway, merchant?.slug, router, toast]);
+    }, [orderId, gateway, merchant?.slug, router]);
 
     if (status === 'error') {
         return (

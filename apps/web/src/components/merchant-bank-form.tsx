@@ -60,7 +60,7 @@ export function MerchantBankForm({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const form = useForm<BankFormValues>({
-    resolver: zodResolver(bankSchema),
+    resolver: zodResolver(bankSchema as any),
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',

@@ -76,7 +76,7 @@ export default function FulfillmentDialog({
   );
 
   const form = useForm<FulfillmentFormValues>({
-    resolver: zodResolver(fulfillmentFormSchema),
+    resolver: zodResolver(fulfillmentFormSchema as any),
   });
 
   // Reset form when the dialog opens or items change
