@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
 import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
+import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -42,7 +43,9 @@ export default async function CheckoutPage({
   ) {
     return (
       <Suspense fallback={<CheckoutLoading />}>
-        <NewTemplateCheckoutPage />
+        <CheckoutThemeProvider>
+          <NewTemplateCheckoutPage />
+        </CheckoutThemeProvider>
       </Suspense>
     );
   }
@@ -51,7 +54,9 @@ export default async function CheckoutPage({
   // Default to ogabassey checkout as it's the fully functional implementation
   return (
     <Suspense fallback={<CheckoutLoading />}>
-      <OgabasseyCheckoutPage />
+      <CheckoutThemeProvider>
+        <OgabasseyCheckoutPage />
+      </CheckoutThemeProvider>
     </Suspense>
   );
 }
