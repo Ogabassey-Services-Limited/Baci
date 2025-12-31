@@ -348,7 +348,7 @@ export default function HomeScreen() {
               label="Blog Manager"
               iconColor={colors.success}
               backgroundColor={colors.successLight}
-              onPress={() => { }}
+              onPress={() => router.push('/blog')}
             />
           </View>
         </View>

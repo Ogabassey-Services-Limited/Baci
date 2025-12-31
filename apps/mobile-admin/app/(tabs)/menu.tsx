@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface MenuItem {
@@ -36,6 +39,27 @@ interface MenuSection {
 
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
+  const { signOut } = useAuth();
+  const { merchant, storeUrl, isLive } = useMerchant();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            // Navigation is handled by AuthGate in _layout.tsx
+          }
+        },
+      ]
+    );
+  };
 
   const menuSections: MenuSection[] = [
     {
@@ -46,28 +70,28 @@ export default function MenuScreen() {
           icon: 'storefront-outline',
           label: 'Store Settings',
           description: 'Name, logo, and store details',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'payments',
           icon: 'card-outline',
           label: 'Payment Methods',
           description: 'Configure payment options',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'shipping',
           icon: 'car-outline',
           label: 'Shipping',
           description: 'Delivery zones and rates',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'domains',
           icon: 'globe-outline',
           label: 'Domains',
           description: 'Custom domain settings',
-          onPress: () => {},
+          onPress: () => { },
           badge: 'PRO',
         },
       ],
@@ -80,21 +104,21 @@ export default function MenuScreen() {
           icon: 'analytics-outline',
           label: 'Analytics',
           description: 'Sales and traffic insights',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'discounts',
           icon: 'pricetag-outline',
           label: 'Discounts',
           description: 'Coupons and promotions',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'staff',
           icon: 'people-outline',
           label: 'Staff',
           description: 'Team members and permissions',
-          onPress: () => {},
+          onPress: () => { },
         },
       ],
     },
@@ -105,19 +129,19 @@ export default function MenuScreen() {
           id: 'help',
           icon: 'help-circle-outline',
           label: 'Help Center',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'contact',
           icon: 'chatbubble-outline',
           label: 'Contact Support',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'feedback',
           icon: 'star-outline',
           label: 'Send Feedback',
-          onPress: () => {},
+          onPress: () => { },
         },
       ],
     },
@@ -129,29 +153,20 @@ export default function MenuScreen() {
           icon: 'person-outline',
           label: 'Profile',
           description: 'Your account details',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'notifications',
           icon: 'notifications-outline',
           label: 'Notifications',
           description: 'Push notification settings',
-          onPress: () => {},
+          onPress: () => { },
         },
         {
           id: 'logout',
           icon: 'log-out-outline',
           label: 'Log Out',
-          onPress: () => {
-            Alert.alert(
-              'Log Out',
-              'Are you sure you want to log out?',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Log Out', style: 'destructive', onPress: () => {} },
-              ]
-            );
-          },
+          onPress: handleLogout,
           iconColor: colors.error,
           destructive: true,
         },
@@ -213,16 +228,24 @@ export default function MenuScreen() {
         {/* Store Preview Card */}
         <Pressable style={[styles.storeCard, { backgroundColor: colors.card }, shadows.sm]}>
           <View style={[styles.storeAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={styles.storeAvatarText}>O</Text>
+            <Text style={styles.storeAvatarText}>
+              {merchant?.business_name?.charAt(0).toUpperCase() || 'B'}
+            </Text>
           </View>
           <View style={styles.storeInfo}>
-            <Text style={[styles.storeName, { color: colors.text }]}>Ogabassey</Text>
-            <Text style={[styles.storeUrl, { color: colors.textSecondary }]}>ogabassey.mybaci.store</Text>
+            <Text style={[styles.storeName, { color: colors.text }]}>
+              {merchant?.business_name || 'Your Store'}
+            </Text>
+            <Text style={[styles.storeUrl, { color: colors.textSecondary }]}>
+              {storeUrl || 'mybaci.store'}
+            </Text>
           </View>
-          <View style={[styles.liveBadge, { backgroundColor: colors.successLight }]}>
-            <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
-            <Text style={[styles.liveText, { color: colors.success }]}>Live</Text>
-          </View>
+          {isLive && (
+            <View style={[styles.liveBadge, { backgroundColor: colors.successLight }]}>
+              <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
+              <Text style={[styles.liveText, { color: colors.success }]}>Live</Text>
+            </View>
+          )}
         </Pressable>
 
         {/* Menu Sections */}

@@ -294,6 +294,11 @@ export async function PATCH(request: NextRequest) {
       'custom_robots_txt',
       'email_notifications_enabled',
       'sms_notifications_enabled',
+      // Blog settings
+      'blog_enabled',
+      'auto_blog_enabled',
+      'google_reviews_enabled',
+      'google_place_id',
       // VTU settings
       'vtu_enabled',
       'vtu_airtime_enabled',

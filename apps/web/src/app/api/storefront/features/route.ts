@@ -203,6 +203,9 @@ export async function GET(request: NextRequest) {
         100, 200, 500, 1000,
       ],
       vtuLoyaltyRewardEnabled: settings.vtu_loyalty_reward_enabled ?? false,
+      // Blog
+      blogEnabled: settings.blog_enabled ?? false,
+      autoBlogEnabled: settings.auto_blog_enabled ?? false,
     };
 
     return NextResponse.json(publicFeatures);

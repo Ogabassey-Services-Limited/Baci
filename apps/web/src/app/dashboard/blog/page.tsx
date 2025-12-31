@@ -263,9 +263,7 @@ export default function BlogPage() {
                 Google Discover. Enable the blog feature to get started.
               </p>
               <Button asChild>
-                <Link href="/dashboard/settings/features">
-                  Enable Blog Feature
-                </Link>
+                <Link href="/dashboard/settings">Enable Blog Feature</Link>
               </Button>
             </div>
           </CardContent>

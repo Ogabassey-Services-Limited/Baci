@@ -167,7 +167,7 @@ export async function inviteStaffMember(data: {
         invitationToken
       );
 
-      revalidatePath('/dashboard/settings/team');
+      revalidatePath('/dashboard/staff');
       return { success: true, message: 'Staff member re-invited successfully' };
     }
 
@@ -203,7 +203,7 @@ export async function inviteStaffMember(data: {
     invitationToken
   );
 
-  revalidatePath('/dashboard/settings/team');
+  revalidatePath('/dashboard/staff');
   return { success: true, message: 'Staff member invited successfully' };
 }
 
@@ -273,7 +273,7 @@ export async function resendInvitation(id: string) {
     invitationToken
   );
 
-  revalidatePath('/dashboard/settings/team');
+  revalidatePath('/dashboard/staff');
   return { success: true };
 }
 
@@ -341,7 +341,7 @@ export async function updateStaffMember(
     throw new Error('Staff member not found');
   }
 
-  revalidatePath('/dashboard/settings/team');
+  revalidatePath('/dashboard/staff');
   return { success: true };
 }
 
@@ -388,7 +388,7 @@ export async function removeStaffMember(id: string) {
     throw new Error('Staff member not found');
   }
 
-  revalidatePath('/dashboard/settings/team');
+  revalidatePath('/dashboard/staff');
   return { success: true };
 }
 

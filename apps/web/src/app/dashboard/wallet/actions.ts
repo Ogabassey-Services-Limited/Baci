@@ -298,7 +298,7 @@ export async function updateWalletSettings(
   return { success: true };
 }
 
-export async function withdrawFunds(merchantId: string, amount?: number) {
+export function withdrawFunds(_merchantId: string, _amount?: number) {
   return {
     success: false,
     error: 'Withdrawals are currently disabled.',

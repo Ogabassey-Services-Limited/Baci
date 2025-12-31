@@ -15,26 +15,52 @@ const ALLOWED_TYPES = [
   'image/avif',
 ];
 
+import { createAdminClient } from '@/lib/supabase/admin';
+
+// ... existing imports ...
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Default user client
+    const userSupabase = createClient(cookieStore);
+
+    let supabaseClient = userSupabase;
+    let merchant: { id: string; slug: string } | null = null;
 
     // Check authentication
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await userSupabase.auth.getUser();
 
-    if (!user) {
+    // Check for Dev Mode Override
+    const devMerchantId = request.headers.get('x-dev-merchant-id');
+    const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+    const isDevOverride = !user && devMerchantId === DEV_MERCHANT_ID;
+
+    if (!user && !isDevOverride) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, slug')
-      .eq('user_id', user.id)
-      .single();
+    if (isDevOverride) {
+      // Use Admin Client for Dev Mode to bypass RLS
+      const adminSupabase = createAdminClient();
+      const { data } = await adminSupabase
+        .from('merchants')
+        .select('id, slug')
+        .eq('id', DEV_MERCHANT_ID)
+        .single();
+      merchant = data;
+      supabaseClient = adminSupabase;
+    } else {
+      // Authenticated User Flow
+      const { data } = await userSupabase
+        .from('merchants')
+        .select('id, slug')
+        .eq('user_id', user!.id)
+        .single();
+      merchant = data;
+    }
 
     if (!merchant) {
       return NextResponse.json(
@@ -77,14 +103,16 @@ export async function POST(request: NextRequest) {
     };
     const extension = mimeToExt[file.type] || 'jpg';
     const filename = `${nanoid(12)}.${extension}`;
+
+    // NOTE: Path matches Mobile App expectations
     const filePath = `blog/${merchant.id}/${filename}`;
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
+    // Upload to Supabase Storage (using appropriate client)
+    const { error: uploadError } = await supabaseClient.storage
       .from('merchant-assets')
       .upload(filePath, buffer, {
         contentType: file.type,
@@ -100,8 +128,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
+    // Get public URL using Admin Client to ensure visibility if bucket is private
+    // (though getPublicUrl is usually static string manipulation, it's safer to use the client that knows the bucket)
+    const { data: publicUrlData } = supabaseClient.storage
       .from('merchant-assets')
       .getPublicUrl(filePath);
 

@@ -1,10 +1,12 @@
 /**
  * useMerchant Hook
  * Fetches merchant data and primary domain from Supabase
+ * 2025 Best Practice: Uses authenticated user ID
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Merchant {
   id: string;
@@ -34,23 +36,24 @@ export interface MerchantData {
   error: Error | null;
 }
 
-// TODO: Replace with actual auth when login is implemented
-const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74'; // ogabassey
+async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
+  console.log('[Merchant] Fetching merchant for user:', userId);
 
-async function fetchMerchantData(): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
-  console.log('[Merchant] Fetching merchant:', DEV_MERCHANT_ID);
-
-  // For development, use hardcoded merchant ID
-  // TODO: Replace with actual auth flow
+  // Fetch merchant by authenticated user ID
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone')
-    .eq('id', DEV_MERCHANT_ID)
+    .eq('user_id', userId)
     .single();
 
   console.log('[Merchant] Result:', merchant, 'Error:', merchantError);
 
   if (merchantError) {
+    // No merchant found for this user
+    if (merchantError.code === 'PGRST116') {
+      console.log('[Merchant] No merchant found for user');
+      return { merchant: null, primaryDomain: null };
+    }
     throw new Error(merchantError.message);
   }
 
@@ -73,10 +76,13 @@ async function fetchMerchantData(): Promise<{ merchant: Merchant | null; primary
 }
 
 export function useMerchant(): MerchantData {
+  const { user } = useAuth();
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['merchant'],
-    queryFn: fetchMerchantData,
-    staleTime: 1000 * 30, // 30 seconds for dev
+    queryKey: ['merchant', user?.id],
+    queryFn: () => fetchMerchantData(user!.id),
+    enabled: !!user?.id, // Only fetch when user is authenticated
+    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
   });
 
@@ -100,3 +106,4 @@ export function useMerchant(): MerchantData {
     error: error as Error | null,
   };
 }
+

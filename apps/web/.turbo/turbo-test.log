@@ -5,11 +5,47 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 140[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+[90mstderr[2m | src/components/ui/button.test.tsx[2m > [22m[2mButton[2m > [22m[2mshould render as a different element when asChild is true
+[22m[39mInvalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
+Invalid hook call. Hooks can only be called inside of the body of a function component. This could happen for one of the following reasons:
+1. You might have mismatching versions of React and the renderer (such as React DOM)
+2. You might be breaking the Rules of Hooks
+3. You might have more than one copy of React in the same app
+See https://react.dev/link/invalid-hook-call for tips about how to debug and fix this problem.
 
-[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
-[2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
-[2m   Start at [22m 12:39:09
-[2m   Duration [22m 2.30s[2m (transform 564ms, setup 724ms, import 1.50s, tests 144ms, environment 1.27s)[22m
+ [31m❯[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 212[2mms[22m[39m
+     [32m✓[39m should render the button with its children[32m 151[2mms[22m[39m
+     [32m✓[39m should apply the default variant and size classes[32m 17[2mms[22m[39m
+     [32m✓[39m should apply the specified variant and size classes[32m 15[2mms[22m[39m
+     [32m✓[39m should be disabled when the disabled prop is set[32m 16[2mms[22m[39m
+[31m     [31m×[31m should render as a different element when asChild is true[39m[32m 12[2mms[22m[39m
 
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/components/ui/button.test.tsx[2m > [22mButton[2m > [22mshould render as a different element when asChild is true
+[31m[1mTypeError[22m: Cannot read properties of null (reading 'useContext')[39m
+[90m [2m❯[22m Object.process.env.NODE_ENV.exports.useContext ../../node_modules/next/node_modules/react/cjs/react.development.js:[2m1212:25[22m[39m
+[90m [2m❯[22m LinkComponent ../../node_modules/next/dist/client/link.js:[2m145:35[22m[39m
+[90m [2m❯[22m Object.react-stack-bottom-frame ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m23863:20[22m[39m
+[90m [2m❯[22m renderWithHooks ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m5529:22[22m[39m
+[90m [2m❯[22m updateForwardRef ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m8645:19[22m[39m
+[90m [2m❯[22m beginWork ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m10861:18[22m[39m
+[90m [2m❯[22m runWithFiberInDEV ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m1522:13[22m[39m
+[90m [2m❯[22m performUnitOfWork ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m15140:22[22m[39m
+[90m [2m❯[22m workLoopSync ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m14956:41[22m[39m
+[90m [2m❯[22m renderRootSync ../../node_modules/react-dom/cjs/react-dom-client.development.js:[2m14936:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m11 passed[39m[22m[90m (12)[39m
+[2m   Start at [22m 07:33:32
+[2m   Duration [22m 3.76s[2m (transform 330ms, setup 437ms, import 2.14s, tests 218ms, environment 3.17s)[22m
+
+ ELIFECYCLE  Test failed. See above for more details.

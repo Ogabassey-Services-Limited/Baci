@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Newspaper,
   Package,
   Paintbrush,
   PanelLeftClose,
@@ -403,6 +404,11 @@ export default function DashboardClientLayout({
       label: 'Pages',
       badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
       badgeVariant: 'destructive',
+    },
+    {
+      href: '/dashboard/blog' as Route,
+      icon: Newspaper,
+      label: 'Blog',
     },
     {
       href: '/dashboard/templates' as Route,

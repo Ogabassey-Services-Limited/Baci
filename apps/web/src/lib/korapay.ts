@@ -500,6 +500,77 @@ export async function resolveBankAccount(
 }
 
 // =============================================================================
+// Virtual Bank Account
+// =============================================================================
+
+interface VirtualAccountRequest {
+  accountName: string;
+  customerEmail?: string;
+  amount?: number;
+  orderId?: string;
+  merchantId?: string;
+}
+
+interface VirtualAccountResponse {
+  accountNumber: string;
+  bankName: string;
+  accountName: string;
+  expiresAt?: string;
+  reference?: string;
+}
+
+/**
+ * Create a virtual bank account for payment collection
+ * Useful for credit orders where customers pay later
+ */
+export async function createVirtualBankAccount(
+  data: VirtualAccountRequest
+): Promise<KorapayResult<VirtualAccountResponse>> {
+  const reference = `VA-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+
+  const result = await korapayRequest<{
+    account_number: string;
+    bank_name: string;
+    account_name: string;
+    expires_at?: string;
+    reference?: string;
+  }>('/virtual-bank-account/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      account_name: data.accountName,
+      account_reference: reference,
+      permanent: false, // Temporary account for this order
+      bank_code: '035', // Wema Bank (default for Korapay virtual accounts)
+      customer: {
+        email: data.customerEmail || 'customer@example.com',
+      },
+      min_amount: data.amount ? data.amount * 0.9 : undefined, // Allow 10% tolerance
+      max_amount: data.amount ? data.amount * 1.1 : undefined,
+      notification_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://usebaci.com'}/api/webhooks/korapay`,
+      metadata: {
+        order_id: data.orderId,
+        merchant_id: data.merchantId,
+      },
+    }),
+  });
+
+  if (!result.success) {
+    return result;
+  }
+
+  return {
+    success: true,
+    data: {
+      accountNumber: result.data.account_number,
+      bankName: result.data.bank_name,
+      accountName: result.data.account_name,
+      expiresAt: result.data.expires_at,
+      reference: result.data.reference || reference,
+    },
+  };
+}
+
+// =============================================================================
 // Utility Functions
 // =============================================================================
 

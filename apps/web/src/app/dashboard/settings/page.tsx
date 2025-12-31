@@ -103,7 +103,7 @@ export default async function SettingsPage() {
               className="w-full justify-between"
               asChild
             >
-              <Link href="/dashboard/settings/team">
+              <Link href="/dashboard/staff">
                 <span>Manage Team Members</span>
                 <ChevronRight className="h-4 w-4" />
               </Link>

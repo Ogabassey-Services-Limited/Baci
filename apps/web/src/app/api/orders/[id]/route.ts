@@ -95,7 +95,9 @@ export async function PATCH(
     // Verify order belongs to this merchant and get current status
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
-      .select('id, order_number, shipping_status, customer_id')
+      .select(
+        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id'
+      )
       .eq('id', id)
       .eq('merchant_id', merchant.id)
       .single();
@@ -106,6 +108,23 @@ export async function PATCH(
 
     // Extract updatable fields
     const { payment_status, shipping_status, notes, shipping_address } = body;
+
+    // Validate: Cannot move to 'processing' unless paid or is_credit_order
+    if (
+      shipping_status === 'processing' &&
+      existingOrder.shipping_status === 'pending' &&
+      existingOrder.payment_status !== 'paid' &&
+      !existingOrder.is_credit_order
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Order must be paid before processing. Use the credit order flow to ship unpaid orders.',
+          code: 'PAYMENT_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
 
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {};

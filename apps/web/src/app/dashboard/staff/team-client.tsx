@@ -344,7 +344,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/settings">
+        <Link href="/dashboard">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

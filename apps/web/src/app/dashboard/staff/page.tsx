@@ -8,7 +8,7 @@ async function TeamContent() {
   return <TeamClient initialStaff={staff} />;
 }
 
-export default function TeamSettingsPage() {
+export default function StaffPage() {
   return (
     <Suspense
       fallback={

@@ -2,6 +2,77 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/app/api/ai/edit-blog/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { activeTextModel, sanitizePromptInput } from '@/ai/provider';
+    3 │ import { generateText } from 'ai';
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │          ^^^^^^^^^^^
+    2 │ import { activeTextModel, sanitizePromptInput } from '@/ai/provider';
+    3 │ import { generateText } from 'ai';
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·'next/server';
+      │          +++++                                               
+
+src/app/api/merchant/blog/upload/route.ts:60:24 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    58 │         .from('merchants')
+    59 │         .select('id, slug')
+  > 60 │         .eq('user_id', user!.id)
+       │                        ^^^^^
+    61 │         .single();
+    62 │       merchant = data;
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
+  
+     58  58 │           .from('merchants')
+     59  59 │           .select('id, slug')
+     60     │ - ········.eq('user_id',·user!.id)
+         60 │ + ········.eq('user_id',·user?.id)
+     61  61 │           .single();
+     62  62 │         merchant = data;
+  
+
+src/app/api/orders/[id]/record-payment/route.ts:93:24 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    92 │         // 5. Update Order Status
+  > 93 │         const updates: any = {};
+       │                        ^^^
+    94 │ 
+    95 │         // Payment Status Logic
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/orders/[id]/record-payment/route.ts:127:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    125 │         });
+    126 │ 
+  > 127 │     } catch (error: any) {
+        │                     ^^^
+    128 │         console.error('Error in record-payment:', error);
+    129 │         return NextResponse.json({ error: error.message || 'Internal Error' }, { status: 500 });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
 src/app/dashboard/wallet/actions.ts:5:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━
 
   ! This import is unused.
@@ -24,87 +95,876 @@ src/app/dashboard/wallet/actions.ts:5:8 lint/correctness/noUnusedImports  FIXABL
       7   6 │   
   
 
-src/app/dashboard/wallet/actions.ts:301:37 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+src/app/(storefront)/[slug]/checkout/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
 
-  ! This parameter is unused.
+  × The imports and exports are not sorted.
   
-    299 │ }
-    300 │ 
-  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
-        │                                     ^^^^^^^^^^
-    302 │   return {
-    303 │     success: false,
+  > 1 │ import { notFound } from 'next/navigation';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { Suspense } from 'react';
+    3 │ import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
   
-  i Unused parameters might be the result of an incomplete refactoring.
+  i Safe fix: Organize Imports (Biome)
   
-  i Unsafe fix: If this is intentional, prepend merchantId with an underscore.
-  
-    299 299 │   }
-    300 300 │   
-    301     │ - export·async·function·withdrawFunds(merchantId:·string,·amount?:·number)·{
-        301 │ + export·async·function·withdrawFunds(_merchantId:·string,·amount?:·number)·{
-    302 302 │     return {
-    303 303 │       success: false,
-  
-
-src/app/dashboard/wallet/actions.ts:301:57 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
-
-  ! This parameter is unused.
-  
-    299 │ }
-    300 │ 
-  > 301 │ export async function withdrawFunds(merchantId: string, amount?: number) {
-        │                                                         ^^^^^^
-    302 │   return {
-    303 │     success: false,
-  
-  i Unused parameters might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: If this is intentional, prepend amount with an underscore.
-  
-    299 299 │   }
-    300 300 │   
-    301     │ - export·async·function·withdrawFunds(merchantId:·string,·amount?:·number)·{
-        301 │ + export·async·function·withdrawFunds(merchantId:·string,·_amount?:·number)·{
-    302 302 │     return {
-    303 303 │       success: false,
+     1  1 │   import { notFound } from 'next/navigation';
+     2  2 │   import { Suspense } from 'react';
+     3    │ - import·{·NewTemplateCheckoutPage·}·from·'@/components/storefront/new-template';
+     4    │ - import·{·CheckoutPage·as·OgabasseyCheckoutPage·}·from·'@/components/storefront/ogabassey/pages/checkout-page';
+     5    │ - import·{·CheckoutThemeProvider·}·from·'@/components/checkout-theme-provider';
+        3 │ + import·{·CheckoutThemeProvider·}·from·'@/components/checkout-theme-provider';
+        4 │ + import·{·NewTemplateCheckoutPage·}·from·'@/components/storefront/new-template';
+        5 │ + import·{·CheckoutPage·as·OgabasseyCheckoutPage·}·from·'@/components/storefront/ogabassey/pages/checkout-page';
+     6  6 │   import {
+     7  7 │     getCachedMerchant,
   
 
-src/app/dashboard/wallet/wallet-client.tsx:15:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+src/app/api/ai/edit-blog/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━
 
-  ! This import is unused.
+  × The imports and exports are not sorted.
   
-    13 │ import { useRouter } from 'next/navigation';
-    14 │ import { useState, useTransition } from 'react';
-  > 15 │ import {
-       │        ^
-  > 16 │   AlertDialog,
-        ...
-  > 24 │   AlertDialogTrigger,
-  > 25 │ } from '@/components/ui/alert-dialog';
-       │ ^
-    26 │ import { Badge } from '@/components/ui/badge';
-    27 │ import { Button } from '@/components/ui/button';
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { activeTextModel, sanitizePromptInput } from '@/ai/provider';
+    3 │ import { generateText } from 'ai';
   
-  i Unused imports might be the result of an incomplete refactoring.
+  i Safe fix: Organize Imports (Biome)
   
-  i Unsafe fix: Remove the unused imports.
+     1    │ - import·{·NextRequest,·NextResponse·}·from·'next/server';
+     2    │ - import·{·activeTextModel,·sanitizePromptInput·}·from·'@/ai/provider';
+     3    │ - import·{·generateText·}·from·'ai';
+        1 │ + import·{·generateText·}·from·'ai';
+        2 │ + import·{·NextRequest,·NextResponse·}·from·'next/server';
+        3 │ + import·{·activeTextModel,·sanitizePromptInput·}·from·'@/ai/provider';
+     4  4 │   import { createClient } from '@/lib/supabase/server';
+     5  5 │   
   
-     13  13 │   import { useRouter } from 'next/navigation';
-     14  14 │   import { useState, useTransition } from 'react';
-     15     │ - import·{
-     16     │ - ··AlertDialog,
-     17     │ - ··AlertDialogAction,
-     18     │ - ··AlertDialogCancel,
-     19     │ - ··AlertDialogContent,
-     20     │ - ··AlertDialogDescription,
-     21     │ - ··AlertDialogFooter,
-     22     │ - ··AlertDialogHeader,
-     23     │ - ··AlertDialogTitle,
-     24     │ - ··AlertDialogTrigger,
-     25     │ - }·from·'@/components/ui/alert-dialog';
-     26  15 │   import { Badge } from '@/components/ui/badge';
-     27  16 │   import { Button } from '@/components/ui/button';
+
+src/app/api/ai/edit-blog/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     5  5 │   
+     6  6 │   export async function POST(req: NextRequest) {
+     7    │ - ····try·{
+     8    │ - ········const·supabase·=·createClient();
+     9    │ - ········const·{
+    10    │ - ············data:·{·user·},
+    11    │ - ········}·=·await·supabase.auth.getUser();
+        7 │ + ··try·{
+        8 │ + ····const·supabase·=·createClient();
+        9 │ + ····const·{
+       10 │ + ······data:·{·user·},
+       11 │ + ····}·=·await·supabase.auth.getUser();
+    12 12 │   
+    13    │ - ········if·(!user)·{
+    14    │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+    15    │ - ········}
+       13 │ + ····if·(!user)·{
+       14 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+       15 │ + ····}
+    16 16 │   
+    17    │ - ········const·{·content,·instruction·}·=·await·req.json();
+       17 │ + ····const·{·content,·instruction·}·=·await·req.json();
+    18 18 │   
+    19    │ - ········if·(!content)·{
+    20    │ - ············return·NextResponse.json({·error:·'Content·required'·},·{·status:·400·});
+    21    │ - ········}
+       19 │ + ····if·(!content)·{
+       20 │ + ······return·NextResponse.json({·error:·'Content·required'·},·{·status:·400·});
+       21 │ + ····}
+    22 22 │   
+    23    │ - ········const·sanitizedInstruction·=·instruction·?·sanitizePromptInput(instruction).value·:·'';
+       23 │ + ····const·sanitizedInstruction·=·instruction
+       24 │ + ······?·sanitizePromptInput(instruction).value
+       25 │ + ······:·'';
+    24 26 │   
+    25    │ - ········const·systemPrompt·=·`You·are·an·expert·blog·post·editor·and·copywriter.
+       27 │ + ····const·systemPrompt·=·`You·are·an·expert·blog·post·editor·and·copywriter.
+    26 28 │   Your task is to improve the provided blog content based on the user's instruction.
+    27 29 │   If no instruction is provided, improve the grammar, flow, tone, and readability of the content.
+    ····· │ 
+    33 35 │   5. Make the content engaging and professional.`;
+    34 36 │   
+    35    │ - ········const·userPrompt·=·sanitizedInstruction
+    36    │ - ············?·`Instruction:·${sanitizedInstruction}\n\nContent·to·edit:\n${content}`
+    37    │ - ············:·`Content·to·edit:\n${content}`;
+       37 │ + ····const·userPrompt·=·sanitizedInstruction
+       38 │ + ······?·`Instruction:·${sanitizedInstruction}\n\nContent·to·edit:\n${content}`
+       39 │ + ······:·`Content·to·edit:\n${content}`;
+    38 40 │   
+    39    │ - ········const·{·text·}·=·await·generateText({
+    40    │ - ············model:·activeTextModel,
+    41    │ - ············system:·systemPrompt,
+    42    │ - ············prompt:·userPrompt,
+    43    │ - ········});
+       41 │ + ····const·{·text·}·=·await·generateText({
+       42 │ + ······model:·activeTextModel,
+       43 │ + ······system:·systemPrompt,
+       44 │ + ······prompt:·userPrompt,
+       45 │ + ····});
+    44 46 │   
+    45    │ - ········return·NextResponse.json({·content:·text·});
+    46    │ - ····}·catch·(error)·{
+    47    │ - ········console.error('AI·Edit·Error:',·error);
+    48    │ - ········return·NextResponse.json(
+    49    │ - ············{·error:·'Failed·to·process·AI·edit·request'·},
+    50    │ - ············{·status:·500·}
+    51    │ - ········);
+    52    │ - ····}
+       47 │ + ····return·NextResponse.json({·content:·text·});
+       48 │ + ··}·catch·(error)·{
+       49 │ + ····console.error('AI·Edit·Error:',·error);
+       50 │ + ····return·NextResponse.json(
+       51 │ + ······{·error:·'Failed·to·process·AI·edit·request'·},
+       52 │ + ······{·status:·500·}
+       53 │ + ····);
+       54 │ + ··}
+    53 55 │   }
+    54 56 │   
+  
+
+src/app/api/merchant/blog/upload/route.ts:29:9 lint/suspicious/noImplicitAnyLet ━━━━━━━━━━━━━━━━━━━━
+
+  × This variable implicitly has the any type.
+  
+    28 │     let supabaseClient = userSupabase;
+  > 29 │     let merchant;
+       │         ^^^^^^^^
+    30 │ 
+    31 │     // Check authentication
+  
+  i Variable declarations without type annotation and initialization implicitly have the any type. Declare a type or initialize the variable with some value.
+  
+
+src/app/api/orders/[id]/record-payment/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { cookies } from 'next/headers';
+      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
+      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      4     │ - import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+          3 │ + import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+          4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+      5   5 │   
+      6   6 │   export async function POST(
+  
+
+src/app/api/orders/[id]/record-payment/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      5   5 │   
+      6   6 │   export async function POST(
+      7     │ - ····request:·NextRequest,
+      8     │ - ····{·params·}:·{·params:·Promise<{·id:·string·}>·}
+          7 │ + ··request:·NextRequest,
+          8 │ + ··{·params·}:·{·params:·Promise<{·id:·string·}>·}
+      9   9 │   ) {
+     10     │ - ····try·{
+     11     │ - ········const·{·id·}·=·await·params;
+     12     │ - ········const·{·amount,·payment_method,·reference,·notes·}·=·await·request.json();
+         10 │ + ··try·{
+         11 │ + ····const·{·id·}·=·await·params;
+         12 │ + ····const·{·amount,·payment_method,·reference,·notes·}·=·await·request.json();
+     13  13 │   
+     14     │ - ········if·(!amount·||·amount·<=·0)·{
+     15     │ - ············return·NextResponse.json({·error:·'Invalid·amount'·},·{·status:·400·});
+     16     │ - ········}
+         14 │ + ····if·(!amount·||·amount·<=·0)·{
+         15 │ + ······return·NextResponse.json({·error:·'Invalid·amount'·},·{·status:·400·});
+         16 │ + ····}
+     17  17 │   
+     18     │ - ········const·cookieStore·=·await·cookies();
+     19     │ - ········const·supabase·=·createClient(cookieStore);
+     20     │ - ········const·adminSupabase·=·createAdminClient();
+         18 │ + ····const·cookieStore·=·await·cookies();
+         19 │ + ····const·supabase·=·createClient(cookieStore);
+         20 │ + ····const·adminSupabase·=·createAdminClient();
+     21  21 │   
+     22     │ - ········//·1.·Authenticate·Merchant
+     23     │ - ········const·{
+     24     │ - ············data:·{·user·},
+     25     │ - ············error:·authError,
+     26     │ - ········}·=·await·supabase.auth.getUser();
+         22 │ + ····//·1.·Authenticate·Merchant
+         23 │ + ····const·{
+         24 │ + ······data:·{·user·},
+         25 │ + ······error:·authError,
+         26 │ + ····}·=·await·supabase.auth.getUser();
+     27  27 │   
+     28     │ - ········if·(authError·||·!user)·{
+     29     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     30     │ - ········}
+         28 │ + ····if·(authError·||·!user)·{
+         29 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         30 │ + ····}
+     31  31 │   
+     32     │ - ········const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+     33     │ - ············.from('merchants')
+     34     │ - ············.select('id')
+     35     │ - ············.eq('user_id',·user.id)
+     36     │ - ············.single();
+         32 │ + ····const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+         33 │ + ······.from('merchants')
+         34 │ + ······.select('id')
+         35 │ + ······.eq('user_id',·user.id)
+         36 │ + ······.single();
+     37  37 │   
+     38     │ - ········if·(merchantError·||·!merchant)·{
+     39     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     40     │ - ········}
+         38 │ + ····if·(merchantError·||·!merchant)·{
+         39 │ + ······return·NextResponse.json(
+         40 │ + ········{·error:·'Merchant·not·found'·},
+         41 │ + ········{·status:·404·}
+         42 │ + ······);
+         43 │ + ····}
+     41  44 │   
+     42     │ - ········//·2.·Fetch·Order·&·Existing·Transactions
+     43     │ - ········const·{·data:·order,·error:·orderError·}·=·await·supabase
+     44     │ - ············.from('orders')
+     45     │ - ············.select('*')
+     46     │ - ············.eq('id',·id)
+     47     │ - ············.eq('merchant_id',·merchant.id)
+     48     │ - ············.single();
+         45 │ + ····//·2.·Fetch·Order·&·Existing·Transactions
+         46 │ + ····const·{·data:·order,·error:·orderError·}·=·await·supabase
+         47 │ + ······.from('orders')
+         48 │ + ······.select('*')
+         49 │ + ······.eq('id',·id)
+         50 │ + ······.eq('merchant_id',·merchant.id)
+         51 │ + ······.single();
+     49  52 │   
+     50     │ - ········if·(orderError·||·!order)·{
+     51     │ - ············return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+     52     │ - ········}
+         53 │ + ····if·(orderError·||·!order)·{
+         54 │ + ······return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+         55 │ + ····}
+     53  56 │   
+     54     │ - ········const·{·data:·transactions·}·=·await·supabase
+     55     │ - ············.from('transactions')
+     56     │ - ············.select('amount')
+     57     │ - ············.eq('order_id',·id)
+     58     │ - ············.eq('status',·'success');
+         57 │ + ····const·{·data:·transactions·}·=·await·supabase
+         58 │ + ······.from('transactions')
+         59 │ + ······.select('amount')
+         60 │ + ······.eq('order_id',·id)
+         61 │ + ······.eq('status',·'success');
+     59  62 │   
+     60     │ - ········//·3.·Calculate·Totals
+     61     │ - ········const·currentPaid·=·transactions?.reduce((sum,·t)·=>·sum·+·(Number(t.amount)·||·0),·0)·||·0;
+     62     │ - ········const·walletUsed·=·Number(order.wallet_amount_used)·||·0;
+     63     │ - ········const·totalPaidBefore·=·currentPaid·+·walletUsed;
+     64     │ - ········const·newPaid·=·totalPaidBefore·+·Number(amount);
+     65     │ - ········const·orderTotal·=·Number(order.total)·||·0;
+     66     │ - ········const·remainingBalance·=·Math.max(0,·orderTotal·-·newPaid);
+         63 │ + ····//·3.·Calculate·Totals
+         64 │ + ····const·currentPaid·=
+         65 │ + ······transactions?.reduce((sum,·t)·=>·sum·+·(Number(t.amount)·||·0),·0)·||·0;
+         66 │ + ····const·walletUsed·=·Number(order.wallet_amount_used)·||·0;
+         67 │ + ····const·totalPaidBefore·=·currentPaid·+·walletUsed;
+         68 │ + ····const·newPaid·=·totalPaidBefore·+·Number(amount);
+         69 │ + ····const·orderTotal·=·Number(order.total)·||·0;
+         70 │ + ····const·remainingBalance·=·Math.max(0,·orderTotal·-·newPaid);
+     67  71 │   
+     68     │ - ········//·4.·Create·Transaction
+     69     │ - ········const·{·error:·transactionError·}·=·await·adminSupabase
+     70     │ - ············.from('transactions')
+     71     │ - ············.insert({
+     72     │ - ················merchant_id:·merchant.id,
+     73     │ - ················order_id:·id,
+     74     │ - ················transaction_type:·'payment',
+     75     │ - ················amount:·amount,
+     76     │ - ················currency:·order.currency·||·'NGN',
+     77     │ - ················status:·'success',·//·Manual·payments·are·successful·immediately
+     78     │ - ················gateway:·'manual',
+     79     │ - ················gateway_reference:·reference·||·`MAN-${Date.now()}`,
+     80     │ - ················description:·notes·||·`Manual·payment·(${payment_method})`,
+     81     │ - ················metadata:·{
+     82     │ - ····················payment_method:·payment_method·||·'manual',
+     83     │ - ····················recorded_by:·user.email,
+     84     │ - ················}
+     85     │ - ············});
+         72 │ + ····//·4.·Create·Transaction
+         73 │ + ····const·{·error:·transactionError·}·=·await·adminSupabase
+         74 │ + ······.from('transactions')
+         75 │ + ······.insert({
+         76 │ + ········merchant_id:·merchant.id,
+         77 │ + ········order_id:·id,
+         78 │ + ········transaction_type:·'payment',
+         79 │ + ········amount:·amount,
+         80 │ + ········currency:·order.currency·||·'NGN',
+         81 │ + ········status:·'success',·//·Manual·payments·are·successful·immediately
+         82 │ + ········gateway:·'manual',
+         83 │ + ········gateway_reference:·reference·||·`MAN-${Date.now()}`,
+         84 │ + ········description:·notes·||·`Manual·payment·(${payment_method})`,
+         85 │ + ········metadata:·{
+         86 │ + ··········payment_method:·payment_method·||·'manual',
+         87 │ + ··········recorded_by:·user.email,
+  93 more lines truncated
+  
+
+src/app/api/orders/[id]/reminder/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+    3 │ import { logger } from '@/lib/logger';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
+      3   3 │   import { logger } from '@/lib/logger';
+      4     │ - import·{·sendEmail·}·from·'@/lib/zeptomail';
+      5     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+          4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+          5 │ + import·{·sendEmail·}·from·'@/lib/zeptomail';
+      6   6 │   
+      7   7 │   /**
+  
+
+src/app/api/orders/[id]/reminder/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     11  11 │    */
+     12  12 │   export async function POST(
+     13     │ - ····request:·NextRequest,
+     14     │ - ····{·params·}:·{·params:·Promise<{·id:·string·}>·}
+         13 │ + ··request:·NextRequest,
+         14 │ + ··{·params·}:·{·params:·Promise<{·id:·string·}>·}
+     15  15 │   ) {
+     16     │ - ····try·{
+     17     │ - ········const·{·id:·orderId·}·=·await·params;
+     18     │ - ········const·cookieStore·=·await·cookies();
+     19     │ - ········const·supabase·=·createClient(cookieStore);
+     20     │ - ········const·body·=·await·request.json();
+         16 │ + ··try·{
+         17 │ + ····const·{·id:·orderId·}·=·await·params;
+         18 │ + ····const·cookieStore·=·await·cookies();
+         19 │ + ····const·supabase·=·createClient(cookieStore);
+         20 │ + ····const·body·=·await·request.json();
+     21  21 │   
+     22     │ - ········//·1.·Auth·check
+     23     │ - ········const·{
+     24     │ - ············data:·{·user·},
+     25     │ - ············error:·authError,
+     26     │ - ········}·=·await·supabase.auth.getUser();
+     27     │ - ········if·(authError·||·!user)·{
+     28     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     29     │ - ········}
+         22 │ + ····//·1.·Auth·check
+         23 │ + ····const·{
+         24 │ + ······data:·{·user·},
+         25 │ + ······error:·authError,
+         26 │ + ····}·=·await·supabase.auth.getUser();
+         27 │ + ····if·(authError·||·!user)·{
+         28 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         29 │ + ····}
+     30  30 │   
+     31     │ - ········//·2.·Get·merchant
+     32     │ - ········const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+     33     │ - ············.from('merchants')
+     34     │ - ············.select('id,·business_name,·slug,·support_email,·email_sender_name')
+     35     │ - ············.eq('user_id',·user.id)
+     36     │ - ············.single();
+         31 │ + ····//·2.·Get·merchant
+         32 │ + ····const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+         33 │ + ······.from('merchants')
+         34 │ + ······.select('id,·business_name,·slug,·support_email,·email_sender_name')
+         35 │ + ······.eq('user_id',·user.id)
+         36 │ + ······.single();
+     37  37 │   
+     38     │ - ········if·(merchantError·||·!merchant)·{
+     39     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     40     │ - ········}
+         38 │ + ····if·(merchantError·||·!merchant)·{
+         39 │ + ······return·NextResponse.json(
+         40 │ + ········{·error:·'Merchant·not·found'·},
+         41 │ + ········{·status:·404·}
+         42 │ + ······);
+         43 │ + ····}
+     41  44 │   
+     42     │ - ········//·3.·Get·order
+     43     │ - ········const·{·data:·order,·error:·orderError·}·=·await·supabase
+     44     │ - ············.from('orders')
+     45     │ - ············.select('id,·order_number,·total,·customer_name,·customer_email,·customer_phone,·payment_status')
+     46     │ - ············.eq('id',·orderId)
+     47     │ - ············.eq('merchant_id',·merchant.id)
+     48     │ - ············.single();
+         45 │ + ····//·3.·Get·order
+         46 │ + ····const·{·data:·order,·error:·orderError·}·=·await·supabase
+         47 │ + ······.from('orders')
+         48 │ + ······.select(
+         49 │ + ········'id,·order_number,·total,·customer_name,·customer_email,·customer_phone,·payment_status'
+         50 │ + ······)
+         51 │ + ······.eq('id',·orderId)
+         52 │ + ······.eq('merchant_id',·merchant.id)
+         53 │ + ······.single();
+     49  54 │   
+     50     │ - ········if·(orderError·||·!order)·{
+     51     │ - ············return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+     52     │ - ········}
+         55 │ + ····if·(orderError·||·!order)·{
+         56 │ + ······return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+         57 │ + ····}
+     53  58 │   
+     54     │ - ········//·4.·Get·virtual·account·if·exists
+     55     │ - ········const·{·data:·virtualAccount·}·=·await·supabase
+     56     │ - ············.from('order_payment_accounts')
+     57     │ - ············.select('account_number,·bank_name,·account_name')
+     58     │ - ············.eq('order_id',·orderId)
+     59     │ - ············.single();
+         59 │ + ····//·4.·Get·virtual·account·if·exists
+         60 │ + ····const·{·data:·virtualAccount·}·=·await·supabase
+         61 │ + ······.from('order_payment_accounts')
+         62 │ + ······.select('account_number,·bank_name,·account_name')
+         63 │ + ······.eq('order_id',·orderId)
+         64 │ + ······.single();
+     60  65 │   
+     61     │ - ········//·5.·Generate·payment·link
+     62     │ - ········const·rootDomain·=·process.env.NEXT_PUBLIC_ROOT_DOMAIN·||·'usebaci.com';
+     63     │ - ········const·paymentLink·=·`https://${merchant.slug}.${rootDomain}/checkout/resume/${orderId}`;
+         66 │ + ····//·5.·Generate·payment·link
+         67 │ + ····const·rootDomain·=·process.env.NEXT_PUBLIC_ROOT_DOMAIN·||·'usebaci.com';
+         68 │ + ····const·paymentLink·=·`https://${merchant.slug}.${rootDomain}/checkout/resume/${orderId}`;
+     64  69 │   
+     65     │ - ········//·6.·Determine·channel·(email·by·default)
+     66     │ - ········const·channel·=·body.channel·||·'email';
+     67     │ - ········const·customMessage·=·body.message·||·'';
+         70 │ + ····//·6.·Determine·channel·(email·by·default)
+         71 │ + ····const·channel·=·body.channel·||·'email';
+         72 │ + ····const·customMessage·=·body.message·||·'';
+     68  73 │   
+     69     │ - ········//·7.·Format·currency
+     70     │ - ········const·formatCurrency·=·(amount:·number)·=>
+     71     │ - ············new·Intl.NumberFormat('en-NG',·{·style:·'currency',·currency:·'NGN'·}).format(amount);
+         74 │ + ····//·7.·Format·currency
+         75 │ + ····const·formatCurrency·=·(amount:·number)·=>
+         76 │ + ······new·Intl.NumberFormat('en-NG',·{
+         77 │ + ········style:·'currency',
+         78 │ + ········currency:·'NGN',
+         79 │ + ······}).format(amount);
+     72  80 │   
+     73     │ - ········const·balanceAmount·=·formatCurrency(order.total);
+         81 │ + ····const·balanceAmount·=·formatCurrency(order.total);
+     74  82 │   
+     75     │ - ········//·8.·Compose·message·content
+     76     │ - ········const·accountDetails·=·virtualAccount
+     77     │ - ············?·`\n\nBank·Transfer·Details:\nBank:·${virtualAccount.bank_name}\nAccount:·${virtualAccount.account_number}\nName:·${virtualAccount.account_name}`
+     78     │ - ············:·'';
+         83 │ + ····//·8.·Compose·message·content
+         84 │ + ····const·accountDetails·=·virtualAccount
+         85 │ + ······?·`\n\nBank·Transfer·Details:\nBank:·${virtualAccount.bank_name}\nAccount:·${virtualAccount.account_number}\nName:·${virtualAccount.account_name}`
+         86 │ + ······:·'';
+     79  87 │   
+     80     │ - ········const·reminderMessage·=·`
+         88 │ + ····const·reminderMessage·=·`
+     81  89 │   Hi ${order.customer_name},
+     82  90 │   
+    ······· │ 
+     92 100 │       `.trim();
+     93 101 │   
+     94     │ - ········//·9.·Send·based·on·channel
+     95     │ - ········let·sendResult·=·{·success:·false,·error:·''·};
+        102 │ + ····//·9.·Send·based·on·channel
+        103 │ + ····let·sendResult·=·{·success:·false,·error:·''·};
+     96 104 │   
+     97     │ - ········if·(channel·===·'email'·&&·order.customer_email)·{
+     98     │ - ············try·{
+     99     │ - ················await·sendEmail({
+    100     │ - ····················to:·order.customer_email,
+    101     │ - ····················toName:·order.customer_name,
+    102     │ - ····················subject:·`Payment·Reminder·-·Order·#${order.order_number}`,
+    103     │ - ····················textContent:·reminderMessage,
+    104     │ - ····················htmlContent:·`<pre·style="font-family:·sans-serif;·line-height:·1.6;">${reminderMessage}</pre>`,
+  99 more lines truncated
+  
+
+src/app/api/orders/[id]/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     96  96 │       const { data: existingOrder, error: checkError } = await supabase
+     97  97 │         .from('orders')
+     98     │ - ······.select('id,·order_number,·shipping_status,·payment_status,·is_credit_order,·customer_id')
+         98 │ + ······.select(
+         99 │ + ········'id,·order_number,·shipping_status,·payment_status,·is_credit_order,·customer_id'
+        100 │ + ······)
+     99 101 │         .eq('id', id)
+    100 102 │         .eq('merchant_id', merchant.id)
+    ······· │ 
+    117 119 │         return NextResponse.json(
+    118 120 │           {
+    119     │ - ··········error:·'Order·must·be·paid·before·processing.·Use·the·credit·order·flow·to·ship·unpaid·orders.',
+    120     │ - ··········code:·'PAYMENT_REQUIRED'
+        121 │ + ··········error:
+        122 │ + ············'Order·must·be·paid·before·processing.·Use·the·credit·order·flow·to·ship·unpaid·orders.',
+        123 │ + ··········code:·'PAYMENT_REQUIRED',
+    121 124 │           },
+    122 125 │           { status: 400 }
+  
+
+src/app/api/orders/[id]/ship-on-credit/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+    3 │ import { logger } from '@/lib/logger';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { cookies } from 'next/headers';
+      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
+      3     │ - import·{·logger·}·from·'@/lib/logger';
+      4     │ - import·{·createVirtualBankAccount·}·from·'@/lib/korapay';
+          3 │ + import·{·createVirtualBankAccount·}·from·'@/lib/korapay';
+          4 │ + import·{·logger·}·from·'@/lib/logger';
+      5   5 │   import { createClient } from '@/lib/supabase/server';
+      6   6 │   
+  
+
+src/app/api/orders/[id]/ship-on-credit/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     11  11 │    */
+     12  12 │   export async function POST(
+     13     │ - ····request:·NextRequest,
+     14     │ - ····{·params·}:·{·params:·Promise<{·id:·string·}>·}
+         13 │ + ··request:·NextRequest,
+         14 │ + ··{·params·}:·{·params:·Promise<{·id:·string·}>·}
+     15  15 │   ) {
+     16     │ - ····try·{
+     17     │ - ········const·{·id:·orderId·}·=·await·params;
+     18     │ - ········const·cookieStore·=·await·cookies();
+     19     │ - ········const·supabase·=·createClient(cookieStore);
+     20     │ - ········const·body·=·await·request.json();
+         16 │ + ··try·{
+         17 │ + ····const·{·id:·orderId·}·=·await·params;
+         18 │ + ····const·cookieStore·=·await·cookies();
+         19 │ + ····const·supabase·=·createClient(cookieStore);
+         20 │ + ····const·body·=·await·request.json();
+     21  21 │   
+     22     │ - ········//·1.·Auth·check
+     23     │ - ········const·{
+     24     │ - ············data:·{·user·},
+     25     │ - ············error:·authError,
+     26     │ - ········}·=·await·supabase.auth.getUser();
+     27     │ - ········if·(authError·||·!user)·{
+     28     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     29     │ - ········}
+         22 │ + ····//·1.·Auth·check
+         23 │ + ····const·{
+         24 │ + ······data:·{·user·},
+         25 │ + ······error:·authError,
+         26 │ + ····}·=·await·supabase.auth.getUser();
+         27 │ + ····if·(authError·||·!user)·{
+         28 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         29 │ + ····}
+     30  30 │   
+     31     │ - ········//·2.·Get·merchant
+     32     │ - ········const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+     33     │ - ············.from('merchants')
+     34     │ - ············.select('id,·business_name')
+     35     │ - ············.eq('user_id',·user.id)
+     36     │ - ············.single();
+         31 │ + ····//·2.·Get·merchant
+         32 │ + ····const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+         33 │ + ······.from('merchants')
+         34 │ + ······.select('id,·business_name')
+         35 │ + ······.eq('user_id',·user.id)
+         36 │ + ······.single();
+     37  37 │   
+     38     │ - ········if·(merchantError·||·!merchant)·{
+     39     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     40     │ - ········}
+         38 │ + ····if·(merchantError·||·!merchant)·{
+         39 │ + ······return·NextResponse.json(
+         40 │ + ········{·error:·'Merchant·not·found'·},
+         41 │ + ········{·status:·404·}
+         42 │ + ······);
+         43 │ + ····}
+     41  44 │   
+     42     │ - ········//·3.·Get·order·and·verify·ownership
+     43     │ - ········const·{·data:·order,·error:·orderError·}·=·await·supabase
+     44     │ - ············.from('orders')
+     45     │ - ············.select('id,·order_number,·total,·customer_name,·customer_email,·payment_status,·shipping_status')
+     46     │ - ············.eq('id',·orderId)
+     47     │ - ············.eq('merchant_id',·merchant.id)
+     48     │ - ············.single();
+         45 │ + ····//·3.·Get·order·and·verify·ownership
+         46 │ + ····const·{·data:·order,·error:·orderError·}·=·await·supabase
+         47 │ + ······.from('orders')
+         48 │ + ······.select(
+         49 │ + ········'id,·order_number,·total,·customer_name,·customer_email,·payment_status,·shipping_status'
+         50 │ + ······)
+         51 │ + ······.eq('id',·orderId)
+         52 │ + ······.eq('merchant_id',·merchant.id)
+         53 │ + ······.single();
+     49  54 │   
+     50     │ - ········if·(orderError·||·!order)·{
+     51     │ - ············return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+     52     │ - ········}
+         55 │ + ····if·(orderError·||·!order)·{
+         56 │ + ······return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+         57 │ + ····}
+     53  58 │   
+     54     │ - ········//·4.·Validate·order·is·not·already·paid
+     55     │ - ········if·(order.payment_status·===·'paid')·{
+     56     │ - ············return·NextResponse.json(
+     57     │ - ················{·error:·'Order·is·already·paid.·No·need·for·credit·shipping.'·},
+     58     │ - ················{·status:·400·}
+     59     │ - ············);
+     60     │ - ········}
+         59 │ + ····//·4.·Validate·order·is·not·already·paid
+         60 │ + ····if·(order.payment_status·===·'paid')·{
+         61 │ + ······return·NextResponse.json(
+         62 │ + ········{·error:·'Order·is·already·paid.·No·need·for·credit·shipping.'·},
+         63 │ + ········{·status:·400·}
+         64 │ + ······);
+         65 │ + ····}
+     61  66 │   
+     62     │ - ········//·5.·Extract·credit·notes·from·body
+     63     │ - ········const·creditNotes·=·body.credit_notes·||·body.notes·||·'';
+         67 │ + ····//·5.·Extract·credit·notes·from·body
+         68 │ + ····const·creditNotes·=·body.credit_notes·||·body.notes·||·'';
+     64  69 │   
+     65     │ - ········//·6.·Update·order·to·mark·as·credit·and·move·to·processing
+     66     │ - ········const·{·error:·updateError·}·=·await·supabase
+     67     │ - ············.from('orders')
+     68     │ - ············.update({
+     69     │ - ················is_credit_order:·true,
+     70     │ - ················credit_notes:·creditNotes,
+     71     │ - ················shipping_status:·'processing',
+     72     │ - ················updated_at:·new·Date().toISOString(),
+     73     │ - ············})
+     74     │ - ············.eq('id',·orderId)
+     75     │ - ············.eq('merchant_id',·merchant.id);
+         70 │ + ····//·6.·Update·order·to·mark·as·credit·and·move·to·processing
+         71 │ + ····const·{·error:·updateError·}·=·await·supabase
+         72 │ + ······.from('orders')
+         73 │ + ······.update({
+         74 │ + ········is_credit_order:·true,
+         75 │ + ········credit_notes:·creditNotes,
+         76 │ + ········shipping_status:·'processing',
+         77 │ + ········updated_at:·new·Date().toISOString(),
+         78 │ + ······})
+         79 │ + ······.eq('id',·orderId)
+         80 │ + ······.eq('merchant_id',·merchant.id);
+     76  81 │   
+     77     │ - ········if·(updateError)·{
+     78     │ - ············logger.error({·message:·'Failed·to·update·order·for·credit·shipping',·error:·updateError·});
+     79     │ - ············return·NextResponse.json({·error:·'Failed·to·update·order'·},·{·status:·500·});
+     80     │ - ········}
+         82 │ + ····if·(updateError)·{
+         83 │ + ······logger.error({
+         84 │ + ········message:·'Failed·to·update·order·for·credit·shipping',
+         85 │ + ········error:·updateError,
+         86 │ + ······});
+         87 │ + ······return·NextResponse.json(
+         88 │ + ········{·error:·'Failed·to·update·order'·},
+         89 │ + ········{·status:·500·}
+         90 │ + ······);
+         91 │ + ····}
+     81  92 │   
+     82     │ - ········//·7.·Create·virtual·account·for·payment·collection·(optional·but·recommended)
+     83     │ - ········let·virtualAccount·=·null;
+     84     │ - ········try·{
+     85     │ - ············const·accountResult·=·await·createVirtualBankAccount({
+     86     │ - ················accountName:·`${order.customer_name}·-·Order·${order.order_number}`,
+     87     │ - ················customerEmail:·order.customer_email,
+     88     │ - ················amount:·order.total,
+     89     │ - ················orderId:·orderId,
+     90     │ - ················merchantId:·merchant.id,
+     91     │ - ············});
+  82 more lines truncated
+  
+
+src/app/dashboard/blog/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    264 264 │                 </p>
+    265 265 │                 <Button asChild>
+    266     │ - ················<Link·href="/dashboard/settings">
+    267     │ - ··················Enable·Blog·Feature
+    268     │ - ················</Link>
+        266 │ + ················<Link·href="/dashboard/settings">Enable·Blog·Feature</Link>
+    269 267 │                 </Button>
+    270 268 │               </div>
+  
+
+src/app/dashboard/client-layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     86  86 │       ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
+     87  87 │       : cn(
+     88     │ - ······'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
+     89     │ - ······isCollapsed·&&·'justify-center'
+     90     │ - ····);
+         88 │ + ········'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
+         89 │ + ········isCollapsed·&&·'justify-center'
+         90 │ + ······);
+     91  91 │   
+     92  92 │     const isReady = !merchantLoading && storeUrl !== '#';
+    ······· │ 
+    343 343 │       badgeVariant?: 'default' | 'destructive';
+    344 344 │     }[] = [
+    345     │ - ······{
+    346     │ - ········href:·'/dashboard'·as·Route,
+    347     │ - ········icon:·LayoutDashboard,
+    348     │ - ········label:·'Dashboard',
+    349     │ - ······},
+    350     │ - ······{
+    351     │ - ········href:·'/dashboard/analytics'·as·Route,
+    352     │ - ········icon:·BarChart3,
+    353     │ - ········label:·'Analytics',
+    354     │ - ······},
+    355     │ - ······{
+    356     │ - ········href:·'/dashboard/orders'·as·Route,
+    357     │ - ········icon:·ShoppingCart,
+    358     │ - ········label:·'Orders',
+    359     │ - ········badge:·ordersCount·>·0·?·ordersCount·:·undefined,
+    360     │ - ······},
+    361     │ - ······{
+    362     │ - ········href:·'/dashboard/products'·as·Route,
+    363     │ - ········icon:·Package,
+    364     │ - ········label:·'Products',
+    365     │ - ······},
+    366     │ - ······{
+    367     │ - ········href:·'/dashboard/customers'·as·Route,
+    368     │ - ········icon:·Users,
+    369     │ - ········label:·'Customers',
+    370     │ - ······},
+    371     │ - ······{
+    372     │ - ········href:·'/dashboard/staff'·as·Route,
+    373     │ - ········icon:·UserCog,
+    374     │ - ········label:·'Staff',
+    375     │ - ······},
+    376     │ - ······{
+    377     │ - ········href:·'/dashboard/loyalty'·as·Route,
+    378     │ - ········icon:·Gift,
+    379     │ - ········label:·'Loyalty',
+    380     │ - ······},
+    381     │ - ······{
+    382     │ - ········href:·'/dashboard/santa'·as·Route,
+    383     │ - ········icon:·MessageCircle,
+    384     │ - ········label:·'Santa·Campaign',
+    385     │ - ······},
+    386     │ - ······{
+    387     │ - ········href:·'/dashboard/wallet'·as·Route,
+    388     │ - ········icon:·Wallet,
+    389     │ - ········label:·'Wallet',
+    390     │ - ······},
+    391     │ - ······{
+    392     │ - ········href:·'/dashboard/seo'·as·Route,
+    393     │ - ········icon:·Search,
+    394     │ - ········label:·'SEO',
+    395     │ - ······},
+    396     │ - ······{
+    397     │ - ········href:·'/dashboard/domains'·as·Route,
+    398     │ - ········icon:·Globe,
+    399     │ - ········label:·'Domains',
+    400     │ - ······},
+    401     │ - ······{
+    402     │ - ········href:·'/dashboard/pages'·as·Route,
+    403     │ - ········icon:·FileText,
+    404     │ - ········label:·'Pages',
+    405     │ - ········badge:·unfilledPagesCount·>·0·?·unfilledPagesCount·:·undefined,
+    406     │ - ········badgeVariant:·'destructive',
+    407     │ - ······},
+    408     │ - ······{
+    409     │ - ········href:·'/dashboard/blog'·as·Route,
+    410     │ - ········icon:·Newspaper,
+    411     │ - ········label:·'Blog',
+    412     │ - ······},
+    413     │ - ······{
+    414     │ - ········href:·'/dashboard/templates'·as·Route,
+    415     │ - ········icon:·LayoutTemplate,
+    416     │ - ········label:·'Templates',
+    417     │ - ······},
+    418     │ - ······{
+    419     │ - ········icon:·Paintbrush,
+    420     │ - ········label:·'Customize·Website',
+    421     │ - ········href:·'/builder'·as·Route,
+    422     │ - ······},
+    423     │ - ······{
+    424     │ - ········href:·'/dashboard/integrations'·as·Route,
+    425     │ - ········icon:·Plug,
+    426     │ - ········label:·'Integrations',
+    427     │ - ······},
+    428     │ - ······{
+    429     │ - ········href:·'/dashboard/settings'·as·Route,
+    430     │ - ········icon:·Settings,
+    431     │ - ········label:·'Settings',
+    432     │ - ······},
+    433     │ - ····];
+        345 │ + ····{
+        346 │ + ······href:·'/dashboard'·as·Route,
+        347 │ + ······icon:·LayoutDashboard,
+        348 │ + ······label:·'Dashboard',
+        349 │ + ····},
+        350 │ + ····{
+        351 │ + ······href:·'/dashboard/analytics'·as·Route,
+        352 │ + ······icon:·BarChart3,
+        353 │ + ······label:·'Analytics',
+        354 │ + ····},
+        355 │ + ····{
+        356 │ + ······href:·'/dashboard/orders'·as·Route,
+        357 │ + ······icon:·ShoppingCart,
+        358 │ + ······label:·'Orders',
+        359 │ + ······badge:·ordersCount·>·0·?·ordersCount·:·undefined,
+        360 │ + ····},
+        361 │ + ····{
+        362 │ + ······href:·'/dashboard/products'·as·Route,
+        363 │ + ······icon:·Package,
+        364 │ + ······label:·'Products',
+        365 │ + ····},
+        366 │ + ····{
+        367 │ + ······href:·'/dashboard/customers'·as·Route,
+        368 │ + ······icon:·Users,
+        369 │ + ······label:·'Customers',
+        370 │ + ····},
+        371 │ + ····{
+        372 │ + ······href:·'/dashboard/staff'·as·Route,
+        373 │ + ······icon:·UserCog,
+        374 │ + ······label:·'Staff',
+        375 │ + ····},
+        376 │ + ····{
+        377 │ + ······href:·'/dashboard/loyalty'·as·Route,
+        378 │ + ······icon:·Gift,
+        379 │ + ······label:·'Loyalty',
+        380 │ + ····},
+        381 │ + ····{
+        382 │ + ······href:·'/dashboard/santa'·as·Route,
+        383 │ + ······icon:·MessageCircle,
+        384 │ + ······label:·'Santa·Campaign',
+        385 │ + ····},
+        386 │ + ····{
+        387 │ + ······href:·'/dashboard/wallet'·as·Route,
+        388 │ + ······icon:·Wallet,
+        389 │ + ······label:·'Wallet',
+        390 │ + ····},
+        391 │ + ····{
+        392 │ + ······href:·'/dashboard/seo'·as·Route,
+        393 │ + ······icon:·Search,
+  42 more lines truncated
   
 
 src/app/dashboard/wallet/actions.ts:301:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -140,41 +1000,6 @@ src/app/dashboard/wallet/actions.ts:301:8 lint/suspicious/useAwait ━━━━�
   i Async functions without await expressions may not need to be declared async.
   
 
-src/app/dashboard/wallet/wallet-client.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     82  82 │     };
-     83  83 │   
-     84     │ - 
-     85     │ - 
-     86  84 │     const updateSettings = async (updates: {
-     87  85 │       autoPayoutEnabled?: boolean;
-    ······· │ 
-    261 259 │             </CardHeader>
-    262 260 │             <CardContent>
-    263     │ - ············<p·className="text-xs·text-muted-foreground">
-    264     │ - ··············Pending·Payouts
-    265     │ - ············</p>
-        261 │ + ············<p·className="text-xs·text-muted-foreground">Pending·Payouts</p>
-    266 262 │             </CardContent>
-    267 263 │           </Card>
-    ······· │ 
-    457 453 │                         </TableCell>
-    458 454 │                         <TableCell
-    459     │ - ························className={`text-right·font-medium·${tx.type·===·'credit'
-    460     │ - ··························?·'text-green-600'
-    461     │ - ··························:·'text-gray-900·dark:text-gray-100'
-    462     │ - ··························}`}
-        455 │ + ························className={`text-right·font-medium·${
-        456 │ + ··························tx.type·===·'credit'
-        457 │ + ····························?·'text-green-600'
-        458 │ + ····························:·'text-gray-900·dark:text-gray-100'
-        459 │ + ························}`}
-    463 460 │                         >
-    464 461 │                           {tx.type === 'credit' ? '+' : '-'}₦
-  
-
 vercel.json format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
@@ -186,9 +1011,11 @@ vercel.json format ━━━━━━━━━━━━━━━━━━━━�
        13 │ + 
   
 
-Checked 762 files in 615ms. No fixes applied.
-Found 3 errors.
-Found 4 warnings.
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 4.
+Checked 766 files in 3s. No fixes applied.
+Found 16 errors.
+Found 8 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

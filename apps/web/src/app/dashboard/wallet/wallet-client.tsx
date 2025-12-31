@@ -81,8 +81,6 @@ export default function WalletClient({
     });
   };
 
-
-
   const updateSettings = async (updates: {
     autoPayoutEnabled?: boolean;
     autoPayoutDay?: string;
@@ -260,9 +258,7 @@ export default function WalletClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Pending Payouts
-            </p>
+            <p className="text-xs text-muted-foreground">Pending Payouts</p>
           </CardContent>
         </Card>
 
@@ -456,10 +452,11 @@ export default function WalletClient({
                         {tx.description}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium ${tx.type === 'credit'
-                          ? 'text-green-600'
-                          : 'text-gray-900 dark:text-gray-100'
-                          }`}
+                        className={`text-right font-medium ${
+                          tx.type === 'credit'
+                            ? 'text-green-600'
+                            : 'text-gray-900 dark:text-gray-100'
+                        }`}
                       >
                         {tx.type === 'credit' ? '+' : '-'}₦
                         {tx.amount.toLocaleString()}

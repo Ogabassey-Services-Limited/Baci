@@ -217,8 +217,8 @@ export const dynamicRoutes = {
   /** Invite acceptance: /invite/{token} */
   invite: (token: string) => `/invite/${token}` as Route,
 
-  /** Team settings */
-  dashboardTeam: '/dashboard/settings/team' as Route,
+  /** Staff management */
+  dashboardStaff: '/dashboard/staff' as Route,
 
   /** SEO settings */
   dashboardSeo: '/dashboard/seo' as Route,

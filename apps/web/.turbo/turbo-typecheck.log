@@ -2,6 +2,117 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+.next/types/validator.ts(872,39): error TS2307: Cannot find module '../../src/app/dashboard/settings/team/page.js' or its corresponding type declarations.
+src/app/api/ai/edit-blog/route.ts(8,26): error TS2554: Expected 1 arguments, but got 0.
+src/app/api/storefront/features/route.ts(207,7): error TS2353: Object literal may only specify known properties, and 'blogEnabled' does not exist in type 'StorefrontFeatures'.
+src/app/checkout/page.tsx(121,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ email: string; }, { email: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ email: ZodString; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ email: string; }, { email: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ email: ZodString; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ email: ZodString; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/checkout/page.tsx(965,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ firstName: string; lastName: string; email: string; phone: string; address: string; city: string; state: string; }, { firstName: string; lastName: string; email: string; phone: string; address: string; city: string; state: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ firstName: ZodString; lastName: ZodString; email: ZodString; phone: ZodString; address: ZodString; city: ZodString; state: ZodString; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ firstName: string; lastName: string; email: string; phone: string; address: string; city: string; state: string; }, { firstName: string; lastName: string; email: string; phone: string; address: string; city: string; state: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ firstName: ZodString; lastName: ZodString; email: ZodString; phone: ZodString; address: ZodString; city: ZodString; state: ZodString; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ firstName: ZodString; lastName: ZodString; email: ZodString; phone: ZodString; address: ZodString; city: ZodString; state: ZodString; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/domains/components/connect-domain-form.tsx(52,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ domain: string; }, { domain: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ domain: ZodPipe<ZodString, ZodTransform<string, string>>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ domain: string; }, { domain: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ domain: ZodPipe<ZodString, ZodTransform<string, string>>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ domain: ZodPipe<ZodString, ZodTransform<string, string>>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/orders/[orderId]/fulfillment-dialog.tsx(79,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ groups: { itemId: string; fields: { name: string; value: string; }[]; }[]; }, { groups: { itemId: string; fields: { name: string; value: string; }[]; }[]; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ groups: ZodArray<ZodObject<{ itemId: ZodString; fields: ZodArray<ZodObject<{ name: ZodString; value: ZodString; }, $strip>>; }, $strip>>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ groups: { itemId: string; fields: { name: string; value: string; }[]; }[]; }, { groups: { itemId: string; fields: { name: string; value: string; }[]; }[]; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ groups: ZodArray<ZodObject<{ itemId: ZodString; fields: ZodArray<ZodObject<{ name: ZodString; value: ZodString; }, $strip>>; }, $strip>>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ groups: ZodArray<ZodObject<{ itemId: ZodString; fields: ZodArray<ZodObject<{ name: ZodString; value: ZodString; }, $strip>>; }, $strip>>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/orders/create/create-order-form.tsx(102,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ customerName: string; customerEmail: string; orderDate: Date; salesChannel: string; items: { productId: string; name: string; price: number; quantity: number; }[]; paymentStatus: "Pending" | "Paid" | "Unpaid"; paymentMethod: "Card" | ... 1 more ... | "Cash"; }, { ...; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ customerName: ZodString; customerEmail: ZodString; orderDate: ZodDate; salesChannel: ZodString; items: ZodArray<ZodObject<{ productId: ZodString; name: ZodString; price: ZodNumber; quantity: ZodCoercedNumber<...>; }, $strip>>; paymentStatus: ZodEnum<...>; paymentMethod: ZodEnum<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ customerName: string; customerEmail: string; orderDate: Date; salesChannel: string; items: { productId: string; name: string; price: number; quantity: number; }[]; paymentStatus: "Pending" | "Paid" | "Unpaid"; paymentMethod: "Card" | ... 1 more ... | "Cash"; }, { ...; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ customerName: ZodString; customerEmail: ZodString; orderDate: ZodDate; salesChannel: ZodString; items: ZodArray<ZodObject<{ productId: ZodString; name: ZodString; price: ZodNumber; quantity: ZodCoercedNumber<...>; }, $strip>>; paymentStatus: ZodEnum<...>; paymentMethod: ZodEnum<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ customerName: ZodString; customerEmail: ZodString; orderDate: ZodDate; salesChannel: ZodString; items: ZodArray<ZodObject<{ productId: ZodString; name: ZodString; price: ZodNumber; quantity: ZodCoercedNumber<...>; }, $strip>>; paymentStatus: ZodEnum<...>; paymentMethod: ZodEnum<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/pages/pages-client.tsx(101,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ about?: string | undefined; contact?: string | undefined; privacy?: string | undefined; terms?: string | undefined; faq?: string | undefined; legal?: string | undefined; }, { ...; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ about: ZodOptional<ZodString>; contact: ZodOptional<ZodString>; privacy: ZodOptional<ZodString>; terms: ZodOptional<...>; faq: ZodOptional<...>; legal: ZodOptional<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ about?: string | undefined; contact?: string | undefined; privacy?: string | undefined; terms?: string | undefined; faq?: string | undefined; legal?: string | undefined; }, { about?: string | undefined; ... 4 more ...; legal?: string | undefined; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ about: ZodOptional<ZodString>; contact: ZodOptional<ZodString>; privacy: ZodOptional<ZodString>; terms: ZodOptional<...>; faq: ZodOptional<...>; legal: ZodOptional<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ about: ZodOptional<ZodString>; contact: ZodOptional<ZodString>; privacy: ZodOptional<ZodString>; terms: ZodOptional<...>; faq: ZodOptional<...>; legal: ZodOptional<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/products/add/add-product-form.tsx(162,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ name: string; category: string; price: number; taxable: boolean; weight_unit: "g" | "kg" | "lb" | "oz"; condition: "new" | "used"; status: "active" | "draft" | "archived"; description?: string | undefined; ... 26 more ...; warranty?: string | undefined; }, { ...; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ name: ZodString; description: ZodOptional<ZodString>; category: ZodString; brand: ZodOptional<ZodString>; ... 30 more ...; warranty: ZodOptional<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ name: string; category: string; price: number; taxable: boolean; weight_unit: "g" | "kg" | "lb" | "oz"; condition: "new" | "used"; status: "active" | "draft" | "archived"; description?: string | undefined; ... 26 more ...; warranty?: string | undefined; }, { ...; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ name: ZodString; description: ZodOptional<ZodString>; category: ZodString; brand: ZodOptional<ZodString>; ... 30 more ...; warranty: ZodOptional<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ name: ZodString; description: ZodOptional<ZodString>; category: ZodString; brand: ZodOptional<ZodString>; ... 30 more ...; warranty: ZodOptional<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/settings/components/settings-form.tsx(218,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ business_name: string; country: string; }, { business_name: string; country: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ business_name: ZodString; country: ZodString; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ business_name: string; country: string; }, { business_name: string; country: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ business_name: ZodString; country: ZodString; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ business_name: ZodString; country: ZodString; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/dashboard/settings/kyc/kyc-form.tsx(75,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ nin?: string | undefined; bvn?: string | undefined; cac_number?: string | undefined; }, { nin?: string | undefined; bvn?: string | undefined; cac_number?: string | undefined; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ nin: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; bvn: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; cac_number: ZodUnion<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ nin?: string | undefined; bvn?: string | undefined; cac_number?: string | undefined; }, { nin?: string | undefined; bvn?: string | undefined; cac_number?: string | undefined; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ nin: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; bvn: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; cac_number: ZodUnion<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ nin: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; bvn: ZodUnion<[ZodOptional<ZodString>, ZodLiteral<"">]>; cac_number: ZodUnion<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/app/reset-password/page.tsx(84,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ password: string; confirmPassword: string; }, { password: string; confirmPassword: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ password: ZodString; confirmPassword: ZodString; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ password: string; confirmPassword: string; }, { password: string; confirmPassword: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ password: ZodString; confirmPassword: ZodString; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ password: ZodString; confirmPassword: ZodString; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/components/merchant-bank-form.tsx(63,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ accountNumber: string; bankCode: string; businessName: string; }, { accountNumber: string; bankCode: string; businessName: string; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ accountNumber: ZodString; bankCode: ZodString; businessName: ZodString; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ accountNumber: string; bankCode: string; businessName: string; }, { accountNumber: string; bankCode: string; businessName: string; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ accountNumber: ZodString; bankCode: ZodString; businessName: ZodString; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ accountNumber: ZodString; bankCode: ZodString; businessName: ZodString; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+src/components/onboarding-form.tsx(177,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ businessName: string; businessType: string; logoUrl: string; brandColors: string; email: string; otherBusinessType?: string | undefined; brandPreferences?: string | undefined; password?: string | undefined; confirmPassword?: string | undefined; }, { ...; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ businessName: ZodString; businessType: ZodString; otherBusinessType: ZodOptional<ZodString>; logoUrl: ZodString; brandColors: ZodString; brandPreferences: ZodOptional<...>; email: ZodString; password: ZodOptional<...>; confirmPassword: ZodOptional<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ businessName: string; businessType: string; logoUrl: string; brandColors: string; email: string; otherBusinessType?: string | undefined; brandPreferences?: string | undefined; password?: string | undefined; confirmPassword?: string | undefined; }, { ...; }>'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ businessName: ZodString; businessType: ZodString; otherBusinessType: ZodOptional<ZodString>; logoUrl: ZodString; brandColors: ZodString; brandPreferences: ZodOptional<...>; email: ZodString; password: ZodOptional<...>; confirmPassword: ZodOptional<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ businessName: ZodString; businessType: ZodString; otherBusinessType: ZodOptional<ZodString>; logoUrl: ZodString; brandColors: ZodString; brandPreferences: ZodOptional<...>; email: ZodString; password: ZodOptional<...>; confirmPassword: ZodOptional<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
 src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(6,26): error TS2307: Cannot find module '@/components/ui/use-toast' or its corresponding type declarations.
 src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(8,37): error TS2307: Cannot find module '@/lib/credpal-client' or its corresponding type declarations.
 src/components/storefront/ogabassey/pages/bnpl-launcher.tsx(9,10): error TS2305: Module '"@/lib/utils"' has no exported member 'asRoute'.
@@ -31,4 +142,13 @@ src/components/storefront/ogabassey/pages/checkout-page.tsx(2634,44): error TS23
   Property 'product_name' does not exist on type 'CartItem'.
 src/components/storefront/ogabassey/pages/checkout-page.tsx(2641,34): error TS2339: Property 'negotiatedPrice' does not exist on type 'CartItem | { id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
   Property 'negotiatedPrice' does not exist on type '{ id: string; product_id: string; product_name: string; quantity: number; price: number; image_url?: string | undefined; }'.
- ELIFECYCLE  Command failed with exit code 1.
+src/components/storefront/RepairBookingWizard.tsx(87,27): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(schema: Zod3Type<{ customerName: string; customerEmail: string; customerPhone: string; deviceType: "Other" | "Laptop" | "Smartphone" | "Tablet" | "Console" | "Smartwatch"; deviceModel: string; issueDescription: string; serviceType: "pickup" | "dropoff"; preferredDate?: string | undefined; pickupAddress?: string | undefined; }, { ...; }>, schemaOptions?: ParseParams | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ customerName: ZodString; customerEmail: ZodString; customerPhone: ZodString; deviceType: ZodEnum<{ Other: "Other"; Laptop: "Laptop"; Smartphone: "Smartphone"; Tablet: "Tablet"; Console: "Console"; Smartwatch: "Smartwatch"; }>; ... 4 more ...; pickupAddress: ZodOptional<...>; }, $strip>' is not assignable to parameter of type 'Zod3Type<{ customerName: string; customerEmail: string; customerPhone: string; deviceType: "Other" | "Laptop" | "Smartphone" | "Tablet" | "Console" | "Smartwatch"; deviceModel: string; issueDescription: string; serviceType: "pickup" | "dropoff"; preferredDate?: string | undefined; pickupAddress?: string | undefined;...'.
+      Types of property '_def' are incompatible.
+        Property 'typeName' is missing in type '$ZodObjectDef<{ customerName: ZodString; customerEmail: ZodString; customerPhone: ZodString; deviceType: ZodEnum<{ Other: "Other"; Laptop: "Laptop"; Smartphone: "Smartphone"; Tablet: "Tablet"; Console: "Console"; Smartwatch: "Smartwatch"; }>; ... 4 more ...; pickupAddress: ZodOptional<...>; }>' but required in type '{ typeName: string; }'.
+  Overload 2 of 4, '(schema: $ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>, schemaOptions?: ParseContext<$ZodIssue> | undefined, resolverOptions?: NonRawResolverOptions | undefined): Resolver<...>', gave the following error.
+    Argument of type 'ZodObject<{ customerName: ZodString; customerEmail: ZodString; customerPhone: ZodString; deviceType: ZodEnum<{ Other: "Other"; Laptop: "Laptop"; Smartphone: "Smartphone"; Tablet: "Tablet"; Console: "Console"; Smartwatch: "Smartwatch"; }>; ... 4 more ...; pickupAddress: ZodOptional<...>; }, $strip>' is not assignable to parameter of type '$ZodType<unknown, FieldValues, $ZodTypeInternals<unknown, FieldValues>>'.
+      The types of '_zod.version.minor' are incompatible between these types.
+        Type '2' is not assignable to type '0'.
+ ELIFECYCLE  Command failed with exit code 2.

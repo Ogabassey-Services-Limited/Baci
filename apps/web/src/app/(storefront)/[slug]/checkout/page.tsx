@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
 import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
-import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
