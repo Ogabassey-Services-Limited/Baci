@@ -155,11 +155,8 @@ export default async function RootLayout({
           DNS prefetch hints for third-party origins
           Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
           dns-prefetch is less aggressive but still helps with connection setup
+          Note: Supabase URL is handled via env vars, no hardcoding needed
         */}
-        <link
-          rel="dns-prefetch"
-          href="https://dtbqucrqfbycfpmfwtie.supabase.co"
-        />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
         {/* Schema.org JSON-LD - Safe: These are statically generated schema objects, not user input */}
