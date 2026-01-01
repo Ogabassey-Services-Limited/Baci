@@ -223,6 +223,18 @@
     -moz-appearance: textfield;
   }
 
+  /* Hide scrollbar while maintaining scroll functionality */
+  .hide-scrollbar,
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  .hide-scrollbar::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+  }
+
   /*
    * 2025 Glass Morphism - Performance Optimized
    * - Uses will-change sparingly (only on hover/focus)
