@@ -153,7 +153,10 @@ export function OgabasseyLoginPage() {
 
     if (merchantLoading || authLoading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-black">
+            <div
+                className="min-h-screen flex flex-col items-center justify-center gap-4"
+                style={{ backgroundColor: '#000000' }}
+            >
                 <Loader2 className="h-8 w-8 animate-spin text-white/60" />
                 <p className="text-sm text-white/60">
                     {merchantLoading
@@ -165,7 +168,10 @@ export function OgabasseyLoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col bg-black relative overflow-hidden">
+        <div
+            className="min-h-screen flex flex-col relative overflow-hidden"
+            style={{ backgroundColor: '#000000' }}
+        >
             {/* Background Pattern - Subtle gadget pattern */}
             <GadgetPattern />
 
