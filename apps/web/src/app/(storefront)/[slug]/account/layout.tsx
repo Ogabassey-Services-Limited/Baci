@@ -24,9 +24,11 @@ export default async function AccountLayout({
     notFound();
   }
 
+  // Use merchant.slug (not the URL slug param) to ensure consistency
+  // This is important for custom domain access where slug param is the domain
   return (
     <MerchantProvider slug={slug}>
-      <CustomerAuthProvider merchantSlug={slug}>
+      <CustomerAuthProvider merchantSlug={merchant.slug}>
         {children}
       </CustomerAuthProvider>
     </MerchantProvider>
