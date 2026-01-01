@@ -45,8 +45,7 @@ export default function CustomerLoginPage() {
   // Ogabassey merchants get the premium glassmorphism design
   // Check both template_id and slug for compatibility
   const isOgabassey =
-    merchant?.template_id === 'ogabassey' ||
-    merchant?.slug === 'ogabassey';
+    merchant?.template_id === 'ogabassey' || merchant?.slug === 'ogabassey';
 
   if (!merchantLoading && isOgabassey) {
     return <OgabasseyLoginPage />;

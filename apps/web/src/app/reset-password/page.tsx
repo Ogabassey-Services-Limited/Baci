@@ -81,6 +81,7 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
 
   const form = useForm<ResetPasswordFormValues>({
+    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(resetPasswordSchema as any),
     defaultValues: { password: '', confirmPassword: '' },
   });

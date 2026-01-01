@@ -60,6 +60,7 @@ export function MerchantBankForm({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const form = useForm<BankFormValues>({
+    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(bankSchema as any),
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',

@@ -174,6 +174,7 @@ export default function OnboardingForm() {
   const searchParams = useSearchParams();
 
   const form = useForm<OnboardingFormValues>({
+    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(onboardingSchema as any),
     mode: 'onBlur',
     reValidateMode: 'onBlur',

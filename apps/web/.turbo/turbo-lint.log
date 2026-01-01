@@ -221,56 +221,6 @@ src/app/dashboard/wallet/actions.ts:5:8 lint/correctness/noUnusedImports  FIXABL
       7   6 │   
   
 
-src/app/dashboard/wallet/wallet-client.tsx:15:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! This import is unused.
-  
-    13 │ import { useRouter } from 'next/navigation';
-    14 │ import { useState, useTransition } from 'react';
-  > 15 │ import {
-       │        ^
-  > 16 │   AlertDialog,
-        ...
-  > 24 │   AlertDialogTrigger,
-  > 25 │ } from '@/components/ui/alert-dialog';
-       │ ^
-    26 │ import { Badge } from '@/components/ui/badge';
-    27 │ import { Button } from '@/components/ui/button';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     13  13 │   import { useRouter } from 'next/navigation';
-     14  14 │   import { useState, useTransition } from 'react';
-     15     │ - import·{
-     16     │ - ··AlertDialog,
-     17     │ - ··AlertDialogAction,
-     18     │ - ··AlertDialogCancel,
-     19     │ - ··AlertDialogContent,
-     20     │ - ··AlertDialogDescription,
-     21     │ - ··AlertDialogFooter,
-     22     │ - ··AlertDialogHeader,
-     23     │ - ··AlertDialogTitle,
-     24     │ - ··AlertDialogTrigger,
-     25     │ - }·from·'@/components/ui/alert-dialog';
-     26  15 │   import { Badge } from '@/components/ui/badge';
-     27  16 │   import { Button } from '@/components/ui/button';
-  
-
-src/app/reset-password/page.tsx:84:50 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    83 │   const form = useForm<ResetPasswordFormValues>({
-  > 84 │     resolver: zodResolver(resetPasswordSchema as any),
-       │                                                  ^^^
-    85 │     defaultValues: { password: '', confirmPassword: '' },
-    86 │   });
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
 src/app/(storefront)/[slug]/account/callback/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
@@ -408,6 +358,50 @@ src/app/(storefront)/[slug]/account/login/page.tsx format ━━━━━━━�
      51  50 │     if (!merchantLoading && isOgabassey) {
   
 
+src/app/api/storefront/auth/session/route.ts:128:9 lint/correctness/noConstAssign  FIXABLE  ━━━━━━━━━━
+
+  × Can't assign customer because it's a constant.
+  
+    126 │         console.error('Failed to auto-create customer:', createError);
+    127 │       } else {
+  > 128 │         customer = newCustomer;
+        │         ^^^^^^^^
+    129 │         console.log('Auto-created customer for merchant:', merchant.id);
+    130 │       }
+  
+  i This is where the variable is defined as constant.
+  
+    79 │     // Get customer record for this merchant
+  > 80 │     const { data: customer, error: customerError } = await supabase
+       │                   ^^^^^^^^
+    81 │       .from('customers')
+    82 │       .select(`
+  
+  i Unsafe fix: Replace const with let if you assign it to a new value.
+  
+     78  78 │   
+     79  79 │       // Get customer record for this merchant
+     80     │ - ····const·{·data:·customer,·error:·customerError·}·=·await·supabase
+         80 │ + ····let·{·data:·customer,·error:·customerError·}·=·await·supabase
+     81  81 │         .from('customers')
+     82  82 │         .select(`
+  
+
+src/app/api/storefront/auth/session/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    107 107 │             user_id: user.id,
+    108 108 │             email: user.email,
+    109     │ - ··········full_name:·user.user_metadata?.full_name·||·user.user_metadata?.name·||·user.email?.split('@')[0],
+        109 │ + ··········full_name:
+        110 │ + ············user.user_metadata?.full_name·||
+        111 │ + ············user.user_metadata?.name·||
+        112 │ + ············user.email?.split('@')[0],
+    110 113 │           })
+    111 114 │           .select(`
+  
+
 src/app/checkout/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
@@ -447,9 +441,9 @@ src/app/checkout/page.tsx format ━━━━━━━━━━━━━━━�
   
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 2.
-Checked 768 files in 550ms. No fixes applied.
-Found 3 errors.
+Diagnostics not shown: 4.
+Checked 768 files in 779ms. No fixes applied.
+Found 5 errors.
 Found 19 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

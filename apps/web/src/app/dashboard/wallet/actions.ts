@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { payoutMerchantCommission } from '@/lib/kuda';
 import { createClient } from '@/lib/supabase/server';
 
 const MIN_WITHDRAWAL_AMOUNT = 1000;

@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     }
 
     // Get customer record for this merchant
-    const { data: customer, error: customerError } = await supabase
+    let { data: customer, error: customerError } = await supabase
       .from('customers')
       .select(`
         id,
@@ -106,7 +106,10 @@ export async function GET(request: Request) {
           merchant_id: merchant.id,
           user_id: user.id,
           email: user.email,
-          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
+          full_name:
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split('@')[0],
         })
         .select(`
           id,

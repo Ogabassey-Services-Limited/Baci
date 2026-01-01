@@ -76,6 +76,7 @@ export default function FulfillmentDialog({
   );
 
   const form = useForm<FulfillmentFormValues>({
+    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(fulfillmentFormSchema as any),
   });
 

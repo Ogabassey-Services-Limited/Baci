@@ -215,6 +215,7 @@ export function SettingsForm({
   );
 
   const form = useForm<SettingsFormValues>({
+    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(settingsSchema as any),
     defaultValues: {
       business_name: initialMerchant?.business_name || '',

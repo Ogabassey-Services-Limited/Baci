@@ -1,8 +1,16 @@
-// src/components/ui/button.test.tsx
-
 import { render, screen } from '@testing-library/react';
 import Link from 'next/link';
+import { vi } from 'vitest';
 import { Button } from './button';
+
+// Mock next/link to avoid RouterContext issues
+vi.mock('next/link', () => {
+  return {
+    default: ({ children, ...props }: any) => {
+      return <a {...props}>{children}</a>;
+    },
+  };
+});
 
 describe('Button', () => {
   it('should render the button with its children', () => {
