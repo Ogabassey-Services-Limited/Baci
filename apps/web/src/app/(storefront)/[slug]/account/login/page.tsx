@@ -43,7 +43,12 @@ export default function CustomerLoginPage() {
 
   // Template-based login page switching
   // Ogabassey merchants get the premium glassmorphism design
-  if (!merchantLoading && merchant?.template_id === 'ogabassey') {
+  // Check both template_id and slug for compatibility
+  const isOgabassey =
+    merchant?.template_id === 'ogabassey' ||
+    merchant?.slug === 'ogabassey';
+
+  if (!merchantLoading && isOgabassey) {
     return <OgabasseyLoginPage />;
   }
 
