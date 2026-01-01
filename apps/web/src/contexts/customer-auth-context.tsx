@@ -207,19 +207,20 @@ export function CustomerAuthProvider({
     try {
       // Use the current browser origin to support custom domains (e.g., ogabassey.com)
       // This automatically handles: localhost, subdomains (*.usebaci.com), and custom domains
-      let redirectPath = '/account';
+      // We redirect to /account/callback which exchanges the OAuth code for a session
+      let redirectPath = '/account/callback';
       if (typeof window !== 'undefined') {
         const pathname = window.location.pathname;
         // If we are using path-based routing (e.g. /ogabassey/...), preserve the slug
         if (pathname.startsWith(`/${merchantSlug}`)) {
-          redirectPath = `/${merchantSlug}/account`;
+          redirectPath = `/${merchantSlug}/account/callback`;
         }
       }
 
       const redirectUrl =
         typeof window !== 'undefined'
           ? `${window.location.origin}${redirectPath}`
-          : '/account';
+          : '/account/callback';
 
       const response = await fetch('/api/storefront/auth/google', {
         method: 'POST',
