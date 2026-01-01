@@ -4,6 +4,7 @@ import type React from 'react';
 import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
+import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
@@ -226,6 +227,7 @@ export default async function StorefrontLayout({
     >
       <CartProvider enableSmartCartPro>
         <MerchantSlugSync slug={merchantSlug} />
+        <PageViewTracker merchantId={merchant.id} />
         {/*
           Global Layout Wrapper logic:
           - Keeps layout persistent across route changes (seamless navigation)

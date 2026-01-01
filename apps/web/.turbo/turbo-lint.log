@@ -78,373 +78,42 @@ src/app/checkout/page.tsx:122:51 lint/suspicious/noExplicitAny ━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/checkout/page.tsx:966:45 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/layout.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━
 
-  ! Unexpected any. Specify a different type.
+  × The imports and exports are not sorted.
   
-    964 │   const shippingForm = useForm<ShippingFormValues>({
-    965 │     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  > 966 │     resolver: zodResolver(shippingSchema as any as any),
-        │                                             ^^^
-    967 │     defaultValues: {
-    968 │       firstName: '',
+  > 1 │ import { cookies, headers } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { notFound } from 'next/navigation';
+    3 │ import type React from 'react';
   
-  i any disables many type checking rules. Its use should be avoided.
+  i Safe fix: Organize Imports (Biome)
   
-
-src/app/checkout/page.tsx:966:52 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    964 │   const shippingForm = useForm<ShippingFormValues>({
-    965 │     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  > 966 │     resolver: zodResolver(shippingSchema as any as any),
-        │                                                    ^^^
-    967 │     defaultValues: {
-    968 │       firstName: '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/domains/components/connect-domain-form.tsx:52:43 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    51 │   const form = useForm<DomainFormValues>({
-  > 52 │     resolver: zodResolver(domainSchema as any),
-       │                                           ^^^
-    53 │     defaultValues: { domain: '' },
-    54 │   });
-  
-  i any disables many type checking rules. Its use should be avoided.
+      5   5 │   import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
+      6   6 │   import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
+      7     │ - import·{·StoreNotPublished·}·from·'@/components/storefront/store-not-published';
+      8     │ - import·{·CartProvider·}·from·'@/hooks/use-cart';
+      9     │ - import·{·type·MerchantData,·MerchantProvider·}·from·'@/hooks/use-merchant';
+     10     │ - import·{
+     11     │ - ··getCachedMerchant,
+     12     │ - ··getCachedMerchantByDomain,
+     13     │ - }·from·'@/lib/cached-data';
+     14     │ - import·{·PageViewTracker·}·from·'@/components/storefront/page-view-tracker';
+          7 │ + import·{·PageViewTracker·}·from·'@/components/storefront/page-view-tracker';
+          8 │ + import·{·StoreNotPublished·}·from·'@/components/storefront/store-not-published';
+          9 │ + import·{·CartProvider·}·from·'@/hooks/use-cart';
+         10 │ + import·{·type·MerchantData,·MerchantProvider·}·from·'@/hooks/use-merchant';
+         11 │ + import·{
+         12 │ + ··getCachedMerchant,
+         13 │ + ··getCachedMerchantByDomain,
+         14 │ + }·from·'@/lib/cached-data';
+     15  15 │   
+     16  16 │   /**
   
 
-src/app/dashboard/orders/[orderId]/fulfillment-dialog.tsx:79:52 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    78 │   const form = useForm<FulfillmentFormValues>({
-  > 79 │     resolver: zodResolver(fulfillmentFormSchema as any),
-       │                                                    ^^^
-    80 │   });
-    81 │ 
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/orders/create/create-order-form.tsx:102:48 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    100 │   // Zod 4 + react-hook-form: specify input, context, and output types
-    101 │   const form = useForm<CreateOrderFormInput, unknown, CreateOrderFormValues>({
-  > 102 │     resolver: zodResolver(createOrderSchema as any),
-        │                                                ^^^
-    103 │     defaultValues: {
-    104 │       customerName: '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/pages/pages-client.tsx:101:42 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    100 │   const form = useForm<PagesFormValues>({
-  > 101 │     resolver: zodResolver(pagesSchema as any),
-        │                                          ^^^
-    102 │     defaultValues: {
-    103 │       about: '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/products/add/add-product-form.tsx:162:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    160 │   // Zod 4 + react-hook-form: specify input, context, and output types
-    161 │   const form = useForm<AddProductFormInput, unknown, AddProductFormValues>({
-  > 162 │     resolver: zodResolver(addProductSchema as any),
-        │                                               ^^^
-    163 │     defaultValues: {
-    164 │       name: initialData?.name || '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/settings/components/settings-form.tsx:218:45 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    217 │   const form = useForm<SettingsFormValues>({
-  > 218 │     resolver: zodResolver(settingsSchema as any),
-        │                                             ^^^
-    219 │     defaultValues: {
-    220 │       business_name: initialMerchant?.business_name || '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/settings/kyc/kyc-form.tsx:75:40 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    74 │   const form = useForm<KycFormValues>({
-  > 75 │     resolver: zodResolver(kycSchema as any),
-       │                                        ^^^
-    76 │     defaultValues: {
-    77 │       nin: initialData.nin || '',
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/dashboard/wallet/actions.ts:5:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━
-
-  ! This import is unused.
-  
-    3 │ import { revalidatePath } from 'next/cache';
-    4 │ import { cookies } from 'next/headers';
-  > 5 │ import { payoutMerchantCommission } from '@/lib/kuda';
-      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    6 │ import { createClient } from '@/lib/supabase/server';
-    7 │ 
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-      3   3 │   import { revalidatePath } from 'next/cache';
-      4   4 │   import { cookies } from 'next/headers';
-      5     │ - import·{·payoutMerchantCommission·}·from·'@/lib/kuda';
-      6   5 │   import { createClient } from '@/lib/supabase/server';
-      7   6 │   
-  
-
-src/app/(storefront)/[slug]/account/callback/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     5  5 │   /**
-     6  6 │    * Storefront OAuth Callback Handler
-     7    │ - ·*·
-        7 │ + ·*
-     8  8 │    * This route handles the OAuth callback for storefront customer authentication.
-     9  9 │    * It exchanges the authorization code for a session and redirects to the account page.
-    10    │ - ·*·
-       10 │ + ·*
-    11 11 │    * This is necessary for custom domains (e.g., ogabassey.com) where cookies must be
-    12 12 │    * set on the same domain that initiated the OAuth flow.
-    13 13 │    */
-    14 14 │   export async function GET(
-    15    │ - ····request:·Request,
-    16    │ - ····{·params·}:·{·params:·Promise<{·slug:·string·}>·}
-       15 │ + ··request:·Request,
-       16 │ + ··{·params·}:·{·params:·Promise<{·slug:·string·}>·}
-    17 17 │   ) {
-    18    │ - ····const·{·searchParams,·origin·}·=·new·URL(request.url);
-    19    │ - ····const·code·=·searchParams.get('code');
-    20    │ - ····const·error·=·searchParams.get('error');
-    21    │ - ····const·errorDescription·=·searchParams.get('error_description');
-    22    │ - ····const·{·slug·}·=·await·params;
-       18 │ + ··const·{·searchParams,·origin·}·=·new·URL(request.url);
-       19 │ + ··const·code·=·searchParams.get('code');
-       20 │ + ··const·error·=·searchParams.get('error');
-       21 │ + ··const·errorDescription·=·searchParams.get('error_description');
-       22 │ + ··const·{·slug·}·=·await·params;
-    23 23 │   
-    24    │ - ····//·If·there's·an·OAuth·error·from·the·provider
-    25    │ - ····if·(error)·{
-    26    │ - ········console.error('OAuth·error:',·error,·errorDescription);
-    27    │ - ········const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-    28    │ - ········return·NextResponse.redirect(
-    29    │ - ············`${origin}${loginPath}?error=${encodeURIComponent(errorDescription·||·error)}`
-    30    │ - ········);
-    31    │ - ····}
-       24 │ + ··//·If·there's·an·OAuth·error·from·the·provider
-       25 │ + ··if·(error)·{
-       26 │ + ····console.error('OAuth·error:',·error,·errorDescription);
-       27 │ + ····const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-       28 │ + ····return·NextResponse.redirect(
-       29 │ + ······`${origin}${loginPath}?error=${encodeURIComponent(errorDescription·||·error)}`
-       30 │ + ····);
-       31 │ + ··}
-    32 32 │   
-    33    │ - ····//·No·code·provided
-    34    │ - ····if·(!code)·{
-    35    │ - ········console.error('No·authorization·code·provided');
-    36    │ - ········const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-    37    │ - ········return·NextResponse.redirect(
-    38    │ - ············`${origin}${loginPath}?error=No·authorization·code·provided`
-    39    │ - ········);
-    40    │ - ····}
-       33 │ + ··//·No·code·provided
-       34 │ + ··if·(!code)·{
-       35 │ + ····console.error('No·authorization·code·provided');
-       36 │ + ····const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-       37 │ + ····return·NextResponse.redirect(
-       38 │ + ······`${origin}${loginPath}?error=No·authorization·code·provided`
-       39 │ + ····);
-       40 │ + ··}
-    41 41 │   
-    42    │ - ····try·{
-    43    │ - ········const·cookieStore·=·await·cookies();
-    44    │ - ········const·supabase·=·createClient(cookieStore);
-       42 │ + ··try·{
-       43 │ + ····const·cookieStore·=·await·cookies();
-       44 │ + ····const·supabase·=·createClient(cookieStore);
-    45 45 │   
-    46    │ - ········//·Exchange·the·authorization·code·for·a·session
-    47    │ - ········const·{·data,·error:·exchangeError·}·=·await·supabase.auth.exchangeCodeForSession(code);
-       46 │ + ····//·Exchange·the·authorization·code·for·a·session
-       47 │ + ····const·{·data,·error:·exchangeError·}·=
-       48 │ + ······await·supabase.auth.exchangeCodeForSession(code);
-    48 49 │   
-    49    │ - ········if·(exchangeError)·{
-    50    │ - ············console.error('Failed·to·exchange·code·for·session:',·exchangeError);
-    51    │ - ············const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-    52    │ - ············return·NextResponse.redirect(
-    53    │ - ················`${origin}${loginPath}?error=${encodeURIComponent(exchangeError.message)}`
-    54    │ - ············);
-    55    │ - ········}
-       50 │ + ····if·(exchangeError)·{
-       51 │ + ······console.error('Failed·to·exchange·code·for·session:',·exchangeError);
-       52 │ + ······const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-       53 │ + ······return·NextResponse.redirect(
-       54 │ + ········`${origin}${loginPath}?error=${encodeURIComponent(exchangeError.message)}`
-       55 │ + ······);
-       56 │ + ····}
-    56 57 │   
-    57    │ - ········//·Success!·Redirect·to·the·account·page
-    58    │ - ········//·Use·the·slug·to·maintain·proper·routing
-    59    │ - ········const·accountPath·=·slug·?·`/${slug}/account`·:·'/account';
-       58 │ + ····//·Success!·Redirect·to·the·account·page
-       59 │ + ····//·Use·the·slug·to·maintain·proper·routing
-       60 │ + ····const·accountPath·=·slug·?·`/${slug}/account`·:·'/account';
-    60 61 │   
-    61    │ - ········console.log('OAuth·successful·for·user:',·data.user?.email);
-       62 │ + ····console.log('OAuth·successful·for·user:',·data.user?.email);
-    62 63 │   
-    63    │ - ········return·NextResponse.redirect(`${origin}${accountPath}`);
-    64    │ - ····}·catch·(err)·{
-    65    │ - ········console.error('Unexpected·error·during·OAuth·callback:',·err);
-    66    │ - ········const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-    67    │ - ········return·NextResponse.redirect(
-    68    │ - ············`${origin}${loginPath}?error=An·unexpected·error·occurred`
-    69    │ - ········);
-    70    │ - ····}
-       64 │ + ····return·NextResponse.redirect(`${origin}${accountPath}`);
-       65 │ + ··}·catch·(err)·{
-       66 │ + ····console.error('Unexpected·error·during·OAuth·callback:',·err);
-       67 │ + ····const·loginPath·=·slug·?·`/${slug}/account/login`·:·'/account/login';
-       68 │ + ····return·NextResponse.redirect(
-       69 │ + ······`${origin}${loginPath}?error=An·unexpected·error·occurred`
-       70 │ + ····);
-       71 │ + ··}
-    71 72 │   }
-    72 73 │   
-  
-
-src/app/(storefront)/[slug]/account/login/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     46  46 │     // Check both template_id and slug for compatibility
-     47  47 │     const isOgabassey =
-     48     │ - ····merchant?.template_id·===·'ogabassey'·||
-     49     │ - ····merchant?.slug·===·'ogabassey';
-         48 │ + ····merchant?.template_id·===·'ogabassey'·||·merchant?.slug·===·'ogabassey';
-     50  49 │   
-     51  50 │     if (!merchantLoading && isOgabassey) {
-  
-
-src/app/api/storefront/auth/session/route.ts:128:9 lint/correctness/noConstAssign  FIXABLE  ━━━━━━━━━━
-
-  × Can't assign customer because it's a constant.
-  
-    126 │         console.error('Failed to auto-create customer:', createError);
-    127 │       } else {
-  > 128 │         customer = newCustomer;
-        │         ^^^^^^^^
-    129 │         console.log('Auto-created customer for merchant:', merchant.id);
-    130 │       }
-  
-  i This is where the variable is defined as constant.
-  
-    79 │     // Get customer record for this merchant
-  > 80 │     const { data: customer, error: customerError } = await supabase
-       │                   ^^^^^^^^
-    81 │       .from('customers')
-    82 │       .select(`
-  
-  i Unsafe fix: Replace const with let if you assign it to a new value.
-  
-     78  78 │   
-     79  79 │       // Get customer record for this merchant
-     80     │ - ····const·{·data:·customer,·error:·customerError·}·=·await·supabase
-         80 │ + ····let·{·data:·customer,·error:·customerError·}·=·await·supabase
-     81  81 │         .from('customers')
-     82  82 │         .select(`
-  
-
-src/app/api/storefront/auth/session/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    107 107 │             user_id: user.id,
-    108 108 │             email: user.email,
-    109     │ - ··········full_name:·user.user_metadata?.full_name·||·user.user_metadata?.name·||·user.email?.split('@')[0],
-        109 │ + ··········full_name:
-        110 │ + ············user.user_metadata?.full_name·||
-        111 │ + ············user.user_metadata?.name·||
-        112 │ + ············user.email?.split('@')[0],
-    110 113 │           })
-    111 114 │           .select(`
-  
-
-src/app/checkout/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     724  724 │                 type="button"
-     725  725 │                 onClick={() => onGatewaySelect(gateway.id)}
-     726      │ - ··············className={`w-full·rounded-lg·border·p-4·text-left·transition-all·${selectedGateway·===·gateway.id
-     727      │ - ················?·'border-primary·bg-primary/5·ring-2·ring-primary/20'
-     728      │ - ················:·'border-border·bg-card·hover:border-primary/50'
-     729      │ - ················}`}
-          726 │ + ··············className={`w-full·rounded-lg·border·p-4·text-left·transition-all·${
-          727 │ + ················selectedGateway·===·gateway.id
-          728 │ + ··················?·'border-primary·bg-primary/5·ring-2·ring-primary/20'
-          729 │ + ··················:·'border-border·bg-card·hover:border-primary/50'
-          730 │ + ··············}`}
-     730  731 │               >
-     731  732 │                 <div className="flex items-center gap-4">
-    ········· │ 
-    1514 1515 │                                   ? 'Place Order'
-    1515 1516 │                                   : `Pay ${new Intl.NumberFormat('en-NG', {
-    1516      │ - ··································style:·'currency',
-    1517      │ - ··································currency:·'NGN',
-    1518      │ - ································}).format(
-    1519      │ - ··································cartTotal·+
-    1520      │ - ··································(shippingFee·||·0)·-
-    1521      │ - ··································discountAmount
-    1522      │ - ································)}`}
-         1517 │ + ····································style:·'currency',
-         1518 │ + ····································currency:·'NGN',
-         1519 │ + ··································}).format(
-         1520 │ + ····································cartTotal·+
-         1521 │ + ······································(shippingFee·||·0)·-
-         1522 │ + ······································discountAmount
-         1523 │ + ··································)}`}
-    1523 1524 │                               </ThemedButton>
-    1524 1525 │                             </div>
-  
-
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 4.
-Checked 768 files in 779ms. No fixes applied.
-Found 5 errors.
-Found 19 warnings.
+Checked 769 files in 915ms. No fixes applied.
+Found 1 error.
+Found 5 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.
