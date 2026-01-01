@@ -202,7 +202,7 @@ export default async function StorefrontPage({
           brand,
           condition,
           stock,
-          product_categories!inner(
+          product_categories(
             categories(name, slug)
           )
         `)

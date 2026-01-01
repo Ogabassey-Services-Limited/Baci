@@ -72,51 +72,11 @@ src/app/checkout/page.tsx:122:51 lint/suspicious/noExplicitAny ━━━━━�
     121 │     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   > 122 │     resolver: zodResolver(otpAuthSchema as any as any),
         │                                                   ^^^
+Checked 769 files in 814ms. No fixes applied.
+Found 5 warnings.
     123 │     defaultValues: { email: '' },
     124 │   });
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(storefront)/[slug]/layout.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-  > 1 │ import { cookies, headers } from 'next/headers';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { notFound } from 'next/navigation';
-    3 │ import type React from 'react';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      5   5 │   import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
-      6   6 │   import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
-      7     │ - import·{·StoreNotPublished·}·from·'@/components/storefront/store-not-published';
-      8     │ - import·{·CartProvider·}·from·'@/hooks/use-cart';
-      9     │ - import·{·type·MerchantData,·MerchantProvider·}·from·'@/hooks/use-merchant';
-     10     │ - import·{
-     11     │ - ··getCachedMerchant,
-     12     │ - ··getCachedMerchantByDomain,
-     13     │ - }·from·'@/lib/cached-data';
-     14     │ - import·{·PageViewTracker·}·from·'@/components/storefront/page-view-tracker';
-          7 │ + import·{·PageViewTracker·}·from·'@/components/storefront/page-view-tracker';
-          8 │ + import·{·StoreNotPublished·}·from·'@/components/storefront/store-not-published';
-          9 │ + import·{·CartProvider·}·from·'@/hooks/use-cart';
-         10 │ + import·{·type·MerchantData,·MerchantProvider·}·from·'@/hooks/use-merchant';
-         11 │ + import·{
-         12 │ + ··getCachedMerchant,
-         13 │ + ··getCachedMerchantByDomain,
-         14 │ + }·from·'@/lib/cached-data';
-     15  15 │   
-     16  16 │   /**
-  
-
-Checked 769 files in 915ms. No fixes applied.
-Found 1 error.
-Found 5 warnings.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.
