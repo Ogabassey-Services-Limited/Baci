@@ -153,7 +153,7 @@ export function OgabasseyLoginPage() {
 
     if (merchantLoading || authLoading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#0F0F0F]">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-black">
                 <Loader2 className="h-8 w-8 animate-spin text-white/60" />
                 <p className="text-sm text-white/60">
                     {merchantLoading
@@ -165,7 +165,7 @@ export function OgabasseyLoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col bg-[#0F0F0F] relative overflow-hidden">
+        <div className="min-h-screen flex flex-col bg-black relative overflow-hidden">
             {/* Background Pattern - Subtle gadget pattern */}
             <GadgetPattern />
 
