@@ -98,6 +98,36 @@ export async function GET(request: Request) {
     if (customerError && customerError.code !== 'PGRST116') {
       // PGRST116 = no rows found (customer not yet created for this merchant)
       console.error('Customer fetch error:', customerError);
+    } else if (!customer) {
+      // Auto-create customer record if it doesn't exist
+      const { data: newCustomer, error: createError } = await supabase
+        .from('customers')
+        .insert({
+          merchant_id: merchant.id,
+          user_id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0],
+        })
+        .select(`
+          id,
+          full_name,
+          email,
+          phone,
+          address,
+          saved_addresses,
+          store_credit,
+          total_orders,
+          total_spent,
+          created_at
+        `)
+        .single();
+
+      if (createError) {
+        console.error('Failed to auto-create customer:', createError);
+      } else {
+        customer = newCustomer;
+        console.log('Auto-created customer for merchant:', merchant.id);
+      }
     }
 
     return NextResponse.json({
