@@ -19,6 +19,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -195,6 +196,27 @@ export default function OrdersScreen() {
   // Handle status update
   const handleStatusUpdate = async (newStatus: ShippingStatus) => {
     if (!selectedOrder) return;
+
+    // CRITICAL: Check payment status before allowing transition to processing
+    // Unpaid orders must either be paid or explicitly shipped on credit
+    if (newStatus === 'processing' && selectedOrder.payment_status !== 'paid' && !selectedOrder.is_credit_order) {
+      setShowStatusDropdown(false);
+      Alert.alert(
+        'Payment Required',
+        'This order must be paid before processing. Please record payment or ship on credit.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Order',
+            onPress: () => {
+              setSelectedOrder(null);
+              router.push(`/order/${selectedOrder.id}`);
+            },
+          },
+        ]
+      );
+      return;
+    }
 
     try {
       await updateStatus.mutateAsync({ orderId: selectedOrder.id, status: newStatus });
