@@ -297,15 +297,3 @@ export async function updateWalletSettings(
   revalidatePath('/dashboard/wallet');
   return { success: true };
 }
-
-export async function withdrawFunds(
-  _merchantId: string,
-  _amount?: number
-): Promise<{ success: boolean; error: string }> {
-  // Server Actions must be async
-  await Promise.resolve();
-  return {
-    success: false,
-    error: 'Withdrawals are currently disabled.',
-  };
-}
