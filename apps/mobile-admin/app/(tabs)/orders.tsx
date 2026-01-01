@@ -203,14 +203,24 @@ export default function OrdersScreen() {
       setShowStatusDropdown(false);
       Alert.alert(
         'Payment Required',
-        'This order must be paid before processing. Please record payment or ship on credit.',
+        `This order (${selectedOrder.order_number}) hasn't been paid yet. What would you like to do?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Open Order',
+            text: 'Record Payment',
             onPress: () => {
               setSelectedOrder(null);
-              router.push(`/order/${selectedOrder.id}`);
+              // Navigate to order with action hint to open payment modal
+              router.push(`/order/${selectedOrder.id}?action=record-payment`);
+            },
+          },
+          {
+            text: 'Ship on Credit',
+            style: 'destructive',
+            onPress: () => {
+              setSelectedOrder(null);
+              // Navigate to order with action hint to open credit modal
+              router.push(`/order/${selectedOrder.id}?action=ship-on-credit`);
             },
           },
         ]

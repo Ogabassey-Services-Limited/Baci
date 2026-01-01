@@ -219,8 +219,9 @@ const generateReceiptHtml = (order: any) => {
 };
 
 export default function OrderDetailsScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, action } = useLocalSearchParams<{ id: string; action?: string }>();
   const orderId = Array.isArray(id) ? id[0] : id;
+  const actionParam = Array.isArray(action) ? action[0] : action;
   const { colors, shadows, isDark } = useTheme();
 
   // Data Fetching
@@ -283,6 +284,23 @@ export default function OrderDetailsScreen() {
       timeStyle: 'short',
     });
   };
+
+  // Handle action query param from orders list navigation
+  // This allows direct modal opening when user selects "Record Payment" or "Ship on Credit"
+  useEffect(() => {
+    if (!order || !actionParam) return;
+
+    if (actionParam === 'record-payment') {
+      setShowRecordPaymentModal(true);
+      // Pre-fill with outstanding balance
+      const balance = order.balance || (Number(order.total) - Number(order.amount_paid || 0));
+      if (balance > 0) {
+        setPaymentAmount(String(Math.round(balance)));
+      }
+    } else if (actionParam === 'ship-on-credit') {
+      setShowCreditModal(true);
+    }
+  }, [order, actionParam]);
 
   // Load saved riders
   useEffect(() => {
