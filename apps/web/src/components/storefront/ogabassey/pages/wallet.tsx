@@ -1,7 +1,7 @@
 // Template preview
 'use client';
 
-import { ArrowUpRight, CreditCard, History, Plus, Wallet } from 'lucide-react';
+import { CreditCard, History, Plus, Wallet } from 'lucide-react';
 import { EmptyState } from '../components/empty-state';
 
 export function OgabasseyV2Wallet() {
@@ -33,12 +33,9 @@ export function OgabasseyV2Wallet() {
                 </p>
                 <div className="text-4xl md:text-5xl font-bold mb-8">₦0.00</div>
 
-                <div className="flex gap-3">
-                  <button className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-95">
+                <div className="flex">
+                  <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-900/20 active:scale-95">
                     <Plus size={20} /> Fund Wallet
-                  </button>
-                  <button className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all backdrop-blur-sm active:scale-95">
-                    <ArrowUpRight size={20} /> Withdraw
                   </button>
                 </div>
               </div>

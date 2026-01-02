@@ -2062,6 +2062,7 @@ export const CheckoutPage: React.FC = () => {
                           </label>
                           <AddressAutocomplete
                             value={newAddressStreet}
+                            useThemedInput={true}
                             onChange={(val) => {
                               const newVal = typeof val === 'string' ? val : val.target.value;
                               setNewAddressStreet(newVal);
@@ -2086,7 +2087,7 @@ export const CheckoutPage: React.FC = () => {
                             }}
                             placeholder="Start typing your address..."
                             country="NG"
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus-visible:ring-0 focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
                           />
                           {newAddressState && newAddressCity && (
                             <p className="text-xs text-green-600 flex items-center gap-1">

@@ -166,7 +166,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   type="number"
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
-                  className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all text-lg font-bold text-gray-900 placeholder:font-normal"
+                  className="w-full bg-white pl-4 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all text-lg font-bold text-gray-900 placeholder:font-normal"
                   placeholder="Enter amount..."
                   autoFocus
                 />
@@ -305,7 +305,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   value={uploadLink}
                   onChange={(e) => setUploadLink(e.target.value)}
                   placeholder="https://example.com/product"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+                  className="w-full bg-white px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
                 />
               </div>
 

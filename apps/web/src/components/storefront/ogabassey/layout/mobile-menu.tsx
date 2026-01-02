@@ -127,7 +127,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-gray-100 bg-gray-50">
+        <div className="p-5 border-t border-gray-100 bg-gray-50 md:hidden">
           <button className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform">
             Login / Register
           </button>
