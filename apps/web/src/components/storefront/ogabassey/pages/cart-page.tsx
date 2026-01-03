@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
@@ -28,7 +29,12 @@ interface NegotiationState {
   name: string;
 }
 
-export const CartPage: React.FC = () => {
+interface CartPageProps {
+  vatEnabled?: boolean;
+  vatRate?: number;
+}
+
+export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate = 7.5 }) => {
   const {
     cart,
     removeFromCart,
@@ -39,6 +45,10 @@ export const CartPage: React.FC = () => {
     cartTotal,
     merchantSlug,
   } = useCart();
+
+  // Get basePath from merchant context for proper URL construction on custom domains
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? `/${merchantSlug || 'ogabassey'}`;
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
@@ -128,7 +138,7 @@ export const CartPage: React.FC = () => {
             </span>
           </h1>
           <Link
-            href={`/${merchantSlug || 'ogabassey'}` as any}
+            href={`${basePath}` as any}
             className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)] hidden md:block"
           >
             Continue Shopping
@@ -142,7 +152,7 @@ export const CartPage: React.FC = () => {
               title="Your cart is empty 🤧"
               description="Sorry, the product you are looking for is currently not available at the moment."
               actionLabel="Start Shopping"
-              actionLink={`/${merchantSlug || 'ogabassey'}`}
+              actionLink={basePath || '/'}
             />
           </div>
         ) : (
@@ -420,10 +430,26 @@ export const CartPage: React.FC = () => {
                     <span>Shipping</span>
                     <span className="text-green-600 font-medium">Free</span>
                   </div>
+
+                  {/* VAT Line Item - only show if merchant is VAT registered */}
+                  {vatEnabled && (
+                    <div className="flex justify-between text-gray-600 text-sm animate-in fade-in slide-in-from-top-1">
+                      <span className="flex items-center gap-1.5">
+                        VAT
+                        <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full font-bold">
+                          {vatRate}%
+                        </span>
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        +₦{Math.round(cartTotal * vatRate / 100).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="border-t border-dashed border-gray-200 my-2" />
                   <div className="flex justify-between text-gray-900 font-bold text-lg">
                     <span>Total</span>
-                    <span>₦{cartTotal.toLocaleString()}</span>
+                    <span>₦{(vatEnabled ? Math.round(cartTotal * (1 + vatRate / 100)) : cartTotal).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -437,7 +463,7 @@ export const CartPage: React.FC = () => {
                   </button>
 
                   <Link
-                    href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
+                    href={`${basePath}/checkout` as any}
                     className="w-full bg-black hover:bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] active:shadow-none relative z-10"
                   >
                     Proceed to Checkout
@@ -487,12 +513,12 @@ export const CartPage: React.FC = () => {
 
           {/* Checkout Button */}
           <Link
-            href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
+            href={`${basePath}/checkout` as any}
             className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
           >
             <span>Checkout</span>
             <span className="text-white/80">•</span>
-            <span>₦{cartTotal.toLocaleString()}</span>
+            <span>₦{(vatEnabled ? Math.round(cartTotal * (1 + vatRate / 100)) : cartTotal).toLocaleString()}</span>
             <ArrowRight size={18} className="ml-1" />
           </Link>
         </div>

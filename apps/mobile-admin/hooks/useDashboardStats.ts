@@ -26,6 +26,15 @@ export interface RevenueDataPoint {
   value: number;
 }
 
+export interface TopProduct {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  totalSold: number;
+  totalRevenue: number;
+}
+
 function getDateRange(period: TimePeriod): { start: string | null; end: string } {
   const now = new Date();
   const end = now.toISOString();
@@ -292,6 +301,81 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
   return result;
 }
 
+async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<TopProduct[]> {
+  // Get top selling products by quantity sold
+  const { data, error } = await supabase
+    .rpc('get_top_products', { p_merchant_id: merchantId, p_limit: limit });
+
+  if (error) {
+    // Fallback: manual query if RPC doesn't exist
+    console.log('[DashboardStats] RPC not available, using fallback query');
+
+    const { data: orderItems } = await supabase
+      .from('order_items')
+      .select(`
+        quantity,
+        price,
+        product_id,
+        products!inner(id, name, price, images),
+        orders!inner(merchant_id)
+      `)
+      .eq('orders.merchant_id', merchantId);
+
+    if (!orderItems) return [];
+
+    // Aggregate by product
+    const productMap = new Map<string, {
+      id: string;
+      name: string;
+      price: number;
+      images: string[];
+      totalSold: number;
+      totalRevenue: number
+    }>();
+
+    for (const item of orderItems) {
+      const product = item.products as { id: string; name: string; price: number; images: string[] };
+      const existing = productMap.get(product.id);
+      if (existing) {
+        existing.totalSold += item.quantity || 1;
+        existing.totalRevenue += (item.quantity || 1) * (item.price || 0);
+      } else {
+        productMap.set(product.id, {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          images: product.images || [],
+          totalSold: item.quantity || 1,
+          totalRevenue: (item.quantity || 1) * (item.price || 0),
+        });
+      }
+    }
+
+    // Sort by total sold and return top N
+    const sorted = Array.from(productMap.values())
+      .sort((a, b) => b.totalSold - a.totalSold)
+      .slice(0, limit);
+
+    return sorted.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      imageUrl: p.images[0] || null,
+      totalSold: p.totalSold,
+      totalRevenue: p.totalRevenue,
+    }));
+  }
+
+  return (data || []).map((p: { id: string; name: string; price: number; image_url: string; total_sold: number; total_revenue: number }) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    imageUrl: p.image_url,
+    totalSold: p.total_sold,
+    totalRevenue: p.total_revenue,
+  }));
+}
+
 export function useDashboardStats(period: TimePeriod = 'week') {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
@@ -310,14 +394,24 @@ export function useDashboardStats(period: TimePeriod = 'week') {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const topProductsQuery = useQuery({
+    queryKey: ['top-products', merchantId],
+    queryFn: () => fetchTopProducts(merchantId!, 5),
+    enabled: !!merchantId,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+
   return {
     stats: statsQuery.data ?? null,
     revenueData: chartQuery.data ?? [],
+    topProducts: topProductsQuery.data ?? [],
     isLoading: statsQuery.isLoading || chartQuery.isLoading,
     error: statsQuery.error || chartQuery.error,
     refetch: () => {
       statsQuery.refetch();
       chartQuery.refetch();
+      topProductsQuery.refetch();
     },
   };
 }
+

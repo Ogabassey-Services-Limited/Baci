@@ -252,4 +252,4 @@ export const NativeProductAdStatic: React.FC<{
     );
 };
 
-export default NativeProductAd;
+

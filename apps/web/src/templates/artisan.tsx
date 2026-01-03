@@ -24,7 +24,9 @@ export function HandmadeTemplate({ children }: { children: React.ReactNode }) {
 }
 
 // Alias for backwards compatibility with business-types.ts
-export const ArtisanTemplate = HandmadeTemplate;
+// Alias for backwards compatibility with business-types.ts
+// Alias for backwards compatibility with business-types.ts
+export const ArtisanTemplate = (props: { children: React.ReactNode }) => <HandmadeTemplate {...props} />;
 
 export function HandmadeHome(props: TemplatePageProps) {
   const [selectedCategory, setSelectedCategory] = useState('All');

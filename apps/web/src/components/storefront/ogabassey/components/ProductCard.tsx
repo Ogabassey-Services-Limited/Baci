@@ -111,6 +111,43 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </span>
         </Link>
 
+        {/* Badge: Platform or Condition - Positioned relative to card, not image */}
+        {((product as any).variant_attributes?.Platform || product.condition) && (
+          (() => {
+            const platform = (product as any).variant_attributes?.Platform;
+            let badgeColor = 'bg-amber-500';
+            // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
+            let badgeText = String(product.condition || '');
+
+            if (platform) {
+              badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
+              if (typeof badgeText === 'string') {
+                const lower = badgeText.toLowerCase();
+                if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
+                else if (lower.includes('xbox')) badgeColor = 'bg-green-600'; // Xbox Green
+                else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
+                else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
+              }
+            } else if (product.condition === 'New') {
+              badgeColor = 'bg-emerald-500';
+            }
+
+            // Shorten text for badges
+            const display = badgeText === 'PlayStation 5' ? 'PS5' :
+              badgeText === 'PlayStation 4' ? 'PS4' :
+                badgeText === 'Nintendo Switch' ? 'Switch' :
+                  badgeText;
+
+            return (
+              <div
+                className={`absolute top-1.5 left-1.5 md:top-2 md:left-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-md z-30 ${badgeColor}`}
+              >
+                {display}
+              </div>
+            );
+          })()
+        )}
+
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
           {/* Using Next.js Image for LCP/FCP optimization */}
@@ -125,72 +162,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             className="object-cover transition-transform duration-500 md:group-hover:scale-105"
           />
 
-          {/* Badge */}
-          {/* Badge: Platform or Condition */}
-          {((product as any).variant_attributes?.Platform || product.condition) && (
-            (() => {
-              const platform = (product as any).variant_attributes?.Platform;
-              let badgeColor = 'bg-amber-500';
-              // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
-              let badgeText = String(product.condition || '');
-
-              if (platform) {
-                badgeText = Array.isArray(platform) ? 'Multi-Platform' : String(platform);
-                if (typeof badgeText === 'string') {
-                  const lower = badgeText.toLowerCase();
-                  if (lower.includes('playstation') || lower.includes('ps5') || lower.includes('ps4')) badgeColor = 'bg-blue-600';
-                  else if (lower.includes('xbox')) badgeColor = 'bg-green-600'; // Xbox Green
-                  else if (lower.includes('nintendo') || lower.includes('switch')) badgeColor = 'bg-red-600';
-                  else if (lower.includes('multi')) badgeColor = 'bg-purple-600';
-                }
-              } else if (product.condition === 'New') {
-                badgeColor = 'bg-emerald-500';
-              }
-
-              // Shorten text for badges
-              const display = badgeText === 'PlayStation 5' ? 'PS5' :
-                badgeText === 'PlayStation 4' ? 'PS4' :
-                  badgeText === 'Nintendo Switch' ? 'Switch' :
-                    badgeText;
-
-              return (
-                <div
-                  className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${badgeColor}`}
-                >
-                  {display}
-                </div>
-              );
-            })()
-          )}
-
           {/* Action Buttons - Top Right */}
-          <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
+          <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 z-20 flex flex-col gap-1.5 md:gap-2">
             <button
               onClick={toggleLike}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
+              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
                 ? 'bg-white border-red-100 text-red-600'
-                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
+                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-red-600 md:hover:bg-white'
                 }`}
               aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
               title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
             >
               <Heart
-                size={16}
+                size={14}
                 fill={isLiked ? 'currentColor' : 'none'}
                 strokeWidth={2}
+                className="md:w-4 md:h-4"
               />
             </button>
 
             <button
               onClick={toggleCompare}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
+              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
                 ? 'bg-red-50 border-red-100 text-red-600'
-                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
+                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-blue-600 md:hover:bg-white'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
             >
-              <ArrowRightLeft size={16} strokeWidth={2} />
+              <ArrowRightLeft size={14} strokeWidth={2} className="md:w-4 md:h-4" />
             </button>
           </div>
 
@@ -198,11 +198,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <button
             onClick={handleCartClick}
             aria-label={`Add ${product.name} to cart`}
-            className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-red-600 md:hover:text-white md:hover:border-red-600 overflow-visible`}
+            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-red-600 md:hover:text-white md:hover:border-red-600 overflow-visible`}
           >
             <ShoppingCart
-              size={18}
-              className={`transition-transform ${showPlusOne ? 'scale-90' : ''}`}
+              size={16}
+              className={`transition-transform md:w-[18px] md:h-[18px] ${showPlusOne ? 'scale-90' : ''}`}
               strokeWidth={2}
             />
 

@@ -207,6 +207,8 @@ export async function submitOnboarding(
           business_name: businessName,
           business_type: finalBusinessType,
           logo_url: logoUrl,
+          // Sync logo to favicon for mobile app compatibility
+          favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
         })
@@ -227,6 +229,8 @@ export async function submitOnboarding(
           business_name: businessName,
           business_type: finalBusinessType,
           logo_url: logoUrl,
+          // Sync logo to favicon for mobile app compatibility
+          favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
         })

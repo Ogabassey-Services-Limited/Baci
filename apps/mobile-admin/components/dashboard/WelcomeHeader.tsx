@@ -6,6 +6,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SvgUri } from 'react-native-svg';
 import { useTheme } from '@/hooks/useTheme';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -29,18 +30,36 @@ export function WelcomeHeader({
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
 
-  // React Native Image can't render SVG data URIs, so skip them
-  const canShowAvatar = avatarUrl && !avatarUrl.startsWith('data:image/svg');
+  // Determine avatar type
+  const isSvgDataUri = avatarUrl?.startsWith('data:image/svg');
+  const isSvgUrl = avatarUrl?.endsWith('.svg');
+  const canShowSvg = avatarUrl && isSvgUrl && !isSvgDataUri;
+  const canShowImage = avatarUrl && !isSvgDataUri && !isSvgUrl;
+
+  const renderAvatar = () => {
+    if (canShowSvg) {
+      // Remote SVG URL - use SvgUri
+      return (
+        <View style={[styles.avatar, { backgroundColor: colors.card, overflow: 'hidden' }]}>
+          <SvgUri uri={avatarUrl} width={48} height={48} />
+        </View>
+      );
+    }
+    if (canShowImage) {
+      // Regular image URL (PNG, JPG, etc.)
+      return (
+        <Image source={{ uri: avatarUrl }} style={[styles.avatar, { backgroundColor: colors.card }]} />
+      );
+    }
+    // Fallback to Baci logo
+    return <BaciLogo size={48} borderRadius={RADIUS.full} />;
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
         <Pressable style={styles.avatarContainer} onPress={onAvatarPress}>
-          {canShowAvatar ? (
-            <Image source={{ uri: avatarUrl }} style={[styles.avatar, { backgroundColor: colors.card }]} />
-          ) : (
-            <BaciLogo size={48} borderRadius={RADIUS.full} />
-          )}
+          {renderAvatar()}
           {isLive && (
             <View style={[styles.liveBadge, { backgroundColor: colors.live, borderColor: colors.background }]}>
               <Text style={styles.liveText}>LIVE</Text>

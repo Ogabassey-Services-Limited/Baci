@@ -111,7 +111,6 @@ export default function TabLayout() {
       {/* Hide old screens */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="inventory" options={{ href: null }} />
-      <Tabs.Screen name="analytics" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );

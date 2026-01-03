@@ -1,0 +1,343 @@
+
+
+> @baci/web@0.1.0 build /Users/mac/Baci-app/apps/web
+> NODE_ENV=production next build
+
+[1m[38;2;173;127;168m▲ Next.js 16.1.1[39m[22m (Turbopack)
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  [1m✓[22m inlineCss
+  · optimizePackageImports
+  · serverActions
+  [1m✓[22m viewTransition
+
+[37m[1m [22m[39m Creating an optimized production build ...
+[32m[1m✓[22m[39m Compiled successfully in 33.9s
+[?25l[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[?25h[?25l[37m[1m [22m[39m Finished TypeScript in 77s  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finished TypeScript in 77s    [32m[1m✓[22m[39m Finished TypeScript in 77s 
+[?25l[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[?25h[33m[1m⚠[22m[39m Using edge runtime on a page currently disables static generation for that page
+[?25l [36m.[39m [2K[1G [36m..[39m [2K[1G [36m...[39m [2K[1G[?25h[37m[1m [22m[39m Collecting page data using 9 workers in 919.5ms    [32m[1m✓[22m[39m Collecting page data using 9 workers in 919.5ms 
+[?25l[37m[1m [22m[39m Generating static pages using 9 workers (0/261)  [36m[    ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (126/261)  [36m[=   ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (166/261)  [36m[==  ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (187/261)  [36m[=== ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[ ===][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[  ==][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[   =][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[    ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[   =][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[  ==][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[ ===][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[====][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[=== ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[==  ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (192/261)  [36m[=   ][39m[2K[1G[1A[2K[1G[?25hSuccessfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+Successfully fetched merchant: ogabassey 6b5cb8a4-5575-456c-b936-8cdfae30db74
+[?25h[32m[1m✓[22m[39m Generating static pages using 9 workers (261/261) in 4.1s
+[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 31.1ms    [32m[1m✓[22m[39m Finalizing page optimization in 31.1ms 
+
+[4mRoute (app)[24m
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /[slug]
+├ ƒ /[slug]/[category]
+├ ƒ /[slug]/[category]/[productSlug]
+├ ƒ /[slug]/[category]/[productSlug]/opengraph-image-hpxqxx
+├ ƒ /[slug]/about
+├ ƒ /[slug]/account
+├ ƒ /[slug]/account/addresses
+├ ƒ /[slug]/account/callback
+├ ƒ /[slug]/account/login
+├ ƒ /[slug]/account/orders
+├ ƒ /[slug]/account/orders/[orderId]/insurance
+├ ƒ /[slug]/account/settings
+├ ƒ /[slug]/blog
+├ ƒ /[slug]/blog/[...catchAll]
+├ ƒ /[slug]/blog/[postSlug]
+├ ƒ /[slug]/cart
+├ ƒ /[slug]/checkout
+├ ƒ /[slug]/checkout/bnpl
+├ ƒ /[slug]/checkout/success
+├ ƒ /[slug]/contact
+├ ƒ /[slug]/delete-account
+├ ƒ /[slug]/faq
+├ ƒ /[slug]/imei-check
+├ ƒ /[slug]/member-status
+├ ƒ /[slug]/opengraph-image-gs1uzh
+├ ƒ /[slug]/order-success
+├ ƒ /[slug]/orders/track
+├ ƒ /[slug]/pages/about
+├ ƒ /[slug]/pages/blog
+├ ƒ /[slug]/pages/contact
+├ ƒ /[slug]/pages/faq
+├ ƒ /[slug]/pages/privacy
+├ ƒ /[slug]/pages/rewards
+├ ƒ /[slug]/pages/terms
+├ ƒ /[slug]/privacy
+├ ƒ /[slug]/privacy-policy
+├ ƒ /[slug]/products/[productSlug]
+├ ƒ /[slug]/products/[productSlug]/opengraph-image-lsj0ir
+├ ƒ /[slug]/repair
+├ ƒ /[slug]/repairs
+├ ƒ /[slug]/reviews
+├ ƒ /[slug]/sitemap.xml
+├ ƒ /[slug]/swap
+├ ƒ /[slug]/terms
+├ ƒ /[slug]/terms-of-service
+├ ƒ /[slug]/wallet
+├ ƒ /[slug]/wishlist
+├ ƒ /about
+├ ƒ /admin
+├ ƒ /admin/merchants
+├ ƒ /admin/notifications
+├ ƒ /admin/notifications/[id]
+├ ƒ /admin/notifications/create
+├ ƒ /admin/settings
+├ ƒ /admin/system
+├ ƒ /admin/templates
+├ ƒ /api/admin/analytics
+├ ƒ /api/admin/db-health
+├ ƒ /api/admin/generate-hero-images
+├ ƒ /api/admin/generate-product-images
+├ ƒ /api/admin/migrate
+├ ƒ /api/admin/notifications
+├ ƒ /api/admin/notifications/[id]
+├ ƒ /api/admin/settings
+├ ƒ /api/agentic/checkout_sessions
+├ ƒ /api/agentic/checkout_sessions/[id]
+├ ƒ /api/agentic/checkout_sessions/[id]/cancel
+├ ƒ /api/agentic/checkout_sessions/[id]/complete
+├ ƒ /api/ai-jobs
+├ ƒ /api/ai-jobs/[id]
+├ ƒ /api/ai-jobs/worker
+├ ƒ /api/ai/edit-blog
+├ ƒ /api/ai/generate-faq
+├ ƒ /api/analytics
+├ ƒ /api/analytics/ads
+├ ƒ /api/analytics/cache
+├ ƒ /api/analytics/conversion
+├ ƒ /api/analytics/crawler-log
+├ ƒ /api/analytics/facebook-capi
+├ ƒ /api/analytics/ga4
+├ ƒ /api/analytics/insights
+├ ƒ /api/analytics/snapchat
+├ ƒ /api/analytics/tiktok
+├ ƒ /api/blog/feed/[merchantSlug]
+├ ƒ /api/blog/posts
+├ ƒ /api/builder
+├ ƒ /api/builder/gemini
+├ ƒ /api/cart/validate
+├ ƒ /api/chat
+├ ƒ /api/chat/santa
+├ ƒ /api/chat/santa/product
+├ ƒ /api/copilotkit
+├ ƒ /api/cron/cleanup-orders
+├ ƒ /api/cron/process-settlements
+├ ƒ /api/cron/wallet-payouts
+├ ƒ /api/csrf
+├ ƒ /api/customers
+├ ƒ /api/customers/[id]
+├ ƒ /api/customers/[id]/orders
+├ ƒ /api/customers/segments
+├ ƒ /api/customers/segments/[customerId]
+├ ƒ /api/dashboard/preferences
+├ ƒ /api/dashboard/reviews
+├ ƒ /api/debug/supabase-check
+├ ƒ /api/discount-codes
+├ ƒ /api/discount-codes/[id]
+├ ƒ /api/discount-codes/validate
+├ ƒ /api/domains
+├ ƒ /api/domains/[domain]
+├ ƒ /api/domains/[domain]/dns
+├ ƒ /api/domains/[domain]/email-forwarding
+├ ƒ /api/domains/[domain]/id-protection
+├ ƒ /api/domains/[domain]/verify
+├ ƒ /api/domains/check-availability
+├ ƒ /api/domains/initialize-payment
+├ ƒ /api/domains/purchase
+├ ƒ /api/edge-config/sync
+├ ƒ /api/events
+├ ƒ /api/feed/facebook
+├ ƒ /api/feed/google-merchant
+├ ƒ /api/feed/openai
+├ ƒ /api/feed/tiktok
+├ ƒ /api/forms/submit
+├ ƒ /api/google-places/reviews
+├ ƒ /api/insurance/claims/sync
+├ ƒ /api/insurance/policy/[orderId]
+├ ƒ /api/insurance/purchase
+├ ƒ /api/insurance/quote
+├ ƒ /api/integrations/google-merchant-center/auth
+├ ƒ /api/integrations/google-merchant-center/feed
+├ ƒ /api/integrations/google-merchant-center/webhook
+├ ƒ /api/inventory/alerts
+├ ƒ /api/inventory/forecast
+├ ƒ /api/inventory/reorder
+├ ƒ /api/loyalty/customers
+├ ƒ /api/loyalty/points
+├ ƒ /api/loyalty/rewards
+├ ƒ /api/loyalty/rewards/[id]
+├ ƒ /api/loyalty/settings
+├ ƒ /api/media
+├ ƒ /api/merchant/blog/posts
+├ ƒ /api/merchant/blog/posts/[id]
+├ ƒ /api/merchant/blog/upload
+├ ƒ /api/merchant/features
+├ ƒ /api/merchant/publish
+├ ƒ /api/merchant/readiness
+├ ƒ /api/merchant/regenerate-hero-images
+├ ƒ /api/merchants/by-slug
+├ ƒ /api/newsletter/subscribe
+├ ƒ /api/notifications
+├ ƒ /api/notifications/[id]
+├ ƒ /api/notifications/preferences
+├ ƒ /api/orders
+├ ƒ /api/orders/[id]
+├ ƒ /api/orders/[id]/confirm
+├ ƒ /api/orders/[id]/invoice
+├ ƒ /api/orders/[id]/record-payment
+├ ƒ /api/orders/[id]/reminder
+├ ƒ /api/orders/[id]/ship-on-credit
+├ ƒ /api/orders/update-payment-ref
+├ ƒ /api/payments/credit-direct/sign
+├ ƒ /api/payments/credit-direct/webhook
+├ ƒ /api/payments/initialize
+├ ƒ /api/payments/juicyway/webhook
+├ ƒ /api/payments/status
+├ ƒ /api/payments/webhook
+├ ƒ /api/payouts/request
+├ ƒ /api/paystack/banks
+├ ƒ /api/paystack/subaccount
+├ ƒ /api/paystack/verify-account
+├ ƒ /api/places/autocomplete
+├ ƒ /api/places/details
+├ ƒ /api/platform/analytics-config
+├ ƒ /api/platform/events
+├ ƒ /api/products
+├ ƒ /api/products/[id]
+├ ƒ /api/products/bulk-import
+├ ƒ /api/products/bulk-publish
+├ ƒ /api/products/bulk-update
+├ ƒ /api/products/count
+├ ƒ /api/push-tokens/register
+├ ƒ /api/reviews
+├ ƒ /api/reviews/[id]
+├ ƒ /api/reviews/[id]/helpful
+├ ƒ /api/search
+├ ƒ /api/search/autocomplete
+├ ƒ /api/shipping/book
+├ ƒ /api/shipping/cancel/[shipmentId]
+├ ƒ /api/shipping/locations
+├ ƒ /api/shipping/providers
+├ ƒ /api/shipping/quote
+├ ƒ /api/shipping/quotes
+├ ƒ /api/shipping/self-fulfill
+├ ƒ /api/shipping/track/[trackingNumber]
+├ ƒ /api/shipping/webhooks/[provider]
+├ ƒ /api/staff
+├ ƒ /api/staff/[id]
+├ ƒ /api/staff/accept-invite
+├ ƒ /api/storefront/[slug]/products
+├ ƒ /api/storefront/auth/google
+├ ƒ /api/storefront/auth/logout
+├ ƒ /api/storefront/auth/send-code
+├ ƒ /api/storefront/auth/session
+├ ƒ /api/storefront/auth/verify-code
+├ ƒ /api/storefront/customer
+├ ƒ /api/storefront/customer/wallet
+├ ƒ /api/storefront/discount/validate
+├ ƒ /api/storefront/features
+├ ƒ /api/storefront/imei-check
+├ ƒ /api/storefront/loyalty
+├ ƒ /api/storefront/loyalty/enroll
+├ ƒ /api/storefront/loyalty/redeem
+├ ƒ /api/storefront/orders
+├ ƒ /api/storefront/orders/[id]
+├ ƒ /api/storefront/orders/track
+├ ƒ /api/storefront/products
+├ ƒ /api/storefront/social-proof
+├ ƒ /api/vtu/loyalty/redeem
+├ ƒ /api/vtu/loyalty/rewards
+├ ƒ /api/vtu/providers
+├ ƒ /api/vtu/purchase
+├ ƒ /api/vtu/test
+├ ƒ /api/vtu/transactions
+├ ƒ /api/wallet
+├ ƒ /api/wallet/transactions
+├ ƒ /api/wallet/withdraw
+├ ƒ /api/webhooks/mycover
+├ ƒ /api/wishlist
+├ ƒ /api/wishlist/check
+├ ƒ /auth/callback
+├ ƒ /blog
+├ ƒ /blog/[slug]
+├ ƒ /builder
+├ ƒ /cart
+├ ƒ /checkout
+├ ƒ /checkout/success
+├ ƒ /contact
+├ ƒ /dashboard
+├ ƒ /dashboard/analytics
+├ ƒ /dashboard/blog
+├ ƒ /dashboard/blog/[id]/edit
+├ ƒ /dashboard/blog/new
+├ ƒ /dashboard/categories
+├ ƒ /dashboard/customers
+├ ƒ /dashboard/customers/[id]
+├ ƒ /dashboard/domains
+├ ƒ /dashboard/domains/[domain]
+├ ƒ /dashboard/domains/callback
+├ ƒ /dashboard/integrations
+├ ƒ /dashboard/integrations/facebook
+├ ƒ /dashboard/integrations/google-analytics
+├ ƒ /dashboard/integrations/google-merchant
+├ ƒ /dashboard/integrations/snapchat
+├ ƒ /dashboard/integrations/tiktok
+├ ƒ /dashboard/integrations/twitter
+├ ƒ /dashboard/loyalty
+├ ƒ /dashboard/marketing/announcement-bar
+├ ƒ /dashboard/marketing/discount-codes
+├ ƒ /dashboard/notifications
+├ ƒ /dashboard/notifications/preferences
+├ ƒ /dashboard/orders
+├ ƒ /dashboard/orders/[orderId]
+├ ƒ /dashboard/orders/create
+├ ƒ /dashboard/pages
+├ ƒ /dashboard/products
+├ ƒ /dashboard/reviews
+├ ƒ /dashboard/santa
+├ ƒ /dashboard/seo
+├ ƒ /dashboard/settings
+├ ƒ /dashboard/settings/faq
+├ ƒ /dashboard/settings/kyc
+├ ƒ /dashboard/settings/payments
+├ ƒ /dashboard/settings/tax
+├ ƒ /dashboard/settings/vtu
+├ ƒ /dashboard/staff
+├ ƒ /dashboard/templates
+├ ƒ /dashboard/wallet
+├ ƒ /debug-auth
+├ ƒ /delete-account
+├ ƒ /demo
+├ ƒ /developers/submit
+├ ƒ /features
+├ ƒ /invite/[token]
+├ ƒ /login
+├ ○ /manifest.webmanifest
+├ ƒ /onboarding
+├ ƒ /opengraph-image
+├ ƒ /pricing
+├ ƒ /privacy
+├ ƒ /reset-password
+├ ƒ /robots.txt
+├ ƒ /sitemap.xml
+├ ƒ /template-preview
+├ ƒ /template-preview/[templateId]
+├ ƒ /terms
+├ ƒ /track
+└ ƒ /track/[trackingNumber]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[?25h

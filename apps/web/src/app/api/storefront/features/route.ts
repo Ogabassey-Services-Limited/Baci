@@ -26,6 +26,7 @@ export interface StorefrontFeatures {
   korapayEnabled: boolean;
   payOnDeliveryEnabled: boolean;
   creditDirectEnabled: boolean;
+  credpalEnabled: boolean;
   creditDirectMinAmount: number;
   creditDirectMaxAmount: number;
   preferredLocalGateway: 'paystack' | 'korapay';
@@ -86,6 +87,7 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   korapayEnabled: true,
   payOnDeliveryEnabled: false,
   creditDirectEnabled: false,
+  credpalEnabled: false,
   creditDirectMinAmount: 10000,
   creditDirectMaxAmount: 500000,
   preferredLocalGateway: 'paystack',
@@ -177,6 +179,7 @@ export async function GET(request: NextRequest) {
       korapayEnabled: settings.korapay_enabled ?? true,
       payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
       creditDirectEnabled: settings.credit_direct_enabled ?? false,
+      credpalEnabled: settings.credpal_enabled ?? false,
       creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
       creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
       preferredLocalGateway: settings.preferred_local_gateway || 'paystack',

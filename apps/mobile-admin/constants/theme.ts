@@ -106,7 +106,8 @@ export const LIGHT_COLORS = {
 };
 
 // Default export for backwards compatibility (dark mode)
-export const COLORS = DARK_COLORS;
+// Default export for backwards compatibility (dark mode)
+export const COLORS = { ...DARK_COLORS };
 
 export const SPACING = {
   xs: 4,

@@ -9,6 +9,8 @@ import { CartPage } from './cart-page';
 
 interface CartPageWrapperProps {
   merchantId: string;
+  vatEnabled?: boolean;
+  vatRate?: number;
 }
 
 /**
@@ -16,7 +18,7 @@ interface CartPageWrapperProps {
  * Supports URLs like: /cart?item_id=123 or /cart?item_id=123,456,789
  * Used by ChatGPT MCP integration and Google Shopping.
  */
-export function CartPageWrapper({ merchantId }: CartPageWrapperProps) {
+export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 }: CartPageWrapperProps) {
   const searchParams = useSearchParams();
   const { addToCart, cart } = useCart();
   const { toast } = useToast();
@@ -120,5 +122,5 @@ export function CartPageWrapper({ merchantId }: CartPageWrapperProps) {
     );
   }
 
-  return <CartPage />;
+  return <CartPage vatEnabled={vatEnabled} vatRate={vatRate} />;
 }

@@ -211,14 +211,19 @@
         "noConsole": {
           "level": "off",
           "options": {
-            "allow": ["log"]
+            "allow": [
+              "log"
+            ]
           }
         }
       }
     }
   },
   "javascript": {
-    "globals": ["Deno", "ColorThief"],
+    "globals": [
+      "Deno",
+      "ColorThief"
+    ],
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",

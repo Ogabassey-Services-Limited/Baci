@@ -129,4 +129,4 @@ export const NativeProductRow: React.FC<NativeProductRowProps> = ({
     );
 };
 
-export default NativeProductRow;
+

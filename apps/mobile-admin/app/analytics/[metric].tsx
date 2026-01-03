@@ -1,0 +1,548 @@
+/**
+ * Analytics Detail Screen
+ * Drill-down view for a specific metric with charts and data table
+ */
+
+import React, { useState, useMemo } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    Pressable,
+    StatusBar,
+    FlatList,
+    Share,
+    ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
+import {
+    useAnalyticsDetail,
+    MetricType,
+    Granularity,
+    METRIC_CONFIG,
+    TimeSeriesDataPoint,
+} from '@/hooks/useAnalyticsDetail';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import Svg, { Rect, Text as SvgText, G } from 'react-native-svg';
+
+const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
+    { value: 'hourly', label: 'HOURLY' },
+    { value: 'weekday', label: 'WEEK DAY' },
+    { value: 'month', label: 'MONTH' },
+];
+
+// Format currency
+function formatCurrency(amount: number): string {
+    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+// Format compact number
+function formatCompact(amount: number): string {
+    if (amount >= 1_000_000_000) return `₦${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1)}K`;
+    return `₦${amount.toFixed(0)}`;
+}
+
+// Bar Chart Component
+function BarChart({
+    data,
+    comparisonData,
+    selectedIndex,
+    onSelectBar,
+    accentColor,
+    secondaryColor,
+}: {
+    data: TimeSeriesDataPoint[];
+    comparisonData?: TimeSeriesDataPoint[];
+    selectedIndex: number | null;
+    onSelectBar: (index: number) => void;
+    accentColor: string;
+    secondaryColor: string;
+}) {
+    const chartWidth = 340;
+    const chartHeight = 180;
+    const padding = { top: 20, right: 10, bottom: 30, left: 50 };
+    const innerWidth = chartWidth - padding.left - padding.right;
+    const innerHeight = chartHeight - padding.top - padding.bottom;
+
+    const maxValue = Math.max(
+        ...data.map(d => d.value),
+        ...(comparisonData?.map(d => d.value) || []),
+        1
+    );
+
+    const barWidth = (innerWidth / data.length) * 0.6;
+    const barGap = (innerWidth / data.length) * 0.4;
+
+    // Y-axis ticks
+    const yTicks = [0, maxValue / 2, maxValue];
+
+    return (
+        <Svg width={chartWidth} height={chartHeight}>
+            {/* Grid Lines (Horizontal) */}
+            {yTicks.map((tick, i) => {
+                const y = padding.top + innerHeight - (tick / maxValue) * innerHeight;
+                return (
+                    <G key={i}>
+                        <Rect
+                            x={padding.left}
+                            y={y}
+                            width={innerWidth}
+                            height={1}
+                            fill="#E5E7EB" // colors.border
+                        />
+                        <SvgText
+                            x={padding.left - 8}
+                            y={y + 4}
+                            fontSize={10}
+                            fill="#9CA3AF" // colors.textMuted
+                            textAnchor="end"
+                        >
+                            {formatCompact(tick)}
+                        </SvgText>
+                    </G>
+                );
+            })}
+
+            {/* Bars */}
+            {data.map((d, i) => {
+                const x = padding.left + i * (barWidth + barGap) + barGap / 2;
+                const barHeight = (d.value / maxValue) * innerHeight;
+                const y = padding.top + innerHeight - barHeight;
+                const isSelected = selectedIndex === i;
+
+                return (
+                    <G key={i}>
+                        {/* Comparison bar (lighter, behind) */}
+                        {comparisonData && comparisonData[i] && (
+                            <Rect
+                                x={x - 2}
+                                y={padding.top + innerHeight - (comparisonData[i].value / maxValue) * innerHeight}
+                                width={barWidth}
+                                height={(comparisonData[i].value / maxValue) * innerHeight}
+                                fill={secondaryColor}
+                                opacity={0.3}
+                                rx={3}
+                            />
+                        )}
+                        {/* Main bar */}
+                        <Rect
+                            x={x}
+                            y={y}
+                            width={barWidth}
+                            height={Math.max(barHeight, 0)} // Ensure visible line if 0? No, accurate 0 is fine with grid
+                            fill={isSelected ? accentColor : `${accentColor}CC`}
+                            rx={3}
+                            onPress={() => onSelectBar(i)}
+                        />
+                        {/* X-axis label */}
+                        {/* Show label only for some items if too crowded */}
+                        {(data.length <= 12 || i % Math.ceil(data.length / 6) === 0) && (
+                            <SvgText
+                                x={x + barWidth / 2}
+                                y={chartHeight - 8}
+                                fontSize={9}
+                                fill="#9CA3AF"
+                                textAnchor="middle"
+                            >
+                                {d.label.slice(0, 3)}
+                            </SvgText>
+                        )}
+                    </G>
+                );
+            })}
+        </Svg>
+    );
+}
+
+export default function AnalyticsDetailScreen() {
+    const { colors, isDark } = useTheme();
+    const router = useRouter();
+    const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
+    const metric = (metricParam as MetricType) || 'revenue';
+
+    const [year, setYear] = useState(new Date().getFullYear());
+    const [granularity, setGranularity] = useState<Granularity>('month');
+    const [showComparison, setShowComparison] = useState(false);
+    const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
+
+    const { data: analyticsData, isLoading } = useAnalyticsDetail({
+        metric,
+        year,
+        granularity,
+        includeComparison: showComparison,
+    });
+
+    const config = METRIC_CONFIG[metric];
+    const currentYear = new Date().getFullYear();
+
+    const handleShare = async () => {
+        if (!analyticsData) return;
+
+        const summary = `${config.title} for ${year}: ${formatCurrency(analyticsData.total)}${analyticsData.percentChange !== undefined
+            ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs ${year - 1})`
+            : ''
+            }`;
+
+        try {
+            await Share.share({
+                message: summary,
+            });
+        } catch (error) {
+            console.error('Share failed:', error);
+        }
+    };
+
+    const handlePrevYear = () => {
+        if (year > 2020) setYear(y => y - 1);
+    };
+
+    const handleNextYear = () => {
+        if (year < currentYear) setYear(y => y + 1);
+    };
+
+    // Highlight row in table when bar is selected
+    const highlightedLabel = selectedBarIndex !== null && analyticsData?.data[selectedBarIndex]?.label;
+
+    return (
+        <>
+            <Stack.Screen
+                options={{
+                    headerShown: true,
+                    title: config.title,
+                    headerStyle: { backgroundColor: colors.background },
+                    headerTintColor: colors.text,
+                    headerShadowVisible: false,
+                    headerLeft: () => (
+                        <Pressable onPress={() => router.back()} style={{ marginRight: SPACING.md }}>
+                            <Ionicons name="arrow-back" size={24} color={colors.text} />
+                        </Pressable>
+                    ),
+                    headerRight: () => (
+                        <Pressable onPress={handleShare} style={{ marginLeft: SPACING.md }}>
+                            <Ionicons name="share-outline" size={22} color={colors.text} />
+                        </Pressable>
+                    ),
+                }}
+            />
+
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+                <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+                {isLoading && (
+                    <View style={styles.loadingOverlay}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                    </View>
+                )}
+
+                {/* Year Selector */}
+                <View style={[styles.yearSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Pressable onPress={handlePrevYear} disabled={year <= 2020}>
+                        <Ionicons name="chevron-back" size={24} color={year <= 2020 ? colors.textMuted : colors.text} />
+                    </Pressable>
+                    <View style={styles.yearDisplay}>
+                        <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                        <Text style={[styles.yearText, { color: colors.text }]}>{year}</Text>
+                    </View>
+                    <Pressable onPress={handleNextYear} disabled={year >= currentYear}>
+                        <Ionicons name="chevron-forward" size={24} color={year >= currentYear ? colors.textMuted : colors.text} />
+                    </Pressable>
+                </View>
+
+                {/* Granularity Tabs */}
+                <View style={styles.tabContainer}>
+                    {GRANULARITY_TABS.map(tab => (
+                        <Pressable
+                            key={tab.value}
+                            style={[
+                                styles.tab,
+                                granularity === tab.value && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+                            ]}
+                            onPress={() => {
+                                setGranularity(tab.value);
+                                setSelectedBarIndex(null);
+                            }}
+                        >
+                            <Text
+                                style={[
+                                    styles.tabText,
+                                    { color: granularity === tab.value ? colors.primary : colors.textSecondary },
+                                ]}
+                            >
+                                {tab.label}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+
+                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                    {/* Total Display */}
+                    <View style={styles.totalSection}>
+                        <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Total:</Text>
+                        <Text style={[styles.totalValue, { color: colors.text }]}>
+                            {metric === 'sales'
+                                ? analyticsData?.total.toLocaleString() || '0'
+                                : formatCurrency(analyticsData?.total || 0)}
+                        </Text>
+                        {analyticsData?.percentChange !== undefined && (
+                            <View style={[
+                                styles.changeBadge,
+                                { backgroundColor: analyticsData.percentChange >= 0 ? colors.successLight : colors.errorLight }
+                            ]}>
+                                <Ionicons
+                                    name={analyticsData.percentChange >= 0 ? 'trending-up' : 'trending-down'}
+                                    size={14}
+                                    color={analyticsData.percentChange >= 0 ? colors.success : colors.error}
+                                />
+                                <Text style={{ color: analyticsData.percentChange >= 0 ? colors.success : colors.error, fontSize: 12 }}>
+                                    {analyticsData.percentChange >= 0 ? '+' : ''}{analyticsData.percentChange.toFixed(1)}%
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Comparison Toggle */}
+                    <Pressable
+                        style={[styles.comparisonToggle, { backgroundColor: colors.card }]}
+                        onPress={() => setShowComparison(!showComparison)}
+                    >
+                        <Ionicons
+                            name={showComparison ? 'checkbox' : 'square-outline'}
+                            size={20}
+                            color={showComparison ? colors.primary : colors.textSecondary}
+                        />
+                        <Text style={[styles.comparisonText, { color: colors.textSecondary }]}>
+                            Compare vs {year - 1}
+                        </Text>
+                    </Pressable>
+
+                    {/* Bar Chart */}
+                    {analyticsData && (
+                        <View style={[styles.chartContainer, { backgroundColor: colors.card }]}>
+                            <BarChart
+                                data={analyticsData.data}
+                                comparisonData={showComparison ? analyticsData.comparisonData : undefined}
+                                selectedIndex={selectedBarIndex}
+                                onSelectBar={setSelectedBarIndex}
+                                accentColor={colors.primary}
+                                secondaryColor={colors.textMuted}
+                            />
+                        </View>
+                    )}
+
+                    {/* Insight Banner */}
+                    {analyticsData?.bestPeriod && (
+                        <View style={[styles.insightBanner, { backgroundColor: colors.successLight }]}>
+                            <Ionicons name="trending-up" size={16} color={colors.success} />
+                            <Text style={[styles.insightText, { color: colors.success }]}>
+                                {analyticsData.bestPeriod.label} was your best {granularity === 'month' ? 'month' : 'period'}: {
+                                    metric === 'sales'
+                                        ? analyticsData.bestPeriod.value.toLocaleString()
+                                        : formatCurrency(analyticsData.bestPeriod.value)
+                                }
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Data Table */}
+                    <View style={[styles.tableContainer, { backgroundColor: colors.card }]}>
+                        {/* Table Header */}
+                        <View style={[styles.tableHeader, { borderBottomColor: colors.border }]}>
+                            <Text style={[styles.tableHeaderCell, styles.labelColumn, { color: colors.textSecondary }]}>
+                                {granularity === 'month' ? 'MONTH' : granularity === 'weekday' ? 'DAY' : 'HOUR'}
+                            </Text>
+                            {config.columns.map(col => (
+                                <Text key={col.key} style={[styles.tableHeaderCell, styles.valueColumn, { color: colors.textSecondary }]}>
+                                    {col.label.toUpperCase()}
+                                </Text>
+                            ))}
+                        </View>
+
+                        {/* Table Rows */}
+                        {analyticsData?.data.map((row, index) => (
+                            <Pressable
+                                key={row.label}
+                                style={[
+                                    styles.tableRow,
+                                    { borderBottomColor: colors.border },
+                                    highlightedLabel === row.label && { backgroundColor: colors.primary + '15' },
+                                ]}
+                                onPress={() => setSelectedBarIndex(index)}
+                            >
+                                <Text style={[styles.tableCell, styles.labelColumn, { color: colors.text }]}>
+                                    {row.label}
+                                </Text>
+                                {config.columns.map(col => {
+                                    const value = (row as any)[col.key] ?? 0;
+                                    let formatted: string;
+                                    if (col.format === 'currency') {
+                                        formatted = formatCurrency(value);
+                                    } else if (col.format === 'percent') {
+                                        formatted = `${value.toFixed(1)}%`;
+                                    } else {
+                                        formatted = value.toLocaleString();
+                                    }
+                                    return (
+                                        <Text key={col.key} style={[styles.tableCell, styles.valueColumn, { color: colors.text }]}>
+                                            {formatted}
+                                        </Text>
+                                    );
+                                })}
+                            </Pressable>
+                        ))}
+                    </View>
+
+                    <View style={styles.bottomSpacer} />
+                </ScrollView>
+            </SafeAreaView>
+        </>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    yearSelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.md,
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        borderRadius: RADIUS.lg,
+        borderWidth: 1,
+    },
+    yearDisplay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.xs,
+    },
+    yearText: {
+        fontSize: TYPOGRAPHY.size.md,
+        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.md,
+    },
+    tab: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: SPACING.sm,
+    },
+    tabText: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    totalSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        paddingHorizontal: SPACING.lg,
+        paddingTop: SPACING.lg,
+    },
+    totalLabel: {
+        fontSize: TYPOGRAPHY.size.md,
+        fontFamily: TYPOGRAPHY.fontFamily.regular,
+    },
+    totalValue: {
+        fontSize: TYPOGRAPHY.size['2xl'],
+        fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    changeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: SPACING.sm,
+        paddingVertical: 2,
+        borderRadius: RADIUS.full,
+    },
+    comparisonToggle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.md,
+        padding: SPACING.sm,
+        borderRadius: RADIUS.md,
+    },
+    comparisonText: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.regular,
+    },
+    chartContainer: {
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.md,
+        padding: SPACING.md,
+        borderRadius: RADIUS.lg,
+        alignItems: 'center',
+    },
+    insightBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.md,
+        padding: SPACING.md,
+        borderRadius: RADIUS.md,
+    },
+    insightText: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.medium,
+        flex: 1,
+    },
+    tableContainer: {
+        marginHorizontal: SPACING.lg,
+        marginTop: SPACING.lg,
+        borderRadius: RADIUS.lg,
+        overflow: 'hidden',
+    },
+    tableHeader: {
+        flexDirection: 'row',
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        borderBottomWidth: 1,
+    },
+    tableHeaderCell: {
+        fontSize: TYPOGRAPHY.size.xs,
+        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    },
+    labelColumn: {
+        width: 60,
+    },
+    valueColumn: {
+        flex: 1,
+        textAlign: 'right',
+    },
+    tableRow: {
+        flexDirection: 'row',
+        paddingVertical: SPACING.sm,
+        paddingHorizontal: SPACING.md,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    tableCell: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.regular,
+    },
+    bottomSpacer: {
+        height: 100,
+    },
+});

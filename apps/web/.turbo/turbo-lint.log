@@ -2,81 +2,74 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/api/merchant/blog/upload/route.ts:60:24 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━
+src/types/index.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! Forbidden non-null assertion.
+  × Formatter would have printed the following content:
   
-    58 │         .from('merchants')
-    59 │         .select('id, slug')
-  > 60 │         .eq('user_id', user!.id)
-       │                        ^^^^^
-    61 │         .single();
-    62 │       merchant = data;
-  
-  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
-  
-     58  58 │           .from('merchants')
-     59  59 │           .select('id, slug')
-     60     │ - ········.eq('user_id',·user!.id)
-         60 │ + ········.eq('user_id',·user?.id)
-     61  61 │           .single();
-     62  62 │         merchant = data;
+    5 5 │   }
+    6 6 │   
+    7   │ - 
+    8   │ - 
   
 
-src/app/api/orders/[id]/record-payment/route.ts:100:20 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━
+src/types/notifications.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! Unexpected any. Specify a different type.
+  × Formatter would have printed the following content:
   
-     99 │     // 5. Update Order Status
-  > 100 │     const updates: any = {};
-        │                    ^^^
-    101 │ 
-    102 │     // Payment Status Logic
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/api/orders/[id]/record-payment/route.ts:133:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    131 │       updated_status: updates,
-    132 │     });
-  > 133 │   } catch (error: any) {
-        │                   ^^^
-    134 │     console.error('Error in record-payment:', error);
-    135 │     return NextResponse.json(
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/checkout/page.tsx:122:44 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    120 │   const form = useForm<OtpAuthFormValues>({
-    121 │     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  > 122 │     resolver: zodResolver(otpAuthSchema as any as any),
-        │                                            ^^^
-    123 │     defaultValues: { email: '' },
-    124 │   });
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/app/checkout/page.tsx:122:51 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    120 │   const form = useForm<OtpAuthFormValues>({
-    121 │     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  > 122 │     resolver: zodResolver(otpAuthSchema as any as any),
-        │                                                   ^^^
-Checked 769 files in 814ms. No fixes applied.
-Found 5 warnings.
-    123 │     defaultValues: { email: '' },
-    124 │   });
-  
-  i any disables many type checking rules. Its use should be avoided.
+     56  56 │   // ============================================================================
+     57  57 │   
+Checked 773 files in 1013ms. No fixes applied.
+     58     │ - 
+Found 3 errors.
+     59     │ - 
+     60  58 │   /**
+     61  59 │    * Main notification entity created by admins
+    ······· │ 
+    194 192 │     stats: NotificationStats;
+    195 193 │   }
+    196     │ - 
+    197     │ - 
+    198 194 │   
+    199 195 │   /**
+    ······· │ 
+    235 231 │   }
+    236 232 │   
+    237     │ - 
+    238     │ - 
+    239 233 │   // ============================================================================
+    240 234 │   // COMPONENT PROPS TYPES
+    241 235 │   // ============================================================================
+    242     │ - 
+    243 236 │   
+    244     │ - 
+    245     │ - 
+    246     │ - 
+    247     │ - 
+    248     │ - 
+    249 237 │   // ============================================================================
+    250 238 │   // FILTER AND QUERY TYPES
+    ······· │ 
+    274 262 │   // USAGE MONITORING TYPES
+    275 263 │   // ============================================================================
+    276     │ - 
+    277     │ - 
+    278 264 │   
+    279 265 │   /**
   
 
+src/types/staff.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    29 29 │   }
+    30 30 │   
+    31    │ - 
+    32    │ - 
+  
+
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

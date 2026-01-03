@@ -448,12 +448,22 @@ export const CartSidebar: React.FC = () => {
                     </>
                   )}
                 </button>
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="w-full text-center text-gray-500 hover:text-gray-900 text-sm font-medium"
-                >
-                  Continue Shopping
-                </button>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    href={asRoute(getHref('/cart'))}
+                    onClick={() => setIsCartOpen(false)}
+                    className="w-full bg-white hover:bg-gray-50 text-gray-900 font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:bg-gray-50 text-sm"
+                  >
+                    View Full Cart
+                  </Link>
+                  <button
+                    onClick={() => setIsCartOpen(false)}
+                    className="w-full text-center text-gray-500 hover:text-gray-900 text-sm font-medium py-3.5 px-4 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    Continue Shopping
+                  </button>
+                </div>
               </div>
             )}
           </div>

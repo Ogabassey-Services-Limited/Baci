@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
           // Prefer productId, fallback to SKU if available (though productId should be present for updates)
           let matchQuery = supabase.from('products').update({
             price: change.newPrice ?? change.details.price,
+            category: change.details.category,
             // Only update other fields if they are explicitly different/provided?
             // For now, let's assume the AI only suggests price updates mostly.
             // But if we want to sync names:
@@ -107,6 +108,8 @@ export async function POST(request: NextRequest) {
             condition: 'new',
             manage_stock: true,
             brand: change.details.brand || merchant.business_name,
+
+            category: change.details.category || 'General',
             taxable: true,
             // Minimal defaults
             schema_markup: {

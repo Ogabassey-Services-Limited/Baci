@@ -18,6 +18,8 @@ export interface Merchant {
   favicon_png_192_url: string | null;
   is_published: boolean;
   phone: string | null;
+  vat_registration_status: 'not_registered' | 'registered' | 'exempt' | 'pending' | null;
+  vat_rate: number | null;
 }
 
 export interface Domain {
@@ -42,7 +44,7 @@ async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant |
   // Fetch merchant by authenticated user ID
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone')
+    .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, vat_registration_status, vat_rate')
     .eq('user_id', userId)
     .single();
 

@@ -27,8 +27,3 @@ export interface StaffMember {
   last_login_at?: string | null;
   created_at?: string;
 }
-
-export interface RolePermissions {
-  role: StaffRole;
-  permissions: Record<string, Record<string, boolean>>;
-}

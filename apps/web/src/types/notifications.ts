@@ -56,24 +56,6 @@ export const TYPE_LABELS: Record<NotificationType, string> = {
 // ============================================================================
 
 /**
- * Notification template for reusable messages.
- *
- * @future This interface is defined for the planned notification templates feature.
- * Templates will allow admins to create reusable notification messages.
- * Currently not in use - will be implemented in admin notifications templates page.
- */
-export interface NotificationTemplate {
-  id: string;
-  name: string;
-  message_template: string;
-  notification_type: NotificationType;
-  priority: NotificationPriority;
-  channels: NotificationChannel[];
-  created_at: string;
-  updated_at: string;
-}
-
-/**
  * Main notification entity created by admins
  */
 export interface Notification {
@@ -100,7 +82,7 @@ export interface Notification {
 /**
  * Per-merchant notification delivery record
  */
-export interface MerchantNotification {
+interface MerchantNotification {
   id: string;
   notification_id: string;
   merchant_id: string;
@@ -211,16 +193,6 @@ export interface NotificationWithStats extends Notification {
 }
 
 /**
- * Paginated response for notifications
- */
-export interface PaginatedNotifications<T> {
-  data: T[];
-  cursor: string | null;
-  has_more: boolean;
-  total_count?: number;
-}
-
-/**
  * Active banner notification for display
  */
 export interface ActiveBanner {
@@ -258,43 +230,9 @@ export interface NotificationBroadcastPayload {
   created_at: string;
 }
 
-/**
- * Payload sent via Supabase Broadcast when notification is updated
- */
-export interface NotificationUpdateBroadcastPayload {
-  event: 'notification_updated';
-  merchant_notification_id: string;
-  read_at?: string;
-  dismissed_at?: string;
-  banner_dismissed_at?: string;
-}
-
 // ============================================================================
 // COMPONENT PROPS TYPES
 // ============================================================================
-
-/**
- * Props for the NotificationCenter component
- */
-export interface NotificationCenterProps {
-  className?: string;
-}
-
-/**
- * Props for the NotificationBanner component
- */
-export interface NotificationBannerProps {
-  className?: string;
-}
-
-/**
- * Props for individual notification item
- */
-export interface NotificationItemProps {
-  notification: MerchantNotificationWithDetails;
-  onMarkAsRead?: (id: string) => void;
-  onDismiss?: (id: string) => void;
-}
 
 // ============================================================================
 // FILTER AND QUERY TYPES
@@ -323,20 +261,6 @@ export interface MerchantNotificationFilters {
 // ============================================================================
 // USAGE MONITORING TYPES
 // ============================================================================
-
-/**
- * Supabase Realtime usage statistics
- */
-export interface RealtimeUsageStats {
-  concurrent_connections: number;
-  max_connections: number;
-  messages_this_month: number;
-  max_messages: number;
-  connection_usage_percent: number;
-  message_usage_percent: number;
-  is_approaching_limit: boolean;
-  is_over_limit: boolean;
-}
 
 /**
  * Usage warning thresholds

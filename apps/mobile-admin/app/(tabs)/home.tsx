@@ -13,6 +13,7 @@ import {
   StatusBar,
   Pressable,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,7 +52,7 @@ export default function HomeScreen() {
   const { merchant, storeUrl, isLive } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
-  const { stats, revenueData, isLoading, refetch } = useDashboardStats(period);
+  const { stats, revenueData, topProducts, isLoading, refetch } = useDashboardStats(period);
   const queryClient = useQueryClient();
   const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
 
@@ -318,6 +319,41 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Top Selling Products */}
+        {topProducts.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Selling Products</Text>
+            <View style={[styles.topProductsCard, { backgroundColor: colors.card }, shadows.sm]}>
+              {topProducts.map((product, index) => (
+                <View key={product.id}>
+                  {index > 0 && <View style={[styles.productDivider, { backgroundColor: colors.border }]} />}
+                  <View style={styles.productRow}>
+                    <View style={[styles.productRank, { backgroundColor: index === 0 ? colors.gold : colors.cardHover }]}>
+                      <Text style={[styles.productRankText, { color: index === 0 ? '#FFFFFF' : colors.textMuted }]}>#{index + 1}</Text>
+                    </View>
+                    {product.imageUrl ? (
+                      <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
+                    ) : (
+                      <View style={[styles.productImagePlaceholder, { backgroundColor: colors.cardHover }]}>
+                        <Ionicons name="cube-outline" size={20} color={colors.textMuted} />
+                      </View>
+                    )}
+                    <View style={styles.productInfo}>
+                      <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
+                      <Text style={[styles.productStats, { color: colors.textSecondary }]}>
+                        {product.totalSold} sold
+                      </Text>
+                    </View>
+                    <Text style={[styles.productRevenue, { color: colors.success }]}>
+                      {formatCurrency(product.totalRevenue)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
@@ -428,5 +464,58 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  topProductsCard: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  productDivider: {
+    height: 1,
+    marginVertical: SPACING.md,
+  },
+  productRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  productRank: {
+    width: 28,
+    height: 28,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productRankText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  productImage: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+  },
+  productImagePlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  productStats: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginTop: 2,
+  },
+  productRevenue: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
 });
