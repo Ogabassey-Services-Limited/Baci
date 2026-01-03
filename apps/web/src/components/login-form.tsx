@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
 import {
   type AuthActionState,
@@ -61,6 +62,11 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
+  const searchParams = useSearchParams();
+
+  // Get email and redirect from URL
+  const defaultEmail = searchParams.get('email') || '';
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
 
   // React 19 useActionState for login form
   const [loginState, loginFormAction] = useActionState(
@@ -166,6 +172,7 @@ export default function LoginForm() {
             {mode === 'login' ? (
               <div className="animate-in fade-in duration-300">
                 <form action={loginFormAction} className="space-y-4">
+                  <input type="hidden" name="redirectTo" value={redirectTo} />
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <div className="relative group">
@@ -176,6 +183,7 @@ export default function LoginForm() {
                         type="email"
                         placeholder="name@example.com"
                         required
+                        defaultValue={defaultEmail}
                         className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                         autoComplete="email"
                       />

@@ -184,18 +184,30 @@ export function useResendInvitation() {
 
     return useMutation({
         mutationFn: async (staffId: string) => {
+            console.log('[ResendInvite] Starting for staffId:', staffId);
             if (!merchant?.id) throw new Error('Merchant not found');
 
             // Verify staff member exists and is pending
             const { data: staff, error: fetchError } = await supabase
                 .from('staff_members')
-                .select('id, status')
+                .select('id, status, merchant_id')
                 .eq('id', staffId)
-                .eq('merchant_id', merchant.id)
                 .single();
 
-            if (fetchError || !staff) throw new Error('Staff member not found');
+            console.log('[ResendInvite] DB Lookup result:', staff, 'Error:', fetchError);
+
+            if (fetchError || !staff) {
+                console.error('[ResendInvite] Error: Staff not found or fetch error.', fetchError);
+                throw new Error('Staff member not found');
+            }
+
+            if (staff.merchant_id !== merchant.id) {
+                console.error('[ResendInvite] Merchant ID mismatch. Staff Merchant:', staff.merchant_id, 'My Merchant:', merchant.id);
+                throw new Error('Staff member not associated with this merchant');
+            }
+
             if (staff.status !== 'pending') {
+                console.warn('[ResendInvite] Status is not pending. Status:', staff.status);
                 throw new Error('Can only resend invitation to pending members');
             }
 

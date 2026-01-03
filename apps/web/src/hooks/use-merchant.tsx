@@ -384,8 +384,11 @@ export const MerchantProvider = ({
           // User is not a merchant owner, check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member
-            const merchantInfo =
-              staffMember.merchants as unknown as MerchantData;
+            // Correctly handle the join which might return an array or single object
+            const merchantInfo = (Array.isArray(staffMember.merchants)
+              ? staffMember.merchants[0]
+              : staffMember.merchants) as unknown as MerchantData;
+
             merchantData = merchantInfo;
 
             // Get effective permissions (role defaults + custom overrides)

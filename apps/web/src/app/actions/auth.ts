@@ -40,6 +40,7 @@ export async function loginAction(
   }
 
   const { email, password } = result.data;
+  const redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
 
   try {
     const cookieStore = await cookies();
@@ -62,7 +63,8 @@ export async function loginAction(
   }
 
   // Redirect on success - this will throw and interrupt the response
-  redirect('/dashboard');
+  // biome-ignore lint/suspicious/noExplicitAny: Next.js redirect needs Route type if typed routes are enabled
+  redirect(redirectTo as any);
 }
 
 /**

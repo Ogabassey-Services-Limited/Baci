@@ -44,7 +44,7 @@ export async function GET() {
     }
 
     // Get merchant with all relevant fields (only columns that exist in the table)
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: ownedMerchant, error: merchantError } = await supabase
       .from('merchants')
       .select(`
         id,
@@ -71,13 +71,74 @@ export async function GET() {
         cac_rc_number
       `)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    let merchant = ownedMerchant;
 
     if (merchantError || !merchant) {
-      console.error('[Readiness API] Merchant lookup failed:', {
-        userId: user.id,
-        error: merchantError,
-      });
+      // User is not a merchant owner, check if they are staff
+      const { data: staffMember, error: staffError } = await supabase
+        .from('staff_members')
+        .select(`
+          merchant_id,
+          merchants (
+            id,
+            business_name,
+            country,
+            logo_url,
+            support_email,
+            support_phone,
+            business_address,
+            paystack_subaccount_code,
+            bank_code,
+            bank_account_number,
+            social_media,
+            pages,
+            hero_slides,
+            google_analytics_id,
+            facebook_pixel_id,
+            tiktok_pixel_id,
+            snapchat_pixel_id,
+            twitter_pixel_id,
+            is_published,
+            nin,
+            bvn,
+            cac_rc_number
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (staffError || !staffMember) {
+        console.error('[Readiness API] Merchant/Staff lookup failed:', {
+          userId: user.id,
+          merchantError,
+          staffError,
+        });
+        return NextResponse.json(
+          { error: 'Merchant not found' },
+          { status: 404 }
+        );
+      }
+
+      // Extract merchant from staff join (handling potential array)
+      const merchantData = Array.isArray(staffMember.merchants)
+        ? staffMember.merchants[0]
+        : staffMember.merchants;
+
+      if (!merchantData) {
+        return NextResponse.json(
+          { error: 'Merchant not found' },
+          { status: 404 }
+        );
+      }
+
+      // Use the staff member's merchant
+      merchant = merchantData as any;
+    }
+
+    if (!merchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

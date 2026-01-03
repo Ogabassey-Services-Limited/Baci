@@ -64,43 +64,47 @@ export const getMerchantForUser = cache(async () => {
         .single();
 
       if (staffMember && !staffError) {
-        // User is an active staff member
-        const merchantInfo = staffMember.merchants as unknown as MerchantData;
-        merchantData = merchantInfo;
+        // Correctly handle the join which might return an array or single object
+        const merchantInfo = (Array.isArray(staffMember.merchants)
+          ? staffMember.merchants[0]
+          : staffMember.merchants) as unknown as MerchantData;
 
-        // Get effective permissions (role defaults + custom overrides)
-        const { data: rolePerms } = await supabase
-          .from('role_permissions')
-          .select('permissions')
-          .eq('role', staffMember.role)
-          .single();
+        if (merchantInfo) {
+          // Get effective permissions (role defaults + custom overrides)
+          const { data: rolePerms } = await supabase
+            .from('role_permissions')
+            .select('permissions')
+            .eq('role', staffMember.role)
+            .single();
 
-        const defaultPerms = (rolePerms?.permissions || {}) as Record<
-          string,
-          Record<string, boolean>
-        >;
-        const customPerms = (staffMember.permissions || {}) as Record<
-          string,
-          Record<string, boolean>
-        >;
+          const defaultPerms = (rolePerms?.permissions || {}) as Record<
+            string,
+            Record<string, boolean>
+          >;
+          const customPerms = (staffMember.permissions || {}) as Record<
+            string,
+            Record<string, boolean>
+          >;
 
-        // Merge permissions: custom overrides defaults
-        const mergedPermissions: Record<string, Record<string, boolean>> = {
-          ...defaultPerms,
-        };
-        for (const [resource, actions] of Object.entries(customPerms)) {
-          mergedPermissions[resource] = {
-            ...mergedPermissions[resource],
-            ...actions,
+          // Merge permissions: custom overrides defaults
+          const mergedPermissions: Record<string, Record<string, boolean>> = {
+            ...defaultPerms,
+          };
+          for (const [resource, actions] of Object.entries(customPerms)) {
+            mergedPermissions[resource] = {
+              ...mergedPermissions[resource],
+              ...actions,
+            };
+          }
+
+          merchantData = merchantInfo;
+          access = {
+            isStaff: true,
+            isOwner: false,
+            role: staffMember.role as StaffRole,
+            permissions: mergedPermissions,
           };
         }
-
-        access = {
-          isStaff: true,
-          isOwner: false,
-          role: staffMember.role as StaffRole,
-          permissions: mergedPermissions,
-        };
       }
     }
 

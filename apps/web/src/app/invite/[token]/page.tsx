@@ -94,8 +94,12 @@ export default function AcceptInvitePage() {
 
   const handleAcceptInvitation = async () => {
     if (!user) {
-      // Redirect to sign in with return URL
-      router.push(`/sign-in?redirect=/invite/${token}`);
+      // Redirect to login with return URL and pre-filled email
+      const searchParams = new URLSearchParams({
+        redirect: `/invite/${token}`,
+        email: invitation?.email || '',
+      });
+      router.push(`/login?${searchParams.toString()}`);
       return;
     }
 
@@ -275,7 +279,9 @@ export default function AcceptInvitePage() {
           <div className="space-y-3">
             {user ? (
               emailMismatch ? (
-                <Link href={`/sign-in?redirect=/invite/${token}`}>
+                <Link
+                  href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+                >
                   <Button className="w-full">
                     <LogIn className="mr-2 h-4 w-4" />
                     Sign in with {invitation?.email}
@@ -301,23 +307,14 @@ export default function AcceptInvitePage() {
                 </Button>
               )
             ) : (
-              <>
-                <Link href={`/sign-in?redirect=/invite/${token}`}>
-                  <Button className="w-full">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign in to Accept
-                  </Button>
-                </Link>
-                <p className="text-xs text-center text-muted-foreground">
-                  Don't have an account?{' '}
-                  <Link
-                    href={`/sign-up?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
-                    className="text-primary hover:underline"
-                  >
-                    Create one
-                  </Link>
-                </p>
-              </>
+              <Link
+                href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+              >
+                <Button className="w-full">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Sign in to Accept
+                </Button>
+              </Link>
             )}
           </div>
 

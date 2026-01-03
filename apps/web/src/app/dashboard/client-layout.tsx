@@ -328,11 +328,14 @@ export default function DashboardClientLayout({
   };
 
   const unfilledPagesCount = (() => {
-    if (!merchant?.pages) return 6; // All pages missing if object doesn't exist
+    // If merchant is an array (unexpected but possible from join) or missing pages, return default
+    if (Array.isArray(merchant) || !merchant?.pages) return 6;
     const pages = merchant.pages as Record<string, string>;
     const keys = ['about', 'contact', 'privacy', 'terms', 'faq', 'legal'];
-    return keys.filter((key) => !pages[key] || pages[key].trim().length === 0)
-      .length;
+    return keys.filter((key) => {
+      const val = pages[key];
+      return !val || (typeof val === 'string' && val.trim().length === 0);
+    }).length;
   })();
 
   const navItems: {
