@@ -314,6 +314,14 @@ export function OgabasseyLoginPage() {
                                 By continuing, you agree to the store's terms of service and
                                 privacy policy.
                             </p>
+
+                            {/* Account Creation Notice */}
+                            <p className="text-center text-white/60 text-sm">
+                                New to Ogabassey?{' '}
+                                <span className="text-white font-medium">
+                                    Just enter your email above to create an account
+                                </span>
+                            </p>
                         </form>
                     ) : (
                         // OTP verification form
@@ -397,7 +405,7 @@ export function OgabasseyLoginPage() {
             {/* Footer */}
             <footer className="relative z-10 border-t border-white/10 py-4">
                 <div className="container mx-auto px-4 text-center text-sm text-white/40">
-                    Secure passwordless login powered by Ogabassey
+                    Secure passwordless login powered by Baci
                 </div>
             </footer>
         </div>

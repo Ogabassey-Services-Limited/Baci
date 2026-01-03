@@ -43,11 +43,12 @@ export default function CustomerLoginPage() {
 
   // Template-based login page switching
   // Ogabassey merchants get the premium glassmorphism design
-  // Check both template_id and slug for compatibility
+  // Check template_id, slug, custom_domain, and business_name for compatibility
   const isOgabassey =
     merchant?.template_id === 'ogabassey' ||
     merchant?.slug === 'ogabassey' ||
-    merchant?.business_name === 'Ogabassey';
+    merchant?.custom_domain?.includes('ogabassey') ||
+    merchant?.business_name?.toLowerCase().includes('ogabassey');
 
   if (!merchantLoading && isOgabassey) {
     return <OgabasseyLoginPage />;
@@ -343,6 +344,14 @@ function DefaultLoginPage() {
                 <p className="text-xs text-center text-muted-foreground">
                   By continuing, you agree to the store's terms of service and
                   privacy policy.
+                </p>
+
+                {/* Account Creation Notice */}
+                <p className="text-center text-muted-foreground text-sm">
+                  New here?{' '}
+                  <span className="text-foreground font-medium">
+                    Just enter your email above to create an account
+                  </span>
                 </p>
               </form>
             ) : (

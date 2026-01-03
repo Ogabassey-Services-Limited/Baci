@@ -4,30 +4,8 @@
 
 import sanitizeLib from 'sanitize-html';
 
-// Re-export all core sanitization functions for backwards compatibility
-export {
-  customerSchema,
-  escapeHtml,
-  isValidUuid,
-  orderSchema,
-  productSchema,
-  safeJsonLdStringify,
-  sanitizeEmail,
-  sanitizeFileName,
-  sanitizeInteger,
-  sanitizeJson,
-  sanitizeLikePattern,
-  sanitizeNumber,
-  sanitizeObjectKeys,
-  sanitizePhone,
-  sanitizePrice,
-  sanitizeSchemaMarkup,
-  sanitizeSchemaUrl,
-  sanitizeSearchQuery,
-  sanitizeText,
-  sanitizeUrl,
-  stripHtmlTags,
-} from './sanitize-core';
+// Re-export removed as per knip analysis
+// import from './sanitize-core' directly if needed
 
 /**
  * Sanitize HTML content to prevent XSS attacks using sanitize-html.

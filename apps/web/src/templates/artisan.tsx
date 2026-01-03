@@ -19,7 +19,7 @@ import { useState } from 'react';
  * Warm, authentic design for handcrafted and artisan products
  * Color scheme: Terracotta, Cream, Sage, Warm Brown
  */
-export function HandmadeTemplate({ children }: { children: React.ReactNode }) {
+function HandmadeTemplate({ children }: { children: React.ReactNode }) {
   return <div className="template-handmade bg-[#FAF6F1]">{children}</div>;
 }
 

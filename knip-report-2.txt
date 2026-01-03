@@ -1,0 +1,619 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm.
+npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm.
+npm warn Unknown project config "public-hoist-pattern". This will stop working in the next major version of npm.
+Unused files (102)
+.gemini/fix-remaining-lints.cjs                                                 
+.gemini/post-pr-comment.cjs                                                     
+apps/mobile-admin/get_blue.js                                                   
+apps/mobile-admin/get_color.js                                                  
+apps/mobile-admin/get_logo_color.js                                             
+apps/mobile-admin/scripts/generate-icons.js                                     
+apps/mobile-storefront/components/__tests__/StyledText-test.js                  
+apps/mobile-storefront/components/storefront/FilterSheet.tsx                    
+apps/mobile-storefront/components/storefront/Footer.tsx                         
+apps/mobile-storefront/components/ui/Button.tsx                                 
+apps/mobile-storefront/components/useClientOnlyValue.ts                         
+apps/mobile-storefront/components/useClientOnlyValue.web.ts                     
+apps/mobile-storefront/components/useColorScheme.web.ts                         
+apps/mobile-storefront/hooks/use-analytics.ts                                   
+apps/mobile-storefront/hooks/use-cart.ts                                        
+apps/mobile-storefront/lib/notifications.ts                                     
+apps/web/src/ai/flows/generate-product-faq.ts                                   
+apps/web/src/app/actions/paystack.ts                                            
+apps/web/src/app/dashboard/orders/[orderId]/fulfillment-dialog.tsx              
+apps/web/src/components/csrf-initializer.tsx                                    
+apps/web/src/components/dashboard/mobile-preview.tsx                            
+apps/web/src/components/dashboard/upgrade-modal.tsx                             
+apps/web/src/components/storefront/app-body.tsx                                 
+apps/web/src/components/storefront/ogabassey/adLocations/config.ts              
+apps/web/src/components/storefront/ogabassey/components/GiftModal.tsx           
+apps/web/src/components/storefront/ogabassey/components/InvoiceModal.tsx        
+apps/web/src/components/storefront/ogabassey/components/loader.tsx              
+apps/web/src/components/storefront/ogabassey/components/MobileMenu.tsx          
+apps/web/src/components/storefront/ogabassey/components/ProductFilters.tsx      
+apps/web/src/components/storefront/ogabassey/components/ReceiptModal.tsx        
+apps/web/src/components/storefront/ogabassey/components/SavedToast.tsx          
+apps/web/src/components/storefront/ogabassey/components/SEO.tsx                 
+apps/web/src/components/storefront/ogabassey/components/SnowEffect.tsx          
+apps/web/src/components/storefront/ogabassey/components/SourceRequestModal.tsx  
+apps/web/src/components/storefront/ogabassey/components/UpsellToast.tsx         
+apps/web/src/components/storefront/ogabassey/contexts/ComparisonContext.tsx     
+apps/web/src/components/storefront/ogabassey/contexts/SavedContext.tsx          
+apps/web/src/components/storefront/ogabassey/layout/app-body.tsx                
+apps/web/src/components/storefront/ogabassey/pages/cart.tsx                     
+apps/web/src/components/storefront/ogabassey/pages/category.tsx                 
+apps/web/src/components/storefront/ogabassey/pages/notifications.tsx            
+apps/web/src/components/storefront/ogabassey/pages/order-details.tsx            
+apps/web/src/components/storefront/ogabassey/pages/order-success-page.tsx       
+apps/web/src/components/storefront/ogabassey/pages/orders.tsx                   
+apps/web/src/components/storefront/ogabassey/pages/product-details.tsx          
+apps/web/src/components/storefront/ogabassey/pages/profile.tsx                  
+apps/web/src/components/storefront/ogabassey/pages/receipts.tsx                 
+apps/web/src/components/storefront/ogabassey/pages/saved-page.tsx               
+apps/web/src/components/storefront/ogabassey/pages/saved.tsx                    
+apps/web/src/components/storefront/ogabassey/pages/security.tsx                 
+apps/web/src/components/storefront/ogabassey/providers/v2-order-context.tsx     
+apps/web/src/components/storefront/ogabassey/providers/v2-wallet-context.tsx    
+apps/web/src/components/storefront/related-products.tsx                         
+apps/web/src/components/storefront/santa-chat/chat-input.tsx                    
+apps/web/src/components/storefront/santa-chat/chat-message.tsx                  
+apps/web/src/components/storefront/santa-chat/index.ts                          
+apps/web/src/components/storefront/santa-chat/santa-chat-dialog.tsx             
+apps/web/src/components/storefront/santa-chat/santa-widget.tsx                  
+apps/web/src/components/storefront/santa-chat/welcome-screen.tsx                
+apps/web/src/components/storefront/shared/checkout-theme.ts                     
+apps/web/src/hooks/use-ad-tracking.ts                                           
+apps/web/src/hooks/use-comparison.tsx                                           
+apps/web/src/hooks/use-merchant-features.tsx                                    
+apps/web/src/hooks/use-saved.tsx                                                
+apps/web/src/hooks/use-storefront-products.ts                                   
+apps/web/src/lib/ad-monetization/index.ts                                       
+apps/web/src/lib/ad-monetization/types.ts                                       
+apps/web/src/lib/ad-monetization/use-ad-settings.tsx                            
+apps/web/src/lib/feature-flags.ts                                               
+apps/web/src/lib/firebase-admin.ts                                              
+apps/web/src/lib/rate-limit.ts                                                  
+apps/web/src/lib/shipping/providers/gigl.ts                                     
+apps/web/src/schemas/page-blocks.ts                                             
+apps/web/src/scripts/generate-all-product-faqs.ts                               
+apps/web/src/templates/modern.tsx                                               
+apps/web/src/types/supabase.ts                                                  
+cloudflare-gemini-proxy/src/index.js                                            
+eslint.config.js                                                                
+jest-dom.d.ts                                                                   
+jest.config.js                                                                  
+jest.setup.js                                                                   
+patch_widget.js                                                                 
+public/color-worker.js                                                          
+scripts-tmp/check-cdn-access.ts                                                 
+scripts-tmp/list-missing-parents.ts                                             
+scripts-tmp/list-remaining-parents.ts                                           
+scripts-tmp/prepare-avifs.ts                                                    
+scripts-tmp/sync-gaming-variants.ts                                             
+scripts-tmp/update-cdn-urls.ts                                                  
+scripts-tmp/update-phase1-parents.ts                                            
+scripts-tmp/update-phase2-parents.ts                                            
+scripts-tmp/upload-game-covers.ts                                               
+supabase/functions/process-scheduled-notifications/index.ts                     
+supabase/functions/send-auth-email/index.ts                                     
+supabase/functions/send-staff-invite/index.ts                                   
+supabase/functions/sync-gaming-prices/index.ts                                  
+supabase/functions/validate-password/index.ts                                   
+tailwind.config.ts                                                              
+types/colorthief.d.ts                                                           
+unlighthouse.config.ts                                                          
+vitest.config.ts                                                                
+vitest.setup.ts                                                                 
+Unused dependencies (16)
+@react-native-community/netinfo         apps/mobile-admin/package.json:25:6     
+@shopify/flash-list                     apps/mobile-admin/package.json:27:6     
+expo-av                                 apps/mobile-admin/package.json:34:6     
+expo-device                             apps/mobile-admin/package.json:38:6     
+expo-web-browser                        apps/mobile-admin/package.json:51:6     
+zustand                                 apps/mobile-admin/package.json:65:6     
+@tanstack/query-sync-storage-persister  apps/mobile-storefront/package.json:23:6
+expo-store-review                       apps/mobile-storefront/package.json:44:6
+lottie-react-native                     apps/mobile-storefront/package.json:48:6
+react-native-mmkv                       apps/mobile-storefront/package.json:56:6
+react-native-nitro-modules              apps/mobile-storefront/package.json:57:6
+@ai-sdk/rsc                             apps/web/package.json:22:6              
+@radix-ui/react-menubar                 apps/web/package.json:40:6              
+@radix-ui/react-slider                  apps/web/package.json:47:6              
+firebase-admin                          apps/web/package.json:77:6              
+jimp                                    apps/web/package.json:82:6              
+Unused devDependencies (14)
+sharp                             apps/mobile-admin/package.json:69:6     
+react-test-renderer               apps/mobile-storefront/package.json:70:6
+@typescript-eslint/eslint-plugin  apps/web/package.json:123:6             
+@typescript-eslint/parser         apps/web/package.json:124:6             
+@unlighthouse/cli                 apps/web/package.json:125:6             
+@unlighthouse/core                apps/web/package.json:126:6             
+baseline-browser-mapping          apps/web/package.json:129:6             
+change-case                       apps/web/package.json:130:6             
+critical                          apps/web/package.json:131:6             
+eslint-plugin-prettier            apps/web/package.json:136:6             
+joi                               apps/web/package.json:138:6             
+lefthook                          apps/web/package.json:141:6             
+prettier                          apps/web/package.json:143:6             
+puppeteer                         apps/web/package.json:144:6             
+Unlisted dependencies (11)
+expo-updates                                                               apps/mobile-admin/app.json                   
+expo-system-ui                                                             apps/mobile-admin/app.json                   
+/Users/mac/Baci-app/node_modules/@expo/metro-config/build/transform-work…  apps/mobile-admin/metro.config.js            
+expo-system-ui                                                             apps/mobile-storefront/app.json              
+expo-modules-core                                                          …refront/hooks/use-push-notifications.ts:8:41
+@eslint/js                                                                 apps/web/eslint.config.js:1:21               
+globals                                                                    apps/web/eslint.config.js:6:22               
+postcss-load-config                                                        apps/web/postcss.config.mjs:1:43             
+@next/bundle-analyzer                                                      next.config.ts:1:29                          
+postcss                                                                    postcss.config.mjs                           
+postcss-load-config                                                        postcss.config.mjs:1:43                      
+Unlisted binaries (2)
+wait-on  .github/workflows/unlighthouse.yml
+eas      apps/mobile-admin/package.json    
+Unresolved imports (8)
+../../app/(tabs)/analytics  apps/mobile-admin/components/analytics/ReportSelectionModal.tsx:6:31
+../../app/(tabs)/analytics  apps/mobile-admin/components/analytics/ReportsGenerator.ts:4:31     
+metro-minify-terser         apps/mobile-admin/metro.config.js                                   
+./src/lib/paystack          apps/web/mcp-server/server.ts:2356:50                               
+tailwindcss                 postcss.config.mjs                                                  
+vitest/globals              tsconfig.json                                                       
+@testing-library/jest-dom   tsconfig.json                                                       
+google.maps                 tsconfig.json                                                       
+Unused exports (378)
+COLORS                                 apps/mobile-admin/constants/theme.ts:110:14                                      
+CHART_COLORS                           apps/mobile-admin/constants/theme.ts:190:14                                      
+ICON_SIZE                              apps/mobile-admin/constants/theme.ts:203:14                                      
+useCustomer                  function  apps/mobile-admin/hooks/useCustomers.ts:89:17                                    
+useProduct                   function  apps/mobile-admin/hooks/useProducts.ts:126:17                                    
+useUpdateProductStock        function  apps/mobile-admin/hooks/useProducts.ts:146:17                                    
+useUpdateProductStatus       function  apps/mobile-admin/hooks/useProducts.ts:184:17                                    
+useCategories                function  apps/mobile-admin/hooks/useProducts.ts:197:17                                    
+clearAdminQueryCache                   apps/mobile-admin/lib/query-client.ts:57:14                                      
+clearAdminAuth                         apps/mobile-admin/lib/supabase.ts:21:14                                          
+useConnectivity              function  apps/mobile-storefront/components/ConnectivityBanner.tsx:146:17                  
+GlobalErrorBoundary          class     apps/mobile-storefront/components/ErrorBoundary.tsx:29:14                        
+default                                apps/mobile-storefront/components/ErrorBoundary.tsx:294:8                        
+useThemeColor                function  apps/mobile-storefront/components/Themed.tsx:19:17                               
+Skeleton                     function  apps/mobile-storefront/components/ui/Skeleton.tsx:18:17                          
+ProductCardSkeleton          function  apps/mobile-storefront/components/ui/Skeleton.tsx:66:17                          
+HomeScreenSkeleton           function  apps/mobile-storefront/components/ui/Skeleton.tsx:116:17                         
+ProductDetailSkeleton        function  apps/mobile-storefront/components/ui/Skeleton.tsx:145:17                         
+palette                                apps/mobile-storefront/constants/Colors.ts:300:10                                
+useProduct                   function  apps/mobile-storefront/hooks/use-products-query.ts:200:17                        
+usePrefetchProducts          function  apps/mobile-storefront/hooks/use-products-query.ts:260:17                        
+usePrefetchProduct           function  apps/mobile-storefront/hooks/use-products-query.ts:275:17                        
+walletKeys                             apps/mobile-storefront/hooks/use-wallet.ts:46:14                                 
+QUERY_CACHE_KEYS                       apps/mobile-storefront/lib/query-client.ts:51:14                                 
+asyncStorage                           apps/mobile-storefront/lib/storage.ts:15:14                                      
+initializeStorage            function  apps/mobile-storefront/lib/storage.ts:66:23                                      
+isSupabaseConfigured         function  apps/mobile-storefront/lib/supabase.ts:80:17                                     
+getSession                   function  apps/mobile-storefront/lib/supabase.ts:87:23                                     
+getCurrentUser               function  apps/mobile-storefront/lib/supabase.ts:99:23                                     
+signOut                      function  apps/mobile-storefront/lib/supabase.ts:111:23                                    
+CATEGORY_TEMPLATES                     apps/mobile-storefront/lib/templates.ts:20:14                                    
+QuantitySchema                         apps/mobile-storefront/lib/validation.ts:83:14                                   
+ProfileSchema                          apps/mobile-storefront/lib/validation.ts:93:14                                   
+validateWithSchema           function  apps/mobile-storefront/lib/validation.ts:112:17                                  
+CalculateOrderInput                    apps/mobile-storefront/lib/validation.ts:146:14                                  
+CalculateOrderOutput                   apps/mobile-storefront/lib/validation.ts:152:14                                  
+CalculateVTUInput                      apps/mobile-storefront/lib/validation.ts:157:14                                  
+CalculateVTUOutput                     apps/mobile-storefront/lib/validation.ts:164:14                                  
+RedeemLoyaltyInput                     apps/mobile-storefront/lib/validation.ts:171:14                                  
+RedeemLoyaltyOutput                    apps/mobile-storefront/lib/validation.ts:177:14                                  
+isTrackingEnabled            function  apps/mobile-storefront/services/ad-tracking.ts:176:17                            
+identifyUser                 function  apps/mobile-storefront/services/ad-tracking.ts:187:23                            
+resetUserIdentity            function  apps/mobile-storefront/services/ad-tracking.ts:231:23                            
+trackProductViewed           function  apps/mobile-storefront/services/ad-tracking.ts:346:23                            
+trackAddToCart               function  apps/mobile-storefront/services/ad-tracking.ts:405:23                            
+trackCheckoutStarted         function  apps/mobile-storefront/services/ad-tracking.ts:472:23                            
+trackPurchase                function  apps/mobile-storefront/services/ad-tracking.ts:520:23                            
+trackPaymentInfoAdded        function  apps/mobile-storefront/services/ad-tracking.ts:624:23                            
+trackSearch                  function  apps/mobile-storefront/services/ad-tracking.ts:645:23                            
+trackScreenView              function  apps/mobile-storefront/services/ad-tracking.ts:682:23                            
+trackSignup                  function  apps/mobile-storefront/services/ad-tracking.ts:692:23                            
+trackLogin                   function  apps/mobile-storefront/services/ad-tracking.ts:728:23                            
+trackCustomEvent             function  apps/mobile-storefront/services/ad-tracking.ts:739:23                            
+getPostHog                   function  apps/mobile-storefront/services/analytics.ts:59:17                               
+setUserProperties            function  apps/mobile-storefront/services/analytics.ts:104:17                              
+trackScreen                  function  apps/mobile-storefront/services/analytics.ts:131:17                              
+trackRemoveFromCart          function  apps/mobile-storefront/services/analytics.ts:198:17                              
+trackPaymentFailed           function  apps/mobile-storefront/services/analytics.ts:274:17                              
+trackCategoryViewed          function  apps/mobile-storefront/services/analytics.ts:303:17                              
+trackWishlistAction          function  apps/mobile-storefront/services/analytics.ts:322:17                              
+trackShare                   function  apps/mobile-storefront/services/analytics.ts:335:17                              
+trackNotificationInteracti…  function  apps/mobile-storefront/services/analytics.ts:350:17                              
+trackAppReviewPrompt         function  apps/mobile-storefront/services/analytics.ts:365:17                              
+isFeatureEnabled             function  apps/mobile-storefront/services/analytics.ts:378:23                              
+getFeatureFlagValue          function  apps/mobile-storefront/services/analytics.ts:392:23                              
+reloadFeatureFlags           function  apps/mobile-storefront/services/analytics.ts:407:23                              
+trackTiming                  function  apps/mobile-storefront/services/analytics.ts:424:17                              
+shutdownAnalytics            function  apps/mobile-storefront/services/analytics.ts:464:23                              
+requestPermissions           function  apps/mobile-storefront/services/push-notifications.ts:38:23                      
+cancelNotification           function  apps/mobile-storefront/services/push-notifications.ts:257:23                     
+cancelAllNotifications       function  apps/mobile-storefront/services/push-notifications.ts:264:23                     
+getBadgeCount                function  apps/mobile-storefront/services/push-notifications.ts:271:23                     
+setBadgeCount                function  apps/mobile-storefront/services/push-notifications.ts:278:23                     
+SANTA_SYSTEM_INSTRUCTION               apps/web/src/ai/prompts/santa.ts:11:14                                           
+SANTA_GREETING                         apps/web/src/ai/prompts/santa.ts:51:14                                           
+geminiPro                              apps/web/src/ai/provider.ts:34:14                                                
+gemini25Flash                          apps/web/src/ai/provider.ts:37:14                                                
+imagen3                                apps/web/src/ai/provider.ts:48:14                                                
+AI_RETRY_CONFIG                        apps/web/src/ai/provider.ts:122:14                                               
+OrdersChart                  function  apps/web/src/components/analytics/chart-components.tsx:111:17                    
+sendEnhancedConversion       function  apps/web/src/components/analytics/google-analytics.tsx:89:17                     
+trackMerchantFirstSale       function  apps/web/src/components/analytics/platform-analytics-provider.tsx:177:17         
+trackStorePublished          function  apps/web/src/components/analytics/platform-analytics-provider.tsx:218:17         
+trackPricingPageView         function  apps/web/src/components/analytics/platform-analytics-provider.tsx:281:17         
+platformInstructions                   apps/web/src/components/analytics/setup-instructions.tsx:62:14                   
+snapchatEvents                         apps/web/src/components/analytics/snapchat-pixel.tsx:68:14                       
+tiktokEvents                           apps/web/src/components/analytics/tiktok-pixel.tsx:65:14                         
+twitterEvents                          apps/web/src/components/analytics/twitter-pixel.tsx:65:14                        
+ProductCard                  function  apps/web/src/components/blog/product-embed.tsx:210:17                            
+COMPONENT_NAMES                        apps/web/src/components/builder/component-schema.ts:124:14                       
+iconRegistry                           apps/web/src/components/builder/icon-registry.tsx:117:14                         
+iconCategories                         apps/web/src/components/builder/icon-registry.tsx:239:14                         
+getGroupedIconOptions        function  apps/web/src/components/builder/icon-registry.tsx:307:17                         
+isValidIcon                  function  apps/web/src/components/builder/icon-registry.tsx:338:17                         
+defaultFeatureIcons                    apps/web/src/components/builder/icon-registry.tsx:345:14                         
+SetupChecklistCompact        function  apps/web/src/components/dashboard/setup-checklist.tsx:594:17                     
+NotificationBannerStack      function  apps/web/src/components/notifications/notification-banner.tsx:172:17             
+OptimizedImage               function  apps/web/src/components/optimized-image.tsx:65:17                                
+HeroImage                    function  apps/web/src/components/optimized-image.tsx:133:17                               
+ProductMainImage             function  apps/web/src/components/optimized-image.tsx:140:17                               
+ThumbnailImage               function  apps/web/src/components/optimized-image.tsx:161:17                               
+LogoImage                    function  apps/web/src/components/optimized-image.tsx:175:17                               
+ImagePlaceholder             function  apps/web/src/components/optimized-image.tsx:184:17                               
+useCookieConsent             function  apps/web/src/components/storefront/cookie-consent.tsx:314:17                     
+isCookieAllowed              function  apps/web/src/components/storefront/cookie-consent.tsx:344:17                     
+CartPage                               apps/web/src/components/storefront/new-template/cart-page.tsx:21:14              
+NewTemplateCartPage                    apps/web/src/components/storefront/new-template/index.ts:3:22                    
+NewTemplateHome                        apps/web/src/components/storefront/new-template/index.ts:5:18                    
+InteractiveProductGrid                 apps/web/src/components/storefront/new-template/index.ts:7:10                    
+NewTemplateProductDetails              apps/web/src/components/storefront/new-template/index.ts:8:28                    
+ProductDetails                         apps/web/src/components/storefront/new-template/product-details.tsx:28:14        
+InteractiveProductGrid                 …/src/components/storefront/ogabassey/components/InteractiveProductGrid.tsx:29:14
+LogoIcon                               apps/web/src/components/storefront/ogabassey/components/Logo.tsx:83:14           
+OgabasseyMobileFooter                  apps/web/src/components/storefront/ogabassey/components/MobileFooter.tsx:168:26  
+PaymentLogo                  function  apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx:62:17   
+AdUnit                                 apps/web/src/components/storefront/ogabassey/index.ts:3:10                       
+BannerCarousel                         apps/web/src/components/storefront/ogabassey/index.ts:5:10                       
+BlogSnippet                            apps/web/src/components/storefront/ogabassey/index.ts:6:10                       
+OgabasseyCartSidebar                   apps/web/src/components/storefront/ogabassey/index.ts:7:25                       
+EngineProductGrid                      apps/web/src/components/storefront/ogabassey/index.ts:8:10                       
+InteractiveProductGrid                 apps/web/src/components/storefront/ogabassey/index.ts:9:10                       
+NegotiationModal                       apps/web/src/components/storefront/ogabassey/index.ts:10:10                      
+OgabasseyProductCard                   apps/web/src/components/storefront/ogabassey/index.ts:11:25                      
+OgabasseyFooter                        apps/web/src/components/storefront/ogabassey/index.ts:13:10                      
+OgabasseyMobileFooter                  apps/web/src/components/storefront/ogabassey/index.ts:14:26                      
+OgabasseyMobileMenu                    apps/web/src/components/storefront/ogabassey/index.ts:15:24                      
+OgabasseyNavbar                        apps/web/src/components/storefront/ogabassey/index.ts:16:10                      
+OgabasseyFooter                        apps/web/src/components/storefront/ogabassey/layout/footer.tsx:27:14             
+OgabasseyMobileMenu                    apps/web/src/components/storefront/ogabassey/layout/mobile-menu.tsx:136:24       
+useV2Notification                      …/src/components/storefront/ogabassey/providers/v2-notification-context.tsx:28:14
+ProductRating                function  apps/web/src/components/storefront/reviews-section.tsx:217:17                    
+ThemedLink                             apps/web/src/components/themed/index.ts:24:10                                    
+ThemedLink                             apps/web/src/components/themed/themed-link.tsx:26:14                             
+getBusinessTypeById          function  apps/web/src/config/business-types.ts:387:17                                     
+getAllBusinessTypeIds        function  apps/web/src/config/business-types.ts:407:17                                     
+isValidBusinessTypeId        function  apps/web/src/config/business-types.ts:442:17                                     
+getProductDescriptionStyle   function  apps/web/src/config/business-types.ts:469:17                                     
+DOMAIN_PRICING                         apps/web/src/config/domain-pricing.ts:22:14                                      
+RESALE_MARKUP                          apps/web/src/config/domain-pricing.ts:151:14                                     
+getPopularDomains            function  apps/web/src/config/domain-pricing.ts:168:17                                     
+getRecommendedDomains        function  apps/web/src/config/domain-pricing.ts:172:17                                     
+getNigerianDomains           function  apps/web/src/config/domain-pricing.ts:176:17                                     
+getAllTLDs                   function  apps/web/src/config/domain-pricing.ts:180:17                                     
+getKorapaySecretKey                    apps/web/src/env.ts:58:14                                                        
+getKorapayPublicKey                    apps/web/src/env.ts:68:14                                                        
+getJuicywaySecretKey                   apps/web/src/env.ts:78:14                                                        
+getJuicywayBaseUrl                     apps/web/src/env.ts:88:14                                                        
+getZeptoMailToken                      apps/web/src/env.ts:92:14                                                        
+getGeminiApiKey                        apps/web/src/env.ts:102:14                                                       
+getCreditDirectPublicKey               apps/web/src/env.ts:112:14                                                       
+getCreditDirectPrivateKey              apps/web/src/env.ts:122:14                                                       
+isProduction                           apps/web/src/env.ts:159:14                                                       
+validateEnvironment                    apps/web/src/env.ts:168:14                                                       
+useCartSafe                            apps/web/src/hooks/use-cart.tsx:668:14                                           
+useStorefrontFeatures        function  apps/web/src/hooks/use-merchant-features.ts:143:17                               
+useNotificationsSafe         function  apps/web/src/hooks/use-notifications.ts:385:17                                   
+usePersistedState            function  apps/web/src/hooks/use-persisted-state.ts:13:17                                  
+getRecentlyViewedIds         function  apps/web/src/hooks/use-recently-viewed.ts:197:17                                 
+actionTypes                            apps/web/src/hooks/use-toast.ts:18:14                                            
+reducer                                apps/web/src/hooks/use-toast.ts:74:14                                            
+AD_TRACKING_COOKIES                    apps/web/src/lib/ad-tracking-cookies.ts:20:14                                    
+parseAdTrackingCookies       function  apps/web/src/lib/ad-tracking-cookies.ts:111:17                                   
+getAdTrackingData            function  apps/web/src/lib/ad-tracking-cookies.ts:152:17                                   
+generateFbc                  function  apps/web/src/lib/ad-tracking-cookies.ts:165:17                                   
+generateEventId              function  apps/web/src/lib/ad-tracking-cookies.ts:175:17                                   
+getTrackingDataForOrder      function  apps/web/src/lib/ad-tracking-cookies.ts:190:17                                   
+shouldApplyLimitedDataUse    function  apps/web/src/lib/ad-tracking-cookies.ts:211:17                                   
+getOrCreatePaystackCustomer  function  apps/web/src/lib/agentic/paystack.ts:47:23                                       
+fetchWithCsrf                function  apps/web/src/lib/api-client.ts:22:17                                             
+apiPut                       function  apps/web/src/lib/api-client.ts:75:23                                             
+apiDelete                    function  apps/web/src/lib/api-client.ts:119:23                                            
+getCacheControl              function  apps/web/src/lib/cache-headers.ts:17:17                                          
+withCacheHeaders             function  apps/web/src/lib/cache-headers.ts:85:17                                          
+withCache                    function  apps/web/src/lib/cache.ts:136:23                                                 
+getCachedMerchantById                  apps/web/src/lib/cached-data.ts:285:14                                           
+getCachedCategory                      apps/web/src/lib/cached-data.ts:684:14                                           
+getCachedPageConfig                    apps/web/src/lib/cached-data.ts:719:14                                           
+CATEGORY_CONFIGS                       apps/web/src/lib/category-configs.ts:49:14                                       
+getCategoryConfig            function  apps/web/src/lib/category-configs.ts:725:17                                      
+getAllCategories             function  apps/web/src/lib/category-configs.ts:729:17                                      
+getVariantCategories         function  apps/web/src/lib/category-configs.ts:733:17                                      
+hexToRgb                     function  apps/web/src/lib/color-utils.ts:28:17                                            
+getContrastRatio             function  apps/web/src/lib/color-utils.ts:81:17                                            
+isLightColor                 function  apps/web/src/lib/color-utils.ts:101:17                                           
+meetsWCAGAA                  function  apps/web/src/lib/color-utils.ts:141:17                                           
+meetsWCAGAAA                 function  apps/web/src/lib/color-utils.ts:151:17                                           
+meetsWCAGAALarge             function  apps/web/src/lib/color-utils.ts:161:17                                           
+adjustColorBrightness        function  apps/web/src/lib/color-utils.ts:171:17                                           
+isCreditDirectLoaded         function  apps/web/src/lib/credit-direct-client.ts:75:17                                   
+loadCreditDirectScript       function  apps/web/src/lib/credit-direct-client.ts:82:17                                   
+isCreditDirectEligible       function  apps/web/src/lib/credit-direct-client.ts:222:17                                  
+buildCheckoutConfig          function  apps/web/src/lib/credit-direct.ts:192:17                                         
+getCheckoutScriptUrl         function  apps/web/src/lib/credit-direct.ts:227:17                                         
+CREDPAL_SCRIPT_URL                     apps/web/src/lib/credpal.ts:36:14                                                
+isCredPalLoaded              function  apps/web/src/lib/credpal.ts:53:17                                                
+loadCredPalScript            function  apps/web/src/lib/credpal.ts:60:17                                                
+estimateMonthlyPayment       function  apps/web/src/lib/credpal.ts:142:17                                               
+generateCsrfToken            function  apps/web/src/lib/csrf.ts:14:17                                                   
+createCsrfTokenPair          function  apps/web/src/lib/csrf.ts:26:17                                                   
+getCsrfToken                 function  apps/web/src/lib/csrf.ts:89:23                                                   
+verifyCsrfToken              function  apps/web/src/lib/csrf.ts:99:23                                                   
+checkCsrfProtection          function  apps/web/src/lib/csrf.ts:133:23                                                  
+getClientCsrfToken           function  apps/web/src/lib/csrf.ts:179:17                                                  
+getCustomerById              function  apps/web/src/lib/customers.ts:57:17                                              
+isDeviceSupported            function  apps/web/src/lib/device-images.ts:131:17                                         
+validateDNSRecord            function  apps/web/src/lib/dns-validator.ts:9:17                                           
+generateEmbedding            function  apps/web/src/lib/embeddings.ts:21:23                                             
+sendPushNotification         function  apps/web/src/lib/expo-push.ts:59:23                                              
+sendPushNotifications        function  apps/web/src/lib/expo-push.ts:85:23                                              
+notifyMerchant               function  apps/web/src/lib/expo-push.ts:122:23                                             
+notifyCustomer               function  apps/web/src/lib/expo-push.ts:197:23                                             
+notifyNewOrder               function  apps/web/src/lib/expo-push.ts:274:23                                             
+notifyPaymentReceived        function  apps/web/src/lib/expo-push.ts:304:23                                             
+notifyLowStock               function  apps/web/src/lib/expo-push.ts:337:23                                             
+notifyNewReview              function  apps/web/src/lib/expo-push.ts:360:23                                             
+notifyWithdrawalProcessed    function  apps/web/src/lib/expo-push.ts:385:23                                             
+notifyCustomerPromotion      function  apps/web/src/lib/expo-push.ts:472:23                                             
+notifyBackInStock            function  apps/web/src/lib/expo-push.ts:495:23                                             
+notifyPriceDrop              function  apps/web/src/lib/expo-push.ts:515:23                                             
+sanitizeSVG                  function  apps/web/src/lib/favicon-processor.ts:150:17                                     
+getGeoFromHeaders            function  apps/web/src/lib/geo-privacy.ts:67:23                                            
+getGeoFromIP                 function  apps/web/src/lib/geo-privacy.ts:83:23                                            
+shouldApplyLimitedDataUse    function  apps/web/src/lib/geo-privacy.ts:184:23                                           
+trackGiglShipment            function  apps/web/src/lib/gigl.ts:120:23                                                  
+checkDomainAvailability      function  apps/web/src/lib/go54.ts:268:23                                                  
+transferDomain               function  apps/web/src/lib/go54.ts:382:23                                                  
+renewDomain                  function  apps/web/src/lib/go54.ts:428:23                                                  
+getDomainEPPCode             function  apps/web/src/lib/go54.ts:452:23                                                  
+getDomainContacts            function  apps/web/src/lib/go54.ts:471:23                                                  
+updateDomainContacts         function  apps/web/src/lib/go54.ts:490:23                                                  
+syncDomainDetails            function  apps/web/src/lib/go54.ts:608:23                                                  
+syncDomainTransfer           function  apps/web/src/lib/go54.ts:627:23                                                  
+getTldPricing                function  apps/web/src/lib/go54.ts:772:23                                                  
+registerChildNameserver      function  apps/web/src/lib/go54.ts:787:23                                                  
+modifyChildNameserver        function  apps/web/src/lib/go54.ts:812:23                                                  
+deleteChildNameserver        function  apps/web/src/lib/go54.ts:839:23                                                  
+getDomainSuggestions         function  apps/web/src/lib/go54.ts:862:23                                                  
+requestDomainDelete          function  apps/web/src/lib/go54.ts:889:23                                                  
+releaseDomain                function  apps/web/src/lib/go54.ts:908:23                                                  
+DEFAULT_BLUR_DATA_URL                  apps/web/src/lib/image-utils.ts:12:14                                            
+CATEGORY_BLUR_COLORS                   apps/web/src/lib/image-utils.ts:19:14                                            
+generateColorBlur            function  apps/web/src/lib/image-utils.ts:33:17                                            
+generateBlurFromImage        function  apps/web/src/lib/image-utils.ts:44:23                                            
+getImageLoader               function  apps/web/src/lib/image-utils.ts:71:17                                            
+generateInvoicePDF           function  apps/web/src/lib/invoice-generator.ts:192:17                                     
+downloadInvoice              function  apps/web/src/lib/invoice-generator.ts:688:17                                     
+generateInvoiceDataUrl       function  apps/web/src/lib/invoice-generator.ts:696:17                                     
+JUICYWAY_CURRENCIES                    apps/web/src/lib/juicyway.ts:29:14                                               
+JUICYWAY_PAYMENT_METHODS               apps/web/src/lib/juicyway.ts:38:14                                               
+JUICYWAY_STATUSES                      apps/web/src/lib/juicyway.ts:48:14                                               
+JUICYWAY_AUTH_TYPES                    apps/web/src/lib/juicyway.ts:57:14                                               
+JUICYWAY_CRYPTO_CHAINS                 apps/web/src/lib/juicyway.ts:61:14                                               
+JUICYWAY_STABLECOINS                   apps/web/src/lib/juicyway.ts:65:14                                               
+getPayment                   function  apps/web/src/lib/juicyway.ts:431:23                                              
+isJuicywayConfigured         function  apps/web/src/lib/juicyway.ts:660:17                                              
+getJuicywayMode              function  apps/web/src/lib/juicyway.ts:667:17                                              
+CURRENCY_SYMBOLS                       apps/web/src/lib/korapay.ts:45:14                                                
+CURRENCY_NAMES                         apps/web/src/lib/korapay.ts:54:14                                                
+getExchangeRate              function  apps/web/src/lib/korapay.ts:332:23                                               
+convertCurrency              function  apps/web/src/lib/korapay.ts:359:23                                               
+sendBulkPayouts              function  apps/web/src/lib/korapay.ts:414:23                                               
+getBanks                     function  apps/web/src/lib/korapay.ts:431:23                                               
+resolveBankAccount           function  apps/web/src/lib/korapay.ts:454:23                                               
+getPublicKey                 function  apps/web/src/lib/korapay.ts:601:17                                               
+formatCurrency               function  apps/web/src/lib/korapay.ts:608:17                                               
+getCurrencyFromCountry       function  apps/web/src/lib/korapay.ts:616:17                                               
+isSupportedCurrency          function  apps/web/src/lib/korapay.ts:634:17                                               
+isKorapayConfigured          function  apps/web/src/lib/korapay.ts:641:17                                               
+PLATFORM_FEE_PERCENTAGE                apps/web/src/lib/korapay.ts:645:10                                               
+getBillersByType             function  apps/web/src/lib/kuda.ts:202:23                                                  
+getDataProviders             function  apps/web/src/lib/kuda.ts:222:17                                                  
+verifyBillCustomer           function  apps/web/src/lib/kuda.ts:229:23                                                  
+checkTransactionStatus       function  apps/web/src/lib/kuda.ts:378:23                                                  
+getPurchasedBills            function  apps/web/src/lib/kuda.ts:395:23                                                  
+getAccountBalance            function  apps/web/src/lib/kuda.ts:420:23                                                  
+getBankList                  function  apps/web/src/lib/kuda.ts:469:23                                                  
+verifyBankAccount            function  apps/web/src/lib/kuda.ts:480:23                                                  
+transferFunds                function  apps/web/src/lib/kuda.ts:522:23                                                  
+KUDA_COMMISSION_RATES                  apps/web/src/lib/kuda.ts:712:14                                                  
+getCommissionRate            function  apps/web/src/lib/kuda.ts:758:17                                                  
+calculateVTUCommission       function  apps/web/src/lib/kuda.ts:785:17                                                  
+getNamecheapSuggestions      function  apps/web/src/lib/namecheap.ts:97:17                                              
+normalizeProducts            function  apps/web/src/lib/normalize-product.ts:170:17                                     
+createOrGetCustomer          function  apps/web/src/lib/paystack.ts:510:23                                              
+createDedicatedAccount       function  apps/web/src/lib/paystack.ts:542:23                                              
+getDedicatedAccounts         function  apps/web/src/lib/paystack.ts:597:23                                              
+generatePaymentAccount       function  apps/web/src/lib/paystack.ts:619:23                                              
+getPublicKey                 function  apps/web/src/lib/paystack.ts:713:17                                              
+isPaystackConfigured         function  apps/web/src/lib/paystack.ts:720:17                                              
+isValidChannel               function  apps/web/src/lib/paystack.ts:727:17                                              
+PLATFORM_FEE_PERCENTAGE                apps/web/src/lib/paystack.ts:731:10                                              
+products                               apps/web/src/lib/products.ts:189:14                                              
+getProductById               function  apps/web/src/lib/products.ts:394:17                                              
+isValidRouteKey              function  apps/web/src/lib/routes.ts:176:17                                                
+dynamicRoutes                          apps/web/src/lib/routes.ts:197:14                                                
+sanitizeUrl                  function  apps/web/src/lib/sanitize-core.ts:77:17                                          
+sanitizeSchemaUrl            function  apps/web/src/lib/sanitize-core.ts:109:17                                         
+sanitizeNumber               function  apps/web/src/lib/sanitize-core.ts:155:17                                         
+sanitizeInteger              function  apps/web/src/lib/sanitize-core.ts:163:17                                         
+sanitizePrice                function  apps/web/src/lib/sanitize-core.ts:171:17                                         
+sanitizeObjectKeys           function  apps/web/src/lib/sanitize-core.ts:179:17                                         
+customerSchema                         apps/web/src/lib/sanitize-core.ts:200:14                                         
+productSchema                          apps/web/src/lib/sanitize-core.ts:240:14                                         
+orderSchema                            apps/web/src/lib/sanitize-core.ts:276:14                                         
+sanitizeFileName             function  apps/web/src/lib/sanitize-core.ts:343:17                                         
+sanitizeJson                 function  apps/web/src/lib/sanitize-core.ts:359:17                                         
+customerSchema                         apps/web/src/lib/sanitize.ts:9:3                                                 
+escapeHtml                             apps/web/src/lib/sanitize.ts:10:3                                                
+isValidUuid                            apps/web/src/lib/sanitize.ts:11:3                                                
+orderSchema                            apps/web/src/lib/sanitize.ts:12:3                                                
+productSchema                          apps/web/src/lib/sanitize.ts:13:3                                                
+safeJsonLdStringify                    apps/web/src/lib/sanitize.ts:14:3                                                
+sanitizeEmail                          apps/web/src/lib/sanitize.ts:15:3                                                
+sanitizeFileName                       apps/web/src/lib/sanitize.ts:16:3                                                
+sanitizeInteger                        apps/web/src/lib/sanitize.ts:17:3                                                
+sanitizeJson                           apps/web/src/lib/sanitize.ts:18:3                                                
+sanitizeLikePattern                    apps/web/src/lib/sanitize.ts:19:3                                                
+sanitizeNumber                         apps/web/src/lib/sanitize.ts:20:3                                                
+sanitizeObjectKeys                     apps/web/src/lib/sanitize.ts:21:3                                                
+sanitizePhone                          apps/web/src/lib/sanitize.ts:22:3                                                
+sanitizePrice                          apps/web/src/lib/sanitize.ts:23:3                                                
+sanitizeSchemaMarkup                   apps/web/src/lib/sanitize.ts:24:3                                                
+sanitizeSchemaUrl                      apps/web/src/lib/sanitize.ts:25:3                                                
+sanitizeSearchQuery                    apps/web/src/lib/sanitize.ts:26:3                                                
+sanitizeText                           apps/web/src/lib/sanitize.ts:27:3                                                
+sanitizeUrl                            apps/web/src/lib/sanitize.ts:28:3                                                
+stripHtmlTags                          apps/web/src/lib/sanitize.ts:29:3                                                
+escapeHtml                             apps/web/src/lib/seo-utils.ts:11:10                                              
+buildProductUrl              function  apps/web/src/lib/seo-utils.ts:71:17                                              
+generateProductGroupSchema   function  apps/web/src/lib/seo-utils.ts:935:17                                             
+sendServerSideAnalytics      function  apps/web/src/lib/server-side-analytics.ts:77:23                                  
+trackServerSidePurchase      function  apps/web/src/lib/server-side-analytics.ts:267:23                                 
+default                                apps/web/src/lib/server-side-analytics.ts:314:8                                  
+formatShippingPrice          function  apps/web/src/lib/shipping/aggregator.ts:244:17                                   
+formatDeliveryEstimate       function  apps/web/src/lib/shipping/aggregator.ts:259:17                                   
+groupQuotesByTier            function  apps/web/src/lib/shipping/aggregator.ts:273:17                                   
+hasQuotesExpired             function  apps/web/src/lib/shipping/aggregator.ts:299:17                                   
+ShippingService              class     apps/web/src/lib/shipping/index.ts:43:14                                         
+ShippingProviderRegistry               apps/web/src/lib/shipping/index.ts:251:3                                         
+mapGiglStatus                function  apps/web/src/lib/shipping/status-mapper.ts:67:17                                 
+isActiveStatus               function  apps/web/src/lib/shipping/status-mapper.ts:167:17                                
+isFinalStatus                function  apps/web/src/lib/shipping/status-mapper.ts:180:17                                
+isDeliveredStatus            function  apps/web/src/lib/shipping/status-mapper.ts:187:17                                
+isProblemStatus              function  apps/web/src/lib/shipping/status-mapper.ts:194:17                                
+STATUS_ORDER                           apps/web/src/lib/shipping/status-mapper.ts:201:14                                
+isValidStatusTransition      function  apps/web/src/lib/shipping/status-mapper.ts:214:17                                
+SHIPMENT_STATUS_LABELS                 apps/web/src/lib/shipping/types.ts:172:14                                        
+PROVIDER_CONFIGS                       apps/web/src/lib/shipping/types.ts:300:14                                        
+sendSnapchatEvent            function  apps/web/src/lib/snapchat-capi.ts:55:23                                          
+checkAuth                    function  apps/web/src/lib/supabase/middleware.ts:54:23                                    
+getCurrentTheme              function  apps/web/src/lib/theme-manager.ts:307:17                                         
+validateTheme                function  apps/web/src/lib/theme-manager.ts:326:17                                         
+sendTikTokEvent              function  apps/web/src/lib/tiktok-events-api.ts:64:23                                      
+streamToDataURI              function  apps/web/src/lib/utils.ts:144:23                                                 
+validateSlug                 function  apps/web/src/lib/validate-slug.ts:32:17                                          
+VALID_SLUG_REGEX                       apps/web/src/lib/validation.ts:5:14                                              
+VALID_DOMAIN_REGEX                     apps/web/src/lib/validation.ts:11:14                                             
+RESERVED_PATHS                         apps/web/src/lib/validation.ts:17:14                                             
+isValidMerchantSlug          function  apps/web/src/lib/validation.ts:77:17                                             
+sendEmailWithTemplate        function  apps/web/src/lib/zeptomail.ts:262:23                                             
+sendBatchEmailWithTemplate   function  apps/web/src/lib/zeptomail.ts:351:23                                             
+step1Schema                            apps/web/src/schemas/onboarding.ts:20:14                                         
+step2Schema                            apps/web/src/schemas/onboarding.ts:40:14                                         
+step3Schema                            apps/web/src/schemas/onboarding.ts:116:14                                        
+HandmadeTemplate             function  apps/web/src/templates/artisan.tsx:22:17                                         
+getTemplatesByStatus         function  apps/web/src/templates/registry.tsx:772:17                                       
+getTemplatesByCategory       function  apps/web/src/templates/registry.tsx:781:17                                       
+getProductionTemplates       function  apps/web/src/templates/registry.tsx:790:17                                       
+templateExists               function  apps/web/src/templates/registry.tsx:804:17                                       
+getTemplateMockMerchant      function  apps/web/src/templates/registry.tsx:811:17                                       
+NOTIFICATION_TYPES                     apps/web/src/types/notifications.ts:19:14                                        
+NOTIFICATION_PRIORITIES                apps/web/src/types/notifications.ts:25:14                                        
+TARGET_TYPES                           apps/web/src/types/notifications.ts:31:14                                        
+NOTIFICATION_CHANNELS                  apps/web/src/types/notifications.ts:32:14                                        
+TARGET_SEGMENTS                        apps/web/src/types/notifications.ts:36:14                                        
+PRIORITY_LABELS                        apps/web/src/types/notifications.ts:39:14                                        
+TYPE_LABELS                            apps/web/src/types/notifications.ts:47:14                                        
+USAGE_THRESHOLDS                       apps/web/src/types/notifications.ts:268:14                                       
+Unused exported types (62)
+DashboardStats                interface  apps/mobile-admin/hooks/useDashboardStats.ts:12:18                            
+RevenueDataPoint              interface  apps/mobile-admin/hooks/useDashboardStats.ts:24:18                            
+TopProduct                    interface  apps/mobile-admin/hooks/useDashboardStats.ts:29:18                            
+OrderCounts                   interface  apps/mobile-admin/hooks/useOrderCounts.ts:6:18                                
+OrderItem                     type       apps/mobile-admin/hooks/useOrders.ts:14:53                                    
+OrderWithCount                interface  apps/mobile-admin/hooks/useOrders.ts:17:18                                    
+WebIconName                   type       apps/mobile-storefront/lib/icon-bridge.ts:8:13                                
+ShippingAddressInput          type       apps/mobile-storefront/lib/validation.ts:77:13                                
+PushNotificationState         interface  apps/mobile-storefront/services/push-notifications.ts:29:18                   
+BaseBlock                     interface  apps/mobile-storefront/types/blocks.ts:25:18                                  
+HeaderBlock                   interface  apps/mobile-storefront/types/blocks.ts:33:18                                  
+FeaturesBlock                 interface  apps/mobile-storefront/types/blocks.ts:60:18                                  
+CategoryRailBlock             interface  apps/mobile-storefront/types/blocks.ts:83:18                                  
+NewsletterBlock               interface  apps/mobile-storefront/types/blocks.ts:91:18                                  
+FooterBlock                   interface  apps/mobile-storefront/types/blocks.ts:100:18                                 
+Category                      interface  apps/mobile-storefront/types/product.ts:44:18                                 
+Banner                        interface  apps/mobile-storefront/types/product.ts:53:18                                 
+ProductRow                    type       apps/web/src/ai/santa-data.ts:10:13                                           
+AnimationConfig               interface  apps/web/src/components/builder/animated-wrapper.tsx:18:18                    
+CartItem                      interface  apps/web/src/components/storefront/new-template/types.ts:33:18                
+Category                      interface  apps/web/src/components/storefront/new-template/types.ts:40:18                
+PaymentPartner                type       apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx:49:13
+AdPlacement                   interface  apps/web/src/components/storefront/ogabassey/config/ads.ts:2:18               
+AdPlacement                   interface  apps/web/src/components/storefront/ogabassey/pages/ad-config.ts:3:18          
+AddressBookProps              interface  apps/web/src/components/storefront/ogabassey/pages/address-book.tsx:11:18     
+CategorySEOProps              interface  apps/web/src/components/storefront/ogabassey/pages/category-page.tsx:28:18    
+PurchaseHistoryProps          interface  apps/web/src/components/storefront/ogabassey/pages/purchase-history.tsx:25:18 
+ProductRecommendation         interface  apps/web/src/components/storefront/ogabassey/types.ts:25:18                   
+Banner                        interface  apps/web/src/components/storefront/ogabassey/types.ts:42:18                   
+Order                         interface  apps/web/src/components/storefront/ogabassey/types.ts:183:18                  
+V2Product                     type       apps/web/src/components/storefront/ogabassey/types.ts:196:26                  
+ChatMessage                   interface  apps/web/src/components/storefront/santa-chat/types.ts:5:18                   
+BusinessTypeConfig            interface  apps/web/src/config/business-types.ts:65:18                                   
+CategorySEO                   interface  apps/web/src/config/category-seo-defaults.ts:1:18                             
+Template                      interface  apps/web/src/config/templates.ts:3:18                                         
+Product                       type       apps/web/src/hooks/use-recently-viewed.ts:15:15                               
+EventType                     type       apps/web/src/lib/event-tracking.ts:15:13                                      
+DomainAvailabilityResult      interface  apps/web/src/lib/go54.ts:29:18                                                
+IDProtectionStatus            interface  apps/web/src/lib/go54.ts:58:18                                                
+JuicywayBillingAddress        type       apps/web/src/lib/juicyway.ts:146:13                                           
+JuicywayCryptoPaymentRequest  interface  apps/web/src/lib/juicyway.ts:199:18                                           
+PaymentStatus                 type       apps/web/src/lib/korapay.ts:64:13                                             
+PayoutStatus                  type       apps/web/src/lib/korapay.ts:67:13                                             
+KudaServiceType               enum       apps/web/src/lib/kuda.ts:17:13                                                
+BillType                      enum       apps/web/src/lib/kuda.ts:44:13                                                
+DataPlan                      interface  apps/web/src/lib/kuda.ts:61:18                                                
+BillItem                      interface  apps/web/src/lib/kuda.ts:79:18                                                
+MyCoverConfig                 type       apps/web/src/lib/mycover.ts:315:3                                             
+PurchaseGadgetParams          type       apps/web/src/lib/mycover.ts:318:3                                             
+MyCoverPolicy                 type       apps/web/src/lib/mycover.ts:319:3                                             
+MyCoverResponse               type       apps/web/src/lib/mycover.ts:320:3                                             
+WalletBalance                 type       apps/web/src/lib/mycover.ts:321:3                                             
+PolicySearchParams            type       apps/web/src/lib/mycover.ts:322:3                                             
+PaymentStatus                 type       apps/web/src/lib/paystack.ts:33:13                                            
+ImagePlaceholder              type       apps/web/src/lib/placeholder-images.ts:3:13                                   
+ShippingProvider              type       apps/web/src/lib/shipping/index.ts:250:8                                      
+ShippingProviderFactory       type       apps/web/src/lib/shipping/providers/base.ts:175:13                            
+SelfFulfillmentData           interface  apps/web/src/lib/shipping/types.ts:201:18                                     
+ShipmentRecord                interface  apps/web/src/lib/shipping/types.ts:211:18                                     
+ShippingQuoteRecord           interface  apps/web/src/lib/shipping/types.ts:237:18                                     
+NigerianState                 interface  apps/web/src/lib/shipping/types.ts:265:18                                     
+ProviderConfig                interface  apps/web/src/lib/shipping/types.ts:291:18                                     
+Duplicate exports (1)
+GlobalErrorBoundary|default  apps/mobile-storefront/components/ErrorBoundary.tsx
+Configuration hints (12)
+apps/web                       knip.json                 Add entry and/or refine project files in workspaces["apps/web"…
+. (root)                       knip.json                 Add entry and/or refine project files in workspaces["."] (28 u…
+…ps/mobile-storefront          knip.json                 Add entry and/or refine project files in workspaces["apps/mobi…
+apps/mobile-admin              knip.json                 Add entry and/or refine project files in workspaces["apps/mobi…
+postcss                …s/web  knip.json                 Remove from ignoreDependencies                                 
+autoprefixer           …s/web  knip.json                 Remove from ignoreDependencies                                 
+tailwindcss            …s/web  knip.json                 Remove from ignoreDependencies                                 
+sharp                  …s/web  knip.json                 Remove from ignoreDependencies                                 
+encoding               …s/web  knip.json                 Remove from ignoreDependencies                                 
+…**/*.{js,ts,cjs,mjs}  …s/web  knip.json                 Refine project pattern (no matches)                            
+src/proxy.ts           …s/web  knip.json                 Remove redundant entry pattern                                 
+expo-router/entry              …storefront/package.json  Package entry file not found                                   

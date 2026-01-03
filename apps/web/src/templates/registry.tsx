@@ -767,47 +767,8 @@ export function getAllTemplates(): TemplateDefinition[] {
 }
 
 /**
- * Get templates by status
- */
-export function getTemplatesByStatus(
-  status: TemplateStatus
-): TemplateDefinition[] {
-  return getAllTemplates().filter((t) => t.status === status);
-}
-
-/**
- * Get templates by category
- */
-export function getTemplatesByCategory(
-  category: TemplateCategory
-): TemplateDefinition[] {
-  return getAllTemplates().filter((t) => t.category === category);
-}
-
-/**
- * Get production-ready templates only
- */
-export function getProductionTemplates(): TemplateDefinition[] {
-  return getTemplatesByStatus('production');
-}
-
-/**
  * Get all template IDs
  */
 export function getAllTemplateIds(): string[] {
   return Object.keys(TEMPLATE_REGISTRY);
-}
-
-/**
- * Check if a template exists
- */
-export function templateExists(id: string): boolean {
-  return id in TEMPLATE_REGISTRY;
-}
-
-/**
- * Get template mock merchant data
- */
-export function getTemplateMockMerchant(id: string): MerchantData | undefined {
-  return TEMPLATE_REGISTRY[id]?.mockData.merchant;
 }

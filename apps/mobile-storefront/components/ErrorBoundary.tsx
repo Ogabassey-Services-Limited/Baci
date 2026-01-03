@@ -291,4 +291,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GlobalErrorBoundary;
+
