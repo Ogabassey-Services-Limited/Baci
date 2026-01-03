@@ -8,14 +8,10 @@ import {
   HelpCircle,
   MapPin,
   RefreshCw,
-  ScanBarcode,
   ShoppingBag,
   Star,
   User,
-  Wallet,
-  Wrench,
   X,
-  Newspaper,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
@@ -57,14 +53,10 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     { label: 'Member Status', icon: Crown, path: '/member-status' },
     { label: 'Orders', icon: ShoppingBag, path: '/account/orders' },
     { label: 'Saved Items', icon: Heart, path: '/wishlist' },
-    { label: 'IMEI Checker', icon: ScanBarcode, path: '/imei-check' },
-    { label: 'Wallet', icon: Wallet, path: '/wallet' },
     { label: 'Receipts', icon: FileText, path: '/receipts' },
     { label: 'Address Book', icon: MapPin, path: '/account/addresses' },
-    { label: 'Repairs', icon: Wrench, path: '/repairs' },
     { label: 'Swap / Trade-in', icon: RefreshCw, path: '/swap' },
     { label: 'My Reviews', icon: Star, path: '/reviews' },
-    { label: 'Blog', icon: Newspaper, path: '/blog' },
     { label: 'Help & Support', icon: HelpCircle, path: '/pages/faq' },
   ];
 
