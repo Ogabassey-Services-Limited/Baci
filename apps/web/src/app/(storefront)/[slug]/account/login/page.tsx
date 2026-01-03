@@ -229,12 +229,12 @@ function DefaultLoginPage() {
             <CardTitle className="text-2xl">
               {otpState?.codeSent
                 ? 'Enter verification code'
-                : 'Sign in to your account'}
+                : 'Sign in or Create account'}
             </CardTitle>
             <CardDescription>
               {otpState?.codeSent
                 ? `We sent a 6-digit code to ${otpState.email}`
-                : 'Enter your email to receive a verification code'}
+                : 'Enter your email to sign in or sign up instantly'}
             </CardDescription>
           </CardHeader>
 

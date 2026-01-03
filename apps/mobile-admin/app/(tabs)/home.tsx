@@ -48,6 +48,7 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
 ];
 
 export default function HomeScreen() {
+  console.log('[HomeScreen] Rendering');
   const { colors, isDark, shadows } = useTheme();
   const { merchant, storeUrl, isLive } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');
@@ -193,10 +194,19 @@ export default function HomeScreen() {
     return current > previous ? 'up' : 'down';
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+  // Dashboard UI
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
+  // Placeholder for data, replace with actual useDashboardStats data
+  const data = stats;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -210,7 +220,6 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Welcome Header */}
         <WelcomeHeader
           storeUrl={storeUrl}
           avatarUrl={merchant?.favicon_png_192_url ?? merchant?.logo_url ?? undefined}
@@ -220,7 +229,6 @@ export default function HomeScreen() {
           onAvatarPress={handleAvatarPress}
         />
 
-        {/* Setup Progress Card */}
         <View style={styles.section}>
           <ProgressCard
             title="Finish Setup"
@@ -230,7 +238,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* AI Insight Card */}
         <View style={styles.section}>
           <InsightCard
             title={`Good ${getTimeOfDay()}, ${firstName}`}
@@ -241,7 +248,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Revenue Chart with Period Picker */}
         <View style={[styles.section, { zIndex: 10 }]}>
           <View style={{ position: 'relative' }}>
             <RevenueChart
@@ -254,7 +260,6 @@ export default function HomeScreen() {
               insightTrend={getRevenueInsightTrend()}
             />
 
-            {/* Period Picker Dropdown */}
             {showPeriodPicker && (
               <View style={styles.periodDropdownWrapper}>
                 <View style={[styles.periodDropdown, { backgroundColor: colors.card }, shadows.md]}>
@@ -289,7 +294,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Stats Row */}
         <View style={styles.section}>
           <View style={styles.statsGrid}>
             <StatCard
@@ -319,7 +323,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Top Selling Products */}
         {topProducts.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Selling Products</Text>
@@ -354,7 +357,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
@@ -389,11 +391,11 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
+
 }
 
 const styles = StyleSheet.create({

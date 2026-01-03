@@ -54,9 +54,9 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   initialTheme,
 }) => {
   // CRITICAL: Use server-provided initialTheme for SSR consistency.
-  // Default to 'santa' as requested by user.
+  // Default to 'standard' - Santa mode can be toggled manually.
   const [theme, setThemeState] = useState<V2ThemeMode>(
-    initialTheme ?? 'santa'
+    initialTheme ?? 'standard'
   );
 
   // Track if we've completed hydration
@@ -76,10 +76,13 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
       return;
     }
 
-    // If no cookie and no server-provided theme, use forced default
+    // If no cookie and no server-provided theme, use date-based default
     if (!initialTheme) {
-      // Force Santa mode by default
-      const dateBasedTheme: V2ThemeMode = 'santa';
+      // Automatic festive mode during December (month index 11)
+      const currentMonth = new Date().getMonth();
+      const isDecember = currentMonth === 11;
+      const dateBasedTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
+
       if (dateBasedTheme !== theme) {
         setThemeState(dateBasedTheme);
         setCookie(THEME_COOKIE_NAME, dateBasedTheme);

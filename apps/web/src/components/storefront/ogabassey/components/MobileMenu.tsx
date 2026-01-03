@@ -6,11 +6,9 @@ import {
   Heart,
   HelpCircle,
   MapPin,
-  Palette,
   RefreshCw,
   ScanBarcode,
   ShoppingBag,
-  Snowflake,
   Star,
   User,
   Wallet,
@@ -36,7 +34,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, toggleTheme } = useV2Theme();
+  const { theme } = useV2Theme();
 
   // Extract store slug from pathname (first segment that's not a known page route)
   // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
@@ -132,51 +130,21 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 );
               })}
             </div>
+          </div>
 
-            {/* Theme Toggle Section */}
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                Appearance
-              </h3>
-              <button
-                onClick={toggleTheme}
-                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all text-sm border ${theme === 'santa' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'}`}
-              >
-                <div className="flex items-center gap-3">
-                  {theme === 'santa' ? (
-                    <Snowflake size={18} className="text-red-600" />
-                  ) : (
-                    <Palette size={18} className="text-gray-400" />
-                  )}
-                  <span className="font-medium">
-                    {theme === 'santa' ? 'Festive Mode On' : 'Standard Theme'}
-                  </span>
-                </div>
-                <div
-                  className={`w-10 h-5 rounded-full relative transition-colors ${theme === 'santa' ? 'bg-red-600' : 'bg-gray-300'}`}
-                >
-                  <div
-                    className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${theme === 'santa' ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </div>
-              </button>
-            </div>
+          {/* Footer */}
+          <div className="p-5 border-t border-gray-100 bg-gray-50">
+            <button
+              onClick={() => handleNavigate('/account/login')}
+              className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform"
+            >
+              Login / Register
+            </button>
+            <p className="text-center text-[10px] text-gray-400 mt-3">
+              v1.0.0 • © 2024 Ogabassey
+            </p>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="p-5 border-t border-gray-100 bg-gray-50">
-          <button
-            onClick={() => handleNavigate('/account/login')}
-            className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform"
-          >
-            Login / Register
-          </button>
-          <p className="text-center text-[10px] text-gray-400 mt-3">
-            v1.0.0 • © 2024 Ogabassey
-          </p>
-        </div>
       </div>
-    </div>
-  );
+      );
 };

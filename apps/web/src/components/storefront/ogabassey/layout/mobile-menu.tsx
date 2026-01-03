@@ -21,7 +21,7 @@ import { Logo } from './logo';
 
 // import { useTheme } from '../contexts/ThemeContext'; // Removed
 
-import { useV2Theme } from '../providers/v2-theme-context';
+
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -37,7 +37,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, setTheme } = useV2Theme();
+
   const { basePath } = useMerchant();
 
   if (!isOpen) return null;
@@ -60,9 +60,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     { label: 'Help & Support', icon: HelpCircle, path: '/pages/faq' },
   ];
 
-  const handleToggleTheme = () => {
-    setTheme(theme === 'santa' ? 'standard' : 'santa');
-  };
+
 
   return (
     <div className="fixed inset-0 z-[100]">

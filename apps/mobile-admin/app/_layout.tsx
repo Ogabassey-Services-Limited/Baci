@@ -20,7 +20,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, StyleSheet } from 'react-native';
+import { useColorScheme, View, StyleSheet, Text } from 'react-native';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { BagLoader } from '@/components/BagLoader';
@@ -55,7 +55,31 @@ const AdminLightTheme = {
   },
 };
 
+// function RootLayoutNav() {
+//   const colorScheme = useColorScheme();
+//   const isDark = colorScheme === 'dark';
+//   const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+
+//   return (
+//     <QueryProvider>
+//       <GestureHandlerRootView style={{ flex: 1 }}>
+//         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
+//           <StatusBar style={isDark ? 'light' : 'dark'} />
+//           {/* <AuthGate colors={colors} /> */}
+//            <View style={{ flex: 1, backgroundColor: 'blue', alignItems: 'center', justifyContent: 'center' }}>
+//              <Text style={{ fontSize: 32, fontWeight: 'bold', color: 'white' }}>PROVIDERS TEST</Text>
+//              <Text style={{ fontSize: 16, color: 'white', textAlign: 'center', marginTop: 10 }}>
+//                Query, Gesture, Theme Providers are ACTIVE.
+//              </Text>
+//            </View>
+//         </ThemeProvider>
+//      </GestureHandlerRootView>
+//     </QueryProvider>
+//   );
+// }
+
 export default function RootLayout() {
+  const colorScheme = useColorScheme();
   const [loaded, error] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -71,17 +95,37 @@ export default function RootLayout() {
   }, [error]);
 
   useEffect(() => {
-    // Hide native splash immediately to show our animated loader
     SplashScreen.hideAsync();
   }, []);
 
   if (!loaded) {
-    return <LoadingScreen />;
+    return (
+      <View style={{ flex: 1, backgroundColor: 'orange', alignItems: 'center', justifyContent: 'center' }}>
+        <Text>Loading Fonts...</Text>
+      </View>
+    );
   }
 
-  return <RootLayoutNav />;
+  const isDark = colorScheme === 'dark';
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
+
+  return (
+    <QueryProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          {/* Wrap AuthGate in a flex:1 container to ensure it takes space */}
+          <View style={{ flex: 1, backgroundColor: 'yellow' }}>
+            <AuthGate colors={colors} />
+          </View>
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </QueryProvider>
+  );
 }
 
+// Commenting out the rest to ensure no interference
+/* 
 function LoadingScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -108,12 +152,17 @@ function RootLayoutNav() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
           <StatusBar style={isDark ? 'light' : 'dark'} />
-          <AuthGate colors={colors} />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </QueryProvider>
-  );
+          <View style={{ flex: 1, backgroundColor: 'purple', alignItems: 'center', justifyContent: 'center', marginTop: 100 }}>
+            <Text style={{ fontSize: 24, fontWeight: 'bold', color: 'white' }}>ROOT LAYOUT DEBUG</Text>
+            <Text style={{ fontSize: 16, color: 'white' }}>If you see this, the App Entry is working.</Text>
+          </View>
+          {/* <AuthGate colors={colors} /> *//*}
+</ThemeProvider>
+</GestureHandlerRootView>
+</QueryProvider>
+);
 }
+*/
 
 /**
  * Auth Gate - Handles navigation based on auth state
@@ -130,10 +179,8 @@ function AuthGate({ colors }: { colors: typeof LIGHT_COLORS }) {
     const inAuthGroup = segments[0] === 'login';
 
     if (!isAuthenticated && !inAuthGroup) {
-      // Not authenticated and not on login page → redirect to login
       router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Authenticated but on login page → redirect to main app
       router.replace('/(tabs)');
     }
   }, [isAuthenticated, isLoading, segments]);
@@ -197,4 +244,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-

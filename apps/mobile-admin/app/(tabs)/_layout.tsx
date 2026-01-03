@@ -6,33 +6,35 @@
 
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { TYPOGRAPHY, RADIUS } from '@/constants/theme';
 
 export default function TabLayout() {
+  console.log('[TabLayout] Rendering Debug View');
   const { colors } = useTheme();
 
   return (
+
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.gold,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 25,
-          paddingTop: 10,
-        },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.size.xs,
-          fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+          borderTopColor: colors.border,
+          backgroundColor: colors.card,
+          transform: [{ translateY: 0 }], // Fix for some tab bar glitches
         },
       }}
     >
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null,
+        }}
+      />
       <Tabs.Screen
         name="home"
         options={{
@@ -108,12 +110,12 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Hide old screens */}
-      <Tabs.Screen name="index" options={{ href: null }} />
+
       <Tabs.Screen name="inventory" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
+
 }
 
 const styles = StyleSheet.create({

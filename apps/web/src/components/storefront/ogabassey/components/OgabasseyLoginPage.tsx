@@ -198,12 +198,12 @@ export function OgabasseyLoginPage() {
                         <h1 className="text-2xl font-bold text-white mb-2">
                             {otpState?.codeSent
                                 ? 'Enter verification code'
-                                : 'Sign in to your account'}
+                                : 'Sign in or Create account'}
                         </h1>
                         <p className="text-white/60 text-sm">
                             {otpState?.codeSent
                                 ? `We sent a 6-digit code to ${otpState.email}`
-                                : 'Enter your email to receive a verification code'}
+                                : 'Enter your email to sign in or sign up instantly'}
                         </p>
                     </div>
 
@@ -315,7 +315,7 @@ export function OgabasseyLoginPage() {
                                 privacy policy.
                             </p>
 
-                            {/* Account Creation Notice */}
+                            {/* Account Creation Notice - Keeping this as a helpful reinforcement */}
                             <p className="text-center text-white/60 text-sm">
                                 New to Ogabassey?{' '}
                                 <span className="text-white font-medium">
