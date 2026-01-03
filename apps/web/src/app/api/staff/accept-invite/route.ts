@@ -1,6 +1,20 @@
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
+
+// Create Admin Client for bypassing RLS
+const supabaseAdmin = createSupabaseClient(
+  getSupabaseUrl(),
+  getSupabaseServiceRoleKey(),
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
+);
 
 /**
  * POST /api/staff/accept-invite
@@ -33,8 +47,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find invitation by token
-    const { data: invitation, error: findError } = await supabase
+    // Find invitation by token (USING ADMIN CLIENT TO BYPASS RLS)
+    // Pending invitations are hidden from public/anon users by RLS
+    const { data: invitation, error: findError } = await supabaseAdmin
       .from('staff_members')
       .select('*, merchants(business_name)')
       .eq('invitation_token', token)
@@ -87,6 +102,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has a staff record for this merchant
+    // (Using Admin client here nicely ensures we find any record including inactive ones if needed,
+    // but standard client is fine too since user can see their own records. sticking to standard for "my records")
     const { data: existingStaff } = await supabase
       .from('staff_members')
       .select('id')
@@ -103,7 +120,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Accept invitation - link user and activate
-    const { data: acceptedStaff, error: acceptError } = await supabase
+    // MUST USE ADMIN CLIENT because user doesn't have permission to update this row yet
+    const { data: acceptedStaff, error: acceptError } = await supabaseAdmin
       .from('staff_members')
       .update({
         user_id: user.id,
@@ -150,11 +168,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Find invitation by token
-    const { data: invitation, error } = await supabase
+    // Use Admin Client to find invitation (Bypass RLS)
+    const { data: invitation, error } = await supabaseAdmin
       .from('staff_members')
       .select(
         'email, role, status, invitation_expires_at, merchants(business_name)'

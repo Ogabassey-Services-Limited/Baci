@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       const { data } = await userSupabase
         .from('merchants')
         .select('id, slug')
+        // biome-ignore lint/style/noNonNullAssertion: Checked by authentication logic
         .eq('user_id', user!.id)
         .single();
       merchant = data;

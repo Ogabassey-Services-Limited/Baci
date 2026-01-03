@@ -206,7 +206,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         </div>
 
         <main className="container mx-auto px-4 py-8">
-          <article className="max-w-5xl mx-auto bg-white rounded-3xl p-6 md:p-16 shadow-sm border border-gray-100 overflow-hidden">
+          <article className="max-w-6xl mx-auto bg-white rounded-3xl p-6 md:p-10 md:px-12 shadow-sm border border-gray-100 overflow-hidden">
             {/* Featured Image */}
             <div className="aspect-video rounded-2xl overflow-hidden mb-8 relative bg-gray-100">
               <Image
@@ -269,7 +269,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
             {/* Post Content */}
             <div
-              className="prose-baci mb-8 text-gray-800 [&_*]:!text-gray-800 [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
+              className="prose-baci max-w-none w-full mb-8 text-gray-800 [&_*]:!text-gray-800 [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
               dangerouslySetInnerHTML={{ __html: htmlContent }}
             />

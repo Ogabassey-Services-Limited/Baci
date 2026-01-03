@@ -17,6 +17,11 @@ const ProductEnrichmentSchema = z.object({
     .describe(
       'A generated SKU (e.g., BRAND-MODEL-SPEC) if one is not obvious, otherwise logical alphanumeric code.'
     ),
+  category: z
+    .string()
+    .describe(
+      "The most appropriate product cateogry (e.g. Smartphones, Laptops, Men's Fashion)."
+    ),
   attributes: z
     .record(z.string(), z.string())
     .describe(
@@ -41,9 +46,10 @@ Your task is to ENRICH product data based on their names.
 
 For each product:
 1.  **Description**: Write a short, persuasive, SEO-friendly description (2-3 sentences).
-2.  **Attributes**: Extract structured data (RAM, Storage, Color, etc.) from the name.
+2.  **Category**: Infer the best high-level category (e.g. "Smartphones", "Audio", "Shoes").
+3.  **Attributes**: Extract structured data (RAM, Storage, Color, etc.) from the name.
     - Example: "iPhone 12 64GB Blue" -> { "Storage": "64GB", "Color": "Blue", "Brand": "Apple", "Model": "iPhone 12" }
-3.  **SKU**: Generate a logical SKU if missing. Format: BRAND-KEYWORD-VAR (e.g., APPL-IP12-64BLU).
+4.  **SKU**: Generate a logical SKU if missing. Format: BRAND-KEYWORD-VAR (e.g., APPL-IP12-64BLU).
 
 Products:
 ${productNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}

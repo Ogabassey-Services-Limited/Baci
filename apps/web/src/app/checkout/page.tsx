@@ -119,6 +119,7 @@ function Step0_Auth({
 
   const form = useForm<OtpAuthFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: React Hook Form resolver typing issue
     resolver: zodResolver(otpAuthSchema as any as any),
     defaultValues: { email: '' },
   });

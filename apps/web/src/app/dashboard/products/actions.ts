@@ -19,6 +19,7 @@ const ChangeDetailsSchema = z.object({
   stock: z.number().optional(),
   brand: z.string().optional(),
   image: z.string().optional().describe('URL of the product image'),
+  category: z.string().optional().describe('The product category'),
   attributes: z
     .record(z.string(), z.string())
     .optional()
@@ -75,6 +76,7 @@ export interface Change {
     stock?: number;
     brand?: string;
     image?: string;
+    category?: string;
     attributes?: Record<string, string>;
   };
   reason?: string;
@@ -119,6 +121,7 @@ Instructions:
 1.  Analyze the new price list. verify header rows vs data rows.
     - **Header Row Detection**: The first few rows might be titles/decorative (e.g., "Premium Used..."). Look for the actual header row containing "Product Name", "Price", etc.
     - **Currency Cleaning**: Prices may contain symbols like "₦" or ",". Strip these out to get raw numbers (e.g., "₦320,000.00" -> 320000).
+    - **Category Extraction**: Try to infer the 'category' from the sheet constraints (e.g. if the sheet is "Samsung Phones", category is "Phones"). Or if there is a column for "Type" or "Category".
 2.  **Matching Logic**:
     - First, try to match by SKU if available.
     - If no SKU (or SKU not found), **match by Product Name** (case-insensitive).
@@ -206,6 +209,7 @@ export async function parseCSVDirectly(
   let priceIdx = -1;
   let skuIdx = -1;
   let stockIdx = -1;
+  let categoryIdx = -1; // Added category index
   let imageIdx = -1; // Added image index
 
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
@@ -247,6 +251,13 @@ export async function parseCSVDirectly(
           h.includes('qty') ||
           h.includes('quantity') ||
           h.includes('count')
+      );
+      categoryIdx = row.findIndex(
+        (h) =>
+          h.includes('category') ||
+          h.includes('cat') ||
+          h.includes('group') ||
+          h.includes('type')
       );
       imageIdx = row.findIndex(
         (h) =>
@@ -292,6 +303,8 @@ export async function parseCSVDirectly(
     const rawPrice = row[priceIdx]?.trim() || '';
     const rawSku = skuIdx !== -1 ? row[skuIdx]?.trim() : undefined;
     const rawStock = stockIdx !== -1 ? row[stockIdx]?.trim() : undefined;
+    const rawCategory =
+      categoryIdx !== -1 ? row[categoryIdx]?.trim() : undefined;
     const rawImage = imageIdx !== -1 ? row[imageIdx]?.trim() : undefined; // Extract raw image
 
     if (!rawName || !rawPrice) {
@@ -332,6 +345,7 @@ export async function parseCSVDirectly(
             price: existingProduct.price,
             sku: rawSku || existingProduct.sku,
             stock: stock ?? existingProduct.stock,
+            category: rawCategory, // Include category in update if new one provided
             image: rawImage, // Include image in update
           },
           reason: `Price changed from ${existingProduct.price} to ${price}`,
@@ -347,6 +361,7 @@ export async function parseCSVDirectly(
           price,
           sku: rawSku,
           stock: stock ?? 0,
+          category: rawCategory || 'General', // Default to General for new products if missing
           image: rawImage, // Include image for new product
         },
       });

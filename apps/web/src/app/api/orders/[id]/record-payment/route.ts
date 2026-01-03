@@ -97,6 +97,7 @@ export async function POST(
     }
 
     // 5. Update Order Status
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic update object
     const updates: any = {};
 
     // Payment Status Logic
@@ -130,6 +131,7 @@ export async function POST(
       new_balance: remainingBalance,
       updated_status: updates,
     });
+    // biome-ignore lint/suspicious/noExplicitAny: Catch error type
   } catch (error: any) {
     console.error('Error in record-payment:', error);
     return NextResponse.json(

@@ -172,6 +172,8 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                     res.description ||
                     next[target.originalIndex].details.description, // Only overwrite if new description exists
                   sku: next[target.originalIndex].details.sku || res.sku, // Only set SKU if missing
+                  category:
+                    next[target.originalIndex].details.category || res.category, // Set category if missing
                   attributes: res.attributes, // Save attributes
                 },
               };
@@ -271,6 +273,7 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
               </TableHead>
               <TableHead className="w-[100px]">Type</TableHead>
               <TableHead className="min-w-[200px]">Product Name</TableHead>
+              <TableHead className="w-[140px]">Category</TableHead>
               <TableHead className="w-[180px]">Price</TableHead>
               <TableHead className="min-w-[300px]">Description</TableHead>
               <TableHead className="w-[150px]">SKU / Condition</TableHead>
@@ -314,6 +317,16 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       value={change.details.name}
                       onChange={(e) =>
                         handleEdit(index, 'name', e.target.value)
+                      }
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={change.details.category || ''}
+                      placeholder="General"
+                      onChange={(e) =>
+                        handleEdit(index, 'category', e.target.value)
                       }
                       className="h-8"
                     />
