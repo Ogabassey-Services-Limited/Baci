@@ -3,7 +3,7 @@
 import { Loader2, Star, X } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
 
 interface Product {

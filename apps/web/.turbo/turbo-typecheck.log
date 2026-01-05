@@ -35,18 +35,4 @@ src/components/storefront/ogabassey/pages/receipts.tsx(221,34): error TS2551: Pr
 src/components/storefront/ogabassey/pages/reviews.tsx(137,41): error TS2304: Cannot find name 'useCustomerAuth'.
 src/components/storefront/ogabassey/pages/reviews.tsx(138,24): error TS2304: Cannot find name 'useMerchantSafe'.
 src/components/storefront/ogabassey/pages/reviews.tsx(145,3): error TS2304: Cannot find name 'useEffect'.
-src/components/storefront/ogabassey/pages/swap.tsx(5,3): error TS2300: Duplicate identifier 'ArrowRight'.
-src/components/storefront/ogabassey/pages/swap.tsx(6,3): error TS2300: Duplicate identifier 'Check'.
-src/components/storefront/ogabassey/pages/swap.tsx(7,3): error TS2300: Duplicate identifier 'DollarSign'.
-src/components/storefront/ogabassey/pages/swap.tsx(8,3): error TS2300: Duplicate identifier 'Leaf'.
-src/components/storefront/ogabassey/pages/swap.tsx(9,3): error TS2300: Duplicate identifier 'Recycle'.
-src/components/storefront/ogabassey/pages/swap.tsx(10,3): error TS2300: Duplicate identifier 'RefreshCw'.
-src/components/storefront/ogabassey/pages/swap.tsx(11,3): error TS2300: Duplicate identifier 'Smartphone'.
-src/components/storefront/ogabassey/pages/swap.tsx(15,3): error TS2300: Duplicate identifier 'ArrowRight'.
-src/components/storefront/ogabassey/pages/swap.tsx(17,3): error TS2300: Duplicate identifier 'Check'.
-src/components/storefront/ogabassey/pages/swap.tsx(18,3): error TS2300: Duplicate identifier 'DollarSign'.
-src/components/storefront/ogabassey/pages/swap.tsx(19,3): error TS2300: Duplicate identifier 'Leaf'.
-src/components/storefront/ogabassey/pages/swap.tsx(21,3): error TS2300: Duplicate identifier 'Recycle'.
-src/components/storefront/ogabassey/pages/swap.tsx(22,3): error TS2300: Duplicate identifier 'RefreshCw'.
-src/components/storefront/ogabassey/pages/swap.tsx(23,3): error TS2300: Duplicate identifier 'Smartphone'.
  ELIFECYCLE  Command failed with exit code 2.
