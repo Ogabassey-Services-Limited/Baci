@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers';
-import { cache } from 'react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { unstable_cache } from 'next/cache';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 export interface CategoryNavItem {
   name: string;
@@ -8,14 +8,33 @@ export interface CategoryNavItem {
 }
 
 /**
+ * Create a Supabase client for cached queries.
+ * This client doesn't use cookies, so it's suitable for caching.
+ */
+function getPublicSupabaseClient() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+
+  if (!url || !key) {
+    throw new Error('Supabase configuration is missing');
+  }
+
+  return createSupabaseClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+/**
  * Fetch top-level categories for navigation (server-side cached)
- * Uses Next.js cache() for deduplication within a single request
+ * Uses unstable_cache for cross-request caching with 5-minute TTL
  * Should be called from server components with ISR
  */
-export const getCachedNavigationCategories = cache(
+export const getCachedNavigationCategories = unstable_cache(
   async (merchantId: string): Promise<CategoryNavItem[]> => {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = getPublicSupabaseClient();
 
     const { data, error } = await supabase
       .from('categories')
@@ -87,5 +106,10 @@ export const getCachedNavigationCategories = cache(
       // Neither is priority -> Alphabetical sort
       return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
     });
+  },
+  ['navigation-categories'],
+  {
+    revalidate: 300, // 5 minutes
+    tags: ['categories'],
   }
 );

@@ -8,11 +8,16 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
  *
  * @see https://supabase.com/docs/guides/auth/server-side
  */
-export async function updateSession(request: NextRequest) {
-  // Create a response that we can modify
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+export async function updateSession(
+  request: NextRequest,
+  response?: NextResponse
+) {
+  // Create a response that we can modify, or use the provided one
+  let supabaseResponse =
+    response ??
+    NextResponse.next({
+      request,
+    });
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
