@@ -6,10 +6,10 @@
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
  [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 151[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 104[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
 [2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
-[2m   Start at [22m 20:26:08
-[2m   Duration [22m 1.02s[2m (transform 130ms, setup 162ms, import 321ms, tests 153ms, environment 971ms)[22m
+[2m   Start at [22m 20:40:40
+[2m   Duration [22m 876ms[2m (transform 107ms, setup 131ms, import 219ms, tests 106ms, environment 919ms)[22m
 
