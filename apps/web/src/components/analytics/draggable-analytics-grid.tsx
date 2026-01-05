@@ -74,6 +74,69 @@ interface ProductRecord {
 
 // ... other interfaces unchanged ...
 
+export interface InventoryAlert {
+  id: string;
+  product_name: string;
+  alert_type: string;
+  current_stock: number;
+  status: string;
+}
+
+export interface InventoryForecast {
+  product_id: string;
+  product_name: string;
+  current_stock: number;
+  avg_daily_sales: number;
+  days_of_stock: number;
+  sales_trend: string;
+}
+
+export interface SegmentInfo {
+  segment: string;
+  count: number;
+  avg_clv?: number;
+  avg_order_value?: number;
+}
+
+export interface SegmentSummary {
+  total_customers: number;
+  champions_count: number;
+  at_risk_count: number;
+  segments: SegmentInfo[];
+}
+
+export interface AdPlatformData {
+  name: string;
+  configured: boolean;
+  conversions: number;
+  revenue: number;
+  clickAttributed: number;
+}
+
+export interface AdAnalyticsSummary {
+  totalSpend: number;
+  totalRoas: number;
+  totalOrders: number;
+  trackingRate: number;
+  clickAttributionRate: number;
+  lduRate: number;
+  totalConversions: number;
+  totalAttributedRevenue: number;
+}
+
+export interface AdAnalyticsDetails {
+  ordersWithClickIds: number;
+  ordersWithLDU: number;
+}
+
+export interface AdAnalyticsData {
+  summary: AdAnalyticsSummary;
+  details: AdAnalyticsDetails;
+  platforms: AdPlatformData[];
+  offlineConversionsEnabled: boolean;
+  configuredPlatforms: number;
+}
+
 export interface AnalyticsData {
   summary?: AnalyticsSummary;
   chartData?: Array<{ date: string; revenue: number }>;

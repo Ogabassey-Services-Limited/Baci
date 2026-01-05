@@ -1,5 +1,5 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
@@ -9,12 +9,9 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
  * 2. Cookie-based auth (web browser)
  *
  * 2025 Best Practice:
- * - Use `getUser(token)` to validate JWTs server-side (prevents spoofing)
+ * - Use `getUser()` to validate JWTs server-side (prevents spoofing)
  * - Never trust `getSession()` alone for auth verification
  * - Create a properly scoped client for subsequent queries
- *
- * @param request - The incoming request with potential auth headers
- * @returns Authenticated user and supabase client, or null if not authenticated
  */
 export async function getAuthenticatedUser(request: Request) {
   const url = getSupabaseUrl();
@@ -28,10 +25,8 @@ export async function getAuthenticatedUser(request: Request) {
   const authHeader = request.headers.get('Authorization');
 
   if (authHeader?.startsWith('Bearer ')) {
-    const accessToken = authHeader.slice(7); // Remove 'Bearer ' prefix
+    const accessToken = authHeader.slice(7);
 
-    // Create a client and validate the token by calling getUser
-    // getUser validates the JWT signature against Supabase's public keys
     const supabase = createSupabaseClient(url, anonKey, {
       auth: {
         autoRefreshToken: false,
@@ -44,8 +39,6 @@ export async function getAuthenticatedUser(request: Request) {
       },
     });
 
-    // Validate the token by calling getUser
-    // This is the secure way - it validates JWT against Supabase servers
     const {
       data: { user },
       error,
@@ -54,9 +47,6 @@ export async function getAuthenticatedUser(request: Request) {
     if (!error && user) {
       return { user, supabase };
     }
-
-    // Token invalid or expired - fall through to cookie check
-    // (in case they have both, prefer valid auth)
   }
 
   // Fall back to cookie-based auth (web browser)
@@ -70,7 +60,6 @@ export async function getAuthenticatedUser(request: Request) {
       },
     });
 
-    // Use getUser to validate - never trust getSession alone
     const {
       data: { user },
       error,
@@ -80,16 +69,8 @@ export async function getAuthenticatedUser(request: Request) {
       return { user, supabase };
     }
   } catch {
-    // Cookie access may fail in certain contexts (e.g., static generation)
-    // This is expected and not an error
+    // Cookie access may fail in certain contexts
   }
 
   return null;
 }
-
-/**
- * Type helper for the authenticated result
- */
-type AuthenticatedResult = NonNullable<
-  Awaited<ReturnType<typeof getAuthenticatedUser>>
->;

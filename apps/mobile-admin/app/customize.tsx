@@ -226,8 +226,13 @@ export default function CustomizeScreen() {
         );
     }
 
-    // Build preview URL
-    const previewUrl = storeUrl ? `${storeUrl}?preview=true&t=${previewKey}` : '';
+    // Build preview URL - ensure https:// prefix
+    const getPreviewUrl = () => {
+        if (!storeUrl) return '';
+        const urlWithProtocol = storeUrl.startsWith('http') ? storeUrl : `https://${storeUrl}`;
+        return `${urlWithProtocol}?preview=true&t=${previewKey}`;
+    };
+    const previewUrl = getPreviewUrl();
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>

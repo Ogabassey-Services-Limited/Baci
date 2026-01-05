@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     try {
       aiData = JSON.parse(cleanJson);
-    } catch (e) {
+    } catch (_e) {
       console.error('Failed to parse Gemini response:', responseText);
       return NextResponse.json(
         { error: 'AI analysis failed to produce valid data' },
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Price Lookup (Supabase)
-    const supabase = createClient(cookies());
+    const supabase = createClient(await cookies());
 
     // Fuzzy search for the model in products
     const { data: products } = await supabase
@@ -94,14 +94,12 @@ export async function POST(req: NextRequest) {
     // Default to a fallback if no match found (or use the highest price found as an optimistic estimate)
     let basePrice = 0;
     let matchName = 'Unknown Device';
-    let productUrl = '';
 
     if (products && products.length > 0) {
       // Pick the most expensive one (usually the Pro/Max version if ambiguous) or exact match
       const bestMatch = products.sort((a, b) => b.price - a.price)[0];
       basePrice = bestMatch.price;
       matchName = bestMatch.name;
-      productUrl = bestMatch.image;
     } else {
       // Fallback: If we can't find it, ask AI to ESTIMATE the market value in Nigeria (Naira)
       // For this MVP, we'll return null and let frontend handle "Contact us for price"

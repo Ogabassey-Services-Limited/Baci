@@ -11,17 +11,17 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/products';
-import { useCustomerAuth } from '@/contexts/customer-auth-context';
 
 interface WishListItem {
   id: string;

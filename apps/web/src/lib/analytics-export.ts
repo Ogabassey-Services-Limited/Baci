@@ -74,7 +74,7 @@ export function exportAnalyticsAsCSV(
   const {
     summary,
     recentSales,
-    chartData,
+    // chartData, // Unused
     salesByChannel,
     salesByPaymentMethod,
   } = data;
@@ -126,9 +126,9 @@ export function exportAnalyticsAsCSV(
   if (salesByChannel && salesByChannel.length > 0) {
     csvRows.push('SALES BY CHANNEL');
     csvRows.push('Channel,Revenue');
-    salesByChannel.forEach((c) =>
-      csvRows.push(`${c.name},${formatCurrency(c.value)}`)
-    );
+    salesByChannel.forEach((c) => {
+      csvRows.push(`${c.name},${formatCurrency(c.value)}`);
+    });
     csvRows.push('');
   }
 
@@ -136,9 +136,9 @@ export function exportAnalyticsAsCSV(
   if (salesByPaymentMethod && salesByPaymentMethod.length > 0) {
     csvRows.push('SALES BY PAYMENT METHOD');
     csvRows.push('Method,Revenue');
-    salesByPaymentMethod.forEach((p) =>
-      csvRows.push(`${p.name},${formatCurrency(p.value)}`)
-    );
+    salesByPaymentMethod.forEach((p) => {
+      csvRows.push(`${p.name},${formatCurrency(p.value)}`);
+    });
     csvRows.push('');
   }
 
