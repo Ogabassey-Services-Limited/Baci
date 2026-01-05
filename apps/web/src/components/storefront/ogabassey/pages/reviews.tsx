@@ -5,6 +5,8 @@ import Image from 'next/image';
 import type React from 'react';
 import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 
 interface Product {
   id: string;
