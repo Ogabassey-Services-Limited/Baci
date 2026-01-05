@@ -124,23 +124,27 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     if (!provider) return <span>Not Specified</span>;
     const p = provider.toLowerCase();
 
-    // Map known providers to potential public URLs or allow generic text style
-    // Since I cannot ensure the image exists locally, 
-    // I will style the text nicely primarily, and try to use an image if I KNEW the path.
-    // But asking for "logos" implies I should try to make it look like a logo.
+    // Use styled badges instead of external images (CDN URLs were breaking)
+    // Color code by provider for visual distinction
+    let bgColor = 'bg-gray-100';
+    let textColor = 'text-gray-800';
 
-    // I will use a styled badge for now as "Logo-like" 
-    // unless I am sure of the path.
-
-    let logoSrc = '';
-    if (p.includes('paystack')) logoSrc = 'https://assets.paystack.com/assets/img/logos/paystack-logo-blue.svg'; // Public CDN
-    if (p.includes('credpal')) logoSrc = 'https://credpal.com/logo.svg'; // Guess
-
-    if (logoSrc) {
-      return <img src={logoSrc} alt={provider} className="h-6 object-contain" />;
+    if (p.includes('paystack')) {
+      bgColor = 'bg-blue-50';
+      textColor = 'text-blue-700';
+    } else if (p.includes('credpal') || p.includes('credit')) {
+      bgColor = 'bg-purple-50';
+      textColor = 'text-purple-700';
+    } else if (p.includes('kora')) {
+      bgColor = 'bg-green-50';
+      textColor = 'text-green-700';
     }
 
-    return <span className="font-bold text-gray-900">{provider}</span>;
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${bgColor} ${textColor}`}>
+        {provider}
+      </span>
+    );
   };
 
   if (loading) {
