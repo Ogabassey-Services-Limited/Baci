@@ -1,15 +1,6 @@
 // Template preview
 'use client';
 
-import {
-  ArrowRight,
-  Check,
-  DollarSign,
-  Leaf,
-  Recycle,
-  RefreshCw,
-  Smartphone,
-} from 'lucide-react';
 
 import {
   ArrowRight,

@@ -2,16 +2,51 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/app/api/ai/grade-device/route.ts(77,35): error TS2345: Argument of type 'Promise<ReadonlyRequestCookies>' is not assignable to parameter of type 'ReadonlyRequestCookies'.
+  Type 'Promise<ReadonlyRequestCookies>' is missing the following properties from type 'Omit<RequestCookies, "set" | "clear" | "delete">': [Symbol.iterator], size, get, getAll, has
 src/components/analytics/draggable-analytics-grid.tsx(87,21): error TS2304: Cannot find name 'InventoryAlert'.
 src/components/analytics/draggable-analytics-grid.tsx(88,24): error TS2304: Cannot find name 'InventoryForecast'.
 src/components/analytics/draggable-analytics-grid.tsx(92,20): error TS2304: Cannot find name 'SegmentSummary'.
 src/components/analytics/draggable-analytics-grid.tsx(94,17): error TS2552: Cannot find name 'AdAnalyticsData'. Did you mean 'AnalyticsData'?
-src/components/analytics/draggable-analytics-grid.tsx(1005,56): error TS7006: Parameter 'platform' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1639,64): error TS7006: Parameter 'segment' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1707,28): error TS7006: Parameter 's' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1711,32): error TS7006: Parameter 's' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1753,28): error TS7006: Parameter 's' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1757,32): error TS7006: Parameter 's' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1769,28): error TS7006: Parameter 's' implicitly has an 'any' type.
-src/components/analytics/draggable-analytics-grid.tsx(1773,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1047,56): error TS7006: Parameter 'platform' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1681,64): error TS7006: Parameter 'segment' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1749,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1753,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1795,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1799,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1811,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1815,34): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/storefront/ogabassey/pages/order-details.tsx(75,19): error TS2345: Argument of type 'string' is not assignable to parameter of type 'RouteImpl<string>'.
+src/components/storefront/ogabassey/pages/orders.tsx(38,41): error TS2304: Cannot find name 'useCustomerAuth'.
+src/components/storefront/ogabassey/pages/orders.tsx(46,3): error TS2304: Cannot find name 'useEffect'.
+src/components/storefront/ogabassey/pages/orders.tsx(48,49): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/orders.tsx(54,88): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/orders.tsx(68,41): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/receipts.tsx(34,49): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/receipts.tsx(40,89): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/receipts.tsx(64,37): error TS2339: Property 'first_name' does not exist on type 'Customer'.
+src/components/storefront/ogabassey/pages/receipts.tsx(64,62): error TS2339: Property 'first_name' does not exist on type 'Customer'.
+src/components/storefront/ogabassey/pages/receipts.tsx(64,85): error TS2339: Property 'last_name' does not exist on type 'Customer'.
+src/components/storefront/ogabassey/pages/receipts.tsx(80,41): error TS2339: Property 'slug' does not exist on type 'MerchantContextType'.
+src/components/storefront/ogabassey/pages/receipts.tsx(86,15): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
+src/components/storefront/ogabassey/pages/receipts.tsx(200,36): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
+src/components/storefront/ogabassey/pages/receipts.tsx(201,36): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
+src/components/storefront/ogabassey/pages/receipts.tsx(221,34): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
+src/components/storefront/ogabassey/pages/reviews.tsx(137,41): error TS2304: Cannot find name 'useCustomerAuth'.
+src/components/storefront/ogabassey/pages/reviews.tsx(138,24): error TS2304: Cannot find name 'useMerchantSafe'.
+src/components/storefront/ogabassey/pages/reviews.tsx(145,3): error TS2304: Cannot find name 'useEffect'.
+src/components/storefront/ogabassey/pages/swap.tsx(5,3): error TS2300: Duplicate identifier 'ArrowRight'.
+src/components/storefront/ogabassey/pages/swap.tsx(6,3): error TS2300: Duplicate identifier 'Check'.
+src/components/storefront/ogabassey/pages/swap.tsx(7,3): error TS2300: Duplicate identifier 'DollarSign'.
+src/components/storefront/ogabassey/pages/swap.tsx(8,3): error TS2300: Duplicate identifier 'Leaf'.
+src/components/storefront/ogabassey/pages/swap.tsx(9,3): error TS2300: Duplicate identifier 'Recycle'.
+src/components/storefront/ogabassey/pages/swap.tsx(10,3): error TS2300: Duplicate identifier 'RefreshCw'.
+src/components/storefront/ogabassey/pages/swap.tsx(11,3): error TS2300: Duplicate identifier 'Smartphone'.
+src/components/storefront/ogabassey/pages/swap.tsx(15,3): error TS2300: Duplicate identifier 'ArrowRight'.
+src/components/storefront/ogabassey/pages/swap.tsx(17,3): error TS2300: Duplicate identifier 'Check'.
+src/components/storefront/ogabassey/pages/swap.tsx(18,3): error TS2300: Duplicate identifier 'DollarSign'.
+src/components/storefront/ogabassey/pages/swap.tsx(19,3): error TS2300: Duplicate identifier 'Leaf'.
+src/components/storefront/ogabassey/pages/swap.tsx(21,3): error TS2300: Duplicate identifier 'Recycle'.
+src/components/storefront/ogabassey/pages/swap.tsx(22,3): error TS2300: Duplicate identifier 'RefreshCw'.
+src/components/storefront/ogabassey/pages/swap.tsx(23,3): error TS2300: Duplicate identifier 'Smartphone'.
  ELIFECYCLE  Command failed with exit code 2.
