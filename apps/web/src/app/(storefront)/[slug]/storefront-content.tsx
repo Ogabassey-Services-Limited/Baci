@@ -4,13 +4,9 @@ import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import type { CachedMerchant } from '@/lib/cached-data';
-import { getPlaceDetailsServer } from '@/lib/google-places';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
 import { StorefrontWrapper } from './storefront-wrapper';
-
-// Google Place ID for Ogabassey (TODO: Move to merchant config)
-const OGABASSEY_PLACE_ID = 'ChIJychoUsKNOxARHWCwVgvx670';
 
 interface StorefrontContentProps {
   merchant: CachedMerchant;
@@ -58,25 +54,14 @@ export async function StorefrontContent({
 
   const categoriesPromise = getCachedNavigationCategories(merchant.id);
 
-  // Only fetch Google Places for specific merchants
-  const shouldFetchPlaces =
-    merchant.slug === 'ogabassey' || merchant.slug === 'gadget-universe-demo';
-
   // Execute all in parallel
   const [productsResult, categories] = await Promise.all([
     productsPromise,
     categoriesPromise,
   ]);
 
-  // Optionally fetch Google Places (don't block on it)
-  let placeDetails = null;
-  if (shouldFetchPlaces) {
-    try {
-      placeDetails = await getPlaceDetailsServer(OGABASSEY_PLACE_ID);
-    } catch (err) {
-      console.error('[StorefrontContent] Google Places error:', err);
-    }
-  }
+  // TODO: Google Places fetch will be added back when integrated with template
+  // Currently removed as it was unused and blocking CI
 
   const { data: products } = productsResult;
 

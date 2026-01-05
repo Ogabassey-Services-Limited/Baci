@@ -46,185 +46,122 @@ src/lib/analytics-export.ts:393:29 lint/suspicious/noExplicitAny ━━━━━
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/middleware.ts:22:20 lint/style/noNonNullAssertion  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/google-reviews-section.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! Forbidden non-null assertion.
+  × Formatter would have printed the following content:
   
-    21 │     // Get hostname (e.g. vercel.com, test.vercel.app, etc.)
-  > 22 │     let hostname = request.headers.get('host')!.replace('.localhost:3000', `.${rootDomain}`);
-       │                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    23 │ 
-    24 │     // Handle localhost logic for dev
-  
-  i Unsafe fix: Replace with optional chain operator ?. This operator includes runtime checks, so it is safer than the compile-only non-null assertion operator
-  
-    20 20 │   
-    21 21 │       // Get hostname (e.g. vercel.com, test.vercel.app, etc.)
-    22    │ - ····let·hostname·=·request.headers.get('host')!.replace('.localhost:3000',·`.${rootDomain}`);
-       22 │ + ····let·hostname·=·request.headers.get('host')?.replace('.localhost:3000',·`.${rootDomain}`);
+     2  2 │   
+     3  3 │   interface GoogleReviewsSectionProps {
+     4    │ - ····placeId:·string;
+     5    │ - ····merchantName:·string;
+        4 │ + ··placeId:·string;
+        5 │ + ··merchantName:·string;
+     6  6 │   }
+     7  7 │   
+    ····· │ 
+    12 12 │    */
+    13 13 │   export async function GoogleReviewsSection({
+    14    │ - ····placeId,
+    15    │ - ····merchantName,
+       14 │ + ··placeId,
+       15 │ + ··merchantName,
+    16 16 │   }: GoogleReviewsSectionProps) {
+    17    │ - ····try·{
+    18    │ - ········const·placeDetails·=·await·getPlaceDetailsServer(placeId);
+       17 │ + ··try·{
+       18 │ + ····const·placeDetails·=·await·getPlaceDetailsServer(placeId);
+    19 19 │   
+    20    │ - ········if·(!placeDetails)·{
+    21    │ - ············return·null;
+    22    │ - ········}
+       20 │ + ····if·(!placeDetails)·{
+       21 │ + ······return·null;
+       22 │ + ····}
     23 23 │   
-    24 24 │       // Handle localhost logic for dev
+    24    │ - ········return·{
+    25    │ - ············rating:·placeDetails.rating,
+    26    │ - ············reviewCount:·placeDetails.userRatingCount·||·0,
+    27    │ - ············reviews:·placeDetails.reviews·||·[],
+    28    │ - ············merchantName,
+    29    │ - ········};
+    30    │ - ····}·catch·(error)·{
+    31    │ - ········console.error('[GoogleReviewsSection]·Failed·to·fetch:',·error);
+    32    │ - ········return·null;
+    33    │ - ····}
+       24 │ + ····return·{
+       25 │ + ······rating:·placeDetails.rating,
+       26 │ + ······reviewCount:·placeDetails.userRatingCount·||·0,
+       27 │ + ······reviews:·placeDetails.reviews·||·[],
+       28 │ + ······merchantName,
+       29 │ + ····};
+       30 │ + ··}·catch·(error)·{
+       31 │ + ····console.error('[GoogleReviewsSection]·Failed·to·fetch:',·error);
+       32 │ + ····return·null;
+       33 │ + ··}
+    34 34 │   }
+    35 35 │   
+    ····· │ 
+    38 38 │    */
+    39 39 │   export type GoogleReviewsData = {
+    40    │ - ····rating:·number;
+    41    │ - ····reviewCount:·number;
+    42    │ - ····//·biome-ignore·lint/suspicious/noExplicitAny:·Google·Places·API·returns·untyped·review·objects
+    43    │ - ····reviews:·any[];
+    44    │ - ····merchantName:·string;
+       40 │ + ··rating:·number;
+       41 │ + ··reviewCount:·number;
+       42 │ + ··//·biome-ignore·lint/suspicious/noExplicitAny:·Google·Places·API·returns·untyped·review·objects
+       43 │ + ··reviews:·any[];
+       44 │ + ··merchantName:·string;
+    45 45 │   } | null;
+    46 46 │   
   
 
-src/middleware.ts:22:5 lint/style/useConst  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × This let declares a variable that is only assigned once.
-  
-    21 │     // Get hostname (e.g. vercel.com, test.vercel.app, etc.)
-  > 22 │     let hostname = request.headers.get('host')!.replace('.localhost:3000', `.${rootDomain}`);
-       │     ^^^
-    23 │ 
-    24 │     // Handle localhost logic for dev
-  
-  i 'hostname' is never reassigned.
-  
-    21 │     // Get hostname (e.g. vercel.com, test.vercel.app, etc.)
-  > 22 │     let hostname = request.headers.get('host')!.replace('.localhost:3000', `.${rootDomain}`);
-       │         ^^^^^^^^
-    23 │ 
-    24 │     // Handle localhost logic for dev
-  
-  i Safe fix: Use const instead.
-  
-    20 20 │   
-    21 21 │       // Get hostname (e.g. vercel.com, test.vercel.app, etc.)
-    22    │ - ····let·hostname·=·request.headers.get('host')!.replace('.localhost:3000',·`.${rootDomain}`);
-       22 │ + ····const·hostname·=·request.headers.get('host')!.replace('.localhost:3000',·`.${rootDomain}`);
-    23 23 │   
-    24 24 │       // Handle localhost logic for dev
-  
-
-src/middleware.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/products-section.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
      3  3 │   
-     4  4 │   export const config = {
-     5    │ - ····matcher:·[
-     6    │ - ········/*
-     7    │ - ·········*·Match·all·paths·except·for:
-     8    │ - ·········*·1.·/api·routes
-     9    │ - ·········*·2.·/_next·(Next.js·internals)
-    10    │ - ·········*·3.·/_static·(inside·/public)
-    11    │ - ·········*·4.·all·root·files·inside·/public·(e.g.·/favicon.ico)
-    12    │ - ·········*/
-    13    │ - ········'/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-    14    │ - ····],
-        5 │ + ··matcher:·[
-        6 │ + ····/*
-        7 │ + ·····*·Match·all·paths·except·for:
-        8 │ + ·····*·1.·/api·routes
-        9 │ + ·····*·2.·/_next·(Next.js·internals)
-       10 │ + ·····*·3.·/_static·(inside·/public)
-       11 │ + ·····*·4.·all·root·files·inside·/public·(e.g.·/favicon.ico)
-       12 │ + ·····*/
-       13 │ + ····'/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-       14 │ + ··],
-    15 15 │   };
-    16 16 │   
-    17 17 │   export default async function middleware(request: NextRequest) {
-    18    │ - ····const·url·=·request.nextUrl;
-    19    │ - ····const·rootDomain·=·process.env.NEXT_PUBLIC_ROOT_DOMAIN·||·'usebaci.com';
-       18 │ + ··const·url·=·request.nextUrl;
-       19 │ + ··const·rootDomain·=·process.env.NEXT_PUBLIC_ROOT_DOMAIN·||·'usebaci.com';
+     4  4 │   interface ProductsSectionProps {
+     5    │ - ····merchantId:·string;
+     6    │ - ····categories?:·{·name:·string;·slug:·string·}[];
+        5 │ + ··merchantId:·string;
+        6 │ + ··categories?:·{·name:·string;·slug:·string·}[];
+     7  7 │   }
+     8  8 │   
+    ····· │ 
+    13 13 │    */
+    14 14 │   export async function ProductsSection({
+    15    │ - ····merchantId,
+    16    │ - ····categories·=·[],
+       15 │ + ··merchantId,
+       16 │ + ··categories·=·[],
+    17 17 │   }: ProductsSectionProps) {
+    18    │ - ····//·Fetch·products·-·this·runs·asynchronously·and·streams·when·ready
+    19    │ - ····const·products·=·await·getCachedProducts(merchantId,·{·limit:·50·});
+       18 │ + ··//·Fetch·products·-·this·runs·asynchronously·and·streams·when·ready
+       19 │ + ··const·products·=·await·getCachedProducts(merchantId,·{·limit:·50·});
     20 20 │   
-    21    │ - ····//·Get·hostname·(e.g.·vercel.com,·test.vercel.app,·etc.)
-    22    │ - ····let·hostname·=·request.headers.get('host')!.replace('.localhost:3000',·`.${rootDomain}`);
-       21 │ + ··//·Get·hostname·(e.g.·vercel.com,·test.vercel.app,·etc.)
-       22 │ + ··let·hostname·=·request.headers
-       23 │ + ····.get('host')!
-       24 │ + ····.replace('.localhost:3000',·`.${rootDomain}`);
-    23 25 │   
-    24    │ - ····//·Handle·localhost·logic·for·dev
-    25    │ - ····if·(
-    26    │ - ········hostname.includes('localhost')·||
-    27    │ - ········hostname.includes('127.0.0.1')·||
-    28    │ - ········hostname.endsWith('.vercel.app')·//·Optional:·Treat·vercel·preview·URLs·as·root·or·tenants?
-    29    │ - ····)·{
-    30    │ - ········//·For·now,·keep·as·is.·If·accessing·via·localhost:3000·directly,·likely·Main·App·or·explicitly·tested·subdomain
-    31    │ - ····}
-       26 │ + ··//·Handle·localhost·logic·for·dev
-       27 │ + ··if·(
-       28 │ + ····hostname.includes('localhost')·||
-       29 │ + ····hostname.includes('127.0.0.1')·||
-       30 │ + ····hostname.endsWith('.vercel.app')·//·Optional:·Treat·vercel·preview·URLs·as·root·or·tenants?
-       31 │ + ··)·{
-       32 │ + ····//·For·now,·keep·as·is.·If·accessing·via·localhost:3000·directly,·likely·Main·App·or·explicitly·tested·subdomain
-       33 │ + ··}
-    32 34 │   
-    33    │ - ····const·searchParams·=·request.nextUrl.searchParams.toString();
-    34    │ - ····//·Get·the·pathname·of·the·request·(e.g.·/,·/about,·/blog/first-post)
-    35    │ - ····const·path·=·`${url.pathname}${searchParams.length·>·0·?·`?${searchParams}`·:·''
-    36    │ - ········}`;
-       35 │ + ··const·searchParams·=·request.nextUrl.searchParams.toString();
-       36 │ + ··//·Get·the·pathname·of·the·request·(e.g.·/,·/about,·/blog/first-post)
-       37 │ + ··const·path·=·`${url.pathname}${
-       38 │ + ····searchParams.length·>·0·?·`?${searchParams}`·:·''
-       39 │ + ··}`;
-    37 40 │   
-    38    │ - ····//·Check·if·this·is·the·root·domain·(e.g.·usebaci.com)
-    39    │ - ····const·isRootDomain·=
-    40    │ - ········hostname·===·rootDomain·||
-    41    │ - ········hostname·===·`www.${rootDomain}`·||
-    42    │ - ········hostname·===·'localhost:3000';·//·Default·dev·root
-       41 │ + ··//·Check·if·this·is·the·root·domain·(e.g.·usebaci.com)
-       42 │ + ··const·isRootDomain·=
-       43 │ + ····hostname·===·rootDomain·||
-       44 │ + ····hostname·===·`www.${rootDomain}`·||
-       45 │ + ····hostname·===·'localhost:3000';·//·Default·dev·root
-    43 46 │   
-    44    │ - ····//·APP·DOMAIN·(e.g.·usebaci.com)
-    45    │ - ····if·(isRootDomain)·{
-    46    │ - ········//·Check·auth·for·protected·routes·(dashboard,·admin,·etc.)
-    47    │ - ········const·authResponse·=·await·checkAuth(request);
-    48    │ - ········if·(authResponse)·{
-    49    │ - ············return·authResponse;
-    50    │ - ········}
-    51    │ - ········//·Continue·with·session·update·if·no·redirect
-    52    │ - ········return·(await·updateSession(request)).supabaseResponse;
-    53    │ - ····}
-       47 │ + ··//·APP·DOMAIN·(e.g.·usebaci.com)
-       48 │ + ··if·(isRootDomain)·{
-       49 │ + ····//·Check·auth·for·protected·routes·(dashboard,·admin,·etc.)
-       50 │ + ····const·authResponse·=·await·checkAuth(request);
-       51 │ + ····if·(authResponse)·{
-       52 │ + ······return·authResponse;
-       53 │ + ····}
-       54 │ + ····//·Continue·with·session·update·if·no·redirect
-       55 │ + ····return·(await·updateSession(request)).supabaseResponse;
-       56 │ + ··}
-    54 57 │   
-    55    │ - ····//·CUSTOM·DOMAIN·/·TENANT·(e.g.·ogabassey.com)
-    56    │ - ····//·Rewrite·to·/_sites/[site]·or·in·our·case·/[slug]·(as·confirmed·by·layout.tsx)
-       58 │ + ··//·CUSTOM·DOMAIN·/·TENANT·(e.g.·ogabassey.com)
-       59 │ + ··//·Rewrite·to·/_sites/[site]·or·in·our·case·/[slug]·(as·confirmed·by·layout.tsx)
-    57 60 │   
-    58    │ - ····//·Note:·We·use·the·hostname·as·the·slug.·
-    59    │ - ····//·The·layout.tsx·handles·looking·up·by·domain·if·it·looks·like·a·domain.
-       61 │ + ··//·Note:·We·use·the·hostname·as·the·slug.
-       62 │ + ··//·The·layout.tsx·handles·looking·up·by·domain·if·it·looks·like·a·domain.
-    60 63 │   
-    61    │ - ····//·Rewrite·traffic·to·/[hostname]${path}
-    62    │ - ····return·(
-    63    │ - ········await·updateSession(
-    64    │ - ············request,
-    65    │ - ············NextResponse.rewrite(new·URL(`/${hostname}${path}`,·request.url))
-    66    │ - ········)
-    67    │ - ····).supabaseResponse;
-       64 │ + ··//·Rewrite·traffic·to·/[hostname]${path}
-       65 │ + ··return·(
-Checked 775 files in 994ms. No fixes applied.
-Found 2 errors.
-Found 4 warnings.
-       66 │ + ····await·updateSession(
-       67 │ + ······request,
-       68 │ + ······NextResponse.rewrite(new·URL(`/${hostname}${path}`,·request.url))
-       69 │ + ····)
-       70 │ + ··).supabaseResponse;
-    68 71 │   }
-    69 72 │   
+    21    │ - ····//·Return·products·and·categories·for·the·template·to·render
+    22    │ - ····return·{·products:·products·as·unknown·as·Product[],·categories·};
+       21 │ + ··//·Return·products·and·categories·for·the·template·to·render
+       22 │ + ··return·{·products:·products·as·unknown·as·Product[],·categories·};
+    23 23 │   }
+    24 24 │   
+    ····· │ 
+    27 27 │    */
+    28 28 │   export type ProductsSectionData = {
+    29    │ - ····products:·Product[];
+    30    │ - ····categories:·{·name:·string;·slug:·string·}[];
+       29 │ + ··products:·Product[];
+       30 │ + ··categories:·{·name:·string;·slug:·string·}[];
+    31 31 │   };
+    32 32 │   
   
 
+Checked 777 files in 417ms. No fixes applied.
+Found 2 errors.
+Found 3 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.
