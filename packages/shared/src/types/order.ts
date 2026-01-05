@@ -51,9 +51,11 @@ export interface Order {
   total: number;
   subtotal: number;
   shipping_fee: number;
+  tax_amount: number;
   discount_amount: number;
   currency: string;
   source: OrderSource | null;
+  payment_method: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

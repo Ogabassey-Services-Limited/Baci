@@ -25,6 +25,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
+import * as ImagePicker from 'expo-image-picker';
+
 interface MerchantSettings {
     id: string;
     business_name: string | null;
@@ -42,6 +44,7 @@ export default function StoreSettingsScreen() {
     const { user } = useAuth();
     const router = useRouter();
     const queryClient = useQueryClient();
+    const [isUploading, setIsUploading] = useState(false);
 
     // Fetch full merchant settings
     const { data: merchant, isLoading } = useQuery({
@@ -73,6 +76,73 @@ export default function StoreSettingsScreen() {
             setAddress(merchant.business_address || '');
         }
     }, [merchant]);
+
+    // Handle Image Pick and Upload
+    const handleImagePick = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets && result.assets[0]) {
+                const asset = result.assets[0];
+                await uploadLogo(asset.uri);
+            }
+        } catch (error) {
+            console.error('Pick image error:', error);
+            Alert.alert('Error', 'Failed to pick image');
+        }
+    };
+
+    const uploadLogo = async (uri: string) => {
+        if (!merchant?.id) return;
+        setIsUploading(true);
+
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+            const fileName = `${Date.now()}.${fileExt}`;
+            const filePath = `${merchant.id}/${fileName}`;
+
+            // Upload to Supabase Storage
+            const { error: uploadError } = await supabase.storage
+                .from('media')
+                .upload(filePath, blob, {
+                    contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+                    upsert: true
+                });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('media')
+                .getPublicUrl(filePath);
+
+            // Update merchant logo_url
+            const { error: updateError } = await supabase
+                .from('merchants')
+                .update({ logo_url: publicUrl })
+                .eq('id', merchant.id);
+
+            if (updateError) throw updateError;
+
+            // Invalidate queries
+            queryClient.invalidateQueries({ queryKey: ['merchant'] });
+            queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
+
+            Alert.alert('Success', 'Logo updated successfully');
+        } catch (error: any) {
+            console.error('Upload error:', error);
+            Alert.alert('Error', error.message || 'Failed to upload logo');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     // Save mutation
     const saveMutation = useMutation({
@@ -148,9 +218,19 @@ export default function StoreSettingsScreen() {
                                     </Text>
                                 </View>
                             )}
-                            <Pressable style={[styles.changeLogoButton, { borderColor: colors.border }]}>
-                                <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
-                                <Text style={[styles.changeLogoText, { color: colors.textSecondary }]}>Change</Text>
+                            <Pressable
+                                style={[styles.changeLogoButton, { borderColor: colors.border }]}
+                                onPress={handleImagePick}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? (
+                                    <ActivityIndicator size="small" color={colors.primary} />
+                                ) : (
+                                    <>
+                                        <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
+                                        <Text style={[styles.changeLogoText, { color: colors.textSecondary }]}>Change</Text>
+                                    </>
+                                )}
                             </Pressable>
                         </View>
                     </View>
@@ -213,7 +293,7 @@ export default function StoreSettingsScreen() {
                         <Text style={[styles.label, { color: colors.textSecondary }]}>Store URL</Text>
                         <View style={[styles.urlContainer, { backgroundColor: colors.cardHover }]}>
                             <Text style={[styles.urlText, { color: colors.text }]}>
-                                {merchant?.slug}.mybaci.store
+                                {merchant?.slug}.usebaci.com
                             </Text>
                         </View>
                     </View>

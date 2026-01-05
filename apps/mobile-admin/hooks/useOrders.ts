@@ -30,7 +30,7 @@ const PAGE_SIZE = 20;
 async function fetchOrders(
   merchantId: string,
   cursor: number = 0,
-  filters?: { status?: ShippingStatus; search?: string }
+  filters?: { status?: ShippingStatus; search?: string; dateFilter?: string | { start: Date; end: Date } | null }
 ): Promise<OrdersPage> {
   let query = supabase
     .from('orders')
@@ -47,6 +47,34 @@ async function fetchOrders(
     query = query.or(
       `order_number.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%`
     );
+  }
+
+  if (filters?.dateFilter) {
+    const now = new Date();
+    const dateFilter = filters.dateFilter;
+
+    if (dateFilter === 'Today') {
+      const start = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+      query = query.gte('created_at', start);
+    } else if (dateFilter === 'Last 7 Days') {
+      const start = new Date(now.setDate(now.getDate() - 7)).toISOString();
+      query = query.gte('created_at', start);
+    } else if (dateFilter === 'Last 30 Days') {
+      const start = new Date(now.setDate(now.getDate() - 30)).toISOString();
+      query = query.gte('created_at', start);
+    } else if (dateFilter === 'This Month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      query = query.gte('created_at', start);
+    } else if (typeof dateFilter === 'object' && dateFilter?.start && dateFilter?.end) {
+      const start = new Date(dateFilter.start);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(dateFilter.end);
+      end.setHours(23, 59, 59, 999);
+
+      query = query.gte('created_at', start.toISOString())
+        .lte('created_at', end.toISOString());
+    }
   }
 
   const { data, error, count } = await query;
@@ -84,12 +112,23 @@ async function updateOrderStatus(
   return data[0];
 }
 
-export function useOrders(filters?: { status?: ShippingStatus; search?: string }) {
+export function useOrders(
+  status: OrderStatus | 'all' = 'all',
+  searchQuery: string = '',
+  dateFilter: string | { start: Date; end: Date } | null = null
+) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
 
+  // Construct filters object from new parameters
+  const filters = {
+    status: status === 'all' ? undefined : status,
+    search: searchQuery === '' ? undefined : searchQuery,
+    dateFilter: dateFilter === null ? undefined : dateFilter,
+  };
+
   return useInfiniteQuery({
-    queryKey: ['orders', merchantId, filters],
+    queryKey: ['orders', merchantId, filters, dateFilter], // Include dateFilter in queryKey
     queryFn: ({ pageParam = 0 }) => fetchOrders(merchantId!, pageParam, filters),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,

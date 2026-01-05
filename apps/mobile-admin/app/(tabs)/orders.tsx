@@ -4,6 +4,10 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
+import OrderReportModal from '@/components/ui/OrderReportModal';
+import { exportOrdersRPC } from '@/utils/export-orders';
+import DateRangePicker from '@/components/ui/DateRangePicker';
 import {
   View,
   Text,
@@ -43,15 +47,13 @@ import {
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { storeUrl } = useMerchant();
+  const { storeUrl, merchant } = useMerchant();
   const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(undefined);
   const [showInsight, setShowInsight] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
-    start: null,
-    end: null,
-  });
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [dateRange, setDateRange] = useState<string | { start: Date | null; end: Date | null } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
@@ -100,43 +102,14 @@ export default function OrdersScreen() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useOrders({ status: statusFilter });
+  } = useOrders(statusFilter || 'all', searchQuery, dateRange);
 
   // Flatten pages into single array
   const allOrders = useMemo(() => {
     return data?.pages.flatMap((page) => page.orders) ?? [];
   }, [data]);
 
-  // Filter orders by search query and date range
-  const orders = useMemo(() => {
-    let filtered = allOrders;
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (order) =>
-          order.order_number.toLowerCase().includes(query) ||
-          order.customer_name.toLowerCase().includes(query)
-      );
-    }
-
-    // Date range filter
-    if (dateRange.start || dateRange.end) {
-      filtered = filtered.filter((order) => {
-        const orderDate = new Date(order.created_at);
-        if (dateRange.start && orderDate < dateRange.start) return false;
-        if (dateRange.end) {
-          const endOfDay = new Date(dateRange.end);
-          endOfDay.setHours(23, 59, 59, 999);
-          if (orderDate > endOfDay) return false;
-        }
-        return true;
-      });
-    }
-
-    return filtered;
-  }, [allOrders, searchQuery, dateRange]);
+  const orders = allOrders;
 
   const pendingCount = counts?.pending ?? 0;
 
@@ -144,20 +117,21 @@ export default function OrdersScreen() {
   const { data: counts } = useOrderCounts();
 
   // Format date range for display
-  const formatDateRange = () => {
-    if (!dateRange.start && !dateRange.end) return null;
-    const formatDate = (date: Date) =>
-      date.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
-    if (dateRange.start && dateRange.end) {
-      return `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`;
-    }
-    if (dateRange.start) return `From ${formatDate(dateRange.start)}`;
-    if (dateRange.end) return `Until ${formatDate(dateRange.end)}`;
-    return null;
+  const clearDateRange = () => {
+    setDateRange(null);
   };
 
-  const clearDateRange = () => {
-    setDateRange({ start: null, end: null });
+  const dateRangeLabel = useMemo(() => {
+    if (typeof dateRange === 'string') return dateRange;
+    if (dateRange?.start && dateRange?.end) {
+      return `${format(dateRange.start, 'MMM d, yyyy')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
+    }
+    return 'All Time';
+  }, [dateRange]);
+
+  const handleExport = async () => {
+    if (allOrders.length === 0) return;
+    await exportOrdersRPC(allOrders);
   };
 
   // Map color key from shared config to actual theme color
@@ -447,16 +421,28 @@ export default function OrdersScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Orders</Text>
-        <Pressable
-          style={[styles.calendarButton, { backgroundColor: colors.card }]}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Ionicons
-            name="calendar-outline"
-            size={22}
-            color={dateRange.start || dateRange.end ? colors.gold : colors.text}
-          />
-        </Pressable>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable
+            style={[styles.calendarButton, { backgroundColor: colors.card }]}
+            onPress={() => setShowReportModal(true)}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={22}
+              color={colors.primary}
+            />
+          </Pressable>
+          <Pressable
+            style={[styles.calendarButton, { backgroundColor: colors.card }]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={22}
+              color={colors.primary}
+            />
+          </Pressable>
+        </View>
       </View>
 
       {/* Collapsible Search Bar */}
@@ -493,11 +479,15 @@ export default function OrdersScreen() {
       </Animated.View>
 
       {/* Date Range Chip */}
-      {formatDateRange() && (
+      {dateRange && (
         <View style={styles.dateChipContainer}>
           <View style={[styles.dateChip, { backgroundColor: colors.goldLight }]}>
             <Ionicons name="calendar" size={14} color={colors.gold} />
-            <Text style={[styles.dateChipText, { color: colors.gold }]}>{formatDateRange()}</Text>
+            <Text style={[styles.dateChipText, { color: colors.gold }]}>
+              {typeof dateRange === 'string'
+                ? dateRange
+                : `${format(dateRange.start!, 'MMM d')} - ${format(dateRange.end!, 'MMM d')}`}
+            </Text>
             <Pressable onPress={clearDateRange} hitSlop={8}>
               <Ionicons name="close-circle" size={16} color={colors.gold} />
             </Pressable>
@@ -538,7 +528,6 @@ export default function OrdersScreen() {
         </View>
       )}
 
-      {/* Filter Tabs - aligned with web app shipping statuses */}
       {/* Filter Tabs - aligned with web app shipping statuses */}
       <View>
         <ScrollView
@@ -607,75 +596,62 @@ export default function OrdersScreen() {
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </Pressable>
 
-      {/* Date Range Picker Modal */}
-      <Modal
+      <DateRangePicker
         visible={showDatePicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDatePicker(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowDatePicker(false)}
-        >
-          <View
-            style={[styles.datePickerModal, { backgroundColor: colors.card }, shadows.lg]}
-            onStartShouldSetResponder={() => true}
-          >
-            <View style={styles.datePickerHeader}>
-              <Text style={[styles.datePickerTitle, { color: colors.text }]}>Select Date Range</Text>
-              <Pressable onPress={() => setShowDatePicker(false)}>
-                <Ionicons name="close" size={24} color={colors.textMuted} />
-              </Pressable>
-            </View>
+        onClose={() => setShowDatePicker(false)}
+        onSelect={(filter) => {
+          // @ts-ignore - aligning types
+          setDateRange(filter);
+        }}
+        currentFilter={dateRange}
+      />
 
-            {/* Quick Presets */}
-            <View style={styles.presetContainer}>
-              {[
-                { label: 'Today', days: 0 },
-                { label: 'Last 7 Days', days: 7 },
-                { label: 'Last 30 Days', days: 30 },
-                { label: 'This Month', days: -1 },
-              ].map((preset) => (
-                <Pressable
-                  key={preset.label}
-                  style={[styles.presetButton, { borderColor: colors.border }]}
-                  onPress={() => {
-                    const end = new Date();
-                    let start: Date;
-                    if (preset.days === 0) {
-                      start = new Date();
-                      start.setHours(0, 0, 0, 0);
-                    } else if (preset.days === -1) {
-                      start = new Date();
-                      start.setDate(1);
-                      start.setHours(0, 0, 0, 0);
-                    } else {
-                      start = new Date();
-                      start.setDate(start.getDate() - preset.days);
-                    }
-                    setDateRange({ start, end });
-                    setShowDatePicker(false);
-                  }}
-                >
-                  <Text style={[styles.presetText, { color: colors.text }]}>{preset.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+      <OrderReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onExport={handleExport}
+        orders={allOrders}
+        dateRangeLabel={dateRangeLabel}
+        businessName={merchant?.business_name || 'My Store'}
+        logoUrl={merchant?.logo_url || undefined}
+        onDateSelect={() => {
+          setShowReportModal(false);
+          setTimeout(() => setShowDatePicker(true), 300); // Small delay for smooth transition
+        }}
+        onPresetSelect={(preset) => {
+          const now = new Date();
+          let start = new Date();
+          let end = new Date();
 
-            {/* Clear Button */}
-            <Pressable
-              style={[styles.clearButton, { backgroundColor: colors.backgroundLight }]}
-              onPress={() => {
-                clearDateRange();
-                setShowDatePicker(false);
-              }}
-            >
-              <Text style={[styles.clearButtonText, { color: colors.textSecondary }]}>Clear Filter</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+          switch (preset) {
+            case 'Today':
+              start = now;
+              end = now;
+              break;
+            case 'Yesterday':
+              const yester = new Date();
+              yester.setDate(yester.getDate() - 1);
+              start = yester;
+              end = yester;
+              break;
+            case 'Last 7 Days':
+              start = new Date();
+              start.setDate(now.getDate() - 6);
+              end = now;
+              break;
+            case 'Last 30 Days':
+              start = new Date();
+              start.setDate(now.getDate() - 29);
+              end = now;
+              break;
+            case 'This Month':
+              start = new Date(now.getFullYear(), now.getMonth(), 1);
+              end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+              break;
+          }
+          setDateRange({ start, end });
+        }}
+      />
 
       {/* Status Dropdown */}
       {showStatusDropdown && selectedOrder && (

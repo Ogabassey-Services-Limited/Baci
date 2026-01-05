@@ -20,6 +20,12 @@ export interface Merchant {
   phone: string | null;
   vat_registration_status: 'not_registered' | 'registered' | 'exempt' | 'pending' | null;
   vat_rate: number | null;
+  payout_currency: string | null;
+  brand_colors?: {
+    primary: string;
+    background: string;
+    accent: string;
+  };
 }
 
 export interface Domain {
@@ -44,7 +50,7 @@ async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant |
   // Fetch merchant by authenticated user ID
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, vat_registration_status, vat_rate')
+    .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, vat_registration_status, vat_rate, payout_currency, brand_colors')
     .eq('user_id', userId)
     .single();
 
@@ -96,7 +102,7 @@ export function useMerchant(): MerchantData {
   if (primaryDomain?.domain) {
     storeUrl = primaryDomain.domain;
   } else if (merchant?.slug) {
-    storeUrl = `${merchant.slug}.mybaci.store`;
+    storeUrl = `${merchant.slug}.usebaci.com`;
   }
 
   return {

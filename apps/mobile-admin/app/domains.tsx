@@ -64,7 +64,7 @@ export default function DomainsScreen() {
 
                         <View style={[styles.urlContainer, { backgroundColor: colors.cardHover }]}>
                             <Ionicons name="link-outline" size={18} color={colors.textSecondary} />
-                            <Text style={[styles.urlText, { color: colors.text }]}>{storeUrl || `${merchant?.slug}.mybaci.store`}</Text>
+                            <Text style={[styles.urlText, { color: colors.text }]}>{storeUrl || `${merchant?.slug}.usebaci.com`}</Text>
                         </View>
                     </View>
 

@@ -623,7 +623,8 @@ Thank you for choosing Ogabassey!
         options={{
           headerShown: true,
           headerTitle: order.order_number,
-          headerBackTitleVisible: false,
+          headerBackTitle: 'Back',
+          headerBackTitleVisible: true,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerRight: () => (
@@ -843,6 +844,13 @@ Thank you for choosing Ogabassey!
           <View style={styles.summaryRow}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Total Order</Text>
             <Text style={[styles.totalValueMain, { color: colors.text }]}>{formatPrice(order.total)}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Method</Text>
+            <Text style={[styles.summaryValue, { color: colors.text, textTransform: 'capitalize' }]}>
+              {order.payment_method?.replace(/_/g, ' ') || 'N/A'}
+            </Text>
           </View>
 
           <View style={styles.summaryRow}>

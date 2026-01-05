@@ -69,6 +69,19 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
 
     // First check for user's cookie preference
     const cookieTheme = getCookie(THEME_COOKIE_NAME) as V2ThemeMode | undefined;
+
+    // Automatic festive mode check
+    const currentMonth = new Date().getMonth();
+    const isDecember = currentMonth === 11;
+
+    // FIX: Enforce standard theme outside of December, even if cookie says 'santa'
+    // This fixes the issue where users are stuck in Santa mode after the manual toggle was removed
+    if (cookieTheme === 'santa' && !isDecember) {
+      setThemeState('standard');
+      setCookie(THEME_COOKIE_NAME, 'standard');
+      return;
+    }
+
     if (cookieTheme && (cookieTheme === 'standard' || cookieTheme === 'santa')) {
       if (cookieTheme !== theme) {
         setThemeState(cookieTheme);
@@ -78,9 +91,7 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
 
     // If no cookie and no server-provided theme, use date-based default
     if (!initialTheme) {
-      // Automatic festive mode during December (month index 11)
-      const currentMonth = new Date().getMonth();
-      const isDecember = currentMonth === 11;
+
       const dateBasedTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
 
       if (dateBasedTheme !== theme) {

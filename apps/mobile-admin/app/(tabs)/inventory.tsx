@@ -3,7 +3,7 @@
  * Includes barcode scanning for quick updates
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,35 +12,34 @@ import {
   Pressable,
   TextInput,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  stock: number;
-  lowStockThreshold: number;
-  image?: string;
-}
-
-// Mock data
-const MOCK_PRODUCTS: Product[] = [
-  { id: '1', name: 'iPhone 15 Pro Max', sku: 'IPH15PM-256', price: 1850000, stock: 5, lowStockThreshold: 3 },
-  { id: '2', name: 'Samsung Galaxy S24', sku: 'SGS24-128', price: 950000, stock: 12, lowStockThreshold: 5 },
-  { id: '3', name: 'MacBook Air M3', sku: 'MBA-M3-256', price: 1450000, stock: 2, lowStockThreshold: 3 },
-  { id: '4', name: 'AirPods Pro 2', sku: 'APP2-USB-C', price: 185000, stock: 25, lowStockThreshold: 10 },
-];
+import { useProducts, type Product } from '@/hooks/useProducts';
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch real products from Supabase
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useProducts({ search: searchQuery || undefined });
+
+  // Flatten paginated products
+  const products = useMemo(() => {
+    return data?.pages.flatMap((page) => page.products) ?? [];
+  }, [data]);
 
   const colors = {
     background: isDark ? '#0F172A' : '#F8FAFC',
@@ -59,20 +58,16 @@ export default function InventoryScreen() {
     }).format(amount);
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setRefreshing(false);
-  };
-
-  const filteredProducts = MOCK_PRODUCTS.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Calculate stats from real data
+  const totalProducts = products.length;
+  const lowStockCount = products.filter(
+    (p) => p.low_stock_threshold && p.stock <= p.low_stock_threshold && p.stock > 0
+  ).length;
+  const outOfStockCount = products.filter((p) => p.stock === 0).length;
 
   const renderProduct = ({ item }: { item: Product }) => {
-    const isLowStock = item.stock <= item.lowStockThreshold;
+    const threshold = item.low_stock_threshold ?? 5;
+    const isLowStock = item.stock <= threshold && item.stock > 0;
     const isOutOfStock = item.stock === 0;
 
     return (
@@ -81,13 +76,19 @@ export default function InventoryScreen() {
         onPress={() => router.push(`/product/${item.id}`)}
       >
         <View style={[styles.productImage, { backgroundColor: colors.inputBg }]}>
-          <Ionicons name="cube-outline" size={32} color={colors.textSecondary} />
+          {item.images?.[0] ? (
+            <View style={styles.productImage}>
+              <Ionicons name="cube-outline" size={32} color={colors.textSecondary} />
+            </View>
+          ) : (
+            <Ionicons name="cube-outline" size={32} color={colors.textSecondary} />
+          )}
         </View>
         <View style={styles.productInfo}>
           <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={[styles.productSku, { color: colors.textSecondary }]}>{item.sku}</Text>
+          <Text style={[styles.productSku, { color: colors.textSecondary }]}>{item.sku || 'No SKU'}</Text>
           <Text style={[styles.productPrice, { color: colors.text }]}>{formatPrice(item.price)}</Text>
         </View>
         <View style={styles.stockInfo}>
@@ -98,8 +99,8 @@ export default function InventoryScreen() {
                 backgroundColor: isOutOfStock
                   ? '#FEE2E2'
                   : isLowStock
-                  ? '#FEF3C7'
-                  : '#D1FAE5',
+                    ? '#FEF3C7'
+                    : '#D1FAE5',
               },
             ]}
           >
@@ -119,6 +120,30 @@ export default function InventoryScreen() {
       </Pressable>
     );
   };
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color="#3B82F6" />
+      </View>
+    );
+  };
+
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading inventory...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
@@ -145,31 +170,39 @@ export default function InventoryScreen() {
       {/* Quick Stats */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: colors.text }]}>{MOCK_PRODUCTS.length}</Text>
+          <Text style={[styles.statValue, { color: colors.text }]}>{totalProducts}</Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Products</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: '#D97706' }]}>
-            {MOCK_PRODUCTS.filter((p) => p.stock <= p.lowStockThreshold && p.stock > 0).length}
-          </Text>
+          <Text style={[styles.statValue, { color: '#D97706' }]}>{lowStockCount}</Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Low Stock</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: '#DC2626' }]}>
-            {MOCK_PRODUCTS.filter((p) => p.stock === 0).length}
-          </Text>
+          <Text style={[styles.statValue, { color: '#DC2626' }]}>{outOfStockCount}</Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Out of Stock</Text>
         </View>
       </View>
 
       {/* Products List */}
       <FlatList
-        data={filteredProducts}
+        data={products}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3B82F6" />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#3B82F6" />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="cube-outline" size={64} color={colors.textSecondary} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No products found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+              {searchQuery ? 'Try a different search term' : 'Add products to get started'}
+            </Text>
+          </View>
         }
       />
     </SafeAreaView>
@@ -278,5 +311,31 @@ const styles = StyleSheet.create({
   stockLabel: {
     fontSize: 10,
     marginTop: 4,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  loadingFooter: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

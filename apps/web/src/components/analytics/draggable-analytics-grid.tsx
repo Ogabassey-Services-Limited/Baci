@@ -46,6 +46,12 @@ interface AnalyticsSummary {
   grossMargin?: MetricData;
   ltv?: MetricData;
   refundRate?: MetricData;
+  // New detailed metrics
+  subtotal?: number;
+  shipping?: number;
+  tax?: number;
+  discounts?: number;
+  totalUnitsSold?: number;
 }
 
 interface SaleRecord {
@@ -54,6 +60,7 @@ interface SaleRecord {
   email: string;
   time: string;
   amount: number;
+  avatar?: string;
 }
 
 interface ProductRecord {
@@ -65,73 +72,14 @@ interface ProductRecord {
   sales?: number;
 }
 
-interface InventoryAlert {
-  id: string;
-  product_id: string;
-  product_name?: string;
-  alert_type: 'low_stock' | 'out_of_stock' | 'predicted_stockout';
-  current_stock: number;
-  days_until_stockout?: number;
-  status: string;
-}
-
-interface InventoryForecast {
-  product_id: string;
-  product_name: string;
-  current_stock: number;
-  avg_daily_sales: number;
-  days_of_stock: number;
-  predicted_stockout_date?: string;
-  sales_trend: 'increasing' | 'decreasing' | 'stable';
-}
-
-interface CustomerSegment {
-  segment: string;
-  count: number;
-  avg_clv: number;
-  avg_order_value: number;
-  churn_risk: number;
-}
-
-interface SegmentSummary {
-  total_customers: number;
-  segments: CustomerSegment[];
-  at_risk_count: number;
-  champions_count: number;
-}
-
-interface AdPlatformStats {
-  name: string;
-  configured: boolean;
-  conversions: number;
-  revenue: number;
-  clickAttributed: number;
-}
-
-interface AdAnalyticsData {
-  offlineConversionsEnabled: boolean;
-  configuredPlatforms: number;
-  summary: {
-    totalOrders: number;
-    totalConversions: number;
-    totalAttributedRevenue: number;
-    trackingRate: number;
-    clickAttributionRate: number;
-    lduRate: number;
-  };
-  platforms: AdPlatformStats[];
-  details: {
-    ordersWithTracking: number;
-    ordersWithClickIds: number;
-    ordersWithLDU: number;
-  };
-}
+// ... other interfaces unchanged ...
 
 export interface AnalyticsData {
   summary?: AnalyticsSummary;
   chartData?: Array<{ date: string; revenue: number }>;
   revenueOverTime?: unknown[];
   salesByChannel?: Array<{ name: string; value: number }>;
+  salesByPaymentMethod?: Array<{ name: string; value: number }>;
   recentSales?: SaleRecord[];
   topProducts?: ProductRecord[];
   paymentMethods?: Array<{ name: string; value: number }>;
@@ -561,8 +509,9 @@ export function DraggableAnalyticsGrid({
         'summary-aov',
         'summary-margin',
         'summary-ltv',
+        'financial-summary',
       ],
-      products: ['summary-orders', 'top-products', 'summary-refund-rate'],
+      products: ['summary-orders', 'top-products', 'summary-refund-rate', 'summary-units'],
       customers: ['summary-customers', 'summary-active'],
       marketing: ['sales-channel'],
       inventory: [
@@ -784,6 +733,15 @@ export function DraggableAnalyticsGrid({
               Users,
               (summary.ltv?.change || 0) >= 0 ? 'up' : 'down'
             )}
+          {isWidgetVisible('summary-units') &&
+            renderMetricCard(
+              'summary-units',
+              'Units Sold 🛒',
+              (summary.totalUnitsSold || 0).toString(),
+              0,
+              Package,
+              'up'
+            )}
         </div>
 
         {/* Charts & Detailed Views Grid */}
@@ -802,29 +760,64 @@ export function DraggableAnalyticsGrid({
             <div className="min-h-[400px]">
               <BentoCard title="Payment Methods 💳" className="h-full">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Credit Card</span>
-                      <span className="font-medium">65%</span>
+                  {data.salesByPaymentMethod && data.salesByPaymentMethod.length > 0 ? (
+                    data.salesByPaymentMethod.map((pm, idx) => {
+                      const totalValue = data.salesByPaymentMethod?.reduce((acc, curr) => acc + curr.value, 0) || 1;
+                      const percentage = Math.round((pm.value / totalValue) * 100);
+                      const colors = ['bg-primary', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-slate-500'];
+
+                      return (
+                        <div key={pm.name} className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>{pm.name}</span>
+                            <span className="font-medium">{percentage}%</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div className={cn("h-full", colors[idx % colors.length])} style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground italic text-sm">
+                      No payment data available
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary w-[65%]" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>PayPal</span>
-                      <span className="font-medium">35%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 w-[35%]" />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </BentoCard>
             </div>
           )}
         </div>
+
+        {/* Financial Summary Board */}
+        {isWidgetVisible('financial-summary') && (
+          <div className="w-full">
+            <BentoCard title="Financial Position 🏦" className="h-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-slate-900 rounded-2xl text-white">
+                <div className="space-y-1">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Subtotal</p>
+                  <p className="text-2xl font-bold">{formatCurrency(summary.subtotal || 0)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Shipping</p>
+                  <p className="text-2xl font-bold text-blue-400">{formatCurrency(summary.shipping || 0)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Tax (VAT)</p>
+                  <p className="text-2xl font-bold text-purple-400">{formatCurrency(summary.tax || 0)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Discounts</p>
+                  <p className="text-2xl font-bold text-red-400">-{formatCurrency(summary.discounts || 0)}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex justify-between items-center p-4 border-t border-border/50">
+                <span className="text-lg font-bold">Net Sales</span>
+                <span className="text-2xl font-black text-primary">{formatCurrency(summary.revenue.value)}</span>
+              </div>
+            </BentoCard>
+          </div>
+        )}
 
         {/* Bottom Lists Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1714,10 +1707,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'At Risk'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'At Risk'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'At Risk'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1760,10 +1753,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_order_value
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_order_value || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_order_value || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1776,10 +1769,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">

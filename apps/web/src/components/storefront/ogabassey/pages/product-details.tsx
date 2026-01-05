@@ -81,36 +81,16 @@ const FALLBACK_PRODUCT = {
   condition: 'New',
 };
 
-// Mock Reviews
-const MOCK_REVIEWS = [
-  {
-    id: 1,
-    user: 'Ahmed Musa',
-    rating: 5,
-    date: '2 days ago',
-    comment:
-      "Best phone I've ever used. The titanium feel is premium and much lighter than my 14 Pro Max. Battery life is solid.",
-    verified: true,
-  },
-  {
-    id: 2,
-    user: 'Sarah Okon',
-    rating: 4,
-    date: '1 week ago',
-    comment:
-      'Camera is amazing, especially the 5x zoom. Only issue is it gets a bit warm during heavy gaming.',
-    verified: true,
-  },
-  {
-    id: 3,
-    user: 'David Cohen',
-    rating: 5,
-    date: '2 weeks ago',
-    comment:
-      'Delivery to Abuja was super fast (2 days). Product is authentic. Highly recommend Ogabassey.',
-    verified: true,
-  },
-];
+// Reviews - Currently empty until reviews feature is implemented
+// TODO: Fetch reviews from Supabase reviews table when available
+const PRODUCT_REVIEWS: Array<{
+  id: number;
+  user: string;
+  rating: number;
+  date: string;
+  comment: string;
+  verified: boolean;
+}> = [];
 
 interface OgabasseyV2ProductDetailsProps {
   storeSlug?: string;
@@ -981,48 +961,58 @@ export const OgabasseyV2ProductDetails: React.FC<
                 </div>
 
                 <div className="space-y-4">
-                  {MOCK_REVIEWS.map((review) => (
-                    <div
-                      key={review.id}
-                      className="border-b border-gray-100 pb-6 last:border-0"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
-                            <User size={14} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900 text-sm">
-                              {review.user}
-                            </h4>
-                            <span className="text-xs text-gray-400">
-                              {review.date}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex text-yellow-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={12}
-                              fill={i < review.rating ? 'currentColor' : 'none'}
-                              className={
-                                i >= review.rating ? 'text-gray-200' : ''
-                              }
-                            />
-                          ))}
-                        </div>
+                  {PRODUCT_REVIEWS.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Star size={24} className="text-gray-400" />
                       </div>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {review.comment}
-                      </p>
-                      {review.verified && (
-                        <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                          <Check size={12} /> Verified Purchase
-                        </div>
-                      )}
+                      <h4 className="font-bold text-gray-900 mb-2">No reviews yet</h4>
+                      <p className="text-sm text-gray-500">Be the first to review this product after your purchase!</p>
                     </div>
-                  ))}
+                  ) : (
+                    PRODUCT_REVIEWS.map((review) => (
+                      <div
+                        key={review.id}
+                        className="border-b border-gray-100 pb-6 last:border-0"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
+                              <User size={14} />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-sm">
+                                {review.user}
+                              </h4>
+                              <span className="text-xs text-gray-400">
+                                {review.date}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex text-yellow-400">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={12}
+                                fill={i < review.rating ? 'currentColor' : 'none'}
+                                className={
+                                  i >= review.rating ? 'text-gray-200' : ''
+                                }
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-gray-600 text-sm mb-3">
+                          {review.comment}
+                        </p>
+                        {review.verified && (
+                          <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                            <Check size={12} /> Verified Purchase
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

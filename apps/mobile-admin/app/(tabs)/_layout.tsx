@@ -10,9 +10,13 @@ import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { TYPOGRAPHY, RADIUS } from '@/constants/theme';
 
+import { useFailedOrders } from '@/hooks/useFailedOrders';
+
 export default function TabLayout() {
   console.log('[TabLayout] Rendering Debug View');
   const { colors } = useTheme();
+  const { data: failedOrders } = useFailedOrders();
+  const failedCount = failedOrders?.length ?? 0;
 
   return (
 
@@ -84,6 +88,7 @@ export default function TabLayout() {
         name="customers"
         options={{
           title: 'Customers',
+          tabBarBadge: failedCount > 0 ? failedCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
               <Ionicons

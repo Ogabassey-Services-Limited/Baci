@@ -2,7 +2,3 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/components/storefront/ogabassey/components/MobileMenu.tsx(84,6): error TS17008: JSX element 'div' has no corresponding closing tag.
-src/components/storefront/ogabassey/components/MobileMenu.tsx(150,1): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
-src/components/storefront/ogabassey/components/MobileMenu.tsx(151,1): error TS1005: '</' expected.
- ELIFECYCLE  Command failed with exit code 2.

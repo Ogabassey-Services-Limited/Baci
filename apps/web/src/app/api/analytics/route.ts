@@ -71,6 +71,7 @@ export async function GET(request: Request) {
       { data: summary, error: summaryError },
       { data: topProductsData, error: topProductsError },
       { data: salesByChannelData, error: salesByChannelError },
+      { data: salesByPaymentData, error: salesByPaymentError },
     ] = await Promise.all([
       supabase.rpc('get_analytics_summary', {
         p_merchant_id: merchant.id,
@@ -84,6 +85,11 @@ export async function GET(request: Request) {
         p_limit: 10,
       }),
       supabase.rpc('get_sales_by_channel', {
+        p_merchant_id: merchant.id,
+        p_start_date: currentPeriodStart.toISOString(),
+        p_end_date: currentPeriodEnd.toISOString(),
+      }),
+      supabase.rpc('get_sales_by_payment_method', {
         p_merchant_id: merchant.id,
         p_start_date: currentPeriodStart.toISOString(),
         p_end_date: currentPeriodEnd.toISOString(),
@@ -105,6 +111,13 @@ export async function GET(request: Request) {
       console.error('Error fetching sales by channel:', salesByChannelError);
       // Non-critical - continue with empty array
     }
+    if (salesByPaymentError) {
+      console.error(
+        'Error fetching sales by payment method:',
+        salesByPaymentError
+      );
+      // Non-critical - continue with empty array
+    }
 
     // Extract values from RPC response with defaults
     const currentRevenue = Number(summary?.currentRevenue || 0);
@@ -115,6 +128,13 @@ export async function GET(request: Request) {
     const previousCustomers = Number(summary?.previousCustomers || 0);
     const recentActivity = Number(summary?.activeNow || 0);
     const refundedOrdersCount = Number(summary?.currentRefundedCount || 0);
+
+    // New detailed metrics
+    const currentSubtotal = Number(summary?.currentSubtotal || 0);
+    const currentShipping = Number(summary?.currentShipping || 0);
+    const currentTax = Number(summary?.currentTax || 0);
+    const currentDiscounts = Number(summary?.currentDiscounts || 0);
+    const totalUnitsSold = Number(summary?.totalUnitsSold || 0);
 
     // Calculate changes
     const revenueChange =
@@ -171,7 +191,7 @@ export async function GET(request: Request) {
     // Get recent sales (small query, kept separate for fresh data)
     const { data: recentOrders } = await supabase
       .from('orders')
-      .select('id, customer_name, customer_email, total')
+      .select('id, customer_name, customer_email, total, created_at')
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false })
       .limit(5);
@@ -181,6 +201,7 @@ export async function GET(request: Request) {
       name: order.customer_name || 'Customer',
       email: order.customer_email || '',
       amount: order.total || 0,
+      time: order.created_at,
       avatar: 'avatar-1',
     }));
 
@@ -226,6 +247,12 @@ export async function GET(request: Request) {
         grossMargin: { value: grossMargin, change: grossMarginChange },
         ltv: { value: ltv, change: ltvChange },
         refundRate: { value: refundRate, change: refundRateChange },
+        // Expanded metrics
+        subtotal: currentSubtotal,
+        shipping: currentShipping,
+        tax: currentTax,
+        discounts: currentDiscounts,
+        totalUnitsSold: totalUnitsSold,
       },
       chartData,
       recentSales,
@@ -234,6 +261,9 @@ export async function GET(request: Request) {
         : []) as Record<string, unknown>[],
       salesByChannel: (Array.isArray(salesByChannelData)
         ? salesByChannelData
+        : []) as Record<string, unknown>[],
+      salesByPaymentMethod: (Array.isArray(salesByPaymentData)
+        ? salesByPaymentData
         : []) as Record<string, unknown>[],
     };
 

@@ -14,10 +14,14 @@ import {
   Pressable,
   Alert,
   Image,
+  Share,
 } from 'react-native';
+
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Lazy import to avoid crash if native module not built
 let ImagePicker: typeof import('expo-image-picker') | null = null;
 try {
@@ -38,6 +42,8 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useDashboardStats, type TimePeriod } from '@/hooks/useDashboardStats';
+import { useStoreReadiness } from '@/hooks/useStoreReadiness';
+import { useOrders } from '@/hooks/useOrders';
 import { SPACING, TYPOGRAPHY, RADIUS } from '@/constants/theme';
 
 const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
@@ -50,11 +56,14 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
 export default function HomeScreen() {
   console.log('[HomeScreen] Rendering');
   const { colors, isDark, shadows } = useTheme();
-  const { merchant, storeUrl, isLive } = useMerchant();
+  const { merchant, storeUrl, isLive, primaryDomain } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const { stats, revenueData, topProducts, isLoading, refetch } = useDashboardStats(period);
   const queryClient = useQueryClient();
+  const { readiness, isLoading: isReadinessLoading } = useStoreReadiness();
+  const { data: recentOrders, isLoading: isOrdersLoading } = useOrders();
+
   const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
 
   const handleAvatarPress = async () => {
@@ -145,6 +154,12 @@ export default function HomeScreen() {
     return `₦${amount.toLocaleString()}`;
   };
 
+  const formatMetric = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    return value.toString();
+  };
+
   const getPeriodLabel = () => {
     switch (period) {
       case 'today':
@@ -202,7 +217,55 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  // Placeholder for data, replace with actual useDashboardStats data
+  // Insight Card Logic
+  const [showInsight, setShowInsight] = useState(true);
+
+  React.useEffect(() => {
+    checkInsightVisibility();
+  }, []);
+
+  const checkInsightVisibility = async () => {
+    try {
+      const lastDismissedDate = await AsyncStorage.getItem('insight_dismissed_date');
+      const today = new Date().toDateString();
+
+      if (lastDismissedDate === today) {
+        setShowInsight(false);
+      }
+    } catch (e) {
+      console.error('Failed to load insight visibility', e);
+    }
+  };
+
+  const handleDismissInsight = async () => {
+    try {
+      const today = new Date().toDateString();
+      await AsyncStorage.setItem('insight_dismissed_date', today);
+      setShowInsight(false);
+    } catch (e) {
+      console.error('Failed to save insight visibility', e);
+    }
+  };
+
+  const handleShareStore = async () => {
+    try {
+      if (!storeUrl) return;
+
+      const url = `https://${storeUrl}`;
+      await Share.share({
+        message: `Check out my store! ${url}`,
+        url: url, // iOS
+        title: merchant?.business_name ?? 'My Store', // Android
+      });
+    } catch (error) {
+      console.error('Error sharing store:', error);
+    }
+  };
+
+  const handleBuyDomain = () => {
+    router.push('/domains');
+  };
+
   const data = stats;
 
   return (
@@ -229,23 +292,79 @@ export default function HomeScreen() {
           onAvatarPress={handleAvatarPress}
         />
 
-        <View style={styles.section}>
-          <ProgressCard
-            title="Finish Setup"
-            subtitle="Complete your store setup"
-            progress={54}
-            onPress={() => { }}
-          />
+        <View style={styles.actionButtonsRow}>
+          {(!primaryDomain || true) && ( // Always show for now based on "use this buttons", or revert to !primaryDomain if preferred
+            <Pressable
+              style={[styles.actionCard, { backgroundColor: colors.card }, shadows.sm]}
+              onPress={handleBuyDomain}
+            >
+              <Ionicons name="globe-outline" size={20} color={colors.primary} />
+              <Text style={[styles.actionCardText, { color: colors.text }]}>
+                {!primaryDomain ? 'Get Domain' : 'Manage Domain'}
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            style={[styles.actionCard, { backgroundColor: colors.card }, shadows.sm]}
+            onPress={handleShareStore}
+          >
+            <Ionicons name="share-outline" size={20} color={colors.gold} />
+            <Text style={[styles.actionCardText, { color: colors.text }]}>Share link</Text>
+          </Pressable>
         </View>
 
+        {/* Temporarily hidden for layout check */}
+        {false && (
+          <View style={styles.section}>
+            <ProgressCard
+              title={readiness?.isReady ? "Ready to Launch" : "Finish Setup"}
+              subtitle={readiness?.isReady ? "Publish your store now" : "Complete your store setup"}
+              progress={readiness?.overallProgress ?? 0}
+              onPress={() => router.push('/setup-checklist')}
+            />
+          </View>
+        )}
+
+        {showInsight && (
+          <View style={styles.section}>
+            <InsightCard
+              title={`Good ${getTimeOfDay()}, ${firstName}`}
+              message="Your store had 12 new visitors yesterday. Consider running a promotion to convert them!"
+              icon="sparkles"
+              onPress={() => { }}
+              onDismiss={handleDismissInsight}
+            />
+          </View>
+        )}
+
         <View style={styles.section}>
-          <InsightCard
-            title={`Good ${getTimeOfDay()}, ${firstName}`}
-            message="Your store had 12 new visitors yesterday. Consider running a promotion to convert them!"
-            icon="sparkles"
-            onPress={() => { }}
-            onDismiss={() => { }}
-          />
+          <View style={styles.statsGrid}>
+            <StatCard
+              label="Orders"
+              value={formatMetric(stats?.orders ?? 0)}
+              icon="receipt-outline"
+              iconColor={colors.primary}
+            />
+            <StatCard
+              label="Items"
+              value={formatMetric(stats?.totalItems ?? 0)}
+              icon="cube-outline"
+              iconColor={colors.gold}
+            />
+            <StatCard
+              label="Visits"
+              value={formatMetric(stats?.visits ?? 0)}
+              icon="globe-outline"
+              iconColor={colors.info}
+            />
+            <StatCard
+              label="New"
+              value={formatMetric(stats?.newCustomers ?? 0)}
+              icon="people-outline"
+              iconColor={colors.success}
+            />
+          </View>
         </View>
 
         <View style={[styles.section, { zIndex: 10 }]}>
@@ -295,69 +414,6 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.statsGrid}>
-            <StatCard
-              label="Orders"
-              value={stats?.orders ?? 0}
-              icon="receipt-outline"
-              iconColor={colors.primary}
-            />
-            <StatCard
-              label="Items"
-              value={stats?.totalItems ?? 0}
-              icon="cube-outline"
-              iconColor={colors.gold}
-            />
-            <StatCard
-              label="Visits"
-              value={stats?.visits ?? 0}
-              icon="globe-outline"
-              iconColor={colors.info}
-            />
-            <StatCard
-              label="New"
-              value={stats?.newCustomers ?? 0}
-              icon="people-outline"
-              iconColor={colors.success}
-            />
-          </View>
-        </View>
-
-        {topProducts.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Selling Products</Text>
-            <View style={[styles.topProductsCard, { backgroundColor: colors.card }, shadows.sm]}>
-              {topProducts.map((product, index) => (
-                <View key={product.id}>
-                  {index > 0 && <View style={[styles.productDivider, { backgroundColor: colors.border }]} />}
-                  <View style={styles.productRow}>
-                    <View style={[styles.productRank, { backgroundColor: index === 0 ? colors.gold : colors.cardHover }]}>
-                      <Text style={[styles.productRankText, { color: index === 0 ? '#FFFFFF' : colors.textMuted }]}>#{index + 1}</Text>
-                    </View>
-                    {product.imageUrl ? (
-                      <Image source={{ uri: product.imageUrl }} style={styles.productImage} />
-                    ) : (
-                      <View style={[styles.productImagePlaceholder, { backgroundColor: colors.cardHover }]}>
-                        <Ionicons name="cube-outline" size={20} color={colors.textMuted} />
-                      </View>
-                    )}
-                    <View style={styles.productInfo}>
-                      <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
-                      <Text style={[styles.productStats, { color: colors.textSecondary }]}>
-                        {product.totalSold} sold
-                      </Text>
-                    </View>
-                    <Text style={[styles.productRevenue, { color: colors.success }]}>
-                      {formatCurrency(product.totalRevenue)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             <QuickActionButton
@@ -388,6 +444,58 @@ export default function HomeScreen() {
               backgroundColor={colors.successLight}
               onPress={() => router.push('/blog')}
             />
+          </View>
+        </View>
+
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Transactions</Text>
+            <Pressable onPress={() => router.push('/(tabs)/orders')}>
+              <Text style={{ color: colors.primary, fontFamily: TYPOGRAPHY.fontFamily.semiBold }}>View All</Text>
+            </Pressable>
+          </View>
+
+          <View style={[styles.topProductsCard, { backgroundColor: colors.card }, shadows.sm]}>
+            {isOrdersLoading ? (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary }}>Loading transactions...</Text>
+              </View>
+            ) : recentOrders?.pages[0]?.orders.slice(0, 5).map((order, index) => (
+              <View key={order.id}>
+                {index > 0 && <View style={[styles.productDivider, { backgroundColor: colors.border }]} />}
+                <Pressable
+                  style={styles.productRow}
+                  onPress={() => router.push(`/order/${order.id}`)}
+                >
+                  <View style={[styles.orderIcon, { backgroundColor: colors.cardHover }]}>
+                    <Ionicons
+                      name={order.shipping_status === 'delivered' ? "checkmark-circle" : "time"}
+                      size={20}
+                      color={order.shipping_status === 'delivered' ? colors.success : colors.textMuted}
+                    />
+                  </View>
+                  <View style={styles.productInfo}>
+                    <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
+                      {order.items?.[0]?.product_name || `Order #${order.order_number}`}
+                      {order.items && order.items.length > 1 ? ` + ${order.items.length - 1} more` : ''}
+                    </Text>
+                    <Text style={[styles.productStats, { color: colors.textSecondary }]}>
+                      {new Date(order.created_at).toLocaleDateString()} • {order.customer_name}
+                    </Text>
+                  </View>
+                  <Text style={[styles.productRevenue, { color: colors.text }]}>
+                    {formatCurrency(order.total)}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+
+            {(!recentOrders?.pages[0]?.orders || recentOrders.pages[0].orders.length === 0) && !isOrdersLoading && (
+              <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary }}>No recent transactions</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -504,6 +612,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  orderIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   productInfo: {
     flex: 1,
   },
@@ -517,7 +632,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   productRevenue: {
+    fontSize: TYPOGRAPHY.size.bold,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  actionCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    gap: SPACING.sm,
+  },
+  actionCardText: {
     fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

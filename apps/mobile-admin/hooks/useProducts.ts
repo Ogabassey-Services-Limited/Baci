@@ -26,6 +26,8 @@ export interface Product {
   category_id: string | null;
   brand: string | null;
   brand_id: string | null;
+  fulfillment_details: { imei?: string; serial_number?: string;[key: string]: any } | null;
+  variant_attributes: Record<string, any> | null;
   has_variants: boolean;
   manage_stock: boolean;
   low_stock_threshold: number | null;
@@ -129,17 +131,32 @@ export function useProduct(productId: string) {
   return useQuery({
     queryKey: ['product', productId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!productId || productId === 'new') return null;
+
+      // Fetch product
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select('*, categories(name), brands(name)')
         .eq('id', productId)
         .eq('merchant_id', merchant?.id)
         .single();
 
-      if (error) throw new Error(error.message);
-      return data as Product & { categories?: { name: string }; brands?: { name: string } };
+      if (productError) throw productError;
+
+      // Fetch variants if this is a parent or has_variants is true
+      const { data: variants, error: variantsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('parent_product_id', productId)
+        .eq('merchant_id', merchant?.id); // Ensure variants also belong to the merchant
+
+      if (variantsError && variantsError.code !== 'PGRST116') { // PGRST116 is "No rows found"
+        console.log('Error fetching variants', variantsError);
+      }
+
+      return { ...productData, variants: variants || [] } as Product & { categories?: { name: string }; brands?: { name: string }; variants: Product[] };
     },
-    enabled: !!productId && !!merchant?.id,
+    enabled: !!productId && productId !== 'new' && !!merchant?.id,
   });
 }
 
@@ -211,5 +228,59 @@ export function useCategories() {
     },
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
+
+export interface TopSellingProduct extends Product {
+  totalSold: number;
+  totalRevenue: number;
+}
+
+export function useTopSellingProducts(limit: number = 20) {
+  const { merchant } = useMerchant();
+
+  return useQuery({
+    queryKey: ['top-selling-products', merchant?.id, limit],
+    queryFn: async () => {
+      // Manual aggregation for now (fallback logic from dashboard)
+      const { data: orderItems, error } = await supabase
+        .from('order_items')
+        .select(`
+          quantity,
+          price,
+          product_id,
+          products!inner(*)
+        `)
+        .eq('orders.merchant_id', merchant?.id);
+
+      if (error) throw error;
+      if (!orderItems) return [];
+
+      const productMap = new Map<string, TopSellingProduct>();
+
+      for (const item of orderItems) {
+        // @ts-ignore - Supabase types join
+        const product = item.products as Product;
+        const existing = productMap.get(product.id);
+        const qty = item.quantity || 1;
+        const rev = qty * (item.price || 0);
+
+        if (existing) {
+          existing.totalSold += qty;
+          existing.totalRevenue += rev;
+        } else {
+          productMap.set(product.id, {
+            ...product,
+            totalSold: qty,
+            totalRevenue: rev,
+          });
+        }
+      }
+
+      return Array.from(productMap.values())
+        .sort((a, b) => b.totalSold - a.totalSold)
+        .slice(0, limit);
+    },
+    enabled: !!merchant?.id,
   });
 }

@@ -3,7 +3,7 @@
  * View and manage product catalog with real-time data
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -19,25 +19,48 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
-import { useProducts, type Product } from '@/hooks/useProducts';
+import { useProducts, useCategories, useTopSellingProducts, type Product, type TopSellingProduct } from '@/hooks/useProducts';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { ScrollView } from 'react-native';
 
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
 
   const {
     data,
-    isLoading,
+
+    isLoading: isProductsLoading,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-    refetch,
+    refetch: refetchProducts,
   } = useProducts();
+
+  const { data: categories, isLoading: isCategoriesLoading, refetch: refetchCategories } = useCategories();
+
+  const { data: topSellingProducts, isLoading: isTopSellingLoading } = useTopSellingProducts(20);
+
+  const [activeTab, setActiveTab] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock' | 'categories' | 'top_selling'>('in_stock');
 
   // Flatten pages into single array
   const products = useMemo(() => {
     return data?.pages.flatMap((page) => page.products) ?? [];
   }, [data]);
+
+  // Filter products based on active tab
+  const displayData = useMemo(() => {
+    switch (activeTab) {
+      case 'in_stock':
+        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0);
+      case 'low_stock':
+        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0 && (p.stock ?? p.stock_quantity ?? 0) < 10);
+      case 'out_of_stock':
+        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) === 0);
+      case 'all':
+      default:
+        return products;
+    }
+  }, [activeTab, products]);
 
   const totalCount = data?.pages[0]?.totalCount ?? 0;
 
@@ -50,13 +73,19 @@ export default function ProductsScreen() {
   }, [products, totalCount]);
 
   const handleLoadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
+    if (hasNextPage && !isFetchingNextPage && activeTab !== 'top_selling') {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, activeTab]);
 
   const formatPrice = (amount: number) => {
     return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatMetric = (value: number) => {
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    return value.toString();
   };
 
   const getStockStatus = (stock: number) => {
@@ -64,6 +93,33 @@ export default function ProductsScreen() {
     if (stock < 10) return { label: `${stock} left`, color: colors.warning };
     return { label: `${stock} in stock`, color: colors.success };
   };
+
+  // Interactive Stat Card Component
+  const StatCard = ({
+    label,
+    value,
+    color,
+    isActive,
+    onPress
+  }: {
+    label: string,
+    value: number,
+    color: string,
+    isActive: boolean,
+    onPress: () => void
+  }) => (
+    <Pressable
+      style={[
+        styles.statCard,
+        { backgroundColor: isActive ? color : colors.card, borderColor: isActive ? color : colors.border },
+        shadows.sm
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.statValue, { color: isActive ? '#FFF' : color }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: isActive ? 'rgba(255,255,255,0.9)' : colors.textSecondary }]}>{label}</Text>
+    </Pressable>
+  );
 
   const renderProduct = ({ item }: { item: Product }) => {
     const stock = item.stock ?? item.stock_quantity ?? 0;
@@ -111,6 +167,95 @@ export default function ProductsScreen() {
     );
   };
 
+  const renderTopSellingProduct = ({ item }: { item: TopSellingProduct }) => {
+    const imageUrl = item.images?.[0];
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.productCard,
+          { backgroundColor: colors.card },
+          shadows.sm,
+          pressed && { backgroundColor: colors.cardHover },
+        ]}
+        onPress={() => router.push(`/product/${item.id}`)}
+      >
+        <View style={[styles.productRank, { backgroundColor: colors.gold }]}>
+          <Ionicons name="trophy" size={12} color="#FFF" />
+        </View>
+
+        <View style={[styles.productImage, { backgroundColor: colors.backgroundLight }]}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.image} />
+          ) : (
+            <Ionicons name="image-outline" size={24} color={colors.textMuted} />
+          )}
+        </View>
+
+        <View style={styles.productInfo}>
+          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
+
+          <View style={styles.priceRow}>
+            <Text style={[styles.price, { color: colors.text }]}>{formatPrice(item.price)}</Text>
+          </View>
+
+          <View style={styles.stockRow}>
+            <Ionicons name="analytics" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={[styles.stockText, { color: colors.primary }]}>
+              {formatMetric(item.totalSold)} sold • {formatMetric(item.totalRevenue)} rev
+            </Text>
+          </View>
+        </View>
+
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </Pressable>
+    );
+  };
+
+  const renderCategory = ({ item }: { item: { id: string; name: string; slug: string } }) => (
+    <Pressable
+      style={({ pressed }) => [
+        styles.categoryCard,
+        { backgroundColor: colors.card },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => {
+        // Implement category filtering logic here later or navigate
+        // router.push(`/products/category/${item.id}`)
+      }}
+    >
+      <View style={[styles.categoryIcon, { backgroundColor: colors.goldLight }]}>
+        <Ionicons name="folder-open" size={20} color={colors.gold} />
+      </View>
+      <Text style={[styles.categoryName, { color: colors.text }]}>{item.name}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
+  );
+
+  const TabButton = ({ id, label }: { id: 'all' | 'in_stock' | 'low_stock' | 'out_of_stock' | 'categories' | 'top_selling'; label: string }) => {
+    const isActive = activeTab === id;
+    if (id === 'low_stock' || id === 'out_of_stock') return null; // Hide these from tab list as they are cards now
+
+    return (
+      <Pressable
+        style={[
+          styles.tabButton,
+          isActive && { backgroundColor: colors.gold },
+          !isActive && { backgroundColor: colors.card },
+        ]}
+        onPress={() => setActiveTab(id)}
+      >
+        <Text style={[
+          styles.tabText,
+          isActive ? { color: '#000000', fontFamily: TYPOGRAPHY.fontFamily.semiBold } : { color: colors.textSecondary },
+        ]}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
@@ -122,79 +267,145 @@ export default function ProductsScreen() {
           <Pressable style={[styles.headerButton, { backgroundColor: colors.card }]}>
             <Ionicons name="search" size={22} color={colors.text} />
           </Pressable>
-          <Pressable
-            style={[styles.headerButton, { backgroundColor: colors.gold }]}
-            onPress={() => router.push('/product/new')}
-          >
-            <Ionicons name="add" size={22} color="#FFFFFF" />
-          </Pressable>
+
         </View>
       </View>
 
-      {/* Stats Summary */}
-      <View style={[styles.statsRow, { backgroundColor: colors.card }, shadows.sm]}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats.total}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: colors.text }]}>{stats.active}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Active</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: colors.warning }]}>{stats.lowStock}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Low Stock</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: colors.error }]}>{stats.outOfStock}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Out</Text>
-        </View>
+      {/* Stats Cards */}
+      <View style={styles.statsContainer}>
+        <StatCard
+          label="Total Active"
+          value={stats.active}
+          color={colors.primary}
+          isActive={activeTab === 'in_stock' || activeTab === 'all'}
+          onPress={() => setActiveTab('in_stock')}
+        />
+        <StatCard
+          label="Low Stock"
+          value={stats.lowStock}
+          color={colors.warning}
+          isActive={activeTab === 'low_stock'}
+          onPress={() => setActiveTab('low_stock')}
+        />
+        <StatCard
+          label="Out of Stock"
+          value={stats.outOfStock}
+          color={colors.error}
+          isActive={activeTab === 'out_of_stock'}
+          onPress={() => setActiveTab('out_of_stock')}
+        />
       </View>
 
-      {/* Products List */}
-      <FlatList
-        data={products}
-        renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
-            tintColor={colors.gold}
-            colors={[colors.gold]}
-          />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          isFetchingNextPage ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.gold} />
-            </View>
-          ) : null
-        }
-        ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="cube-outline" size={56} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No products yet</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Add your first product to get started</Text>
-              <Pressable
-                style={[styles.emptyButton, { backgroundColor: colors.gold }]}
-                onPress={() => router.push('/product/new')}
-              >
-                <Ionicons name="add" size={20} color="#FFFFFF" />
-                <Text style={styles.emptyButtonText}>Add Product</Text>
-              </Pressable>
-            </View>
-          ) : null
-        }
-        showsVerticalScrollIndicator={false}
-      />
+      {/* Products List tabs */}
+      <View style={styles.tabsContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
+          <TabButton id="in_stock" label={`In Stock (${stats.active})`} />
+          <TabButton id="top_selling" label="Top Selling" />
+          <TabButton id="all" label={`All (${stats.total})`} />
+          <TabButton id="categories" label={`Categories (${categories?.length ?? 0})`} />
+        </ScrollView>
+      </View>
+
+      {activeTab === 'categories' ? (
+        <FlatList
+          data={categories}
+          renderItem={renderCategory}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isCategoriesLoading}
+              onRefresh={refetchCategories}
+              tintColor={colors.gold}
+              colors={[colors.gold]}
+            />
+          }
+          ListEmptyComponent={
+            !isCategoriesLoading ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="folder-open-outline" size={56} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No categories found</Text>
+              </View>
+            ) : null
+          }
+        />
+      ) : activeTab === 'top_selling' ? (
+        <FlatList
+          data={topSellingProducts}
+          renderItem={renderTopSellingProduct}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isTopSellingLoading}
+              onRefresh={() => { /* Re-fetch if needed */ }}
+              tintColor={colors.gold}
+              colors={[colors.gold]}
+            />
+          }
+          ListEmptyComponent={
+            !isTopSellingLoading ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="trophy-outline" size={56} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No sales yet</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Start selling to see top products here.</Text>
+              </View>
+            ) : <ActivityIndicator size="large" color={colors.gold} style={{ marginTop: 20 }} />
+          }
+        />
+      ) : (
+        <FlatList
+          data={displayData}
+          renderItem={renderProduct}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isProductsLoading}
+              onRefresh={refetchProducts}
+              tintColor={colors.gold}
+              colors={[colors.gold]}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={colors.gold} />
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={
+            !isProductsLoading ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="cube-outline" size={56} color={colors.textMuted} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No products yet</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Add your first product to get started</Text>
+                <Pressable
+                  style={[styles.emptyButton, { backgroundColor: colors.gold }]}
+                  onPress={() => router.push('/product/new')}
+                >
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Text style={styles.emptyButtonText}>Add Product</Text>
+                </Pressable>
+              </View>
+            ) : null
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+      <Pressable
+        style={({ pressed }) => [
+          styles.fab,
+          { backgroundColor: colors.gold },
+          shadows.lg,
+          pressed && { transform: [{ scale: 0.95 }] },
+        ]}
+        onPress={() => router.push('/product/new')}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -225,19 +436,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statsRow: {
+  statsContainer: {
     flexDirection: 'row',
-    marginHorizontal: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  statItem: {
+  statCard: {
     flex: 1,
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   statValue: {
     fontSize: TYPOGRAPHY.size.xl,
@@ -247,6 +458,44 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+  },
+  tabsContainer: {
+    marginBottom: SPACING.lg,
+  },
+  tabsContent: {
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  tabButton: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  tabText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  categoryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.sm,
+  },
+  categoryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  categoryName: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   listContent: {
     padding: SPACING.lg,
@@ -271,6 +520,22 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  productRank: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   productInfo: {
     flex: 1,
@@ -341,5 +606,16 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: SPACING.lg,
     alignItems: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: SPACING.xl,
+    right: SPACING.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
   },
 });

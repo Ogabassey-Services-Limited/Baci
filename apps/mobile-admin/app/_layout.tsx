@@ -208,6 +208,7 @@ function AuthGate({ colors }: { colors: typeof LIGHT_COLORS }) {
         contentStyle: {
           backgroundColor: colors.background,
         },
+        headerBackTitle: 'Back',
       }}
     >
       <Stack.Screen name="login" options={{ headerShown: false }} />

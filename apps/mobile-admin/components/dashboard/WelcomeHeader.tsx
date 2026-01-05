@@ -18,6 +18,7 @@ interface WelcomeHeaderProps {
   onNotificationPress?: () => void;
   onAvatarPress?: () => void;
   notificationCount?: number;
+
 }
 
 export function WelcomeHeader({
@@ -27,6 +28,7 @@ export function WelcomeHeader({
   onNotificationPress,
   onAvatarPress,
   notificationCount = 0,
+
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
 
@@ -71,6 +73,8 @@ export function WelcomeHeader({
           <Text style={[styles.storeUrl, { color: colors.gold }]} numberOfLines={1}>
             {storeUrl}
           </Text>
+
+
         </View>
       </View>
 
@@ -87,7 +91,7 @@ export function WelcomeHeader({
           </View>
         )}
       </Pressable>
-    </View>
+    </View >
   );
 }
 
@@ -139,6 +143,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
+
   textContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -146,6 +151,25 @@ const styles = StyleSheet.create({
   storeUrl: {
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: 4,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  actionButtonText: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginLeft: 4,
   },
   notificationButton: {
     width: 44,

@@ -67,6 +67,13 @@ export default function MenuScreen() {
       title: 'Store',
       items: [
         {
+          id: 'customize',
+          icon: 'color-palette-outline',
+          label: 'Customize Website',
+          description: 'Colors, theme, and branding',
+          onPress: () => router.push('/customize'),
+        },
+        {
           id: 'store-settings',
           icon: 'storefront-outline',
           label: 'Store Settings',
@@ -115,6 +122,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/analytics'),
         },
         {
+          id: 'expenses',
+          icon: 'wallet-outline',
+          label: 'Expenses',
+          description: 'Track spending and receipts',
+          onPress: () => router.push('/expenses'),
+        },
+        {
           id: 'discounts',
           icon: 'pricetag-outline',
           label: 'Discounts',
@@ -143,13 +157,13 @@ export default function MenuScreen() {
           id: 'contact',
           icon: 'chatbubble-outline',
           label: 'Contact Support',
-          onPress: () => Linking.openURL('mailto:support@mybaci.store'),
+          onPress: () => router.push('/contact-support'),
         },
         {
           id: 'feedback',
           icon: 'star-outline',
           label: 'Send Feedback',
-          onPress: () => Linking.openURL('mailto:feedback@mybaci.store?subject=App%20Feedback'),
+          onPress: () => router.push('/send-feedback'),
         },
       ],
     },
@@ -161,14 +175,14 @@ export default function MenuScreen() {
           icon: 'person-outline',
           label: 'Profile',
           description: 'Your account details',
-          onPress: () => { },
+          onPress: () => router.push('/profile'),
         },
         {
           id: 'notifications',
           icon: 'notifications-outline',
           label: 'Notifications',
           description: 'Push notification settings',
-          onPress: () => { },
+          onPress: () => router.push('/notifications'),
         },
         {
           id: 'logout',
