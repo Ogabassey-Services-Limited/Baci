@@ -31,13 +31,13 @@ export const OgabasseyV2Receipts: React.FC = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      if (!isAuthenticated || !merchantContext?.slug) {
+      if (!isAuthenticated || !merchantContext?.merchant?.slug) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(`/api/storefront/orders?merchant_slug=${merchantContext.slug}`);
+        const res = await fetch(`/api/storefront/orders?merchant_slug=${merchantContext.merchant.slug}`);
         const data = await res.json();
 
         if (data.orders) {
@@ -55,13 +55,9 @@ export const OgabasseyV2Receipts: React.FC = () => {
               image: item.product_image || item.image || '/placeholder.png',
               selectedColor: item.variant_name || undefined
             })),
-            product: {
-              name: order.items?.[0]?.product_name || 'Order Item',
-              image: order.items?.[0]?.product_image || '/placeholder.png',
-            } as any,
             status: order.payment_status === 'paid' ? 'Paid' : order.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid',
             method: order.payment_provider || 'Bank Transfer',
-            customerName: customer?.first_name ? `${customer.first_name} ${customer.last_name}` : 'Customer',
+            customerName: customer?.full_name || 'Customer',
             address: order.shipping_address || 'No address provided',
             paymentStatus: (order.payment_status as 'paid' | 'unpaid' | 'partially_paid') || 'unpaid',
             balance: '₦0.00',
@@ -77,13 +73,13 @@ export const OgabasseyV2Receipts: React.FC = () => {
     };
 
     fetchOrders();
-  }, [isAuthenticated, merchantContext?.slug, customer]);
+  }, [isAuthenticated, merchantContext?.merchant?.slug, customer]);
 
   const filteredReceipts = receipts.filter((receipt) => {
     const query = searchQuery.toLowerCase();
     return (
       receipt.id.toLowerCase().includes(query) ||
-      receipt.product.name.toLowerCase().includes(query) ||
+      receipt.products.some(p => p.name.toLowerCase().includes(query)) ||
       receipt.status.toLowerCase().includes(query)
     );
   });
@@ -197,8 +193,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
                   {/* Product Image */}
                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
                     <img
-                      src={receipt.product.image}
-                      alt={receipt.product.name}
+                      src={receipt.products[0]?.image || '/placeholder.png'}
+                      alt={receipt.products[0]?.name || 'Product'}
                       className="w-full h-full object-contain mix-blend-multiply"
                     />
                   </div>
@@ -218,7 +214,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
                         #{receipt.id}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">
-                        {receipt.product.name}
+                        {receipt.products[0]?.name || 'Unknown item'}
                       </p>
                     </div>
 

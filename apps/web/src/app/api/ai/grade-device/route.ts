@@ -61,7 +61,14 @@ export async function POST(req: NextRequest) {
     const responseText = result.response.text();
     // Clean code fences if present
     const cleanJson = responseText.replace(/```json|```/g, '').trim();
-    let aiData;
+
+    interface AIAnalysisResult {
+      model: string;
+      grade: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+      observations: string[];
+      confidence: number;
+    }
+    let aiData: AIAnalysisResult = {} as AIAnalysisResult;
 
     try {
       aiData = JSON.parse(cleanJson);

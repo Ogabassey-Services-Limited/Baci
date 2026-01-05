@@ -32,6 +32,4 @@ src/components/storefront/ogabassey/pages/receipts.tsx(86,15): error TS2551: Pro
 src/components/storefront/ogabassey/pages/receipts.tsx(200,36): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
 src/components/storefront/ogabassey/pages/receipts.tsx(201,36): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
 src/components/storefront/ogabassey/pages/receipts.tsx(221,34): error TS2551: Property 'product' does not exist on type 'ReceiptData'. Did you mean 'products'?
-src/components/storefront/ogabassey/pages/reviews.tsx(137,41): error TS2304: Cannot find name 'useCustomerAuth'.
-src/components/storefront/ogabassey/pages/reviews.tsx(138,24): error TS2304: Cannot find name 'useMerchantSafe'.
  ELIFECYCLE  Command failed with exit code 2.

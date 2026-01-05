@@ -13,9 +13,10 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 
 // Mock data removed
 interface OrderItem {
@@ -36,7 +37,7 @@ interface Order {
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const { customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
-  const basePath = merchantContext?.basePath ?? '';
+  const basePath = merchantContext?.merchant?.slug ? `/${merchantContext.merchant.slug}` : '';
 
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,13 +46,13 @@ export const OgabasseyV2Orders: React.FC = () => {
   // Fetch Orders
   useEffect(() => {
     const fetchOrders = async () => {
-      if (!isAuthenticated || !merchantContext?.slug) {
+      if (!isAuthenticated || !merchantContext?.merchant?.slug) {
         setIsLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantContext.slug}`);
+        const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantContext.merchant.slug}`);
         const data = await res.json();
         if (data.orders) {
           // Transform if necessary or use directly
@@ -65,7 +66,7 @@ export const OgabasseyV2Orders: React.FC = () => {
     };
 
     fetchOrders();
-  }, [isAuthenticated, merchantContext?.slug]);
+  }, [isAuthenticated, merchantContext?.merchant?.slug]);
 
   // Filter Logic
   const filteredOrders = orders.filter((order) => {

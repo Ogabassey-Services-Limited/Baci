@@ -72,7 +72,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // Implementation for re-ordering would go here
     // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
-      router.push(getUrl(`/product/${order.items[0].product_id}`));
+      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
     }
   };
 
