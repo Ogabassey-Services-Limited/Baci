@@ -35,6 +35,7 @@ export async function GET(
         shipping_address,
         payment_status,
         shipping_status,
+        payment_provider,
         merchant_id
       `)
       .eq('id', id)

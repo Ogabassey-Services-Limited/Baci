@@ -19,6 +19,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type React from 'react';
 
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { useV2Saved } from '@/components/storefront/ogabassey/providers/v2-saved-context';
+
 // Extract store slug from pathname
 function useStoreSlug() {
   const pathname = usePathname();
@@ -82,19 +85,38 @@ const getMenuItems = (storeSlug: string) => {
   ];
 };
 
-// Mock User Data
-const user = {
-  name: 'Alex Doe',
-  email: 'alex.doe@example.com',
-  phone: '+234 800 123 4567',
-  joinDate: 'Member since 2023',
-  avatar:
-    '/placeholder.png'
-};
-
 export const OgabasseyV2Profile: React.FC = () => {
   const storeSlug = useStoreSlug();
   const menuItems = getMenuItems(storeSlug);
+  const { customer, logout, isAuthenticated } = useCustomerAuth();
+  const { savedItems } = useV2Saved();
+
+  // Helper to format date
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Member since 2024';
+    return `Member since ${new Date(dateString).getFullYear()}`;
+  };
+
+  // Helper for initials
+  const getInitials = (name?: string) => {
+    return name
+      ? name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+      : '??';
+  };
+
+  if (!isAuthenticated && typeof window !== 'undefined') {
+    // Ideally redirect, but for this component just show minimal or empty
+    // return null;
+  }
+
+  const displayName = customer?.full_name || customer?.email || 'Guest';
+  const displayEmail = customer?.email || '';
+  const displayPhone = customer?.phone || 'No phone added';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -111,13 +133,12 @@ export const OgabasseyV2Profile: React.FC = () => {
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-gray-900 to-gray-800" />
 
-              <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-md mb-4 mt-8">
-                <Image
-                  src={user.avatar}
-                  alt={user.name}
-                  fill
-                  className="rounded-full object-cover"
-                />
+              <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-md mb-4 mt-8 bg-gray-200 flex items-center justify-center">
+                {/* Replaced Image with Initials fallback if no generic avatar */}
+                <span className="text-2xl font-bold text-gray-600">
+                  {getInitials(customer?.full_name)}
+                </span>
+
                 <button
                   type="button"
                   className="absolute bottom-0 right-0 bg-red-600 text-white p-1.5 rounded-full border-2 border-white hover:bg-red-700 transition-colors"
@@ -126,14 +147,14 @@ export const OgabasseyV2Profile: React.FC = () => {
                 </button>
               </div>
 
-              <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
-              <p className="text-gray-500 text-sm mb-1">{user.email}</p>
-              <p className="text-gray-400 text-xs mb-6">{user.phone}</p>
+              <h2 className="text-xl font-bold text-gray-900">{displayName}</h2>
+              <p className="text-gray-500 text-sm mb-1">{displayEmail}</p>
+              <p className="text-gray-400 text-xs mb-6">{displayPhone}</p>
 
               <div className="w-full grid grid-cols-2 gap-4 border-t border-gray-100 pt-6">
                 <div className="text-center">
                   <span className="block text-lg font-bold text-gray-900">
-                    12
+                    {customer?.total_orders || 0}
                   </span>
                   <span className="text-xs text-gray-500 uppercase tracking-wide">
                     Orders
@@ -141,7 +162,7 @@ export const OgabasseyV2Profile: React.FC = () => {
                 </div>
                 <div className="text-center border-l border-gray-100">
                   <span className="block text-lg font-bold text-gray-900">
-                    5
+                    {savedItems.length}
                   </span>
                   <span className="text-xs text-gray-500 uppercase tracking-wide">
                     Saved
@@ -195,6 +216,7 @@ export const OgabasseyV2Profile: React.FC = () => {
 
               <button
                 type="button"
+                onClick={() => logout()}
                 className="w-full flex items-center justify-between p-4 md:p-6 hover:bg-red-50 transition-colors group text-left active:bg-red-100"
               >
                 <div className="flex items-center gap-4">

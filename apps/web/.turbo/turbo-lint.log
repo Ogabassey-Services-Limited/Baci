@@ -2,6 +2,65 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/app/(storefront)/[slug]/account/addresses/page.tsx:3:30 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    1 │ 'use client';
+    2 │ 
+  > 3 │ import { ArrowLeft, Loader2, Plus } from 'lucide-react';
+      │                              ^^^^
+    4 │ import Link from 'next/link';
+    5 │ import { useRouter } from 'next/navigation';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+    3 │ import·{·ArrowLeft,·Loader2,·Plus·}·from·'lucide-react';
+      │                              -----                      
+
+src/app/(storefront)/[slug]/wishlist/page.tsx:14:21 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    12 │ import Image from 'next/image';
+    13 │ import Link from 'next/link';
+  > 14 │ import { useParams, useRouter } from 'next/navigation';
+       │                     ^^^^^^^^^
+    15 │ import { useCallback, useEffect, useState } from 'react';
+    16 │ import { Button } from '@/components/ui/button';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+    14 │ import·{·useParams,·useRouter·}·from·'next/navigation';
+       │                     ----------                         
+
+src/app/api/ai/grade-device/route.ts:1:8 lint/style/useImportType  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Some named imports are only used as types.
+  
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { GoogleGenerativeAI } from '@google/generative-ai';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i This import is only used as a type.
+  
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │          ^^^^^^^^^^^
+    2 │ import { GoogleGenerativeAI } from '@google/generative-ai';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Importing the types with import type ensures that they are removed by the compilers and avoids loading unnecessary modules.
+  
+  i Safe fix: Add inline type keywords.
+  
+    1 │ import·{·type·NextRequest,·NextResponse·}·from·'next/server';
+      │          +++++                                               
+
 src/app/api/merchant/readiness/route.ts:138:34 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
@@ -15,5 +74,238 @@ src/app/api/merchant/readiness/route.ts:138:34 lint/suspicious/noExplicitAny ━
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 772 files in 641ms. No fixes applied.
-Found 1 warning.
+src/lib/analytics-export.ts:393:29 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    392 │   // Footer on all pages
+  > 393 │   const pageCount = (doc as any).internal.getNumberOfPages();
+        │                             ^^^
+    394 │   for (let i = 1; i <= pageCount; i++) {
+    395 │     doc.setPage(i);
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(storefront)/[slug]/wishlist/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+     1 │ 'use client';
+     2 │ 
+   > 3 │ import {
+       │ ^^^^^^^^
+   > 4 │   Check,
+        ...
+  > 10 │   Trash2,
+  > 11 │ } from 'lucide-react';
+       │ ^^^^^^^^^^^^^^^^^^^^^^
+    12 │ import Image from 'next/image';
+    13 │ import Link from 'next/link';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     18  18 │   import { Input } from '@/components/ui/input';
+     19  19 │   import { Label } from '@/components/ui/label';
+     20     │ - import·{·useCart·}·from·'@/hooks/use-cart';
+     21     │ - import·{·useCurrencyWithCountry·}·from·'@/hooks/use-currency';
+     22     │ - import·{·useToast·}·from·'@/hooks/use-toast';
+     23     │ - import·type·{·Product·}·from·'@/lib/products';
+     24     │ - import·{·useCustomerAuth·}·from·'@/contexts/customer-auth-context';
+         20 │ + import·{·useCustomerAuth·}·from·'@/contexts/customer-auth-context';
+         21 │ + import·{·useCart·}·from·'@/hooks/use-cart';
+         22 │ + import·{·useCurrencyWithCountry·}·from·'@/hooks/use-currency';
+         23 │ + import·{·useToast·}·from·'@/hooks/use-toast';
+         24 │ + import·type·{·Product·}·from·'@/lib/products';
+     25  25 │   
+     26  26 │   interface WishListItem {
+  
+
+src/app/api/ai/grade-device/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { GoogleGenerativeAI } from '@google/generative-ai';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1     │ - import·{·NextRequest,·NextResponse·}·from·'next/server';
+      2     │ - import·{·GoogleGenerativeAI·}·from·'@google/generative-ai';
+      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      4     │ - import·{·cookies·}·from·'next/headers';
+          1 │ + import·{·GoogleGenerativeAI·}·from·'@google/generative-ai';
+          2 │ + import·{·cookies·}·from·'next/headers';
+          3 │ + import·{·NextRequest,·NextResponse·}·from·'next/server';
+          4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+      5   5 │   
+      6   6 │   // Initialize Gemini
+  
+
+src/app/api/ai/grade-device/route.ts:64:9 lint/suspicious/noImplicitAnyLet ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This variable implicitly has the any type.
+  
+    62 │     // Clean code fences if present
+    63 │     const cleanJson = responseText.replace(/```json|```/g, '').trim();
+  > 64 │     let aiData;
+       │         ^^^^^^
+    65 │ 
+    66 │     try {
+  
+  i Variable declarations without type annotation and initialization implicitly have the any type. Declare a type or initialize the variable with some value.
+  
+
+src/app/api/ai/grade-device/route.ts:68:14 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━━━
+
+  × This variable e is unused.
+  
+    66 │     try {
+    67 │       aiData = JSON.parse(cleanJson);
+  > 68 │     } catch (e) {
+       │              ^
+    69 │       console.error('Failed to parse Gemini response:', responseText);
+    70 │       return NextResponse.json(
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend e with an underscore.
+  
+     66  66 │       try {
+     67  67 │         aiData = JSON.parse(cleanJson);
+     68     │ - ····}·catch·(e)·{
+         68 │ + ····}·catch·(_e)·{
+     69  69 │         console.error('Failed to parse Gemini response:', responseText);
+     70  70 │         return NextResponse.json(
+  
+
+src/app/api/ai/grade-device/route.ts:90:9 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━━━━
+
+  × This variable productUrl is unused.
+  
+    88 │     let basePrice = 0;
+    89 │     let matchName = 'Unknown Device';
+  > 90 │     let productUrl = '';
+       │         ^^^^^^^^^^
+    91 │ 
+    92 │     if (products && products.length > 0) {
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend productUrl with an underscore.
+  
+     88  88 │       let basePrice = 0;
+     89  89 │       let matchName = 'Unknown Device';
+     90     │ - ····let·productUrl·=·'';
+         90 │ + ····let·_productUrl·=·'';
+     91  91 │   
+     92  92 │       if (products && products.length > 0) {
+    ······· │ 
+     95  95 │         basePrice = bestMatch.price;
+     96  96 │         matchName = bestMatch.name;
+     97     │ - ······productUrl·=·bestMatch.image;
+         97 │ + ······_productUrl·=·bestMatch.image;
+     98  98 │       } else {
+     99  99 │         // Fallback: If we can't find it, ask AI to ESTIMATE the market value in Nigeria (Naira)
+  
+
+src/lib/analytics-export.ts:129:20 lint/suspicious/useIterableCallbackReturn ━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This callback passed to forEach() iterable method should not return a value.
+  
+    127 │     csvRows.push('SALES BY CHANNEL');
+    128 │     csvRows.push('Channel,Revenue');
+  > 129 │     salesByChannel.forEach((c) =>
+        │                    ^^^^^^^
+    130 │       csvRows.push(`${c.name},${formatCurrency(c.value)}`)
+    131 │     );
+  
+  i Either remove this return or remove the returned value.
+  
+    128 │     csvRows.push('Channel,Revenue');
+    129 │     salesByChannel.forEach((c) =>
+  > 130 │       csvRows.push(`${c.name},${formatCurrency(c.value)}`)
+        │       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    131 │     );
+    132 │     csvRows.push('');
+  
+
+src/lib/analytics-export.ts:139:26 lint/suspicious/useIterableCallbackReturn ━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This callback passed to forEach() iterable method should not return a value.
+  
+    137 │     csvRows.push('SALES BY PAYMENT METHOD');
+    138 │     csvRows.push('Method,Revenue');
+  > 139 │     salesByPaymentMethod.forEach((p) =>
+        │                          ^^^^^^^
+    140 │       csvRows.push(`${p.name},${formatCurrency(p.value)}`)
+    141 │     );
+  
+  i Either remove this return or remove the returned value.
+  
+    138 │     csvRows.push('Method,Revenue');
+    139 │     salesByPaymentMethod.forEach((p) =>
+  > 140 │       csvRows.push(`${p.name},${formatCurrency(p.value)}`)
+        │       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    141 │     );
+    142 │     csvRows.push('');
+  
+
+src/lib/analytics-export.ts:77:5 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This variable chartData is unused.
+  
+    75 │     summary,
+    76 │     recentSales,
+  > 77 │     chartData,
+       │     ^^^^^^^^^
+    78 │     salesByChannel,
+    79 │     salesByPaymentMethod,
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+src/lib/supabase/mobile-auth.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { createServerClient } from '@supabase/ssr';
+    3 │ import { cookies } from 'next/headers';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1    │ - import·{·createClient·as·createSupabaseClient·}·from·'@supabase/supabase-js';
+     2    │ - import·{·createServerClient·}·from·'@supabase/ssr';
+        1 │ + import·{·createServerClient·}·from·'@supabase/ssr';
+        2 │ + import·{·createClient·as·createSupabaseClient·}·from·'@supabase/supabase-js';
+     3  3 │   import { cookies } from 'next/headers';
+     4  4 │   import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+  
+
+src/lib/supabase/mobile-auth.ts:93:6 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This type alias AuthenticatedResult is unused.
+  
+    91 │  * Type helper for the authenticated result
+    92 │  */
+  > 93 │ type AuthenticatedResult = NonNullable<
+       │      ^^^^^^^^^^^^^^^^^^^
+    94 │   Awaited<ReturnType<typeof getAuthenticatedUser>>
+    95 │ >;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+Checked 774 files in 446ms. No fixes applied.
+Found 10 errors.
+Found 5 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

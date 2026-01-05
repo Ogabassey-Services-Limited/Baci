@@ -511,7 +511,12 @@ export function DraggableAnalyticsGrid({
         'summary-ltv',
         'financial-summary',
       ],
-      products: ['summary-orders', 'top-products', 'summary-refund-rate', 'summary-units'],
+      products: [
+        'summary-orders',
+        'top-products',
+        'summary-refund-rate',
+        'summary-units',
+      ],
       customers: ['summary-customers', 'summary-active'],
       marketing: ['sales-channel'],
       inventory: [
@@ -760,11 +765,24 @@ export function DraggableAnalyticsGrid({
             <div className="min-h-[400px]">
               <BentoCard title="Payment Methods 💳" className="h-full">
                 <div className="space-y-4">
-                  {data.salesByPaymentMethod && data.salesByPaymentMethod.length > 0 ? (
+                  {data.salesByPaymentMethod &&
+                  data.salesByPaymentMethod.length > 0 ? (
                     data.salesByPaymentMethod.map((pm, idx) => {
-                      const totalValue = data.salesByPaymentMethod?.reduce((acc, curr) => acc + curr.value, 0) || 1;
-                      const percentage = Math.round((pm.value / totalValue) * 100);
-                      const colors = ['bg-primary', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-slate-500'];
+                      const totalValue =
+                        data.salesByPaymentMethod?.reduce(
+                          (acc, curr) => acc + curr.value,
+                          0
+                        ) || 1;
+                      const percentage = Math.round(
+                        (pm.value / totalValue) * 100
+                      );
+                      const colors = [
+                        'bg-primary',
+                        'bg-blue-500',
+                        'bg-purple-500',
+                        'bg-amber-500',
+                        'bg-slate-500',
+                      ];
 
                       return (
                         <div key={pm.name} className="space-y-2">
@@ -773,7 +791,13 @@ export function DraggableAnalyticsGrid({
                             <span className="font-medium">{percentage}%</span>
                           </div>
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div className={cn("h-full", colors[idx % colors.length])} style={{ width: `${percentage}%` }} />
+                            <div
+                              className={cn(
+                                'h-full',
+                                colors[idx % colors.length]
+                              )}
+                              style={{ width: `${percentage}%` }}
+                            />
                           </div>
                         </div>
                       );
@@ -795,25 +819,43 @@ export function DraggableAnalyticsGrid({
             <BentoCard title="Financial Position 🏦" className="h-full">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-slate-900 rounded-2xl text-white">
                 <div className="space-y-1">
-                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Subtotal</p>
-                  <p className="text-2xl font-bold">{formatCurrency(summary.subtotal || 0)}</p>
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                    Subtotal
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(summary.subtotal || 0)}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Shipping</p>
-                  <p className="text-2xl font-bold text-blue-400">{formatCurrency(summary.shipping || 0)}</p>
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                    Shipping
+                  </p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {formatCurrency(summary.shipping || 0)}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Tax (VAT)</p>
-                  <p className="text-2xl font-bold text-purple-400">{formatCurrency(summary.tax || 0)}</p>
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                    Tax (VAT)
+                  </p>
+                  <p className="text-2xl font-bold text-purple-400">
+                    {formatCurrency(summary.tax || 0)}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">Discounts</p>
-                  <p className="text-2xl font-bold text-red-400">-{formatCurrency(summary.discounts || 0)}</p>
+                  <p className="text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                    Discounts
+                  </p>
+                  <p className="text-2xl font-bold text-red-400">
+                    -{formatCurrency(summary.discounts || 0)}
+                  </p>
                 </div>
               </div>
               <div className="mt-4 flex justify-between items-center p-4 border-t border-border/50">
                 <span className="text-lg font-bold">Net Sales</span>
-                <span className="text-2xl font-black text-primary">{formatCurrency(summary.revenue.value)}</span>
+                <span className="text-2xl font-black text-primary">
+                  {formatCurrency(summary.revenue.value)}
+                </span>
               </div>
             </BentoCard>
           </div>
@@ -1707,10 +1749,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'At Risk'
                         )?.avg_clv
                           ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'At Risk'
-                            )?.avg_clv || 0
-                          )
+                              data.segmentSummary.segments.find(
+                                (s) => s.segment === 'At Risk'
+                              )?.avg_clv || 0
+                            )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1753,10 +1795,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_order_value
                           ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'Champions'
-                            )?.avg_order_value || 0
-                          )
+                              data.segmentSummary.segments.find(
+                                (s) => s.segment === 'Champions'
+                              )?.avg_order_value || 0
+                            )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1769,10 +1811,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_clv
                           ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'Champions'
-                            )?.avg_clv || 0
-                          )
+                              data.segmentSummary.segments.find(
+                                (s) => s.segment === 'Champions'
+                              )?.avg_clv || 0
+                            )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">

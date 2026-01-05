@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +21,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/products';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 
 interface WishListItem {
   id: string;
@@ -45,6 +46,7 @@ export default function WishListPage() {
   const params = useParams();
   const { toast } = useToast();
   const { addToCart } = useCart();
+  const { customer, isAuthenticated } = useCustomerAuth();
   const merchantSlug = params.slug as string;
 
   const [customerEmail, setCustomerEmail] = useState('');
@@ -85,6 +87,7 @@ export default function WishListPage() {
 
   const fetchWishList = useCallback(
     async (email: string) => {
+      if (!email) return;
       setIsLoading(true);
       try {
         const response = await fetch(
@@ -109,19 +112,25 @@ export default function WishListPage() {
     [toast]
   );
 
-  // Check if email is stored in localStorage
+  // Check auth or localStorage
   useEffect(() => {
-    try {
-      const storedEmail = localStorage.getItem('customerEmail');
-      if (storedEmail) {
-        setCustomerEmail(storedEmail);
-        setIsEmailSubmitted(true);
-        fetchWishList(storedEmail);
+    if (isAuthenticated && customer?.email) {
+      setCustomerEmail(customer.email);
+      setIsEmailSubmitted(true);
+      fetchWishList(customer.email);
+    } else {
+      try {
+        const storedEmail = localStorage.getItem('customerEmail');
+        if (storedEmail) {
+          setCustomerEmail(storedEmail);
+          setIsEmailSubmitted(true);
+          fetchWishList(storedEmail);
+        }
+      } catch {
+        // localStorage not available
       }
-    } catch {
-      // localStorage not available (e.g., incognito mode)
     }
-  }, [fetchWishList]);
+  }, [isAuthenticated, customer?.email, fetchWishList]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();

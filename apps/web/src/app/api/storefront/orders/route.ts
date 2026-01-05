@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         shipping_address,
         tracking_number,
         shipping_provider,
+        payment_provider,
         order_items (
           id,
           name,

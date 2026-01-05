@@ -71,7 +71,13 @@ export function exportAnalyticsAsCSV(
   dateRange?: { from: Date | undefined; to: Date | undefined },
   merchantName?: string
 ): void {
-  const { summary, recentSales, chartData, salesByChannel, salesByPaymentMethod } = data;
+  const {
+    summary,
+    recentSales,
+    chartData,
+    salesByChannel,
+    salesByPaymentMethod,
+  } = data;
 
   // Build CSV content
   const csvRows: string[] = [];
@@ -93,9 +99,7 @@ export function exportAnalyticsAsCSV(
     csvRows.push(
       `Total Sales,${summary.sales?.value || 0},${formatPercentage(summary.sales?.change || 0)}`
     );
-    csvRows.push(
-      `Total Units Sold,${summary.totalUnitsSold || 0},0%`
-    );
+    csvRows.push(`Total Units Sold,${summary.totalUnitsSold || 0},0%`);
     csvRows.push(
       `Total Customers,${summary.customers?.value || 0},${formatPercentage(summary.customers?.change || 0)}`
     );
@@ -122,7 +126,9 @@ export function exportAnalyticsAsCSV(
   if (salesByChannel && salesByChannel.length > 0) {
     csvRows.push('SALES BY CHANNEL');
     csvRows.push('Channel,Revenue');
-    salesByChannel.forEach(c => csvRows.push(`${c.name},${formatCurrency(c.value)}`));
+    salesByChannel.forEach((c) =>
+      csvRows.push(`${c.name},${formatCurrency(c.value)}`)
+    );
     csvRows.push('');
   }
 
@@ -130,7 +136,9 @@ export function exportAnalyticsAsCSV(
   if (salesByPaymentMethod && salesByPaymentMethod.length > 0) {
     csvRows.push('SALES BY PAYMENT METHOD');
     csvRows.push('Method,Revenue');
-    salesByPaymentMethod.forEach(p => csvRows.push(`${p.name},${formatCurrency(p.value)}`));
+    salesByPaymentMethod.forEach((p) =>
+      csvRows.push(`${p.name},${formatCurrency(p.value)}`)
+    );
     csvRows.push('');
   }
 
@@ -169,7 +177,13 @@ export function exportAnalyticsAsPDF(
   dateRange?: { from: Date | undefined; to: Date | undefined },
   merchantName?: string
 ): void {
-  const { summary, recentSales, salesByChannel, salesByPaymentMethod, topProducts } = data;
+  const {
+    summary,
+    recentSales,
+    salesByChannel,
+    salesByPaymentMethod,
+    topProducts,
+  } = data;
 
   // Create new PDF document
   const doc = new jsPDF();
@@ -187,7 +201,11 @@ export function exportAnalyticsAsPDF(
   doc.setTextColor(255);
   doc.setFont('helvetica', 'normal');
   doc.text(merchantName?.toUpperCase() || 'YOUR STORE', 14, 28);
-  doc.text(`PERIOD: ${formatDateRange(dateRange?.from, dateRange?.to).toUpperCase()}`, 14, 34);
+  doc.text(
+    `PERIOD: ${formatDateRange(dateRange?.from, dateRange?.to).toUpperCase()}`,
+    14,
+    34
+  );
 
   let yPosition = 55;
 
@@ -247,17 +265,31 @@ export function exportAnalyticsAsPDF(
     doc.setFontSize(10);
     doc.setTextColor(200);
     doc.text('Items Subtotal', 24, yPosition + 24);
-    doc.text(formatCurrency(summary.subtotal || 0), 190, yPosition + 24, { align: 'right' });
+    doc.text(formatCurrency(summary.subtotal || 0), 190, yPosition + 24, {
+      align: 'right',
+    });
 
     doc.text('Shipping Revenue', 24, yPosition + 32);
-    doc.text(`+ ${formatCurrency(summary.shipping || 0)}`, 190, yPosition + 32, { align: 'right' });
+    doc.text(
+      `+ ${formatCurrency(summary.shipping || 0)}`,
+      190,
+      yPosition + 32,
+      { align: 'right' }
+    );
 
     doc.text('Tax (VAT)', 24, yPosition + 40);
-    doc.text(`+ ${formatCurrency(summary.tax || 0)}`, 190, yPosition + 40, { align: 'right' });
+    doc.text(`+ ${formatCurrency(summary.tax || 0)}`, 190, yPosition + 40, {
+      align: 'right',
+    });
 
     doc.setTextColor(239, 68, 68); // light red
     doc.text('Discounts', 24, yPosition + 48);
-    doc.text(`- ${formatCurrency(summary.discounts || 0)}`, 190, yPosition + 48, { align: 'right' });
+    doc.text(
+      `- ${formatCurrency(summary.discounts || 0)}`,
+      190,
+      yPosition + 48,
+      { align: 'right' }
+    );
 
     doc.setDrawColor(255, 255, 255, 0.2);
     doc.line(24, yPosition + 54, 185, yPosition + 54);
@@ -265,7 +297,9 @@ export function exportAnalyticsAsPDF(
     doc.setFontSize(14);
     doc.setTextColor(255);
     doc.text('Net Total', 24, yPosition + 61);
-    doc.text(formatCurrency(summary.revenue?.value || 0), 190, yPosition + 61, { align: 'right' });
+    doc.text(formatCurrency(summary.revenue?.value || 0), 190, yPosition + 61, {
+      align: 'right',
+    });
 
     yPosition += 85;
   }
@@ -276,8 +310,14 @@ export function exportAnalyticsAsPDF(
   doc.text('Strategic Breakdowns', 14, yPosition);
   yPosition += 5;
 
-  const originData = (salesByChannel || []).map(c => [c.name, formatCurrency(c.value)]);
-  const paymentData = (salesByPaymentMethod || []).map(p => [p.name, formatCurrency(p.value)]);
+  const originData = (salesByChannel || []).map((c) => [
+    c.name,
+    formatCurrency(c.value),
+  ]);
+  const paymentData = (salesByPaymentMethod || []).map((p) => [
+    p.name,
+    formatCurrency(p.value),
+  ]);
 
   autoTable(doc, {
     startY: yPosition,
@@ -286,7 +326,7 @@ export function exportAnalyticsAsPDF(
     theme: 'striped',
     styles: { fontSize: 9 },
     headStyles: { fillColor: [74, 144, 217] },
-    margin: { left: 14, right: 110 }
+    margin: { left: 14, right: 110 },
   });
 
   autoTable(doc, {
@@ -296,7 +336,7 @@ export function exportAnalyticsAsPDF(
     theme: 'striped',
     styles: { fontSize: 9 },
     headStyles: { fillColor: [74, 144, 217] },
-    margin: { left: 110, right: 14 }
+    margin: { left: 110, right: 14 },
   });
 
   yPosition = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition;
@@ -315,10 +355,14 @@ export function exportAnalyticsAsPDF(
     autoTable(doc, {
       startY: yPosition,
       head: [['Product Name', 'Revenue', 'Units sold']],
-      body: topProducts.map(p => [p.name, formatCurrency(p.revenue), String(p.units || 0)]),
+      body: topProducts.map((p) => [
+        p.name,
+        formatCurrency(p.revenue),
+        String(p.units || 0),
+      ]),
       theme: 'grid',
       styles: { fontSize: 9 },
-      headStyles: { fillColor: [74, 144, 217] }
+      headStyles: { fillColor: [74, 144, 217] },
     });
 
     yPosition = (doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition;
@@ -334,10 +378,14 @@ export function exportAnalyticsAsPDF(
     autoTable(doc, {
       startY: yPosition,
       head: [['Customer', 'Date', 'Amount']],
-      body: recentSales.map(s => [s.name, new Date(s.time).toLocaleDateString(), formatCurrency(s.amount)]),
+      body: recentSales.map((s) => [
+        s.name,
+        new Date(s.time).toLocaleDateString(),
+        formatCurrency(s.amount),
+      ]),
       theme: 'grid',
       styles: { fontSize: 9 },
-      headStyles: { fillColor: [74, 144, 217] }
+      headStyles: { fillColor: [74, 144, 217] },
     });
   }
 
@@ -348,7 +396,11 @@ export function exportAnalyticsAsPDF(
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(`Page ${i} of ${pageCount}`, 105, 285, { align: 'center' });
-    doc.text(`Generated on ${new Date().toLocaleString()} • Baci Admin`, 14, 285);
+    doc.text(
+      `Generated on ${new Date().toLocaleString()} • Baci Admin`,
+      14,
+      285
+    );
   }
 
   // Save PDF

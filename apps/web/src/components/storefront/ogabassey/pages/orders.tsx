@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
+// Mock data removed
 interface OrderItem {
   id: string;
   name: string;
@@ -32,106 +33,77 @@ interface Order {
   items: OrderItem[];
 }
 
-// Mock orders data
-const orders: Order[] = [
-  {
-    id: 'ORD-2024-001',
-    date: 'December 5, 2024',
-    status: 'Shipped',
-    total: '₦1,250,000',
-    items: [
-      {
-        id: '1',
-        name: 'iPhone 15 Pro Max',
-        description: '256GB, Natural Titanium',
-        image:
-          '/placeholder.png',
-      },
-    ],
-  },
-  {
-    id: 'ORD-2024-002',
-    date: 'November 28, 2024',
-    status: 'Delivered',
-    total: '₦450,000',
-    items: [
-      {
-        id: '2',
-        name: 'Samsung Galaxy Watch 6',
-        description: '44mm, Graphite',
-        image:
-          '/placeholder.png',
-      },
-      {
-        id: '3',
-        name: 'AirPods Pro 2',
-        description: 'With MagSafe Case',
-        image:
-          '/placeholder.png',
-      },
-    ],
-  },
-  {
-    id: 'ORD-2024-003',
-    date: 'November 15, 2024',
-    status: 'Processing',
-    total: '₦2,100,000',
-    items: [
-      {
-        id: '4',
-        name: 'MacBook Pro 14"',
-        description: 'M3 Pro, 512GB, Space Gray',
-        image:
-          '/placeholder.png',
-      },
-    ],
-  },
-];
-
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
+  const { customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
   const basePath = merchantContext?.basePath ?? '';
+
+  const [orders, setOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch Orders
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!isAuthenticated || !merchantContext?.slug) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantContext.slug}`);
+        const data = await res.json();
+        if (data.orders) {
+          // Transform if necessary or use directly
+          setOrders(data.orders);
+        }
+      } catch (err) {
+        console.error('Failed to fetch orders', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [isAuthenticated, merchantContext?.slug]);
 
   // Filter Logic
   const filteredOrders = orders.filter((order) => {
     const query = searchQuery.toLowerCase();
-    return (
-      order.id.toLowerCase().includes(query) ||
-      order.status.toLowerCase().includes(query) ||
-      order.items.some((item) => item.name.toLowerCase().includes(query))
-    );
+    // Safely check properties
+    const orderIdMatch = order.order_number?.toLowerCase().includes(query) || order.id?.toLowerCase().includes(query);
+    const statusMatch = order.shipping_status?.toLowerCase().includes(query) || order.payment_status?.toLowerCase().includes(query);
+    const itemMatch = order.items?.some((item: any) => item.name.toLowerCase().includes(query));
+
+    return orderIdMatch || statusMatch || itemMatch;
   });
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Processing':
-        return 'bg-blue-50 text-blue-600 border-blue-100';
-      case 'Delivered':
-        return 'bg-green-50 text-green-600 border-green-100';
-      case 'Cancelled':
-        return 'bg-red-50 text-red-600 border-red-100';
-      case 'Shipped':
-        return 'bg-amber-50 text-amber-600 border-amber-100';
-      default:
-        return 'bg-gray-50 text-gray-600 border-gray-100';
-    }
+    const s = status?.toLowerCase();
+    if (s === 'processing' || s === 'pending') return 'bg-blue-50 text-blue-600 border-blue-100';
+    if (s === 'delivered') return 'bg-green-50 text-green-600 border-green-100';
+    if (s === 'cancelled') return 'bg-red-50 text-red-600 border-red-100';
+    if (s === 'shipped') return 'bg-amber-50 text-amber-600 border-amber-100';
+    return 'bg-gray-50 text-gray-600 border-gray-100';
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Processing':
-        return <Clock size={14} />;
-      case 'Delivered':
-        return <CheckCircle2 size={14} />;
-      case 'Cancelled':
-        return <XCircle size={14} />;
-      case 'Shipped':
-        return <Truck size={14} />;
-      default:
-        return <Package size={14} />;
-    }
+    const s = status?.toLowerCase();
+    if (s === 'processing' || s === 'pending') return <Clock size={14} />;
+    if (s === 'delivered') return <CheckCircle2 size={14} />;
+    if (s === 'cancelled') return <XCircle size={14} />;
+    if (s === 'shipped') return <Truck size={14} />;
+    return <Package size={14} />;
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        {/* Assuming Loader2 is available or use simple text */}
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -220,26 +192,30 @@ export const OgabasseyV2Orders: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="font-bold text-gray-900 text-sm">
-                        {order.id}
+                        {order.order_number || order.id?.slice(0, 8)}
                       </h3>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 uppercase tracking-wide ${getStatusColor(order.status)}`}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 uppercase tracking-wide ${getStatusColor(order.shipping_status || 'Pending')}`}
                       >
-                        {getStatusIcon(order.status)} {order.status}
+                        {getStatusIcon(order.shipping_status || 'Pending')} {order.shipping_status || 'Pending'}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500">{order.date}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(order.created_at).toLocaleDateString()}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500 mb-0.5">Total Amount</p>
-                    <p className="font-bold text-gray-900">{order.total}</p>
+                    <p className="font-bold text-gray-900">
+                      {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total || 0)}
+                    </p>
                   </div>
                 </div>
 
                 {/* Order Items */}
                 <div className="p-4 md:p-6">
                   <div className="flex flex-col gap-4">
-                    {order.items.map((item) => (
+                    {order.items?.map((item: any) => (
                       <Link
                         key={item.id}
                         href={`/product/${item.id}` as any}
@@ -247,7 +223,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                       >
                         <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
                           <Image
-                            src={item.image}
+                            src={item.image || item.product_image || '/placeholder.png'}
                             alt={item.name}
                             fill
                             className="object-contain mix-blend-multiply p-1"
@@ -258,7 +234,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                             {item.name}
                           </h4>
                           <p className="text-xs text-gray-500 line-clamp-1">
-                            {item.description}
+                            Qty: {item.quantity}
                           </p>
                         </div>
                         {order.items.length === 1 && (
@@ -275,7 +251,7 @@ export const OgabasseyV2Orders: React.FC = () => {
 
                   <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center">
                     <span className="text-xs text-gray-400">
-                      {order.items.length} item(s)
+                      {order.items?.length || 0} item(s)
                     </span>
                     <Link
                       href={`/order/${order.id}` as any}

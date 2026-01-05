@@ -13,26 +13,7 @@ interface Product {
   price: string;
 }
 
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'iPhone 15 Pro Max',
-    image: '/placeholder.png',
-    price: '₦1,950,000',
-  },
-  {
-    id: '2',
-    name: 'MacBook Pro 14"',
-    image: '/placeholder.png',
-    price: '₦2,450,000',
-  },
-  {
-    id: '3',
-    name: 'Sony WH-1000XM5',
-    image: '/placeholder.png',
-    price: '₦450,000',
-  },
-];
+
 
 interface RatingModalProps {
   isOpen: boolean;
@@ -153,45 +134,122 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // State for reviews to allow moving items between tabs
-  const [pendingReviews, setPendingReviews] = useState([
-    mockProducts[0],
-    mockProducts[2],
-  ]);
-  const [historyReviews, setHistoryReviews] = useState([
-    {
-      ...mockProducts[1],
-      userRating: 5,
-      userComment: 'Amazing laptop, super fast!',
-      date: 'Oct 12, 2023',
-    },
-  ]);
+  const { customer, isAuthenticated } = useCustomerAuth();
+  const { merchant } = useMerchantSafe() || {};
 
-  const handleOpenRate = (product: Product) => {
-    setSelectedProduct(product);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isAuthenticated || !merchant?.slug || !customer?.email) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        // 1. Fetch Orders to find pending reviews
+        const ordersRes = await fetch(
+          `/api/storefront/orders?merchantSlug=${merchant.slug}`
+        );
+        const ordersData = await ordersRes.json();
+
+        // 2. Fetch User's History of Reviews
+        const reviewsRes = await fetch(
+          `/api/reviews?merchantId=${merchant.id}&customerEmail=${encodeURIComponent(customer.email)}`
+        );
+        const reviewsData = await reviewsRes.json();
+
+        if (ordersData.orders) setOrders(ordersData.orders);
+        if (reviewsData.reviews) setReviews(reviewsData.reviews);
+      } catch (err) {
+        console.error('Failed to fetch review data', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isAuthenticated, merchant?.slug, merchant?.id, customer?.email]);
+
+  // Derive "Pending" items from Delivered orders
+  // Flatten orders into items, filter only delivered, exclude items already reviewed
+  const pendingItems = orders
+    .filter((o) => o.shipping_status === 'delivered' || o.status === 'Delivered') // Support both status fields
+    .flatMap((order) =>
+      order.items.map((item: any) => ({
+        ...item,
+        orderDate: order.created_at,
+        orderId: order.id,
+        // Ensure image structure matches Product interface
+        image: item.image || item.product_image || '/placeholder.png',
+        price: item.price,
+      }))
+    )
+    .filter((item) => {
+      // Check if this product has already been reviewed by the user
+      // Note: This check is simple; robust systems might allow re-reviewing different instances
+      return !reviews.some((r) => r.product_id === item.id || r.product_id === item.product_id);
+    });
+
+  const handleOpenRate = (item: any) => {
+    // Map item to Product interface expected by modal
+    const productToRate: Product = {
+      id: item.id || item.product_id, // fallback
+      name: item.name,
+      image: item.image,
+      price: item.price?.toString() || '0',
+    };
+    setSelectedProduct(productToRate);
     setIsModalOpen(true);
   };
 
-  const handleRateSubmit = (rating: number) => {
-    if (!selectedProduct) return;
+  const handleRateSubmit = async (rating: number) => {
+    if (!selectedProduct || !merchant || !customer) return;
 
-    // Create new review entry
-    const newReview = {
-      ...selectedProduct,
-      userRating: rating,
-      userComment: 'Rated via Quick Rate',
-      date: 'Just now',
-    };
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          merchantId: merchant.id,
+          customerEmail: customer.email,
+          customerName: customer.full_name,
+          rating,
+          body: 'Rated via Quick Rate', // Simple default or expand modal to capture text
+        }),
+      });
 
-    // Update state: Add to history, remove from pending
-    setHistoryReviews((prev) => [newReview, ...prev]);
-    setPendingReviews((prev) =>
-      prev.filter((p) => p.id !== selectedProduct.id)
-    );
+      if (res.ok) {
+        const data = await res.json();
+        // Optimistically update UI
+        const newReview = {
+          ...data.review,
+          products: {
+            name: selectedProduct.name,
+            images: [selectedProduct.image],
+          },
+        };
 
-    // Switch tab to history to show the user their new review
-    setActiveTab('history');
+        setReviews((prev) => [newReview, ...prev]);
+        setActiveTab('history');
+      }
+    } catch (err) {
+      console.error('Failed to submit review', err);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-gray-400" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -207,7 +265,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
             onClick={() => setActiveTab('pending')}
             className={`pb-3 px-6 font-medium text-sm transition-colors relative ${activeTab === 'pending' ? 'text-red-600' : 'text-gray-500 hover:text-gray-800'}`}
           >
-            To Review ({pendingReviews.length})
+            To Review ({pendingItems.length})
             {activeTab === 'pending' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600" />
             )}
@@ -217,7 +275,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
             onClick={() => setActiveTab('history')}
             className={`pb-3 px-6 font-medium text-sm transition-colors relative ${activeTab === 'history' ? 'text-red-600' : 'text-gray-500 hover:text-gray-800'}`}
           >
-            History ({historyReviews.length})
+            History ({reviews.length})
             {activeTab === 'history' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600" />
             )}
@@ -226,31 +284,32 @@ export const OgabasseyV2Reviews: React.FC = () => {
 
         {activeTab === 'pending' ? (
           <div className="space-y-4">
-            {pendingReviews.length > 0 ? (
-              pendingReviews.map((product) => (
+            {pendingItems.length > 0 ? (
+              pendingItems.map((item, idx) => (
                 <div
-                  key={product.id}
+                  // Use composite key if needed, or fallback
+                  key={`${item.id}-${idx}`}
                   className="bg-white p-4 rounded-xl border border-gray-100 flex items-center gap-4 shadow-sm hover:shadow-md transition-all"
                 >
                   <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 shrink-0 border border-gray-100 relative">
                     <Image
-                      src={product.image}
-                      alt={product.name}
+                      src={item.image}
+                      alt={item.name}
                       fill
                       className="object-contain mix-blend-multiply p-1"
                     />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 text-sm mb-1">
-                      {product.name}
+                      {item.name}
                     </h3>
                     <p className="text-xs text-gray-500">
-                      Purchased on Jan 15, 2024
+                      Purchased on {new Date(item.orderDate).toLocaleDateString()}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleOpenRate(product)}
+                    onClick={() => handleOpenRate(item)}
                     className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm active:scale-95"
                   >
                     Rate Now
@@ -268,17 +327,18 @@ export const OgabasseyV2Reviews: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {historyReviews.length > 0 ? (
-              historyReviews.map((review, idx) => (
+            {reviews.length > 0 ? (
+              reviews.map((review) => (
                 <div
-                  key={idx}
+                  key={review.id}
                   className="bg-white p-6 rounded-xl border border-gray-100 space-y-4 shadow-sm"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-gray-50 rounded-lg p-1 shrink-0 border border-gray-100 relative">
                       <Image
-                        src={review.image}
-                        alt={review.name}
+                        // Handle joined product data structure
+                        src={review.products?.images?.[0] || '/placeholder.png'}
+                        alt={review.products?.name || 'Product'}
                         fill
                         className="object-contain mix-blend-multiply p-1"
                       />
@@ -286,10 +346,10 @@ export const OgabasseyV2Reviews: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <h3 className="font-bold text-gray-900 text-sm">
-                          {review.name}
+                          {review.products?.name || 'Product Name'}
                         </h3>
                         <span className="text-xs text-gray-400">
-                          {review.date}
+                          {new Date(review.created_at).toLocaleDateString()}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 my-1">
@@ -297,18 +357,32 @@ export const OgabasseyV2Reviews: React.FC = () => {
                           <Star
                             key={i}
                             size={14}
-                            fill={i < review.userRating ? '#FACC15' : 'none'}
+                            fill={i < review.rating ? '#FACC15' : 'none'}
                             className={
-                              i < review.userRating
+                              i < review.rating
                                 ? 'text-yellow-400'
                                 : 'text-gray-300'
                             }
                           />
                         ))}
                       </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        &quot;{review.userComment}&quot;
-                      </p>
+                      {review.body && (
+                        <p className="text-sm text-gray-600 mt-2">
+                          &quot;{review.body}&quot;
+                        </p>
+                      )}
+
+                      {/* Status Badge */}
+                      <div className='mt-2'>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${review.status === 'approved'
+                          ? 'bg-green-100 text-green-700'
+                          : review.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                          {review.status}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -9,98 +9,77 @@ import {
   Leaf,
   Search,
   X,
+  Loader2,
 } from 'lucide-react';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
-
-// Inlined mock data for ReceiptsPage to ensure standalone functionality
-const products = [
-  {
-    id: '1',
-    name: 'iPhone 15 Pro Max - Titanium',
-    price: '₦1,800,000',
-    originalPrice: '₦2,000,000',
-    image: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-15-pro-max.jpg',
-    description: '256GB, Natural Titanium',
-    rating: 4.8,
-    reviews: 124,
-    tags: ['Best Seller', 'New Arrival'],
-    category: 'Phones',
-  },
-];
-
-interface ReceiptData {
-  id: string;
-  date: string;
-  time: string;
-  total: string;
-  items: number;
-  product: (typeof products)[0];
-  status: string;
-  method: string;
-  customerName: string;
-  address: string;
-  imei: string;
-  paymentStatus: 'unpaid' | 'paid' | 'partially_paid';
-  amountPaid?: string;
-  balance?: string;
-}
-
-const RECEIPTS: ReceiptData[] = [
-  {
-    id: 'OG-2024-001',
-    date: 'May 20, 2024',
-    time: '10:23 AM',
-    total: '₦601,200',
-    items: 1,
-    product: products[0],
-    status: 'Unpaid',
-    method: 'Bank Transfer',
-    customerName: 'Peter Simon',
-    address: '123 Mockingbird Lane, Anytown',
-    imei: '3728402723017639',
-    paymentStatus: 'unpaid',
-    balance: '₦601,200',
-  },
-  {
-    id: 'OG-2024-002',
-    date: 'May 20, 2024',
-    time: '1:45 PM',
-    total: '₦601,200',
-    items: 1,
-    product: products[0],
-    status: 'Partially Paid',
-    method: 'Card',
-    customerName: 'Peter Simon',
-    address: '123 Mockingbird Lane, Anytown',
-    imei: '3728402723017639',
-    paymentStatus: 'partially_paid',
-    amountPaid: '₦301,200',
-    balance: '₦300,000',
-  },
-  {
-    id: 'OG-2024-003',
-    date: 'May 20, 2024',
-    time: '06:12 PM',
-    total: '₦641,200',
-    items: 1,
-    product: products[0],
-    status: 'Paid',
-    method: 'Wallet',
-    customerName: 'Peter Simon',
-    address: '123 Mockingbird Lane, Anytown',
-    imei: '3728402723017639',
-    paymentStatus: 'paid',
-  },
-];
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { ReceiptModal, type ReceiptData } from '../components/ReceiptModal';
+import { type Product } from '@/lib/products';
 
 export const OgabasseyV2Receipts: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  // const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
-  // const [isModalOpen, setIsModalOpen] = useState(false);
+  const { customer, isAuthenticated } = useCustomerAuth();
+  const merchantContext = useMerchantSafe();
 
-  const filteredReceipts = RECEIPTS.filter((receipt) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [receipts, setReceipts] = useState<ReceiptData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!isAuthenticated || !merchantContext?.slug) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/storefront/orders?merchant_slug=${merchantContext.slug}`);
+        const data = await res.json();
+
+        if (data.orders) {
+          const mappedReceipts: ReceiptData[] = data.orders.map((order: any) => ({
+            id: order.order_number || order.id.slice(0, 8).toUpperCase(),
+            date: new Date(order.created_at).toLocaleDateString(),
+            time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            total: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total),
+            items: order.items?.length || 0,
+            products: order.items.map((item: any) => ({
+              id: item.product_id,
+              name: item.product_name || item.name,
+              price: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price),
+              quantity: item.quantity,
+              image: item.product_image || item.image || '/placeholder.png',
+              selectedColor: item.variant_name || undefined
+            })),
+            product: {
+              name: order.items?.[0]?.product_name || 'Order Item',
+              image: order.items?.[0]?.product_image || '/placeholder.png',
+            } as any,
+            status: order.payment_status === 'paid' ? 'Paid' : order.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid',
+            method: order.payment_provider || 'Bank Transfer',
+            customerName: customer?.first_name ? `${customer.first_name} ${customer.last_name}` : 'Customer',
+            address: order.shipping_address || 'No address provided',
+            paymentStatus: (order.payment_status as 'paid' | 'unpaid' | 'partially_paid') || 'unpaid',
+            balance: '₦0.00',
+            amountPaid: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.amount_paid || order.total),
+          }));
+          setReceipts(mappedReceipts);
+        }
+      } catch (err) {
+        console.error('Failed to fetch receipts', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [isAuthenticated, merchantContext?.slug, customer]);
+
+  const filteredReceipts = receipts.filter((receipt) => {
     const query = searchQuery.toLowerCase();
     return (
       receipt.id.toLowerCase().includes(query) ||
@@ -110,9 +89,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
   });
 
   const handleViewReceipt = (receipt: ReceiptData) => {
-    // setSelectedReceipt(receipt);
-    // setIsModalOpen(true);
-    // TODO: Implement view receipt functionality
+    setSelectedReceipt(receipt);
+    setIsModalOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -137,6 +115,14 @@ export const OgabasseyV2Receipts: React.FC = () => {
         );
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-gray-400" size={32} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -194,7 +180,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
               description={
                 searchQuery
                   ? `No results found for "${searchQuery}"`
-                  : 'You have no transaction receipts yet.'
+                  : 'You have no transactions receipts yet. Orders you make will appear here.'
               }
               variant="generic"
               compact
@@ -280,11 +266,11 @@ export const OgabasseyV2Receipts: React.FC = () => {
         )}
       </div>
 
-      {/* <ReceiptModal
+      <ReceiptModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         data={selectedReceipt}
-      /> */}
+      />
     </div>
   );
 };

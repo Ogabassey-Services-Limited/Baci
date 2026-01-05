@@ -3,6 +3,11 @@
 import { Check, Crown, Gift, Star, TrendingUp, UserCheck } from 'lucide-react';
 import type React from 'react';
 
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { useLoyalty } from '@/hooks/use-loyalty';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { Loader2 } from 'lucide-react';
+
 const TIERS = [
   {
     id: 'bronze',
@@ -65,8 +70,18 @@ const TIERS = [
 ];
 
 export const OgabasseyV2MemberStatus: React.FC = () => {
-  // Mock User Data
-  const userPoints = 35000;
+  const { customer, isLoading: isAuthLoading } = useCustomerAuth();
+  const { merchant } = useMerchantSafe() || {};
+  const {
+    pointsBalance,
+    data: loyaltyData,
+    loading: isLoyaltyLoading,
+  } = useLoyalty(merchant?.id, customer?.id);
+
+  const isLoading = isAuthLoading || isLoyaltyLoading;
+
+  // Use real points or 0
+  const userPoints = pointsBalance || 0;
 
   // Determine current tier
   const currentTierIndex = TIERS.reduce((acc, tier, index) => {
@@ -86,6 +101,22 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
     progress = Math.min(100, Math.max(0, (gained / range) * 100));
     pointsToNext = nextTier.minPoints - userPoints;
   }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-gray-400" size={32} />
+      </div>
+    );
+  }
+
+  // Get settings or defaults
+  const settings = loyaltyData?.settings || {
+    points_per_naira: 0.001, // Default: 1 point per 1000 naira
+    referral_bonus_referrer: 5000,
+  };
+
+  const spendPerPoint = Math.round(1 / (settings.points_per_naira || 0.001));
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -111,7 +142,9 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                 {currentTier.name} Member
               </span>
             </div>
-            <h2 className="text-3xl font-bold mb-1">Alex Doe</h2>
+            <h2 className="text-3xl font-bold mb-1">
+              {customer?.full_name || customer?.email || 'Welcome'}
+            </h2>
             <p className="text-white/70 text-sm mb-6 font-medium">
               {userPoints.toLocaleString()} Points Collected
             </p>
@@ -162,12 +195,13 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                       Shop & Earn
                     </h4>
                     <p className="text-xs text-gray-500 mb-2">
-                      Earn 1 point for every ₦1,000 spent on any product.
+                      Earn 1 point for every ₦{spendPerPoint.toLocaleString()}{' '}
+                      spent on any product.
                     </p>
                     <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 inline-block">
                       <span className="text-xs font-bold text-gray-700">
                         Next Target: Spend ₦
-                        {(pointsToNext * 1000).toLocaleString()}
+                        {(pointsToNext * spendPerPoint).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -182,8 +216,8 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                       Refer a Friend
                     </h4>
                     <p className="text-xs text-gray-500 mb-2">
-                      Earn 5,000 points when a friend makes their first purchase
-                      over ₦100k.
+                      Earn {settings.referral_bonus_referrer.toLocaleString()}{' '}
+                      points when a friend makes their first purchase over ₦100k.
                     </p>
                     <button
                       type="button"

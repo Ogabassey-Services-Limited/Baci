@@ -1,5 +1,4 @@
 import { generateObject } from 'ai';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -9,7 +8,7 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 // Puck configuration schema for structured output
 const PuckComponentSchema = z.object({
@@ -128,16 +127,13 @@ Remember: You're helping merchants create beautiful, functional storefronts. Be 
 
 export async function POST(req: Request) {
   try {
-    // Auth check
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    // Auth check - supports both cookie (web) and Bearer token (mobile)
+    const auth = await getAuthenticatedUser(req);
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { user } = auth;
 
     // Rate limiting
     const rateLimit = checkRateLimit(

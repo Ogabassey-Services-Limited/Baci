@@ -1,33 +1,18 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { generateDefaultConfig } from '@/lib/builder-defaults';
+import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pageSlug = searchParams.get('slug') || 'home';
-  const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-
-  // Get current user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
+  // Support both cookie and Bearer token auth
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { user, supabase } = auth;
 
   // Get merchant with full details for template generation
   const { data: merchant, error: merchantError } = await supabase
@@ -100,27 +85,14 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { slug, config, name, seo, storeSettings, setupSettings } =
     await request.json();
-  const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
+  // Support both cookie and Bearer token auth
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const { user, supabase } = auth;
 
   const { data: merchant } = await supabase
     .from('merchants')
@@ -163,25 +135,14 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   // Publish endpoint
   const { slug } = await request.json();
-  const cookieStore = await cookies();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
+  // Support both cookie and Bearer token auth
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { user, supabase } = auth;
 
   const { data: merchant } = await supabase
     .from('merchants')

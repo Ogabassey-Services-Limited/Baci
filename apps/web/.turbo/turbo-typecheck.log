@@ -2,3 +2,16 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/components/analytics/draggable-analytics-grid.tsx(87,21): error TS2304: Cannot find name 'InventoryAlert'.
+src/components/analytics/draggable-analytics-grid.tsx(88,24): error TS2304: Cannot find name 'InventoryForecast'.
+src/components/analytics/draggable-analytics-grid.tsx(92,20): error TS2304: Cannot find name 'SegmentSummary'.
+src/components/analytics/draggable-analytics-grid.tsx(94,17): error TS2552: Cannot find name 'AdAnalyticsData'. Did you mean 'AnalyticsData'?
+src/components/analytics/draggable-analytics-grid.tsx(1005,56): error TS7006: Parameter 'platform' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1639,64): error TS7006: Parameter 'segment' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1707,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1711,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1753,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1757,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1769,28): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/components/analytics/draggable-analytics-grid.tsx(1773,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+ ELIFECYCLE  Command failed with exit code 2.

@@ -87,6 +87,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (searchParams.get('customerEmail')) {
+      query = query.eq(
+        'customer_email',
+        searchParams.get('customerEmail')?.toLowerCase()
+      );
+    }
+
     const {
       data: reviews,
       error,

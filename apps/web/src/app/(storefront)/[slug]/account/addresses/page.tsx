@@ -209,7 +209,7 @@ export default function CustomerAddressesPage() {
 
   if (merchantLoading || authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           <Skeleton className="h-8 w-48 mb-8" />
           <div className="grid gap-4 md:grid-cols-2">
@@ -227,13 +227,13 @@ export default function CustomerAddressesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b bg-white">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
             href={asRoute('/account')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to account</span>
@@ -242,20 +242,7 @@ export default function CustomerAddressesPage() {
       </header>
 
       {/* Main content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Saved Addresses</h1>
-            <p className="text-muted-foreground">
-              Manage your shipping addresses
-            </p>
-          </div>
-          <Button onClick={handleAddNew}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Address
-          </Button>
-        </div>
-
+      <main className="w-full">
         <OgabasseyV2AddressBook
           addresses={addresses}
           onAdd={handleAddNew}
