@@ -1,9 +1,9 @@
 /**
  * Login Screen - Mobile Admin
- * Clean, minimal design with proper error handling
+ * Clean, minimal design with social login support
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -16,11 +16,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { BaciLogo } from '@/components/BaciLogo';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { supabase } from '@/lib/supabase';
+
+// Required for Google Auth
+WebBrowser.maybeCompleteAuthSession();
 
 // Baci Brand Colors
 const BRAND = {
@@ -36,8 +43,79 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    const [isAppleLoading, setIsAppleLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+
+    // Google Auth Setup
+    const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    });
+
+    // Handle Google response
+    useEffect(() => {
+        if (googleResponse?.type === 'success') {
+            const { id_token } = googleResponse.params;
+            handleGoogleToken(id_token);
+        } else if (googleResponse?.type === 'error') {
+            setError('Google sign-in failed');
+            setIsGoogleLoading(false);
+        }
+    }, [googleResponse]);
+
+    const handleGoogleToken = async (idToken: string) => {
+        try {
+            const { error } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: idToken,
+            });
+            if (error) {
+                setError(error.message);
+            }
+        } catch (err) {
+            setError('Failed to sign in with Google');
+        } finally {
+            setIsGoogleLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setIsGoogleLoading(true);
+        setError(null);
+        await promptGoogleAsync();
+    };
+
+    const handleAppleSignIn = async () => {
+        setIsAppleLoading(true);
+        setError(null);
+
+        try {
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                ],
+            });
+
+            if (credential.identityToken) {
+                const { error } = await supabase.auth.signInWithIdToken({
+                    provider: 'apple',
+                    token: credential.identityToken,
+                });
+                if (error) {
+                    setError(error.message);
+                }
+            }
+        } catch (err: unknown) {
+            if ((err as { code?: string })?.code !== 'ERR_REQUEST_CANCELED') {
+                setError('Apple sign-in failed');
+            }
+        } finally {
+            setIsAppleLoading(false);
+        }
+    };
 
     const handleLogin = async () => {
         if (!email.trim() || !password) {
@@ -56,11 +134,11 @@ export default function LoginScreen() {
                 : authError.message
             );
         }
-        // If successful, onAuthStateChange in useAuth will update state
-        // and _layout.tsx will automatically navigate to authenticated routes
 
         setIsLoading(false);
     };
+
+    const isAnyLoading = isLoading || isGoogleLoading || isAppleLoading;
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -101,7 +179,7 @@ export default function LoginScreen() {
                                     autoComplete="email"
                                     keyboardType="email-address"
                                     textContentType="emailAddress"
-                                    editable={!isLoading}
+                                    editable={!isAnyLoading}
                                 />
                             </View>
                         </View>
@@ -119,7 +197,7 @@ export default function LoginScreen() {
                                     secureTextEntry={!showPassword}
                                     autoComplete="password"
                                     textContentType="password"
-                                    editable={!isLoading}
+                                    editable={!isAnyLoading}
                                 />
                                 <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
                                     <Ionicons
@@ -135,17 +213,61 @@ export default function LoginScreen() {
                             style={[
                                 styles.loginButton,
                                 { backgroundColor: BRAND.yellow },
-                                isLoading && styles.loginButtonDisabled,
+                                isAnyLoading && styles.loginButtonDisabled,
                             ]}
                             onPress={handleLogin}
-                            disabled={isLoading}
+                            disabled={isAnyLoading}
                         >
                             {isLoading ? (
-                                <ActivityIndicator color="#FFF" />
+                                <ActivityIndicator color={BRAND.navy} />
                             ) : (
                                 <Text style={[styles.loginButtonText, { color: BRAND.navy }]}>Sign In</Text>
                             )}
                         </Pressable>
+
+                        {/* Divider */}
+                        <View style={styles.divider}>
+                            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                            <Text style={[styles.dividerText, { color: colors.textMuted }]}>or continue with</Text>
+                            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                        </View>
+
+                        {/* Social Login Buttons */}
+                        <View style={styles.socialButtons}>
+                            {/* Google Sign-In */}
+                            <Pressable
+                                style={[styles.socialButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+                                onPress={handleGoogleSignIn}
+                                disabled={isAnyLoading}
+                            >
+                                {isGoogleLoading ? (
+                                    <ActivityIndicator size="small" color={colors.text} />
+                                ) : (
+                                    <>
+                                        <Ionicons name="logo-google" size={20} color="#DB4437" />
+                                        <Text style={[styles.socialButtonText, { color: colors.text }]}>Google</Text>
+                                    </>
+                                )}
+                            </Pressable>
+
+                            {/* Apple Sign-In */}
+                            {Platform.OS === 'ios' && (
+                                <Pressable
+                                    style={[styles.socialButton, { backgroundColor: '#000', borderColor: '#000' }]}
+                                    onPress={handleAppleSignIn}
+                                    disabled={isAnyLoading}
+                                >
+                                    {isAppleLoading ? (
+                                        <ActivityIndicator size="small" color="#FFF" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="logo-apple" size={20} color="#FFF" />
+                                            <Text style={[styles.socialButtonText, { color: '#FFF' }]}>Apple</Text>
+                                        </>
+                                    )}
+                                </Pressable>
+                            )}
+                        </View>
                     </View>
 
                     {/* Footer */}
@@ -181,6 +303,7 @@ export default function LoginScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
@@ -277,5 +400,37 @@ const styles = StyleSheet.create({
         fontSize: TYPOGRAPHY.size.sm,
         fontFamily: TYPOGRAPHY.fontFamily.regular,
         marginTop: SPACING['3xl'],
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: SPACING.md,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+    },
+    dividerText: {
+        marginHorizontal: SPACING.md,
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.regular,
+    },
+    socialButtons: {
+        flexDirection: 'row',
+        gap: SPACING.md,
+    },
+    socialButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: SPACING.md,
+        borderRadius: RADIUS.md,
+        borderWidth: 1,
+        gap: SPACING.sm,
+    },
+    socialButtonText: {
+        fontSize: TYPOGRAPHY.size.md,
+        fontFamily: TYPOGRAPHY.fontFamily.medium,
     },
 });

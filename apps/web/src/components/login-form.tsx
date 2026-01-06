@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  Github,
   KeyRound,
   Loader2,
   Mail,
@@ -58,7 +57,7 @@ const initialState: AuthActionState = { error: null, success: false };
 export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isGithubLoading, setIsGithubLoading] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
@@ -109,12 +108,11 @@ export default function LoginForm() {
     }
   }, [forgotState.success, forgotState.error, toast]);
 
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
-    if (provider === 'google') setIsGoogleLoading(true);
-    if (provider === 'github') setIsGithubLoading(true);
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
 
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -122,11 +120,10 @@ export default function LoginForm() {
     if (error) {
       toast({
         variant: 'destructive',
-        title: `${provider === 'google' ? 'Google' : 'GitHub'} Sign-in Failed`,
+        title: 'Google Sign-in Failed',
         description: error.message,
       });
-      if (provider === 'google') setIsGoogleLoading(false);
-      if (provider === 'github') setIsGithubLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -236,7 +233,7 @@ export default function LoginForm() {
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     pendingText="Signing in..."
                     icon={<ArrowRight className="ml-2 h-4 w-4" />}
-                    disabled={isGoogleLoading || isGithubLoading}
+                    disabled={isGoogleLoading}
                   >
                     Sign In
                   </SubmitButton>
@@ -253,34 +250,19 @@ export default function LoginForm() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    variant="outline"
-                    className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
-                    onClick={() => handleOAuthSignIn('google')}
-                    disabled={isGoogleLoading || isGithubLoading}
-                  >
-                    {isGoogleLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <GoogleIcon />
-                    )}
-                    <span className="ml-2">Google</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
-                    onClick={() => handleOAuthSignIn('github')}
-                    disabled={isGoogleLoading || isGithubLoading}
-                  >
-                    {isGithubLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Github className="mr-2 h-4 w-4" />
-                    )}
-                    GitHub
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
+                  onClick={handleGoogleSignIn}
+                  disabled={isGoogleLoading}
+                >
+                  {isGoogleLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  <span className="ml-2">Continue with Google</span>
+                </Button>
 
                 <div className="mt-6 text-center text-sm">
                   <span className="text-muted-foreground">

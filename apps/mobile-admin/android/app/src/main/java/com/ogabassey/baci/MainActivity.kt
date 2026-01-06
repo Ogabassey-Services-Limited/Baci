@@ -1,4 +1,4 @@
-package com.baci.admin
+package com.ogabassey.baci
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

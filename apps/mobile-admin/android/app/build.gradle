@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.baci.admin'
+    namespace 'com.ogabassey.baci'
     defaultConfig {
-        applicationId 'com.baci.admin'
+        applicationId 'com.ogabassey.baci'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

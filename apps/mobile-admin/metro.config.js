@@ -28,4 +28,10 @@ config.resolver.nodeModulesPaths = [
 // 4. Handle pnpm symlinks properly
 config.resolver.unstable_enableSymlinks = true;
 
+// 5. Explicit module mappings for packages that may have resolution issues
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'expo-auth-session': path.resolve(monorepoRoot, 'node_modules/expo-auth-session'),
+};
+
 module.exports = config;

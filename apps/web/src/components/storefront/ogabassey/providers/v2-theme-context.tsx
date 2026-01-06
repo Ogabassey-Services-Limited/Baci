@@ -67,20 +67,27 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   useEffect(() => {
     setIsHydrated(true);
 
-    // First check for user's cookie preference
-    const cookieTheme = getCookie(THEME_COOKIE_NAME) as V2ThemeMode | undefined;
-
     // Automatic festive mode check
     const currentMonth = new Date().getMonth();
     const isDecember = currentMonth === 11;
 
-    // FIX: Enforce standard theme outside of December, even if cookie says 'santa'
-    // This fixes the issue where users are stuck in Santa mode after the manual toggle was removed
-    if (cookieTheme === 'santa' && !isDecember) {
-      setThemeState('standard');
-      setCookie(THEME_COOKIE_NAME, 'standard');
+    // CRITICAL FIX: Always force standard theme outside December
+    // This ensures Santa mode is NEVER shown in January onwards
+    if (!isDecember) {
+      // Always set to standard if it's not December
+      if (theme !== 'standard') {
+        setThemeState('standard');
+      }
+      // Clear the santa cookie if it exists
+      const cookieTheme = getCookie(THEME_COOKIE_NAME);
+      if (cookieTheme === 'santa') {
+        setCookie(THEME_COOKIE_NAME, 'standard');
+      }
       return;
     }
+
+    // In December: Use cookie preference or date-based default
+    const cookieTheme = getCookie(THEME_COOKIE_NAME) as V2ThemeMode | undefined;
 
     if (cookieTheme && (cookieTheme === 'standard' || cookieTheme === 'santa')) {
       if (cookieTheme !== theme) {
@@ -89,14 +96,11 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
       return;
     }
 
-    // If no cookie and no server-provided theme, use date-based default
+    // If no cookie and no server-provided theme, use santa for December
     if (!initialTheme) {
-
-      const dateBasedTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
-
-      if (dateBasedTheme !== theme) {
-        setThemeState(dateBasedTheme);
-        setCookie(THEME_COOKIE_NAME, dateBasedTheme);
+      if (theme !== 'santa') {
+        setThemeState('santa');
+        setCookie(THEME_COOKIE_NAME, 'santa');
       }
     }
   }, []); // Only run once on mount
