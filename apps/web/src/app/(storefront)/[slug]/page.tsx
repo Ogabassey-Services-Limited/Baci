@@ -157,12 +157,23 @@ export default async function StorefrontPage({
   }
 
   // Theme cookie for SSR consistency
+  // IMPORTANT: Cookie name must match V2ThemeProvider's THEME_COOKIE_NAME
   const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme')?.value;
-  const initialTheme: V2ThemeMode | undefined =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? themeCookie
-      : undefined;
+  const themeCookie = cookieStore.get('storefront-theme-v2')?.value;
+
+  // Server-side date check - force standard theme outside December
+  const currentMonth = new Date().getMonth();
+  const isDecember = currentMonth === 11;
+
+  let initialTheme: V2ThemeMode | undefined;
+  if (themeCookie === 'santa' && !isDecember) {
+    // Force standard theme outside December
+    initialTheme = 'standard';
+  } else if (themeCookie === 'standard' || themeCookie === 'santa') {
+    initialTheme = themeCookie;
+  } else {
+    initialTheme = undefined;
+  }
 
   // Generate schemas (fast, uses cached merchant data)
   const headersList = await headers();

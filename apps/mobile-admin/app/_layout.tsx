@@ -16,19 +16,20 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, View, StyleSheet, Text } from 'react-native';
+// Remove direct AsyncStorage usage here
 import { QueryProvider } from '@/lib/QueryProvider';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { BagLoader } from '@/components/BagLoader';
 import { useAuth } from '@/hooks/useAuth';
+import { OnboardingProvider, useOnboarding } from '@/context/OnboardingContext';
 
 SplashScreen.preventAutoHideAsync();
 
-// Custom themes matching our design system
 const AdminDarkTheme = {
   ...DarkTheme,
   colors: {
@@ -54,29 +55,6 @@ const AdminLightTheme = {
     notification: LIGHT_COLORS.notification,
   },
 };
-
-// function RootLayoutNav() {
-//   const colorScheme = useColorScheme();
-//   const isDark = colorScheme === 'dark';
-//   const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
-
-//   return (
-//     <QueryProvider>
-//       <GestureHandlerRootView style={{ flex: 1 }}>
-//         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
-//           <StatusBar style={isDark ? 'light' : 'dark'} />
-//           {/* <AuthGate colors={colors} /> */}
-//            <View style={{ flex: 1, backgroundColor: 'blue', alignItems: 'center', justifyContent: 'center' }}>
-//              <Text style={{ fontSize: 32, fontWeight: 'bold', color: 'white' }}>PROVIDERS TEST</Text>
-//              <Text style={{ fontSize: 16, color: 'white', textAlign: 'center', marginTop: 10 }}>
-//                Query, Gesture, Theme Providers are ACTIVE.
-//              </Text>
-//            </View>
-//         </ThemeProvider>
-//      </GestureHandlerRootView>
-//     </QueryProvider>
-//   );
-// }
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -114,78 +92,56 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
           <StatusBar style={isDark ? 'light' : 'dark'} />
-          {/* Wrap AuthGate in a flex:1 container to ensure it takes space */}
-          <View style={{ flex: 1, backgroundColor: 'yellow' }}>
-            <AuthGate colors={colors} />
-          </View>
+          <OnboardingProvider>
+            <View style={{ flex: 1, backgroundColor: isDark ? DARK_COLORS.background : LIGHT_COLORS.background }}>
+              <AuthGate colors={colors} />
+            </View>
+          </OnboardingProvider>
         </ThemeProvider>
       </GestureHandlerRootView>
     </QueryProvider>
   );
 }
 
-// Commenting out the rest to ensure no interference
-/* 
-function LoadingScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  return (
-    <View
-      style={[
-        styles.loadingContainer,
-        { backgroundColor: isDark ? DARK_COLORS.background : '#f0bf58' },
-      ]}
-    >
-      <BagLoader size={48} />
-    </View>
-  );
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
-
-  return (
-    <QueryProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
-          <View style={{ flex: 1, backgroundColor: 'purple', alignItems: 'center', justifyContent: 'center', marginTop: 100 }}>
-            <Text style={{ fontSize: 24, fontWeight: 'bold', color: 'white' }}>ROOT LAYOUT DEBUG</Text>
-            <Text style={{ fontSize: 16, color: 'white' }}>If you see this, the App Entry is working.</Text>
-          </View>
-          {/* <AuthGate colors={colors} /> *//*}
-</ThemeProvider>
-</GestureHandlerRootView>
-</QueryProvider>
-);
-}
-*/
-
 /**
- * Auth Gate - Handles navigation based on auth state
- * 2025 Pattern: Declarative auth-based routing
+ * Auth Gate - Handles navigation based on auth and onboarding state
+ * 2025 Pattern: Declarative auth-based routing with onboarding
  */
 function AuthGate({ colors }: { colors: typeof LIGHT_COLORS }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
   const segments = useSegments();
   const router = useRouter();
+
+  // Combined loading state
+  const isLoading = authLoading || onboardingLoading;
 
   useEffect(() => {
     if (isLoading) return;
 
+    const inOnboarding = segments[0] === 'onboarding';
     const inAuthGroup = segments[0] === 'login';
 
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
+    // 1. First-time user NOT in onboarding -> Go to Onboarding
+    if (!hasSeenOnboarding && !inOnboarding) {
+      // Use replace to prevent going back
+      router.replace('/onboarding');
+      return;
     }
-  }, [isAuthenticated, isLoading, segments]);
 
-  // Show loading while checking auth
+    // 2. Completed onboarding
+    if (hasSeenOnboarding) {
+      // If unauthenticated and NOT in login -> Go to Login
+      if (!isAuthenticated && !inAuthGroup) {
+        router.replace('/login');
+      }
+      // If authenticated and trying to access login/onboarding -> Go to Home
+      else if (isAuthenticated && (inAuthGroup || inOnboarding)) {
+        router.replace('/(tabs)');
+      }
+    }
+  }, [isAuthenticated, isLoading, segments, hasSeenOnboarding]);
+
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -211,6 +167,7 @@ function AuthGate({ colors }: { colors: typeof LIGHT_COLORS }) {
         headerBackTitle: 'Back',
       }}
     >
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen

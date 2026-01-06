@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useOnboarding } from '@/context/OnboardingContext';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -42,6 +43,7 @@ export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { signOut } = useAuth();
   const { merchant, storeUrl, isLive } = useMerchant();
+  const { resetOnboarding } = useOnboarding();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -287,6 +289,31 @@ export default function MenuScreen() {
 
         {/* App Version */}
         <Text style={[styles.version, { color: colors.textMuted }]}>Baci Admin v1.0.0</Text>
+
+        {/* DEV: Reset Onboarding */}
+        {__DEV__ && (
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 12,
+              borderRadius: RADIUS.lg,
+              borderWidth: 1,
+              gap: 8,
+              marginTop: SPACING.md,
+              marginBottom: SPACING['3xl'],
+              backgroundColor: '#FEF3C7',
+              borderColor: '#F59E0B',
+            }}
+            onPress={async () => {
+              await resetOnboarding();
+            }}
+          >
+            <Ionicons name="refresh-outline" size={20} color="#D97706" />
+            <Text style={{ color: '#D97706', fontWeight: '600' }}>Reset Onboarding (Dev)</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

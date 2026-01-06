@@ -15310,7 +15310,7 @@ snapshots:
       wrap-ansi: 7.0.0
       ws: 8.18.3
     optionalDependencies:
-      expo-router: 6.0.21(e1f73c9f735da8d4cb5584d42d43440c)
+      expo-router: 6.0.21(c40e05fd747eaec9b2670562010ca581)
       react-native: 0.81.5(@babel/core@7.28.5)(@types/react@19.1.17)(react@19.1.0)
     transitivePeerDependencies:
       - bufferutil

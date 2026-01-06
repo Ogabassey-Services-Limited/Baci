@@ -3,13 +3,17 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useRouter } from 'expo-router';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 export default function SettingsScreen() {
+  const { resetOnboarding } = useOnboarding();
   const colorScheme = useColorScheme();
+  const router = useRouter();
   const isDark = colorScheme === 'dark';
 
   const colors = {
@@ -49,7 +53,7 @@ export default function SettingsScreen() {
         )}
       </View>
       {toggle !== undefined ? (
-        <Switch value={toggle} onValueChange={() => {}} trackColor={{ true: '#3B82F6' }} />
+        <Switch value={toggle} onValueChange={() => { }} trackColor={{ true: '#3B82F6' }} />
       ) : showArrow ? (
         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       ) : null}
@@ -98,6 +102,19 @@ export default function SettingsScreen() {
         </Pressable>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>Baci Admin v1.0.0</Text>
+
+        {/* DEV: Reset Onboarding */}
+        {__DEV__ && (
+          <Pressable
+            style={[styles.devButton, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}
+            onPress={async () => {
+              await resetOnboarding();
+            }}
+          >
+            <Ionicons name="refresh-outline" size={20} color="#D97706" />
+            <Text style={{ color: '#D97706', fontWeight: '600' }}>Reset Onboarding (Dev)</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -164,5 +181,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     marginTop: 8,
+  },
+  devButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 16,
   },
 });
