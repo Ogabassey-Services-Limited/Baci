@@ -2,8 +2,8 @@ import { getCachedProducts } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 
 interface ProductsSectionProps {
-    merchantId: string;
-    categories?: { name: string; slug: string }[];
+  merchantId: string;
+  categories?: { name: string; slug: string }[];
 }
 
 /**
@@ -12,20 +12,20 @@ interface ProductsSectionProps {
  * Wrapped in Suspense in parent for progressive loading.
  */
 export async function ProductsSection({
-    merchantId,
-    categories = [],
+  merchantId,
+  categories = [],
 }: ProductsSectionProps) {
-    // Fetch products - this runs asynchronously and streams when ready
-    const products = await getCachedProducts(merchantId, { limit: 50 });
+  // Fetch products - this runs asynchronously and streams when ready
+  const products = await getCachedProducts(merchantId, { limit: 50 });
 
-    // Return products and categories for the template to render
-    return { products: products as unknown as Product[], categories };
+  // Return products and categories for the template to render
+  return { products: products as unknown as Product[], categories };
 }
 
 /**
  * Type for the resolved data from ProductsSection
  */
 export type ProductsSectionData = {
-    products: Product[];
-    categories: { name: string; slug: string }[];
+  products: Product[];
+  categories: { name: string; slug: string }[];
 };

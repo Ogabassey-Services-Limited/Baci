@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { BaciLogo } from '@/components/BaciLogo';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 // Baci Brand Colors
 const BRAND = {
@@ -30,6 +31,7 @@ const BRAND = {
 export default function LoginScreen() {
     const { colors } = useTheme();
     const { signIn } = useAuth();
+    const { resetOnboarding } = useOnboarding();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -150,6 +152,30 @@ export default function LoginScreen() {
                     <Text style={[styles.footer, { color: colors.textMuted }]}>
                         Use your merchant account credentials
                     </Text>
+
+                    {/* DEV: Reset Onboarding */}
+                    {__DEV__ && (
+                        <Pressable
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: 12,
+                                borderRadius: RADIUS.md,
+                                borderWidth: 1,
+                                gap: 8,
+                                marginTop: SPACING.xl,
+                                backgroundColor: '#FEF3C7',
+                                borderColor: '#F59E0B',
+                            }}
+                            onPress={async () => {
+                                await resetOnboarding();
+                            }}
+                        >
+                            <Ionicons name="refresh-outline" size={20} color="#D97706" />
+                            <Text style={{ color: '#D97706', fontWeight: '600' }}>Reset Onboarding (Dev)</Text>
+                        </Pressable>
+                    )}
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>

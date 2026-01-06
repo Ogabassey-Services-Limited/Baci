@@ -79,6 +79,18 @@ export default function OnboardingScreen() {
     const slidesRef = useRef<FlatList>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
 
+    // Auto-swipe interval (3.5 seconds)
+    const AUTO_SWIPE_INTERVAL = 3500;
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const nextIndex = (currentIndex + 1) % SLIDES.length;
+            slidesRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        }, AUTO_SWIPE_INTERVAL);
+
+        return () => clearInterval(timer);
+    }, [currentIndex]);
+
     const viewableItemsChanged = useRef(({ viewableItems }: any) => {
         if (viewableItems && viewableItems.length > 0) {
             setCurrentIndex(viewableItems[0].index);
@@ -87,25 +99,26 @@ export default function OnboardingScreen() {
 
     const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
-    const handleComplete = async () => {
+    const handleSignIn = async () => {
         try {
             await completeOnboarding();
-            // AuthGate will handle navigation automatically when hasSeenOnboarding becomes true
+            router.replace('/login');
         } catch (error) {
-            console.error('Error saving onboarding status:', error);
+            console.error('Error completing onboarding:', error);
         }
     };
 
-    const handleNext = () => {
-        if (currentIndex < SLIDES.length - 1) {
-            slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
-        } else {
-            handleComplete();
+    const handleCreateAccount = async () => {
+        try {
+            await completeOnboarding();
+            // For now, route to login - signup can be added later
+            router.replace('/login');
+        } catch (error) {
+            console.error('Error completing onboarding:', error);
         }
     };
 
     const renderItem = ({ item }: { item: OnboardingSlide }) => {
-
         return (
             <View style={[styles.slide, { width }]}>
                 <View style={styles.contentContainer}>
@@ -130,9 +143,6 @@ export default function OnboardingScreen() {
                         <Text style={styles.description}>{item.description}</Text>
                     </View>
                 </View>
-
-                {/* Bottom spacer for layout balance */}
-                <View style={{ height: height * 0.15 }} />
             </View>
         );
     };
@@ -150,15 +160,6 @@ export default function OnboardingScreen() {
             />
 
             <SafeAreaView style={styles.safeArea}>
-                {/* Skip Button - Absolute Top Right */}
-                <Pressable
-                    style={styles.skipButton}
-                    onPress={handleComplete}
-                    hitSlop={20}
-                >
-                    <Text style={styles.skipText}>Skip</Text>
-                </Pressable>
-
                 <FlatList
                     data={SLIDES}
                     renderItem={renderItem}
@@ -174,9 +175,10 @@ export default function OnboardingScreen() {
                     onViewableItemsChanged={viewableItemsChanged}
                     viewabilityConfig={viewConfig}
                     ref={slidesRef}
+                    style={styles.carousel}
                 />
 
-                {/* Footer Navigation */}
+                {/* Footer with Pagination and Auth Buttons */}
                 <View style={styles.footer}>
                     {/* Pagination Indicators */}
                     <View style={styles.paginator}>
@@ -211,30 +213,37 @@ export default function OnboardingScreen() {
                         })}
                     </View>
 
-                    {/* Action Button */}
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.buttonContainer,
-                            pressed && { transform: [{ scale: 0.98 }] }
-                        ]}
-                        onPress={handleNext}
-                    >
-                        <LinearGradient
-                            colors={[DARK_COLORS.primary, '#3B82F6']} // Blue gradient
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.button}
+                    {/* Auth Buttons */}
+                    <View style={styles.authButtons}>
+                        {/* Sign In - Primary */}
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.signInButton,
+                                pressed && { transform: [{ scale: 0.98 }] }
+                            ]}
+                            onPress={handleSignIn}
                         >
-                            <Text style={styles.buttonText}>
-                                {currentIndex === SLIDES.length - 1 ? 'Get Started' : 'Next'}
-                            </Text>
-                            <Ionicons
-                                name={currentIndex === SLIDES.length - 1 ? 'rocket-outline' : 'arrow-forward'}
-                                size={20}
-                                color="#FFF"
-                            />
-                        </LinearGradient>
-                    </Pressable>
+                            <LinearGradient
+                                colors={[DARK_COLORS.gold, '#D4A74A']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.signInGradient}
+                            >
+                                <Text style={styles.signInText}>Sign In</Text>
+                            </LinearGradient>
+                        </Pressable>
+
+                        {/* Create Account - Secondary */}
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.createAccountButton,
+                                pressed && { opacity: 0.8 }
+                            ]}
+                            onPress={handleCreateAccount}
+                        >
+                            <Text style={styles.createAccountText}>Create an account</Text>
+                        </Pressable>
+                    </View>
                 </View>
             </SafeAreaView>
         </View>
@@ -244,23 +253,13 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0D0D1A', // Fallback
+        backgroundColor: '#0D0D1A',
     },
     safeArea: {
         flex: 1,
     },
-    skipButton: {
-        position: 'absolute',
-        top: Platform.OS === 'android' ? RNStatusBar.currentHeight! + 16 : 60,
-        right: 24,
-        zIndex: 10,
-        padding: 8,
-    },
-    skipText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontFamily: TYPOGRAPHY.fontFamily.medium,
-        fontSize: TYPOGRAPHY.size.sm,
-        letterSpacing: 0.5,
+    carousel: {
+        flex: 1,
     },
     slide: {
         flex: 1,
@@ -295,14 +294,13 @@ const styles = StyleSheet.create({
     iconCircle: {
         width: 100,
         height: 100,
-        borderRadius: 35, // Squircle-ish
+        borderRadius: 35,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.2)',
         ...SHADOWS.lg,
     },
-
     // Text Styles
     textContainer: {
         alignItems: 'center',
@@ -315,7 +313,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.sm,
     },
     title: {
-        fontFamily: TYPOGRAPHY.fontFamily.bold, // Inter_700Bold
+        fontFamily: TYPOGRAPHY.fontFamily.bold,
         fontSize: 32,
         color: '#FFF',
         textAlign: 'center',
@@ -325,46 +323,58 @@ const styles = StyleSheet.create({
     description: {
         fontFamily: TYPOGRAPHY.fontFamily.medium,
         fontSize: TYPOGRAPHY.size.md,
-        color: '#94A3B8', // Muted text
+        color: '#94A3B8',
         textAlign: 'center',
         lineHeight: 24,
         maxWidth: '90%',
     },
-
     // Footer Styles
     footer: {
         paddingHorizontal: SPACING['2xl'],
-        paddingBottom: Platform.OS === 'ios' ? 0 : SPACING.xl,
-        height: 140, // Fixed height for stable layout
-        justifyContent: 'space-between',
+        paddingBottom: Platform.OS === 'ios' ? SPACING.lg : SPACING.xl,
+        gap: SPACING.lg,
     },
     paginator: {
         flexDirection: 'row',
         justifyContent: 'center',
-        height: 40,
-        marginTop: SPACING.md,
+        height: 24,
+        alignItems: 'center',
     },
     dot: {
         height: 8,
         borderRadius: 4,
         marginHorizontal: 4,
     },
-    buttonContainer: {
-        borderRadius: RADIUS.xl,
+    // Auth Button Styles
+    authButtons: {
+        gap: SPACING.md,
+    },
+    signInButton: {
+        borderRadius: RADIUS.md,
         overflow: 'hidden',
         ...SHADOWS.md,
-        marginBottom: 20,
     },
-    button: {
-        flexDirection: 'row',
+    signInGradient: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 18,
-        gap: 12,
+        paddingVertical: 16,
     },
-    buttonText: {
+    signInText: {
+        color: '#1A1A2E',
+        fontFamily: TYPOGRAPHY.fontFamily.bold,
+        fontSize: TYPOGRAPHY.size.md,
+    },
+    createAccountButton: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        borderRadius: RADIUS.md,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    createAccountText: {
         color: '#FFF',
         fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-        fontSize: TYPOGRAPHY.size.lg,
+        fontSize: TYPOGRAPHY.size.md,
     },
 });
