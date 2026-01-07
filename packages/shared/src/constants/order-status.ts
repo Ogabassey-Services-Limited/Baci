@@ -77,10 +77,22 @@ export const ORDER_SOURCE_CONFIG: Record<
   instagram: { label: 'Instagram', icon: 'logo-instagram', colorKey: 'instagram' },
   web: { label: 'Website', icon: 'globe-outline', colorKey: 'primary' },
   manual: { label: 'Manual', icon: 'create-outline', colorKey: 'textMuted' },
+  staff_entry: { label: 'Staff Entry', icon: 'person-circle-outline', colorKey: 'info' },
+  facebook: { label: 'Facebook', icon: 'logo-facebook', colorKey: 'facebook' },
+  tiktok: { label: 'TikTok', icon: 'logo-tiktok', colorKey: 'tiktok' },
+  jumia: { label: 'Jumia', icon: 'cart-outline', colorKey: 'warning' },
+  jiji: { label: 'Jiji', icon: 'pricetag-outline', colorKey: 'success' },
+  konga: { label: 'Konga', icon: 'bag-handle-outline', colorKey: 'secondary' },
+  physical: { label: 'Physical Sales', icon: 'storefront', colorKey: 'primary' },
 };
 
 // Brand colors (hex values)
 export const BRAND_COLORS = {
   whatsapp: '#25D366',
   instagram: '#E4405F',
+  facebook: '#1877F2',
+  tiktok: '#000000',
+  jumia: '#F68B1E',
+  jiji: '#3DB83A',
+  konga: '#ED017F',
 } as const;

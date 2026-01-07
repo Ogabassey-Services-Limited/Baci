@@ -3,7 +3,7 @@
  * Fetches customers with infinite scroll, search, and stats
  */
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
@@ -166,5 +166,58 @@ export function useCustomerStats() {
     },
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function useCreateCustomer() {
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (newCustomer: {
+      first_name: string;
+      last_name: string;
+      email?: string;
+      phone?: string;
+    }) => {
+      if (!merchant?.id) throw new Error('No merchant selected');
+
+      // Check if customer already exists by email or phone
+      if (newCustomer.email || newCustomer.phone) {
+        let query = supabase
+          .from('customers')
+          .select('id')
+          .eq('merchant_id', merchant.id);
+
+        const conditions = [];
+        if (newCustomer.email) conditions.push(`email.eq.${newCustomer.email}`);
+        if (newCustomer.phone) conditions.push(`phone.eq.${newCustomer.phone}`);
+
+        if (conditions.length > 0) {
+          query = query.or(conditions.join(','));
+          const { data: existing } = await query.maybeSingle();
+          if (existing) throw new Error('Customer with this email or phone already exists');
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('customers')
+        .insert({
+          merchant_id: merchant.id,
+          ...newCustomer,
+          total_orders: 0,
+          total_spent: 0,
+          loyalty_points: 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-stats'] });
+    },
   });
 }

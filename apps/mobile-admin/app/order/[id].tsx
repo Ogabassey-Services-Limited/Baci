@@ -646,7 +646,9 @@ Thank you for choosing Ogabassey!
               <View style={styles.sourceRow}>
                 <Ionicons name={sourceInfo.name as any} size={14} color={sourceInfo.color} />
                 <Text style={[styles.sourceText, { color: colors.textSecondary }]}>
-                  via {sourceInfo.label}
+                  {order.source === 'staff_entry' && order.recorded_by_name
+                    ? `Recorded by ${order.recorded_by_name}`
+                    : `via ${sourceInfo.label}`}
                 </Text>
               </View>
             </View>

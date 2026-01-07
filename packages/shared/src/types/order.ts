@@ -28,6 +28,13 @@ export type OrderSource =
   | 'instagram'
   | 'web'
   | 'manual'
+  | 'staff_entry'
+  | 'facebook'
+  | 'tiktok'
+  | 'jumia'
+  | 'jiji'
+  | 'konga'
+  | 'physical'
   | string;
 
 export interface OrderItem {

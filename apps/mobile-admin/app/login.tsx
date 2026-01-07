@@ -1,6 +1,6 @@
 /**
  * Login Screen - Mobile Admin
- * Clean, minimal design with social login support
+ * Clean, minimal design with Google and Apple sign-in support
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,9 +16,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
+
+// Multi-colored Google Logo Component
+const GoogleLogo = ({ size = 20 }: { size?: number }) => (
+    <Svg width={size} height={size} viewBox="0 0 48 48">
+        <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+        <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+        <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+        <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </Svg>
+);
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
+// Google Sign-In disabled temporarily due to native module mismatch
+// import { GoogleSignin, statusCodes, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -26,14 +37,17 @@ import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { supabase } from '@/lib/supabase';
 
-// Required for Google Auth
-WebBrowser.maybeCompleteAuthSession();
-
 // Baci Brand Colors
 const BRAND = {
     yellow: '#f0bf58',
     navy: '#23255d',
 };
+
+// Configure Google Sign-In once
+// GoogleSignin.configure({
+//     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+//     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+// });
 
 export default function LoginScreen() {
     const { colors } = useTheme();
@@ -48,43 +62,40 @@ export default function LoginScreen() {
     const [error, setError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
 
-    // Google Auth Setup
-    const [, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
-        iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    });
-
-    // Handle Google response
-    useEffect(() => {
-        if (googleResponse?.type === 'success') {
-            const { id_token } = googleResponse.params;
-            handleGoogleToken(id_token);
-        } else if (googleResponse?.type === 'error') {
-            setError('Google sign-in failed');
-            setIsGoogleLoading(false);
-        }
-    }, [googleResponse]);
-
-    const handleGoogleToken = async (idToken: string) => {
-        try {
-            const { error } = await supabase.auth.signInWithIdToken({
-                provider: 'google',
-                token: idToken,
-            });
-            if (error) {
-                setError(error.message);
-            }
-        } catch (err) {
-            setError('Failed to sign in with Google');
-        } finally {
-            setIsGoogleLoading(false);
-        }
-    };
-
     const handleGoogleSignIn = async () => {
-        setIsGoogleLoading(true);
-        setError(null);
-        await promptGoogleAsync();
+        // setIsGoogleLoading(true);
+        // setError(null);
+
+        // try {
+        //     await GoogleSignin.hasPlayServices();
+        //     const response = await GoogleSignin.signIn();
+
+        //     if (isSuccessResponse(response) && response.data?.idToken) {
+        //         const { error: signInError } = await supabase.auth.signInWithIdToken({
+        //             provider: 'google',
+        //             token: response.data.idToken,
+        //         });
+        //         if (signInError) {
+        //             setError(signInError.message);
+        //         }
+        //     } else {
+        //         setError('Google sign-in failed: No ID token received');
+        //     }
+        // } catch (err: unknown) {
+        //     const errorWithCode = err as { code?: string };
+        //     if (errorWithCode?.code === statusCodes.SIGN_IN_CANCELLED) {
+        //         // User cancelled, no error to show
+        //     } else if (errorWithCode?.code === statusCodes.IN_PROGRESS) {
+        //         setError('Sign-in already in progress');
+        //     } else if (errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        //         setError('Google Play Services not available');
+        //     } else {
+        //         setError('Google sign-in failed');
+        //     }
+        // } finally {
+        //     setIsGoogleLoading(false);
+        // }
+        setError('Google Sign-In is temporarily unavailable on simulator.');
     };
 
     const handleAppleSignIn = async () => {
@@ -100,12 +111,12 @@ export default function LoginScreen() {
             });
 
             if (credential.identityToken) {
-                const { error } = await supabase.auth.signInWithIdToken({
+                const { error: signInError } = await supabase.auth.signInWithIdToken({
                     provider: 'apple',
                     token: credential.identityToken,
                 });
-                if (error) {
-                    setError(error.message);
+                if (signInError) {
+                    setError(signInError.message);
                 }
             }
         } catch (err: unknown) {
@@ -244,13 +255,13 @@ export default function LoginScreen() {
                                     <ActivityIndicator size="small" color={colors.text} />
                                 ) : (
                                     <>
-                                        <Ionicons name="logo-google" size={20} color="#DB4437" />
+                                        <GoogleLogo size={20} />
                                         <Text style={[styles.socialButtonText, { color: colors.text }]}>Google</Text>
                                     </>
                                 )}
                             </Pressable>
 
-                            {/* Apple Sign-In */}
+                            {/* Apple Sign-In (iOS only) */}
                             {Platform.OS === 'ios' && (
                                 <Pressable
                                     style={[styles.socialButton, { backgroundColor: '#000', borderColor: '#000' }]}
@@ -304,7 +315,6 @@ export default function LoginScreen() {
     );
 }
 
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -320,14 +330,6 @@ const styles = StyleSheet.create({
     header: {
         alignItems: 'center',
         marginBottom: SPACING['3xl'],
-    },
-    logoContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: RADIUS.xl,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: SPACING.lg,
     },
     title: {
         fontSize: TYPOGRAPHY.size['2xl'],
@@ -391,7 +393,6 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     loginButtonText: {
-        color: '#FFF',
         fontSize: TYPOGRAPHY.size.md,
         fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     },

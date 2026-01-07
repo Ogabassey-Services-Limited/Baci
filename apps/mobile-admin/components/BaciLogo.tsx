@@ -1,11 +1,10 @@
 /**
  * Baci Logo Component
- * Yellow background with navy blue shopping bag icon
+ * Uses the actual Baci app icon (navy bag with white cloud)
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Image, StyleSheet, View } from 'react-native';
 
 interface BaciLogoProps {
   size?: number;
@@ -13,8 +12,6 @@ interface BaciLogoProps {
 }
 
 export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
-  const iconSize = size * 0.6;
-
   return (
     <View
       style={[
@@ -23,11 +20,15 @@ export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
           width: size,
           height: size,
           borderRadius,
-          backgroundColor: '#f0bf58',
+          overflow: 'hidden',
         },
       ]}
     >
-      <Ionicons name="bag-handle" size={iconSize} color="#23255d" />
+      <Image
+        source={require('@/assets/images/icon.png')}
+        style={{ width: size, height: size }}
+        resizeMode="cover"
+      />
     </View>
   );
 }

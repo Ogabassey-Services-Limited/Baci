@@ -11,6 +11,7 @@ export const DARK_COLORS = {
   card: '#1A1A2E',
   cardHover: '#252542',
   border: '#2A2A40',
+  inputBg: '#252542',
 
   // Text
   text: '#FFFFFF',
@@ -62,6 +63,7 @@ export const LIGHT_COLORS = {
   card: '#FFFFFF',
   cardHover: '#F1F5F9',
   border: '#E2E8F0',
+  inputBg: '#F1F5F9',
 
   // Text
   text: '#0F172A',

@@ -113,7 +113,7 @@ async function updateOrderStatus(
 }
 
 export function useOrders(
-  status: OrderStatus | 'all' = 'all',
+  status: ShippingStatus | 'all' = 'all',
   searchQuery: string = '',
   dateFilter: string | { start: Date; end: Date } | null = null
 ) {
@@ -217,6 +217,22 @@ export function useOrder(orderId: string) {
         .eq('order_id', orderId)
         .single();
 
+      // Fetch recorded_by user info if this is a staff-created order
+      let recordedByName: string | null = null;
+      if (order.recorded_by_user_id) {
+        const { data: recUser } = await supabase
+          .from('profiles')
+          .select('display_name, full_name')
+          .eq('id', order.recorded_by_user_id)
+          .single();
+
+        // Use display_name or full_name, extract first name
+        const fullName = recUser?.display_name || recUser?.full_name;
+        if (fullName) {
+          recordedByName = fullName.split(' ')[0];
+        }
+      }
+
       const transTotal = transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
       const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
       const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
@@ -226,6 +242,7 @@ export function useOrder(orderId: string) {
         amount_paid: amountPaid,
         balance: balance,
         virtual_account: virtualAccount || null,
+        recorded_by_name: recordedByName,
         items: items?.map((item: any) => ({
           id: item.id,
           product_id: item.product_id,
