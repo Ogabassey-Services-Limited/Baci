@@ -1,7 +1,7 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { sendEmail } from '@/lib/zeptomail';
 
 const subscribeSchema = z.object({
@@ -35,8 +35,18 @@ export async function POST(request: NextRequest) {
     const { email, merchantId, source } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use Service Role Key to bypass RLS policies
+    const supabase = createSupabaseClient(
+      getSupabaseUrl(),
+      getSupabaseServiceRoleKey(),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
 
     // Check if subscriber already exists for this merchant
     let query = supabase
@@ -189,8 +199,19 @@ export async function DELETE(request: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+
+    // Use Service Role Key to bypass RLS policies
+    const supabase = createSupabaseClient(
+      getSupabaseUrl(),
+      getSupabaseServiceRoleKey(),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
 
     // Update subscriber status to unsubscribed
     let query = supabase
