@@ -1,20 +1,8 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-
-// Create Admin Client for bypassing RLS
-const supabaseAdmin = createSupabaseClient(
-  getSupabaseUrl(),
-  getSupabaseServiceRoleKey(),
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 /**
  * POST /api/staff/accept-invite
@@ -24,6 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+    // Initialize admin client lazily to avoid build-time env var validation
+    const supabaseAdmin = createAdminClient();
 
     // Get authenticated user
     const {
@@ -167,6 +157,9 @@ export async function GET(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
+
+    // Initialize admin client lazily
+    const supabaseAdmin = createAdminClient();
 
     // Use Admin Client to find invitation (Bypass RLS)
     const { data: invitation, error } = await supabaseAdmin
