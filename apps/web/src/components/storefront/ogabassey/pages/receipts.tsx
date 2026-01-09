@@ -57,7 +57,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
             })),
             status: order.payment_status === 'paid' ? 'Paid' : order.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid',
             method: order.payment_provider || 'Bank Transfer',
-            customerName: customer?.full_name || 'Customer',
+            customerName: customer ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Customer' : 'Customer',
             address: order.shipping_address || 'No address provided',
             paymentStatus: (order.payment_status as 'paid' | 'unpaid' | 'partially_paid') || 'unpaid',
             balance: '₦0.00',

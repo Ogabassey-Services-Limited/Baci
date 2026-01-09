@@ -143,7 +143,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
               </span>
             </div>
             <h2 className="text-3xl font-bold mb-1">
-              {customer?.full_name || customer?.email || 'Welcome'}
+              {customer ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email : 'Welcome'}
             </h2>
             <p className="text-white/70 text-sm mb-6 font-medium">
               {userPoints.toLocaleString()} Points Collected

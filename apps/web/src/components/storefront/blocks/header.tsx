@@ -334,7 +334,12 @@ export function Header({
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none">
-                          {[customerSession.customer.first_name, customerSession.customer.last_name].filter(Boolean).join(' ') || 'Customer'}
+                          {[
+                            customerSession.customer.first_name,
+                            customerSession.customer.last_name,
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || 'Customer'}
                         </p>
                         <p className="text-xs leading-none text-muted-foreground">
                           {customerSession.customer.email}
@@ -477,7 +482,7 @@ export function Header({
                 {showAccount && (
                   <div className="pt-4 border-t space-y-4">
                     {customerSession?.authenticated &&
-                      customerSession.customer ? (
+                    customerSession.customer ? (
                       <>
                         <div className="text-sm text-muted-foreground">
                           Signed in as {customerSession.customer.email}

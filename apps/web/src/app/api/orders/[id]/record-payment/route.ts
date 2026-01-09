@@ -1,13 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
+import {
+  authenticateApiRequest,
+  getAdminClient,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
   generatePaymentReceiptEmail,
   generatePaymentReceiptText,
 } from '@/lib/email-templates';
-import { sendEmail } from '@/lib/zeptomail';
 import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/zeptomail';
 
 export async function POST(
   request: NextRequest,
@@ -29,7 +33,10 @@ export async function POST(
     const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
       console.log(`[RecordPayment] Auth failed: ${authError}`);
-      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: authError || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     // Get merchant ID (supports both owners and staff members)
@@ -48,13 +55,18 @@ export async function POST(
     // Fetch full Merchant details for email
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, business_name, slug, support_email, email_sender_name, email')
+      .select(
+        'id, business_name, slug, support_email, email_sender_name, email'
+      )
       .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
       console.log(`[RecordPayment] Merchant details error:`, merchantError);
-      return NextResponse.json({ error: 'Merchant details not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant details not found' },
+        { status: 404 }
+      );
     }
 
     // 2. Fetch Order & Items & Existing Transactions
@@ -85,7 +97,12 @@ export async function POST(
     const orderTotal = Number(order.total) || 0;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
 
-    console.log(`[RecordPayment] Totals:`, { currentPaid, newPaid, orderTotal, remainingBalance });
+    console.log(`[RecordPayment] Totals:`, {
+      currentPaid,
+      newPaid,
+      orderTotal,
+      remainingBalance,
+    });
 
     // 4. Create Transaction
     const { error: transactionError } = await supabase
@@ -106,9 +123,11 @@ export async function POST(
         },
       });
 
-
     if (transactionError) {
-      console.error(`[RecordPayment] Transaction insert error:`, transactionError);
+      console.error(
+        `[RecordPayment] Transaction insert error:`,
+        transactionError
+      );
       return NextResponse.json(
         { error: 'Failed to record payment' },
         { status: 500 }
@@ -133,11 +152,12 @@ export async function POST(
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-        const emailItems = order.order_items?.map((item: any) => ({
-          name: item.name || 'Product',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-        })) || [];
+        const emailItems =
+          order.order_items?.map((item: any) => ({
+            name: item.name || 'Product',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+          })) || [];
 
         const emailData = {
           orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
@@ -159,7 +179,10 @@ export async function POST(
         const htmlContent = generateOrderConfirmationEmail(emailData);
         const textContent = generateOrderConfirmationText(emailData);
 
-        const replyToEmail = merchant.support_email || merchant.email || `support@${merchant.slug}.${rootDomain}`;
+        const replyToEmail =
+          merchant.support_email ||
+          merchant.email ||
+          `support@${merchant.slug}.${rootDomain}`;
         const senderName = merchant.email_sender_name
           ? `${merchant.email_sender_name} Orders`
           : `${merchant.business_name} Orders`;
@@ -175,12 +198,18 @@ export async function POST(
           replyTo: replyToEmail,
           emailType: 'orders',
           fromName: senderName,
-        }).catch((err) => logger.error({ message: 'Failed to send confirmation email', error: err }));
-
+        }).catch((err) =>
+          logger.error({
+            message: 'Failed to send confirmation email',
+            error: err,
+          })
+        );
       } catch (emailErr) {
-        logger.error({ message: 'Error preparing email payload', error: emailErr });
+        logger.error({
+          message: 'Error preparing email payload',
+          error: emailErr,
+        });
       }
-
     } else {
       console.log(`[RecordPayment] Order partially paid`);
       updates.payment_status = 'partially_paid';
@@ -194,13 +223,17 @@ export async function POST(
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-        const emailItems = order.order_items?.map((item: any) => ({
-          name: item.name || 'Product',
-          quantity: item.quantity || 1,
-          price: item.price || 0,
-        })) || [];
+        const emailItems =
+          order.order_items?.map((item: any) => ({
+            name: item.name || 'Product',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+          })) || [];
 
-        const replyToEmail = merchant.support_email || merchant.email || `support@${merchant.slug}.${rootDomain}`;
+        const replyToEmail =
+          merchant.support_email ||
+          merchant.email ||
+          `support@${merchant.slug}.${rootDomain}`;
         const senderName = merchant.email_sender_name
           ? `${merchant.email_sender_name} Accounts`
           : `${merchant.business_name} Accounts`;
@@ -215,7 +248,7 @@ export async function POST(
           balanceDue: Number(remainingBalance),
           merchantName: merchant.business_name,
           merchantUrl,
-          supportEmail: merchant.support_email
+          supportEmail: merchant.support_email,
         };
 
         console.log(`[RecordPayment] Generating receipt email...`);
@@ -232,10 +265,14 @@ export async function POST(
           replyTo: replyToEmail,
           emailType: 'orders',
           fromName: senderName,
-        }).catch((err) => logger.error({ message: 'Failed to send receipt email', error: err }));
-
+        }).catch((err) =>
+          logger.error({ message: 'Failed to send receipt email', error: err })
+        );
       } catch (emailErr) {
-        logger.error({ message: 'Error preparing receipt email payload', error: emailErr });
+        logger.error({
+          message: 'Error preparing receipt email payload',
+          error: emailErr,
+        });
       }
     }
 

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { DashboardProviders } from './providers';
 

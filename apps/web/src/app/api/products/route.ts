@@ -396,10 +396,10 @@ export async function POST(request: NextRequest) {
     const schema_markup = body.schema_markup
       ? sanitizeSchemaMarkup(body.schema_markup)
       : generateProductSchema(
-        productForSchema,
-        merchant.business_name,
-        currency
-      );
+          productForSchema,
+          merchant.business_name,
+          currency
+        );
 
     // Check for duplicates (same slug for this merchant)
     const { data: existingProduct } = await supabase

@@ -220,7 +220,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
           productId: selectedProduct.id,
           merchantId: merchant.id,
           customerEmail: customer.email,
-          customerName: customer.full_name,
+          customerName: `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Anonymous',
           rating,
           body: 'Rated via Quick Rate', // Simple default or expand modal to capture text
         }),

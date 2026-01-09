@@ -314,9 +314,7 @@ export default function AcceptInvitePage() {
                 <Link
                   href={`/signup?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}&type=staff`}
                 >
-                  <Button className="w-full">
-                    Create Account
-                  </Button>
+                  <Button className="w-full">Create Account</Button>
                 </Link>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">

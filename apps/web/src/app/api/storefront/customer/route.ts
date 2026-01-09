@@ -11,7 +11,8 @@ import { createClient } from '@/lib/supabase/server';
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { merchantSlug, first_name, last_name, phone, saved_addresses } = body;
+    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
+      body;
 
     if (!merchantSlug) {
       return NextResponse.json(

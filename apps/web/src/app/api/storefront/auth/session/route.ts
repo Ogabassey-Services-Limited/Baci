@@ -107,8 +107,14 @@ export async function GET(request: Request) {
           merchant_id: merchant.id,
           user_id: user.id,
           email: user.email,
-          first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || null,
-          last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || null,
+          first_name:
+            user.user_metadata?.first_name ||
+            user.user_metadata?.full_name?.split(' ')[0] ||
+            null,
+          last_name:
+            user.user_metadata?.last_name ||
+            user.user_metadata?.full_name?.split(' ').slice(1).join(' ') ||
+            null,
         })
         .select(`
           id,

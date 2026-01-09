@@ -1,11 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
-import { sendEmail } from '@/lib/zeptomail';
+import {
+  authenticateApiRequest,
+  getAdminClient,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import {
   generatePaymentReminderEmail,
   generatePaymentReminderText,
 } from '@/lib/email-templates';
+import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/zeptomail';
 
 /**
  * POST /api/orders/[id]/reminder
@@ -23,14 +27,24 @@ export async function POST(
 
     // 1. Authenticate request (supports mobile Bearer token + web cookies)
     const { user, error: authError } = await authenticateApiRequest(request);
-    console.log('[Reminder API] Auth result:', { userId: user?.id, email: user?.email, error: authError });
+    console.log('[Reminder API] Auth result:', {
+      userId: user?.id,
+      email: user?.email,
+      error: authError,
+    });
     if (authError || !user) {
-      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: authError || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     // 2. Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(user.id);
-    console.log('[Reminder API] Merchant ID lookup:', { userId: user.id, merchantId });
+    console.log('[Reminder API] Merchant ID lookup:', {
+      userId: user.id,
+      merchantId,
+    });
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -70,7 +84,12 @@ export async function POST(
       .eq('merchant_id', merchant.id)
       .single();
 
-    console.log('[Reminder API] Order lookup:', { orderId, merchantId: merchant.id, found: !!order, error: orderError });
+    console.log('[Reminder API] Order lookup:', {
+      orderId,
+      merchantId: merchant.id,
+      found: !!order,
+      error: orderError,
+    });
 
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -98,8 +117,7 @@ export async function POST(
     const channel = body.channel || 'email';
 
     // 8. Calculate balance
-    const balanceDue =
-      order.balance ?? Number(order.total) - Number(order.amount_paid || 0);
+    const balanceDue = Number(order.total) - Number(order.amount_paid || 0);
 
     // 9. Prepare email data
     const emailData = {
@@ -119,10 +137,10 @@ export async function POST(
       supportEmail: merchant.support_email || undefined,
       virtualAccount: virtualAccount
         ? {
-          bankName: virtualAccount.bank_name,
-          accountNumber: virtualAccount.account_number,
-          accountName: virtualAccount.account_name,
-        }
+            bankName: virtualAccount.bank_name,
+            accountNumber: virtualAccount.account_number,
+            accountName: virtualAccount.account_name,
+          }
         : null,
     };
 

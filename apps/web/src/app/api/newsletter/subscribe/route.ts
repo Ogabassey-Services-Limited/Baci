@@ -1,6 +1,6 @@
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 import { sendEmail } from '@/lib/zeptomail';
 

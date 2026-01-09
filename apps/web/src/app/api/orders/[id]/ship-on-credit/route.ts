@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getAdminClient,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { createVirtualBankAccount } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 
 /**
  * POST /api/orders/[id]/ship-on-credit

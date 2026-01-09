@@ -41,7 +41,9 @@ export default function CustomerSettingsPage() {
   // Initialize form with customer data
   useEffect(() => {
     if (customer) {
-      setFullName(customer.full_name || '');
+      setFullName(
+        `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+      );
       setPhone(customer.phone || '');
     }
   }, [customer]);
@@ -62,7 +64,8 @@ export default function CustomerSettingsPage() {
 
     try {
       const result = await updateCustomer({
-        full_name: fullName,
+        first_name: fullName.split(' ')[0] || '',
+        last_name: fullName.split(' ').slice(1).join(' ') || '',
         phone: phone || undefined,
       });
 

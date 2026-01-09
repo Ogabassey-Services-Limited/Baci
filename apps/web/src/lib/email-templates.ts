@@ -273,7 +273,9 @@ interface PaymentReminderData {
 /**
  * Generate a beautiful 2025-style payment reminder email HTML
  */
-export function generatePaymentReminderEmail(data: PaymentReminderData): string {
+export function generatePaymentReminderEmail(
+  data: PaymentReminderData
+): string {
   const itemsHtml = data.items
     .map(
       (item) => `
@@ -362,12 +364,16 @@ export function generatePaymentReminderEmail(data: PaymentReminderData): string 
               <td style="color: #6b7280; font-size: 14px; padding: 4px 0;">Order Total:</td>
               <td style="color: #1a1a2e; font-size: 14px; text-align: right;">₦${data.totalAmount.toLocaleString()}</td>
             </tr>
-            ${data.amountPaid > 0 ? `
+            ${
+              data.amountPaid > 0
+                ? `
             <tr>
               <td style="color: #10b981; font-size: 14px; padding: 4px 0;">Amount Paid:</td>
               <td style="color: #10b981; font-size: 14px; text-align: right;">-₦${data.amountPaid.toLocaleString()}</td>
             </tr>
-            ` : ''}
+            `
+                : ''
+            }
             <tr>
               <td style="color: #1a1a2e; font-size: 18px; font-weight: 700; padding: 12px 0 0 0;">Balance Due:</td>
               <td style="color: #dc2626; font-size: 20px; font-weight: 800; text-align: right; padding: 12px 0 0 0;">₦${data.balanceDue.toLocaleString()}</td>
@@ -416,7 +422,10 @@ export function generatePaymentReminderEmail(data: PaymentReminderData): string 
  */
 export function generatePaymentReminderText(data: PaymentReminderData): string {
   const itemsText = data.items
-    .map((item) => `• ${item.name} × ${item.quantity} — ₦${(item.price * item.quantity).toLocaleString()}`)
+    .map(
+      (item) =>
+        `• ${item.name} × ${item.quantity} — ₦${(item.price * item.quantity).toLocaleString()}`
+    )
     .join('\n');
 
   const bankDetails = data.virtualAccount
@@ -548,9 +557,11 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       <div style="margin-top: 32px; padding: 20px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
         <p style="margin: 0; font-size: 14px; color: #0c4a6e;">
           <strong>Next Steps:</strong><br>
-          ${data.balanceDue > 0
-      ? 'Please complete the remaining payment to finalize your order.'
-      : 'Your order is now fully paid and will be processed for shipping.'}
+          ${
+            data.balanceDue > 0
+              ? 'Please complete the remaining payment to finalize your order.'
+              : 'Your order is now fully paid and will be processed for shipping.'
+          }
         </p>
       </div>
     </div>
@@ -641,22 +652,30 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         📦 Tracking Information
       </div>
       <table style="width: 100%; font-size: 14px;">
-        ${data.courierName ? `
+        ${
+          data.courierName
+            ? `
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Courier</td>
           <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.courierName}</td>
         </tr>
-        ` : ''}
+        `
+            : ''
+        }
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Tracking Number</td>
           <td style="padding: 6px 0; color: #059669; font-weight: 700; text-align: right; font-family: monospace;">${data.trackingNumber}</td>
         </tr>
-        ${data.estimatedDelivery ? `
+        ${
+          data.estimatedDelivery
+            ? `
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Est. Delivery</td>
           <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.estimatedDelivery}</td>
         </tr>
-        ` : ''}
+        `
+            : ''
+        }
       </table>
     </div>
     `
@@ -724,9 +743,11 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-radius: 12px; padding: 20px; margin-top: 24px; border: 1px solid #fde68a;">
         <p style="margin: 0; font-size: 14px; color: #92400e; line-height: 1.6;">
           <strong>What's Next?</strong><br>
-          ${data.trackingNumber
-      ? 'You can track your package using the tracking number above. We\'ll deliver it as soon as possible!'
-      : 'Our delivery team will contact you before arrival. Please keep your phone available.'}
+          ${
+            data.trackingNumber
+              ? "You can track your package using the tracking number above. We'll deliver it as soon as possible!"
+              : 'Our delivery team will contact you before arrival. Please keep your phone available.'
+          }
         </p>
       </div>
     </div>
@@ -759,7 +780,9 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
  * Generate plain text version of order shipped email
  */
 export function generateOrderShippedText(data: OrderShippedData): string {
-  const itemsList = data.items.map((item) => `- ${item.name} x${item.quantity}`).join('\n');
+  const itemsList = data.items
+    .map((item) => `- ${item.name} x${item.quantity}`)
+    .join('\n');
 
   return `
 🚚 Your Order Has Shipped!
@@ -768,11 +791,15 @@ Hi ${data.customerName},
 
 Great news! Your order #${data.orderNumber} has been shipped and is on its way to you.
 
-${data.trackingNumber ? `TRACKING INFORMATION
+${
+  data.trackingNumber
+    ? `TRACKING INFORMATION
 ${data.courierName ? `Courier: ${data.courierName}` : ''}
 Tracking Number: ${data.trackingNumber}
 ${data.estimatedDelivery ? `Estimated Delivery: ${data.estimatedDelivery}` : ''}
-` : ''}
+`
+    : ''
+}
 
 DELIVERY ADDRESS
 ${data.customerName}
@@ -783,9 +810,11 @@ Phone: ${data.shippingAddress.phone}
 ITEMS IN THIS SHIPMENT
 ${itemsList}
 
-${data.trackingNumber
-      ? 'You can track your package using the tracking number above.'
-      : 'Our delivery team will contact you before arrival. Please keep your phone available.'}
+${
+  data.trackingNumber
+    ? 'You can track your package using the tracking number above.'
+    : 'Our delivery team will contact you before arrival. Please keep your phone available.'
+}
 
 Thank you for shopping with ${data.merchantName}!
 ${data.supportEmail ? `Questions? Contact us at ${data.supportEmail}` : ''}
@@ -929,7 +958,9 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
  * Generate plain text version of order delivered email
  */
 export function generateOrderDeliveredText(data: OrderDeliveredData): string {
-  const itemsList = data.items.map((item) => `✓ ${item.name} x${item.quantity}`).join('\n');
+  const itemsList = data.items
+    .map((item) => `✓ ${item.name} x${item.quantity}`)
+    .join('\n');
   const googleReviewUrl = data.googlePlaceId
     ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
     : null;
@@ -944,11 +975,15 @@ Great news! Your order #${data.orderNumber} has been successfully delivered. We 
 ITEMS DELIVERED
 ${itemsList}
 
-${googleReviewUrl ? `
+${
+  googleReviewUrl
+    ? `
 ⭐ RATE YOUR EXPERIENCE
 Loved your experience? Leave us a Google review:
 ${googleReviewUrl}
-` : ''}
+`
+    : ''
+}
 
 Need help? Contact us${data.supportEmail ? ` at ${data.supportEmail}` : ''}.
 
@@ -980,7 +1015,9 @@ interface OrderCancellationData {
 /**
  * Generate Order Cancellation email HTML - Premium 2025 Design
  */
-export function generateOrderCancellationEmail(data: OrderCancellationData): string {
+export function generateOrderCancellationEmail(
+  data: OrderCancellationData
+): string {
   const itemsHtml = data.items
     .map(
       (item) => `
@@ -999,8 +1036,9 @@ export function generateOrderCancellationEmail(data: OrderCancellationData): str
     )
     .join('');
 
-  const refundSection = data.refundAmount > 0
-    ? `
+  const refundSection =
+    data.refundAmount > 0
+      ? `
     <!-- Refund Info -->
     <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; padding: 20px; margin: 24px 0; border: 1px solid #a7f3d0;">
       <div style="font-size: 14px; font-weight: 600; color: #065f46; margin-bottom: 8px;">💰 Refund Information</div>
@@ -1019,7 +1057,7 @@ export function generateOrderCancellationEmail(data: OrderCancellationData): str
       </p>
     </div>
     `
-    : '';
+      : '';
 
   const reasonSection = data.cancellationReason
     ? `
@@ -1061,9 +1099,11 @@ export function generateOrderCancellationEmail(data: OrderCancellationData): str
         Hi <strong>${data.customerName}</strong>,
       </p>
       <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
-        ${data.cancelledBy === 'merchant'
-      ? 'We regret to inform you that your order has been cancelled.'
-      : 'Your order has been successfully cancelled as requested.'}
+        ${
+          data.cancelledBy === 'merchant'
+            ? 'We regret to inform you that your order has been cancelled.'
+            : 'Your order has been successfully cancelled as requested.'
+        }
       </p>
 
       ${reasonSection}
@@ -1122,17 +1162,26 @@ export function generateOrderCancellationEmail(data: OrderCancellationData): str
 /**
  * Generate plain text version of order cancellation email
  */
-export function generateOrderCancellationText(data: OrderCancellationData): string {
-  const itemsList = data.items.map((item) => `- ${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`).join('\n');
+export function generateOrderCancellationText(
+  data: OrderCancellationData
+): string {
+  const itemsList = data.items
+    .map(
+      (item) =>
+        `- ${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`
+    )
+    .join('\n');
 
   return `
 ❌ Order Cancelled - #${data.orderNumber}
 
 Hi ${data.customerName},
 
-${data.cancelledBy === 'merchant'
-      ? 'We regret to inform you that your order has been cancelled.'
-      : 'Your order has been successfully cancelled as requested.'}
+${
+  data.cancelledBy === 'merchant'
+    ? 'We regret to inform you that your order has been cancelled.'
+    : 'Your order has been successfully cancelled as requested.'
+}
 
 ${data.cancellationReason ? `Reason: ${data.cancellationReason}` : ''}
 
@@ -1141,12 +1190,16 @@ ${itemsList}
 
 Order Total: ₦${data.totalAmount.toLocaleString()} (Cancelled)
 
-${data.refundAmount > 0 ? `
+${
+  data.refundAmount > 0
+    ? `
 REFUND INFORMATION
 Amount Paid: ₦${data.amountPaid.toLocaleString()}
 Refund Amount: ₦${data.refundAmount.toLocaleString()}
 Your refund will be processed within 3-5 business days.
-` : ''}
+`
+    : ''
+}
 
 Questions? Contact us${data.supportEmail ? ` at ${data.supportEmail}` : ''}.
 

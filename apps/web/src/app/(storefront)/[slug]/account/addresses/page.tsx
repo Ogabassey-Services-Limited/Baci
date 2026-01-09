@@ -75,7 +75,9 @@ export default function CustomerAddressesPage() {
     setEditingAddress(null);
     setFormData({
       ...emptyAddress,
-      full_name: customer?.full_name || '',
+      full_name: customer
+        ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+        : '',
       phone: customer?.phone || '',
       country: merchant?.country || '',
     });

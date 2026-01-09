@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getAdminClient,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
-import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
