@@ -1,24 +1,27 @@
-# Vercel Ignore File
-# Exclude large directories and build artifacts from upload
-node_modules
-.next
-apps/web/.next
-apps/web/node_modules
-apps/mobile-admin/.expo
-apps/mobile-admin/node_modules
+**/node_modules
+**/.next
+**/.git
+**/.turbo
+**/dist
+**/coverage
+**/.DS_Store
+**/.env*
+!apps/web/.next/static
 
-# Git
-.git
-.DS_Store
+# Mobile Apps
+apps/mobile-admin
+apps/mobile-storefront
 
-# Reports & Logs
-.reports
-*.log
-coverage
+# Large Assets / Backups
+full_migration_backup.zip
+**/*.zip
+**/*.tar.gz
+**/orphaned_images*
+**/gaming_branded_images
+**/hp_downloaded_images
+**/samsung_jumia_images
 
-# Temporary scripts
-scripts-tmp
-repro-bug.js
+# Design Assets (Non-Production)
+**/website designs
+**/*.eps
 
-# Gemini/Antigravity
-.gemini
