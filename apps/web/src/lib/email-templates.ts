@@ -1163,34 +1163,45 @@ export function generateOrderCancellationText(
     )
     .join('\n');
 
+  // Extract conditional strings for cleaner template (2026 best practice)
+  const cancellationMessage = data.cancelledBy === 'merchant'
+    ? 'We regret to inform you that your order has been cancelled.'
+    : 'Your order has been successfully cancelled as requested.';
+
+  const reasonLine = data.cancellationReason
+    ? `Reason: ${data.cancellationReason}`
+    : '';
+
+  const refundSection = data.refundAmount > 0
+    ? `
+REFUND INFORMATION
+Amount Paid: ₦${data.amountPaid.toLocaleString()}
+Refund Amount: ₦${data.refundAmount.toLocaleString()}
+Your refund will be processed within 3-5 business days.
+`
+    : '';
+
+  const contactLine = data.supportEmail
+    ? `Questions? Contact us at ${data.supportEmail}.`
+    : 'Questions? Contact us.';
+
   return `
 ❌ Order Cancelled - #${data.orderNumber}
 
 Hi ${data.customerName},
 
-${data.cancelledBy === 'merchant'
-      ? 'We regret to inform you that your order has been cancelled.'
-      : 'Your order has been successfully cancelled as requested.'
-    }
+${cancellationMessage}
 
-${data.cancellationReason ? `Reason: ${data.cancellationReason}` : ''}
+${reasonLine}
 
 CANCELLED ITEMS
 ${itemsList}
 
 Order Total: ₦${data.totalAmount.toLocaleString()} (Cancelled)
 
-${data.refundAmount > 0
-      ? `
-REFUND INFORMATION
-Amount Paid: ₦${data.amountPaid.toLocaleString()}
-Refund Amount: ₦${data.refundAmount.toLocaleString()}
-Your refund will be processed within 3-5 business days.
-`
-      : ''
-    }
+${refundSection}
 
-Questions? Contact us${data.supportEmail ? ` at ${data.supportEmail}` : ''}.
+${contactLine}
 
 Continue shopping: ${data.merchantUrl}
 
