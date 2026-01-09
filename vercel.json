@@ -4,7 +4,6 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "ignoreCommand": "npx -y turbo-ignore",
   "crons": [
     {
       "path": "/api/ai-jobs/worker",
