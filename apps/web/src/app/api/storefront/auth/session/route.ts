@@ -107,14 +107,10 @@ export async function GET(request: Request) {
           merchant_id: merchant.id,
           user_id: user.id,
           email: user.email,
-        .insert({
-            merchant_id: merchant.id,
-            user_id: user.id,
-            email: user.email,
-            first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || null,
-            last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || null,
-          })
-            .select(`
+          first_name: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || null,
+          last_name: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || null,
+        })
+        .select(`
           id,
           first_name,
           last_name,
@@ -127,30 +123,30 @@ export async function GET(request: Request) {
           total_spent,
           created_at
         `)
-            .single();
+        .single();
 
-          if(createError) {
-            console.error('Failed to auto-create customer:', createError);
-          } else {
-            customer = newCustomer;
-            console.log('Auto-created customer for merchant:', merchant.id);
-          }
-        }
+      if (createError) {
+        console.error('Failed to auto-create customer:', createError);
+      } else {
+        customer = newCustomer;
+        console.log('Auto-created customer for merchant:', merchant.id);
+      }
+    }
 
     return NextResponse.json({
-          authenticated: true,
-          user: {
-            id: user.id,
-            email: user.email,
-            role: userRole || 'customer',
-          },
-          customer: customer || null,
-        });
-    } catch (error) {
-      console.error('Session check error:', error);
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
-      );
-    }
+      authenticated: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: userRole || 'customer',
+      },
+      customer: customer || null,
+    });
+  } catch (error) {
+    console.error('Session check error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
+}

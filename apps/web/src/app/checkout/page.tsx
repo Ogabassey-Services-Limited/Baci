@@ -989,598 +989,604 @@ function CheckoutPageContent() {
       });
 
       // First, try to fill from customer data (more up-to-date)
-    } else if (user.user_metadata?.full_name) {
-      const parts = user.user_metadata.full_name.split(' ');
-      shippingForm.setValue('firstName', parts[0] || '', { shouldValidate: true, shouldDirty: true });
-      shippingForm.setValue('lastName', parts.slice(1).join(' ') || '', { shouldValidate: true, shouldDirty: true });
-    } else if (user.user_metadata?.name) {
-      const parts = user.user_metadata.name.split(' ');
-      shippingForm.setValue('firstName', parts[0] || '', { shouldValidate: true, shouldDirty: true });
-      shippingForm.setValue('lastName', parts.slice(1).join(' ') || '', { shouldValidate: true, shouldDirty: true });
-    }
-  }
-
-
+      if (customerData) {
+        if (customerData.first_name) {
+          shippingForm.setValue('firstName', customerData.first_name, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+        if (customerData.last_name) {
+          shippingForm.setValue('lastName', customerData.last_name, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
         if (customerData.phone) {
-    shippingForm.setValue('phone', customerData.phone, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  }
+          shippingForm.setValue('phone', customerData.phone, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
 
-  // Use default saved address if available
-  const defaultAddress = customerData.saved_addresses?.find(
-    (a) => a.is_default
-  );
-  if (defaultAddress) {
-    shippingForm.setValue('address', defaultAddress.address, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    shippingForm.setValue('city', defaultAddress.city, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    shippingForm.setValue('state', defaultAddress.state, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    if (defaultAddress.phone) {
-      shippingForm.setValue('phone', defaultAddress.phone, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
-    // Override name with address name if different
-    if (defaultAddress.full_name) {
-      const nameParts = defaultAddress.full_name.split(' ');
-      if (nameParts.length > 0) {
-        shippingForm.setValue('firstName', nameParts[0], {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-        if (nameParts.length > 1) {
-          shippingForm.setValue(
-            'lastName',
-            nameParts.slice(1).join(' '),
-            { shouldValidate: true, shouldDirty: true }
-          );
+        // Use default saved address if available
+        const defaultAddress = customerData.saved_addresses?.find(
+          (a) => a.is_default
+        );
+        if (defaultAddress) {
+          shippingForm.setValue('address', defaultAddress.address, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          shippingForm.setValue('city', defaultAddress.city, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          shippingForm.setValue('state', defaultAddress.state, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          if (defaultAddress.phone) {
+            shippingForm.setValue('phone', defaultAddress.phone, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          }
+          // Override name with address name if different
+          if (defaultAddress.full_name) {
+            const nameParts = defaultAddress.full_name.split(' ');
+            if (nameParts.length > 0) {
+              shippingForm.setValue('firstName', nameParts[0], {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
+              if (nameParts.length > 1) {
+                shippingForm.setValue(
+                  'lastName',
+                  nameParts.slice(1).join(' '),
+                  { shouldValidate: true, shouldDirty: true }
+                );
+              }
+            }
+          }
+        }
+      } else {
+        // Fall back to user metadata
+        const metadata = user.user_metadata;
+        if (metadata) {
+          if (metadata.first_name) {
+            shippingForm.setValue('firstName', metadata.first_name, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          } else if (metadata.full_name) {
+            // Try to split full_name if first_name is not available
+            const nameParts = metadata.full_name.split(' ');
+            if (nameParts.length > 0) {
+              shippingForm.setValue('firstName', nameParts[0], {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
+              if (nameParts.length > 1) {
+                shippingForm.setValue(
+                  'lastName',
+                  nameParts.slice(1).join(' '),
+                  { shouldValidate: true, shouldDirty: true }
+                );
+              }
+            }
+          } else if (metadata.name) {
+            const parts = metadata.name.split(' ');
+            shippingForm.setValue('firstName', parts[0] || '', { shouldValidate: true, shouldDirty: true });
+            shippingForm.setValue('lastName', parts.slice(1).join(' ') || '', { shouldValidate: true, shouldDirty: true });
+          }
+
+          if (metadata.last_name) {
+            shippingForm.setValue('lastName', metadata.last_name, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          }
         }
       }
-    }
-  }
-} else {
-  // Fall back to user metadata
-  const metadata = user.user_metadata;
-  if (metadata) {
-    if (metadata.first_name) {
-      shippingForm.setValue('firstName', metadata.first_name, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    } else if (metadata.full_name) {
-      // Try to split full_name if first_name is not available
-      const nameParts = metadata.full_name.split(' ');
-      if (nameParts.length > 0) {
-        shippingForm.setValue('firstName', nameParts[0], {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-        if (nameParts.length > 1) {
-          shippingForm.setValue(
-            'lastName',
-            nameParts.slice(1).join(' '),
-            { shouldValidate: true, shouldDirty: true }
-          );
-        }
-      }
-    }
-
-    if (metadata.last_name) {
-      shippingForm.setValue('lastName', metadata.last_name, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }
-  }
-}
     }
   }, [user, customerData, shippingForm]);
 
-useEffect(() => {
-  // Redirect if cart is empty after initial load
-  if (cartCount === 0 && !pageLoading) {
-    router.replace('/');
-  }
-}, [cartCount, pageLoading, router]);
+  useEffect(() => {
+    // Redirect if cart is empty after initial load
+    if (cartCount === 0 && !pageLoading) {
+      router.replace('/');
+    }
+  }, [cartCount, pageLoading, router]);
 
-const handleAuthSuccess = (
-  authedUser: SupabaseUser,
-  customer?: CustomerData
-) => {
-  setUser(authedUser);
-  if (customer) {
-    setCustomerData(customer);
-  }
-  setIsGuestCheckout(false);
-  setStep(1);
-};
+  const handleAuthSuccess = (
+    authedUser: SupabaseUser,
+    customer?: CustomerData
+  ) => {
+    setUser(authedUser);
+    if (customer) {
+      setCustomerData(customer);
+    }
+    setIsGuestCheckout(false);
+    setStep(1);
+  };
 
-const handleGuestCheckout = () => {
-  setIsGuestCheckout(true);
-  setStep(1);
-};
+  const handleGuestCheckout = () => {
+    setIsGuestCheckout(true);
+    setStep(1);
+  };
 
-const handleNext = async () => {
-  const isValid = await shippingForm.trigger();
+  const handleNext = async () => {
+    const isValid = await shippingForm.trigger();
 
-  // Check if shipping is selected for step 1
-  if (step === 1 && !selectedShippingQuote) {
-    toast({
-      variant: 'destructive',
-      title: 'Shipping Required',
-      description: 'Please select a shipping option to continue.',
-    });
-    return;
-  }
-
-  if (isValid && step < totalSteps) {
-    // Track begin_checkout when moving to payment step
-    if (step === 1 && merchant?.id) {
-      // Client-side tracking
-      trackEvent.beginCheckout(
-        merchant.id,
-        cart.map((item) => ({ product: item, quantity: item.quantity })),
-        'NGN' // Default currency for Nigeria
-      );
-
-      // Server-side tracking for GA4, Facebook, TikTok, Snapchat
-      trackServerSideBeginCheckout(
-        merchant.id,
-        cartTotal,
-        'NGN',
-        cart.map((item) => {
-          const itemCategory =
-            // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
-            (item as any).categories?.name || item.category || 'General';
-          return {
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            category: itemCategory,
-          };
-        }),
-        undefined,
-        { eventSourceUrl: window.location.href }
-      ).catch((err) => {
-        console.warn('Server-side analytics error:', err);
+    // Check if shipping is selected for step 1
+    if (step === 1 && !selectedShippingQuote) {
+      toast({
+        variant: 'destructive',
+        title: 'Shipping Required',
+        description: 'Please select a shipping option to continue.',
       });
-    }
-    setStep(step + 1);
-  }
-};
-
-const handlePrev = () => {
-  if (step > 1) {
-    setStep(step - 1);
-  }
-};
-const onShippingSubmit = async (data: ShippingFormValues) => {
-  setFormIsLoading(true);
-
-  try {
-    // Get merchant ID from context (useMerchant hook)
-    if (!merchant || !merchant.id) {
-      throw new Error(
-        'Merchant information not available. Please refresh the page and try again.'
-      );
-    }
-
-    // Prepare order items
-    const orderItems = cart.map((item) => ({
-      product_id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      image: item.image,
-    }));
-
-    // Calculate totals - use merchant data from hook directly (no need to query DB again)
-    const subtotal = cartTotal;
-    const finalShippingFee = shippingFee ?? DEFAULT_SHIPPING_FEE;
-
-    // Create order via API
-    const { order, paystackAuthUrl } = await apiPost<{
-      order: Record<string, unknown>;
-      paystackAuthUrl?: string;
-    }>('/api/orders', {
-      merchant_id: merchant.id,
-      customer_email: data.email,
-      customer_name: `${data.firstName} ${data.lastName}`,
-      customer_phone: data.phone,
-      items: orderItems,
-      subtotal,
-      shipping_fee: finalShippingFee,
-      payment_method: selectedGateway,
-      payment_status: 'unpaid', // Order starts unpaid, changes to pending when payment initiated, then paid on confirmation
-      shipping_status: 'pending',
-      shipping_address: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        address: data.address,
-        city: data.city,
-        state: data.state,
-      },
-      source: 'online_store',
-      // Use selected shipping provider or fallback to GIGL
-      shipping_provider: selectedShippingQuote?.provider || 'GIGL',
-      shipping_quote_id: selectedShippingQuote?.id,
-      shipping_session_id: shippingSessionId,
-      shipping_carrier: selectedShippingQuote?.carrierName,
-      shipping_service_tier: selectedShippingQuote?.serviceTier,
-    });
-
-    // Store order data for success page (fallback)
-    const orderData = {
-      order_id: order.id,
-      order_number: order.order_number,
-      shipping: data,
-      items: cart,
-      subtotal,
-      shipping_fee: finalShippingFee,
-      total: order.total,
-    };
-    sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
-
-    // Track platform-level purchase (for platform owner's analytics)
-    trackPlatformPurchase(
-      merchant.id,
-      order.total as number,
-      currencyCode,
-      order.order_number as string
-    );
-
-    // Handle Credit Direct BNPL checkout
-    if (selectedGateway === 'credit_direct') {
-      try {
-        // Get signature from server
-        const signResponse = await fetch('/api/payments/credit-direct/sign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            customerEmail: data.email,
-            totalAmount: order.total,
-            merchantSlug: merchantSlug,
-            orderId: order.id,
-          }),
-        });
-
-        if (!signResponse.ok) {
-          const errorData = await signResponse.json();
-          throw new Error(
-            errorData.error || 'Failed to initialize Credit Direct checkout'
-          );
-        }
-
-        const { signature, publicKey, sessionId, isLive } =
-          await signResponse.json();
-
-        // Build transaction object for Credit Direct
-        const transaction = {
-          totalAmount: order.total as number,
-          customerEmail: data.email,
-          customerPhone: data.phone,
-          sessionId,
-          metaData: order.id as string,
-          products: cart.map((item) => ({
-            productName: item.name,
-            productAmount: item.price,
-            productId: item.id,
-          })),
-        };
-
-        // Configure and open Credit Direct popup
-        // @ts-expect-error - Connect is loaded from external script
-        const connect = new window.Connect({
-          publicKey,
-          signature,
-          transaction,
-          isLive,
-          onSuccess: () => {
-            clearCart();
-            router.push(`/checkout/success?orderId=${order.id}`);
-          },
-          onClose: () => {
-            toast({
-              title: 'Checkout Cancelled',
-              description: 'You can complete your purchase anytime.',
-            });
-            setFormIsLoading(false);
-          },
-          onPopup: async (response: { checkoutTransactionId: string }) => {
-            // Save transaction ID to order for webhook reconciliation
-            await fetch('/api/orders/update-payment-ref', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orderId: order.id,
-                paymentRef: response.checkoutTransactionId,
-                gateway: 'credit_direct',
-              }),
-            });
-          },
-        });
-
-        connect.setup();
-        connect.open();
-        return; // Don't proceed to success page yet - wait for popup callbacks
-      } catch (creditDirectError) {
-        console.error('Credit Direct error:', creditDirectError);
-        toast({
-          variant: 'destructive',
-          title: 'BNPL Checkout Failed',
-          description:
-            (creditDirectError as Error).message ||
-            'Failed to start Credit Direct checkout',
-        });
-        setFormIsLoading(false);
-        return;
-      }
-    }
-
-    toast({
-      title: 'Order Placed!',
-      description: `Order ${order.order_number} has been placed.`,
-    });
-
-    clearCart();
-
-    // Redirect to Paystack/Korapay for payment
-    if (paystackAuthUrl && selectedGateway !== 'pod') {
-      window.location.href = paystackAuthUrl;
       return;
     }
 
-    // Fallback for demo/testing if no URL returned or if POD
-    router.push(`/checkout/success?orderId=${order.id}`);
-  } catch (error) {
-    toast({
-      variant: 'destructive',
-      title: 'Order Failed',
-      description: (error as Error).message || 'Something went wrong.',
-    });
-  } finally {
-    setFormIsLoading(false);
+    if (isValid && step < totalSteps) {
+      // Track begin_checkout when moving to payment step
+      if (step === 1 && merchant?.id) {
+        // Client-side tracking
+        trackEvent.beginCheckout(
+          merchant.id,
+          cart.map((item) => ({ product: item, quantity: item.quantity })),
+          'NGN' // Default currency for Nigeria
+        );
+
+        // Server-side tracking for GA4, Facebook, TikTok, Snapchat
+        trackServerSideBeginCheckout(
+          merchant.id,
+          cartTotal,
+          'NGN',
+          cart.map((item) => {
+            const itemCategory =
+              // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
+              (item as any).categories?.name || item.category || 'General';
+            return {
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+              category: itemCategory,
+            };
+          }),
+          undefined,
+          { eventSourceUrl: window.location.href }
+        ).catch((err) => {
+          console.warn('Server-side analytics error:', err);
+        });
+      }
+      setStep(step + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+  const onShippingSubmit = async (data: ShippingFormValues) => {
+    setFormIsLoading(true);
+
+    try {
+      // Get merchant ID from context (useMerchant hook)
+      if (!merchant || !merchant.id) {
+        throw new Error(
+          'Merchant information not available. Please refresh the page and try again.'
+        );
+      }
+
+      // Prepare order items
+      const orderItems = cart.map((item) => ({
+        product_id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      }));
+
+      // Calculate totals - use merchant data from hook directly (no need to query DB again)
+      const subtotal = cartTotal;
+      const finalShippingFee = shippingFee ?? DEFAULT_SHIPPING_FEE;
+
+      // Create order via API
+      const { order, paystackAuthUrl } = await apiPost<{
+        order: Record<string, unknown>;
+        paystackAuthUrl?: string;
+      }>('/api/orders', {
+        merchant_id: merchant.id,
+        customer_email: data.email,
+        customer_name: `${data.firstName} ${data.lastName}`,
+        customer_phone: data.phone,
+        items: orderItems,
+        subtotal,
+        shipping_fee: finalShippingFee,
+        payment_method: selectedGateway,
+        payment_status: 'unpaid', // Order starts unpaid, changes to pending when payment initiated, then paid on confirmation
+        shipping_status: 'pending',
+        shipping_address: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+        },
+        source: 'online_store',
+        // Use selected shipping provider or fallback to GIGL
+        shipping_provider: selectedShippingQuote?.provider || 'GIGL',
+        shipping_quote_id: selectedShippingQuote?.id,
+        shipping_session_id: shippingSessionId,
+        shipping_carrier: selectedShippingQuote?.carrierName,
+        shipping_service_tier: selectedShippingQuote?.serviceTier,
+      });
+
+      // Store order data for success page (fallback)
+      const orderData = {
+        order_id: order.id,
+        order_number: order.order_number,
+        shipping: data,
+        items: cart,
+        subtotal,
+        shipping_fee: finalShippingFee,
+        total: order.total,
+      };
+      sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
+
+      // Track platform-level purchase (for platform owner's analytics)
+      trackPlatformPurchase(
+        merchant.id,
+        order.total as number,
+        currencyCode,
+        order.order_number as string
+      );
+
+      // Handle Credit Direct BNPL checkout
+      if (selectedGateway === 'credit_direct') {
+        try {
+          // Get signature from server
+          const signResponse = await fetch('/api/payments/credit-direct/sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerEmail: data.email,
+              totalAmount: order.total,
+              merchantSlug: merchantSlug,
+              orderId: order.id,
+            }),
+          });
+
+          if (!signResponse.ok) {
+            const errorData = await signResponse.json();
+            throw new Error(
+              errorData.error || 'Failed to initialize Credit Direct checkout'
+            );
+          }
+
+          const { signature, publicKey, sessionId, isLive } =
+            await signResponse.json();
+
+          // Build transaction object for Credit Direct
+          const transaction = {
+            totalAmount: order.total as number,
+            customerEmail: data.email,
+            customerPhone: data.phone,
+            sessionId,
+            metaData: order.id as string,
+            products: cart.map((item) => ({
+              productName: item.name,
+              productAmount: item.price,
+              productId: item.id,
+            })),
+          };
+
+          // Configure and open Credit Direct popup
+          // @ts-expect-error - Connect is loaded from external script
+          const connect = new window.Connect({
+            publicKey,
+            signature,
+            transaction,
+            isLive,
+            onSuccess: () => {
+              clearCart();
+              router.push(`/checkout/success?orderId=${order.id}`);
+            },
+            onClose: () => {
+              toast({
+                title: 'Checkout Cancelled',
+                description: 'You can complete your purchase anytime.',
+              });
+              setFormIsLoading(false);
+            },
+            onPopup: async (response: { checkoutTransactionId: string }) => {
+              // Save transaction ID to order for webhook reconciliation
+              await fetch('/api/orders/update-payment-ref', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: order.id,
+                  paymentRef: response.checkoutTransactionId,
+                  gateway: 'credit_direct',
+                }),
+              });
+            },
+          });
+
+          connect.setup();
+          connect.open();
+          return; // Don't proceed to success page yet - wait for popup callbacks
+        } catch (creditDirectError) {
+          console.error('Credit Direct error:', creditDirectError);
+          toast({
+            variant: 'destructive',
+            title: 'BNPL Checkout Failed',
+            description:
+              (creditDirectError as Error).message ||
+              'Failed to start Credit Direct checkout',
+          });
+          setFormIsLoading(false);
+          return;
+        }
+      }
+
+      toast({
+        title: 'Order Placed!',
+        description: `Order ${order.order_number} has been placed.`,
+      });
+
+      clearCart();
+
+      // Redirect to Paystack/Korapay for payment
+      if (paystackAuthUrl && selectedGateway !== 'pod') {
+        window.location.href = paystackAuthUrl;
+        return;
+      }
+
+      // Fallback for demo/testing if no URL returned or if POD
+      router.push(`/checkout/success?orderId=${order.id}`);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Order Failed',
+        description: (error as Error).message || 'Something went wrong.',
+      });
+    } finally {
+      setFormIsLoading(false);
+    }
+  };
+
+  const getStepTitle = () => {
+    if (step === 0) return 'Authentication';
+    if (step === 1) return 'Shipping Information';
+    return 'Payment';
+  };
+
+  if (pageLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
-};
 
-const getStepTitle = () => {
-  if (step === 0) return 'Authentication';
-  if (step === 1) return 'Shipping Information';
-  return 'Payment';
-};
-
-if (pageLoading) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  );
-}
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background py-10 px-4">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
-return (
-  <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background py-10 px-4">
-    {/* Dynamic Background Elements */}
-    <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
-    <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+      {/* Animated Orbs */}
+      <div
+        className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse"
+        style={{ animationDuration: '4s' }}
+      />
+      <div
+        className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse"
+        style={{ animationDuration: '6s' }}
+      />
 
-    {/* Animated Orbs */}
-    <div
-      className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse"
-      style={{ animationDuration: '4s' }}
-    />
-    <div
-      className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse"
-      style={{ animationDuration: '6s' }}
-    />
+      {/* Main Content Container */}
+      <div className="relative z-10 w-full max-w-6xl">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Checkout Form */}
+          <div className="lg:col-span-7">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
+              {/* Glass Shine Effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
 
-    {/* Main Content Container */}
-    <div className="relative z-10 w-full max-w-6xl">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Checkout Form */}
-        <div className="lg:col-span-7">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
-            {/* Glass Shine Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
-
-            <div className="relative p-6 md:p-8">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic routing */}
-                  <Link href={`${basePath || ''}/cart` as any}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="rounded-full hover:bg-white/10"
-                    >
-                      <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                  </Link>
-                  <h1 className="text-2xl font-bold tracking-tight">
-                    Checkout
-                  </h1>
+              <div className="relative p-6 md:p-8">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-3">
+                    {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic routing */}
+                    <Link href={`${basePath || ''}/cart` as any}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full hover:bg-white/10"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                      Checkout
+                    </h1>
+                  </div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Step {step + 1} of {totalSteps + 1}
+                  </div>
                 </div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  Step {step + 1} of {totalSteps + 1}
+
+                {/* Progress Bar */}
+                <div className="mb-8">
+                  <CheckoutProgress
+                    currentStep={step + 1}
+                    steps={[
+                      {
+                        label: 'Authentication',
+                        description: 'Sign in or Sign up',
+                      },
+                      { label: 'Shipping', description: 'Delivery details' },
+                      { label: 'Payment', description: 'Complete order' },
+                    ]}
+                  />
                 </div>
-              </div>
 
-              {/* Progress Bar */}
-              <div className="mb-8">
-                <CheckoutProgress
-                  currentStep={step + 1}
-                  steps={[
-                    {
-                      label: 'Authentication',
-                      description: 'Sign in or Sign up',
-                    },
-                    { label: 'Shipping', description: 'Delivery details' },
-                    { label: 'Payment', description: 'Complete order' },
-                  ]}
-                />
-              </div>
+                {/* Form Content with Animation */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={step}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="space-y-6">
+                      <h2 className="text-xl font-semibold">
+                        {getStepTitle()}
+                      </h2>
 
-              {/* Form Content with Animation */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="space-y-6">
-                    <h2 className="text-xl font-semibold">
-                      {getStepTitle()}
-                    </h2>
+                      {step === 0 && (
+                        <Step0_Auth
+                          onAuthSuccess={handleAuthSuccess}
+                          onGuestCheckout={handleGuestCheckout}
+                          merchantSlug={merchantSlug || merchant?.slug || ''}
+                        />
+                      )}
 
-                    {step === 0 && (
-                      <Step0_Auth
-                        onAuthSuccess={handleAuthSuccess}
-                        onGuestCheckout={handleGuestCheckout}
-                        merchantSlug={merchantSlug || merchant?.slug || ''}
-                      />
-                    )}
+                      {step === 1 && (
+                        <FormProvider {...shippingForm}>
+                          <form className="space-y-6">
+                            <Step1_Shipping
+                              onShippingSelect={handleShippingSelect}
+                              selectedQuote={selectedShippingQuote}
+                            />
+                            <div className="flex justify-end pt-4">
+                              <ThemedButton
+                                type="button"
+                                onClick={handleNext}
+                                disabled={!selectedShippingQuote}
+                                className="w-full md:w-auto min-w-[150px] h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                              >
+                                Continue to Payment
+                              </ThemedButton>
+                            </div>
+                          </form>
+                        </FormProvider>
+                      )}
 
-                    {step === 1 && (
-                      <FormProvider {...shippingForm}>
-                        <form className="space-y-6">
-                          <Step1_Shipping
-                            onShippingSelect={handleShippingSelect}
+                      {step === 2 && (
+                        <div className="space-y-6">
+                          <Step2_Payment
                             selectedQuote={selectedShippingQuote}
+                            paymentSettings={paymentSettings}
+                            selectedGateway={selectedGateway}
+                            onGatewaySelect={setSelectedGateway}
+                            orderTotal={
+                              cartTotal + (shippingFee ?? 0) - discountAmount
+                            }
                           />
-                          <div className="flex justify-end pt-4">
-                            <ThemedButton
-                              type="button"
-                              onClick={handleNext}
-                              disabled={!selectedShippingQuote}
-                              className="w-full md:w-auto min-w-[150px] h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                          <div className="flex gap-3 pt-4">
+                            <Button
+                              variant="outline"
+                              onClick={handlePrev}
+                              className="flex-1 h-11 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80"
                             >
-                              Continue to Payment
+                              Back
+                            </Button>
+                            <ThemedButton
+                              onClick={shippingForm.handleSubmit(
+                                onShippingSubmit
+                              )}
+                              disabled={formIsLoading}
+                              className="flex-1 h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                            >
+                              {formIsLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : selectedGateway === 'pod' ? (
+                                <Truck className="mr-2 h-4 w-4" />
+                              ) : (
+                                <CreditCard className="mr-2 h-4 w-4" />
+                              )}
+                              {selectedGateway === 'pod'
+                                ? 'Place Order'
+                                : `Pay ${new Intl.NumberFormat('en-NG', {
+                                  style: 'currency',
+                                  currency: 'NGN',
+                                }).format(
+                                  cartTotal +
+                                  (shippingFee || 0) -
+                                  discountAmount
+                                )}`}
                             </ThemedButton>
                           </div>
-                        </form>
-                      </FormProvider>
-                    )}
-
-                    {step === 2 && (
-                      <div className="space-y-6">
-                        <Step2_Payment
-                          selectedQuote={selectedShippingQuote}
-                          paymentSettings={paymentSettings}
-                          selectedGateway={selectedGateway}
-                          onGatewaySelect={setSelectedGateway}
-                          orderTotal={
-                            cartTotal + (shippingFee ?? 0) - discountAmount
-                          }
-                        />
-                        <div className="flex gap-3 pt-4">
-                          <Button
-                            variant="outline"
-                            onClick={handlePrev}
-                            className="flex-1 h-11 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80"
-                          >
-                            Back
-                          </Button>
-                          <ThemedButton
-                            onClick={shippingForm.handleSubmit(
-                              onShippingSubmit
-                            )}
-                            disabled={formIsLoading}
-                            className="flex-1 h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
-                          >
-                            {formIsLoading ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : selectedGateway === 'pod' ? (
-                              <Truck className="mr-2 h-4 w-4" />
-                            ) : (
-                              <CreditCard className="mr-2 h-4 w-4" />
-                            )}
-                            {selectedGateway === 'pod'
-                              ? 'Place Order'
-                              : `Pay ${new Intl.NumberFormat('en-NG', {
-                                style: 'currency',
-                                currency: 'NGN',
-                              }).format(
-                                cartTotal +
-                                (shippingFee || 0) -
-                                discountAmount
-                              )}`}
-                          </ThemedButton>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+                      )}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Order Summary */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl sticky top-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
-            <div className="relative p-6 md:p-8">
-              <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Order Summary
-              </h2>
+          {/* Right Column: Order Summary */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl sticky top-8">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+              <div className="relative p-6 md:p-8">
+                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Order Summary
+                </h2>
 
-              <OrderSummary
-                shippingFee={shippingFee ?? undefined}
-                discountAmount={discountAmount}
-                discountCode={appliedDiscount?.code}
-              />
-
-              <div className="mt-6 pt-6 border-t border-dashed border-primary/20">
-                <DiscountCodeInput
-                  merchantId={merchant?.id || ''}
-                  cartTotal={cartTotal}
-                  onApply={(result) => setAppliedDiscount(result)}
-                  onRemove={() => setAppliedDiscount(null)}
-                  appliedDiscount={appliedDiscount}
+                <OrderSummary
+                  shippingFee={shippingFee ?? undefined}
+                  discountAmount={discountAmount}
+                  discountCode={appliedDiscount?.code}
                 />
-              </div>
 
-              {/* Trust Badges / Info */}
-              <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
-                  <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600">
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <span>Secure Checkout</span>
+                <div className="mt-6 pt-6 border-t border-dashed border-primary/20">
+                  <DiscountCodeInput
+                    merchantId={merchant?.id || ''}
+                    cartTotal={cartTotal}
+                    onApply={(result) => setAppliedDiscount(result)}
+                    onRemove={() => setAppliedDiscount(null)}
+                    appliedDiscount={appliedDiscount}
+                  />
                 </div>
-                <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
-                  <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600">
-                    <Truck className="w-3 h-3" />
+
+                {/* Trust Badges / Info */}
+                <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
+                    <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                      </svg>
+                    </div>
+                    <span>Secure Checkout</span>
                   </div>
-                  <span>Fast Delivery</span>
+                  <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600">
+                      <Truck className="w-3 h-3" />
+                    </div>
+                    <span>Fast Delivery</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1588,8 +1594,7 @@ return (
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
 
 function CheckoutPageWrapper() {
