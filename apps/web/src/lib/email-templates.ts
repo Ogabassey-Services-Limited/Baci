@@ -364,15 +364,16 @@ export function generatePaymentReminderEmail(
               <td style="color: #6b7280; font-size: 14px; padding: 4px 0;">Order Total:</td>
               <td style="color: #1a1a2e; font-size: 14px; text-align: right;">₦${data.totalAmount.toLocaleString()}</td>
             </tr>
-            ${data.amountPaid > 0
-      ? `
+            ${
+              data.amountPaid > 0
+                ? `
             <tr>
               <td style="color: #10b981; font-size: 14px; padding: 4px 0;">Amount Paid:</td>
               <td style="color: #10b981; font-size: 14px; text-align: right;">-₦${data.amountPaid.toLocaleString()}</td>
             </tr>
             `
-      : ''
-    }
+                : ''
+            }
             <tr>
               <td style="color: #1a1a2e; font-size: 18px; font-weight: 700; padding: 12px 0 0 0;">Balance Due:</td>
               <td style="color: #dc2626; font-size: 20px; font-weight: 800; text-align: right; padding: 12px 0 0 0;">₦${data.balanceDue.toLocaleString()}</td>
@@ -556,10 +557,11 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       <div style="margin-top: 32px; padding: 20px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
         <p style="margin: 0; font-size: 14px; color: #0c4a6e;">
           <strong>Next Steps:</strong><br>
-          ${data.balanceDue > 0
-      ? 'Please complete the remaining payment to finalize your order.'
-      : 'Your order is now fully paid and will be processed for shipping.'
-    }
+          ${
+            data.balanceDue > 0
+              ? 'Please complete the remaining payment to finalize your order.'
+              : 'Your order is now fully paid and will be processed for shipping.'
+          }
         </p>
       </div>
     </div>
@@ -643,6 +645,25 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
     )
     .join('');
 
+  // Extract conditional strings for cleaner template (2026 best practice)
+  const courierRow = data.courierName
+    ? `
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;">Courier</td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.courierName}</td>
+        </tr>
+        `
+    : '';
+
+  const estimatedDeliveryRow = data.estimatedDelivery
+    ? `
+        <tr>
+          <td style="padding: 6px 0; color: #6b7280;">Est. Delivery</td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.estimatedDelivery}</td>
+        </tr>
+        `
+    : '';
+
   const trackingHtml = data.trackingNumber
     ? `
     <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; padding: 20px; margin: 24px 0; border: 1px solid #a7f3d0;">
@@ -650,31 +671,23 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         📦 Tracking Information
       </div>
       <table style="width: 100%; font-size: 14px;">
-        ${data.courierName
-      ? `
-        <tr>
-          <td style="padding: 6px 0; color: #6b7280;">Courier</td>
-          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.courierName}</td>
-        </tr>
-        `
-      : ''
-    }
+        ${courierRow}
         <tr>
           <td style="padding: 6px 0; color: #6b7280;">Tracking Number</td>
           <td style="padding: 6px 0; color: #059669; font-weight: 700; text-align: right; font-family: monospace;">${data.trackingNumber}</td>
         </tr>
-        ${data.estimatedDelivery
-      ? `
-        <tr>
-          <td style="padding: 6px 0; color: #6b7280;">Est. Delivery</td>
-          <td style="padding: 6px 0; color: #1e293b; font-weight: 600; text-align: right;">${data.estimatedDelivery}</td>
-        </tr>
-        `
-      : ''
-    }
+        ${estimatedDeliveryRow}
       </table>
     </div>
     `
+    : '';
+
+  const whatsNextMessage = data.trackingNumber
+    ? "You can track your package using the tracking number above. We'll deliver it as soon as possible!"
+    : 'Our delivery team will contact you before arrival. Please keep your phone available.';
+
+  const supportEmailHtml = data.supportEmail
+    ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>`
     : '';
 
   return `
@@ -739,10 +752,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-radius: 12px; padding: 20px; margin-top: 24px; border: 1px solid #fde68a;">
         <p style="margin: 0; font-size: 14px; color: #92400e; line-height: 1.6;">
           <strong>What's Next?</strong><br>
-          ${data.trackingNumber
-      ? "You can track your package using the tracking number above. We'll deliver it as soon as possible!"
-      : 'Our delivery team will contact you before arrival. Please keep your phone available.'
-    }
+          ${whatsNextMessage}
         </p>
       </div>
     </div>
@@ -759,7 +769,7 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
-      ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>` : ''}
+      ${supportEmailHtml}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>
@@ -779,6 +789,26 @@ export function generateOrderShippedText(data: OrderShippedData): string {
     .map((item) => `- ${item.name} x${item.quantity}`)
     .join('\n');
 
+  // Extract conditional strings for cleaner template (2026 best practice)
+  const courierLine = data.courierName ? `Courier: ${data.courierName}\n` : '';
+  const estimatedDeliveryLine = data.estimatedDelivery
+    ? `Estimated Delivery: ${data.estimatedDelivery}\n`
+    : '';
+
+  const trackingSection = data.trackingNumber
+    ? `TRACKING INFORMATION
+${courierLine}Tracking Number: ${data.trackingNumber}
+${estimatedDeliveryLine}`
+    : '';
+
+  const trackingNote = data.trackingNumber
+    ? 'You can track your package using the tracking number above.'
+    : 'Our delivery team will contact you before arrival. Please keep your phone available.';
+
+  const supportLine = data.supportEmail
+    ? `Questions? Contact us at ${data.supportEmail}`
+    : '';
+
   return `
 🚚 Your Order Has Shipped!
 
@@ -786,14 +816,7 @@ Hi ${data.customerName},
 
 Great news! Your order #${data.orderNumber} has been shipped and is on its way to you.
 
-${data.trackingNumber
-      ? `TRACKING INFORMATION
-${data.courierName ? `Courier: ${data.courierName}` : ''}
-Tracking Number: ${data.trackingNumber}
-${data.estimatedDelivery ? `Estimated Delivery: ${data.estimatedDelivery}` : ''}
-`
-      : ''
-    }
+${trackingSection}
 
 DELIVERY ADDRESS
 ${data.customerName}
@@ -804,13 +827,10 @@ Phone: ${data.shippingAddress.phone}
 ITEMS IN THIS SHIPMENT
 ${itemsList}
 
-${data.trackingNumber
-      ? 'You can track your package using the tracking number above.'
-      : 'Our delivery team will contact you before arrival. Please keep your phone available.'
-    }
+${trackingNote}
 
 Thank you for shopping with ${data.merchantName}!
-${data.supportEmail ? `Questions? Contact us at ${data.supportEmail}` : ''}
+${supportLine}
 
 ---
 Powered by Baci - AI E-commerce Platform
@@ -954,9 +974,23 @@ export function generateOrderDeliveredText(data: OrderDeliveredData): string {
   const itemsList = data.items
     .map((item) => `✓ ${item.name} x${item.quantity}`)
     .join('\n');
+
+  // Extract conditional strings for cleaner template (2026 best practice)
   const googleReviewUrl = data.googlePlaceId
     ? `https://search.google.com/local/writereview?placeid=${data.googlePlaceId}`
     : null;
+
+  const reviewSection = googleReviewUrl
+    ? `
+⭐ RATE YOUR EXPERIENCE
+Loved your experience? Leave us a Google review:
+${googleReviewUrl}
+`
+    : '';
+
+  const contactLine = data.supportEmail
+    ? `Need help? Contact us at ${data.supportEmail}.`
+    : 'Need help? Contact us.';
 
   return `
 🎉 Your Order Has Been Delivered!
@@ -968,16 +1002,9 @@ Great news! Your order #${data.orderNumber} has been successfully delivered. We 
 ITEMS DELIVERED
 ${itemsList}
 
-${googleReviewUrl
-      ? `
-⭐ RATE YOUR EXPERIENCE
-Loved your experience? Leave us a Google review:
-${googleReviewUrl}
-`
-      : ''
-    }
+${reviewSection}
 
-Need help? Contact us${data.supportEmail ? ` at ${data.supportEmail}` : ''}.
+${contactLine}
 
 Shop again at ${data.merchantUrl}
 
@@ -1061,6 +1088,12 @@ export function generateOrderCancellationEmail(
     `
     : '';
 
+  // Extract conditional message for cleaner template (2026 best practice)
+  const cancellationMessage =
+    data.cancelledBy === 'merchant'
+      ? 'We regret to inform you that your order has been cancelled.'
+      : 'Your order has been successfully cancelled as requested.';
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -1091,10 +1124,7 @@ export function generateOrderCancellationEmail(
         Hi <strong>${data.customerName}</strong>,
       </p>
       <p style="margin: 16px 0 0 0; font-size: 16px; color: #475569; line-height: 1.6;">
-        ${data.cancelledBy === 'merchant'
-      ? 'We regret to inform you that your order has been cancelled.'
-      : 'Your order has been successfully cancelled as requested.'
-    }
+        ${cancellationMessage}
       </p>
 
       ${reasonSection}
@@ -1164,22 +1194,24 @@ export function generateOrderCancellationText(
     .join('\n');
 
   // Extract conditional strings for cleaner template (2026 best practice)
-  const cancellationMessage = data.cancelledBy === 'merchant'
-    ? 'We regret to inform you that your order has been cancelled.'
-    : 'Your order has been successfully cancelled as requested.';
+  const cancellationMessage =
+    data.cancelledBy === 'merchant'
+      ? 'We regret to inform you that your order has been cancelled.'
+      : 'Your order has been successfully cancelled as requested.';
 
   const reasonLine = data.cancellationReason
     ? `Reason: ${data.cancellationReason}`
     : '';
 
-  const refundSection = data.refundAmount > 0
-    ? `
+  const refundSection =
+    data.refundAmount > 0
+      ? `
 REFUND INFORMATION
 Amount Paid: ₦${data.amountPaid.toLocaleString()}
 Refund Amount: ₦${data.refundAmount.toLocaleString()}
 Your refund will be processed within 3-5 business days.
 `
-    : '';
+      : '';
 
   const contactLine = data.supportEmail
     ? `Questions? Contact us at ${data.supportEmail}.`
