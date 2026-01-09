@@ -38,11 +38,13 @@ import {
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import {
   SHIPPING_STATUS_CONFIG,
+  SHIPPING_STATUS_ACTIONS,
   PAYMENT_STATUS_CONFIG,
   ORDER_SOURCE_CONFIG,
   BRAND_COLORS
 } from '@baci/shared';
 import { supabase } from '@/lib/supabase';
+import { SuccessModal } from '@/components/ui/SuccessModal';
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (key: string | undefined, colors: any) => {
@@ -66,6 +68,7 @@ const isStatusActionAllowed = (currentStatus: string, targetStatus: string): boo
 
   switch (currentStatus) {
     case 'pending':
+    case 'fulfilled': // Handle legacy alias
       return ['processing', 'cancelled'].includes(targetStatus);
     case 'processing':
       return ['shipped', 'pending', 'cancelled'].includes(targetStatus);
@@ -79,7 +82,8 @@ const isStatusActionAllowed = (currentStatus: string, targetStatus: string): boo
     case 'returned':
       return ['delivered', 'shipped'].includes(targetStatus); // Fix mistake
     default:
-      return false;
+      // If we encounter an unknown status, allow moving to processing or cancelled as safety
+      return ['pending', 'processing', 'cancelled'].includes(targetStatus);
   }
 };
 
@@ -252,6 +256,13 @@ export default function OrderDetailsScreen() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
 
+  const [successModal, setSuccessModal] = useState({
+    visible: false,
+    title: 'Success!',
+    message: '',
+    subMessage: ''
+  });
+
   // Formatting Helpers
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -334,7 +345,7 @@ export default function OrderDetailsScreen() {
     await handleSaveRider(riderPhone);
 
     const itemsList = order?.items?.map((item: any) =>
-      `- ${item.quantity}x ${item.product_name}`
+      `- ${item.quantity}x ${item.name}`
     ).join('\n');
 
     const message = `
@@ -473,14 +484,14 @@ Thank you for choosing Ogabassey!
 
     if (newStatus === 'shipped' && order.shipping_status === 'processing') {
       const hasGadgetItems = order.items?.some((item: any) =>
-        item.product_name?.toLowerCase().includes('phone') ||
-        item.product_name?.toLowerCase().includes('laptop') ||
-        item.product_name?.toLowerCase().includes('iphone') ||
-        item.product_name?.toLowerCase().includes('samsung') ||
-        item.product_name?.toLowerCase().includes('dell') ||
-        item.product_name?.toLowerCase().includes('hp') ||
-        item.product_name?.toLowerCase().includes('alienware') ||
-        item.product_name?.toLowerCase().includes('gaming')
+        item.name?.toLowerCase().includes('phone') ||
+        item.name?.toLowerCase().includes('laptop') ||
+        item.name?.toLowerCase().includes('iphone') ||
+        item.name?.toLowerCase().includes('samsung') ||
+        item.name?.toLowerCase().includes('dell') ||
+        item.name?.toLowerCase().includes('hp') ||
+        item.name?.toLowerCase().includes('alienware') ||
+        item.name?.toLowerCase().includes('gaming')
       );
 
       if (hasGadgetItems && !order.fulfillment_details?.imei) {
@@ -493,7 +504,91 @@ Thank you for choosing Ogabassey!
     try {
       await updateStatusMutation.mutateAsync({ orderId: order.id, status: newStatus });
       setShowStatusModal(false);
-      Alert.alert('Success', `Order status updated to ${newStatus}`);
+
+      // Send shipped notification email when status changes to 'shipped'
+      if (newStatus === 'shipped') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            // Fire and forget - don't block the UI
+            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/shipped`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
+            }).catch(() => { }); // Silently ignore email errors
+          }
+        } catch {
+          // Ignore email errors - status update already succeeded
+        }
+      }
+
+      // Send delivered notification email when status changes to 'delivered'
+      if (newStatus === 'delivered') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            console.log('UseOrder: Sending delivered email...');
+            // Fire and forget - don't block the UI
+            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/delivered`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            })
+              .then(res => {
+                if (!res.ok) console.log('UseOrder: Delivered email failed', res.status);
+                else console.log('UseOrder: Delivered email sent successfully');
+              })
+              .catch(err => console.log('UseOrder: Delivered email fetch error', err));
+          }
+        } catch (e) {
+          console.log('UseOrder: Error in delivered block', e);
+        }
+      }
+
+      // Send cancellation notification email when status changes to 'cancelled'
+      if (newStatus === 'cancelled') {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            console.log('UseOrder: Sending cancelled email...');
+            // Fire and forget - don't block the UI
+            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/cancelled`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ cancelled_by: 'merchant' }),
+            })
+              .then(res => {
+                if (!res.ok) console.log('UseOrder: Cancelled email failed', res.status);
+                else console.log('UseOrder: Cancelled email sent successfully');
+              })
+              .catch(err => console.log('UseOrder: Cancelled email fetch error', err));
+          }
+        } catch (e) {
+          console.log('UseOrder: Error in cancelled block', e);
+        }
+      }
+
+
+      // Determine feedback message
+      let subMessage = '';
+      if (['shipped', 'delivered', 'cancelled'].includes(newStatus)) {
+        subMessage = `The customer has been notified via email that their order has been ${newStatus}.`;
+      }
+
+      setSuccessModal({
+        visible: true,
+        title: newStatus === 'delivered' ? 'Order Delivered! 🎉' : 'Status Updated',
+        message: `Order status updated to ${newStatus}`,
+        subMessage
+      });
     } catch (err: any) {
       if (err.message?.includes('PAYMENT_REQUIRED') || err.message?.includes('paid before processing')) {
         Alert.alert(
@@ -600,11 +695,16 @@ Thank you for choosing Ogabassey!
   const paymentColor = getStatusColor(paymentConfig.colorKey, colors);
 
   const getSourceIcon = (source: string | null) => {
-    const s = (source || '').toLowerCase();
+    const s = (source || '').toLowerCase().trim();
     if (s === 'instagram') return { name: 'logo-instagram', color: '#C13584', label: 'Instagram' };
     if (s === 'whatsapp') return { name: 'logo-whatsapp', color: '#25D366', label: 'WhatsApp' };
+    if (s === 'facebook') return { name: 'logo-facebook', color: '#1877F2', label: 'Facebook' };
+    if (s === 'tiktok') return { name: 'logo-tiktok', color: '#000000', label: 'TikTok' };
     if (s === 'mobile_app') return { name: 'phone-portrait-outline', color: colors.primary, label: 'Mobile App' };
-    return { name: 'globe-outline', color: colors.textSecondary, label: 'Website' };
+    if (s === 'physical') return { name: 'storefront-outline', color: colors.gold, label: 'Store' };
+    if (s === 'staff_entry') return { name: 'person-outline', color: colors.textSecondary, label: 'Staff Entry' };
+    if (s === 'online_store' || s === 'website' || s === 'storefront') return { name: 'globe-outline', color: colors.textSecondary, label: 'Website' };
+    return { name: 'pricetag-outline', color: colors.textSecondary, label: s.charAt(0).toUpperCase() + s.slice(1) || 'Order' };
   };
   const sourceInfo = getSourceIcon(order.source);
 
@@ -660,28 +760,40 @@ Thank you for choosing Ogabassey!
           </View>
 
           <View style={styles.progressContainer}>
-            {['pending', 'processing', 'shipped', 'delivered'].map((step, index) => {
-              const currentStepIndex = ['pending', 'processing', 'shipped', 'delivered'].indexOf(order.shipping_status);
-              const isActive = index <= currentStepIndex;
-              const isLast = index === 3;
+            {/* 4-Step Order Journey + Return/Cancel */}
+            {(() => {
+              const baseSteps = ['pending', 'processing', 'shipped', 'delivered'];
+              const currentStatus = order.shipping_status === 'fulfilled' ? 'pending' : order.shipping_status;
 
-              return (
-                <React.Fragment key={step}>
-                  <View style={[
-                    styles.progressDot,
-                    { backgroundColor: isActive ? getStatusColor(step, colors) : colors.border }
-                  ]}>
-                    {isActive && <Ionicons name="checkmark" size={10} color="#FFF" />}
-                  </View>
-                  {!isLast && (
+              const steps = [...baseSteps];
+              if (currentStatus === 'returned') steps.push('returned');
+              if (currentStatus === 'cancelled') steps.push('cancelled');
+
+              return steps.map((step, index) => {
+                const currentStepIndex = steps.indexOf(currentStatus);
+                // If cancelled/returned, all previous steps should be "active" (or at least valid)
+                // But simplified: show active up to current
+                const isActive = index <= currentStepIndex;
+                const isLast = index === steps.length - 1;
+
+                return (
+                  <React.Fragment key={step}>
                     <View style={[
-                      styles.progressLine,
-                      { backgroundColor: index < currentStepIndex ? getStatusColor(step, colors) : colors.border }
-                    ]} />
-                  )}
-                </React.Fragment>
-              );
-            })}
+                      styles.progressDot,
+                      { backgroundColor: isActive ? getStatusColor(step, colors) : colors.border }
+                    ]}>
+                      {isActive && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                    </View>
+                    {!isLast && (
+                      <View style={[
+                        styles.progressLine,
+                        { backgroundColor: index < currentStepIndex ? getStatusColor(step, colors) : colors.border }
+                      ]} />
+                    )}
+                  </React.Fragment>
+                );
+              })
+            })()}
           </View>
           <Text style={[styles.statusNote, { color: colors.textMuted }]}>
             Latest update: {formatDate(order.updated_at)}
@@ -714,7 +826,9 @@ Thank you for choosing Ogabassey!
               onPress={handleSendReceipt}
             >
               <Ionicons name="document-text-outline" size={18} color="#FFF" />
-              <Text style={styles.receiptBtnText}>Receipt</Text>
+              <Text style={styles.receiptBtnText}>
+                {order.payment_status === 'paid' ? 'Receipt' : 'Invoice'}
+              </Text>
             </Pressable>
           </View>
 
@@ -792,7 +906,7 @@ Thank you for choosing Ogabassey!
               </View>
               <View style={styles.itemDetails}>
                 <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-                  {item.product_name}
+                  {item.name}
                 </Text>
                 <Text style={[styles.itemRef, { color: colors.textMuted }]}>SKU: {item.product_id?.slice(0, 8)}...</Text>
                 <View style={styles.itemPriceRow}>
@@ -805,22 +919,42 @@ Thank you for choosing Ogabassey!
           ))}
         </View>
 
-        {/* Shipping Card */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="location-outline" size={18} color={colors.text} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Shipping Address</Text>
-          </View>
-          <Text style={[styles.addressText, { color: colors.textSecondary }]}>
-            {formatAddress(order.shipping_address)}
-          </Text>
-        </View>
+
 
         {/* Order Summary */}
         <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Order Summary</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Payment Summary</Text>
           </View>
+
+          {order.payment_status !== 'paid' && (
+            <>
+              <View style={styles.paymentActionsRow}>
+                <TouchableOpacity
+                  style={[styles.paymentActionBtn, { borderColor: colors.success }]}
+                  onPress={() => {
+                    const balance = order.balance || (Number(order.total) - Number(order.amount_paid || 0));
+                    setPaymentAmount(String(Math.round(balance)));
+                    setShowRecordPaymentModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="card-outline" size={18} color={colors.success} />
+                  <Text style={[styles.paymentActionBtnText, { color: colors.success }]}>Record Payment</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.paymentActionBtn, { borderColor: colors.primary }]}
+                  onPress={handleSendReminder}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="notifications-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.paymentActionBtnText, { color: colors.primary }]}>Request Payment</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 16 }]} />
+            </>
+          )}
 
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
@@ -879,6 +1013,18 @@ Thank you for choosing Ogabassey!
               </Text>
             </View>
           )}
+
+        </View>
+
+        {/* Shipping Card */}
+        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="location-outline" size={18} color={colors.text} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Shipping Address</Text>
+          </View>
+          <Text style={[styles.addressText, { color: colors.textSecondary }]}>
+            {formatAddress(order.shipping_address)}
+          </Text>
         </View>
 
         <View style={{ height: 100 }} />
@@ -908,8 +1054,9 @@ Thank you for choosing Ogabassey!
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>Update Order Status</Text>
             {Object.entries(SHIPPING_STATUS_CONFIG).map(([key, config]) => {
+              const currentStatus = order.shipping_status === 'fulfilled' ? 'pending' : order.shipping_status;
               const isAllowed = isStatusActionAllowed(order.shipping_status, key);
-              const isCurrent = order.shipping_status === key;
+              const isCurrent = currentStatus === key;
               return (
                 <Pressable
                   key={key}
@@ -931,7 +1078,20 @@ Thank you for choosing Ogabassey!
                       fontWeight: isCurrent ? '700' : '400'
                     }
                   ]}>
-                    {config.label}
+                    {(() => {
+                      if (isCurrent) return config.label;
+
+                      // Find the label in SHIPPING_STATUS_ACTIONS by searching all possible transitions
+                      let actionLabel = config.label;
+                      for (const actions of Object.values(SHIPPING_STATUS_ACTIONS)) {
+                        const foundAction = actions.find(a => a.nextStatus === key);
+                        if (foundAction) {
+                          actionLabel = foundAction.label;
+                          break;
+                        }
+                      }
+                      return actionLabel;
+                    })()}
                   </Text>
                   {isCurrent && <Ionicons name="checkmark" size={20} color={colors.primary} />}
                   {!isAllowed && !isCurrent && (
@@ -1223,6 +1383,14 @@ Thank you for choosing Ogabassey!
         </View>
       )}
 
+
+      <SuccessModal
+        visible={successModal.visible}
+        title={successModal.title}
+        message={successModal.message}
+        subMessage={successModal.subMessage}
+        onClose={() => setSuccessModal(prev => ({ ...prev, visible: false }))}
+      />
     </SafeAreaView>
   );
 }
@@ -1285,6 +1453,10 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginVertical: 12 },
   totalLabel: { fontSize: 16, fontWeight: '700' },
   totalValueMain: { fontSize: 20, fontWeight: '800' },
+
+  paymentActionsRow: { flexDirection: 'row', gap: 12 },
+  paymentActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, gap: 8 },
+  paymentActionBtnText: { fontSize: 13, fontWeight: '700' },
 
   floatingFooter: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

@@ -17,7 +17,8 @@ export interface CustomerUser {
 
 export interface Customer {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone?: string;
   address?: string;

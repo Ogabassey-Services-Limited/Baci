@@ -40,6 +40,7 @@ export type OrderSource =
 export interface OrderItem {
   id: string;
   product_id: string;
+  name: string;
   product_name: string;
   quantity: number;
   price: number;

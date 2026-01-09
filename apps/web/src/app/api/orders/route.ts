@@ -276,19 +276,42 @@ export async function POST(request: NextRequest) {
     let customer_id = null;
     const { data: existingCustomer } = await supabase
       .from('customers')
-      .select('id, user_id')
+      .select('id, user_id, first_name, last_name, phone')
       .eq('merchant_id', merchant_id)
       .eq('email', customer_email)
       .single();
 
     if (existingCustomer) {
       customer_id = existingCustomer.id;
+
+      // 2025 FIX: Backfill missing profile data for existing customers
+      // This handles cases where a customer exists via email (newsletter/auth) but hasn't completed their profile
+      const updates: Record<string, any> = {};
+      const nameParts = customer_name.split(' ');
+      const inputFirstName = nameParts[0] || '';
+      const inputLastName = nameParts.slice(1).join(' ') || '';
+
+      if (!existingCustomer.first_name && inputFirstName) updates.first_name = inputFirstName;
+      if (!existingCustomer.last_name && inputLastName) updates.last_name = inputLastName;
+      if (!existingCustomer.phone && customer_phone) updates.phone = customer_phone;
+
       // Link user_id if logged in and not already linked (2025: unified customer identity)
       if (user_id && !existingCustomer.user_id) {
+        updates.user_id = user_id;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        // Fire and forget update
         void supabase
           .from('customers')
-          .update({ user_id })
+          .update(updates)
           .eq('id', existingCustomer.id);
+
+        logger.info({
+          message: 'Backfilled customer profile data from order',
+          customerId: customer_id,
+          updates: Object.keys(updates)
+        });
       }
     } else {
       // Create new customer
@@ -342,25 +365,25 @@ export async function POST(request: NextRequest) {
       // Enhanced with server-captured IP/User Agent for better Event Match Quality
       ad_tracking: ad_tracking
         ? {
-            ...ad_tracking,
-            // Server-side captured data for better EMQ
-            userIp: clientIp || ad_tracking.userIp,
-            userAgent: clientUserAgent || ad_tracking.userAgent,
-            // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse:
-              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-            // Store geo info for analytics
+          ...ad_tracking,
+          // Server-side captured data for better EMQ
+          userIp: clientIp || ad_tracking.userIp,
+          userAgent: clientUserAgent || ad_tracking.userAgent,
+          // Server-detected privacy compliance (overrides client if more restrictive)
+          limitedDataUse:
+            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+          // Store geo info for analytics
+          geoCountry: geoPrivacy.country,
+          geoRegion: geoPrivacy.region,
+        }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+            userIp: clientIp,
+            userAgent: clientUserAgent,
+            limitedDataUse: geoPrivacy.shouldApplyLDU,
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-              userIp: clientIp,
-              userAgent: clientUserAgent,
-              limitedDataUse: geoPrivacy.shouldApplyLDU,
-              geoCountry: geoPrivacy.country,
-              geoRegion: geoPrivacy.region,
-            }
           : null,
     };
 
@@ -723,10 +746,10 @@ export async function POST(request: NextRequest) {
         // Wallet redemption details for UI display
         wallet: walletRedemptionResult
           ? {
-              amountUsed: walletRedemptionResult.amountRedeemed,
-              newBalance: walletRedemptionResult.newBalance,
-              transactionId: walletRedemptionResult.transactionId,
-            }
+            amountUsed: walletRedemptionResult.amountRedeemed,
+            newBalance: walletRedemptionResult.newBalance,
+            transactionId: walletRedemptionResult.transactionId,
+          }
           : null,
         // Amount still due to payment gateway (for payment initialization)
         amountDueToGateway,

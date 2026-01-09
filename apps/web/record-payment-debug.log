@@ -1,0 +1,36 @@
+[2026-01-08T19:31:56.433Z] Request received 
+[2026-01-08T19:31:56.435Z] Parsed request {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000,"payment_method":"transfer"}
+[2026-01-08T19:31:56.883Z] Auth result {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","authError":null}
+[2026-01-08T19:31:57.084Z] Merchant lookup {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74"}
+[2026-01-08T19:31:57.525Z] Order lookup {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74","orderFound":true,"orderError":null}
+[2026-01-08T19:31:58.925Z] Request received 
+[2026-01-08T19:31:58.926Z] Parsed request {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000,"payment_method":"transfer"}
+[2026-01-08T19:31:59.085Z] Auth result {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","authError":null}
+[2026-01-08T19:31:59.274Z] Merchant lookup {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74"}
+[2026-01-08T19:31:59.440Z] Order lookup {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74","orderFound":true,"orderError":null}
+[2026-01-08T19:33:47.611Z] Request received 
+[2026-01-08T19:33:47.612Z] Parsed request {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000,"payment_method":"transfer"}
+[2026-01-08T19:33:48.182Z] Auth result {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","authError":null}
+[2026-01-08T19:33:48.349Z] Merchant lookup {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74"}
+[2026-01-08T19:33:48.789Z] Order lookup {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74","orderFound":true,"orderError":null}
+[2026-01-08T19:33:48.948Z] Calculated totals {"currentPaid":0,"walletUsed":0,"totalPaidBefore":0,"newPaid":168000,"orderTotal":168000,"remainingBalance":0}
+[2026-01-08T19:33:48.949Z] Creating transaction {"merchant_id":"6b5cb8a4-5575-456c-b936-8cdfae30db74","order_id":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000}
+[2026-01-08T19:33:49.108Z] Transaction insert result {"transactionError":"new row for relation \"transactions\" violates check constraint \"transactions_status_check\""}
+[2026-01-08T19:33:49.108Z] TRANSACTION ERROR {"code":"23514","details":"Failing row contains (3a154f98-ff79-4ddd-a79b-97029065082d, 6b5cb8a4-5575-456c-b936-8cdfae30db74, 50611ada-35be-43b2-a785-990aa0f18d60, payment, 168000.00, NGN, success, manual, MAN-1767900828950, null, Manual payment (transfer), {\"recorded_by\": \"basseybjjohn@gmail.com\", \"payment_method\": \"tra..., 0.00, null, 2026-01-08 19:33:49.110494+00, 2026-01-08 19:33:49.110494+00).","hint":null,"message":"new row for relation \"transactions\" violates check constraint \"transactions_status_check\""}
+[2026-01-08T19:33:50.155Z] Request received 
+[2026-01-08T19:33:50.155Z] Parsed request {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000,"payment_method":"transfer"}
+[2026-01-08T19:33:50.315Z] Auth result {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","authError":null}
+[2026-01-08T19:33:50.468Z] Merchant lookup {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74"}
+[2026-01-08T19:33:50.625Z] Order lookup {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74","orderFound":true,"orderError":null}
+[2026-01-08T19:33:50.780Z] Calculated totals {"currentPaid":0,"walletUsed":0,"totalPaidBefore":0,"newPaid":168000,"orderTotal":168000,"remainingBalance":0}
+[2026-01-08T19:33:50.781Z] Creating transaction {"merchant_id":"6b5cb8a4-5575-456c-b936-8cdfae30db74","order_id":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000}
+[2026-01-08T19:33:50.942Z] Transaction insert result {"transactionError":"new row for relation \"transactions\" violates check constraint \"transactions_status_check\""}
+[2026-01-08T19:33:50.942Z] TRANSACTION ERROR {"code":"23514","details":"Failing row contains (54a9aca9-8b3b-4fc4-b2aa-c2e746ea6ab0, 6b5cb8a4-5575-456c-b936-8cdfae30db74, 50611ada-35be-43b2-a785-990aa0f18d60, payment, 168000.00, NGN, success, manual, MAN-1767900830781, null, Manual payment (transfer), {\"recorded_by\": \"basseybjjohn@gmail.com\", \"payment_method\": \"tra..., 0.00, null, 2026-01-08 19:33:50.936459+00, 2026-01-08 19:33:50.936459+00).","hint":null,"message":"new row for relation \"transactions\" violates check constraint \"transactions_status_check\""}
+[2026-01-08T19:35:59.477Z] Request received 
+[2026-01-08T19:35:59.478Z] Parsed request {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000,"payment_method":"transfer"}
+[2026-01-08T19:36:00.278Z] Auth result {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","authError":null}
+[2026-01-08T19:36:00.473Z] Merchant lookup {"userId":"70261bce-d358-45a4-9ede-8b9d71fb3bd9","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74"}
+[2026-01-08T19:36:00.923Z] Order lookup {"orderId":"50611ada-35be-43b2-a785-990aa0f18d60","merchantId":"6b5cb8a4-5575-456c-b936-8cdfae30db74","orderFound":true,"orderError":null}
+[2026-01-08T19:36:01.123Z] Calculated totals {"currentPaid":0,"walletUsed":0,"totalPaidBefore":0,"newPaid":168000,"orderTotal":168000,"remainingBalance":0}
+[2026-01-08T19:36:01.124Z] Creating transaction {"merchant_id":"6b5cb8a4-5575-456c-b936-8cdfae30db74","order_id":"50611ada-35be-43b2-a785-990aa0f18d60","amount":168000}
+[2026-01-08T19:36:01.342Z] Transaction insert result {"transactionError":null}

@@ -121,7 +121,10 @@ export function useInviteStaff() {
                     // Expiry handled by DB trigger
                 });
 
-                if (error) throw new Error('Failed to invite staff member');
+                if (error) {
+                    console.error('[InviteStaff] Supabase insert failed:', error.message, error.details, error.hint);
+                    throw new Error(error.message || 'Failed to invite staff member');
+                }
             }
 
             const inviteUrl = `https://usebaci.com/invite/${invitationToken}`;

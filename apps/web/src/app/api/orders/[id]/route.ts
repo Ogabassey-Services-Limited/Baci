@@ -2,46 +2,40 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Authenticate request (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(user.id);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    // Use admin client for queries
+    const supabase = getAdminClient();
+
     // Get order (ensure it belongs to this merchant)
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('*, order_items(*)')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (orderError || !order) {
@@ -65,32 +59,25 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
     const body = await request.json();
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Authenticate request (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(user.id);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // Use admin client for queries
+    const supabase = getAdminClient();
 
     // Verify order belongs to this merchant and get current status
     const { data: existingOrder, error: checkError } = await supabase
@@ -99,7 +86,7 @@ export async function PATCH(
         'id, order_number, shipping_status, payment_status, is_credit_order, customer_id'
       )
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (checkError || !existingOrder) {
@@ -154,7 +141,7 @@ export async function PATCH(
       .from('orders')
       .update(updates)
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .select()
       .single();
 

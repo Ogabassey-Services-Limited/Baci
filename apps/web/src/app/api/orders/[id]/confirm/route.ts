@@ -1,7 +1,6 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 import {
   type DeviceInsuranceDetails,
   purchaseOrderInsurance,
@@ -14,30 +13,23 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Auth check
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
+    // Auth check (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(user.id);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 403 }
       );
     }
+
+    // Use admin client for queries
+    const supabase = getAdminClient();
 
     // Parse body for device details
     const body = await request.json();
@@ -100,7 +92,7 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       return NextResponse.json(

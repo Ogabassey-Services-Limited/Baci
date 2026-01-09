@@ -396,10 +396,25 @@ export async function POST(request: NextRequest) {
     const schema_markup = body.schema_markup
       ? sanitizeSchemaMarkup(body.schema_markup)
       : generateProductSchema(
-          productForSchema,
-          merchant.business_name,
-          currency
-        );
+        productForSchema,
+        merchant.business_name,
+        currency
+      );
+
+    // Check for duplicates (same slug for this merchant)
+    const { data: existingProduct } = await supabase
+      .from('products')
+      .select('id')
+      .eq('merchant_id', merchant.id)
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (existingProduct) {
+      return NextResponse.json(
+        { error: 'A product with this name already exists.' },
+        { status: 409 }
+      );
+    }
 
     // Insert Product
     const { data: product, error: productError } = await supabase

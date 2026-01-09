@@ -11,7 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { merchantSlug, full_name, phone, saved_addresses } = body;
+    const { merchantSlug, first_name, last_name, phone, saved_addresses } = body;
 
     if (!merchantSlug) {
       return NextResponse.json(
@@ -64,8 +64,12 @@ export async function PATCH(request: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    if (full_name !== undefined) {
-      updateData.full_name = full_name;
+    if (first_name !== undefined) {
+      updateData.first_name = first_name;
+    }
+
+    if (last_name !== undefined) {
+      updateData.last_name = last_name;
     }
 
     if (phone !== undefined) {

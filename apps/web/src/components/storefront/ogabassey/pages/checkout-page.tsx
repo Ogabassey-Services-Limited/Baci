@@ -725,7 +725,10 @@ export const CheckoutPage: React.FC = () => {
 
       // Auto-fill name if not set
       if (!firstName && !lastName) {
-        if (user.user_metadata?.full_name) {
+        if (user.user_metadata?.first_name || user.user_metadata?.last_name) {
+          setFirstName(user.user_metadata.first_name || '');
+          setLastName(user.user_metadata.last_name || '');
+        } else if (user.user_metadata?.full_name) {
           const parts = user.user_metadata.full_name.split(' ');
           setFirstName(parts[0] || '');
           setLastName(parts.slice(1).join(' ') || '');
@@ -733,9 +736,6 @@ export const CheckoutPage: React.FC = () => {
           const parts = user.user_metadata.name.split(' ');
           setFirstName(parts[0] || '');
           setLastName(parts.slice(1).join(' ') || '');
-        } else if (user.user_metadata?.first_name || user.user_metadata?.last_name) {
-          setFirstName(user.user_metadata.first_name || '');
-          setLastName(user.user_metadata.last_name || '');
         }
       }
 

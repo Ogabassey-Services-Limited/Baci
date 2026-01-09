@@ -151,7 +151,7 @@ export function useUpdateOrderStatus() {
       // Snapshot previous value
       const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
 
-      // Optimistically update
+      // Optimistically update list
       queryClient.setQueryData(['orders', merchant?.id], (old: any) => {
         if (!old?.pages) return old;
         return {
@@ -165,12 +165,22 @@ export function useUpdateOrderStatus() {
         };
       });
 
-      return { previousOrders };
+      // KEY FIX: Optimistically update the single order detail view
+      const previousOrder = queryClient.getQueryData(['order', orderId]);
+      queryClient.setQueryData(['order', orderId], (old: any) => {
+        if (!old) return old;
+        return { ...old, shipping_status: status };
+      });
+
+      return { previousOrders, previousOrder };
     },
     onError: (_err, _vars, context) => {
       // Rollback on error
       if (context?.previousOrders) {
         queryClient.setQueryData(['orders', merchant?.id], context.previousOrders);
+      }
+      if (context?.previousOrder) {
+        queryClient.setQueryData(['order', orderId], context.previousOrder);
       }
     },
     onSettled: () => {
@@ -246,7 +256,8 @@ export function useOrder(orderId: string) {
         items: items?.map((item: any) => ({
           id: item.id,
           product_id: item.product_id,
-          product_name: item.products?.name ?? item.product_name,
+          name: item.name || item.products?.name,
+          product_name: item.name || item.products?.name,
           quantity: item.quantity,
           price: item.price,
           image_url: item.products?.images?.[0],
@@ -305,11 +316,20 @@ export function useSendReminder() {
       channel?: 'email' | 'sms' | 'whatsapp';
       message?: string;
     }) => {
+      // Get the current session for auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/reminder`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({ channel, message }),
         }
       );
@@ -348,25 +368,49 @@ export function useRecordPayment() {
       reference?: string;
       notes?: string;
     }) => {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/record-payment`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount, payment_method: paymentMethod, reference, notes }),
-        }
-      );
-      if (!response.ok) {
-        // Safely try to parse error response
-        try {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to record payment');
-        } catch {
-          // Response was not JSON (could be HTML error page)
-          throw new Error(`Request failed: ${response.status} ${response.statusText}`);
-        }
+      // Get the current session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
       }
-      return response.json();
+
+      // Add timeout to prevent indefinite hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
+      try {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/record-payment`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ amount, payment_method: paymentMethod, reference, notes }),
+            signal: controller.signal,
+          }
+        );
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          // Safely try to parse error response
+          try {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to record payment');
+          } catch {
+            // Response was not JSON (could be HTML error page)
+            throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+          }
+        }
+        return response.json();
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. Please check your connection and try again.');
+        }
+        throw error;
+      }
     },
     onSuccess: (_data, { orderId }) => {
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });

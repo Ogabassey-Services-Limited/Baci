@@ -114,7 +114,7 @@ export const OgabasseyV2Profile: React.FC = () => {
     // return null;
   }
 
-  const displayName = customer?.full_name || customer?.email || 'Guest';
+  const displayName = [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') || customer?.email || 'Guest';
   const displayEmail = customer?.email || '';
   const displayPhone = customer?.phone || 'No phone added';
 
@@ -136,7 +136,7 @@ export const OgabasseyV2Profile: React.FC = () => {
               <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-md mb-4 mt-8 bg-gray-200 flex items-center justify-center">
                 {/* Replaced Image with Initials fallback if no generic avatar */}
                 <span className="text-2xl font-bold text-gray-600">
-                  {getInitials(customer?.full_name)}
+                  {getInitials(displayName)}
                 </span>
 
                 <button

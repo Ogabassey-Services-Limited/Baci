@@ -307,14 +307,36 @@ export default function AcceptInvitePage() {
                 </Button>
               )
             ) : (
-              <Link
-                href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
-              >
-                <Button className="w-full">
-                  <LogIn className="mr-2 h-4 w-4" />
-                  Sign in to Accept
-                </Button>
-              </Link>
+              <div className="space-y-3">
+                <p className="text-sm text-center text-muted-foreground">
+                  Create an account to accept this invitation
+                </p>
+                <Link
+                  href={`/signup?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}&type=staff`}
+                >
+                  <Button className="w-full">
+                    Create Account
+                  </Button>
+                </Link>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Already have an account?
+                    </span>
+                  </div>
+                </div>
+                <Link
+                  href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+                >
+                  <Button variant="outline" className="w-full">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
 

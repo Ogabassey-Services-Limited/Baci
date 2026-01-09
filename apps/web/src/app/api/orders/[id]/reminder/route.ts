@@ -1,13 +1,17 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 import { sendEmail } from '@/lib/zeptomail';
+import {
+  generatePaymentReminderEmail,
+  generatePaymentReminderText,
+} from '@/lib/email-templates';
 
 /**
  * POST /api/orders/[id]/reminder
  * Send payment reminder to customer via email, SMS, or WhatsApp.
  * Includes payment link and virtual account details if available.
+ * Supports both cookie-based auth (web) and Bearer token auth (mobile).
  */
 export async function POST(
   request: NextRequest,
@@ -15,91 +19,114 @@ export async function POST(
 ) {
   try {
     const { id: orderId } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
     const body = await request.json();
 
-    // 1. Auth check
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1. Authenticate request (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request);
+    console.log('[Reminder API] Auth result:', { userId: user?.id, email: user?.email, error: authError });
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, slug, support_email, email_sender_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // 2. Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(user.id);
+    console.log('[Reminder API] Merchant ID lookup:', { userId: user.id, merchantId });
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    // 3. Get order
+    // Use admin client for queries (user already verified)
+    const supabase = getAdminClient();
+
+    // 3. Get merchant details for email
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id, business_name, slug, support_email, email_sender_name')
+      .eq('id', merchantId)
+      .single();
+
+    if (merchantError || !merchant) {
+      logger.error({
+        message: 'Merchant details fetch failed',
+        merchantId,
+        error: merchantError,
+      });
+      return NextResponse.json(
+        { error: 'Merchant details not found' },
+        { status: 404 }
+      );
+    }
+
+    // 3. Get order with items
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, customer_name, customer_email, customer_phone, payment_status'
+        'id, order_number, total, amount_paid, customer_name, customer_email, customer_phone, payment_status'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchant.id)
       .single();
 
+    console.log('[Reminder API] Order lookup:', { orderId, merchantId: merchant.id, found: !!order, error: orderError });
+
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // 4. Get virtual account if exists
+    // 4. Get order items for email
+    const { data: orderItems } = await supabase
+      .from('order_items')
+      .select('product_name, quantity, price')
+      .eq('order_id', orderId);
+
+    // 5. Get virtual account if exists
     const { data: virtualAccount } = await supabase
       .from('order_payment_accounts')
       .select('account_number, bank_name, account_name')
       .eq('order_id', orderId)
       .single();
 
-    // 5. Generate payment link
+    // 6. Generate payment link
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const paymentLink = `https://${merchant.slug}.${rootDomain}/checkout/resume/${orderId}`;
+    const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    const paymentLink = `${merchantUrl}/checkout/resume/${orderId}`;
 
-    // 6. Determine channel (email by default)
+    // 7. Determine channel (email by default)
     const channel = body.channel || 'email';
-    const customMessage = body.message || '';
 
-    // 7. Format currency
-    const formatCurrency = (amount: number) =>
-      new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN',
-      }).format(amount);
+    // 8. Calculate balance
+    const balanceDue =
+      order.balance ?? Number(order.total) - Number(order.amount_paid || 0);
 
-    const balanceAmount = formatCurrency(order.total);
+    // 9. Prepare email data
+    const emailData = {
+      orderNumber: order.order_number,
+      customerName: order.customer_name,
+      items: (orderItems || []).map((item) => ({
+        name: item.product_name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      totalAmount: Number(order.total),
+      amountPaid: Number(order.amount_paid || 0),
+      balanceDue,
+      paymentLink,
+      merchantName: merchant.business_name,
+      merchantUrl,
+      supportEmail: merchant.support_email || undefined,
+      virtualAccount: virtualAccount
+        ? {
+          bankName: virtualAccount.bank_name,
+          accountNumber: virtualAccount.account_number,
+          accountName: virtualAccount.account_name,
+        }
+        : null,
+    };
 
-    // 8. Compose message content
-    const accountDetails = virtualAccount
-      ? `\n\nBank Transfer Details:\nBank: ${virtualAccount.bank_name}\nAccount: ${virtualAccount.account_number}\nName: ${virtualAccount.account_name}`
-      : '';
-
-    const reminderMessage = `
-Hi ${order.customer_name},
-
-This is a friendly reminder about your outstanding payment for Order #${order.order_number}.
-
-Amount Due: ${balanceAmount}
-
-${customMessage ? `Note: ${customMessage}\n` : ''}
-Pay Online: ${paymentLink}
-${accountDetails}
-
-Thank you for shopping with ${merchant.business_name}!
-    `.trim();
-
-    // 9. Send based on channel
+    // 10. Send based on channel
     let sendResult = { success: false, error: '' };
 
     if (channel === 'email' && order.customer_email) {
@@ -108,8 +135,8 @@ Thank you for shopping with ${merchant.business_name}!
           to: order.customer_email,
           toName: order.customer_name,
           subject: `Payment Reminder - Order #${order.order_number}`,
-          textContent: reminderMessage,
-          htmlContent: `<pre style="font-family: sans-serif; line-height: 1.6;">${reminderMessage}</pre>`,
+          textContent: generatePaymentReminderText(emailData),
+          htmlContent: generatePaymentReminderEmail(emailData),
           replyTo: merchant.support_email || undefined,
           emailType: 'orders',
           fromName: merchant.email_sender_name || merchant.business_name,

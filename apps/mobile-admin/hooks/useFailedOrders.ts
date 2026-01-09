@@ -6,6 +6,7 @@ import { useMerchant } from './useMerchant';
 export interface FailedOrder {
     id: string;
     order_number: string;
+    customer_id: string | null;
     customer_name: string;
     customer_email: string;
     customer_phone: string;
@@ -30,6 +31,7 @@ export function useFailedOrders() {
                 .select(`
           id,
           order_number,
+          customer_id,
           customer_name,
           customer_email,
           customer_phone,
@@ -57,6 +59,7 @@ export function useFailedOrders() {
                 return {
                     id: order.id,
                     order_number: order.order_number,
+                    customer_id: order.customer_id,
                     customer_name: order.customer_name,
                     customer_email: order.customer_email,
                     customer_phone: order.customer_phone,

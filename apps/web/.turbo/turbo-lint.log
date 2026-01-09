@@ -2,6 +2,50 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/app/(auth)/signup/actions.ts:7:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    5 │ import { revalidatePath } from 'next/cache';
+    6 │ import { redirect } from 'next/navigation';
+  > 7 │ import { z } from 'zod';
+      │        ^^^^^
+    8 │ 
+    9 │ export type SignupState = {
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     5  5 │   import { revalidatePath } from 'next/cache';
+     6  6 │   import { redirect } from 'next/navigation';
+     7    │ - import·{·z·}·from·'zod';
+     8  7 │   
+     9  8 │   export type SignupState = {
+  
+
+src/app/(auth)/signup/actions.ts:19:5 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    18 │ export async function signupAction(
+  > 19 │     prevState: SignupState,
+       │     ^^^^^^^^^
+    20 │     formData: FormData
+    21 │ ): Promise<SignupState> {
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend prevState with an underscore.
+  
+    17 17 │   
+    18 18 │   export async function signupAction(
+    19    │ - ····prevState:·SignupState,
+       19 │ + ····_prevState:·SignupState,
+    20 20 │       formData: FormData
+    21 21 │   ): Promise<SignupState> {
+  
+
 src/app/(storefront)/[slug]/account/addresses/page.tsx:3:30 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
 
   ! Several of these imports are unused.
@@ -33,135 +77,627 @@ src/app/api/merchant/readiness/route.ts:138:34 lint/suspicious/noExplicitAny ━
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/lib/analytics-export.ts:393:29 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/orders/[id]/cancelled/route.ts:89:58 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    392 │   // Footer on all pages
-  > 393 │   const pageCount = (doc as any).internal.getNumberOfPages();
-        │                             ^^^
-    394 │   for (let i = 1; i <= pageCount; i++) {
-    395 │     doc.setPage(i);
+    87 │         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    88 │ 
+  > 89 │         const emailItems = order.order_items?.map((item: any) => ({
+       │                                                          ^^^
+    90 │             name: item.name || 'Product',
+    91 │             quantity: item.quantity || 1,
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(storefront)/[slug]/google-reviews-section.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/orders/[id]/cancelled/route.ts:145:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    143 │         });
+    144 │ 
+  > 145 │     } catch (error: any) {
+        │                     ^^^
+    146 │         console.error('Error in cancellation notification:', error);
+    147 │         logger.error({ message: 'Error sending cancellation email', error });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/orders/[id]/delivered/route.ts:79:58 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    77 │         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    78 │ 
+  > 79 │         const emailItems = order.order_items?.map((item: any) => ({
+       │                                                          ^^^
+    80 │             name: item.name || 'Product',
+    81 │             quantity: item.quantity || 1,
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/orders/[id]/delivered/route.ts:131:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    129 │         });
+    130 │ 
+  > 131 │     } catch (error: any) {
+        │                     ^^^
+    132 │         console.error('Error in delivered notification:', error);
+    133 │         logger.error({ message: 'Error sending delivered email', error });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(auth)/signup/actions.ts:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ 'use server';
+    2 │ 
+  > 3 │ import { createClient } from '@/lib/supabase/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { signupSchema } from '@/schemas/auth';
+    5 │ import { revalidatePath } from 'next/cache';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1  1 │   'use server';
+     2  2 │   
+     3    │ - import·{·createClient·}·from·'@/lib/supabase/server';
+     4    │ - import·{·signupSchema·}·from·'@/schemas/auth';
+     5    │ - import·{·revalidatePath·}·from·'next/cache';
+     6    │ - import·{·redirect·}·from·'next/navigation';
+     7    │ - import·{·z·}·from·'zod';
+        3 │ + import·{·revalidatePath·}·from·'next/cache';
+        4 │ + import·{·redirect·}·from·'next/navigation';
+        5 │ + import·{·z·}·from·'zod';
+        6 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+        7 │ + import·{·signupSchema·}·from·'@/schemas/auth';
+     8  8 │   
+     9  9 │   export type SignupState = {
+  
+
+src/app/(auth)/signup/actions.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     8  8 │   
+     9  9 │   export type SignupState = {
+    10    │ - ····message?:·string;
+    11    │ - ····errors?:·{
+    12    │ - ········fieldErrors?:·Record<string,·string[]>;
+    13    │ - ········formErrors?:·string[];
+    14    │ - ····};
+    15    │ - ····success?:·boolean;
+       10 │ + ··message?:·string;
+       11 │ + ··errors?:·{
+       12 │ + ····fieldErrors?:·Record<string,·string[]>;
+       13 │ + ····formErrors?:·string[];
+       14 │ + ··};
+       15 │ + ··success?:·boolean;
+    16 16 │   };
+    17 17 │   
+    18 18 │   export async function signupAction(
+    19    │ - ····prevState:·SignupState,
+    20    │ - ····formData:·FormData
+       19 │ + ··prevState:·SignupState,
+       20 │ + ··formData:·FormData
+    21 21 │   ): Promise<SignupState> {
+    22    │ - ····//·1.·Validate·form·data
+    23    │ - ····const·validatedFields·=·signupSchema.safeParse({
+    24    │ - ········email:·formData.get('email'),
+    25    │ - ········password:·formData.get('password'),
+    26    │ - ········confirmPassword:·formData.get('confirmPassword'),
+    27    │ - ····});
+       22 │ + ··//·1.·Validate·form·data
+       23 │ + ··const·validatedFields·=·signupSchema.safeParse({
+       24 │ + ····email:·formData.get('email'),
+       25 │ + ····password:·formData.get('password'),
+       26 │ + ····confirmPassword:·formData.get('confirmPassword'),
+       27 │ + ··});
+    28 28 │   
+    29    │ - ····if·(!validatedFields.success)·{
+    30    │ - ········return·{
+    31    │ - ············message:·'Invalid·fields',
+    32    │ - ············errors:·validatedFields.error.flatten(),
+    33    │ - ········};
+    34    │ - ····}
+       29 │ + ··if·(!validatedFields.success)·{
+       30 │ + ····return·{
+       31 │ + ······message:·'Invalid·fields',
+       32 │ + ······errors:·validatedFields.error.flatten(),
+       33 │ + ····};
+       34 │ + ··}
+    35 35 │   
+    36    │ - ····const·{·email,·password·}·=·validatedFields.data;
+    37    │ - ····const·redirectTo·=·(formData.get('redirectTo')·as·string)·||·'/dashboard';
+       36 │ + ··const·{·email,·password·}·=·validatedFields.data;
+       37 │ + ··const·redirectTo·=·(formData.get('redirectTo')·as·string)·||·'/dashboard';
+    38 38 │   
+    39    │ - ····//·2.·Create·Supabase·client
+    40    │ - ····const·supabase·=·createClient();
+       39 │ + ··//·2.·Create·Supabase·client
+       40 │ + ··const·supabase·=·createClient();
+    41 41 │   
+    42    │ - ····//·3.·Sign·up·the·user
+    43    │ - ····const·{·error·}·=·await·supabase.auth.signUp({
+    44    │ - ········email,
+    45    │ - ········password,
+    46    │ - ········options:·{
+    47    │ - ············emailRedirectTo:·`${process.env.NEXT_PUBLIC_ROOT_DOMAIN}/auth/callback`,
+    48    │ - ········},
+    49    │ - ····});
+       42 │ + ··//·3.·Sign·up·the·user
+       43 │ + ··const·{·error·}·=·await·supabase.auth.signUp({
+       44 │ + ····email,
+       45 │ + ····password,
+       46 │ + ····options:·{
+       47 │ + ······emailRedirectTo:·`${process.env.NEXT_PUBLIC_ROOT_DOMAIN}/auth/callback`,
+       48 │ + ····},
+       49 │ + ··});
+    50 50 │   
+    51    │ - ····if·(error)·{
+    52    │ - ········return·{
+    53    │ - ············message:·error.message,
+    54    │ - ········};
+    55    │ - ····}
+       51 │ + ··if·(error)·{
+       52 │ + ····return·{
+       53 │ + ······message:·error.message,
+       54 │ + ····};
+       55 │ + ··}
+    56 56 │   
+    57    │ - ····//·4.·Revalidate·and·Redirect
+    58    │ - ····//·Note:·We·don't·create·a·merchant·here.·That's·the·key·difference.
+    59    │ - ····revalidatePath('/',·'layout');
+    60    │ - ····redirect(redirectTo);
+       57 │ + ··//·4.·Revalidate·and·Redirect
+       58 │ + ··//·Note:·We·don't·create·a·merchant·here.·That's·the·key·difference.
+       59 │ + ··revalidatePath('/',·'layout');
+       60 │ + ··redirect(redirectTo);
+    61 61 │   }
+    62 62 │   
+  
+
+src/app/(auth)/signup/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { redirect } from 'next/navigation';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { createClient } from '@/lib/supabase/server';
+    3 │ import { cookies } from 'next/headers';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1    │ - import·{·redirect·}·from·'next/navigation';
+     2    │ - import·{·createClient·}·from·'@/lib/supabase/server';
+     3    │ - import·{·cookies·}·from·'next/headers';
+     4    │ - import·SignupForm·from·'@/components/auth/signup-form';
+        1 │ + import·{·cookies·}·from·'next/headers';
+        2 │ + import·{·redirect·}·from·'next/navigation';
+        3 │ + import·SignupForm·from·'@/components/auth/signup-form';
+        4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+     5  5 │   
+     6  6 │   export default async function SignupPage() {
+  
+
+src/app/(auth)/signup/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     5  5 │   
+     6  6 │   export default async function SignupPage() {
+     7    │ - ····const·cookieStore·=·await·cookies();
+     8    │ - ····const·supabase·=·createClient(cookieStore);
+        7 │ + ··const·cookieStore·=·await·cookies();
+        8 │ + ··const·supabase·=·createClient(cookieStore);
+     9  9 │   
+    10    │ - ····//·Check·if·user·is·already·logged·in
+    11    │ - ····const·{·data:·{·user·}·}·=·await·supabase.auth.getUser();
+       10 │ + ··//·Check·if·user·is·already·logged·in
+       11 │ + ··const·{
+       12 │ + ····data:·{·user·},
+       13 │ + ··}·=·await·supabase.auth.getUser();
+    12 14 │   
+    13    │ - ····if·(user)·{
+    14    │ - ········//·If·logged·in,·redirect·to·dashboard·by·default
+    15    │ - ········//·The·middleware·or·client-side·logic·can·handle·specific·redirects·if·needed
+    16    │ - ········redirect('/dashboard');
+    17    │ - ····}
+       15 │ + ··if·(user)·{
+       16 │ + ····//·If·logged·in,·redirect·to·dashboard·by·default
+       17 │ + ····//·The·middleware·or·client-side·logic·can·handle·specific·redirects·if·needed
+       18 │ + ····redirect('/dashboard');
+       19 │ + ··}
+    18 20 │   
+    19    │ - ····return·<SignupForm·/>;
+       21 │ + ··return·<SignupForm·/>;
+    20 22 │   }
+    21 23 │   
+  
+
+src/app/api/debug/merchant-lookup/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     1  1 │   import { type NextRequest, NextResponse } from 'next/server';
+     2    │ - import·{·authenticateApiRequest,·getMerchantIdForApiUser·}·from·'@/lib/api-auth';
+        2 │ + import·{
+        3 │ + ··authenticateApiRequest,
+        4 │ + ··getMerchantIdForApiUser,
+        5 │ + }·from·'@/lib/api-auth';
+     3  6 │   
+     4  7 │   /**
+    ····· │ 
+     7 10 │    */
+     8 11 │   export async function GET(request: NextRequest) {
+     9    │ - ····try·{
+    10    │ - ········//·Authenticate·request
+    11    │ - ········const·{·user,·error:·authError·}·=·await·authenticateApiRequest(request);
+       12 │ + ··try·{
+       13 │ + ····//·Authenticate·request
+       14 │ + ····const·{·user,·error:·authError·}·=·await·authenticateApiRequest(request);
+    12 15 │   
+    13    │ - ········if·(authError·||·!user)·{
+    14    │ - ············return·NextResponse.json({
+    15    │ - ················step:·'auth',
+    16    │ - ················error:·authError·||·'Unauthorized',
+    17    │ - ················user:·null
+    18    │ - ············},·{·status:·401·});
+    19    │ - ········}
+       16 │ + ····if·(authError·||·!user)·{
+       17 │ + ······return·NextResponse.json(
+       18 │ + ········{
+       19 │ + ··········step:·'auth',
+       20 │ + ··········error:·authError·||·'Unauthorized',
+       21 │ + ··········user:·null,
+       22 │ + ········},
+       23 │ + ········{·status:·401·}
+       24 │ + ······);
+       25 │ + ····}
+    20 26 │   
+    21    │ - ········//·Get·merchant·ID
+    22    │ - ········const·merchantId·=·await·getMerchantIdForApiUser(user.id);
+       27 │ + ····//·Get·merchant·ID
+       28 │ + ····const·merchantId·=·await·getMerchantIdForApiUser(user.id);
+    23 29 │   
+    24    │ - ········return·NextResponse.json({
+    25    │ - ············step:·'complete',
+    26    │ - ············userId:·user.id,
+    27    │ - ············userEmail:·user.email,
+    28    │ - ············merchantId:·merchantId,
+    29    │ - ············success:·!!merchantId,
+    30    │ - ········});
+    31    │ - ····}·catch·(error:·unknown)·{
+    32    │ - ········const·message·=·error·instanceof·Error·?·error.message·:·'Unknown·error';
+    33    │ - ········return·NextResponse.json({
+    34    │ - ············step:·'error',
+    35    │ - ············error:·message,
+    36    │ - ········},·{·status:·500·});
+    37    │ - ····}
+       30 │ + ····return·NextResponse.json({
+       31 │ + ······step:·'complete',
+       32 │ + ······userId:·user.id,
+       33 │ + ······userEmail:·user.email,
+       34 │ + ······merchantId:·merchantId,
+       35 │ + ······success:·!!merchantId,
+       36 │ + ····});
+       37 │ + ··}·catch·(error:·unknown)·{
+       38 │ + ····const·message·=·error·instanceof·Error·?·error.message·:·'Unknown·error';
+       39 │ + ····return·NextResponse.json(
+       40 │ + ······{
+       41 │ + ········step:·'error',
+       42 │ + ········error:·message,
+       43 │ + ······},
+       44 │ + ······{·status:·500·}
+       45 │ + ····);
+       46 │ + ··}
+    38 47 │   }
+    39 48 │   
+  
+
+src/app/api/newsletter/subscribe/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { z } from 'zod';
+    3 │ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1     │ - import·{·type·NextRequest,·NextResponse·}·from·'next/server';
+      2     │ - import·{·z·}·from·'zod';
+      3     │ - import·{·createClient·as·createSupabaseClient·}·from·'@supabase/supabase-js';
+          1 │ + import·{·createClient·as·createSupabaseClient·}·from·'@supabase/supabase-js';
+          2 │ + import·{·type·NextRequest,·NextResponse·}·from·'next/server';
+          3 │ + import·{·z·}·from·'zod';
+      4   4 │   import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
+      5   5 │   import { sendEmail } from '@/lib/zeptomail';
+  
+
+src/app/api/orders/[id]/cancelled/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
+    3 │ import {
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      5   5 │       generateOrderCancellationText,
+      6   6 │   } from '@/lib/email-templates';
+      7     │ - import·{·sendEmail·}·from·'@/lib/zeptomail';
+      8     │ - import·{·logger·}·from·'@/lib/logger';
+          7 │ + import·{·logger·}·from·'@/lib/logger';
+          8 │ + import·{·sendEmail·}·from·'@/lib/zeptomail';
+      9   9 │   
+     10  10 │   /**
+  
+
+src/app/api/orders/[id]/cancelled/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      1   1 │   import { type NextRequest, NextResponse } from 'next/server';
+      2     │ - import·{·authenticateApiRequest,·getAdminClient,·getMerchantIdForApiUser·}·from·'@/lib/api-auth';
+          2 │ + import·{
+          3 │ + ··authenticateApiRequest,
+          4 │ + ··getAdminClient,
+          5 │ + ··getMerchantIdForApiUser,
+          6 │ + }·from·'@/lib/api-auth';
+      3   7 │   import {
+      4     │ - ····generateOrderCancellationEmail,
+      5     │ - ····generateOrderCancellationText,
+          8 │ + ··generateOrderCancellationEmail,
+          9 │ + ··generateOrderCancellationText,
+      6  10 │   } from '@/lib/email-templates';
+      7  11 │   import { sendEmail } from '@/lib/zeptomail';
+    ······· │ 
+     14  18 │    */
+     15  19 │   export async function POST(
+     16     │ - ····request:·NextRequest,
+     17     │ - ····{·params·}:·{·params:·Promise<{·id:·string·}>·}
+         20 │ + ··request:·NextRequest,
+         21 │ + ··{·params·}:·{·params:·Promise<{·id:·string·}>·}
+     18  22 │   ) {
+     19     │ - ····try·{
+     20     │ - ········const·{·id·}·=·await·params;
+     21     │ - ········console.log(`[OrderCancelled]·Starting·for·order·${id}`);
+         23 │ + ··try·{
+         24 │ + ····const·{·id·}·=·await·params;
+         25 │ + ····console.log(`[OrderCancelled]·Starting·for·order·${id}`);
+     22  26 │   
+     23     │ - ········//·Parse·optional·body·for·cancellation·details
+     24     │ - ········let·cancellationReason:·string·|·undefined;
+     25     │ - ········let·cancelledBy:·'merchant'·|·'customer'·=·'merchant';
+         27 │ + ····//·Parse·optional·body·for·cancellation·details
+         28 │ + ····let·cancellationReason:·string·|·undefined;
+         29 │ + ····let·cancelledBy:·'merchant'·|·'customer'·=·'merchant';
+     26  30 │   
+     27     │ - ········try·{
+     28     │ - ············const·body·=·await·request.json();
+     29     │ - ············cancellationReason·=·body.reason;
+     30     │ - ············cancelledBy·=·body.cancelled_by·||·'merchant';
+     31     │ - ········}·catch·{
+     32     │ - ············//·No·body·provided,·that's·fine
+     33     │ - ········}
+         31 │ + ····try·{
+         32 │ + ······const·body·=·await·request.json();
+         33 │ + ······cancellationReason·=·body.reason;
+         34 │ + ······cancelledBy·=·body.cancelled_by·||·'merchant';
+         35 │ + ····}·catch·{
+         36 │ + ······//·No·body·provided,·that's·fine
+         37 │ + ····}
+     34  38 │   
+     35     │ - ········//·Authenticate·request
+     36     │ - ········const·{·user,·error:·authError·}·=·await·authenticateApiRequest(request);
+     37     │ - ········if·(authError·||·!user)·{
+     38     │ - ············return·NextResponse.json({·error:·authError·||·'Unauthorized'·},·{·status:·401·});
+     39     │ - ········}
+         39 │ + ····//·Authenticate·request
+         40 │ + ····const·{·user,·error:·authError·}·=·await·authenticateApiRequest(request);
+         41 │ + ····if·(authError·||·!user)·{
+         42 │ + ······return·NextResponse.json(
+         43 │ + ········{·error:·authError·||·'Unauthorized'·},
+         44 │ + ········{·status:·401·}
+         45 │ + ······);
+         46 │ + ····}
+     40  47 │   
+     41     │ - ········//·Get·merchant·ID
+     42     │ - ········const·merchantId·=·await·getMerchantIdForApiUser(user.id);
+     43     │ - ········if·(!merchantId)·{
+     44     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     45     │ - ········}
+         48 │ + ····//·Get·merchant·ID
+         49 │ + ····const·merchantId·=·await·getMerchantIdForApiUser(user.id);
+         50 │ + ····if·(!merchantId)·{
+         51 │ + ······return·NextResponse.json(
+         52 │ + ········{·error:·'Merchant·not·found'·},
+         53 │ + ········{·status:·404·}
+         54 │ + ······);
+         55 │ + ····}
+     46  56 │   
+     47     │ - ········const·supabase·=·getAdminClient();
+         57 │ + ····const·supabase·=·getAdminClient();
+     48  58 │   
+     49     │ - ········//·Fetch·merchant·details
+     50     │ - ········const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+     51     │ - ············.from('merchants')
+     52     │ - ············.select('id,·business_name,·slug,·support_email,·email_sender_name,·email')
+     53     │ - ············.eq('id',·merchantId)
+     54     │ - ············.single();
+         59 │ + ····//·Fetch·merchant·details
+         60 │ + ····const·{·data:·merchant,·error:·merchantError·}·=·await·supabase
+         61 │ + ······.from('merchants')
+         62 │ + ······.select(
+         63 │ + ········'id,·business_name,·slug,·support_email,·email_sender_name,·email'
+         64 │ + ······)
+         65 │ + ······.eq('id',·merchantId)
+         66 │ + ······.single();
+     55  67 │   
+     56     │ - ········if·(merchantError·||·!merchant)·{
+     57     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     58     │ - ········}
+         68 │ + ····if·(merchantError·||·!merchant)·{
+         69 │ + ······return·NextResponse.json(
+         70 │ + ········{·error:·'Merchant·not·found'·},
+         71 │ + ········{·status:·404·}
+         72 │ + ······);
+         73 │ + ····}
+     59  74 │   
+     60     │ - ········//·Fetch·order·with·items
+     61     │ - ········const·{·data:·order,·error:·orderError·}·=·await·supabase
+     62     │ - ············.from('orders')
+     63     │ - ············.select('*,·order_items(*)')
+     64     │ - ············.eq('id',·id)
+     65     │ - ············.eq('merchant_id',·merchant.id)
+     66     │ - ············.single();
+         75 │ + ····//·Fetch·order·with·items
+         76 │ + ····const·{·data:·order,·error:·orderError·}·=·await·supabase
+         77 │ + ······.from('orders')
+         78 │ + ······.select('*,·order_items(*)')
+         79 │ + ······.eq('id',·id)
+         80 │ + ······.eq('merchant_id',·merchant.id)
+         81 │ + ······.single();
+     67  82 │   
+     68     │ - ········if·(orderError·||·!order)·{
+     69     │ - ············return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+     70     │ - ········}
+         83 │ + ····if·(orderError·||·!order)·{
+         84 │ + ······return·NextResponse.json({·error:·'Order·not·found'·},·{·status:·404·});
+         85 │ + ····}
+     71  86 │   
+     72     │ - ········//·Check·if·order·is·actually·cancelled
+     73     │ - ········if·(order.shipping_status·!==·'cancelled')·{
+     74     │ - ············return·NextResponse.json(
+     75     │ - ················{·error:·'Order·must·be·marked·as·cancelled·first'·},
+     76     │ - ················{·status:·400·}
+     77     │ - ············);
+     78     │ - ········}
+         87 │ + ····//·Check·if·order·is·actually·cancelled
+         88 │ + ····if·(order.shipping_status·!==·'cancelled')·{
+         89 │ + ······return·NextResponse.json(
+         90 │ + ········{·error:·'Order·must·be·marked·as·cancelled·first'·},
+         91 │ + ········{·status:·400·}
+         92 │ + ······);
+         93 │ + ····}
+     79  94 │   
+     80     │ - ········//·Calculate·refund·amount
+     81     │ - ········const·amountPaid·=·Number(order.amount_paid)·||·0;
+     82     │ - ········//·For·now,·assume·full·refund·of·amount·paid
+     83     │ - ········const·refundAmount·=·amountPaid;
+         95 │ + ····//·Calculate·refund·amount
+         96 │ + ····const·amountPaid·=·Number(order.amount_paid)·||·0;
+         97 │ + ····//·For·now,·assume·full·refund·of·amount·paid
+  138 more lines truncated
+  
+
+src/app/api/orders/[id]/confirm/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { logger } from '@/lib/logger';
+    3 │ import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { type NextRequest, NextResponse } from 'next/server';
+      2     │ - import·{·logger·}·from·'@/lib/logger';
+      3     │ - import·{·authenticateApiRequest,·getAdminClient,·getMerchantIdForApiUser·}·from·'@/lib/api-auth';
+          2 │ + import·{·authenticateApiRequest,·getAdminClient,·getMerchantIdForApiUser·}·from·'@/lib/api-auth';
+          3 │ + import·{·logger·}·from·'@/lib/logger';
+      4   4 │   import {
+      5   5 │     type DeviceInsuranceDetails,
+  
+
+src/app/api/orders/[id]/confirm/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      1   1 │   import { type NextRequest, NextResponse } from 'next/server';
+      2   2 │   import { logger } from '@/lib/logger';
+      3     │ - import·{·authenticateApiRequest,·getAdminClient,·getMerchantIdForApiUser·}·from·'@/lib/api-auth';
+          3 │ + import·{
+          4 │ + ··authenticateApiRequest,
+          5 │ + ··getAdminClient,
+          6 │ + ··getMerchantIdForApiUser,
+          7 │ + }·from·'@/lib/api-auth';
+      4   8 │   import {
+      5   9 │     type DeviceInsuranceDetails,
+  
+
+src/app/api/orders/[id]/delivered/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
+    3 │ import {
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      5   5 │       generateOrderDeliveredText,
+      6   6 │   } from '@/lib/email-templates';
+      7     │ - import·{·sendEmail·}·from·'@/lib/zeptomail';
+      8     │ - import·{·logger·}·from·'@/lib/logger';
+          7 │ + import·{·logger·}·from·'@/lib/logger';
+          8 │ + import·{·sendEmail·}·from·'@/lib/zeptomail';
+      9   9 │   
+     10  10 │   /**
+  
+
+src/schemas/auth.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
      2  2 │   
-     3  3 │   interface GoogleReviewsSectionProps {
-     4    │ - ····placeId:·string;
-     5    │ - ····merchantName:·string;
-        4 │ + ··placeId:·string;
-        5 │ + ··merchantName:·string;
-     6  6 │   }
+     3  3 │   export const loginSchema = z.object({
+     4    │ - ····email:·z.string().email('Please·enter·a·valid·email·address'),
+     5    │ - ····password:·z.string().min(1,·'Password·is·required'),
+        4 │ + ··email:·z.string().email('Please·enter·a·valid·email·address'),
+        5 │ + ··password:·z.string().min(1,·'Password·is·required'),
+     6  6 │   });
      7  7 │   
-    ····· │ 
-    12 12 │    */
-    13 13 │   export async function GoogleReviewsSection({
-    14    │ - ····placeId,
-    15    │ - ····merchantName,
-       14 │ + ··placeId,
-       15 │ + ··merchantName,
-    16 16 │   }: GoogleReviewsSectionProps) {
-    17    │ - ····try·{
-    18    │ - ········const·placeDetails·=·await·getPlaceDetailsServer(placeId);
-       17 │ + ··try·{
-       18 │ + ····const·placeDetails·=·await·getPlaceDetailsServer(placeId);
-    19 19 │   
-    20    │ - ········if·(!placeDetails)·{
-    21    │ - ············return·null;
-    22    │ - ········}
-       20 │ + ····if·(!placeDetails)·{
-       21 │ + ······return·null;
-       22 │ + ····}
-    23 23 │   
-    24    │ - ········return·{
-    25    │ - ············rating:·placeDetails.rating,
-    26    │ - ············reviewCount:·placeDetails.userRatingCount·||·0,
-    27    │ - ············reviews:·placeDetails.reviews·||·[],
-    28    │ - ············merchantName,
-    29    │ - ········};
-    30    │ - ····}·catch·(error)·{
-    31    │ - ········console.error('[GoogleReviewsSection]·Failed·to·fetch:',·error);
-    32    │ - ········return·null;
-    33    │ - ····}
-       24 │ + ····return·{
-       25 │ + ······rating:·placeDetails.rating,
-       26 │ + ······reviewCount:·placeDetails.userRatingCount·||·0,
-       27 │ + ······reviews:·placeDetails.reviews·||·[],
-       28 │ + ······merchantName,
-       29 │ + ····};
-       30 │ + ··}·catch·(error)·{
-       31 │ + ····console.error('[GoogleReviewsSection]·Failed·to·fetch:',·error);
-       32 │ + ····return·null;
-       33 │ + ··}
-    34 34 │   }
-    35 35 │   
-    ····· │ 
-    38 38 │    */
-    39 39 │   export type GoogleReviewsData = {
-    40    │ - ····rating:·number;
-    41    │ - ····reviewCount:·number;
-    42    │ - ····//·biome-ignore·lint/suspicious/noExplicitAny:·Google·Places·API·returns·untyped·review·objects
-    43    │ - ····reviews:·any[];
-    44    │ - ····merchantName:·string;
-       40 │ + ··rating:·number;
-       41 │ + ··reviewCount:·number;
-       42 │ + ··//·biome-ignore·lint/suspicious/noExplicitAny:·Google·Places·API·returns·untyped·review·objects
-       43 │ + ··reviews:·any[];
-       44 │ + ··merchantName:·string;
-    45 45 │   } | null;
-    46 46 │   
+     8    │ - export·const·signupSchema·=·z.object({
+        8 │ + export·const·signupSchema·=·z
+        9 │ + ··.object({
+     9 10 │       email: z.string().email('Please enter a valid email address'),
+    10 11 │       password: z.string().min(8, 'Password must be at least 8 characters'),
+    11 12 │       confirmPassword: z.string(),
+    12    │ - }).refine((data)·=>·data.password·===·data.confirmPassword,·{
+       13 │ + ··})
+       14 │ + ··.refine((data)·=>·data.password·===·data.confirmPassword,·{
+    13 15 │       message: "Passwords don't match",
+    14    │ - ····path:·["confirmPassword"],
+    15    │ - });
+       16 │ + ····path:·['confirmPassword'],
+       17 │ + ··});
+    16 18 │   
+    17 19 │   export const forgotPasswordSchema = z.object({
+    18    │ - ····email:·z.string().email('Please·enter·a·valid·email·address'),
+       20 │ + ··email:·z.string().email('Please·enter·a·valid·email·address'),
+    19 21 │   });
+    20 22 │   
   
 
-src/app/(storefront)/[slug]/products-section.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     3  3 │   
-     4  4 │   interface ProductsSectionProps {
-     5    │ - ····merchantId:·string;
-     6    │ - ····categories?:·{·name:·string;·slug:·string·}[];
-        5 │ + ··merchantId:·string;
-        6 │ + ··categories?:·{·name:·string;·slug:·string·}[];
-     7  7 │   }
-     8  8 │   
-    ····· │ 
-    13 13 │    */
-    14 14 │   export async function ProductsSection({
-    15    │ - ····merchantId,
-    16    │ - ····categories·=·[],
-       15 │ + ··merchantId,
-       16 │ + ··categories·=·[],
-    17 17 │   }: ProductsSectionProps) {
-    18    │ - ····//·Fetch·products·-·this·runs·asynchronously·and·streams·when·ready
-    19    │ - ····const·products·=·await·getCachedProducts(merchantId,·{·limit:·50·});
-       18 │ + ··//·Fetch·products·-·this·runs·asynchronously·and·streams·when·ready
-       19 │ + ··const·products·=·await·getCachedProducts(merchantId,·{·limit:·50·});
-    20 20 │   
-    21    │ - ····//·Return·products·and·categories·for·the·template·to·render
-    22    │ - ····return·{·products:·products·as·unknown·as·Product[],·categories·};
-       21 │ + ··//·Return·products·and·categories·for·the·template·to·render
-       22 │ + ··return·{·products:·products·as·unknown·as·Product[],·categories·};
-    23 23 │   }
-    24 24 │   
-    ····· │ 
-    27 27 │    */
-    28 28 │   export type ProductsSectionData = {
-    29    │ - ····products:·Product[];
-    30    │ - ····categories:·{·name:·string;·slug:·string·}[];
-       29 │ + ··products:·Product[];
-       30 │ + ··categories:·{·name:·string;·slug:·string·}[];
-    31 31 │   };
-    32 32 │   
-  
-
-Checked 777 files in 417ms. No fixes applied.
-Found 2 errors.
-Found 3 warnings.
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 183.
+Checked 787 files in 1334ms. No fixes applied.
+Found 182 errors.
+Found 21 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

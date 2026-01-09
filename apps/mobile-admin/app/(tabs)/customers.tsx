@@ -3,7 +3,7 @@
  * View customer list and details with real-time data
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {
   RefreshControl,
   StatusBar,
   ActivityIndicator,
+  TextInput,
+  Animated,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +31,40 @@ export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  // Collapsible search bar animation
+  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  const lastScrollY = useRef(0);
+  const isSearchVisible = useRef(true);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
+
+    // Only trigger animation if scrolled more than 10px and not at top
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        // Scrolling down - hide search bar
+        isSearchVisible.current = false;
+        Animated.timing(searchBarHeight, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        // Scrolling up - show search bar
+        isSearchVisible.current = true;
+        Animated.timing(searchBarHeight, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+
+    lastScrollY.current = currentScrollY;
+  }, [searchBarHeight]);
 
   const {
     data,
@@ -41,10 +79,28 @@ export default function CustomersScreen() {
 
   const { data: stats } = useCustomerStats();
 
-  // Flatten pages into single array
+  // Flatten pages into single array and filter by search
   const customers = useMemo(() => {
-    return data?.pages.flatMap((page) => page.customers) ?? [];
-  }, [data]);
+    const allCustomers = data?.pages.flatMap((page) => page.customers) ?? [];
+    if (!searchQuery.trim()) return allCustomers;
+    const q = searchQuery.toLowerCase();
+    return allCustomers.filter(c =>
+      c.first_name?.toLowerCase().includes(q) ||
+      c.last_name?.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q)
+    );
+  }, [data, searchQuery]);
+
+  // Filter failed orders by search
+  const filteredFailedOrders = useMemo(() => {
+    if (!failedOrders) return [];
+    if (!searchQuery.trim()) return failedOrders;
+    const q = searchQuery.toLowerCase();
+    return failedOrders.filter(o =>
+      o.customer_name?.toLowerCase().includes(q) ||
+      o.customer_email.toLowerCase().includes(q)
+    );
+  }, [failedOrders, searchQuery]);
 
   const handleLoadMore = useCallback(() => {
     if (activeTab === 'all' && hasNextPage && !isFetchingNextPage) {
@@ -54,12 +110,12 @@ export default function CustomersScreen() {
 
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) {
-      return `₦${(amount / 1000000).toFixed(1)}M`;
+      return `₦${(amount / 1000000).toFixed(1)} M`;
     }
     if (amount >= 1000) {
-      return `₦${(amount / 1000).toFixed(0)}k`;
+      return `₦${(amount / 1000).toFixed(0)} k`;
     }
-    return `₦${amount.toLocaleString()}`;
+    return `₦${amount.toLocaleString()} `;
   };
 
   const formatDate = (dateString: string | null) => {
@@ -79,10 +135,8 @@ export default function CustomersScreen() {
   };
 
   const getDisplayName = (customer: Customer) => {
-    if (customer.full_name) return customer.full_name;
-    if (customer.first_name || customer.last_name) {
-      return `${customer.first_name ?? ''} ${customer.last_name ?? ''}`.trim();
-    }
+    const names = [customer.first_name, customer.last_name].filter(Boolean).join(' ');
+    if (names) return names;
     return customer.email.split('@')[0];
   };
 
@@ -120,7 +174,14 @@ export default function CustomersScreen() {
           shadows.sm,
           pressed && { backgroundColor: colors.cardHover },
         ]}
-        onPress={() => router.push(`/order/${item.id}`)}
+        onPress={() => {
+          // Navigate to customer if available, otherwise order
+          if (item.customer_id) {
+            router.push(`/customer/${item.customer_id}`);
+          } else {
+            router.push(`/order/${item.id}`);
+          }
+        }}
       >
         <View style={[styles.avatar, { backgroundColor: colors.goldLight }]}>
           <Text style={[styles.avatarText, { color: colors.gold }]}>{getInitials(displayName)}</Text>
@@ -246,13 +307,42 @@ export default function CustomersScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Customers</Text>
-        <Pressable style={[styles.searchButton, { backgroundColor: colors.card }]}>
-          <Ionicons name="search" size={22} color={colors.text} />
-        </Pressable>
       </View>
+
+      {/* Collapsible Search Bar */}
+      <Animated.View
+        style={[
+          styles.searchContainer,
+          {
+            maxHeight: searchBarHeight.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 60],
+            }),
+            opacity: searchBarHeight,
+            overflow: 'hidden',
+          },
+        ]}
+      >
+        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+          <Ionicons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search customers..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </View>
+      </Animated.View>
 
       {/* Tabs */}
       <View style={styles.tabContainer}>
@@ -316,6 +406,8 @@ export default function CustomersScreen() {
             }
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.5}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             ListFooterComponent={
               isFetchingNextPage ? (
                 <View style={styles.footerLoader}>
@@ -338,8 +430,10 @@ export default function CustomersScreen() {
       ) : (
         /* Failed Transactions List */
         <FlatList
-          data={failedOrders}
+          data={filteredFailedOrders}
           renderItem={renderFailedOrder}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -380,12 +474,23 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size['3xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
-  searchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
+  searchContainer: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  searchBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    paddingVertical: SPACING.xs,
   },
   tabContainer: {
     flexDirection: 'row',

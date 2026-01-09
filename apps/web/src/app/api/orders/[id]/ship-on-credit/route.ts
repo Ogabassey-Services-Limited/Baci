@@ -1,8 +1,7 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createVirtualBankAccount } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest, getAdminClient, getMerchantIdForApiUser } from '@/lib/api-auth';
 
 /**
  * POST /api/orders/[id]/ship-on-credit
@@ -15,29 +14,36 @@ export async function POST(
 ) {
   try {
     const { id: orderId } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
     const body = await request.json();
 
-    // 1. Auth check
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // 1. Auth check (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Get merchant
+    // 2. Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(user.id);
+    if (!merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Use admin client for queries
+    const supabase = getAdminClient();
+
+    // 3. Get merchant details for virtual account
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name')
-      .eq('user_id', user.id)
+      .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
       return NextResponse.json(
-        { error: 'Merchant not found' },
+        { error: 'Merchant details not found' },
         { status: 404 }
       );
     }
@@ -49,7 +55,7 @@ export async function POST(
         'id, order_number, total, customer_name, customer_email, payment_status, shipping_status'
       )
       .eq('id', orderId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (orderError || !order) {
@@ -77,7 +83,7 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       logger.error({

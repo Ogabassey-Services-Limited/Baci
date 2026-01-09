@@ -326,11 +326,19 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {showInsight && (
+        {showInsight && stats && (
           <View style={styles.section}>
             <InsightCard
               title={`Good ${getTimeOfDay()}, ${firstName}`}
-              message="Your store had 12 new visitors yesterday. Consider running a promotion to convert them!"
+              message={
+                stats.newCustomers > 0
+                  ? `You got ${stats.newCustomers} new customer${stats.newCustomers !== 1 ? 's' : ''} ${period === 'today' ? 'today' : period === 'week' ? 'this week' : 'this month'}! ${stats.pendingOrders > 0 ? `You have ${stats.pendingOrders} pending order${stats.pendingOrders !== 1 ? 's' : ''} to process.` : ''}`
+                  : stats.pendingOrders > 0
+                    ? `You have ${stats.pendingOrders} pending order${stats.pendingOrders !== 1 ? 's' : ''} to process.`
+                    : stats.visits > 0
+                      ? `Your store had ${stats.visits} visit${stats.visits !== 1 ? 's' : ''} ${period === 'today' ? 'today' : period === 'week' ? 'this week' : 'this month'}. Consider running a promotion!`
+                      : 'Welcome back! Share your store link to get more customers.'
+              }
               icon="sparkles"
               onPress={() => { }}
               onDismiss={handleDismissInsight}
@@ -477,7 +485,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.productInfo}>
                     <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
-                      {order.items?.[0]?.product_name || `Order #${order.order_number}`}
+                      {order.items?.[0]?.name || `Order #${order.order_number}`}
                       {order.items && order.items.length > 1 ? ` + ${order.items.length - 1} more` : ''}
                     </Text>
                     <Text style={[styles.productStats, { color: colors.textSecondary }]}>

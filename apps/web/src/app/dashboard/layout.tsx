@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { redirect } from 'next/navigation';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { DashboardProviders } from './providers';
 
@@ -8,7 +9,24 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   // Fetch merchant data server-side
-  const { merchant, staffAccess } = await getMerchantForUser();
+  const { merchant, staffAccess, user } = await getMerchantForUser();
+
+  // Server-side auth check - no race conditions!
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Only redirect to onboarding if user is NOT staff and has no merchant
+  // Staff members should never see onboarding - they join existing merchants
+  if (!merchant && !staffAccess?.isStaff) {
+    redirect('/onboarding');
+  }
+
+  // Edge case: Staff with no merchant (shouldn't happen, but handle gracefully)
+  if (!merchant && staffAccess?.isStaff) {
+    console.error('[Dashboard] Staff user has no merchant:', user.id);
+    redirect('/error?code=staff_no_merchant');
+  }
 
   return (
     <DashboardProviders

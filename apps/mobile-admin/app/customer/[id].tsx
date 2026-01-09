@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Linking, Alert } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
-import { useCustomer } from '@/hooks/useCustomers';
+import { useCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 export default function CustomerDetailsScreen() {
@@ -27,10 +27,8 @@ export default function CustomerDetailsScreen() {
 
     const getDisplayName = () => {
         if (!customer) return '';
-        if (customer.full_name) return customer.full_name;
-        if (customer.first_name || customer.last_name) {
-            return `${customer.first_name ?? ''} ${customer.last_name ?? ''}`.trim();
-        }
+        const names = [customer.first_name, customer.last_name].filter(Boolean).join(' ');
+        if (names) return names;
         return customer.email.split('@')[0];
     };
 
@@ -68,6 +66,38 @@ export default function CustomerDetailsScreen() {
         });
     };
 
+    const deleteCustomer = useDeleteCustomer();
+
+    const handleDelete = () => {
+        const displayName = getDisplayName();
+
+        Alert.alert(
+            'Delete Customer',
+            `Are you sure you want to delete "${displayName}"?\n\nThis action will hide the customer from your list. Any order history will be preserved.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const result = await deleteCustomer.mutateAsync(id!);
+                            Alert.alert(
+                                'Customer Deleted',
+                                result.hadOrders
+                                    ? `Customer has been removed. ${result.orderCount} order(s) are preserved in history.`
+                                    : 'Customer has been removed successfully.',
+                                [{ text: 'OK', onPress: () => router.replace('/(tabs)/customers') }]
+                            );
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to delete customer. Please try again.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     if (isLoading) {
         return (
             <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
@@ -95,6 +125,27 @@ export default function CustomerDetailsScreen() {
                     headerTintColor: colors.text,
                     headerStyle: { backgroundColor: colors.background },
                     headerShadowVisible: false,
+                    headerRight: () => (
+                        <View style={{ flexDirection: 'row', gap: SPACING.sm }}>
+                            <Pressable
+                                onPress={handleDelete}
+                                style={{ padding: SPACING.sm }}
+                                disabled={deleteCustomer.isPending}
+                            >
+                                <Ionicons
+                                    name="trash-outline"
+                                    size={22}
+                                    color={deleteCustomer.isPending ? colors.textMuted : colors.danger || '#EF4444'}
+                                />
+                            </Pressable>
+                            <Pressable
+                                onPress={() => router.push(`/customer/edit/${id}`)}
+                                style={{ padding: SPACING.sm }}
+                            >
+                                <Ionicons name="create-outline" size={22} color={colors.primary} />
+                            </Pressable>
+                        </View>
+                    ),
                 }}
             />
 

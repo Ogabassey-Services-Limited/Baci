@@ -137,12 +137,13 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
     .select('*', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
 
-  // Fetch revenue for period
+  // Fetch revenue for period (total order value - gross revenue)
+  // Note: This shows total order value regardless of payment status
+  // for a more useful dashboard metric
   let revenueQuery = supabase
     .from('orders')
     .select('total')
-    .eq('merchant_id', merchantId)
-    .eq('payment_status', 'paid');
+    .eq('merchant_id', merchantId);
 
   if (start) {
     revenueQuery = revenueQuery.gte('created_at', start);
@@ -160,7 +161,6 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
       .from('orders')
       .select('total')
       .eq('merchant_id', merchantId)
-      .eq('payment_status', 'paid')
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
     previousPeriodRevenue = prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
@@ -215,7 +215,6 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
         .from('orders')
         .select('total')
         .eq('merchant_id', merchantId)
-        .eq('payment_status', 'paid')
         .gte('created_at', startTime)
         .lt('created_at', endTime);
 
@@ -237,7 +236,6 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
         .from('orders')
         .select('total')
         .eq('merchant_id', merchantId)
-        .eq('payment_status', 'paid')
         .gte('created_at', startOfDay)
         .lt('created_at', endOfDay);
 
@@ -265,7 +263,6 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
         .from('orders')
         .select('total')
         .eq('merchant_id', merchantId)
-        .eq('payment_status', 'paid')
         .gte('created_at', weekStart.toISOString())
         .lt('created_at', weekEnd.toISOString());
 
@@ -287,7 +284,6 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
         .from('orders')
         .select('total')
         .eq('merchant_id', merchantId)
-        .eq('payment_status', 'paid')
         .gte('created_at', startOfMonth)
         .lt('created_at', endOfMonth);
 

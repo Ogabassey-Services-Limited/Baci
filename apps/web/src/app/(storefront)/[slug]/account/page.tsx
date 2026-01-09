@@ -112,7 +112,7 @@ export default function AccountPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">
-                Welcome back, {customer.full_name?.split(' ')[0] || 'there'}!
+                Welcome back, {customer.first_name || 'there'}!
               </h1>
               <p className="text-muted-foreground">{customer.email}</p>
             </div>

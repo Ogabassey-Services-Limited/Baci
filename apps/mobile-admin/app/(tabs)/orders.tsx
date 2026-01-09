@@ -158,7 +158,8 @@ export default function OrdersScreen() {
 
   // Get available status actions based on current status (from shared config)
   const getStatusActions = (currentStatus: ShippingStatus): { status: ShippingStatus; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] => {
-    const actions = SHIPPING_STATUS_ACTIONS[currentStatus] ?? [];
+    const normalizedStatus = currentStatus === 'fulfilled' ? 'pending' : currentStatus;
+    const actions = SHIPPING_STATUS_ACTIONS[normalizedStatus as ShippingStatus] ?? [];
     return actions.map((action) => ({
       status: action.nextStatus,
       label: action.label,
@@ -291,9 +292,14 @@ export default function OrdersScreen() {
         return { icon: 'phone-portrait-outline' as const, color: colors.primary, label: 'Mobile App' };
       case 'online_store':
       case 'website':
+      case 'storefront':
         return { icon: 'globe-outline' as const, color: colors.info || colors.textSecondary, label: 'Website' };
       case 'pos':
         return { icon: 'calculator-outline' as const, color: colors.success, label: 'POS' };
+      case 'physical':
+        return { icon: 'storefront-outline' as const, color: colors.gold, label: 'Store' };
+      case 'staff_entry':
+        return { icon: 'person-outline' as const, color: colors.textSecondary, label: 'Staff' };
 
       // --- Custom/Fallback ---
       default:

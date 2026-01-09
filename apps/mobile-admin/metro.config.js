@@ -1,37 +1,18 @@
 /**
- * Metro Configuration for Expo Monorepo with pnpm
- * Enables resolution of shared packages from packages/
+ * Metro Configuration for Expo SDK 54+ Monorepo
+ * 
+ * IMPORTANT: Since Expo SDK 52, Metro automatically configures itself for monorepos.
+ * Manual overrides of watchFolders, nodeModulesPaths, extraNodeModules can CONFLICT
+ * with Expo's automatic setup. This minimal config lets Expo handle resolution.
+ * 
+ * Reference: https://docs.expo.dev/guides/monorepos/
  */
 
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
-// Find the project root (Baci-app/)
-const projectRoot = __dirname;
-const monorepoRoot = path.resolve(projectRoot, '../..');
+const config = getDefaultConfig(__dirname);
 
-const config = getDefaultConfig(projectRoot);
-
-// 1. Watch the monorepo root for changes (shared packages)
-config.watchFolders = [monorepoRoot];
-
-// 2. Let Metro know where to resolve packages from
-// Include both project and monorepo node_modules for pnpm
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(monorepoRoot, 'node_modules'),
-];
-
-// 3. Don't disable hierarchical lookup - pnpm needs it for nested deps
-// config.resolver.disableHierarchicalLookup = true;
-
-// 4. Handle pnpm symlinks properly
+// Enable stable symlink support (required for pnpm)
 config.resolver.unstable_enableSymlinks = true;
-
-// 5. Explicit module mappings for packages that may have resolution issues
-config.resolver.extraNodeModules = {
-  ...config.resolver.extraNodeModules,
-  'expo-auth-session': path.resolve(monorepoRoot, 'node_modules/expo-auth-session'),
-};
 
 module.exports = config;

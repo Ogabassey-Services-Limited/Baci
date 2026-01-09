@@ -12,14 +12,15 @@ export interface Customer {
   email: string;
   first_name: string | null;
   last_name: string | null;
-  full_name: string | null;
   phone: string | null;
+  address: string | null;
   total_orders: number;
   total_spent: number;
   store_credit: number;
   loyalty_points: number;
   created_at: string;
   last_login_at: string | null;
+  deleted_at: string | null;
 }
 
 interface CustomersPage {
@@ -33,12 +34,13 @@ const PAGE_SIZE = 20;
 async function fetchCustomers(
   merchantId: string,
   cursor: number = 0,
-  filters?: { search?: string; sortBy?: 'recent' | 'orders' | 'spent' }
+  filters?: { search?: string; sortBy?: 'recent' | 'orders' | 'spent' | 'alpha' }
 ): Promise<CustomersPage> {
   let query = supabase
     .from('customers')
     .select('*', { count: 'exact' })
     .eq('merchant_id', merchantId)
+    .is('deleted_at', null)  // Exclude soft-deleted customers
     .range(cursor, cursor + PAGE_SIZE - 1);
 
   // Apply sorting
@@ -49,14 +51,20 @@ async function fetchCustomers(
     case 'spent':
       query = query.order('total_spent', { ascending: false });
       break;
+    case 'alpha':
+      query = query.order('first_name', { ascending: true });
+      break;
     default:
       query = query.order('created_at', { ascending: false });
   }
 
   if (filters?.search) {
-    query = query.or(
-      `full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
-    );
+    const term = filters.search.trim();
+    if (term) {
+      query = query.or(
+        `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
+      );
+    }
   }
 
   const { data, error, count } = await query;
@@ -72,7 +80,7 @@ async function fetchCustomers(
   };
 }
 
-export function useCustomers(filters?: { search?: string; sortBy?: 'recent' | 'orders' | 'spent' }) {
+export function useCustomers(filters?: { search?: string; sortBy?: 'recent' | 'orders' | 'spent' | 'alpha' }) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
 
@@ -129,17 +137,19 @@ export function useCustomerStats() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Total customers
+      // Total customers (excluding deleted)
       const { count: total } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', merchant?.id);
+        .eq('merchant_id', merchant?.id)
+        .is('deleted_at', null);
 
       // New this month
       const { count: newThisMonth } = await supabase
         .from('customers')
         .select('*', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
+        .is('deleted_at', null)
         .gte('created_at', startOfMonth);
 
       // New this week
@@ -147,6 +157,7 @@ export function useCustomerStats() {
         .from('customers')
         .select('*', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
+        .is('deleted_at', null)
         .gte('created_at', startOfWeek);
 
       // Returning customers (more than 1 order)
@@ -154,6 +165,7 @@ export function useCustomerStats() {
         .from('customers')
         .select('*', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
+        .is('deleted_at', null)
         .gt('total_orders', 1);
 
       return {
@@ -179,6 +191,10 @@ export function useCreateCustomer() {
       last_name: string;
       email?: string;
       phone?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      zip_code?: string;
     }) => {
       if (!merchant?.id) throw new Error('No merchant selected');
 
@@ -217,6 +233,81 @@ export function useCreateCustomer() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-stats'] });
+    },
+  });
+}
+
+export function useUpdateCustomer() {
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updates: {
+      id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      email: string;
+      phone?: string | null;
+      address?: string | null;
+    }) => {
+      if (!merchant?.id) throw new Error('No merchant selected');
+
+      const { id, ...customerData } = updates;
+
+      const { data, error } = await supabase
+        .from('customers')
+        .update({
+          ...customerData,
+          // full_name is deprecated, we relied on first/last
+        })
+        .eq('id', id)
+        .eq('merchant_id', merchant.id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer', variables.id] });
+    },
+  });
+}
+
+export function useDeleteCustomer() {
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (customerId: string) => {
+      if (!merchant?.id) throw new Error('No merchant selected');
+
+      // Check if customer has orders
+      const { count: orderCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('customer_id', customerId);
+
+      // Soft delete by setting deleted_at timestamp
+      const { error } = await supabase
+        .from('customers')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', customerId)
+        .eq('merchant_id', merchant.id);
+
+      if (error) throw new Error(error.message);
+
+      return {
+        success: true,
+        hadOrders: (orderCount ?? 0) > 0,
+        orderCount: orderCount ?? 0
+      };
+    },
+    onSuccess: (_, customerId) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer', customerId] });
       queryClient.invalidateQueries({ queryKey: ['customer-stats'] });
     },
   });

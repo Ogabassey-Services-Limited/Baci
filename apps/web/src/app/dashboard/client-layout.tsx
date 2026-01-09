@@ -85,9 +85,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-        isCollapsed && 'justify-center'
-      );
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+      isCollapsed && 'justify-center'
+    );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -206,44 +206,25 @@ export default function DashboardClientLayout({
   // Orders count for sidebar badge - fetched lazily to not block initial render
   const [ordersCount, setOrdersCount] = useState(0);
 
-  // Auth redirect effect
+  // NOTE: Auth and onboarding redirects are now handled SERVER-SIDE in layout.tsx
+  // This effect is only for handling edge cases like session expiry during navigation
   useEffect(() => {
-    // Wait for both auth and merchant loading to finish before making decisions
-    if (authLoading || merchantLoading) {
-      return;
-    }
+    // Wait for auth loading to finish
+    if (authLoading) return;
 
-    // If there's no user, add a small delay before redirecting to allow session hydration
-    // This prevents race conditions after server-side login redirects
-    if (!user) {
-      if (!hasAttemptedAuthCheck) {
-        // First check - wait 500ms for session to hydrate
-        setHasAttemptedAuthCheck(true);
-        const timer = setTimeout(() => {
-          // Force a re-render which will trigger this effect again
-          setHasAttemptedAuthCheck(true);
-        }, 500);
-        return () => clearTimeout(timer);
-      }
-      // Second check - still no user, redirect to login
-      router.push('/login');
-      return;
+    // If session expires during navigation, redirect to login
+    // The server layout handles initial auth, this is a safety net
+    if (!user && !hasAttemptedAuthCheck) {
+      setHasAttemptedAuthCheck(true);
+      // Wait briefly for potential session hydration
+      const timer = setTimeout(() => {
+        if (!user) {
+          router.push('/login');
+        }
+      }, 500);
+      return () => clearTimeout(timer);
     }
-
-    // If there IS a user but NO merchant record OR incomplete profile,
-    // automatically redirect to onboarding instead of showing a blocking screen
-    if (!merchant || !merchant.business_name) {
-      router.push('/onboarding');
-      return;
-    }
-  }, [
-    user,
-    authLoading,
-    merchantLoading,
-    merchant,
-    router,
-    hasAttemptedAuthCheck,
-  ]);
+  }, [user, authLoading, router, hasAttemptedAuthCheck]);
 
   // Auto-collapse sidebar on main content interaction
   useEffect(() => {
@@ -345,95 +326,95 @@ export default function DashboardClientLayout({
     badge?: number;
     badgeVariant?: 'default' | 'destructive';
   }[] = [
-    {
-      href: '/dashboard' as Route,
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-    },
-    {
-      href: '/dashboard/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/dashboard/orders' as Route,
-      icon: ShoppingCart,
-      label: 'Orders',
-      badge: ordersCount > 0 ? ordersCount : undefined,
-    },
-    {
-      href: '/dashboard/products' as Route,
-      icon: Package,
-      label: 'Products',
-    },
-    {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
-    },
-    {
-      href: '/dashboard/staff' as Route,
-      icon: UserCog,
-      label: 'Staff',
-    },
-    {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/santa' as Route,
-      icon: MessageCircle,
-      label: 'Santa Campaign',
-    },
-    {
-      href: '/dashboard/wallet' as Route,
-      icon: Wallet,
-      label: 'Wallet',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/domains' as Route,
-      icon: Globe,
-      label: 'Domains',
-    },
-    {
-      href: '/dashboard/pages' as Route,
-      icon: FileText,
-      label: 'Pages',
-      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-      badgeVariant: 'destructive',
-    },
-    {
-      href: '/dashboard/blog' as Route,
-      icon: Newspaper,
-      label: 'Blog',
-    },
-    {
-      href: '/dashboard/templates' as Route,
-      icon: LayoutTemplate,
-      label: 'Templates',
-    },
-    {
-      icon: Paintbrush,
-      label: 'Customize Website',
-      href: '/builder' as Route,
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
-      href: '/dashboard/settings' as Route,
-      icon: Settings,
-      label: 'Settings',
-    },
-  ];
+      {
+        href: '/dashboard' as Route,
+        icon: LayoutDashboard,
+        label: 'Dashboard',
+      },
+      {
+        href: '/dashboard/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/dashboard/orders' as Route,
+        icon: ShoppingCart,
+        label: 'Orders',
+        badge: ordersCount > 0 ? ordersCount : undefined,
+      },
+      {
+        href: '/dashboard/products' as Route,
+        icon: Package,
+        label: 'Products',
+      },
+      {
+        href: '/dashboard/customers' as Route,
+        icon: Users,
+        label: 'Customers',
+      },
+      {
+        href: '/dashboard/staff' as Route,
+        icon: UserCog,
+        label: 'Staff',
+      },
+      {
+        href: '/dashboard/loyalty' as Route,
+        icon: Gift,
+        label: 'Loyalty',
+      },
+      {
+        href: '/dashboard/santa' as Route,
+        icon: MessageCircle,
+        label: 'Santa Campaign',
+      },
+      {
+        href: '/dashboard/wallet' as Route,
+        icon: Wallet,
+        label: 'Wallet',
+      },
+      {
+        href: '/dashboard/seo' as Route,
+        icon: Search,
+        label: 'SEO',
+      },
+      {
+        href: '/dashboard/domains' as Route,
+        icon: Globe,
+        label: 'Domains',
+      },
+      {
+        href: '/dashboard/pages' as Route,
+        icon: FileText,
+        label: 'Pages',
+        badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+        badgeVariant: 'destructive',
+      },
+      {
+        href: '/dashboard/blog' as Route,
+        icon: Newspaper,
+        label: 'Blog',
+      },
+      {
+        href: '/dashboard/templates' as Route,
+        icon: LayoutTemplate,
+        label: 'Templates',
+      },
+      {
+        icon: Paintbrush,
+        label: 'Customize Website',
+        href: '/builder' as Route,
+      },
+      {
+        href: '/dashboard/integrations' as Route,
+        icon: Plug,
+        label: 'Integrations',
+      },
+      {
+        href: '/dashboard/settings' as Route,
+        icon: Settings,
+        label: 'Settings',
+      },
+    ];
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.

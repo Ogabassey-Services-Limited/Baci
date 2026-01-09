@@ -3,7 +3,7 @@
  * View and manage product catalog with real-time data
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,10 @@ import {
   Image,
   StatusBar,
   ActivityIndicator,
+  TextInput,
+  Animated,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,26 +45,69 @@ export default function ProductsScreen() {
   const { data: topSellingProducts, isLoading: isTopSellingLoading } = useTopSellingProducts(20);
 
   const [activeTab, setActiveTab] = useState<'all' | 'in_stock' | 'low_stock' | 'out_of_stock' | 'categories' | 'top_selling'>('in_stock');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Collapsible search bar animation
+  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  const lastScrollY = useRef(0);
+  const isSearchVisible = useRef(true);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
+
+    // Only trigger animation if scrolled more than 10px and not at top
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        // Scrolling down - hide search bar
+        isSearchVisible.current = false;
+        Animated.timing(searchBarHeight, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        // Scrolling up - show search bar
+        isSearchVisible.current = true;
+        Animated.timing(searchBarHeight, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+
+    lastScrollY.current = currentScrollY;
+  }, [searchBarHeight]);
 
   // Flatten pages into single array
   const products = useMemo(() => {
     return data?.pages.flatMap((page) => page.products) ?? [];
   }, [data]);
 
-  // Filter products based on active tab
+  // Filter products based on active tab and search query
   const displayData = useMemo(() => {
+    let filtered = products;
+
+    // Apply search filter first
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
+    }
+
+    // Then apply tab filter
     switch (activeTab) {
       case 'in_stock':
-        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0);
+        return filtered.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0);
       case 'low_stock':
-        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0 && (p.stock ?? p.stock_quantity ?? 0) < 10);
+        return filtered.filter(p => (p.stock ?? p.stock_quantity ?? 0) > 0 && (p.stock ?? p.stock_quantity ?? 0) < 10);
       case 'out_of_stock':
-        return products.filter(p => (p.stock ?? p.stock_quantity ?? 0) === 0);
+        return filtered.filter(p => (p.stock ?? p.stock_quantity ?? 0) === 0);
       case 'all':
       default:
-        return products;
+        return filtered;
     }
-  }, [activeTab, products]);
+  }, [activeTab, products, searchQuery]);
 
   const totalCount = data?.pages[0]?.totalCount ?? 0;
 
@@ -260,16 +307,42 @@ export default function ProductsScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Products</Text>
-        <View style={styles.headerActions}>
-          <Pressable style={[styles.headerButton, { backgroundColor: colors.card }]}>
-            <Ionicons name="search" size={22} color={colors.text} />
-          </Pressable>
-
-        </View>
       </View>
+
+      {/* Collapsible Search Bar */}
+      <Animated.View
+        style={[
+          styles.searchContainer,
+          {
+            maxHeight: searchBarHeight.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 60],
+            }),
+            opacity: searchBarHeight,
+            overflow: 'hidden',
+          },
+        ]}
+      >
+        <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+          <Ionicons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="Search products..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+            </Pressable>
+          )}
+        </View>
+      </Animated.View>
 
       {/* Stats Cards */}
       <View style={styles.statsContainer}>
@@ -328,6 +401,8 @@ export default function ProductsScreen() {
               </View>
             ) : null
           }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       ) : activeTab === 'top_selling' ? (
         <FlatList
@@ -352,6 +427,8 @@ export default function ProductsScreen() {
               </View>
             ) : <ActivityIndicator size="large" color={colors.gold} style={{ marginTop: 20 }} />
           }
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
         />
       ) : (
         <FlatList
@@ -369,6 +446,8 @@ export default function ProductsScreen() {
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           ListFooterComponent={
             isFetchingNextPage ? (
               <View style={styles.footerLoader}>
@@ -435,6 +514,24 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchContainer: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    paddingVertical: SPACING.xs,
   },
   statsContainer: {
     flexDirection: 'row',
