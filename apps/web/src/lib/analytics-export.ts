@@ -2,10 +2,17 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 
-// Extended jsPDF type with autotable properties
+// Extended jsPDF type with autotable and internal properties (2026 best practice)
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable?: {
     finalY: number;
+  };
+}
+
+// Type for accessing jsPDF internal methods (doesn't extend jsPDF to avoid type conflicts)
+interface JsPDFWithInternal {
+  internal: {
+    getNumberOfPages: () => number;
   };
 }
 
@@ -390,7 +397,10 @@ export function exportAnalyticsAsPDF(
   }
 
   // Footer on all pages
-  const pageCount = (doc as any).internal.getNumberOfPages();
+  // Note: jsPDF internal API is not fully typed, so we use unknown intermediate cast (2026 best practice)
+  const pageCount = (
+    doc as unknown as JsPDFWithInternal
+  ).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);

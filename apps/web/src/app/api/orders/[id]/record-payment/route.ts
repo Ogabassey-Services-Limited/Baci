@@ -13,6 +13,13 @@ import {
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';
 
+/** Order item interface for email templates (2026 best practice) */
+interface EmailOrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -153,7 +160,7 @@ export async function POST(
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         const emailItems =
-          order.order_items?.map((item: any) => ({
+          order.order_items?.map((item: EmailOrderItem) => ({
             name: item.name || 'Product',
             quantity: item.quantity || 1,
             price: item.price || 0,
@@ -224,7 +231,7 @@ export async function POST(
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         const emailItems =
-          order.order_items?.map((item: any) => ({
+          order.order_items?.map((item: EmailOrderItem) => ({
             name: item.name || 'Product',
             quantity: item.quantity || 1,
             price: item.price || 0,

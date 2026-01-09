@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { type SignupValues, signupSchema } from '@/schemas/auth';
 
 const initialState: SignupState = { message: '', success: false };
@@ -39,7 +38,7 @@ export default function SignupForm() {
   const [state, formAction] = useActionState(signupAction, initialState);
 
   const form = useForm<SignupValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: zodResolver type compatibility issue
     resolver: zodResolver(signupSchema as any),
     defaultValues: {
       email: defaultEmail,

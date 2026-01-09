@@ -11,6 +11,13 @@ import {
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';
 
+/** Order item interface for email templates (2026 best practice) */
+interface EmailOrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
 /**
  * POST /api/orders/[id]/cancelled
  * Sends the "Order Cancelled" email to the customer
@@ -102,7 +109,7 @@ export async function POST(
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
     const emailItems =
-      order.order_items?.map((item: any) => ({
+      order.order_items?.map((item: EmailOrderItem) => ({
         name: item.name || 'Product',
         quantity: item.quantity || 1,
         price: item.price || 0,
@@ -163,12 +170,10 @@ export async function POST(
       message: 'Cancellation notification sent',
       messageId: emailResult.messageId,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Error';
     console.error('Error in cancellation notification:', error);
     logger.error({ message: 'Error sending cancellation email', error });
-    return NextResponse.json(
-      { error: error.message || 'Internal Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

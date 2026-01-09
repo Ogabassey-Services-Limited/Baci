@@ -134,8 +134,8 @@ export async function GET() {
         );
       }
 
-      // Use the staff member's merchant
-      merchant = merchantData as any;
+      // Use the staff member's merchant - cast to same type as direct merchant query
+      merchant = merchantData as typeof ownedMerchant;
     }
 
     if (!merchant) {

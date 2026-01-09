@@ -11,6 +11,12 @@ import {
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';
 
+/** Order item interface for email templates (2026 best practice) */
+interface EmailOrderItem {
+  name: string;
+  quantity: number;
+}
+
 /**
  * POST /api/orders/[id]/delivered
  * Sends the "Order Delivered" email to the customer with optional Google rating CTA
@@ -92,7 +98,7 @@ export async function POST(
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
     const emailItems =
-      order.order_items?.map((item: any) => ({
+      order.order_items?.map((item: EmailOrderItem) => ({
         name: item.name || 'Product',
         quantity: item.quantity || 1,
       })) || [];
@@ -149,12 +155,10 @@ export async function POST(
       messageId: emailResult.messageId,
       hasGoogleRating: !!featureSettings?.google_place_id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal Error';
     console.error('Error in delivered notification:', error);
     logger.error({ message: 'Error sending delivered email', error });
-    return NextResponse.json(
-      { error: error.message || 'Internal Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

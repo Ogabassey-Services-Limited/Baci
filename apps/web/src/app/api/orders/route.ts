@@ -286,6 +286,7 @@ export async function POST(request: NextRequest) {
 
       // 2025 FIX: Backfill missing profile data for existing customers
       // This handles cases where a customer exists via email (newsletter/auth) but hasn't completed their profile
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic updates object requires loose typing
       const updates: Record<string, any> = {};
       const nameParts = customer_name.split(' ');
       const inputFirstName = nameParts[0] || '';
