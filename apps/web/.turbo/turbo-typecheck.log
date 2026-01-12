@@ -2,5 +2,3 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/app/dashboard/blog/blog-client-page.tsx(133,9): error TS2304: Cannot find name 'blogEnabled'.
- ELIFECYCLE  Command failed with exit code 2.

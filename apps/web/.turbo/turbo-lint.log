@@ -2,766 +2,274 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/(auth)/forgot-password/page.tsx:32:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(auth)/forgot-password/page.tsx:32:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    31 │             setMessage('Check your email for the password reset link');
-  > 32 │         } catch (err: any) {
-       │                       ^^^
-    33 │             setError(err.message);
-    34 │         } finally {
+    31 │       setMessage('Check your email for the password reset link');
+  > 32 │     } catch (err: any) {
+       │                   ^^^
+    33 │       setError(err.message);
+    34 │     } finally {
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(auth)/signup/actions.ts:6:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━
-
-  ! This import is unused.
-  
-    4 │ import { cookies } from 'next/headers';
-    5 │ import { redirect } from 'next/navigation';
-  > 6 │ import { asRoute } from '@/lib/routes';
-      │        ^^^^^^^^^^^
-    7 │ import { createClient } from '@/lib/supabase/server';
-    8 │ import { signupSchema } from '@/schemas/auth';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-     4  4 │   import { cookies } from 'next/headers';
-     5  5 │   import { redirect } from 'next/navigation';
-     6    │ - import·{·asRoute·}·from·'@/lib/routes';
-     7  6 │   import { createClient } from '@/lib/supabase/server';
-     8  7 │   import { signupSchema } from '@/schemas/auth';
-  
-
-src/app/(auth)/signup/actions.ts:20:3 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
-
-  ! This parameter is unused.
-  
-    19 │ export async function signupAction(
-  > 20 │   prevState: SignupState,
-       │   ^^^^^^^^^
-    21 │   formData: FormData
-    22 │ ): Promise<SignupState> {
-  
-  i Unused parameters might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: If this is intentional, prepend prevState with an underscore.
-  
-    18 18 │   
-    19 19 │   export async function signupAction(
-    20    │ - ··prevState:·SignupState,
-       20 │ + ··_prevState:·SignupState,
-    21 21 │     formData: FormData
-    22 22 │   ): Promise<SignupState> {
-  
-
-src/app/(auth)/update-password/page.tsx:36:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(auth)/update-password/page.tsx:35:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    34 │             }, 3000);
-    35 │ 
-  > 36 │         } catch (err: any) {
-       │                       ^^^
-    37 │             setError(err.message);
-    38 │         } finally {
+    33 │         router.push('/login');
+    34 │       }, 3000);
+  > 35 │     } catch (err: any) {
+       │                   ^^^
+    36 │       setError(err.message);
+    37 │     } finally {
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(auth)/update-password/page.tsx:3:20 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    1 │ 'use client';
-    2 │ 
-  > 3 │ import { useState, useEffect } from 'react';
-      │                    ^^^^^^^^^
-    4 │ import { createClient } from '@/lib/supabase/client';
-    5 │ import { useRouter } from 'next/navigation';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-    3 │ import·{·useState,·useEffect·}·from·'react';
-      │                    ----------               
-
-src/app/(storefront)/[slug]/account/addresses/page.tsx:3:30 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    1 │ 'use client';
-    2 │ 
-  > 3 │ import { ArrowLeft, Loader2, Plus } from 'lucide-react';
-      │                              ^^^^
-    4 │ import Link from 'next/link';
-    5 │ import { useRouter } from 'next/navigation';
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-    3 │ import·{·ArrowLeft,·Loader2,·Plus·}·from·'lucide-react';
-      │                              -----                      
-
-src/app/(storefront)/[slug]/storefront-wrapper.tsx:58:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
-
-  ! This hook does not specify its dependency on merchant?.business_name.
-  
-    57 │   // Load template components based on merchant's template_id
-  > 58 │   useEffect(() => {
-       │   ^^^^^^^^^
-    59 │     const loadTemplate = async () => {
-    60 │       if (loading) return;
-  
-  i This dependency is being used here, but is not specified in the hook dependency list.
-  
-    66 │         const fallbackId = getTemplateIdByBusinessType(merchant?.business_type);
-    67 │         console.log(
-  > 68 │           `No template_id set for "${merchant?.business_name}", using business_type fallback: ${fallbackId}`
-       │                                      ^^^^^^^^^^^^^^^^^^^^^^^
-    69 │         );
-    70 │         templateId = fallbackId;
-  
-  i React relies on hook dependencies to determine when to re-compute Effects.
-    Failing to specify dependencies can result in Effects not updating correctly when state changes.
-    These "stale closures" are a common source of surprising bugs.
-  
-  i Unsafe fix: Add the missing dependency to the list.
-  
-    103 │ ··},·[merchant?.template_id,·loading,·merchant?.business_name]);
-        │                                     +++++++++++++++++++++++++   
-
-src/app/(storefront)/[slug]/storefront-wrapper.tsx:58:3 lint/correctness/useExhaustiveDependencies  FIXABLE  ━━━━━━━━━━
-
-  ! This hook does not specify its dependency on merchant?.business_type.
-  
-    57 │   // Load template components based on merchant's template_id
-  > 58 │   useEffect(() => {
-       │   ^^^^^^^^^
-    59 │     const loadTemplate = async () => {
-    60 │       if (loading) return;
-  
-  i This dependency is being used here, but is not specified in the hook dependency list.
-  
-    64 │       // If no template_id or it's 'default', use business_type fallback
-    65 │       if (!templateId || templateId === 'default') {
-  > 66 │         const fallbackId = getTemplateIdByBusinessType(merchant?.business_type);
-       │                                                        ^^^^^^^^^^^^^^^^^^^^^^^
-    67 │         console.log(
-    68 │           `No template_id set for "${merchant?.business_name}", using business_type fallback: ${fallbackId}`
-  
-  i React relies on hook dependencies to determine when to re-compute Effects.
-    Failing to specify dependencies can result in Effects not updating correctly when state changes.
-    These "stale closures" are a common source of surprising bugs.
-  
-  i Unsafe fix: Add the missing dependency to the list.
-  
-    103 │ ··},·[merchant?.template_id,·loading,·merchant?.business_type]);
-        │                                     +++++++++++++++++++++++++   
-
-src/app/api/domains/check-availability/route.ts:13:80 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+src/app/api/domains/check-availability/route.ts:14:18 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    11 │   try {
     12 │     // Authenticate request (supports mobile Bearer token + web cookies)
-  > 13 │     const { user, error: authError } = await authenticateApiRequest(request as any);
-       │                                                                                ^^^
-    14 │ 
-    15 │     if (authError || !user) {
+    13 │     const { user, error: authError } = await authenticateApiRequest(
+  > 14 │       request as any
+       │                  ^^^
+    15 │     );
+    16 │ 
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/(auth)/forgot-password/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━
+src/app/api/domains/initialize-payment/route.ts:20:52 suppressions/incorrect ━━━━━━━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! A suppression shouldn't have an <explanation> placeholder. Example of suppression: // biome-ignore lint: false positive
   
-    1 │ 'use client';
-    2 │ 
-  > 3 │ import { useState } from 'react';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    4 │ import { createClient } from '@/lib/supabase/client';
-    5 │ import { useRouter } from 'next/navigation';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      1   1 │   'use client';
-      2   2 │   
-      3     │ - import·{·useState·}·from·'react';
-      4     │ - import·{·createClient·}·from·'@/lib/supabase/client';
-      5     │ - import·{·useRouter·}·from·'next/navigation';
-      6     │ - import·Link·from·'next/link';
-          3 │ + import·Link·from·'next/link';
-          4 │ + import·{·useRouter·}·from·'next/navigation';
-          5 │ + import·{·useState·}·from·'react';
-          6 │ + import·{·createClient·}·from·'@/lib/supabase/client';
-      7   7 │   
-      8   8 │   export default function ForgotPasswordPage() {
+    19 │     // Authenticate request (supports mobile Bearer token + web cookies)
+  > 20 │     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+       │                                                    ^^^^^^^^^^^^^
+    21 │     const { user, error: authError } = await authenticateApiRequest(
+    22 │       request as any
   
 
-src/app/(auth)/forgot-password/page.tsx:13:11 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
+src/app/api/domains/initialize-payment/route.ts:22:18 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
 
-  × This variable router is unused.
+  ! Unexpected any. Specify a different type.
   
-    11 │     const [message, setMessage] = useState<string | null>(null);
-    12 │     const [error, setError] = useState<string | null>(null);
-  > 13 │     const router = useRouter();
-       │           ^^^^^^
-    14 │     const supabase = createClient();
-    15 │ 
+    20 │     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    21 │     const { user, error: authError } = await authenticateApiRequest(
+  > 22 │       request as any
+       │                  ^^^
+    23 │     );
+    24 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/domains/initialize-payment/route.ts:20:5 suppressions/unused ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Suppression comment has no effect. Remove the suppression or make sure you are suppressing the correct rule.
+  
+    19 │     // Authenticate request (supports mobile Bearer token + web cookies)
+  > 20 │     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+       │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    21 │     const { user, error: authError } = await authenticateApiRequest(
+    22 │       request as any
+  
+
+src/app/api/domains/route.ts:12:69 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    10 │ export async function GET(request: Request) {
+    11 │   try {
+  > 12 │     const { user, error } = await authenticateApiRequest(request as any);
+       │                                                                     ^^^
+    13 │     if (error || !user) {
+    14 │       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/domains/route.ts:63:69 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    61 │ export async function POST(request: Request) {
+    62 │   try {
+  > 63 │     const { user, error } = await authenticateApiRequest(request as any);
+       │                                                                     ^^^
+    64 │     if (error || !user) {
+    65 │       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/mobile-onboarding/route.ts:60:15 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    58 │     // We will try to sign up.
+    59 │ 
+  > 60 │     let user: any = null;
+       │               ^^^
+    61 │ 
+    62 │     // Create user via SignUp
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/mobile-onboarding/route.ts:193:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    191 │         businessType: finalBusinessType,
+    192 │         brandColors: safeBrandColors,
+  > 193 │         merchant: merchant as any,
+        │                               ^^^
+    194 │       });
+    195 │       await adminSupabase.from('page_configs').insert({
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/mobile-onboarding/route.ts:231:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    229 │       message: 'Account created successfully',
+    230 │     });
+  > 231 │   } catch (error: any) {
+        │                   ^^^
+    232 │     console.error('Mobile onboarding error:', error);
+    233 │     return NextResponse.json(
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/payments/webhook/route.ts:341:61 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    339 │     // ============================================
+    340 │     // Check metadata for valid domain purchase
+  > 341 │     const metadata = transaction.metadata as Record<string, any>;
+        │                                                             ^^^
+    342 │     if (metadata?.transaction_type === 'domain_purchase' && metadata.domain) {
+    343 │       logger.info({
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/paystack/resolve/route.ts:26:9 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    24 │       );
+    25 │       const supabase = createSupabaseClient(
+  > 26 │         process.env.NEXT_PUBLIC_SUPABASE_URL!,
+       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    27 │         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    28 │         { global: { headers: { Authorization: authHeader } } }
+  
+
+src/app/api/paystack/resolve/route.ts:27:9 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    25 │       const supabase = createSupabaseClient(
+    26 │         process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  > 27 │         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    28 │         { global: { headers: { Authorization: authHeader } } }
+    29 │       );
+  
+
+src/app/api/paystack/subaccount/route.ts:20:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    18 │     const { bankCode, accountNumber, businessName } = await request.json();
+    19 │     const authHeader = request.headers.get('Authorization');
+  > 20 │     let supabase: any;
+       │                   ^^^
+    21 │     let user: any;
+    22 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/paystack/subaccount/route.ts:21:15 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    19 │     const authHeader = request.headers.get('Authorization');
+    20 │     let supabase: any;
+  > 21 │     let user: any;
+       │               ^^^
+    22 │ 
+    23 │     if (authHeader) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/paystack/subaccount/route.ts:29:9 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    27 │       );
+    28 │       supabase = createSupabaseClient(
+  > 29 │         process.env.NEXT_PUBLIC_SUPABASE_URL!,
+       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    30 │         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    31 │         {
+  
+
+src/app/api/paystack/subaccount/route.ts:30:9 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    28 │       supabase = createSupabaseClient(
+    29 │         process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  > 30 │         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    31 │         {
+    32 │           global: { headers: { Authorization: authHeader } },
+  
+
+src/app/api/payments/webhook/route.ts:351:44 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━
+
+  × This variable merchantError is unused.
+  
+    349 │       try {
+    350 │         // 1. Fetch Merchant Details for Registration
+  > 351 │         const { data: merchantData, error: merchantError } = await supabase
+        │                                            ^^^^^^^^^^^^^
+    352 │           .from('merchants')
+    353 │           .select('*, users:user_id(first_name, last_name)') // simplified join syntax
   
   i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
   
-  i Unsafe fix: If this is intentional, prepend router with an underscore.
-  
-     11  11 │       const [message, setMessage] = useState<string | null>(null);
-     12  12 │       const [error, setError] = useState<string | null>(null);
-     13     │ - ····const·router·=·useRouter();
-         13 │ + ····const·_router·=·useRouter();
-     14  14 │       const supabase = createClient();
-     15  15 │   
-  
 
-src/app/(auth)/forgot-password/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/paystack/resolve/route.ts:19:9 lint/suspicious/noImplicitAnyLet ━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  × This variable implicitly has the any type.
   
-      7   7 │   
-      8   8 │   export default function ForgotPasswordPage() {
-      9     │ - ····const·[email,·setEmail]·=·useState('');
-     10     │ - ····const·[loading,·setLoading]·=·useState(false);
-     11     │ - ····const·[message,·setMessage]·=·useState<string·|·null>(null);
-     12     │ - ····const·[error,·setError]·=·useState<string·|·null>(null);
-     13     │ - ····const·router·=·useRouter();
-     14     │ - ····const·supabase·=·createClient();
-          9 │ + ··const·[email,·setEmail]·=·useState('');
-         10 │ + ··const·[loading,·setLoading]·=·useState(false);
-         11 │ + ··const·[message,·setMessage]·=·useState<string·|·null>(null);
-         12 │ + ··const·[error,·setError]·=·useState<string·|·null>(null);
-         13 │ + ··const·router·=·useRouter();
-         14 │ + ··const·supabase·=·createClient();
-     15  15 │   
-     16     │ - ····const·handleReset·=·async·(e:·React.FormEvent)·=>·{
-     17     │ - ········e.preventDefault();
-     18     │ - ········setLoading(true);
-     19     │ - ········setError(null);
-     20     │ - ········setMessage(null);
-         16 │ + ··const·handleReset·=·async·(e:·React.FormEvent)·=>·{
-         17 │ + ····e.preventDefault();
-         18 │ + ····setLoading(true);
-         19 │ + ····setError(null);
-         20 │ + ····setMessage(null);
-     21  21 │   
-     22     │ - ········try·{
-     23     │ - ············const·{·error·}·=·await·supabase.auth.resetPasswordForEmail(email,·{
-     24     │ - ················redirectTo:·`${window.location.origin}/auth/callback?next=/update-password`,
-     25     │ - ············});
-         22 │ + ····try·{
-         23 │ + ······const·{·error·}·=·await·supabase.auth.resetPasswordForEmail(email,·{
-         24 │ + ········redirectTo:·`${window.location.origin}/auth/callback?next=/update-password`,
-         25 │ + ······});
-     26  26 │   
-     27     │ - ············if·(error)·{
-     28     │ - ················throw·error;
-     29     │ - ············}
-         27 │ + ······if·(error)·{
-         28 │ + ········throw·error;
-         29 │ + ······}
-     30  30 │   
-     31     │ - ············setMessage('Check·your·email·for·the·password·reset·link');
-     32     │ - ········}·catch·(err:·any)·{
-     33     │ - ············setError(err.message);
-     34     │ - ········}·finally·{
-     35     │ - ············setLoading(false);
-     36     │ - ········}
-     37     │ - ····};
-         31 │ + ······setMessage('Check·your·email·for·the·password·reset·link');
-         32 │ + ····}·catch·(err:·any)·{
-         33 │ + ······setError(err.message);
-         34 │ + ····}·finally·{
-         35 │ + ······setLoading(false);
-         36 │ + ····}
-         37 │ + ··};
-     38  38 │   
-     39     │ - ····return·(
-     40     │ - ········<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-     41     │ - ············<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700">
-     42     │ - ················<div·className="text-center">
-     43     │ - ····················<h1·className="text-3xl·font-bold·text-gray-900·dark:text-white">Baci</h1>
-     44     │ - ····················<h2·className="mt-6·text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-gray-100">
-     45     │ - ························Reset·your·password
-     46     │ - ····················</h2>
-     47     │ - ····················<p·className="mt-2·text-sm·text-gray-600·dark:text-gray-400">
-     48     │ - ························Enter·your·email·address·and·we'll·send·you·a·link·to·reset·your·password.
-     49     │ - ····················</p>
-     50     │ - ················</div>
-         39 │ + ··return·(
-         40 │ + ····<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-         41 │ + ······<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700">
-         42 │ + ········<div·className="text-center">
-         43 │ + ··········<h1·className="text-3xl·font-bold·text-gray-900·dark:text-white">
-         44 │ + ············Baci
-         45 │ + ··········</h1>
-         46 │ + ··········<h2·className="mt-6·text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-gray-100">
-         47 │ + ············Reset·your·password
-         48 │ + ··········</h2>
-         49 │ + ··········<p·className="mt-2·text-sm·text-gray-600·dark:text-gray-400">
-         50 │ + ············Enter·your·email·address·and·we'll·send·you·a·link·to·reset·your
-         51 │ + ············password.
-         52 │ + ··········</p>
-         53 │ + ········</div>
-     51  54 │   
-     52     │ - ················<form·className="mt-8·space-y-6"·onSubmit={handleReset}>
-     53     │ - ····················{error·&&·(
-     54     │ - ························<div·className="rounded-md·bg-red-50·dark:bg-red-900/20·p-4·border·border-red-200·dark:border-red-900/50">
-     55     │ - ····························<div·className="flex">
-     56     │ - ································<div·className="text-sm·text-red-700·dark:text-red-400">{error}</div>
-     57     │ - ····························</div>
-     58     │ - ························</div>
-     59     │ - ····················)}
-         55 │ + ········<form·className="mt-8·space-y-6"·onSubmit={handleReset}>
-         56 │ + ··········{error·&&·(
-         57 │ + ············<div·className="rounded-md·bg-red-50·dark:bg-red-900/20·p-4·border·border-red-200·dark:border-red-900/50">
-         58 │ + ··············<div·className="flex">
-         59 │ + ················<div·className="text-sm·text-red-700·dark:text-red-400">
-         60 │ + ··················{error}
-         61 │ + ················</div>
-         62 │ + ··············</div>
-         63 │ + ············</div>
-         64 │ + ··········)}
-     60  65 │   
-     61     │ - ····················{message·&&·(
-     62     │ - ························<div·className="rounded-md·bg-green-50·dark:bg-green-900/20·p-4·border·border-green-200·dark:border-green-900/50">
-     63     │ - ····························<div·className="flex">
-     64     │ - ································<div·className="text-sm·text-green-700·dark:text-green-400">{message}</div>
-     65     │ - ····························</div>
-     66     │ - ························</div>
-     67     │ - ····················)}
-         66 │ + ··········{message·&&·(
-         67 │ + ············<div·className="rounded-md·bg-green-50·dark:bg-green-900/20·p-4·border·border-green-200·dark:border-green-900/50">
-         68 │ + ··············<div·className="flex">
-         69 │ + ················<div·className="text-sm·text-green-700·dark:text-green-400">
-         70 │ + ··················{message}
-         71 │ + ················</div>
-         72 │ + ··············</div>
-         73 │ + ············</div>
-         74 │ + ··········)}
-     68  75 │   
-     69     │ - ····················<div>
-     70     │ - ························<label·htmlFor="email-address"·className="sr-only">
-     71     │ - ····························Email·address
-     72     │ - ························</label>
-     73     │ - ························<input
-     74     │ - ····························id="email-address"
-     75     │ - ····························name="email"
-     76     │ - ····························type="email"
-     77     │ - ····························autoComplete="email"
-     78     │ - ····························required
-     79     │ - ····························value={email}
-     80     │ - ····························onChange={(e)·=>·setEmail(e.target.value)}
-     81     │ - ····························className="relative·block·w-full·rounded-md·border-0·py-3·text-gray-900·dark:text-white·dark:bg-zinc-900·ring-1·ring-inset·ring-gray-300·dark:ring-zinc-700·placeholder:text-gray-400·focus:z-10·focus:ring-2·focus:ring-inset·focus:ring-yellow-500·sm:text-sm·sm:leading-6·px-4·shadow-sm"
-     82     │ - ····························placeholder="Email·address"
-     83     │ - ························/>
-     84     │ - ····················</div>
-         76 │ + ··········<div>
-         77 │ + ············<label·htmlFor="email-address"·className="sr-only">
-         78 │ + ··············Email·address
-         79 │ + ············</label>
-         80 │ + ············<input
-         81 │ + ··············id="email-address"
-         82 │ + ··············name="email"
-         83 │ + ··············type="email"
-         84 │ + ··············autoComplete="email"
-         85 │ + ··············required
-         86 │ + ··············value={email}
-         87 │ + ··············onChange={(e)·=>·setEmail(e.target.value)}
-         88 │ + ··············className="relative·block·w-full·rounded-md·border-0·py-3·text-gray-900·dark:text-white·dark:bg-zinc-900·ring-1·ring-inset·ring-gray-300·dark:ring-zinc-700·placeholder:text-gray-400·focus:z-10·focus:ring-2·focus:ring-inset·focus:ring-yellow-500·sm:text-sm·sm:leading-6·px-4·shadow-sm"
-  46 more lines truncated
-  
-
-src/app/(auth)/signup/actions.ts:38:9 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━━━━━━━━
-
-  × This variable redirectTo is unused.
-  
-    37 │   const { email, password } = validatedFields.data;
-  > 38 │   const redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
-       │         ^^^^^^^^^^
-    39 │ 
-    40 │   // 2. Create Supabase client
-  
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
-  
-  i Unsafe fix: If this is intentional, prepend redirectTo with an underscore.
-  
-    36 36 │   
-    37 37 │     const { email, password } = validatedFields.data;
-    38    │ - ··const·redirectTo·=·(formData.get('redirectTo')·as·string)·||·'/dashboard';
-       38 │ + ··const·_redirectTo·=·(formData.get('redirectTo')·as·string)·||·'/dashboard';
-    39 39 │   
-    40 40 │     // 2. Create Supabase client
-  
-
-src/app/(auth)/update-password/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-    1 │ 'use client';
-    2 │ 
-  > 3 │ import { useState, useEffect } from 'react';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    4 │ import { createClient } from '@/lib/supabase/client';
-    5 │ import { useRouter } from 'next/navigation';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      1   1 │   'use client';
-      2   2 │   
-      3     │ - import·{·useState,·useEffect·}·from·'react';
-      4     │ - import·{·createClient·}·from·'@/lib/supabase/client';
-      5     │ - import·{·useRouter·}·from·'next/navigation';
-      6     │ - import·Link·from·'next/link';
-          3 │ + import·Link·from·'next/link';
-          4 │ + import·{·useRouter·}·from·'next/navigation';
-          5 │ + import·{·useEffect,·useState·}·from·'react';
-          6 │ + import·{·createClient·}·from·'@/lib/supabase/client';
-      7   7 │   
-      8   8 │   export default function UpdatePasswordPage() {
-  
-
-src/app/(auth)/update-password/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-      7   7 │   
-      8   8 │   export default function UpdatePasswordPage() {
-      9     │ - ····const·[password,·setPassword]·=·useState('');
-     10     │ - ····const·[loading,·setLoading]·=·useState(false);
-     11     │ - ····const·[error,·setError]·=·useState<string·|·null>(null);
-     12     │ - ····const·[success,·setSuccess]·=·useState(false);
-     13     │ - ····const·router·=·useRouter();
-     14     │ - ····const·supabase·=·createClient();
-          9 │ + ··const·[password,·setPassword]·=·useState('');
-         10 │ + ··const·[loading,·setLoading]·=·useState(false);
-         11 │ + ··const·[error,·setError]·=·useState<string·|·null>(null);
-         12 │ + ··const·[success,·setSuccess]·=·useState(false);
-         13 │ + ··const·router·=·useRouter();
-         14 │ + ··const·supabase·=·createClient();
-     15  15 │   
-     16     │ - ····const·handleUpdate·=·async·(e:·React.FormEvent)·=>·{
-     17     │ - ········e.preventDefault();
-     18     │ - ········setLoading(true);
-     19     │ - ········setError(null);
-         16 │ + ··const·handleUpdate·=·async·(e:·React.FormEvent)·=>·{
-         17 │ + ····e.preventDefault();
-         18 │ + ····setLoading(true);
-         19 │ + ····setError(null);
-     20  20 │   
-     21     │ - ········try·{
-     22     │ - ············const·{·error·}·=·await·supabase.auth.updateUser({
-     23     │ - ················password:·password
-     24     │ - ············});
-         21 │ + ····try·{
-         22 │ + ······const·{·error·}·=·await·supabase.auth.updateUser({
-         23 │ + ········password:·password,
-         24 │ + ······});
-     25  25 │   
-     26     │ - ············if·(error)·{
-     27     │ - ················throw·error;
-     28     │ - ············}
-         26 │ + ······if·(error)·{
-         27 │ + ········throw·error;
-         28 │ + ······}
-     29  29 │   
-     30     │ - ············setSuccess(true);
-     31     │ - ············//·Optional:·Redirect·after·a·few·seconds
-     32     │ - ············setTimeout(()·=>·{
-     33     │ - ················router.push('/login');
-     34     │ - ············},·3000);
-     35     │ - 
-     36     │ - ········}·catch·(err:·any)·{
-     37     │ - ············setError(err.message);
-     38     │ - ········}·finally·{
-     39     │ - ············setLoading(false);
-     40     │ - ········}
-     41     │ - ····};
-         30 │ + ······setSuccess(true);
-         31 │ + ······//·Optional:·Redirect·after·a·few·seconds
-         32 │ + ······setTimeout(()·=>·{
-         33 │ + ········router.push('/login');
-         34 │ + ······},·3000);
-         35 │ + ····}·catch·(err:·any)·{
-         36 │ + ······setError(err.message);
-         37 │ + ····}·finally·{
-         38 │ + ······setLoading(false);
-         39 │ + ····}
-         40 │ + ··};
-     42  41 │   
-     43     │ - ····if·(success)·{
-     44     │ - ········return·(
-     45     │ - ············<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-     46     │ - ················<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700·text-center">
-     47     │ - ····················<div·className="mx-auto·flex·h-16·w-16·items-center·justify-center·rounded-full·bg-green-100·dark:bg-green-900/30·mb-6">
-     48     │ - ························<svg·className="h-10·w-10·text-green-600·dark:text-green-500"·fill="none"·viewBox="0·0·24·24"·strokeWidth="2"·stroke="currentColor"·aria-hidden="true">
-     49     │ - ····························<path·strokeLinecap="round"·strokeLinejoin="round"·d="M4.5·12.75l6·6·9-13.5"·/>
-     50     │ - ························</svg>
-     51     │ - ····················</div>
-     52     │ - ····················<h2·className="text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-white">
-     53     │ - ························Password·Updated!
-     54     │ - ····················</h2>
-     55     │ - ····················<p·className="mt-2·text-base·text-gray-600·dark:text-gray-400">
-     56     │ - ························Your·password·has·been·changed·successfully.·You·will·be·redirected·to·the·login·page·shortly.
-     57     │ - ····················</p>
-     58     │ - ····················<div·className="mt-8">
-     59     │ - ························<Link·href="/login"·className="text-sm·font-semibold·text-[#23255d]·dark:text-yellow-500·hover:text-opacity-80">
-     60     │ - ····························Go·to·Login·&rarr;
-     61     │ - ························</Link>
-     62     │ - ····················</div>
-     63     │ - ················</div>
-     64     │ - ············</div>
-     65     │ - ········);
-     66     │ - ····}
-         42 │ + ··if·(success)·{
-         43 │ + ····return·(
-         44 │ + ······<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-         45 │ + ········<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700·text-center">
-         46 │ + ··········<div·className="mx-auto·flex·h-16·w-16·items-center·justify-center·rounded-full·bg-green-100·dark:bg-green-900/30·mb-6">
-         47 │ + ············<svg
-         48 │ + ··············className="h-10·w-10·text-green-600·dark:text-green-500"
-         49 │ + ··············fill="none"
-         50 │ + ··············viewBox="0·0·24·24"
-         51 │ + ··············strokeWidth="2"
-         52 │ + ··············stroke="currentColor"
-         53 │ + ··············aria-hidden="true"
-         54 │ + ············>
-         55 │ + ··············<path
-         56 │ + ················strokeLinecap="round"
-         57 │ + ················strokeLinejoin="round"
-         58 │ + ················d="M4.5·12.75l6·6·9-13.5"
-         59 │ + ··············/>
-         60 │ + ············</svg>
-         61 │ + ··········</div>
-         62 │ + ··········<h2·className="text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-white">
-         63 │ + ············Password·Updated!
-         64 │ + ··········</h2>
-         65 │ + ··········<p·className="mt-2·text-base·text-gray-600·dark:text-gray-400">
-         66 │ + ············Your·password·has·been·changed·successfully.·You·will·be·redirected
-         67 │ + ············to·the·login·page·shortly.
-         68 │ + ··········</p>
-         69 │ + ··········<div·className="mt-8">
-         70 │ + ············<Link
-         71 │ + ··············href="/login"
-         72 │ + ··············className="text-sm·font-semibold·text-[#23255d]·dark:text-yellow-500·hover:text-opacity-80"
-         73 │ + ············>
-         74 │ + ··············Go·to·Login·&rarr;
-         75 │ + ············</Link>
-         76 │ + ··········</div>
-         77 │ + ········</div>
-         78 │ + ······</div>
-         79 │ + ····);
-         80 │ + ··}
-     67  81 │   
-     68     │ - ····return·(
-     69     │ - ········<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-     70     │ - ············<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700">
-     71     │ - ················<div·className="text-center">
-     72     │ - ····················<h1·className="text-3xl·font-bold·text-gray-900·dark:text-white">Baci</h1>
-     73     │ - ····················<h2·className="mt-6·text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-gray-100">
-     74     │ - ························Set·new·password
-     75     │ - ····················</h2>
-     76     │ - ····················<p·className="mt-2·text-sm·text-gray-600·dark:text-gray-400">
-     77     │ - ························Please·enter·a·new·password·for·your·account.
-     78     │ - ····················</p>
-     79     │ - ················</div>
-         82 │ + ··return·(
-         83 │ + ····<div·className="flex·min-h-screen·flex-col·items-center·justify-center·py-12·px-4·sm:px-6·lg:px-8·bg-gray-50·dark:bg-zinc-900">
-         84 │ + ······<div·className="w-full·max-w-md·space-y-8·bg-white·dark:bg-zinc-800·p-10·rounded-xl·shadow-sm·border·border-gray-100·dark:border-zinc-700">
-         85 │ + ········<div·className="text-center">
-         86 │ + ··········<h1·className="text-3xl·font-bold·text-gray-900·dark:text-white">
-         87 │ + ············Baci
-         88 │ + ··········</h1>
-         89 │ + ··········<h2·className="mt-6·text-2xl·font-bold·tracking-tight·text-gray-900·dark:text-gray-100">
-         90 │ + ············Set·new·password
-         91 │ + ··········</h2>
-  87 more lines truncated
-  
-
-src/app/(auth)/verify/page.tsx:2:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-  > 2 │ import { Suspense } from 'react';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    3 │ import type { Metadata } from 'next';
-    4 │ import VerifyForm from '@/components/auth/verify-form';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-     1  1 │   
-     2    │ - import·{·Suspense·}·from·'react';
-        2 │ + import·{·Loader2·}·from·'lucide-react';
-     3  3 │   import type { Metadata } from 'next';
-     4    │ - import·VerifyForm·from·'@/components/auth/verify-form';
-     5    │ - import·{·Loader2·}·from·'lucide-react';
-        4 │ + import·{·Suspense·}·from·'react';
-        5 │ + import·VerifyForm·from·'@/components/auth/verify-form';
-     6  6 │   
-     7  7 │   export const metadata: Metadata = {
-  
-
-src/app/(auth)/verify/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     1    │ - 
-     2  1 │   import { Suspense } from 'react';
-     3  2 │   import type { Metadata } from 'next';
-    ····· │ 
-     6  5 │   
-     7  6 │   export const metadata: Metadata = {
-     8    │ - ····title:·'Verify·Email·-·Baci',
-     9    │ - ····description:·'Verify·your·email·address·to·secure·your·account.',
-        7 │ + ··title:·'Verify·Email·-·Baci',
-        8 │ + ··description:·'Verify·your·email·address·to·secure·your·account.',
-    10  9 │   };
-    11 10 │   
-    12 11 │   export default function VerifyPage() {
-    13    │ - ····return·(
-    14    │ - ········<Suspense
-    15    │ - ············fallback={
-    16    │ - ················<div·className="flex·min-h-screen·items-center·justify-center·bg-background">
-    17    │ - ····················<Loader2·className="h-8·w-8·animate-spin·text-primary"·/>
-    18    │ - ················</div>
-    19    │ - ············}
-    20    │ - ········>
-    21    │ - ············<VerifyForm·/>
-    22    │ - ········</Suspense>
-    23    │ - ····);
-       12 │ + ··return·(
-       13 │ + ····<Suspense
-       14 │ + ······fallback={
-       15 │ + ········<div·className="flex·min-h-screen·items-center·justify-center·bg-background">
-       16 │ + ··········<Loader2·className="h-8·w-8·animate-spin·text-primary"·/>
-       17 │ + ········</div>
-       18 │ + ······}
-       19 │ + ····>
-       20 │ + ······<VerifyForm·/>
-       21 │ + ····</Suspense>
-       22 │ + ··);
-    24 23 │   }
-    25 24 │   
-  
-
-src/app/(storefront)/[slug]/[category]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    170 170 │       const fallbackConfig = !defaultConfig
-    171 171 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-    172     │ - ········normalizedSlug.includes(key)
-    173     │ - ······)?.[1]
-        172 │ + ··········normalizedSlug.includes(key)
-        173 │ + ········)?.[1]
-    174 174 │         : null;
-    175 175 │   
-    ······· │ 
-    317 317 │         ...(products.length > 0 &&
-    318 318 │           products[0].images?.[0] && {
-    319     │ - ········images:·[
-    320     │ - ··········{
-    321     │ - ············url:·products[0].images[0]·as·unknown·as·string,
-    322     │ - ············alt:·categoryData.name,
-    323     │ - ··········},
-    324     │ - ········],
-    325     │ - ······}),
-        319 │ + ··········images:·[
-        320 │ + ············{
-        321 │ + ··············url:·products[0].images[0]·as·unknown·as·string,
-        322 │ + ··············alt:·categoryData.name,
-        323 │ + ············},
-        324 │ + ··········],
-        325 │ + ········}),
-    326 326 │       },
-    327 327 │       twitter: {
-  
-
-src/app/(storefront)/[slug]/layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    116 116 │       faviconSvg || faviconPng32 || faviconAppleTouch
-    117 117 │         ? {
-    118     │ - ········icon:·[
-    119     │ - ··········...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
-    120     │ - ··········...(faviconPng32
-    121     │ - ············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
-    122     │ - ············:·[]),
-    123     │ - ········].filter(Boolean),
-    124     │ - ········apple:·faviconAppleTouch
-    125     │ - ··········?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
-    126     │ - ··········:·undefined,
-    127     │ - ······}
-        118 │ + ··········icon:·[
-        119 │ + ············...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
-        120 │ + ············...(faviconPng32
-        121 │ + ··············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
-        122 │ + ··············:·[]),
-        123 │ + ··········].filter(Boolean),
-        124 │ + ··········apple:·faviconAppleTouch
-        125 │ + ············?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
-        126 │ + ············:·undefined,
-        127 │ + ········}
-    128 128 │         : merchant.logo_url
-    129 129 │           ? {
-    130     │ - ··········icon:·[{·url:·merchant.logo_url·}],
-    131     │ - ··········apple:·[{·url:·merchant.logo_url·}],
-    132     │ - ········}
-        130 │ + ············icon:·[{·url:·merchant.logo_url·}],
-        131 │ + ············apple:·[{·url:·merchant.logo_url·}],
-        132 │ + ··········}
-    133 133 │           : undefined;
-    134 134 │   
-    ······· │ 
-    147 147 │       verification: verificationCode
-    148 148 │         ? {
-    149     │ - ········google:·verificationCode,
-    150     │ - ······}
-        149 │ + ··········google:·verificationCode,
-        150 │ + ········}
-    151 151 │         : undefined,
-    152 152 │       openGraph: {
-  
-
-src/app/api/domains/check-availability/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-  > 1 │ import { authenticateApiRequest } from '@/lib/api-auth';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    17 │     // Auth Check (Support both Cookie and Bearer Token)
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-    2 │ import { NextResponse } from 'next/server';
-Diagnostics not shown: 107.
-Checked 798 files in 643ms. No fixes applied.
-Found 67 errors.
-Found 60 warnings.
-    3 │ import { type DomainPricing, getResalePrice } from '@/config/domain-pricing';
+Diagnostics not shown: 28.
+Checked 797 files in 585ms. No fixes applied.
+    18 │     const authHeader = request.headers.get('Authorization');
+Found 11 errors.
+  > 19 │     let user;
+Found 37 warnings.
+       │         ^^^^
+    20 │ 
+    21 │     if (authHeader) {
   
-  i Safe fix: Organize Imports (Biome)
-  
-      1     │ - import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
-      2     │ - import·{·NextResponse·}·from·'next/server';
-      3     │ - import·{·type·DomainPricing,·getResalePrice·}·from·'@/config/domain-pricing';
-          1 │ + import·{·NextResponse·}·from·'next/server';
-          2 │ + import·{·type·DomainPricing,·getResalePrice·}·from·'@/config/domain-pricing';
-          3 │ + import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
-      4   4 │   import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
-      5   5 │   
+  i Variable declarations without type annotation and initialization implicitly have the any type. Declare a type or initialize the variable with some value.
   
 
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
