@@ -252,7 +252,7 @@ export function SettingsForm({
       // But standard Next.js router might need a refresh signal.
       // Actually, since we updated the hook to 'no-store', standard navigation or refetch logic will see it.
     } catch (error) {
-    } catch (error) {
+
       // Revert on error
       setBlogEnabled(!enabled);
       logger.error({

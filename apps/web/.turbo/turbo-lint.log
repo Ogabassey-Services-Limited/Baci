@@ -165,6 +165,17 @@ src/app/(storefront)/[slug]/storefront-wrapper.tsx:58:3 lint/correctness/useExha
     103 │ ··},·[merchant?.template_id,·loading,·merchant?.business_type]);
         │                                     +++++++++++++++++++++++++   
 
+src/app/api/domains/initialize-payment/route.ts:20:52 suppressions/incorrect ━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! A suppression shouldn't have an <explanation> placeholder. Example of suppression: // biome-ignore lint: false positive
+  
+    19 │     // Authenticate request (supports mobile Bearer token + web cookies)
+  > 20 │     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+       │                                                    ^^^^^^^^^^^^^
+    21 │     const { user, error: authError } = await authenticateApiRequest(request as any);
+    22 │ 
+  
+
 src/app/(auth)/forgot-password/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━
 
   × The imports and exports are not sorted.
@@ -756,50 +767,14 @@ src/app/api/domains/[domain]/route.ts:1:1 assist/source/organizeImports  FIXABLE
      11  11 │   import { vercel } from '@/lib/vercel';
   
 
-src/schemas/onboarding.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     15  15 │       .min(1, { message: 'Please select a business type.' }),
-     16  16 │     otherBusinessType: z.string().trim().optional(),
-     17     │ - ··slug:·z.string().trim().min(3,·{·message:·'Store·link·must·be·at·least·3·characters.'·}).optional(),
-         17 │ + ··slug:·z
-         18 │ + ····.string()
-         19 │ + ····.trim()
-         20 │ + ····.min(3,·{·message:·'Store·link·must·be·at·least·3·characters.'·})
-         21 │ + ····.optional(),
-     18  22 │   });
-     19  23 │   
-    ······· │ 
-     46  50 │       .trim()
-     47  51 │       .min(1, { message: 'Logo is required. Please upload or generate one.' }),
-     48     │ - ··brandColors:·z.string().trim().min(1,·{·message:·'Brand·colors·are·required.'·}),
-         52 │ + ··brandColors:·z
-         53 │ + ····.string()
-         54 │ + ····.trim()
-         55 │ + ····.min(1,·{·message:·'Brand·colors·are·required.'·}),
-     49  56 │     brandPreferences: z.string().trim().optional(),
-     50  57 │   });
-    ······· │ 
-     54  61 │    */
-     55  62 │   const step3BaseSchema = z.object({
-     56     │ - ··email:·z.string().trim().email({·message:·'Please·enter·a·valid·email·address.'·}),
-         63 │ + ··email:·z
-         64 │ + ····.string()
-         65 │ + ····.trim()
-         66 │ + ····.email({·message:·'Please·enter·a·valid·email·address.'·}),
-     57  67 │     password: z.string().optional(),
-     58  68 │     confirmPassword: z.string().optional(),
-  
-
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 106.
+Checked 796 files in 833ms. No fixes applied.
+Found 71 errors.
+Found 55 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.
   
 
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 94.
-Checked 796 files in 1272ms. No fixes applied.
-Found 60 errors.
-Found 54 warnings.
  ELIFECYCLE  Command failed with exit code 1.
