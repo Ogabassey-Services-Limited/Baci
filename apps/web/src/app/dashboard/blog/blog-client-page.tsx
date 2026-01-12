@@ -130,11 +130,7 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   }, [merchant?.id, statusFilter, debouncedSearch, toast]);
 
   useEffect(() => {
-    if (blogEnabled) {
-      fetchPosts();
-    } else {
-      setIsLoading(false);
-    }
+    fetchPosts();
   }, [fetchPosts]);
 
   const handleDelete = async () => {
