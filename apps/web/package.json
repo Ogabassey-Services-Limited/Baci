@@ -78,6 +78,7 @@
     "framer-motion": "^12.23.26",
     "fuse.js": "^7.0.0",
     "iconoir-react": "^7.11.0",
+    "input-otp": "^1.4.2",
     "isomorphic-dompurify": "^2.34.0",
     "jimp": "^1.6.0",
     "jspdf": "^4.0.0",

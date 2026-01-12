@@ -9,7 +9,11 @@ import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
-import { getTemplate, type TemplatePageProps } from '@/templates/registry';
+import {
+  getTemplate,
+  getTemplateIdByBusinessType,
+  type TemplatePageProps,
+} from '@/templates/registry';
 
 const DynamicPuckStorefront = dynamic(
   () =>
@@ -55,10 +59,19 @@ export function StorefrontWrapper({
     const loadTemplate = async () => {
       if (loading) return;
 
-      const templateId = merchant?.template_id;
+      let templateId = merchant?.template_id;
 
-      // If no template_id or it's 'default' or 'puck', use Puck storefront
-      if (!templateId || templateId === 'default' || templateId === 'puck') {
+      // If no template_id or it's 'default', use business_type fallback
+      if (!templateId || templateId === 'default') {
+        const fallbackId = getTemplateIdByBusinessType(merchant?.business_type);
+        console.log(
+          `No template_id set for "${merchant?.business_name}", using business_type fallback: ${fallbackId}`
+        );
+        templateId = fallbackId;
+      }
+
+      // If it's explicitly 'puck', use Puck storefront
+      if (templateId === 'puck') {
         setTemplateHome(null);
         setTemplateLoading(false);
         return;

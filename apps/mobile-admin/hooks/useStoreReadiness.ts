@@ -26,7 +26,7 @@ export function useStoreReadiness() {
                     label: 'Verify your identity (KYC)',
                     description: 'NIN, BVN, or CAC required for payments',
                     completed: !!(merchant.nin || merchant.bvn || merchant.cac_rc_number),
-                    href: '/store-settings', // TODO: Deep link to KYC section if possible
+                    href: '/kyc',
                     priority: 'required',
                     category: 'payments',
                 },
@@ -39,7 +39,7 @@ export function useStoreReadiness() {
                         merchant.bank_account_number &&
                         merchant.paystack_subaccount_code
                     ),
-                    href: '/payment-methods',
+                    href: '/payout-settings',
                     priority: 'required',
                     category: 'payments',
                 },
@@ -87,7 +87,7 @@ export function useStoreReadiness() {
                     description: 'Add eye-catching banners to your homepage',
                     // @ts-ignore - hero_slides might be explicitly typed or strictly array
                     completed: Array.isArray(merchant.hero_slides) && merchant.hero_slides.length > 0,
-                    href: '/store-settings',
+                    href: '/customize',
                     priority: 'recommended',
                     category: 'marketing',
                 },
@@ -103,7 +103,7 @@ export function useStoreReadiness() {
                         merchant.social_media?.twitter ||
                         merchant.social_media?.tiktok
                     ),
-                    href: '/store-settings',
+                    href: '/social-media',
                     priority: 'optional',
                     category: 'marketing',
                 },
@@ -118,7 +118,7 @@ export function useStoreReadiness() {
                         merchant.snapchat_pixel_id ||
                         merchant.twitter_pixel_id
                     ),
-                    href: '/store-settings', // Redirects to settings where analytics keys are
+                    href: '/analytics-config', // Redirects to settings where analytics keys are
                     priority: 'optional',
                     category: 'marketing',
                 },

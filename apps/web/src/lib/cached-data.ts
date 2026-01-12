@@ -1,10 +1,13 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
+import { z } from 'zod';
+import { FeatureSettingsSchema } from '@/lib/schemas';
 import {
   getSupabaseAnonKey,
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
+
 
 /**
  * Create a Supabase client for cached queries.
@@ -27,6 +30,37 @@ function getPublicSupabaseClient() {
     global: {
       headers: {
         'X-Client-Info': 'baci-web-cached',
+      },
+      fetch: (url, options = {}) => {
+        return fetch(url, {
+          ...options,
+          signal: AbortSignal.timeout(10000), // 10 second timeout
+        });
+      },
+    },
+  });
+}
+
+/**
+ * Create a Supabase client with Service Role for privileged cached queries.
+ * Bypasses RLS to ensure we can fetch unpublished merchants for "Coming Soon" pages.
+ */
+function getServiceRoleSupabaseClient() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey();
+
+  if (!url || !key) {
+    throw new Error('Supabase configuration is missing');
+  }
+
+  return createSupabaseClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'baci-web-cached-service',
       },
       fetch: (url, options = {}) => {
         return fetch(url, {
@@ -92,6 +126,7 @@ export interface CachedMerchant {
   favicon_svg_url?: string;
   favicon_png_32_url?: string;
   favicon_apple_touch_url?: string;
+  feature_settings?: any;
 }
 
 /**
@@ -100,7 +135,7 @@ export interface CachedMerchant {
  */
 export const getCachedMerchant = unstable_cache(
   async (slug: string): Promise<CachedMerchant | null> => {
-    const supabase = getPublicSupabaseClient();
+    const supabase = getServiceRoleSupabaseClient();
 
     const { data, error } = await supabase
       .from('merchants')
@@ -121,15 +156,14 @@ export const getCachedMerchant = unstable_cache(
         payout_currency,
         is_published,
         template_id,
-        template_id,
         plan_tier,
         premium_features,
-        country,
         country,
         hero_slides,
         favicon_svg_url,
         favicon_png_32_url,
-        favicon_apple_touch_url
+        favicon_apple_touch_url,
+        feature_settings:merchant_feature_settings(*)
       `)
       .eq('slug', slug)
       .maybeSingle();
@@ -147,6 +181,12 @@ export const getCachedMerchant = unstable_cache(
       return null;
     }
 
+    if (data) {
+      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+      const settings = data.feature_settings;
+      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+    }
+
     if (!data) {
       const safeSlug = String(slug || '')
         .replace(/[\r\n]/g, '')
@@ -161,6 +201,13 @@ export const getCachedMerchant = unstable_cache(
 
     // Fetch primary domain
     if (data) {
+      // SECURITY: If the store is NOT published, mask sensitive contact info.
+      if (!data.is_published) {
+        data.email = ''; // Redacted
+        data.phone = ''; // Redacted
+        data.business_address = ''; // Redacted
+      }
+
       const { data: primaryDomain } = await supabase
         .from('domains')
         .select('domain')
@@ -197,8 +244,8 @@ export const getCachedMerchant = unstable_cache(
 export const getCachedMerchantByDomain = unstable_cache(
   async (domain: string): Promise<CachedMerchant | null> => {
     const normalizedDomain = domain.toLowerCase();
-    // Reverted to public client as RLS policy now permits anonymous reads
-    const supabase = getPublicSupabaseClient();
+    // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page)
+    const supabase = getServiceRoleSupabaseClient();
 
     // First, find the merchant_id from the domains table
     const { data: domainData, error: domainError } = await supabase
@@ -239,11 +286,11 @@ export const getCachedMerchantByDomain = unstable_cache(
         plan_tier,
         premium_features,
         country,
-        country,
         hero_slides,
         favicon_svg_url,
         favicon_png_32_url,
-        favicon_apple_touch_url
+        favicon_apple_touch_url,
+        feature_settings:merchant_feature_settings(*)
       `)
       .eq('id', domainData.merchant_id)
       .single();
@@ -254,6 +301,12 @@ export const getCachedMerchantByDomain = unstable_cache(
         error: error,
       });
       return null;
+    }
+
+    if (data) {
+      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+      const settings = data.feature_settings;
+      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
     }
 
     if (!data) {
@@ -268,6 +321,15 @@ export const getCachedMerchantByDomain = unstable_cache(
       slug: data.slug,
       merchantId: data.id,
     });
+
+    // SECURITY: If the store is NOT published, mask sensitive contact info.
+    // This allows the "Coming Soon" page to render the business name/logo
+    // without leaking the owner's private phone/email/address to the public.
+    if (data && !data.is_published) {
+      data.email = ''; // Redacted
+      data.phone = ''; // Redacted
+      data.business_address = ''; // Redacted
+    }
 
     // Return with the custom_domain set
     return { ...data, custom_domain: domainData.domain };
@@ -918,35 +980,47 @@ export const getCachedPlatformAnalytics = unstable_cache(
  * Cached merchant feature settings
  * Uses service role to bypass RLS since settings are public-facing configuration
  */
-export const getCachedFeatureSettings = unstable_cache(
-  async (merchantId: string) => {
-    try {
-      const supabase = getServiceSupabaseClient();
+export const getCachedFeatureSettings = async (merchantId: string) => {
+  return unstable_cache(
+    async () => {
+      try {
+        const supabase = getServiceSupabaseClient();
 
-      const { data, error } = await supabase
-        .from('merchant_feature_settings')
-        .select('blog_enabled')
-        .eq('merchant_id', merchantId)
-        .single();
+        const { data, error } = await supabase
+          .from('merchant_feature_settings')
+          .select('blog_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default')
+          .eq('merchant_id', merchantId)
+          .single();
 
-      if (error) {
-        // If no settings found, default to disabled
-        return { blog_enabled: false };
+        if (error) {
+          // If no settings found, default to disabled
+          return {
+            blog_enabled: false,
+            shipping_insurance_enabled: false,
+            shipping_insurance_min_order_value: 5000,
+            shipping_insurance_opt_in_default: false
+          };
+        }
+
+        return data;
+      } catch (error) {
+        console.error('Error fetching feature settings:', error);
+        // Fallback to disabled on crash (e.g. missing service key)
+        return {
+          blog_enabled: false,
+          shipping_insurance_enabled: false,
+          shipping_insurance_min_order_value: 5000,
+          shipping_insurance_opt_in_default: false
+        };
       }
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching feature settings:', error);
-      // Fallback to disabled on crash (e.g. missing service key)
-      return { blog_enabled: false };
+    },
+    ['feature-settings', merchantId],
+    {
+      revalidate: 300, // 5 minutes
+      tags: [`features-${merchantId}`],
     }
-  },
-  ['feature-settings'],
-  {
-    revalidate: 300, // 5 minutes
-    tags: ['features'],
-  }
-);
+  )();
+};
 
 /**
  * Cached blog post with related posts

@@ -184,11 +184,21 @@ export async function POST(request: Request) {
     // Check if domain already exists
     const { data: existingDomain } = await supabase
       .from('domains')
-      .select('id')
+      .select('id, merchant_id')
       .eq('domain', domain)
       .single();
 
     if (existingDomain) {
+      if (existingDomain.merchant_id === merchant.id) {
+        // Domain already registered to this merchant - likely handled by webhook
+        return NextResponse.json({
+          success: true,
+          domain: existingDomain,
+          message: `Successfully verified ${domain}`,
+          nextSteps: ['Domain is active'],
+        });
+      }
+
       return NextResponse.json(
         { error: 'This domain is already registered' },
         { status: 409 }

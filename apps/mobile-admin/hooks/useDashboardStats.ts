@@ -330,7 +330,13 @@ async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<
     }>();
 
     for (const item of orderItems) {
-      const product = item.products as { id: string; name: string; price: number; images: string[] };
+      // Handle potential array or single object from join
+      const productRaw = item.products;
+      if (!productRaw) continue;
+
+      const product = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; price: number; images: string[] };
+      if (!product?.id) continue;
+
       const existing = productMap.get(product.id);
       if (existing) {
         existing.totalSold += item.quantity || 1;

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { generateReport, ReportType } from './ReportsGenerator';
-import { AnalyticsData } from '../../app/(tabs)/analytics';
+import { AnalyticsData } from '../../app/analytics';
 
 const COLORS = {
     primary: '#000000',

@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import '../global.css';
 import {
   Inter_400Regular,
   Inter_500Medium,

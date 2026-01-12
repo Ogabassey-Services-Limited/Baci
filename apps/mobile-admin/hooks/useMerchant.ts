@@ -21,6 +21,28 @@ export interface Merchant {
   vat_registration_status: 'not_registered' | 'registered' | 'exempt' | 'pending' | null;
   vat_rate: number | null;
   payout_currency: string | null;
+  country: string | null;
+  bank_code: string | null;
+  bank_account_number: string | null;
+  paystack_subaccount_code: string | null;
+  nin: string | null;
+  bvn: string | null;
+  cac_rc_number: string | null;
+  support_email: string | null;
+  support_phone: string | null;
+  business_address: string | null;
+  social_media: {
+    instagram?: string;
+    facebook?: string;
+    twitter?: string;
+    tiktok?: string;
+  } | null;
+  google_analytics_id: string | null;
+  facebook_pixel_id: string | null;
+  tiktok_pixel_id: string | null;
+  snapchat_pixel_id: string | null;
+  twitter_pixel_id: string | null;
+  hero_slides: any[] | null;
   brand_colors?: {
     primary: string;
     background: string;
@@ -50,7 +72,14 @@ async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant |
   // Fetch merchant by authenticated user ID
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, vat_registration_status, vat_rate, payout_currency, brand_colors')
+    .select(`
+      id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, 
+      vat_registration_status, vat_rate, payout_currency, brand_colors,
+      country, bank_code, bank_account_number, paystack_subaccount_code,
+      nin, bvn, cac_rc_number, support_email, support_phone, business_address,
+      social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, 
+      snapchat_pixel_id, twitter_pixel_id, hero_slides
+    `)
     .eq('user_id', userId)
     .single();
 
@@ -70,7 +99,7 @@ async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant |
   if (merchant) {
     const { data: domain, error: domainError } = await supabase
       .from('domains')
-      .select('id, domain, is_primary, status')
+      .select('id, domain, is_primary, status, domain_type')
       .eq('merchant_id', merchant.id)
       .eq('is_primary', true)
       .eq('status', 'active')
@@ -114,4 +143,5 @@ export function useMerchant(): MerchantData {
     error: error as Error | null,
   };
 }
+
 

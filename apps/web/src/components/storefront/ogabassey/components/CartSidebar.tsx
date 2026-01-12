@@ -335,50 +335,55 @@ export const CartSidebar: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Ogabassey Assurance Toggle */}
-                          <div className="mt-4 pt-3 border-t border-gray-50">
-                            <label className="flex items-start gap-2 cursor-pointer group">
-                              <div className="relative flex items-center mt-0.5">
-                                <input
-                                  type="checkbox"
-                                  checked={item.hasAssurance || false}
-                                  onChange={() =>
-                                    toggleAssurance?.(item.cartItemId)
-                                  }
-                                  className="peer sr-only"
-                                />
-                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex justify-between items-center">
-                                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                                    <ShieldCheck
-                                      size={12}
-                                      className="text-red-600"
-                                    />
-                                    Ogabassey Assurance
-                                  </span>
-                                  {item.hasAssurance && (
-                                    <span className="text-xs font-bold text-gray-900">
-                                      +₦{assuranceCost.toLocaleString()}
-                                    </span>
-                                  )}
+                          {/* Assurance/Insurance Toggle */}
+                          {merchant?.feature_settings?.shipping_insurance_enabled && (
+                            <div className="mt-4 pt-3 border-t border-gray-50">
+                              <label className="flex items-start gap-2 cursor-pointer group">
+                                <div className="relative flex items-center mt-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.hasAssurance || false}
+                                    onChange={() =>
+                                      toggleAssurance?.(item.cartItemId)
+                                    }
+                                    className="peer sr-only"
+                                  />
+                                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
                                 </div>
-                                <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
-                                  {item.hasAssurance ? (
-                                    <>
-                                      Covers{' '}
-                                      <span className="font-bold text-gray-700">
-                                        Screen & Liquid Damage
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                                      <ShieldCheck
+                                        size={12}
+                                        className="text-red-600"
+                                      />
+                                      {merchant?.slug === 'ogabassey' ? 'Ogabassey Assurance' : 'Order Protection'}
+                                    </span>
+                                    {item.hasAssurance && (
+                                      <span className="text-xs font-bold text-gray-900">
+                                        +₦{assuranceCost.toLocaleString()}
                                       </span>
-                                    </>
-                                  ) : (
-                                    'Device Protection (+5%)'
-                                  )}
-                                </p>
-                              </div>
-                            </label>
-                          </div>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
+                                    {item.hasAssurance ? (
+                                      <>
+                                        {merchant?.slug === 'ogabassey' ? (
+                                          <>
+                                            Covers <span className="font-bold text-gray-700">Screen & Liquid Damage</span>
+                                          </>
+                                        ) : (
+                                          'Standard Shipping Protection'
+                                        )}
+                                      </>
+                                    ) : (
+                                      `${merchant?.slug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+5%)`
+                                    )}
+                                  </p>
+                                </div>
+                              </label>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

@@ -59,5 +59,5 @@ export async function signupAction(
   // 4. Revalidate and Redirect
   // Note: We don't create a merchant here. That's the key difference.
   revalidatePath('/', 'layout');
-  redirect(asRoute(redirectTo));
+  redirect(`/verify?email=${encodeURIComponent(email)}`);
 }

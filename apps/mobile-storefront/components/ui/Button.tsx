@@ -8,14 +8,12 @@ import React from 'react';
 import {
   Pressable,
   Text,
-  StyleSheet,
   ActivityIndicator,
   type PressableProps,
   type ViewStyle,
   type TextStyle,
 } from 'react-native';
-import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY, SHADOWS } from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { cssInterop } from 'nativewind';
 
 type ButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'default' | 'lg' | 'icon';
@@ -28,7 +26,11 @@ interface ButtonProps extends Omit<PressableProps, 'style'> {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  className?: string;
 }
+
+// Enable styling for Pressable via className if needed externally
+cssInterop(Pressable, { className: 'style' });
 
 export function Button({
   variant = 'default',
@@ -39,163 +41,81 @@ export function Button({
   disabled,
   style,
   textStyle,
+  className,
   ...props
 }: ButtonProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  
+  // Base classes
+  let containerClasses = "flex-row items-center justify-center gap-2 rounded-md active:opacity-90 active:scale-95 disabled:opacity-50";
+  let textClasses = "font-medium text-center font-inter-semibold"; // Assuming font configured or default
 
-  const getVariantStyles = (): { container: ViewStyle; text: TextStyle } => {
-    switch (variant) {
-      case 'default':
-        return {
-          container: {
-            backgroundColor: colors.primary,
-          },
-          text: {
-            color: colors.primaryForeground,
-          },
-        };
-      case 'secondary':
-        return {
-          container: {
-            backgroundColor: colors.secondary,
-          },
-          text: {
-            color: colors.secondaryForeground,
-          },
-        };
-      case 'outline':
-        return {
-          container: {
-            backgroundColor: 'transparent',
-            borderWidth: 1,
-            borderColor: colors.border,
-          },
-          text: {
-            color: colors.foreground,
-          },
-        };
-      case 'ghost':
-        return {
-          container: {
-            backgroundColor: 'transparent',
-          },
-          text: {
-            color: colors.foreground,
-          },
-        };
-      case 'destructive':
-        return {
-          container: {
-            backgroundColor: colors.destructive,
-          },
-          text: {
-            color: colors.destructiveForeground,
-          },
-        };
-      default:
-        return {
-          container: {
-            backgroundColor: colors.primary,
-          },
-          text: {
-            color: colors.primaryForeground,
-          },
-        };
-    }
-  };
+  // Variant classes
+  switch (variant) {
+    case 'default':
+      containerClasses += " bg-primary";
+      textClasses += " text-primary-foreground";
+      break;
+    case 'secondary':
+      containerClasses += " bg-secondary";
+      textClasses += " text-secondary-foreground";
+      break;
+    case 'outline':
+      containerClasses += " bg-transparent border border-border";
+      textClasses += " text-foreground";
+      break;
+    case 'ghost':
+      containerClasses += " bg-transparent";
+      textClasses += " text-foreground";
+      break;
+    case 'destructive':
+      containerClasses += " bg-destructive";
+      textClasses += " text-destructive-foreground";
+      break;
+  }
 
-  const getSizeStyles = (): { container: ViewStyle; text: TextStyle } => {
-    switch (size) {
-      case 'sm':
-        return {
-          container: {
-            height: 36,
-            paddingHorizontal: SPACING.sm,
-            borderRadius: RADIUS.md,
-          },
-          text: {
-            fontSize: TYPOGRAPHY.size.sm,
-          },
-        };
-      case 'default':
-        return {
-          container: {
-            height: 44, // WCAG touch target minimum
-            paddingHorizontal: SPACING.md,
-            borderRadius: RADIUS.md,
-          },
-          text: {
-            fontSize: TYPOGRAPHY.size.sm,
-          },
-        };
-      case 'lg':
-        return {
-          container: {
-            height: 48,
-            paddingHorizontal: SPACING.lg,
-            borderRadius: RADIUS.lg,
-          },
-          text: {
-            fontSize: TYPOGRAPHY.size.base,
-          },
-        };
-      case 'icon':
-        return {
-          container: {
-            height: 44,
-            width: 44,
-            paddingHorizontal: 0,
-            borderRadius: RADIUS.md,
-          },
-          text: {
-            fontSize: TYPOGRAPHY.size.base,
-          },
-        };
-      default:
-        return {
-          container: {
-            height: 44,
-            paddingHorizontal: SPACING.md,
-            borderRadius: RADIUS.md,
-          },
-          text: {
-            fontSize: TYPOGRAPHY.size.sm,
-          },
-        };
-    }
-  };
+  // Size classes
+  switch (size) {
+    case 'sm':
+      containerClasses += " h-9 px-3";
+      textClasses += " text-sm";
+      break;
+    case 'default':
+      containerClasses += " h-11 px-4"; // 44px
+      textClasses += " text-sm";
+      break;
+    case 'lg':
+      containerClasses += " h-12 px-8 rounded-lg";
+      textClasses += " text-base";
+      break;
+    case 'icon':
+      containerClasses += " h-11 w-11 px-0";
+      textClasses += " text-base";
+      break;
+  }
 
-  const variantStyles = getVariantStyles();
-  const sizeStyles = getSizeStyles();
+  if (fullWidth) {
+    containerClasses += " w-full";
+  }
+
+  // Loading indicator color logic
+  const indicatorColor = variant === 'outline' || variant === 'ghost' ? 'black' : 'white'; // Simplification
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.base,
-        sizeStyles.container,
-        variantStyles.container,
-        fullWidth && styles.fullWidth,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
-        style,
-      ]}
+      className={`${containerClasses} ${className || ''}`}
       disabled={disabled || loading}
+      style={style}
       {...props}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variantStyles.text.color}
+          color={indicatorColor}
         />
       ) : typeof children === 'string' ? (
         <Text
-          style={[
-            styles.text,
-            sizeStyles.text,
-            variantStyles.text,
-            textStyle,
-          ]}
+          className={`${textClasses}`}
+          style={textStyle}
         >
           {children}
         </Text>
@@ -205,26 +125,3 @@ export function Button({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  pressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  text: {
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
-  },
-});

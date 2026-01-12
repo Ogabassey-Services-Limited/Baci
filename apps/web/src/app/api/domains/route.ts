@@ -1,26 +1,23 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { vercel } from '@/lib/vercel';
 
 /**
  * GET /api/domains
  * List all domains for authenticated merchant
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    const { user, error } = await authenticateApiRequest(request as any);
+    if (error || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminSupabase = createAdminClient();
+
     // Get merchant ID
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
@@ -34,7 +31,7 @@ export async function GET() {
     }
 
     // Get all domains for this merchant
-    const { data: domains, error: domainsError } = await supabase
+    const { data: domains, error: domainsError } = await adminSupabase
       .from('domains')
       .select('*')
       .eq('merchant_id', merchant.id)
@@ -63,13 +60,8 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    const { user, error } = await authenticateApiRequest(request as any);
+    if (error || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -84,8 +76,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const adminSupabase = createAdminClient();
+
     // Check if domain already exists in OUR database
-    const { data: existingDomain } = await supabase
+    const { data: existingDomain } = await adminSupabase
       .from('domains')
       .select('id')
       .eq('domain', domain)
@@ -99,7 +93,7 @@ export async function POST(request: Request) {
     }
 
     // Get merchant ID
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
@@ -145,7 +139,10 @@ export async function POST(request: Request) {
     }
 
     // Determine status based on Vercel response
-    const isVerified = vercelResponse.verified;
+    // If verification challenges exist, it is pending regardless of the 'verified' flag
+    const hasChallenges = vercelResponse.verification && vercelResponse.verification.length > 0;
+    const isVerified = vercelResponse.verified && !hasChallenges;
+
     const status = isVerified ? 'active' : 'pending';
     const sslStatus = isVerified ? 'active' : 'pending';
 
@@ -166,7 +163,7 @@ export async function POST(request: Request) {
     ).toISOString();
 
     // Insert domain into DB
-    const { data: newDomain, error: insertError } = await supabase
+    const { data: newDomain, error: insertError } = await adminSupabase
       .from('domains')
       .insert({
         merchant_id: merchant.id,

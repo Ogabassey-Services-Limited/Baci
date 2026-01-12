@@ -68,7 +68,80 @@ const getCategoryData = cache(
       return null;
     }
 
-    // 2. Try to find category by slug (fetching parent for hierarchical SEO)
+    // 2. Special Collection Handling (Smart Collections)
+    const SPECIAL_COLLECTIONS = [
+      'new-arrivals',
+      'best-sellers',
+      'on-sale',
+      'featured',
+    ];
+
+    if (SPECIAL_COLLECTIONS.includes(categorySlug)) {
+      let query = supabase
+        .from('products')
+        .select('*') // Select all fields to match RawDbProduct structure
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .limit(50);
+
+      let collectionName = 'Collection';
+      let collectionDesc = 'Browse our collection.';
+
+      // Apply specific logic based on collection type
+      switch (categorySlug) {
+        case 'new-arrivals':
+          collectionName = 'New Arrivals';
+          collectionDesc = 'Check out the latest additions to our store.';
+          query = query.order('created_at', { ascending: false });
+          break;
+        case 'best-sellers':
+          collectionName = 'Best Sellers';
+          collectionDesc = 'Our most popular products loved by customers.';
+          // robust fallback: sort by rating desc
+          query = query.order('rating', { ascending: false });
+          break;
+        case 'on-sale':
+          collectionName = 'On Sale';
+          collectionDesc = 'Great deals and discounts on top products.';
+          // Filter for products with a compare_at_price set
+          query = query.not('compare_at_price', 'is', null);
+          break;
+        case 'featured':
+          collectionName = 'Featured';
+          collectionDesc = 'Hand-picked highlights just for you.';
+          // For now, sort by price desc as a proxy for "premium/featured"
+          query = query.order('price', { ascending: false });
+          break;
+      }
+
+      const { data: productsData, error: productsError } = await query;
+
+      if (productsError) {
+        console.error('Smart Collection Error:', productsError);
+      }
+
+      const products = (productsData || []) as unknown as Product[];
+
+      return {
+        merchant,
+        category: {
+          name: collectionName,
+          slug: categorySlug,
+          description: collectionDesc,
+          image: null,
+          seo: {
+            heading: collectionName,
+            description: collectionDesc,
+            features: [],
+            faqs: [],
+          },
+          parent: null,
+        },
+        products,
+      };
+    }
+
+    // 3. Try to find category by slug (fetching parent for hierarchical SEO)
     const { data: category } = await supabase
       .from('categories')
       .select(
@@ -96,8 +169,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
+        normalizedSlug.includes(key)
+      )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -119,7 +192,7 @@ const getCategoryData = cache(
       slug: string;
     } | null;
 
-    // 3. Get products using optimized query with category_id join
+    // 4. Get products using optimized query with category_id join
     // First try to find products by category_id if we have a category
     let products: Product[] = [];
     let productsError = null;
@@ -243,13 +316,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-          images: [
-            {
-              url: products[0].images[0] as unknown as string,
-              alt: categoryData.name,
-            },
-          ],
-        }),
+        images: [
+          {
+            url: products[0].images[0] as unknown as string,
+            alt: categoryData.name,
+          },
+        ],
+      }),
     },
     twitter: {
       card: 'summary_large_image',

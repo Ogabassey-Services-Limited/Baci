@@ -36,6 +36,7 @@ import {
   OgabasseyUtilities,
   type OgabasseyUtilitiesProps,
 } from '@/components/storefront/blocks/ogabassey-utilities';
+import { Header as StorefrontHeader } from '@/components/storefront/blocks/header';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { Button } from '@/components/ui/button';
@@ -231,6 +232,7 @@ type HeaderProps = {
   showSearch: boolean;
   showCart: boolean;
   showMenu: boolean;
+  showAccount?: boolean;
   navigationLinks: { label: string; url: string }[];
   ctaButton?: {
     text: string;
@@ -242,12 +244,12 @@ type HeaderProps = {
   sticky?: boolean;
   logoUrl?: string;
   storeName?: string;
-  // Granular Customization Props
   layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
   searchStyle?: 'outline' | 'filled' | 'minimal';
   searchRadius?: 'none' | 'sm' | 'md' | 'full';
   paddingY?: 'sm' | 'md' | 'lg';
   glassEffect?: boolean;
+  backgroundImage?: string;
 };
 
 type VideoProps = {
@@ -443,212 +445,7 @@ function HeroCarouselComponent({
   );
 }
 
-function CustomHeader({
-  showLogo,
-  showSearch,
-  showCart,
-  showMenu,
-  navigationLinks,
-  ctaButton,
-  backgroundColor,
-  textColor,
-  sticky,
-  logoUrl,
-  storeName,
-  layout = 'logo-left-nav-center',
-  searchStyle = 'outline',
-  searchRadius = 'md',
-  paddingY = 'md',
-  glassEffect = false,
-}: HeaderProps) {
-  const paddingClasses = {
-    sm: 'h-14',
-    md: 'h-16',
-    lg: 'h-20',
-  };
-
-  const searchClasses = {
-    outline: 'bg-transparent border-input',
-    filled: 'bg-muted border-transparent',
-    minimal:
-      'bg-transparent border-transparent border-b border-input rounded-none px-0',
-  };
-
-  const radiusClasses = {
-    none: 'rounded-none',
-    sm: 'rounded-sm',
-    md: 'rounded-md',
-    full: 'rounded-full',
-  };
-
-  return (
-    <header
-      className={cn(
-        'px-4 lg:px-6 flex items-center gap-4 shadow-sm z-50 transition-all duration-300',
-        {
-          'sticky top-0': sticky,
-          'backdrop-blur-md bg-opacity-80': glassEffect,
-          'bg-white': !glassEffect && !backgroundColor,
-        }
-      )}
-      style={{
-        backgroundColor:
-          backgroundColor ||
-          (glassEffect
-            ? 'rgba(255, 255, 255, 0.8)'
-            : 'var(--theme-header-bg, #FFFFFF)'),
-        color: textColor || 'var(--theme-header-text, #000000)',
-        height: 'auto',
-        minHeight:
-          paddingClasses[paddingY as keyof typeof paddingClasses] || '4rem',
-      }}
-    >
-      {/* Logo Section */}
-      {showLogo && (
-        <div
-          className={cn('flex items-center gap-2 font-semibold shrink-0', {
-            'order-1':
-              layout === 'logo-left-nav-center' ||
-              layout === 'logo-left-nav-right',
-            'order-2 mx-auto': layout === 'logo-center',
-          })}
-        >
-          {logoUrl ? (
-            <Image
-              src={logoUrl}
-              alt="Store Logo"
-              width={160}
-              height={48}
-              className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
-              priority
-              unoptimized={logoUrl?.startsWith('data:') || false}
-            />
-          ) : (
-            <>
-              <div
-                className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold"
-                aria-hidden="true"
-              >
-                {storeName?.charAt(0)?.toUpperCase() || 'S'}
-              </div>
-              <span className="hidden sm:inline-block">
-                {storeName || 'Your Store'}
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Navigation Section */}
-      {showMenu && navigationLinks.length > 0 && (
-        <nav
-          className={cn('hidden md:flex items-center gap-6', {
-            'order-2 mx-auto': layout === 'logo-left-nav-center',
-            'order-2 ml-auto mr-4': layout === 'logo-left-nav-right',
-            'order-1 mr-auto': layout === 'logo-center',
-          })}
-          aria-label="Main Navigation"
-        >
-          <ul className="flex items-center gap-6 m-0 p-0 list-none">
-            {navigationLinks.map((link) => (
-              <li key={link.url}>
-                <Link
-                  href={asRoute(link.url)}
-                  className="text-sm font-medium hover:text-primary transition-colors relative group"
-                >
-                  {link.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-
-      {/* Spacer for Center Logo Layout to balance the grid */}
-      {layout === 'logo-center' && <div className="flex-1 order-1 md:hidden" />}
-
-      {/* Search Section */}
-      {showSearch && (
-        <div
-          className={cn('flex-1 max-w-sm hidden md:block', {
-            'order-3': true,
-            'ml-auto': layout === 'logo-left-nav-center',
-          })}
-        >
-          <div className="relative">
-            <SearchIcon
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              placeholder="Search..."
-              aria-label="Search products"
-              className={cn(
-                'w-full pl-9 transition-all focus-visible:ring-1 border-primary',
-                searchClasses[searchStyle as keyof typeof searchClasses],
-                radiusClasses[searchRadius as keyof typeof radiusClasses]
-              )}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Actions Section */}
-      <div
-        className={cn('flex items-center gap-3 shrink-0', {
-          'order-4 ml-auto': true, // Always at the end
-        })}
-      >
-        {ctaButton?.show && ctaButton.text && (
-          <ThemedButton
-            asChild
-            colorRole="primary"
-            size="sm"
-            className="hidden sm:inline-flex"
-          >
-            <Link href={asRoute(ctaButton.url || '#')}>{ctaButton.text}</Link>
-          </ThemedButton>
-        )}
-
-        {showSearch && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            aria-label="Open search"
-          >
-            <SearchIcon className="w-5 h-5" />
-          </Button>
-        )}
-
-        {showCart && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative"
-            aria-label="View cart"
-          >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
-          </Button>
-        )}
-
-        {showMenu && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            aria-label="Open menu"
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
-        )}
-      </div>
-    </header>
-  );
-}
+// CustomHeader removed in favor of using the standard StorefrontHeader
 
 function CustomFooter({
   copyrightText,
@@ -984,7 +781,7 @@ export const builderConfig: Config<
         paddingY: 'md',
         glassEffect: false,
       },
-      render: (props) => <CustomHeader {...props} />,
+      render: (props) => <StorefrontHeader {...props} />,
     },
     Hero: {
       label: 'Hero Section',
@@ -1112,10 +909,10 @@ export const builderConfig: Config<
               style={
                 backgroundImage
                   ? {
-                      backgroundImage: `url(${backgroundImage})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
+                    backgroundImage: `url(${backgroundImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
                   : {}
               }
               aria-label="Hero Banner"
@@ -2251,9 +2048,9 @@ export const builderConfig: Config<
             // Convert options from textarea string to array
             options: field.options
               ? (field.options as string)
-                  .split('\n')
-                  .map((opt: string) => opt.trim())
-                  .filter(Boolean)
+                .split('\n')
+                .map((opt: string) => opt.trim())
+                .filter(Boolean)
               : undefined,
           })
         );
@@ -2910,7 +2707,7 @@ export const builderConfig: Config<
                   className={cn(
                     'space-y-6',
                     layout === 'stacked' &&
-                      'grid md:grid-cols-2 gap-6 space-y-0'
+                    'grid md:grid-cols-2 gap-6 space-y-0'
                   )}
                 >
                   {contactInfo?.map(
@@ -3414,7 +3211,7 @@ export const builderConfig: Config<
                       className={cn(
                         'flex items-center',
                         style === 'cards' &&
-                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                        'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
                         style === 'minimal' && 'gap-3',
                         style === 'icons-only' && 'flex-col text-center'
                       )}
@@ -3425,7 +3222,7 @@ export const builderConfig: Config<
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
                           style === 'minimal' && 'w-12 h-12 bg-primary/10',
                           style === 'icons-only' &&
-                            'mb-2 w-12 h-12 bg-primary/10'
+                          'mb-2 w-12 h-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',

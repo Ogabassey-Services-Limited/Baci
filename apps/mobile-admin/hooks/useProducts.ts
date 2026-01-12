@@ -26,13 +26,22 @@ export interface Product {
   category_id: string | null;
   brand: string | null;
   brand_id: string | null;
-  fulfillment_details: { imei?: string; serial_number?: string;[key: string]: any } | null;
+  fulfillment_details: { items?: Array<{ imei: string; serial_number: string }>;[key: string]: any } | null;
+  color: string | null;
   variant_attributes: Record<string, any> | null;
   has_variants: boolean;
   manage_stock: boolean;
   low_stock_threshold: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InventoryStats {
+  inventoryValue: number;
+  inventoryCost: number;
+  totalStock: number;
+  outOfStockCount: number;
+  categoryCount: number;
 }
 
 interface ProductsPage {
@@ -160,6 +169,65 @@ export function useProduct(productId: string) {
   });
 }
 
+import { ProductDbSchema, type ProductFormValues } from '@/lib/validators/product';
+
+export function useUpdateProduct() {
+  const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: ProductFormValues }) => {
+      // 1. Validate & Transform (Client-side validation)
+      // We perform the parse here to ensure the data matches our schema before transform
+      const dbPayload = ProductDbSchema.parse(updates);
+
+      const { data, error } = await supabase
+        .from('products')
+        .update({
+          ...dbPayload,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['product', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
+export function useCreateProduct() {
+  const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+
+  return useMutation({
+    mutationFn: async (newProduct: ProductFormValues) => {
+      // 1. Validate & Transform
+      const dbPayload = ProductDbSchema.parse(newProduct);
+
+      const { data, error } = await supabase
+        .from('products')
+        .insert([{
+          ...dbPayload,
+          merchant_id: merchant?.id,
+        }])
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
 export function useUpdateProductStock() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
@@ -231,6 +299,30 @@ export function useCategories() {
   });
 }
 
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+
+  return useMutation({
+    mutationFn: async (name: string) => {
+      if (!name.trim()) throw new Error('Category name is required');
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{ name, slug, merchant_id: merchant?.id }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
 export interface TopSellingProduct extends Product {
   totalSold: number;
   totalRevenue: number;
@@ -282,5 +374,24 @@ export function useTopSellingProducts(limit: number = 20) {
         .slice(0, limit);
     },
     enabled: !!merchant?.id,
+  });
+}
+
+export function useInventoryStats() {
+  const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
+
+  return useQuery({
+    queryKey: ['inventory-stats', merchantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_merchant_inventory_stats', {
+        p_merchant_id: merchantId,
+      });
+
+      if (error) throw error;
+      return data as InventoryStats;
+    },
+    enabled: !!merchantId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

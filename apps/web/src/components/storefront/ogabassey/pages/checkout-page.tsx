@@ -19,6 +19,7 @@ import {
   Clock,
   ExternalLink,
   X,
+  User,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, PaymentTrustBadges } from '../components/PaymentLogos';
@@ -145,6 +146,20 @@ export const CheckoutPage: React.FC = () => {
   // Non-persisted UI state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
+
+  // Copy to clipboard helper (2025: Clipboard API with visual feedback)
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(text);
+      // Auto-clear after 2 seconds
+      setTimeout(() => setCopiedText(null), 2000);
+    } catch (err) {
+      // Clipboard API not supported - show error instead of using deprecated method
+      console.error('Clipboard API not available:', err);
+    }
+  };
 
   // Validation States (hydration-safe: default to false during SSR to match disabled="" on server)
   const rawIsContactValid = useMemo(() => {
@@ -700,7 +715,7 @@ export const CheckoutPage: React.FC = () => {
 
   // Payment State
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | 'pod' | ''>('');
 
   // Wallet state (2025: auto-apply when balance > 0)
   const [walletBalance, setWalletBalance] = useState(0);
@@ -1444,19 +1459,6 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
-  // Copy to clipboard helper (2025: Clipboard API with visual feedback)
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedText(text);
-      // Auto-clear after 2 seconds
-      setTimeout(() => setCopiedText(null), 2000);
-    } catch (err) {
-      // Clipboard API not supported - show error instead of using deprecated method
-      console.error('Clipboard API not available:', err);
-    }
-  };
 
   // Chain display names and explorer URLs
   const chainDisplayNames: Record<string, string> = {
@@ -1852,6 +1854,27 @@ export const CheckoutPage: React.FC = () => {
           {/* LEFT COLUMN: Accordion Steps */}
           <div className="lg:col-span-8 space-y-6">
 
+            {/* Auth Banner for Guests (2026 Best Practice) */}
+            {!user && currentStep === 'contact' && (
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                    <User size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900">Already have an account?</h4>
+                    <p className="text-xs text-gray-500">Sign in to use your saved addresses and track orders.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-4 py-2 bg-white text-blue-600 font-bold text-xs rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors shadow-sm active:scale-95"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
+
             {/* Accordion Step 1: Contact Information */}
             <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'contact' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
               <button
@@ -2089,7 +2112,7 @@ export const CheckoutPage: React.FC = () => {
                             country="NG"
                             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus-visible:ring-0 focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
                           />
-                          {newAddressState && newAddressCity && (
+                          {isHydrated && newAddressState && newAddressCity && (
                             <p className="text-xs text-green-600 flex items-center gap-1">
                               <Check size={12} /> Detected: {newAddressCity}, {newAddressState}
                             </p>
@@ -2099,7 +2122,7 @@ export const CheckoutPage: React.FC = () => {
                     </div>
 
                     {/* STEP 2: Delivery Method Cards - ONLY show AFTER address is detected */}
-                    {((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
+                    {isHydrated && ((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
                       <>
                         <div className="mt-6 pt-4 border-t border-gray-100">
                           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
@@ -2386,32 +2409,34 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Select a payment gateway:</p>
                         <div className="grid grid-cols-1 gap-3">
                           {/* Paystack */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
-                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="paystack"
-                              checked={paymentMethod === 'paystack'}
-                              onChange={() => setPaymentMethod('paystack')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
-                              {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-gray-900">Paystack</span>
-                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Popular</span>
+                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="paystack"
+                                checked={paymentMethod === 'paystack'}
+                                onChange={() => setPaymentMethod('paystack')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Card, Bank Transfer, USSD</span>
-                            </div>
-                            <PaystackLogo className="w-6 h-6" />
-                          </label>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Paystack</span>
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Popular</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Card, Bank Transfer, USSD</span>
+                              </div>
+                              <PaystackLogo className="w-6 h-6" />
+                            </label>
+                          )}
 
                           {/* Korapay - Disabled until API keys are configured */}
                           {/* TODO: Re-enable when KORAPAY_SECRET_KEY and KORAPAY_PUBLIC_KEY are added to .env.local
@@ -2443,32 +2468,65 @@ export const CheckoutPage: React.FC = () => {
                           */}
 
                           {/* Juicyway */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
-                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="juicyway"
-                              checked={paymentMethod === 'juicyway'}
-                              onChange={() => setPaymentMethod('juicyway')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
-                              {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-gray-900">Juicyway</span>
-                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Crypto</span>
+                          {merchant?.feature_settings?.juicyway_enabled === true && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="juicyway"
+                                checked={paymentMethod === 'juicyway'}
+                                onChange={() => setPaymentMethod('juicyway')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">USDT, USDC etc</span>
-                            </div>
-                            <JuicywayLogo className="w-6 h-6" />
-                          </label>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Juicyway</span>
+                                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Crypto</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">USDT, USDC etc</span>
+                              </div>
+                              <JuicywayLogo className="w-6 h-6" />
+                            </label>
+                          )}
+
+                          {/* Pay on Delivery */}
+                          {merchant?.feature_settings?.pay_on_delivery_enabled === true && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'pod'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="pod"
+                                checked={paymentMethod === 'pod'}
+                                onChange={() => setPaymentMethod('pod')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pod' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'pod' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Pay on Delivery</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Pay when you receive your items</span>
+                              </div>
+                              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                                <Truck size={16} className="text-gray-600" />
+                              </div>
+                            </label>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2479,60 +2537,64 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Buy Now, Pay Later options:</p>
                         <div className="grid grid-cols-1 gap-3">
                           {/* CredPal */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credpal'
-                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="credpal"
-                              checked={paymentMethod === 'credpal'}
-                              onChange={() => setPaymentMethod('credpal')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
-                              {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-gray-900">CredPal</span>
-                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Salary earners only</span>
+                          {merchant?.feature_settings?.credpal_enabled === true && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credpal'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="credpal"
+                                checked={paymentMethod === 'credpal'}
+                                onChange={() => setPaymentMethod('credpal')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
-                            </div>
-                            <CredPalLogo className="w-6 h-6" />
-                          </label>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">CredPal</span>
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Salary earners only</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
+                              </div>
+                              <CredPalLogo className="w-6 h-6" />
+                            </label>
+                          )}
 
                           {/* Credit Direct */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_direct'
-                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="credit_direct"
-                              checked={paymentMethod === 'credit_direct'}
-                              onChange={() => setPaymentMethod('credit_direct')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
-                              {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-gray-900">Credit Direct</span>
-                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Salary & Business owners</span>
+                          {merchant?.feature_settings?.credit_direct_enabled === true && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_direct'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="credit_direct"
+                                checked={paymentMethod === 'credit_direct'}
+                                onChange={() => setPaymentMethod('credit_direct')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
-                            </div>
-                            <CreditDirectLogo className="w-6 h-6" />
-                          </label>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Credit Direct</span>
+                                  <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Salary & Business owners</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
+                              </div>
+                              <CreditDirectLogo className="w-6 h-6" />
+                            </label>
+                          )}
                         </div>
 
                         {/* CredPal Info */}
@@ -2572,6 +2634,13 @@ export const CheckoutPage: React.FC = () => {
                                 </ul>
                               </div>
                             </div>
+                          </div>
+                        )}
+
+                        {/* Show empty state if neither is enabled */}
+                        {(!merchant?.feature_settings?.credpal_enabled && !merchant?.feature_settings?.credit_direct_enabled) && (
+                          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                            <p className="text-sm text-gray-500">No installment options are currently available.</p>
                           </div>
                         )}
                       </div>

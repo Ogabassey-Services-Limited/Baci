@@ -2,6 +2,10 @@ import type { Data } from '@measured/puck';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ThemeConfiguration } from '@/lib/theme-config';
 
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import { activeTextModel } from '@/ai/provider';
+
 interface TemplateParams {
   businessName: string;
   businessType: string;
@@ -13,6 +17,36 @@ interface TemplateParams {
   merchant: Record<string, unknown>;
 }
 
+const aiContentSchema = z.object({
+  hero: z.array(z.object({
+    title: z.string(),
+    subtitle: z.string(),
+  })).length(3),
+  features: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    icon: z.string(),
+  })).length(3),
+});
+
+type AIContent = z.infer<typeof aiContentSchema>;
+
+async function generateAIContent(businessName: string, businessType: string): Promise<AIContent | null> {
+  try {
+    const { object } = await generateObject({
+      model: activeTextModel,
+      schema: aiContentSchema,
+      prompt: `Generate 3 hero carousel slides (title, subtitle) and 3 unique features (title, description, icon name from lucide-react) for a "${businessType}" business named "${businessName}". 
+      The tone should be professional, engaging, and specific to the industry.
+      For the icon, use only valid kebab-case Lucide icon names (e.g., 'shopping-bag', 'star', 'truck', 'shield-check').`,
+    });
+    return object;
+  } catch (error) {
+    console.error('AI Content Generation Failed:', error);
+    return null;
+  }
+}
+
 /**
  * Generate hero carousel slides based on business type
  * Now uses AI-generated images from the database
@@ -20,7 +54,8 @@ interface TemplateParams {
 export async function generateHeroSlides(
   businessName: string,
   businessType: string,
-  heroImageIds?: string[]
+  heroImageIds?: string[],
+  aiContent?: AIContent['hero']
 ) {
   // Fallback images if AI generation is not available yet
   const fallbackImages = [
@@ -108,6 +143,11 @@ export async function generateHeroSlides(
       case 'handmade':
         if (i === 0) subtitle = 'Unique handcrafted pieces made with love.';
         break;
+    }
+
+    if (aiContent && aiContent[i]) {
+      title = aiContent[i].title;
+      subtitle = aiContent[i].subtitle;
     }
 
     return {
@@ -356,7 +396,14 @@ export function deriveThemeFromColors(brandColors: {
 /**
  * Generate features based on business type
  */
-export function generateFeatures(businessType: string) {
+export function generateFeatures(businessType: string, aiFeatures?: AIContent['features']) {
+  if (aiFeatures && aiFeatures.length > 0) {
+    return aiFeatures.map(f => ({
+      title: f.title,
+      description: f.description,
+      icon: f.icon,
+    }));
+  }
   const defaultFeatures = [
     {
       title: 'Fast Shipping',
@@ -452,15 +499,20 @@ export async function generateInitialTemplate(
   // Get hero image IDs from merchant if available
   const heroImageIds = (merchant?.hero_image_ids as string[]) || undefined;
 
+  // Generate AI Content (Parallelize or do before? Doing it here async)
+  // We accept failure (returns null) so it falls back to static text.
+  const aiContent = await generateAIContent(businessName, businessType);
+
   // Generate hero slides (now async to fetch AI images)
   const slides = await generateHeroSlides(
     businessName,
     businessType,
-    heroImageIds
+    heroImageIds,
+    aiContent?.hero
   );
 
   // Generate features
-  const features = generateFeatures(businessType);
+  const features = generateFeatures(businessType, aiContent?.features);
 
   // Generate unique IDs for components
   const headerId = `Header-${Date.now()}`;
@@ -497,8 +549,8 @@ export async function generateInitialTemplate(
           // Add logo URL if merchant has one
           ...(params.merchant?.logo_url
             ? {
-                logoUrl: params.merchant.logo_url,
-              }
+              logoUrl: params.merchant.logo_url,
+            }
             : {}),
         },
       },

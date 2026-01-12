@@ -53,11 +53,12 @@ export const exportOrdersRPC = async (orders: Order[]) => {
   try {
     const csvData = generateOrdersCSV(orders);
     const filename = `orders_report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
-    const fileUri = `${FileSystem.documentDirectory}${filename}`;
+    const fileUri = `${(FileSystem as any).documentDirectory || ''}${filename}`;
 
     await FileSystem.writeAsStringAsync(fileUri, csvData, {
-      encoding: FileSystem.EncodingType.UTF8,
+      encoding: (FileSystem as any).EncodingType?.UTF8 || 'utf8',
     });
+
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(fileUri, {

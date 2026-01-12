@@ -1,0 +1,20 @@
+diff --git a/src/deprecated.ts b/src/deprecated.ts
+index 3024a1e495b74348d0831283dfa19dde0fe23eb1..d699157de2e0cf239c7f7f15a279b868b3a170f7 100644
+--- a/src/deprecated.ts
++++ b/src/deprecated.ts
+@@ -6,7 +6,7 @@ import {
+   makeShareable,
+   makeShareableCloneOnUIRecursive,
+ } from './memory/serializable';
+-import { serializableMappingCache } from './memory/serializableMappingCache';
++// import { serializableMappingCache } from './memory/serializableMappingCache'; // PATCHED: Broken import
+ import type { SerializableRef } from './memory/types';
+ 
+ /** @deprecated Use {@link SerializableRef} instead. */
+@@ -29,4 +29,5 @@ export const makeShareableCloneRecursive: MakeShareableClone =
+ export const isShareableRef = isSerializableRef;
+ 
+ /** @deprecated Use {@link serializableMappingCache} instead. */
+-export const shareableMappingCache = serializableMappingCache;
++// export const shareableMappingCache = serializableMappingCache; // PATCHED
++export const shareableMappingCache = {}; // MOCK

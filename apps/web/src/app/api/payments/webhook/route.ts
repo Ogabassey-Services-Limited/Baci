@@ -5,6 +5,7 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import {
@@ -331,6 +332,86 @@ export async function POST(request: NextRequest) {
         error: updateError,
       });
       throw updateError;
+    }
+
+    // ============================================
+    // DOMAIN PURCHASE FULFILLMENT
+    // ============================================
+    // Check metadata for valid domain purchase
+    const metadata = transaction.metadata as Record<string, any>;
+    if (metadata?.transaction_type === 'domain_purchase' && metadata.domain) {
+      logger.info({ message: 'Processing domain purchase fulfillment', reference, domain: metadata.domain });
+
+      try {
+        // 1. Fetch Merchant Details for Registration
+        const { data: merchantData, error: merchantError } = await supabase
+          .from('merchants')
+          .select('*, users:user_id(first_name, last_name)') // simplified join syntax
+          .eq('id', transaction.merchant_id)
+          .single();
+
+        if (!merchantData) {
+          logger.error({ message: 'Merchant not found for domain registration', merchantId: transaction.merchant_id });
+        } else {
+          // 2. Prepare Contact Info (Fallbacks used for missing fields to ensure registration works)
+          // Import dynamically or ensure imported at top - adding simple object here
+          const contactName = merchantData.users?.first_name || merchantData.business_name || 'Baci User';
+          const contactLastName = merchantData.users?.last_name || 'Merchant';
+
+          const contactInfo = {
+            firstname: contactName,
+            lastname: contactLastName,
+            fullname: `${contactName} ${contactLastName}`,
+            companyname: merchantData.business_name,
+            email: merchantData.email,
+            address1: merchantData.address || '123 Baci Street', // Required field
+            city: merchantData.city || 'Lagos',
+            state: merchantData.state || 'Lagos',
+            country: 'NG',
+            zipcode: '100001',
+            phonenumber: merchantData.phone || '+2348000000000'
+          };
+
+          // 3. Register Domain via Go54
+          const registration = await registerDomain({
+            domain: metadata.domain,
+            regperiod: Number(metadata.years) || 1,
+            contacts: {
+              registrant: contactInfo,
+              admin: contactInfo,
+              tech: contactInfo,
+              billing: contactInfo,
+            },
+          });
+
+          if (registration.success) {
+            logger.info({ message: 'Domain registered successfully', domain: metadata.domain });
+
+            // 4. Save to merchant_domains
+            const { error: domainDbError } = await supabase
+              .from('merchant_domains')
+              .insert({
+                merchant_id: transaction.merchant_id,
+                domain: metadata.domain,
+                status: 'active',
+                provider: 'go54',
+                expires_at: new Date(Date.now() + 31536000000 * (Number(metadata.years) || 1)).toISOString(),
+                auto_renew: true,
+                is_primary: false // User sets primary manually later
+              });
+
+            if (domainDbError) {
+              logger.error({ message: 'Failed to save merchant_domain record', error: domainDbError });
+            }
+
+          } else {
+            logger.error({ message: 'Domain registration API failed', error: registration.error, domain: metadata.domain });
+            // Note: Payment succeeded but domain failed. Manual intervention required.
+          }
+        }
+      } catch (err) {
+        logger.error({ message: 'Domain fulfillment failed', error: err });
+      }
     }
 
     // Update order status if order_id exists

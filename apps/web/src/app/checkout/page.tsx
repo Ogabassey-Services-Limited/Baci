@@ -121,9 +121,7 @@ function Step0_Auth({
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<OtpAuthFormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // biome-ignore lint/suspicious/noExplicitAny: React Hook Form resolver typing issue
-    resolver: zodResolver(otpAuthSchema as any as any),
+    resolver: zodResolver(otpAuthSchema as any),
     defaultValues: { email: '' },
   });
 
@@ -967,9 +965,7 @@ function CheckoutPageContent() {
   }, [merchant?.id]);
 
   const shippingForm = useForm<ShippingFormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(shippingSchema as any as any),
+    resolver: zodResolver(shippingSchema as any),
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -1154,8 +1150,7 @@ function CheckoutPageContent() {
           'NGN',
           cart.map((item) => {
             const itemCategory =
-              // biome-ignore lint/suspicious/noExplicitAny: CartItem type lacks categories join
-              (item as any).categories?.name || item.category || 'General';
+              item.categories?.name || item.category || 'General';
             return {
               id: item.id,
               name: item.name,
@@ -1294,7 +1289,9 @@ function CheckoutPageContent() {
           };
 
           // Configure and open Credit Direct popup
-          // @ts-expect-error - Connect is loaded from external script
+          if (!window.Connect) {
+            throw new Error('Credit Direct SDK not loaded');
+          }
           const connect = new window.Connect({
             publicKey,
             signature,
@@ -1411,7 +1408,6 @@ function CheckoutPageContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
-                    {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic routing */}
                     <Link href={`${basePath || ''}/cart` as any}>
                       <Button
                         variant="ghost"

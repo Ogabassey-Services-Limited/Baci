@@ -83,7 +83,11 @@ export default function BlogPage() {
   const _router = useRouter();
   const { toast } = useToast();
   const { merchant } = useMerchant();
-  const { blogEnabled, autoBlogEnabled } = useMerchantFeatures();
+  const {
+    blogEnabled,
+    autoBlogEnabled,
+    isLoading: isFeaturesLoading,
+  } = useMerchantFeatures();
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -239,6 +243,15 @@ export default function BlogPage() {
     }),
     [posts]
   );
+
+  // Show loading state while checking features
+  if (isFeaturesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   // Show feature disabled state
   if (!blogEnabled) {

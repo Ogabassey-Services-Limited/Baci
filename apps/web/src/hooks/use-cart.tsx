@@ -110,6 +110,8 @@ export interface CartContextType {
 // ============================================================================
 
 const CART_STORAGE_KEY = 'baci-cart';
+const getCartStorageKey = (slug?: string | null) =>
+  slug ? `${CART_STORAGE_KEY}-${slug}` : CART_STORAGE_KEY;
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
 const DEFAULT_ASSURANCE_RATE = 0.05; // 5%
 
@@ -125,10 +127,10 @@ const generateCartItemId = (
   return parts.join('-');
 };
 
-const getCartFromStorage = (): CartItem[] => {
+const getCartFromStorage = (slug?: string | null): CartItem[] => {
   if (typeof window === 'undefined') return [];
   try {
-    const item = window.localStorage.getItem(CART_STORAGE_KEY);
+    const item = window.localStorage.getItem(getCartStorageKey(slug));
     const parsed = item ? JSON.parse(item) : [];
 
     // Validate items structure to prevent NaN prices and ghost items
@@ -162,10 +164,10 @@ const getCartFromStorage = (): CartItem[] => {
   }
 };
 
-const saveCartToStorage = (cart: CartItem[]) => {
+const saveCartToStorage = (cart: CartItem[], slug?: string | null) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    window.localStorage.setItem(getCartStorageKey(slug), JSON.stringify(cart));
   } catch (error) {
     logger.error({
       message: 'Failed to save cart to localStorage',
@@ -209,6 +211,8 @@ interface CartProviderProps {
   children: ReactNode;
   /** Enable Smart Cart Pro features (price negotiation, assurance, upsells) */
   enableSmartCartPro?: boolean;
+  /** Initial merchant slug to scope the cart */
+  merchantSlug?: string | null;
 }
 
 /**
@@ -221,9 +225,12 @@ interface CartProviderProps {
 export const CartProvider = ({
   children,
   enableSmartCartPro = false,
+  merchantSlug: initialMerchantSlug = null,
 }: CartProviderProps) => {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [merchantSlug, setMerchantSlugState] = useState<string | null>(null);
+  const [merchantSlug, setMerchantSlugState] = useState<string | null>(
+    initialMerchantSlug
+  );
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Smart Cart Pro state
@@ -236,10 +243,11 @@ export const CartProvider = ({
 
   // Hydrate from localStorage
   useEffect(() => {
-    setCart(getCartFromStorage());
-    setMerchantSlugState(getMerchantSlugFromStorage());
+    const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
+    setCart(getCartFromStorage(slugToUse));
+    setMerchantSlugState(slugToUse);
     setIsHydrated(true);
-  }, []);
+  }, [initialMerchantSlug]);
 
   // Background validation: Remove ghost products and update stale prices
   useEffect(() => {
@@ -340,9 +348,9 @@ export const CartProvider = ({
   // Persist to localStorage
   useEffect(() => {
     if (isHydrated) {
-      saveCartToStorage(cart);
+      saveCartToStorage(cart, merchantSlug);
     }
-  }, [cart, isHydrated]);
+  }, [cart, isHydrated, merchantSlug]);
 
   // Cleanup upsell timer on unmount
   useEffect(() => {
@@ -524,10 +532,10 @@ export const CartProvider = ({
         prev.map((item) =>
           item.cartItemId === cartItemId
             ? {
-                ...item,
-                negotiatedPrice: newPrice,
-                negotiationStatus: 'accepted',
-              }
+              ...item,
+              negotiatedPrice: newPrice,
+              negotiationStatus: 'accepted',
+            }
             : item
         )
       );

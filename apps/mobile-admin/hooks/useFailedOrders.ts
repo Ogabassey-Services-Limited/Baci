@@ -15,6 +15,7 @@ export interface FailedOrder {
     payment_method: string;
     created_at: string;
     gateway_response?: any;
+    attempt_count: number;
 }
 
 export function useFailedOrders() {
@@ -51,26 +52,36 @@ export function useFailedOrders() {
 
             if (error) throw error;
 
-            // Transform data to include the most relevant transaction error
-            return data.map((order: any) => {
-                // Find a failed transaction or the most recent one
-                const transaction = order.transactions?.[0]; // Assuming ordered by recent, or we can sort if needed
+            // Consolidate failed orders by customer email
+            const consolidated: Record<string, FailedOrder & { attempt_count: number }> = {};
 
-                return {
-                    id: order.id,
-                    order_number: order.order_number,
-                    customer_id: order.customer_id,
-                    customer_name: order.customer_name,
-                    customer_email: order.customer_email,
-                    customer_phone: order.customer_phone,
-                    total: order.total,
-                    payment_status: order.payment_status,
-                    payment_method: order.payment_method,
-                    created_at: order.created_at,
-                    gateway_response: transaction?.gateway_response,
-                    gateway: transaction?.gateway,
-                } as FailedOrder;
+            data.forEach((order: any) => {
+                const email = order.customer_email;
+                if (!consolidated[email]) {
+                    consolidated[email] = {
+                        id: order.id,
+                        order_number: order.order_number,
+                        customer_id: order.customer_id,
+                        customer_name: order.customer_name,
+                        customer_email: order.customer_email,
+                        customer_phone: order.customer_phone,
+                        total: order.total,
+                        payment_status: order.payment_status,
+                        payment_method: order.payment_method,
+                        created_at: order.created_at,
+                        gateway_response: order.transactions?.[0]?.gateway_response,
+                        gateway: order.transactions?.[0]?.gateway,
+                        attempt_count: 1,
+                    };
+                } else {
+                    // Update total and attempt count
+                    consolidated[email].total += order.total;
+                    consolidated[email].attempt_count += 1;
+                    // Keep the most recent data (data is already ordered DESC)
+                }
             });
+
+            return Object.values(consolidated);
         },
         enabled: !!merchantId,
         staleTime: 1000 * 60 * 2, // 2 minutes

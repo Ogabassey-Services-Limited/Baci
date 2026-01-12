@@ -174,13 +174,13 @@ export function useUpdateOrderStatus() {
 
       return { previousOrders, previousOrder };
     },
-    onError: (_err, _vars, context) => {
+    onError: (_err, vars, context) => {
       // Rollback on error
       if (context?.previousOrders) {
         queryClient.setQueryData(['orders', merchant?.id], context.previousOrders);
       }
       if (context?.previousOrder) {
-        queryClient.setQueryData(['order', orderId], context.previousOrder);
+        queryClient.setQueryData(['order', vars.orderId], context.previousOrder);
       }
     },
     onSettled: () => {

@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgUri } from 'react-native-svg';
 import { useTheme } from '@/hooks/useTheme';
@@ -62,19 +63,26 @@ export function WelcomeHeader({
       <View style={styles.leftSection}>
         <Pressable style={styles.avatarContainer} onPress={onAvatarPress}>
           {renderAvatar()}
-          {isLive && (
-            <View style={[styles.liveBadge, { backgroundColor: colors.live, borderColor: colors.background }]}>
-              <Text style={styles.liveText}>LIVE</Text>
-            </View>
-          )}
+          <View style={[styles.editBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+            <Ionicons name="camera" size={10} color="#FFFFFF" />
+          </View>
         </Pressable>
 
         <View style={styles.textContainer}>
-          <Text style={[styles.storeUrl, { color: colors.gold }]} numberOfLines={1}>
-            {storeUrl}
-          </Text>
-
-
+          <View style={styles.urlRow}>
+            <Text style={[styles.storeUrl, { color: colors.gold }]} numberOfLines={1}>
+              {storeUrl}
+            </Text>
+            {isLive ? (
+              <View style={[styles.statusBadge, { backgroundColor: colors.live + '20' }]}>
+                <Text style={[styles.statusText, { color: colors.live }]}>LIVE</Text>
+              </View>
+            ) : (
+              <View style={[styles.statusBadge, { backgroundColor: colors.textMuted + '20' }]}>
+                <Text style={[styles.statusText, { color: colors.textMuted }]}>NOT LIVE</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -128,30 +136,40 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
-  liveBadge: {
+  editBadge: {
     position: 'absolute',
-    bottom: -4,
-    right: -4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
   },
-  liveText: {
-    fontSize: 8,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-
   textContainer: {
     flex: 1,
     justifyContent: 'center',
   },
+  urlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   storeUrl: {
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: 4,
+    maxWidth: '65%',
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 9,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   actionsRow: {
     flexDirection: 'row',

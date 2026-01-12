@@ -36,6 +36,8 @@ export async function checkNamecheapAvailability(
 ): Promise<NamecheapDomainResult[]> {
   if (!isNamecheapConfigured()) {
     console.warn('Namecheap API not configured - skipping fallback');
+    if (!NAMECHEAP_API_USER) console.warn('Missing NAMECHEAP_API_USER');
+    if (!NAMECHEAP_API_KEY) console.warn('Missing NAMECHEAP_API_KEY');
     return [];
   }
 

@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -346,6 +347,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Invalidate cache
+    revalidateTag(`features-${merchant.id}`, 'default');
+
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Feature settings PATCH error:', error);
@@ -409,6 +413,9 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Invalidate cache
+    revalidateTag(`features-${merchant.id}`, 'default');
 
     return NextResponse.json(settings);
   } catch (error) {

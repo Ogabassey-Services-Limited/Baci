@@ -1,12 +1,11 @@
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { nanoid } from 'nanoid';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/domains/initialize-payment
@@ -15,15 +14,13 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
     const adminSupabase = createAdminClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Authenticate request (supports mobile Bearer token + web cookies)
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+    const { user, error: authError } = await authenticateApiRequest(request as any);
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -64,7 +61,8 @@ export async function POST(request: Request) {
     }
 
     // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
+    // Get merchant
+    const { data: merchant, error: merchantError } = await adminSupabase
       .from('merchants')
       .select('id, business_name, email, slug')
       .eq('user_id', user.id)
@@ -85,7 +83,7 @@ export async function POST(request: Request) {
       .from('transactions')
       .insert({
         merchant_id: merchant.id,
-        transaction_type: 'domain_purchase',
+        transaction_type: 'payment', // DB check constraint requires 'payment'
         amount: priceCalculation.sellPrice,
         currency: 'NGN',
         status: 'pending',
@@ -98,6 +96,7 @@ export async function POST(request: Request) {
           domain,
           tld,
           years,
+          transaction_type: 'domain_purchase', // Store specific type in metadata
           cost_price: priceCalculation.costPrice,
           sell_price: priceCalculation.sellPrice,
           category: priceCalculation.category,
@@ -120,6 +119,12 @@ export async function POST(request: Request) {
     const callbackUrl = `${protocol}://${rootDomain}/dashboard/domains/callback?reference=${reference}&domain=${encodeURIComponent(domain)}&years=${years}`;
 
     // Initialize Paystack payment
+    console.log('[DomainPayment] Initializing Paystack...');
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      console.error('[DomainPayment] PAYSTACK_SECRET_KEY is missing');
+      return NextResponse.json({ error: 'Payment configuration error' }, { status: 500 });
+    }
+
     const paystackResponse = await fetch(
       'https://api.paystack.co/transaction/initialize',
       {
@@ -147,9 +152,9 @@ export async function POST(request: Request) {
 
     if (!paystackResponse.ok) {
       const errorData = await paystackResponse.json();
-      console.error('Paystack error:', errorData);
+      console.error('[DomainPayment] Paystack Init Failed:', JSON.stringify(errorData));
       return NextResponse.json(
-        { error: 'Failed to initialize payment' },
+        { error: 'Failed to initialize payment gateway' },
         { status: 500 }
       );
     }

@@ -1,8 +1,7 @@
-import { cookies } from 'next/headers';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { NextResponse } from 'next/server';
 import { type DomainPricing, getResalePrice } from '@/config/domain-pricing';
 import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/domains/check-availability
@@ -10,13 +9,10 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Authenticate request (supports mobile Bearer token + web cookies)
+    const { user, error: authError } = await authenticateApiRequest(request as any);
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -3,7 +3,7 @@ import { logger } from '@/lib/logger';
 const ZEPTOMAIL_TOKEN = process.env.ZEPTOMAIL_TOKEN;
 const API_URL = 'https://api.zeptomail.com/v1.1/email';
 const SENDER_EMAIL = 'noreply@usebaci.com';
-const SENDER_NAME = 'Baci';
+const SENDER_NAME = 'Baci - The Ecommerce Builder';
 
 export async function sendWelcomeEmail(to: string, name: string) {
   if (!ZEPTOMAIL_TOKEN) {

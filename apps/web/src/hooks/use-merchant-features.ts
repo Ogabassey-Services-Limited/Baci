@@ -219,7 +219,9 @@ export function useMerchantFeatures() {
     setError(null);
 
     try {
-      const response = await fetch('/api/merchant/features');
+      const response = await fetch('/api/merchant/features', {
+        cache: 'no-store',
+      });
       const result = await response.json();
 
       if (!response.ok) {

@@ -98,6 +98,14 @@ export const COUNTRIES: Country[] = [
   },
 ];
 
-export function getCountryByCode(code: string): Country | undefined {
-  return COUNTRIES.find((country) => country.code === code);
+export function getCountryByCode(codeOrName: string): Country | undefined {
+  if (!codeOrName) return undefined;
+
+  const normalizedInput = codeOrName.toUpperCase();
+  const normalizedInputTitle = codeOrName.toLowerCase();
+
+  return COUNTRIES.find((country) =>
+    country.code === normalizedInput ||
+    country.name.toLowerCase() === normalizedInputTitle
+  );
 }

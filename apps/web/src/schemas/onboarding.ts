@@ -7,11 +7,14 @@ import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 const step1BaseSchema = z.object({
   businessName: z
     .string()
+    .trim()
     .min(2, { message: 'Business name must be at least 2 characters.' }),
   businessType: z
     .string()
+    .trim()
     .min(1, { message: 'Please select a business type.' }),
-  otherBusinessType: z.string().optional(),
+  otherBusinessType: z.string().trim().optional(),
+  slug: z.string().trim().min(3, { message: 'Store link must be at least 3 characters.' }).optional(),
 });
 
 /**
@@ -40,16 +43,17 @@ export const step1Schema = step1BaseSchema.refine(
 export const step2Schema = z.object({
   logoUrl: z
     .string()
+    .trim()
     .min(1, { message: 'Logo is required. Please upload or generate one.' }),
-  brandColors: z.string().min(1, { message: 'Brand colors are required.' }),
-  brandPreferences: z.string().optional(),
+  brandColors: z.string().trim().min(1, { message: 'Brand colors are required.' }),
+  brandPreferences: z.string().trim().optional(),
 });
 
 /**
  * Base schema for Step 3. Contains only field definitions.
  */
 const step3BaseSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  email: z.string().trim().email({ message: 'Please enter a valid email address.' }),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
 });

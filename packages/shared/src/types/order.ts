@@ -65,8 +65,18 @@ export interface Order {
   source: OrderSource | null;
   payment_method: string | null;
   notes: string | null;
+  is_credit_order?: boolean;
+  shipping_address?: {
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  } | null;
   created_at: string;
   updated_at: string;
   item_count?: number;
   items?: OrderItem[];
 }
+

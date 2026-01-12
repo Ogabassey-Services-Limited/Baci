@@ -16,10 +16,12 @@ import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
+import { useAuthSafe } from '@/contexts/auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
+import { CheckoutIdentityModal } from '../../checkout-identity-modal';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -46,13 +48,18 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     merchantSlug,
   } = useCart();
 
-  // Get basePath from merchant context for proper URL construction on custom domains
   const merchantContext = useMerchantSafe();
+  const auth = useAuthSafe();
+  const user = auth?.user;
+
+  const merchant = merchantContext?.merchant;
+  const settings = merchant?.feature_settings;
   const basePath = merchantContext?.basePath ?? `/${merchantSlug || 'ogabassey'}`;
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
-  const _router = useRouter();
+  const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
+  const router = useRouter();
 
   // Scroll to top on mount
   useEffect(() => {
@@ -123,6 +130,17 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
       currentPrice: cartTotal,
       name: 'Entire Cart',
     });
+  };
+
+  const handleCheckoutClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (user) {
+      // Logged in user - proceed directly
+      router.push(`${basePath}/checkout` as any);
+    } else {
+      // Guest user - show identity choice
+      setIsIdentityModalOpen(true);
+    }
   };
 
   return (
@@ -300,39 +318,47 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
 
                     {/* Bottom Row: Actions */}
                     <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap gap-3 justify-between items-center">
-                      {/* Assurance Toggle */}
-                      <label className="flex items-start gap-2 cursor-pointer select-none group active:opacity-70 max-w-[70%]">
-                        <div className="relative flex items-center mt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={item.hasAssurance || false}
-                            onChange={() => toggleAssurance?.(item.cartItemId)}
-                            className="peer sr-only"
-                          />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                            <ShieldCheck size={12} className="text-[var(--store-primary)]" />
-                            Ogabassey Assurance
-                          </span>
-                          <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
-                            {item.hasAssurance ? (
-                              <>
-                                Covers{' '}
-                                <span className="font-bold text-gray-700">
-                                  Screen & Liquid Damage
-                                </span>
-                                <span className="ml-1 text-[var(--store-primary)] font-bold">
-                                  +₦{assuranceCost.toLocaleString()}
-                                </span>
-                              </>
-                            ) : (
-                              'Device Protection (+5%)'
-                            )}
-                          </p>
-                        </div>
-                      </label>
+                      {/* Assurance/Insurance Toggle */}
+                      {settings?.shipping_insurance_enabled && (
+                        <label className="flex items-start gap-2 cursor-pointer select-none group active:opacity-70 max-w-[70%]">
+                          <div className="relative flex items-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={item.hasAssurance || false}
+                              onChange={() => toggleAssurance?.(item.cartItemId)}
+                              className="peer sr-only"
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                              <ShieldCheck size={12} className="text-[var(--store-primary)]" />
+                              {merchantSlug === 'ogabassey' ? 'Ogabassey Assurance' : 'Order Protection'}
+                            </span>
+                            <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
+                              {item.hasAssurance ? (
+                                <>
+                                  {merchantSlug === 'ogabassey' ? (
+                                    <>
+                                      Covers{' '}
+                                      <span className="font-bold text-gray-700">
+                                        Screen & Liquid Damage
+                                      </span>
+                                    </>
+                                  ) : (
+                                    'Standard Shipping Protection'
+                                  )}
+                                  <span className="ml-1 text-[var(--store-primary)] font-bold">
+                                    +₦{assuranceCost.toLocaleString()}
+                                  </span>
+                                </>
+                              ) : (
+                                `${merchantSlug === 'ogabassey' ? 'Device Protection' : 'Safety & Shipping Coverage'} (+5%)`
+                              )}
+                            </p>
+                          </div>
+                        </label>
+                      )}
 
                       {/* Negotiate Button */}
                       <div className="flex items-center gap-2">
@@ -462,8 +488,8 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                     Negotiate Total
                   </button>
 
-                  <Link
-                    href={`${basePath}/checkout` as any}
+                  <button
+                    onClick={handleCheckoutClick}
                     className="w-full bg-black hover:bg-gray-900 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] active:shadow-none relative z-10"
                   >
                     Proceed to Checkout
@@ -471,7 +497,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       size={20}
                       className="transition-transform group-hover:translate-x-1"
                     />
-                  </Link>
+                  </button>
                 </div>
 
                 <div className="mt-6 flex justify-center">
@@ -497,6 +523,13 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
         />
       )}
 
+      {/* Checkout Identity Gate */}
+      <CheckoutIdentityModal
+        isOpen={isIdentityModalOpen}
+        onOpenChange={setIsIdentityModalOpen}
+        checkoutUrl={`${basePath}/checkout`}
+      />
+
       {/* Mobile Sticky Footer - Only visible on mobile when cart has items */}
       {cart.length > 0 && (
         <div className="fixed bottom-24 left-0 right-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden z-40">
@@ -512,15 +545,15 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           </button>
 
           {/* Checkout Button */}
-          <Link
-            href={`${basePath}/checkout` as any}
+          <button
+            onClick={handleCheckoutClick}
             className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-700 active:scale-[0.98] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg"
           >
             <span>Checkout</span>
             <span className="text-white/80">•</span>
             <span>₦{(vatEnabled ? Math.round(cartTotal * (1 + vatRate / 100)) : cartTotal).toLocaleString()}</span>
             <ArrowRight size={18} className="ml-1" />
-          </Link>
+          </button>
         </div>
       )}
       {/* Negotiate Mode Warning Dialog */}

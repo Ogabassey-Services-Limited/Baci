@@ -253,7 +253,7 @@ export async function getBanks(country = 'nigeria'): Promise<Bank[]> {
 export async function resolveAccountNumber(
   accountNumber: string,
   bankCode: string
-): Promise<PaystackResult<{ account_number: string; account_name: string }>> {
+): Promise<PaystackResult<{ account_number: string; account_name: string; bank_id?: number }>> {
   // Validate inputs
   if (!accountNumber || !bankCode) {
     return {

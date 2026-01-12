@@ -14,6 +14,10 @@ import { useAuthSafe } from '@/contexts/auth-context';
 import type { CategoryNavItem } from '@/lib/cached-categories';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
+import { z } from 'zod';
+import { FeatureSettingsSchema } from '@/lib/schemas';
+
+
 
 // Supabase data structure
 export interface MerchantData {
@@ -249,6 +253,9 @@ export const MerchantProvider = ({
             published_config: null,
             plan_tier: 'pro',
             template_id: 'ogabassey',
+            feature_settings: {
+              shipping_insurance_enabled: true,
+            },
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -327,14 +334,20 @@ export const MerchantProvider = ({
         // Storefront mode - load by slug
         const { data, error } = await supabase
           .from('merchants')
-          .select('*')
+          .select('*, feature_settings:merchant_feature_settings(*)')
           .eq('slug', slug)
           .maybeSingle();
 
         if (error && error.code !== 'PGRST116') {
           throw error;
         }
-        merchantData = data as MerchantData;
+
+        if (data) {
+          // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+          const settings = data.feature_settings;
+          data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+        }
+        merchantData = data as unknown as MerchantData;
       } else {
         // Dashboard mode - check ownership first, then staff membership
         if (!user) {
@@ -348,7 +361,7 @@ export const MerchantProvider = ({
         const [ownerResult, staffResult] = await Promise.all([
           supabase
             .from('merchants')
-            .select('*')
+            .select('*, feature_settings:merchant_feature_settings(*)')
             .eq('user_id', user.id)
             .maybeSingle(),
           supabase
@@ -359,7 +372,7 @@ export const MerchantProvider = ({
               permissions,
               status,
               merchant_id,
-              merchants (*)
+              merchants (*, feature_settings:merchant_feature_settings(*))
             `)
             .eq('user_id', user.id)
             .eq('status', 'active')
@@ -370,7 +383,11 @@ export const MerchantProvider = ({
         const { data: staffMember, error: staffError } = staffResult;
 
         if (ownedMerchant && !ownerError) {
-          merchantData = ownedMerchant as MerchantData;
+          // Normalize feature_settings from array to object
+          const settings = ownedMerchant.feature_settings;
+          ownedMerchant.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+
+          merchantData = ownedMerchant as unknown as MerchantData;
           access = {
             isStaff: false,
             isOwner: true,
@@ -390,6 +407,12 @@ export const MerchantProvider = ({
               : staffMember.merchants) as unknown as MerchantData;
 
             merchantData = merchantInfo;
+
+            if (merchantData) {
+              // Normalize feature_settings from array to object
+              const settings = merchantData.feature_settings;
+              merchantData.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+            }
 
             // Get effective permissions (role defaults + custom overrides)
             const { data: rolePerms } = await supabase

@@ -56,7 +56,7 @@ export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
   return {
     code: country.currency,
     symbol: country.currencySymbol,
-    locale: COUNTRY_LOCALES[countryCode] || 'en-US',
+    locale: COUNTRY_LOCALES[country.code] || 'en-US',
   };
 }
 

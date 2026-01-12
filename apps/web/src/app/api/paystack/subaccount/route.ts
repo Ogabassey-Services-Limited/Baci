@@ -16,12 +16,29 @@ const PLATFORM_COMMISSION_PERCENTAGE = 0;
 export async function POST(request: NextRequest) {
   try {
     const { bankCode, accountNumber, businessName } = await request.json();
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const authHeader = request.headers.get('Authorization');
+    let supabase;
+    let user;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (authHeader) {
+      // Mobile/API Request with Bearer Token
+      const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+      supabase = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: { headers: { Authorization: authHeader } },
+        }
+      );
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    } else {
+      // Web Request with Cookies
+      const cookieStore = await cookies();
+      supabase = createClient(cookieStore);
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

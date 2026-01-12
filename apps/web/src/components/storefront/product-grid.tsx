@@ -371,10 +371,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -434,11 +434,10 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
                             ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
                             : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                          }`}
                       >
                         {option}
                       </button>
@@ -484,23 +483,6 @@ export function StorefrontProductGrid({
             )}
           </>
         )}
-        <div className="bg-gray-100 p-4 rounded mb-4 text-xs font-mono overflow-auto max-h-60">
-          <strong>Debug Info:</strong>
-          <div>Categories Found: {categories.join(', ')}</div>
-          <div>Total Products: {products.length}</div>
-          <div>Merchant ID: {merchant?.id}</div>
-          <div>
-            Priority List:{' '}
-            {JSON.stringify(
-              merchantContext?.navigationCategories?.map((c) => c.name) || []
-            )}
-          </div>
-          <div>
-            First 5 categories in products:{' '}
-            {JSON.stringify(products.slice(0, 5).map((p) => p.category))}
-          </div>
-        </div>
-
         {/* Did you mean banner */}
         {didYouMean && searchQuery && (
           <DidYouMeanBanner

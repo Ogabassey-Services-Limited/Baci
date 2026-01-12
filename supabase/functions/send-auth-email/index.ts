@@ -80,7 +80,8 @@ function escapeHtml(text: string): string {
 
 function generateEmailHtml(
   config: (typeof EMAIL_CONFIG)[string],
-  confirmationUrl: string
+  confirmationUrl: string,
+  token?: string
 ): string {
   const safeHeading = escapeHtml(config.heading);
   const safeBody = escapeHtml(config.body);
@@ -88,6 +89,19 @@ function generateEmailHtml(
   // URL should be encoded, not just HTML escaped, but basic HTML escaping protects the attribute
   const safeUrl = escapeHtml(confirmationUrl);
   const safeLogo = escapeHtml(LOGO_URL);
+
+  const tokenHtml = token ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+      <tr>
+        <td align="center">
+            <div style="background-color: #f1f5f9; padding: 12px 24px; border-radius: 8px; display: inline-block;">
+                <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #1e40af;">${escapeHtml(token)}</span>
+            </div>
+            <p style="margin: 12px 0 0; font-size: 14px; color: #64748b;">Or use this code to verify your account</p>
+        </td>
+      </tr>
+    </table>
+  ` : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -109,6 +123,9 @@ function generateEmailHtml(
             <td style="padding: 40px 32px; color: #334155;">
               <h1 style="margin: 0 0 16px; font-size: 24px; color: #0f172a;">${safeHeading}</h1>
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6;">${safeBody}</p>
+              
+              ${tokenHtml}
+
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 16px 0 32px;">
@@ -165,9 +182,10 @@ Deno.serve(async (req) => {
   const emailType = email_data.email_action_type;
   const config = EMAIL_CONFIG[emailType] || EMAIL_CONFIG.signup;
   const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${email_data.token_hash}&type=${emailType}`;
-  const htmlBody = generateEmailHtml(config, confirmationUrl);
+  const htmlBody = generateEmailHtml(config, confirmationUrl, email_data.token);
 
   console.log('Sending email to:', user.email, 'Type:', emailType);
+  console.log('generated_otp:', email_data.token); // DEBUG: Log token for manual retrieval
 
   // Send via ZeptoMail
   try {

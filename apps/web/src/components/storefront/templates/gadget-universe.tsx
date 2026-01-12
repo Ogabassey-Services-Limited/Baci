@@ -9,42 +9,46 @@ import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { useMerchant } from '@/hooks/use-merchant';
 
 export function GadgetUniverseTemplate() {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
+
+  const getFullHref = (path: string) => {
+    return `${basePath || ''}${path === '/' ? '' : path}`;
+  };
 
   // Dynamic hero images based on merchant suggestion or defaults
   const bentoImages = [
     {
-      src: '/placeholder.png', // iPhone 15/16 Red
+      src: 'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=2000&auto=format&fit=crop', // iPhone
       alt: 'Latest Smartphone',
       title: 'Latest Smartphone',
       subtitle: 'Maximize your CREATIVITY',
       textColor: 'text-white',
-      ctaLink: '#iphone',
+      ctaLink: getFullHref('/category/phones'),
     },
     {
-      src: '/placeholder.png', // MacBook
+      src: 'https://images.unsplash.com/photo-1517336713481-43923eeadfe4?q=80&w=2000&auto=format&fit=crop', // MacBook
       alt: 'Pro Laptop',
       title: 'Pro Laptop',
       subtitle: 'Elevate your workflow',
       textColor: 'text-white',
-      ctaLink: '#macbook',
+      ctaLink: getFullHref('/category/laptops'),
     },
     {
-      src: '/placeholder.png', // PS5 Controller
+      src: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=2000&auto=format&fit=crop', // PS5
       alt: 'Gaming Console',
       title: 'Next-Gen Gaming',
       subtitle: 'Elevate your game',
       textColor: 'text-white',
-      ctaLink: '#ps5',
+      ctaLink: getFullHref('/category/gaming'),
     },
   ];
 
   const categories = [
-    { label: 'Phones', icon: 'smartphone', link: '#phones' },
-    { label: 'Gaming', icon: 'gaming', link: '#gaming' },
-    { label: 'Accessories', icon: 'headphones', link: '#accessories' },
-    { label: 'Printers', icon: 'printer', link: '#printers' },
-    { label: 'Laptop', icon: 'laptop', link: '#laptops' },
+    { label: 'Phones', icon: 'smartphone', link: getFullHref('/category/phones') },
+    { label: 'Gaming', icon: 'gaming', link: getFullHref('/category/gaming') },
+    { label: 'Accessories', icon: 'headphones', link: getFullHref('/category/accessories') },
+    { label: 'Printers', icon: 'printer', link: getFullHref('/category/printers') },
+    { label: 'Laptop', icon: 'laptop', link: getFullHref('/category/laptops') },
   ];
 
   return (

@@ -36,7 +36,9 @@
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -78,8 +80,9 @@
       "supabaseUrl": "https://aivqthbxdshhltbwipbr.supabase.co",
       "supabaseAnonKey": "",
       "eas": {
-        "projectId": ""
-      }
+        "projectId": "41ef8439-5d47-4c61-8cc2-9a178b6a4adc"
+      },
+      "router": {}
     }
   }
 }

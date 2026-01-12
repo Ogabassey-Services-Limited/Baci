@@ -3,6 +3,7 @@
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState, useMemo } from 'react';
 import { AnnouncementBar } from '@/components/storefront/blocks/announcement-bar';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { Header } from '@/components/storefront/blocks/header';
@@ -13,57 +14,88 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { ThemedButton } from '@/components/themed';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import type { TemplatePageProps } from '@/templates/registry';
 
-export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
-  const { merchant } = useMerchant();
+export function GadgetDefaultTemplate({
+  isPreview,
+  products = [],
+}: TemplatePageProps) {
+  const { merchant, basePath } = useMerchant();
   const theme = useIndustryTheme(merchant?.business_type);
+
+  type BrowseMode = 'category' | 'brand' | 'price';
+  const [browseMode, setBrowseMode] = useState<BrowseMode>('category');
+
+  // Derive unique brands from products
+  const allBrands = useMemo(() => {
+    const brands = new Set<string>();
+    products.forEach((p) => {
+      if (p.brand) brands.add(p.brand);
+    });
+    return Array.from(brands).slice(0, 8); // Limit to 8
+  }, [products]);
+
+  const PRICE_RANGES = [
+    { label: 'Under ₦5,000', href: '/search?max_price=5000' },
+    { label: '₦5,000 - ₦20,000', href: '/search?min_price=5000&max_price=20000' },
+    { label: '₦20,000 - ₦50,000', href: '/search?min_price=20000&max_price=50000' },
+    { label: 'Over ₦50,000', href: '/search?min_price=50000' },
+  ];
 
   // --- Dynamic Assets ---
   const getHeroImage = () => {
     switch (merchant?.business_type) {
       case 'ELECTRONICS':
-        return PlaceHolderImages.find((i) => i.id === 'hero-electronics-1')
-          ?.imageUrl;
+        return 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070&auto=format&fit=crop';
       case 'FOOD_BEVERAGE':
-        return PlaceHolderImages.find((i) => i.id === 'hero-food-1')?.imageUrl;
+        return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop';
       case 'FASHION':
-        return PlaceHolderImages.find((i) => i.id === 'hero-fashion-1')
-          ?.imageUrl;
+        return 'https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?q=80&w=2070&auto=format&fit=crop';
       case 'HOME_GOODS':
-        return PlaceHolderImages.find((i) => i.id === 'hero-home-1')?.imageUrl;
+        return 'https://images.unsplash.com/photo-1513584684374-8bdb74838a0f?q=80&w=2070&auto=format&fit=crop';
       case 'HEALTH_BEAUTY':
-        return PlaceHolderImages.find((i) => i.id === 'hero-beauty-1')
-          ?.imageUrl;
-      case 'HANDMADE':
-        return PlaceHolderImages.find((i) => i.id === 'hero-handmade-1')
-          ?.imageUrl;
+        return 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=2070&auto=format&fit=crop';
       case 'HAIR_EXTENSIONS':
-        return PlaceHolderImages.find((i) => i.id === 'hero-hair-1')?.imageUrl;
+        return 'https://images.unsplash.com/photo-1522337621169-d6cf09e65d95?q=80&w=2044&auto=format&fit=crop';
       default:
-        return PlaceHolderImages.find((i) => i.id === 'hero-electronics-1')
-          ?.imageUrl;
+        return 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=2070&auto=format&fit=crop';
     }
   };
 
-  const heroImage = getHeroImage() || '/placeholder.png';
+  const heroImage = getHeroImage();
 
   // --- Dynamic Categories ---
   const categories = [
-    { label: 'New Arrivals', icon: theme.icons.primary, href: '/category/new' },
+    {
+      label: 'New Arrivals',
+      icon: theme.icons.primary,
+      href: '/new-arrivals',
+    },
     {
       label: 'Best Sellers',
       icon: theme.icons.secondary,
-      href: '/category/best-sellers',
+      href: '/best-sellers',
     },
-    { label: 'On Sale', icon: theme.icons.tertiary, href: '/category/sale' },
+    { label: 'On Sale', icon: theme.icons.tertiary, href: '/on-sale' },
     {
       label: 'Featured',
       icon: theme.icons.primary,
-      href: '/category/featured',
+      href: '/featured',
     },
   ];
+
+  const getFullHref = (path: string) => {
+    return `${basePath || ''}${path === '/' ? '' : path}`;
+  };
 
   // --- Render Helpers ---
   const RadiusMap = {
@@ -86,7 +118,13 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
       style={{
         backgroundColor: theme.colors.background,
         color: theme.colors.text,
-      }}
+        '--store-primary': theme.colors.primary,
+        '--store-primary-text': '#FFFFFF',
+        '--store-background': theme.colors.background,
+        '--store-background-text': theme.colors.text,
+        '--store-accent': theme.colors.accent,
+        '--store-accent-text': '#FFFFFF',
+      } as React.CSSProperties}
     >
       <AnnouncementBar />
       <Header
@@ -119,19 +157,19 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
                   <p className="text-xl md:text-2xl font-light opacity-90">
                     Discover our premium collection tailored just for you.
                   </p>
-                  <button
-                    type="button"
+                  <ThemedButton
+                    asChild
+                    size="lg"
+                    colorRole="primary"
                     className={cn(
                       'px-8 py-4 text-lg font-medium transition-transform hover:scale-105',
                       radiusClass
                     )}
-                    style={{
-                      backgroundColor: theme.colors.accent,
-                      color: '#fff',
-                    }}
                   >
-                    Shop Now
-                  </button>
+                    <Link href={asRoute(getFullHref('/category/all'))}>
+                      Shop Now
+                    </Link>
+                  </ThemedButton>
                 </div>
               </div>
             </div>
@@ -150,19 +188,19 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
                     Experience quality and craftsmanship in every product we
                     offer.
                   </p>
-                  <button
-                    type="button"
+                  <ThemedButton
+                    asChild
+                    size="lg"
+                    colorRole="primary"
                     className={cn(
                       'px-8 py-4 text-lg font-medium flex items-center gap-2 transition-all hover:gap-4',
                       radiusClass
                     )}
-                    style={{
-                      backgroundColor: theme.colors.primary,
-                      color: '#fff',
-                    }}
                   >
-                    Explore Collection <ArrowRight className="w-5 h-5" />
-                  </button>
+                    <Link href={asRoute(getFullHref('/category/all'))}>
+                      Explore Collection <ArrowRight className="w-5 h-5" />
+                    </Link>
+                  </ThemedButton>
                 </div>
                 <div
                   className={cn(
@@ -182,44 +220,123 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
           )}
         </section>
 
-        {/* --- Dynamic Category Rail --- */}
+        {/* --- Dynamic Browse Rail --- */}
         <section className="py-12 container mx-auto px-4">
-          <h2
-            className="text-2xl font-bold mb-8"
-            style={{ color: theme.colors.primary }}
-          >
-            Shop by Category
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {categories.map((cat, i) => (
-              <Link
-                // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
-                key={i}
-                href={asRoute(cat.href)}
-                className={cn(
-                  'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
-                  radiusClass,
-                  theme.layout.categoryRail === 'circle' &&
-                    'aspect-square rounded-full',
-                  theme.layout.categoryRail === 'pill' && 'aspect-[2/1]',
-                  theme.layout.categoryRail === 'square' && 'aspect-square',
-                  theme.layout.categoryRail === 'card' && 'aspect-[4/3]'
-                )}
-                style={{
-                  backgroundColor: theme.colors.card,
-                  borderColor:
-                    theme.colors.background === '#09090B'
-                      ? '#27272A'
-                      : '#E5E7EB', // Dark mode border fix
-                }}
+          <div className="flex items-center gap-2 mb-8">
+            <h2
+              className="text-2xl font-bold"
+              style={{ color: theme.colors.primary }}
+            >
+              Shop by
+            </h2>
+            <Select
+              value={browseMode}
+              onValueChange={(v) => setBrowseMode(v as BrowseMode)}
+            >
+              <SelectTrigger
+                className="w-[180px] text-2xl font-bold border-none shadow-none focus:ring-0 px-0 h-auto"
+                style={{ color: theme.colors.accent }}
               >
-                <cat.icon
-                  className="w-8 h-8 mb-3 transition-transform group-hover:scale-110"
-                  style={{ color: theme.colors.accent }}
-                />
-                <span className="font-medium">{cat.label}</span>
-              </Link>
-            ))}
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="category">Category</SelectItem>
+                <SelectItem value="brand">Brand</SelectItem>
+                <SelectItem value="price">Price</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {browseMode === 'category' &&
+              categories.map((cat, i) => (
+                <Link
+                  key={i}
+                  href={asRoute(getFullHref(cat.href))}
+                  className={cn(
+                    'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
+                    radiusClass,
+                    theme.layout.categoryRail === 'circle' &&
+                    'aspect-square rounded-full',
+                    theme.layout.categoryRail === 'pill' && 'aspect-[2/1]',
+                    theme.layout.categoryRail === 'square' && 'aspect-square',
+                    theme.layout.categoryRail === 'card' && 'aspect-[4/3]'
+                  )}
+                  style={{
+                    backgroundColor: theme.colors.card,
+                    borderColor:
+                      theme.colors.background === '#09090B'
+                        ? '#27272A'
+                        : '#E5E7EB',
+                  }}
+                >
+                  <cat.icon
+                    className="w-8 h-8 mb-3 transition-transform group-hover:scale-110"
+                    style={{ color: theme.colors.accent }}
+                  />
+                  <span className="font-medium text-center">{cat.label}</span>
+                </Link>
+              ))}
+
+            {browseMode === 'brand' &&
+              (allBrands.length > 0 ? (
+                allBrands.map((brand, i) => (
+                  <Link
+                    key={i}
+                    href={asRoute(getFullHref(`/search?q=${brand}`))}
+                    className={cn(
+                      'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
+                      radiusClass,
+                      'aspect-[4/3]'
+                    )}
+                    style={{
+                      backgroundColor: theme.colors.card,
+                      borderColor:
+                        theme.colors.background === '#09090B'
+                          ? '#27272A'
+                          : '#E5E7EB',
+                    }}
+                  >
+                    <span
+                      className="text-lg font-bold transition-transform group-hover:scale-110"
+                      style={{ color: theme.colors.primary }}
+                    >
+                      {brand}
+                    </span>
+                  </Link>
+                ))
+              ) : (
+                <div className="col-span-4 text-center py-8 text-muted-foreground">
+                  No brands found.
+                </div>
+              ))}
+
+            {browseMode === 'price' &&
+              PRICE_RANGES.map((range, i) => (
+                <Link
+                  key={i}
+                  href={asRoute(getFullHref(range.href))}
+                  className={cn(
+                    'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
+                    radiusClass,
+                    'aspect-[4/3]'
+                  )}
+                  style={{
+                    backgroundColor: theme.colors.card,
+                    borderColor:
+                      theme.colors.background === '#09090B'
+                        ? '#27272A'
+                        : '#E5E7EB',
+                  }}
+                >
+                  <span
+                    className="text-lg font-bold transition-transform group-hover:scale-110"
+                    style={{ color: theme.colors.accent }}
+                  >
+                    {range.label}
+                  </span>
+                </Link>
+              ))}
           </div>
         </section>
 
@@ -229,9 +346,9 @@ export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
             title="Featured Products"
             columns={4}
             limit={4}
-            // We can pass styles to the grid if it supports them,
-            // otherwise we rely on global theme vars or wrapper styles.
-            // For now, the grid is standard, but we wrap it to control context if needed.
+          // We can pass styles to the grid if it supports them,
+          // otherwise we rely on global theme vars or wrapper styles.
+          // For now, the grid is standard, but we wrap it to control context if needed.
           />
         </section>
 

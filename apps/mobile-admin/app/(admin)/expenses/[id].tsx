@@ -1,0 +1,215 @@
+/**
+ * Expense Detail Screen
+ * View details of a specific expense
+ */
+
+import React from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    Pressable,
+    StatusBar,
+    Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { format, parseISO } from 'date-fns';
+import { useTheme } from '@/hooks/useTheme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { useQuery } from '@tanstack/react-query';
+
+export default function ExpenseDetailScreen() {
+    const { colors, isDark, shadows } = useTheme();
+    const router = useRouter();
+    const { id } = useLocalSearchParams<{ id: string }>();
+    const { merchant } = useMerchant();
+
+    const { data: expense, isLoading } = useQuery({
+        queryKey: ['expense', id],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('expenses')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!id,
+    });
+
+    const formatCurrency = (amount: number, currency: string) => {
+        return `${currency === 'NGN' ? '₦' : currency}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+    };
+
+    if (isLoading) {
+        return (
+            <View style={[styles.container, styles.center, { backgroundColor: colors.background }]}>
+                <Text style={{ color: colors.textSecondary }}>Loading expense details...</Text>
+            </View>
+        );
+    }
+
+    if (!expense) {
+        return (
+            <View style={[styles.container, styles.center, { backgroundColor: colors.background }]}>
+                <Text style={{ color: colors.textSecondary }}>Expense not found.</Text>
+            </View>
+        );
+    }
+
+    return (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+            <Stack.Screen
+                options={{
+                    title: 'Expense Details',
+                    headerStyle: { backgroundColor: colors.background },
+                    headerTintColor: colors.text,
+                    headerShadowVisible: false,
+                }}
+            />
+            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+                <View style={[styles.headerCard, { backgroundColor: colors.card }, shadows.sm]}>
+                    <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
+                        <Ionicons name="receipt-outline" size={32} color={colors.primary} />
+                    </View>
+                    <Text style={[styles.amountText, { color: colors.text }]}>
+                        {formatCurrency(expense.amount, merchant?.payout_currency || 'NGN')}
+                    </Text>
+                    <Text style={[styles.categoryText, { color: colors.textSecondary }]}>
+                        {expense.category}
+                    </Text>
+                </View>
+
+                <View style={[styles.infoSection, { backgroundColor: colors.card }, shadows.sm]}>
+                    <View style={styles.infoRow}>
+                        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Date</Text>
+                        <Text style={[styles.infoValue, { color: colors.text }]}>
+                            {format(parseISO(expense.date), 'MMMM d, yyyy')}
+                        </Text>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <View style={styles.infoRow}>
+                        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Reference</Text>
+                        <Text style={[styles.infoValue, { color: colors.text }]}>
+                            {expense.reference || 'None'}
+                        </Text>
+                    </View>
+
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+                    <View style={styles.infoRow}>
+                        <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Description</Text>
+                        <Text style={[styles.infoValue, { color: colors.text, textAlign: 'right' }]}>
+                            {expense.description || 'No description provided'}
+                        </Text>
+                    </View>
+                </View>
+
+                {expense.receipt_url && (
+                    <View style={styles.receiptSection}>
+                        <Text style={[styles.sectionTitle, { color: colors.text }]}>Receipt</Text>
+                        <Pressable
+                            style={[styles.receiptCard, { backgroundColor: colors.card }, shadows.sm]}
+                            onPress={() => Alert.alert('View Receipt', 'Opening receipt image...')}
+                        >
+                            <Ionicons name="image-outline" size={24} color={colors.primary} />
+                            <Text style={[styles.receiptText, { color: colors.primary }]}>View Attached Receipt</Text>
+                        </Pressable>
+                    </View>
+                )}
+            </ScrollView>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    center: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: SPACING.lg,
+        gap: SPACING.lg,
+    },
+    headerCard: {
+        padding: SPACING.xl,
+        borderRadius: RADIUS.xl,
+        alignItems: 'center',
+        gap: SPACING.sm,
+    },
+    iconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: RADIUS.full,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: SPACING.xs,
+    },
+    amountText: {
+        fontSize: 32,
+        fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    categoryText: {
+        fontSize: TYPOGRAPHY.size.md,
+        fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    infoSection: {
+        borderRadius: RADIUS.lg,
+        padding: SPACING.md,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: SPACING.md,
+    },
+    infoLabel: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.regular,
+    },
+    infoValue: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+        flex: 1,
+        textAlign: 'right',
+        paddingLeft: SPACING.md,
+    },
+    divider: {
+        height: StyleSheet.hairlineWidth,
+    },
+    receiptSection: {
+        gap: SPACING.sm,
+    },
+    sectionTitle: {
+        fontSize: TYPOGRAPHY.size.sm,
+        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+        marginLeft: SPACING.xs,
+    },
+    receiptCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: SPACING.lg,
+        borderRadius: RADIUS.lg,
+        gap: SPACING.md,
+    },
+    receiptText: {
+        fontSize: TYPOGRAPHY.size.md,
+        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    },
+});

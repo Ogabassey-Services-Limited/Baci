@@ -231,6 +231,9 @@ export async function lookupDomain(
   try {
     if (!domain) return null;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
     const response = await fetch(
       'https://www.whogohost.com/host/whoislookup.php',
       {
@@ -239,8 +242,10 @@ export async function lookupDomain(
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `domain=${encodeURIComponent(domain)}`,
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(
@@ -255,6 +260,8 @@ export async function lookupDomain(
     return data as Go54LookupResponse;
   } catch (error) {
     console.error('Error in Go54 domain lookup:', error);
+    if (!process.env.GO54_API_KEY) console.warn('Warning: GO54_API_KEY is missing');
+    if (!process.env.GO54_EMAIL) console.warn('Warning: GO54_EMAIL is missing');
     return null;
   }
 }
@@ -293,7 +300,13 @@ async function checkDomainAvailabilityFallback(
   try {
     if (!domain) return false;
 
-    const results = await whois(domain);
+    // Wrap WHOIS in a timeout (5 seconds)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('WHOIS request timed out')), 5000)
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results = await Promise.race([whois(domain), timeoutPromise]) as any;
     console.log('WHOIS Fallback for', domain);
 
     const responseString = JSON.stringify(results).toLowerCase();

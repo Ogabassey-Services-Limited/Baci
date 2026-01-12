@@ -2,21 +2,3 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/app/api/storefront/auth/session/route.ts(110,9): error TS1003: Identifier expected.
-src/app/api/storefront/auth/session/route.ts(130,22): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(134,13): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(134,18): error TS1005: ':' expected.
-src/app/api/storefront/auth/session/route.ts(135,35): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(136,20): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(136,76): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(140,5): error TS1005: ',' expected.
-src/app/api/storefront/auth/session/route.ts(149,7): error TS1005: 'try' expected.
-src/app/api/storefront/auth/session/route.ts(157,1): error TS1472: 'catch' or 'finally' expected.
-src/app/checkout/page.tsx(1004,9): error TS1005: ',' expected.
-src/app/checkout/page.tsx(1052,3): error TS1128: Declaration or statement expected.
-src/app/checkout/page.tsx(1087,5): error TS1128: Declaration or statement expected.
-src/app/checkout/page.tsx(1088,3): error TS1128: Declaration or statement expected.
-src/app/checkout/page.tsx(1088,4): error TS1128: Declaration or statement expected.
-src/app/checkout/page.tsx(1088,40): error TS1005: ';' expected.
-src/app/checkout/page.tsx(1593,1): error TS1128: Declaration or statement expected.
- ELIFECYCLE  Command failed with exit code 2.

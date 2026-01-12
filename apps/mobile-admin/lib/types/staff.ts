@@ -11,7 +11,8 @@ export type StaffRole =
     | 'accountant'
     | 'customer_service'
     | 'marketing'
-    | 'fulfillment';
+    | 'fulfillment'
+    | 'blog_manager';
 
 export type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
 
@@ -31,12 +32,13 @@ export interface StaffMember {
 export const ROLE_LABELS: Record<StaffRole, string> = {
     admin: 'Administrator',
     manager: 'Store Manager',
-    sales_rep: 'Sales Rep',
-    inventory: 'Inventory',
+    sales_rep: 'Sales Representative',
+    inventory: 'Inventory Manager',
     accountant: 'Accountant',
-    customer_service: 'Support',
-    marketing: 'Marketing',
-    fulfillment: 'Fulfillment',
+    customer_service: 'Support Specialist',
+    marketing: 'Marketing Manager',
+    fulfillment: 'Fulfillment Officer',
+    blog_manager: 'Blog Manager',
 };
 
 export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
@@ -48,6 +50,7 @@ export const ROLE_DESCRIPTIONS: Record<StaffRole, string> = {
     customer_service: 'Handle orders and customer inquiries',
     marketing: 'Manage marketing, discounts, and content',
     fulfillment: 'Process and ship orders',
+    blog_manager: 'Manage blog posts and page content',
 };
 
 export const VALID_ROLES: StaffRole[] = [
@@ -59,4 +62,5 @@ export const VALID_ROLES: StaffRole[] = [
     'customer_service',
     'marketing',
     'fulfillment',
+    'blog_manager',
 ];

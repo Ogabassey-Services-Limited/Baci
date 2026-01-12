@@ -18,6 +18,7 @@ import {
   User,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
@@ -515,10 +516,13 @@ export const OgabasseyV2ProductDetails: React.FC<
           {/* Left: Image Gallery (5 Cols) */}
           <div className="lg:col-span-5 space-y-6">
             <div className="relative aspect-square bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100">
-              <img
+              <Image
                 src={productData.images[selectedImage]}
                 alt={productData.name}
-                className="w-full h-full object-cover transition-all duration-500"
+                fill
+                className="object-cover transition-all duration-500"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
               />
               <div
                 className={`absolute top - 4 left - 4 text - white text - xs font - bold px - 3 py - 1 rounded - full uppercase tracking - wider ${productData.condition === 'New'
@@ -539,10 +543,12 @@ export const OgabasseyV2ProductDetails: React.FC<
                   }}
                   className={`relative w - 24 h - 24 bg - gray - 50 rounded - xl border - 2 flex - shrink - 0 flex items - center justify - center p - 0 overflow - hidden transition - all active: scale - 95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'} `}
                 >
-                  <img
+                  <Image
                     src={img}
-                    alt={`View ${idx} `}
-                    className="w-full h-full object-cover"
+                    alt={`View ${idx}`}
+                    fill
+                    className="object-cover"
+                    sizes="96px"
                   />
                 </button>
               ))}
@@ -1049,11 +1055,13 @@ export const OgabasseyV2ProductDetails: React.FC<
                         Current
                       </div>
                       <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4">
-                        <div className="bg-white p-2 rounded-xl shadow-sm mb-2 overflow-hidden border border-red-100 h-24 w-24 flex items-center justify-center">
-                          <img
+                        <div className="bg-white p-2 rounded-xl shadow-sm mb-2 overflow-hidden border border-red-100 h-24 w-24 flex items-center justify-center relative">
+                          <Image
                             src={productData.images[0]}
                             alt={productData.name}
-                            className="h-full w-full object-contain"
+                            fill
+                            className="object-contain p-2"
+                            sizes="96px"
                           />
                         </div>
                         <span className="font-bold text-gray-900 text-center text-sm line-clamp-2 px-2 h-10 flex items-center">
@@ -1098,11 +1106,13 @@ export const OgabasseyV2ProductDetails: React.FC<
                     {comparableProducts.map((comp, idx) => (
                       <div key={idx} className="space-y-4 relative group">
                         <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4 opacity-90 hover:opacity-100 transition-opacity">
-                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 h-24 w-24 flex items-center justify-center">
-                            <img
+                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 h-24 w-24 flex items-center justify-center relative">
+                            <Image
                               src={comp.image}
                               alt={comp.name}
-                              className="h-full w-full object-contain mix-blend-multiply"
+                              fill
+                              className="object-contain mix-blend-multiply p-2"
+                              sizes="96px"
                             />
                           </div>
                           <a

@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   getDomainInformation,
@@ -7,28 +6,26 @@ import {
   updateDomainLock,
   updateDomainNameservers,
 } from '@/lib/go54';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { vercel } from '@/lib/vercel';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
     const { domain } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const { user, error: authError } = await authenticateApiRequest(request);
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminSupabase = createAdminClient();
+
     // Verify domain belongs to user's merchant account
-    const { data: merchant } = await supabase
+    const { data: merchant } = await adminSupabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
@@ -41,7 +38,7 @@ export async function GET(
       );
     }
 
-    const { data: domainRecord, error: domainError } = await supabase
+    const { data: domainRecord, error: domainError } = await adminSupabase
       .from('domains')
       .select('id')
       .eq('domain', domain)
@@ -84,19 +81,16 @@ export async function POST(
     const body = await request.json();
     const { action, data } = body;
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await authenticateApiRequest(request);
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const adminSupabase = createAdminClient();
+
     // Verify domain belongs to user's merchant account
-    const { data: merchant } = await supabase
+    const { data: merchant } = await adminSupabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
@@ -109,7 +103,7 @@ export async function POST(
       );
     }
 
-    const { data: domainRecord, error: domainError } = await supabase
+    const { data: domainRecord, error: domainError } = await adminSupabase
       .from('domains')
       .select('id')
       .eq('domain', domain)
@@ -146,24 +140,20 @@ export async function POST(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
     const { domain } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, error: authError } = await authenticateApiRequest(request);
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
+    const adminSupabase = createAdminClient();
+
+    const { data: merchant } = await adminSupabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
@@ -176,7 +166,7 @@ export async function DELETE(
       );
     }
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await adminSupabase
       .from('domains')
       .delete()
       .eq('domain', domain)

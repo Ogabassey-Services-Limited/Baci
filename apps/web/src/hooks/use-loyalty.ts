@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface LoyaltyReward {
   id: string;
@@ -77,7 +77,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLoyaltyData = useCallback(async () => {
+  const fetchLoyaltyData = async () => {
     if (!merchantId || !customerId) {
       setLoading(false);
       return;
@@ -141,125 +141,113 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, customerId]);
+  };
 
   useEffect(() => {
     fetchLoyaltyData();
-  }, [fetchLoyaltyData]);
+  }, [merchantId, customerId]);
 
-  const enroll = useCallback(
-    async (referralCode?: string): Promise<EnrollmentResult> => {
-      if (!merchantId || !customerId) {
-        return { success: false, error: 'Missing merchant or customer ID' };
+  const enroll = async (referralCode?: string): Promise<EnrollmentResult> => {
+    if (!merchantId || !customerId) {
+      return { success: false, error: 'Missing merchant or customer ID' };
+    }
+
+    try {
+      const response = await fetch('/api/storefront/loyalty/enroll', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          customer_id: customerId,
+          referral_code: referralCode,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error };
       }
 
-      try {
-        const response = await fetch('/api/storefront/loyalty/enroll', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            merchant_id: merchantId,
-            customer_id: customerId,
-            referral_code: referralCode,
-          }),
-        });
+      // Refresh loyalty data after enrollment
+      await fetchLoyaltyData();
 
-        const result = await response.json();
+      return {
+        success: true,
+        points_balance: result.data.points_balance,
+        tier: result.data.tier,
+        referral_code: result.data.referral_code,
+      };
+    } catch (err) {
+      console.error('Error enrolling in loyalty program:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to enroll',
+      };
+    }
+  };
 
-        if (!response.ok) {
-          return { success: false, error: result.error };
-        }
+  const redeemReward = async (rewardId: string): Promise<RedemptionResult> => {
+    if (!merchantId || !customerId) {
+      return { success: false, error: 'Missing merchant or customer ID' };
+    }
 
-        // Refresh loyalty data after enrollment
-        await fetchLoyaltyData();
+    try {
+      const response = await fetch('/api/storefront/loyalty/redeem', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchant_id: merchantId,
+          customer_id: customerId,
+          reward_id: rewardId,
+        }),
+      });
 
-        return {
-          success: true,
-          points_balance: result.data.points_balance,
-          tier: result.data.tier,
-          referral_code: result.data.referral_code,
-        };
-      } catch (err) {
-        console.error('Error enrolling in loyalty program:', err);
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Failed to enroll',
-        };
-      }
-    },
-    [merchantId, customerId, fetchLoyaltyData]
-  );
+      const result = await response.json();
 
-  const redeemReward = useCallback(
-    async (rewardId: string): Promise<RedemptionResult> => {
-      if (!merchantId || !customerId) {
-        return { success: false, error: 'Missing merchant or customer ID' };
+      if (!response.ok) {
+        return { success: false, error: result.error };
       }
 
-      try {
-        const response = await fetch('/api/storefront/loyalty/redeem', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            merchant_id: merchantId,
-            customer_id: customerId,
-            reward_id: rewardId,
-          }),
-        });
+      // Refresh loyalty data after redemption
+      await fetchLoyaltyData();
 
-        const result = await response.json();
-
-        if (!response.ok) {
-          return { success: false, error: result.error };
-        }
-
-        // Refresh loyalty data after redemption
-        await fetchLoyaltyData();
-
-        return {
-          success: true,
-          redemption_code: result.data.redemption_code,
-          reward_name: result.data.reward_name,
-          points_spent: result.data.points_spent,
-          new_balance: result.data.new_balance,
-          expires_at: result.data.expires_at,
-          instructions: result.data.instructions,
-        };
-      } catch (err) {
-        console.error('Error redeeming reward:', err);
-        return {
-          success: false,
-          error: err instanceof Error ? err.message : 'Failed to redeem reward',
-        };
-      }
-    },
-    [merchantId, customerId, fetchLoyaltyData]
-  );
+      return {
+        success: true,
+        redemption_code: result.data.redemption_code,
+        reward_name: result.data.reward_name,
+        points_spent: result.data.points_spent,
+        new_balance: result.data.new_balance,
+        expires_at: result.data.expires_at,
+        instructions: result.data.instructions,
+      };
+    } catch (err) {
+      console.error('Error redeeming reward:', err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to redeem reward',
+      };
+    }
+  };
 
   // Helper to calculate points from purchase amount
-  const calculatePoints = useCallback(
-    (amount: number): number => {
-      if (!data?.settings.points_per_naira) return 0;
-      return Math.floor(amount * data.settings.points_per_naira);
-    },
-    [data?.settings.points_per_naira]
-  );
+  const calculatePoints = (amount: number): number => {
+    if (!data?.settings.points_per_naira) return 0;
+    return Math.floor(amount * data.settings.points_per_naira);
+  };
 
   // Helper to calculate point value in naira
-  const calculatePointValue = useCallback(
-    (points: number): number => {
-      if (!data?.settings.naira_per_point) return 0;
-      return points * data.settings.naira_per_point;
-    },
-    [data?.settings.naira_per_point]
-  );
+  const calculatePointValue = (points: number): number => {
+    if (!data?.settings.naira_per_point) return 0;
+    return points * data.settings.naira_per_point;
+  };
 
   // Get tier display info
-  const getTierInfo = useCallback((tier: string) => {
+  const getTierInfo = (tier: string) => {
     const tierColors = {
       bronze: {
         bg: 'bg-amber-100',
@@ -309,7 +297,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
       benefits:
         tierBenefits[tier as keyof typeof tierBenefits] || tierBenefits.bronze,
     };
-  }, []);
+  };
 
   return {
     data,
