@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, Eye, EyeOff, KeyRound, Loader2, Mail } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, KeyRound, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
@@ -18,7 +18,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
 import { type SignupValues, signupSchema } from '@/schemas/auth';

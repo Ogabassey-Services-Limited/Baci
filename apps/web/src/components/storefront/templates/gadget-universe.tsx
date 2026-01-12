@@ -44,10 +44,22 @@ export function GadgetUniverseTemplate() {
   ];
 
   const categories = [
-    { label: 'Phones', icon: 'smartphone', link: getFullHref('/category/phones') },
+    {
+      label: 'Phones',
+      icon: 'smartphone',
+      link: getFullHref('/category/phones'),
+    },
     { label: 'Gaming', icon: 'gaming', link: getFullHref('/category/gaming') },
-    { label: 'Accessories', icon: 'headphones', link: getFullHref('/category/accessories') },
-    { label: 'Printers', icon: 'printer', link: getFullHref('/category/printers') },
+    {
+      label: 'Accessories',
+      icon: 'headphones',
+      link: getFullHref('/category/accessories'),
+    },
+    {
+      label: 'Printers',
+      icon: 'printer',
+      link: getFullHref('/category/printers'),
+    },
     { label: 'Laptop', icon: 'laptop', link: getFullHref('/category/laptops') },
   ];
 

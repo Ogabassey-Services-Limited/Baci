@@ -14,10 +14,6 @@ import { useAuthSafe } from '@/contexts/auth-context';
 import type { CategoryNavItem } from '@/lib/cached-categories';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
-import { z } from 'zod';
-import { FeatureSettingsSchema } from '@/lib/schemas';
-
-
 
 // Supabase data structure
 export interface MerchantData {
@@ -345,7 +341,9 @@ export const MerchantProvider = ({
         if (data) {
           // Normalize feature_settings from array to object (Edge Compatibility Pattern)
           const settings = data.feature_settings;
-          data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+          data.feature_settings = Array.isArray(settings)
+            ? settings[0]
+            : settings;
         }
         merchantData = data as unknown as MerchantData;
       } else {
@@ -385,7 +383,9 @@ export const MerchantProvider = ({
         if (ownedMerchant && !ownerError) {
           // Normalize feature_settings from array to object
           const settings = ownedMerchant.feature_settings;
-          ownedMerchant.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+          ownedMerchant.feature_settings = Array.isArray(settings)
+            ? settings[0]
+            : settings;
 
           merchantData = ownedMerchant as unknown as MerchantData;
           access = {
@@ -411,7 +411,9 @@ export const MerchantProvider = ({
             if (merchantData) {
               // Normalize feature_settings from array to object
               const settings = merchantData.feature_settings;
-              merchantData.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+              merchantData.feature_settings = Array.isArray(settings)
+                ? settings[0]
+                : settings;
             }
 
             // Get effective permissions (role defaults + custom overrides)

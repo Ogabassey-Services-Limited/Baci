@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import {
   getDomainInformation,
   getDomainLock,
@@ -6,7 +7,6 @@ import {
   updateDomainLock,
   updateDomainNameservers,
 } from '@/lib/go54';
-import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { vercel } from '@/lib/vercel';
 

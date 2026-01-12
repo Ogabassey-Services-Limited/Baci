@@ -57,11 +57,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useMerchant } from '@/hooks/use-merchant';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+import type { CachedMerchant } from '@/lib/cached-data';
 
 interface BlogPost {
   id: string;
@@ -79,21 +79,15 @@ interface BlogPost {
   published_at: string | null;
 }
 
-// ... imports ...
-
 interface BlogClientPageProps {
-  merchant: any; // We use 'any' temporarily or import the type if available, but for now matching usage
+  merchant: CachedMerchant;
 }
 
 export function BlogClientPage({ merchant }: BlogClientPageProps) {
   const _router = useRouter();
   const { toast } = useToast();
-  // const { merchant } = useMerchant(); // We now use the prop
-  const {
-    autoBlogEnabled, // We still might use this for conditional UI elements
-    // blogEnabled, // No longer needed for gating
-    isLoading: isFeaturesLoading,
-  } = useMerchantFeatures();
+  const { autoBlogEnabled, isLoading: isFeaturesLoading } =
+    useMerchantFeatures();
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,9 +95,6 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
-
-  // ... rest of logic ...
-
 
   const fetchPosts = useCallback(async () => {
     if (!merchant?.id) return;
@@ -139,8 +130,11 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   }, [merchant?.id, statusFilter, debouncedSearch, toast]);
 
   useEffect(() => {
-    // We assume blog is enabled if this component is rendered
-    fetchPosts();
+    if (blogEnabled) {
+      fetchPosts();
+    } else {
+      setIsLoading(false);
+    }
   }, [fetchPosts]);
 
   const handleDelete = async () => {
@@ -250,8 +244,54 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
     [posts]
   );
 
-  // Removed isFeaturesLoading check because we want to show the blog immediately if server says enabled.
-  // Removed blogEnabled check and Disabled UI because Server Component handles it.
+  // Show loading state while checking features
+  if (isFeaturesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // Show feature disabled state
+  if (!blogEnabled) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
+          <p className="text-muted-foreground">
+            Create and manage blog posts for your store
+          </p>
+        </div>
+
+        <Card>
+          <CardContent className="py-16">
+            <div className="text-center max-w-md mx-auto">
+              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
+                <PenTool className="w-8 h-8 text-accent" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Blog Feature</h2>
+              <p className="text-muted-foreground mb-6">
+                Create blog posts to drive traffic, improve SEO, and rank on
+                Google Discover. Enable the blog feature to get started.
+              </p>
+              <Button asChild>
+                <Link href="/dashboard/settings">Enable Blog Feature</Link>
+              </Button>
+            </div>
+            {/* DEBUG: Temporary info to check why it thinks it's disabled */}
+            <div className="mt-8 p-4 bg-gray-100 rounded text-xs font-mono text-left overflow-auto max-w-lg mx-auto opacity-50 hover:opacity-100 transition-opacity">
+              <p className="font-bold mb-1">Debug Info:</p>
+              <p>blogEnabled: {String(blogEnabled)}</p>
+              <p>autoBlogEnabled: {String(autoBlogEnabled)}</p>
+              <p>isFeaturesLoading: {String(isFeaturesLoading)}</p>
+              <p>Merchant ID: {merchant?.id}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

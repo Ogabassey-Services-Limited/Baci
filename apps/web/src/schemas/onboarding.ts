@@ -14,7 +14,11 @@ const step1BaseSchema = z.object({
     .trim()
     .min(1, { message: 'Please select a business type.' }),
   otherBusinessType: z.string().trim().optional(),
-  slug: z.string().trim().min(3, { message: 'Store link must be at least 3 characters.' }).optional(),
+  slug: z
+    .string()
+    .trim()
+    .min(3, { message: 'Store link must be at least 3 characters.' })
+    .optional(),
 });
 
 /**
@@ -45,7 +49,10 @@ export const step2Schema = z.object({
     .string()
     .trim()
     .min(1, { message: 'Logo is required. Please upload or generate one.' }),
-  brandColors: z.string().trim().min(1, { message: 'Brand colors are required.' }),
+  brandColors: z
+    .string()
+    .trim()
+    .min(1, { message: 'Brand colors are required.' }),
   brandPreferences: z.string().trim().optional(),
 });
 
@@ -53,7 +60,10 @@ export const step2Schema = z.object({
  * Base schema for Step 3. Contains only field definitions.
  */
 const step3BaseSchema = z.object({
-  email: z.string().trim().email({ message: 'Please enter a valid email address.' }),
+  email: z
+    .string()
+    .trim()
+    .email({ message: 'Please enter a valid email address.' }),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
 });

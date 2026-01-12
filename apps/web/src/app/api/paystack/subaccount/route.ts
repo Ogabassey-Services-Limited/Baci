@@ -17,12 +17,14 @@ export async function POST(request: NextRequest) {
   try {
     const { bankCode, accountNumber, businessName } = await request.json();
     const authHeader = request.headers.get('Authorization');
-    let supabase;
-    let user;
+    let supabase: any;
+    let user: any;
 
     if (authHeader) {
       // Mobile/API Request with Bearer Token
-      const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+      const { createClient: createSupabaseClient } = await import(
+        '@supabase/supabase-js'
+      );
       supabase = createSupabaseClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

@@ -1,10 +1,10 @@
-import { authenticateApiRequest } from '@/lib/api-auth';
 import { nanoid } from 'nanoid';
 import { NextResponse } from 'next/server';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
@@ -18,7 +18,9 @@ export async function POST(request: Request) {
 
     // Authenticate request (supports mobile Bearer token + web cookies)
     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-    const { user, error: authError } = await authenticateApiRequest(request as any);
+    const { user, error: authError } = await authenticateApiRequest(
+      request as any
+    );
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -122,7 +124,10 @@ export async function POST(request: Request) {
     console.log('[DomainPayment] Initializing Paystack...');
     if (!process.env.PAYSTACK_SECRET_KEY) {
       console.error('[DomainPayment] PAYSTACK_SECRET_KEY is missing');
-      return NextResponse.json({ error: 'Payment configuration error' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Payment configuration error' },
+        { status: 500 }
+      );
     }
 
     const paystackResponse = await fetch(
@@ -152,7 +157,10 @@ export async function POST(request: Request) {
 
     if (!paystackResponse.ok) {
       const errorData = await paystackResponse.json();
-      console.error('[DomainPayment] Paystack Init Failed:', JSON.stringify(errorData));
+      console.error(
+        '[DomainPayment] Paystack Init Failed:',
+        JSON.stringify(errorData)
+      );
       return NextResponse.json(
         { error: 'Failed to initialize payment gateway' },
         { status: 500 }

@@ -174,7 +174,8 @@ export async function submitOnboarding(
         ? otherBusinessType || businessType
         : businessType;
     const slug =
-      businessName.split(' ')[0]
+      businessName
+        .split(' ')[0]
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || 'store';

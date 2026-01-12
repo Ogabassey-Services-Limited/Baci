@@ -1,13 +1,10 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
-import { z } from 'zod';
-import { FeatureSettingsSchema } from '@/lib/schemas';
 import {
   getSupabaseAnonKey,
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
-
 
 /**
  * Create a Supabase client for cached queries.
@@ -988,7 +985,9 @@ export const getCachedFeatureSettings = async (merchantId: string) => {
 
         const { data, error } = await supabase
           .from('merchant_feature_settings')
-          .select('blog_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default')
+          .select(
+            'blog_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
+          )
           .eq('merchant_id', merchantId)
           .single();
 
@@ -998,7 +997,7 @@ export const getCachedFeatureSettings = async (merchantId: string) => {
             blog_enabled: false,
             shipping_insurance_enabled: false,
             shipping_insurance_min_order_value: 5000,
-            shipping_insurance_opt_in_default: false
+            shipping_insurance_opt_in_default: false,
           };
         }
 
@@ -1010,7 +1009,7 @@ export const getCachedFeatureSettings = async (merchantId: string) => {
           blog_enabled: false,
           shipping_insurance_enabled: false,
           shipping_insurance_min_order_value: 5000,
-          shipping_insurance_opt_in_default: false
+          shipping_insurance_opt_in_default: false,
         };
       }
     },

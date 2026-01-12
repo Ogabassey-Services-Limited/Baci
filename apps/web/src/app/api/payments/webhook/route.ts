@@ -340,7 +340,11 @@ export async function POST(request: NextRequest) {
     // Check metadata for valid domain purchase
     const metadata = transaction.metadata as Record<string, any>;
     if (metadata?.transaction_type === 'domain_purchase' && metadata.domain) {
-      logger.info({ message: 'Processing domain purchase fulfillment', reference, domain: metadata.domain });
+      logger.info({
+        message: 'Processing domain purchase fulfillment',
+        reference,
+        domain: metadata.domain,
+      });
 
       try {
         // 1. Fetch Merchant Details for Registration
@@ -351,11 +355,17 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (!merchantData) {
-          logger.error({ message: 'Merchant not found for domain registration', merchantId: transaction.merchant_id });
+          logger.error({
+            message: 'Merchant not found for domain registration',
+            merchantId: transaction.merchant_id,
+          });
         } else {
           // 2. Prepare Contact Info (Fallbacks used for missing fields to ensure registration works)
           // Import dynamically or ensure imported at top - adding simple object here
-          const contactName = merchantData.users?.first_name || merchantData.business_name || 'Baci User';
+          const contactName =
+            merchantData.users?.first_name ||
+            merchantData.business_name ||
+            'Baci User';
           const contactLastName = merchantData.users?.last_name || 'Merchant';
 
           const contactInfo = {
@@ -369,7 +379,7 @@ export async function POST(request: NextRequest) {
             state: merchantData.state || 'Lagos',
             country: 'NG',
             zipcode: '100001',
-            phonenumber: merchantData.phone || '+2348000000000'
+            phonenumber: merchantData.phone || '+2348000000000',
           };
 
           // 3. Register Domain via Go54
@@ -385,7 +395,10 @@ export async function POST(request: NextRequest) {
           });
 
           if (registration.success) {
-            logger.info({ message: 'Domain registered successfully', domain: metadata.domain });
+            logger.info({
+              message: 'Domain registered successfully',
+              domain: metadata.domain,
+            });
 
             // 4. Save to merchant_domains
             const { error: domainDbError } = await supabase
@@ -395,17 +408,25 @@ export async function POST(request: NextRequest) {
                 domain: metadata.domain,
                 status: 'active',
                 provider: 'go54',
-                expires_at: new Date(Date.now() + 31536000000 * (Number(metadata.years) || 1)).toISOString(),
+                expires_at: new Date(
+                  Date.now() + 31536000000 * (Number(metadata.years) || 1)
+                ).toISOString(),
                 auto_renew: true,
-                is_primary: false // User sets primary manually later
+                is_primary: false, // User sets primary manually later
               });
 
             if (domainDbError) {
-              logger.error({ message: 'Failed to save merchant_domain record', error: domainDbError });
+              logger.error({
+                message: 'Failed to save merchant_domain record',
+                error: domainDbError,
+              });
             }
-
           } else {
-            logger.error({ message: 'Domain registration API failed', error: registration.error, domain: metadata.domain });
+            logger.error({
+              message: 'Domain registration API failed',
+              error: registration.error,
+              domain: metadata.domain,
+            });
             // Note: Payment succeeded but domain failed. Manual intervention required.
           }
         }

@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -6,7 +5,6 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
-import { createClient } from '@/lib/supabase/server';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(

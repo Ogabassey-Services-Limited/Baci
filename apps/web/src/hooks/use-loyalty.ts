@@ -145,7 +145,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
 
   useEffect(() => {
     fetchLoyaltyData();
-  }, [merchantId, customerId]);
+  }, [fetchLoyaltyData]);
 
   const enroll = async (referralCode?: string): Promise<EnrollmentResult> => {
     if (!merchantId || !customerId) {

@@ -1,10 +1,9 @@
 import type { Data } from '@measured/puck';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import type { ThemeConfiguration } from '@/lib/theme-config';
-
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { activeTextModel } from '@/ai/provider';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import type { ThemeConfiguration } from '@/lib/theme-config';
 
 interface TemplateParams {
   businessName: string;
@@ -18,20 +17,31 @@ interface TemplateParams {
 }
 
 const aiContentSchema = z.object({
-  hero: z.array(z.object({
-    title: z.string(),
-    subtitle: z.string(),
-  })).length(3),
-  features: z.array(z.object({
-    title: z.string(),
-    description: z.string(),
-    icon: z.string(),
-  })).length(3),
+  hero: z
+    .array(
+      z.object({
+        title: z.string(),
+        subtitle: z.string(),
+      })
+    )
+    .length(3),
+  features: z
+    .array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        icon: z.string(),
+      })
+    )
+    .length(3),
 });
 
 type AIContent = z.infer<typeof aiContentSchema>;
 
-async function generateAIContent(businessName: string, businessType: string): Promise<AIContent | null> {
+async function generateAIContent(
+  businessName: string,
+  businessType: string
+): Promise<AIContent | null> {
   try {
     const { object } = await generateObject({
       model: activeTextModel,
@@ -145,7 +155,7 @@ export async function generateHeroSlides(
         break;
     }
 
-    if (aiContent && aiContent[i]) {
+    if (aiContent?.[i]) {
       title = aiContent[i].title;
       subtitle = aiContent[i].subtitle;
     }
@@ -396,9 +406,12 @@ export function deriveThemeFromColors(brandColors: {
 /**
  * Generate features based on business type
  */
-export function generateFeatures(businessType: string, aiFeatures?: AIContent['features']) {
+export function generateFeatures(
+  businessType: string,
+  aiFeatures?: AIContent['features']
+) {
   if (aiFeatures && aiFeatures.length > 0) {
-    return aiFeatures.map(f => ({
+    return aiFeatures.map((f) => ({
       title: f.title,
       description: f.description,
       icon: f.icon,
@@ -549,8 +562,8 @@ export async function generateInitialTemplate(
           // Add logo URL if merchant has one
           ...(params.merchant?.logo_url
             ? {
-              logoUrl: params.merchant.logo_url,
-            }
+                logoUrl: params.merchant.logo_url,
+              }
             : {}),
         },
       },

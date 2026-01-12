@@ -100,7 +100,12 @@ export function StorefrontWrapper({
     };
 
     loadTemplate();
-  }, [merchant?.template_id, loading]);
+  }, [
+    merchant?.template_id,
+    loading,
+    merchant?.business_name,
+    merchant?.business_type,
+  ]);
 
   // Show loading state
   if (loading || templateLoading) {

@@ -231,14 +231,16 @@ export function SettingsForm({
     setFeaturesLoading(true);
 
     try {
-      // Use API route to ensure cache invalidation
-      const response = await fetch('/api/merchant/features', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blog_enabled: enabled }),
-      });
+      const supabase = createClient();
+      // Use upsert for atomic operation to avoid TOCTOU race condition
+      const { error } = await supabase
+        .from('merchant_feature_settings')
+        .upsert(
+          { merchant_id: merchantState.id, blog_enabled: enabled },
+          { onConflict: 'merchant_id' }
+        );
 
-      if (!response.ok) throw new Error('Failed to update settings');
+      if (error) throw error;
 
       toast({
         title: enabled ? 'Blog Enabled' : 'Blog Disabled',
@@ -246,13 +248,7 @@ export function SettingsForm({
           ? 'Your blog is now public. Add posts to populate it.'
           : 'Your blog is now hidden from the storefront.',
       });
-
-      // Force refresh of the page/router to update client cache if needed, 
-      // though the cache: 'no-store' in useMerchantFeatures handles the hook part.
-      // But standard Next.js router might need a refresh signal.
-      // Actually, since we updated the hook to 'no-store', standard navigation or refetch logic will see it.
     } catch (error) {
-
       // Revert on error
       setBlogEnabled(!enabled);
       logger.error({
@@ -537,7 +533,7 @@ export function SettingsForm({
                                   style={{
                                     backgroundColor:
                                       brandColors[
-                                      role as keyof typeof brandColors
+                                        role as keyof typeof brandColors
                                       ],
                                   }}
                                 />

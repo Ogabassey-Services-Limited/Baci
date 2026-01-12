@@ -260,7 +260,8 @@ export async function lookupDomain(
     return data as Go54LookupResponse;
   } catch (error) {
     console.error('Error in Go54 domain lookup:', error);
-    if (!process.env.GO54_API_KEY) console.warn('Warning: GO54_API_KEY is missing');
+    if (!process.env.GO54_API_KEY)
+      console.warn('Warning: GO54_API_KEY is missing');
     if (!process.env.GO54_EMAIL) console.warn('Warning: GO54_EMAIL is missing');
     return null;
   }
@@ -306,7 +307,10 @@ async function checkDomainAvailabilityFallback(
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = await Promise.race([whois(domain), timeoutPromise]) as any;
+    const results = (await Promise.race([
+      whois(domain),
+      timeoutPromise,
+    ])) as any;
     console.log('WHOIS Fallback for', domain);
 
     const responseString = JSON.stringify(results).toLowerCase();

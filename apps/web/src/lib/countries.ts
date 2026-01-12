@@ -104,8 +104,9 @@ export function getCountryByCode(codeOrName: string): Country | undefined {
   const normalizedInput = codeOrName.toUpperCase();
   const normalizedInputTitle = codeOrName.toLowerCase();
 
-  return COUNTRIES.find((country) =>
-    country.code === normalizedInput ||
-    country.name.toLowerCase() === normalizedInputTitle
+  return COUNTRIES.find(
+    (country) =>
+      country.code === normalizedInput ||
+      country.name.toLowerCase() === normalizedInputTitle
   );
 }

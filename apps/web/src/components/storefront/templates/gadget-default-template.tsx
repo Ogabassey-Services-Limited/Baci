@@ -3,17 +3,12 @@
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AnnouncementBar } from '@/components/storefront/blocks/announcement-bar';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { Header } from '@/components/storefront/blocks/header';
 import { Newsletter } from '@/components/storefront/blocks/newsletter';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { useIndustryTheme } from '@/hooks/use-industry-theme';
-import { useMerchant } from '@/hooks/use-merchant';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { asRoute } from '@/lib/routes';
-import { cn } from '@/lib/utils';
 import { ThemedButton } from '@/components/themed';
 import {
   Select,
@@ -22,6 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useIndustryTheme } from '@/hooks/use-industry-theme';
+import { useMerchant } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 import type { TemplatePageProps } from '@/templates/registry';
 
@@ -46,8 +45,14 @@ export function GadgetDefaultTemplate({
 
   const PRICE_RANGES = [
     { label: 'Under ₦5,000', href: '/search?max_price=5000' },
-    { label: '₦5,000 - ₦20,000', href: '/search?min_price=5000&max_price=20000' },
-    { label: '₦20,000 - ₦50,000', href: '/search?min_price=20000&max_price=50000' },
+    {
+      label: '₦5,000 - ₦20,000',
+      href: '/search?min_price=5000&max_price=20000',
+    },
+    {
+      label: '₦20,000 - ₦50,000',
+      href: '/search?min_price=20000&max_price=50000',
+    },
     { label: 'Over ₦50,000', href: '/search?min_price=50000' },
   ];
 
@@ -115,16 +120,18 @@ export function GadgetDefaultTemplate({
   return (
     <div
       className="min-h-screen font-sans transition-colors duration-300"
-      style={{
-        backgroundColor: theme.colors.background,
-        color: theme.colors.text,
-        '--store-primary': theme.colors.primary,
-        '--store-primary-text': '#FFFFFF',
-        '--store-background': theme.colors.background,
-        '--store-background-text': theme.colors.text,
-        '--store-accent': theme.colors.accent,
-        '--store-accent-text': '#FFFFFF',
-      } as React.CSSProperties}
+      style={
+        {
+          backgroundColor: theme.colors.background,
+          color: theme.colors.text,
+          '--store-primary': theme.colors.primary,
+          '--store-primary-text': '#FFFFFF',
+          '--store-background': theme.colors.background,
+          '--store-background-text': theme.colors.text,
+          '--store-accent': theme.colors.accent,
+          '--store-accent-text': '#FFFFFF',
+        } as React.CSSProperties
+      }
     >
       <AnnouncementBar />
       <Header
@@ -257,7 +264,7 @@ export function GadgetDefaultTemplate({
                     'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
                     radiusClass,
                     theme.layout.categoryRail === 'circle' &&
-                    'aspect-square rounded-full',
+                      'aspect-square rounded-full',
                     theme.layout.categoryRail === 'pill' && 'aspect-[2/1]',
                     theme.layout.categoryRail === 'square' && 'aspect-square',
                     theme.layout.categoryRail === 'card' && 'aspect-[4/3]'
@@ -346,9 +353,9 @@ export function GadgetDefaultTemplate({
             title="Featured Products"
             columns={4}
             limit={4}
-          // We can pass styles to the grid if it supports them,
-          // otherwise we rely on global theme vars or wrapper styles.
-          // For now, the grid is standard, but we wrap it to control context if needed.
+            // We can pass styles to the grid if it supports them,
+            // otherwise we rely on global theme vars or wrapper styles.
+            // For now, the grid is standard, but we wrap it to control context if needed.
           />
         </section>
 

@@ -140,7 +140,8 @@ export async function POST(request: Request) {
 
     // Determine status based on Vercel response
     // If verification challenges exist, it is pending regardless of the 'verified' flag
-    const hasChallenges = vercelResponse.verification && vercelResponse.verification.length > 0;
+    const hasChallenges =
+      vercelResponse.verification && vercelResponse.verification.length > 0;
     const isVerified = vercelResponse.verified && !hasChallenges;
 
     const status = isVerified ? 'active' : 'pending';

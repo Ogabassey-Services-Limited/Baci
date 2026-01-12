@@ -219,9 +219,7 @@ export function useMerchantFeatures() {
     setError(null);
 
     try {
-      const response = await fetch('/api/merchant/features', {
-        cache: 'no-store',
-      });
+      const response = await fetch('/api/merchant/features');
       const result = await response.json();
 
       if (!response.ok) {
@@ -305,9 +303,8 @@ export function useMerchantFeatures() {
     guestCheckoutEnabled: settings?.guest_checkout_enabled ?? true,
     shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship'],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
-    // Force boolean to prevent undefined
-    blogEnabled: Boolean(settings?.blog_enabled),
-    autoBlogEnabled: Boolean(settings?.auto_blog_enabled),
+    blogEnabled: settings?.blog_enabled ?? false,
+    autoBlogEnabled: settings?.auto_blog_enabled ?? false,
     googleReviewsEnabled: settings?.google_reviews_enabled ?? false,
     googlePlaceId: settings?.google_place_id ?? null,
     shippingInsuranceEnabled: settings?.shipping_insurance_enabled ?? false,
