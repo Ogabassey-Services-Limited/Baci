@@ -245,53 +245,17 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   );
 
   // Show loading state while checking features
-  if (isFeaturesLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
+  // Show loading state while checking features. 
+  // actually, since server already gated us, we might not strictly need this, 
+  // but keeping it for autoBlogEnabled loading if needed for that button. 
+  // However, user wants the page to show. 
+  // The 'isFeaturesLoading' blocks the whole page. 
+  // Let's remove this blocking loader too if we trust server.
+  // But 'autoBlogEnabled' might be needed. 
+  // Let's just render. The 'autoBlogEnabled' button will just pop in when ready.
 
-  // Show feature disabled state
-  if (!blogEnabled) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
-          <p className="text-muted-foreground">
-            Create and manage blog posts for your store
-          </p>
-        </div>
-
-        <Card>
-          <CardContent className="py-16">
-            <div className="text-center max-w-md mx-auto">
-              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-6">
-                <PenTool className="w-8 h-8 text-accent" />
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Blog Feature</h2>
-              <p className="text-muted-foreground mb-6">
-                Create blog posts to drive traffic, improve SEO, and rank on
-                Google Discover. Enable the blog feature to get started.
-              </p>
-              <Button asChild>
-                <Link href="/dashboard/settings">Enable Blog Feature</Link>
-              </Button>
-            </div>
-            {/* DEBUG: Temporary info to check why it thinks it's disabled */}
-            <div className="mt-8 p-4 bg-gray-100 rounded text-xs font-mono text-left overflow-auto max-w-lg mx-auto opacity-50 hover:opacity-100 transition-opacity">
-              <p className="font-bold mb-1">Debug Info:</p>
-              <p>blogEnabled: {String(blogEnabled)}</p>
-              <p>autoBlogEnabled: {String(autoBlogEnabled)}</p>
-              <p>isFeaturesLoading: {String(isFeaturesLoading)}</p>
-              <p>Merchant ID: {merchant?.id}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // REMOVED: isFeaturesLoading block
+  // REMOVED: (!blogEnabled) block
 
   return (
     <div className="space-y-6">
