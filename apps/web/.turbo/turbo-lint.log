@@ -165,18 +165,15 @@ src/app/(storefront)/[slug]/storefront-wrapper.tsx:58:3 lint/correctness/useExha
     103 │ ··},·[merchant?.template_id,·loading,·merchant?.business_type]);
         │                                     +++++++++++++++++++++++++   
 
-src/app/api/domains/check-availability/route.ts:13:80 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
+src/app/api/domains/initialize-payment/route.ts:20:52 suppressions/incorrect ━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! Unexpected any. Specify a different type.
+  ! A suppression shouldn't have an <explanation> placeholder. Example of suppression: // biome-ignore lint: false positive
   
-    11 │   try {
-    12 │     // Authenticate request (supports mobile Bearer token + web cookies)
-  > 13 │     const { user, error: authError } = await authenticateApiRequest(request as any);
-       │                                                                                ^^^
-    14 │ 
-    15 │     if (authError || !user) {
-  
-  i any disables many type checking rules. Its use should be avoided.
+    19 │     // Authenticate request (supports mobile Bearer token + web cookies)
+  > 20 │     // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+       │                                                    ^^^^^^^^^^^^^
+    21 │     const { user, error: authError } = await authenticateApiRequest(request as any);
+    22 │ 
   
 
 src/app/(auth)/forgot-password/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━
@@ -738,30 +735,41 @@ src/app/(storefront)/[slug]/layout.tsx format ━━━━━━━━━━━�
     152 152 │       openGraph: {
   
 
-src/app/api/domains/check-availability/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+src/app/api/domains/[domain]/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━
 
   × The imports and exports are not sorted.
   
-  > 1 │ import { authenticateApiRequest } from '@/lib/api-auth';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { NextResponse } from 'next/server';
-    3 │ import { type DomainPricing, getResalePrice } from '@/config/domain-pricing';
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import {
+    3 │   getDomainInformation,
   
   i Safe fix: Organize Imports (Biome)
   
-      1     │ - import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
-      2     │ - import·{·NextResponse·}·from·'next/server';
-      3     │ - import·{·type·DomainPricing,·getResalePrice·}·from·'@/config/domain-pricing';
-          1 │ + import·{·NextResponse·}·from·'next/server';
-          2 │ + import·{·type·DomainPricing,·getResalePrice·}·from·'@/config/domain-pricing';
-          3 │ + import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
-      4   4 │   import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
-      5   5 │   
+      1   1 │   import { type NextRequest, NextResponse } from 'next/server';
+      2     │ - import·{
+      3     │ - ··getDomainInformation,
+      4     │ - ··getDomainLock,
+      5     │ - ··getDomainNameservers,
+      6     │ - ··updateDomainLock,
+      7     │ - ··updateDomainNameservers,
+      8     │ - }·from·'@/lib/go54';
+      9     │ - import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
+          2 │ + import·{·authenticateApiRequest·}·from·'@/lib/api-auth';
+          3 │ + import·{
+          4 │ + ··getDomainInformation,
+          5 │ + ··getDomainLock,
+          6 │ + ··getDomainNameservers,
+          7 │ + ··updateDomainLock,
+          8 │ + ··updateDomainNameservers,
+          9 │ + }·from·'@/lib/go54';
+     10  10 │   import { createAdminClient } from '@/lib/supabase/admin';
+     11  11 │   import { vercel } from '@/lib/vercel';
   
 
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 96.
-Checked 796 files in 829ms. No fixes applied.
+Checked 796 files in 585ms. No fixes applied.
 Found 61 errors.
 Found 55 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
