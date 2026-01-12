@@ -305,8 +305,9 @@ export function useMerchantFeatures() {
     guestCheckoutEnabled: settings?.guest_checkout_enabled ?? true,
     shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship'],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
-    blogEnabled: settings?.blog_enabled ?? false,
-    autoBlogEnabled: settings?.auto_blog_enabled ?? false,
+    // Force boolean to prevent undefined
+    blogEnabled: Boolean(settings?.blog_enabled),
+    autoBlogEnabled: Boolean(settings?.auto_blog_enabled),
     googleReviewsEnabled: settings?.google_reviews_enabled ?? false,
     googlePlaceId: settings?.google_place_id ?? null,
     shippingInsuranceEnabled: settings?.shipping_insurance_enabled ?? false,

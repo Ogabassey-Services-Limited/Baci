@@ -2,5 +2,3 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/app/dashboard/settings/components/settings-form.tsx(255,7): error TS1005: 'try' expected.
- ELIFECYCLE  Command failed with exit code 2.

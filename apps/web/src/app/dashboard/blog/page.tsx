@@ -279,6 +279,14 @@ export default function BlogPage() {
                 <Link href="/dashboard/settings">Enable Blog Feature</Link>
               </Button>
             </div>
+            {/* DEBUG: Temporary info to check why it thinks it's disabled */}
+            <div className="mt-8 p-4 bg-gray-100 rounded text-xs font-mono text-left overflow-auto max-w-lg mx-auto opacity-50 hover:opacity-100 transition-opacity">
+              <p className="font-bold mb-1">Debug Info:</p>
+              <p>blogEnabled: {String(blogEnabled)}</p>
+              <p>autoBlogEnabled: {String(autoBlogEnabled)}</p>
+              <p>isFeaturesLoading: {String(isFeaturesLoading)}</p>
+              <p>Merchant ID: {merchant?.id}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
