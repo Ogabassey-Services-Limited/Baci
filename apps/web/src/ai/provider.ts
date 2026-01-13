@@ -21,6 +21,7 @@ const google = createGoogleGenerativeAI({
  */
 
 // Primary models - Gemini 3 Flash (latest, December 2025)
+// Primary models - Gemini 3 Flash (latest, December 2025)
 const gemini3Flash = google('gemini-3-flash-preview'); // Latest Gemini 3 Flash with reasoning
 
 // UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES

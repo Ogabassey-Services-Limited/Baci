@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
+          template_id: 'puck', // Force Builder Engine for new merchants
         })
         .eq('id', existingMerchant.id)
         .select()

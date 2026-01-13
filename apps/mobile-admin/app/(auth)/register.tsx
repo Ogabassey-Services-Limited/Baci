@@ -31,10 +31,12 @@ const BUSINESS_TYPES = [
     { id: 'other', label: 'Other' },
 ];
 
-const API_URL = 'http://192.168.100.161:3000/api/mobile-onboarding';
-// const API_URL = Platform.OS === 'android'
-//     ? 'http://10.0.2.2:3000/api/mobile-onboarding'
-//     : 'http://localhost:3000/api/mobile-onboarding';
+const API_URL =
+    process.env.EXPO_PUBLIC_API_URL ||
+    // Use machine's LAN IP for physical devices (Replace '10.104.85.17' if your IP changes)
+    'http://10.104.85.17:3000/api/mobile-onboarding';
+// Fallback for emulators if needed:
+// Platform.OS === 'android' ? 'http://10.0.2.2:3000/api/mobile-onboarding' : 'http://localhost:3000/api/mobile-onboarding';
 
 export default function RegisterScreen() {
     const router = useRouter();

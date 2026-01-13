@@ -121,30 +121,30 @@ src/app/api/mobile-onboarding/route.ts:60:15 lint/suspicious/noExplicitAny ━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/mobile-onboarding/route.ts:193:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/mobile-onboarding/route.ts:194:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    191 │         businessType: finalBusinessType,
-    192 │         brandColors: safeBrandColors,
-  > 193 │         merchant: merchant as any,
+    192 │         businessType: finalBusinessType,
+    193 │         brandColors: safeBrandColors,
+  > 194 │         merchant: merchant as any,
         │                               ^^^
-    194 │       });
-    195 │       await adminSupabase.from('page_configs').insert({
+    195 │       });
+    196 │       await adminSupabase.from('page_configs').insert({
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/mobile-onboarding/route.ts:231:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/mobile-onboarding/route.ts:232:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    229 │       message: 'Account created successfully',
-    230 │     });
-  > 231 │   } catch (error: any) {
+    230 │       message: 'Account created successfully',
+    231 │     });
+  > 232 │   } catch (error: any) {
         │                   ^^^
-    232 │     console.error('Mobile onboarding error:', error);
-    233 │     return NextResponse.json(
+    233 │     console.error('Mobile onboarding error:', error);
+    234 │     return NextResponse.json(
   
   i any disables many type checking rules. Its use should be avoided.
   
@@ -159,6 +159,20 @@ src/app/api/payments/webhook/route.ts:341:61 lint/suspicious/noExplicitAny ━�
         │                                                             ^^^
     342 │     if (metadata?.transaction_type === 'domain_purchase' && metadata.domain) {
     343 │       logger.info({
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/paystack/resolve/route.ts:19:15 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    17 │     // Auth Check (Support both Cookie and Bearer Token)
+    18 │     const authHeader = request.headers.get('Authorization');
+  > 19 │     let user: any;
+       │               ^^^
+    20 │ 
+    21 │     if (authHeader) {
   
   i any disables many type checking rules. Its use should be avoided.
   
@@ -239,39 +253,79 @@ src/app/api/paystack/subaccount/route.ts:30:9 lint/style/noNonNullAssertion ━�
     32 │           global: { headers: { Authorization: authHeader } },
   
 
-src/app/api/payments/webhook/route.ts:351:44 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━
+src/app/api/merchant/blog/posts/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × This variable merchantError is unused.
+  × Formatter would have printed the following content:
   
-    349 │       try {
-    350 │         // 1. Fetch Merchant Details for Registration
-  > 351 │         const { data: merchantData, error: merchantError } = await supabase
-        │                                            ^^^^^^^^^^^^^
-    352 │           .from('merchants')
-    353 │           .select('*, users:user_id(first_name, last_name)') // simplified join syntax
-  
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+    276 276 │         hasMore: (count || 0) > offset + limit,
+    277 277 │         counts: {
+    278     │ - ········total:·(
+    279     │ - ··········await·supabase
+    280     │ - ············.from('blog_posts')
+    281     │ - ············.select('*',·{·count:·'exact',·head:·true·})
+    282     │ - ············.eq('merchant_id',·merchant.id)
+    283     │ - ········).count·||·0,
+    284     │ - ········published:·(
+    285     │ - ··········await·supabase
+    286     │ - ············.from('blog_posts')
+    287     │ - ············.select('*',·{·count:·'exact',·head:·true·})
+    288     │ - ············.eq('merchant_id',·merchant.id)
+    289     │ - ············.eq('status',·'published')
+    290     │ - ········).count·||·0,
+    291     │ - ········draft:·(
+    292     │ - ··········await·supabase
+    293     │ - ············.from('blog_posts')
+    294     │ - ············.select('*',·{·count:·'exact',·head:·true·})
+    295     │ - ············.eq('merchant_id',·merchant.id)
+    296     │ - ············.eq('status',·'draft')
+    297     │ - ········).count·||·0,
+    298     │ - ········archived:·(
+    299     │ - ··········await·supabase
+    300     │ - ············.from('blog_posts')
+    301     │ - ············.select('*',·{·count:·'exact',·head:·true·})
+    302     │ - ············.eq('merchant_id',·merchant.id)
+    303     │ - ············.eq('status',·'archived')
+    304     │ - ········).count·||·0,
+        278 │ + ········total:
+        279 │ + ··········(
+        280 │ + ············await·supabase
+        281 │ + ··············.from('blog_posts')
+        282 │ + ··············.select('*',·{·count:·'exact',·head:·true·})
+        283 │ + ··············.eq('merchant_id',·merchant.id)
+        284 │ + ··········).count·||·0,
+        285 │ + ········published:
+        286 │ + ··········(
+        287 │ + ············await·supabase
+        288 │ + ··············.from('blog_posts')
+        289 │ + ··············.select('*',·{·count:·'exact',·head:·true·})
+        290 │ + ··············.eq('merchant_id',·merchant.id)
+        291 │ + ··············.eq('status',·'published')
+        292 │ + ··········).count·||·0,
+        293 │ + ········draft:
+        294 │ + ··········(
+        295 │ + ············await·supabase
+        296 │ + ··············.from('blog_posts')
+        297 │ + ··············.select('*',·{·count:·'exact',·head:·true·})
+        298 │ + ··············.eq('merchant_id',·merchant.id)
+        299 │ + ··············.eq('status',·'draft')
+        300 │ + ··········).count·||·0,
+        301 │ + ········archived:
+        302 │ + ··········(
+        303 │ + ············await·supabase
+        304 │ + ··············.from('blog_posts')
+        305 │ + ··············.select('*',·{·count:·'exact',·head:·true·})
+        306 │ + ··············.eq('merchant_id',·merchant.id)
+        307 │ + ··············.eq('status',·'archived')
+        308 │ + ··········).count·||·0,
+    305 309 │         },
+    306 310 │       });
   
 
-src/app/api/paystack/resolve/route.ts:19:9 lint/suspicious/noImplicitAnyLet ━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × This variable implicitly has the any type.
-  
-    17 │     // Auth Check (Support both Cookie and Bearer Token)
 The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
 Diagnostics not shown: 28.
-Checked 797 files in 585ms. No fixes applied.
-    18 │     const authHeader = request.headers.get('Authorization');
+Checked 797 files in 591ms. No fixes applied.
 Found 11 errors.
-  > 19 │     let user;
 Found 37 warnings.
-       │         ^^^^
-    20 │ 
-    21 │     if (authHeader) {
-  
-  i Variable declarations without type annotation and initialization implicitly have the any type. Declare a type or initialize the variable with some value.
-  
-
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

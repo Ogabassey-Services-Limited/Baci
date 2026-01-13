@@ -274,6 +274,35 @@ export async function GET(request: NextRequest) {
       limit,
       offset,
       hasMore: (count || 0) > offset + limit,
+      counts: {
+        total: (
+          await supabase
+            .from('blog_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id)
+        ).count || 0,
+        published: (
+          await supabase
+            .from('blog_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id)
+            .eq('status', 'published')
+        ).count || 0,
+        draft: (
+          await supabase
+            .from('blog_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id)
+            .eq('status', 'draft')
+        ).count || 0,
+        archived: (
+          await supabase
+            .from('blog_posts')
+            .select('*', { count: 'exact', head: true })
+            .eq('merchant_id', merchant.id)
+            .eq('status', 'archived')
+        ).count || 0,
+      },
     });
   } catch (error) {
     console.error('Blog posts GET error:', error);

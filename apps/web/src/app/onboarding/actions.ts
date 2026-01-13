@@ -234,6 +234,7 @@ export async function submitOnboarding(
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
+          template_id: 'puck', // Force Builder Engine for new merchants
         })
         .select()
         .single();

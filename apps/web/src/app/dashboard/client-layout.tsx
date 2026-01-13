@@ -85,9 +85,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-        isCollapsed && 'justify-center'
-      );
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+      isCollapsed && 'justify-center'
+    );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -330,95 +330,102 @@ export default function DashboardClientLayout({
     badge?: number;
     badgeVariant?: 'default' | 'destructive';
   }[] = [
-    {
-      href: '/dashboard' as Route,
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-    },
-    {
-      href: '/dashboard/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/dashboard/orders' as Route,
-      icon: ShoppingCart,
-      label: 'Orders',
-      badge: ordersCount > 0 ? ordersCount : undefined,
-    },
-    {
-      href: '/dashboard/products' as Route,
-      icon: Package,
-      label: 'Products',
-    },
-    {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
-    },
-    {
-      href: '/dashboard/staff' as Route,
-      icon: UserCog,
-      label: 'Staff',
-    },
-    {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/santa' as Route,
-      icon: MessageCircle,
-      label: 'Santa Campaign',
-    },
-    {
-      href: '/dashboard/wallet' as Route,
-      icon: Wallet,
-      label: 'Wallet',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/domains' as Route,
-      icon: Globe,
-      label: 'Domains',
-    },
-    {
-      href: '/dashboard/pages' as Route,
-      icon: FileText,
-      label: 'Pages',
-      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-      badgeVariant: 'destructive',
-    },
-    {
-      href: '/dashboard/blog' as Route,
-      icon: Newspaper,
-      label: 'Blog',
-    },
-    {
-      href: '/dashboard/templates' as Route,
-      icon: LayoutTemplate,
-      label: 'Templates',
-    },
-    {
-      icon: Paintbrush,
-      label: 'Customize Website',
-      href: '/builder' as Route,
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
-      href: '/dashboard/settings' as Route,
-      icon: Settings,
-      label: 'Settings',
-    },
-  ];
+      {
+        href: '/dashboard' as Route,
+        icon: LayoutDashboard,
+        label: 'Dashboard',
+      },
+      {
+        href: '/dashboard/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/dashboard/orders' as Route,
+        icon: ShoppingCart,
+        label: 'Orders',
+        badge: ordersCount > 0 ? ordersCount : undefined,
+      },
+      {
+        href: '/dashboard/products' as Route,
+        icon: Package,
+        label: 'Products',
+      },
+      {
+        href: '/dashboard/customers' as Route,
+        icon: Users,
+        label: 'Customers',
+      },
+      {
+        href: '/dashboard/staff' as Route,
+        icon: UserCog,
+        label: 'Staff',
+      },
+      {
+        href: '/dashboard/loyalty' as Route,
+        icon: Gift,
+        label: 'Loyalty',
+      },
+      {
+        href: '/dashboard/santa' as Route,
+        icon: MessageCircle,
+        label: 'Santa Campaign',
+      },
+      {
+        href: '/dashboard/wallet' as Route,
+        icon: Wallet,
+        label: 'Wallet',
+      },
+      {
+        href: '/dashboard/seo' as Route,
+        icon: Search,
+        label: 'SEO',
+      },
+      {
+        href: '/dashboard/domains' as Route,
+        icon: Globe,
+        label: 'Domains',
+      },
+      {
+        href: '/dashboard/pages' as Route,
+        icon: FileText,
+        label: 'Pages',
+        badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+        badgeVariant: 'destructive',
+      },
+      {
+        href: '/dashboard/blog' as Route,
+        icon: Newspaper,
+        label: 'Blog',
+      },
+      {
+        href: '/dashboard/templates' as Route,
+        icon: LayoutTemplate,
+        label: 'Templates',
+      },
+      {
+        icon: Paintbrush,
+        label: 'Customize Website',
+        href: '/builder' as Route,
+      },
+      {
+        href: '/dashboard/integrations' as Route,
+        icon: Plug,
+        label: 'Integrations',
+      },
+      {
+        href: '/dashboard/settings' as Route,
+        icon: Settings,
+        label: 'Settings',
+      },
+    ];
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.label === 'Santa Campaign') {
+      return merchant?.slug === 'ogabassey';
+    }
+    return true;
+  });
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
@@ -481,7 +488,7 @@ export default function DashboardClientLayout({
                   className="grid gap-2 text-sm font-medium"
                   aria-label="Main navigation"
                 >
-                  {navItems.map((item) => {
+                  {filteredNavItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
                       <Link

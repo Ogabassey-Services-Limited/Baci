@@ -87,8 +87,7 @@ interface BlogClientPageProps {
 export function BlogClientPage({ merchant }: BlogClientPageProps) {
   const _router = useRouter();
   const { toast } = useToast();
-  const { autoBlogEnabled, isLoading: isFeaturesLoading } =
-    useMerchantFeatures();
+  const { autoBlogEnabled } = useMerchantFeatures();
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +95,16 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const ITEMS_PER_PAGE = 20;
+
+  const [statsData, setStatsData] = useState<{
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+  } | null>(null);
 
   const fetchPosts = useCallback(async () => {
     if (!merchant?.id) return;
@@ -110,6 +119,10 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
         params.set('search', debouncedSearch);
       }
 
+      const offset = (page - 1) * ITEMS_PER_PAGE;
+      params.set('limit', ITEMS_PER_PAGE.toString());
+      params.set('offset', offset.toString());
+
       const response = await fetch(`/api/merchant/blog/posts?${params}`);
 
       if (!response.ok) {
@@ -118,6 +131,11 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
 
       const data = await response.json();
       setPosts(data.posts || []);
+      setHasMore(data.hasMore);
+
+      if (data.counts) {
+        setStatsData(data.counts);
+      }
     } catch (error) {
       console.error('Error fetching blog posts:', error);
       toast({
@@ -128,7 +146,7 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [merchant?.id, statusFilter, debouncedSearch, toast]);
+  }, [merchant?.id, statusFilter, debouncedSearch, page, toast]);
 
   useEffect(() => {
     fetchPosts();
@@ -233,12 +251,15 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
 
   const stats = useMemo(
     () => ({
-      total: posts.length,
-      published: posts.filter((p) => p.status === 'published').length,
-      drafts: posts.filter((p) => p.status === 'draft').length,
+      total: statsData?.total ?? posts.length,
+      published:
+        statsData?.published ??
+        posts.filter((p) => p.status === 'published').length,
+      drafts:
+        statsData?.draft ?? posts.filter((p) => p.status === 'draft').length,
       totalViews: posts.reduce((sum, p) => sum + (p.view_count || 0), 0),
     }),
-    [posts]
+    [posts, statsData]
   );
 
   // Show loading state while checking features
@@ -262,34 +283,34 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
           <p className="text-muted-foreground">
             Create and manage blog posts for your store
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {merchant?.slug && isSafeSlug(merchant.slug) && (
-            <Button variant="outline" size="sm" asChild>
-              <a
-                href={`/api/blog/feed/${merchant.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Rss className="w-4 h-4 mr-2" />
-                RSS Feed
-              </a>
-            </Button>
-          )}
-          {autoBlogEnabled && (
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/blog/ai-generator">
-                <Sparkles className="w-4 h-4 mr-2" />
-                AI Generator
+          <div className="flex items-center gap-2">
+            {merchant?.slug && isSafeSlug(merchant.slug) && (
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={`/api/blog/feed/${merchant.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Rss className="w-4 h-4 mr-2" />
+                  RSS Feed
+                </a>
+              </Button>
+            )}
+            {autoBlogEnabled && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/blog/ai-generator">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Generator
+                </Link>
+              </Button>
+            )}
+            <Button asChild>
+              <Link href="/dashboard/blog/new">
+                <Plus className="w-4 h-4 mr-2" />
+                New Post
               </Link>
             </Button>
-          )}
-          <Button asChild>
-            <Link href="/dashboard/blog/new">
-              <Plus className="w-4 h-4 mr-2" />
-              New Post
-            </Link>
-          </Button>
+          </div>
         </div>
       </div>
 
@@ -334,11 +355,20 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
           <Input
             placeholder="Search posts..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1); // Reset to first page on search
+            }}
             className="pl-10"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => {
+            setStatusFilter(value);
+            setPage(1); // Reset to first page on filter change
+          }}
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -402,105 +432,139 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
                       {post.category && (
                         <Badge variant="outline">{post.category}</Badge>
                       )}
-                    </div>
 
-                    <h3 className="font-semibold text-lg mb-1 truncate">
-                      <Link
-                        href={asRoute(`/dashboard/blog/${post.id}/edit`)}
-                        className="hover:text-accent transition-colors"
-                      >
-                        {post.title}
-                      </Link>
-                    </h3>
-
-                    {post.excerpt && (
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                        {post.excerpt}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {post.published_at
-                          ? format(new Date(post.published_at), 'MMM d, yyyy')
-                          : `Updated ${formatDistanceToNow(new Date(post.updated_at))} ago`}
-                      </span>
-                      <span>by {post.author_name}</span>
-                      {post.reading_time_minutes && (
-                        <span>{post.reading_time_minutes} min read</span>
-                      )}
-                      <span>{post.view_count.toLocaleString()} views</span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={asRoute(`/dashboard/blog/${post.id}/edit`)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
+                      <h3 className="font-semibold text-lg mb-1 truncate">
+                        <Link
+                          href={asRoute(`/dashboard/blog/${post.id}/edit`)}
+                          className="hover:text-accent transition-colors"
+                        >
+                          {post.title}
                         </Link>
-                      </DropdownMenuItem>
-                      {post.status === 'published' &&
-                        merchant?.slug &&
-                        isSafeSlug(merchant.slug) && (
-                          <DropdownMenuItem asChild>
-                            <a
-                              href={`/${merchant.slug}/blog/${post.slug}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="w-4 h-4 mr-2" />
-                              View Live
-                            </a>
+                      </h3>
+
+                      {post.excerpt && (
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                          {post.excerpt}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {post.published_at
+                            ? format(new Date(post.published_at), 'MMM d, yyyy')
+                            : `Updated ${formatDistanceToNow(new Date(post.updated_at))} ago`}
+                        </span>
+                        <span>by {post.author_name}</span>
+                        {post.reading_time_minutes && (
+                          <span>{post.reading_time_minutes} min read</span>
+                        )}
+                        <span>{post.view_count.toLocaleString()} views</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={asRoute(`/dashboard/blog/${post.id}/edit`)}
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        {post.status === 'published' &&
+                          merchant?.slug &&
+                          isSafeSlug(merchant.slug) && (
+                            <DropdownMenuItem asChild>
+                              <a
+                                href={`/${merchant.slug}/blog/${post.slug}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                View Live
+                              </a>
+                            </DropdownMenuItem>
+                          )}
+                        <DropdownMenuSeparator />
+                        {post.status === 'draft' && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updatePostStatus(post.id, 'published')
+                            }
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Publish
                           </DropdownMenuItem>
                         )}
-                      <DropdownMenuSeparator />
-                      {post.status === 'draft' && (
+                        {post.status === 'published' && (
+                          <DropdownMenuItem
+                            onClick={() => updatePostStatus(post.id, 'draft')}
+                          >
+                            <Clock className="w-4 h-4 mr-2" />
+                            Unpublish
+                          </DropdownMenuItem>
+                        )}
+                        {post.status !== 'archived' && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              updatePostStatus(post.id, 'archived')
+                            }
+                          >
+                            <Archive className="w-4 h-4 mr-2" />
+                            Archive
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'published')}
+                          onClick={() => setDeletePostId(post.id)}
+                          className="text-destructive focus:text-destructive"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Publish
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
                         </DropdownMenuItem>
-                      )}
-                      {post.status === 'published' && (
-                        <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'draft')}
-                        >
-                          <Clock className="w-4 h-4 mr-2" />
-                          Unpublish
-                        </DropdownMenuItem>
-                      )}
-                      {post.status !== 'archived' && (
-                        <DropdownMenuItem
-                          onClick={() => updatePostStatus(post.id, 'archived')}
-                        >
-                          <Archive className="w-4 h-4 mr-2" />
-                          Archive
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => setDeletePostId(post.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+      {/* Pagination Controls */}
+      {!isLoading && posts.length > 0 && (
+        <div className="flex items-center justify-between pt-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            Showing {(page - 1) * ITEMS_PER_PAGE + 1} to{' '}
+            {Math.min(page * ITEMS_PER_PAGE, stats.total)} of {stats.total}{' '}
+            results
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasMore}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 
