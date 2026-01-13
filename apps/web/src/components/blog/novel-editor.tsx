@@ -1,0 +1,169 @@
+'use client';
+
+import {
+  EditorBubble,
+  EditorCommand,
+  EditorCommandEmpty,
+  EditorCommandItem,
+  EditorCommandList,
+  EditorContent,
+  type EditorInstance,
+  EditorRoot,
+  handleCommandNavigation,
+  handleImageDrop,
+  handleImagePaste,
+  type JSONContent,
+} from 'novel';
+import { useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { uploadFn } from '@/components/blog/novel-features/image-upload';
+import { Separator } from '@/components/ui/separator';
+import { defaultExtensions } from './novel-features/extensions';
+import { ProductExtension } from './novel-features/product-extension';
+import { ColorSelector } from './novel-features/selectors/color-selector';
+import { EditorToolbar } from './novel-features/selectors/editor-toolbar';
+import { LinkSelector } from './novel-features/selectors/link-selector';
+import { NodeSelector } from './novel-features/selectors/node-selector';
+import { TextButtons } from './novel-features/selectors/text-buttons';
+import { slashCommand, suggestionItems } from './novel-features/slash-command';
+import { ProductEmbedPicker } from './product-embed';
+
+// Remove static extensions definition
+// const extensions = [...defaultExtensions, slashCommand];
+
+interface NovelEditorProps {
+  initialValue?: JSONContent | string;
+  onChange: (value: JSONContent) => void;
+  onProductsChange?: (products: Product[]) => void;
+  embeddedProducts?: Product[];
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  compare_at_price?: number;
+  images: string[];
+  slug: string;
+  status: string;
+}
+
+export default function NovelEditor({
+  initialValue,
+  onChange,
+  onProductsChange,
+  embeddedProducts = [],
+}: NovelEditorProps) {
+  const [openNode, setOpenNode] = useState(false);
+  const [openColor, setOpenColor] = useState(false);
+  const [openLink, setOpenLink] = useState(false);
+  const [openProducts, setOpenProducts] = useState(false);
+
+  // Define extensions
+  const extensions = [
+    ...defaultExtensions,
+    slashCommand,
+    ProductExtension.configure({
+      onOpenPicker: () => setOpenProducts(true),
+    }),
+  ];
+
+  const debouncedUpdates = useDebouncedCallback((editor: EditorInstance) => {
+    const json = editor.getJSON();
+    onChange(json);
+  }, 500);
+
+  return (
+    <div className="relative w-full max-w-screen-lg">
+      <EditorRoot>
+        <EditorContent
+          initialContent={initialValue as any}
+          // @ts-expect-error: Tiptap version mismatch between novel and root dependencies
+          extensions={extensions}
+          className="relative min-h-[500px] w-full max-w-screen-lg border-muted bg-background sm:rounded-lg sm:border sm:shadow-sm"
+          editorProps={{
+            handleDOMEvents: {
+              keydown: (_view, event) => handleCommandNavigation(event),
+            },
+            handlePaste: (view, event) =>
+              handleImagePaste(view, event, uploadFn),
+            handleDrop: (view, event, _slice, moved) =>
+              handleImageDrop(view, event, moved, uploadFn),
+            attributes: {
+              class:
+                'prose prose-lg dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full min-h-[500px] p-6',
+            } as Record<string, string>,
+          }}
+          onUpdate={({ editor }) => {
+            debouncedUpdates(editor);
+          }}
+          slotBefore={
+            <EditorToolbar
+              onOpenLink={() => setOpenLink(true)}
+              onOpenProducts={
+                onProductsChange ? () => setOpenProducts(true) : undefined
+              }
+            />
+          }
+          slotAfter={
+            <EditorBubble
+              tippyOptions={{
+                placement: 'top',
+              }}
+              className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
+            >
+              <Separator orientation="vertical" />
+              <NodeSelector open={openNode} onOpenChange={setOpenNode} />
+              <Separator orientation="vertical" />
+              <LinkSelector open={openLink} onOpenChange={setOpenLink} />
+              <Separator orientation="vertical" />
+              <TextButtons />
+              <Separator orientation="vertical" />
+              <ColorSelector open={openColor} onOpenChange={setOpenColor} />
+            </EditorBubble>
+          }
+        >
+          <EditorCommand className="z-50 h-auto max-h-[330px] overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
+            <EditorCommandEmpty className="px-2 text-muted-foreground">
+              No results
+            </EditorCommandEmpty>
+            <EditorCommandList>
+              {suggestionItems.map((item) => (
+                <EditorCommandItem
+                  value={item.title}
+                  onCommand={(val) => item.command?.(val)}
+                  className="flex w-full items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent"
+                  key={item.title}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
+                    {item.icon}
+                  </div>
+                  <div>
+                    <p className="font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </div>
+                </EditorCommandItem>
+              ))}
+            </EditorCommandList>
+          </EditorCommand>
+        </EditorContent>
+      </EditorRoot>
+
+      {onProductsChange && (
+        <ProductEmbedPicker
+          open={openProducts}
+          onClose={() => setOpenProducts(false)}
+          onSelect={(products) => {
+            const existingIds = new Set(embeddedProducts.map((p) => p.id));
+            const newProducts = products.filter((p) => !existingIds.has(p.id));
+            onProductsChange([...embeddedProducts, ...newProducts]);
+            setOpenProducts(false);
+          }}
+          selectedIds={embeddedProducts.map((p) => p.id)}
+        />
+      )}
+    </div>
+  );
+}

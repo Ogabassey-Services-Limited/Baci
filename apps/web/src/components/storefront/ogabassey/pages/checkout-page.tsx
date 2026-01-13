@@ -38,6 +38,7 @@ import { openCredPalCheckout, isCredPalEligible } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import { toast } from '@/hooks/use-toast';
+import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 
@@ -144,6 +145,10 @@ export const CheckoutPage: React.FC = () => {
   );
 
   // Non-persisted UI state
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountPassword, setAccountPassword] = useState('');
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
 
@@ -1100,6 +1105,8 @@ export const CheckoutPage: React.FC = () => {
           wallet_amount: walletAmountUsed,
           // Link customer to auth user (2025: unified customer identity)
           user_id: user?.id,
+          // Marketing Consent
+          accepts_marketing: newsletterOptIn,
         }),
       });
 
@@ -1116,6 +1123,40 @@ export const CheckoutPage: React.FC = () => {
 
       const orderData = await orderResponse.json();
       const { order, wallet: walletResult, amountDueToGateway } = orderData;
+
+      // 1b. Silently create account if requested (Fire-and-forget for speed)
+      if (createAccount && !user && accountPassword.length >= 6) {
+        // We use the client-side supabase to sign up so it handles session automatically
+        // But since we are mid-checkout, we might just want to create the user and NOT sign them in yet to avoid state loss
+        // OR we just send a request to an API to create the user.
+        // Better approach for retention: Create user -> If successful, they are effectively "signed up".
+        // The most robust way is to do this via a server action or API route to avoid disrupting the client session state recklessly.
+
+        // For now, let's call a dedicated API endpoint or reusing the signup logic would be safer.
+        // Simpler V1: Just rely on the "Order Success" page to show "Check your email for account setup" if we did this server side.
+        // BUT user expects to be able to login.
+
+        // Let's rely on our provider to do this safely.
+        const supabase = createClient();
+        supabase.auth.signUp({
+          email: customerEmail,
+          password: accountPassword,
+          options: {
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              phone: customerPhone,
+            }
+          }
+        }).then(({ data, error }) => {
+          if (!error && data?.user) {
+            console.log('Silent account creation successful');
+            // We consciously DO NOT await this to prevent slowing down checkout
+          } else {
+            console.error('Silent account creation failed', error);
+          }
+        });
+      }
 
       // Use gateway amount (accounts for wallet credit) or full total as fallback
       const paymentAmount = amountDueToGateway ?? total;
@@ -1980,6 +2021,58 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-red-500 text-xs mt-1">Please enter a valid phone number</p>
                       )}
                     </div>
+
+                    {/* Guest Account Creation & Newsletter (2026 Conversion Pattern) */}
+                    {!user && (
+                      <div className="md:col-span-2 space-y-4 pt-4">
+
+                        {/* 2. Account Creation Checkbox (Retention) */}
+                        <div className={`bg-gray-50 rounded-xl p-4 border transition-all duration-300 ${createAccount ? 'border-[var(--store-primary)]/30 bg-[var(--store-primary)]/5' : 'border-gray-100 hover:border-[var(--store-primary)]/20'}`}>
+                          <label className="flex items-start gap-3 cursor-pointer group mb-2">
+                            <div className="relative flex items-center pt-0.5">
+                              <input
+                                type="checkbox"
+                                checked={createAccount}
+                                onChange={(e) => {
+                                  setCreateAccount(e.target.checked);
+                                  setShowPasswordInput(e.target.checked);
+                                }}
+                                className="peer h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                              />
+                            </div>
+                            <div>
+                              <span className="block text-sm font-bold text-gray-900 group-hover:text-[var(--store-primary)] transition-colors">
+                                Save my information for a faster checkout next time
+                              </span>
+                              <span className="text-xs text-gray-500 mt-0.5 block">
+                                Securely save your address details for future orders.
+                              </span>
+                            </div>
+                          </label>
+
+                          {/* 3. Sliding Password Input */}
+                          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showPasswordInput ? 'max-h-24 opacity-100 mt-3 pl-8' : 'max-h-0 opacity-0'}`}>
+                            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
+                              Create a Password
+                            </label>
+                            <input
+                              type="password"
+                              value={accountPassword}
+                              onChange={(e) => setAccountPassword(e.target.value)}
+                              placeholder="Min. 6 characters"
+                              className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && createAccount && accountPassword.length < 6
+                                ? 'border-red-500 focus:border-red-500'
+                                : 'border-gray-200 focus:border-[var(--store-primary)]'
+                                }`}
+                            />
+                            {contactValidationAttempted && createAccount && accountPassword.length < 6 && (
+                              <p className="text-red-500 text-xs mt-1">Password must be at least 6 characters</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="pt-2">
                       <button
                         type="button"
@@ -1987,7 +2080,7 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, contact: true }));
                           setCurrentStep('delivery');
                         }}
-                        disabled={!isContactValid}
+                        disabled={!isContactValid || (createAccount && accountPassword.length < 6)}
                         className="px-6 py-3 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
                       >
                         Continue to Delivery
@@ -2650,6 +2743,22 @@ export const CheckoutPage: React.FC = () => {
 
                   {/* Mobile/Inline Place Order Button for Payment Step */}
                   <div className="pt-4 lg:hidden">
+                    {/* Newsletter Opt-in (Mobile) */}
+                    {!user && (
+                      <label className="flex items-start gap-3 cursor-pointer group mb-4 px-1">
+                        <div className="relative flex items-center pt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={newsletterOptIn}
+                            onChange={(e) => setNewsletterOptIn(e.target.checked)}
+                            className="peer h-4 w-4 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                          />
+                        </div>
+                        <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
+                          Email me with exclusive offers and new product drops.
+                        </span>
+                      </label>
+                    )}
                     <button
                       onClick={handlePlaceOrder}
                       disabled={
@@ -2806,6 +2915,24 @@ export const CheckoutPage: React.FC = () => {
                   <span>₦{remainingAmount.toLocaleString()}</span>
                 </div>
               </div>
+
+              {/* Newsletter Opt-in (Moved to Summary Card) */}
+              {!user && (
+                <label className="flex items-start gap-3 cursor-pointer group mb-4 px-1">
+                  <div className="relative flex items-center pt-0.5">
+                    <input
+                      id="newsletter-summary-opt-in"
+                      type="checkbox"
+                      checked={newsletterOptIn}
+                      onChange={(e) => setNewsletterOptIn(e.target.checked)}
+                      className="peer h-4 w-4 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                    />
+                  </div>
+                  <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
+                    Email me with exclusive offers and new product drops.
+                  </span>
+                </label>
+              )}
 
               <button
                 onClick={handlePlaceOrder}

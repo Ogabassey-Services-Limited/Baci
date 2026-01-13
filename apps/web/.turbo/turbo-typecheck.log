@@ -1,4 +1,49 @@
 
+
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+[96msrc/app/api/generate/route.ts[0m:[93m124[0m:[93m13[0m - [91merror[0m[90m TS2578: [0mUnused '@ts-expect-error' directive.
+
+[7m124[0m             // @ts-expect-error: CoreMessage type mismatch due to ai SDK version differences
+[7m   [0m [91m            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+
+[96msrc/app/api/generate/route.ts[0m:[93m126[0m:[93m13[0m - [91merror[0m[90m TS2353: [0mObject literal may only specify known properties, and 'maxTokens' does not exist in type 'CallSettings & { system?: string | undefined; } & { messages: ModelMessage[]; prompt?: undefined; } & { model: LanguageModel; tools?: ToolSet | undefined; ... 13 more ...; _internal?: { ...; } | undefined; }'.
+
+[7m126[0m             maxTokens: 400,
+[7m   [0m [91m            ~~~~~~~~~[0m
+
+[96msrc/components/blog/novel-editor.tsx[0m:[93m86[0m:[93m21[0m - [91merror[0m[90m TS2322: [0mType 'string | JSONContent | undefined' is not assignable to type 'JSONContent | undefined'.
+  Type 'string' is not assignable to type 'JSONContent'.
+
+[7m86[0m                     initialContent={initialValue}
+[7m  [0m [91m                    ~~~~~~~~~~~~~~[0m
+
+  [96m../../node_modules/novel/dist/index.d.ts[0m:[93m42[0m:[93m14[0m
+    [7m42[0m     readonly initialContent?: JSONContent;
+    [7m  [0m [96m             ~~~~~~~~~~~~~~[0m
+    The expected type comes from property 'initialContent' which is declared here on type 'IntrinsicAttributes & Omit<EditorProviderProps, "content"> & { readonly children?: ReactNode; readonly className?: string | undefined; readonly initialContent?: JSONContent | undefined; } & RefAttributes<...>'
+
+[96msrc/components/storefront/ogabassey/pages/checkout-page.tsx[0m:[93m1139[0m:[93m9[0m - [91merror[0m[90m TS2304: [0mCannot find name 'supabase'.
+
+[7m1139[0m         supabase.auth.signUp({
+[7m    [0m [91m        ~~~~~~~~[0m
+
+[96msrc/components/storefront/ogabassey/pages/checkout-page.tsx[0m:[93m1149[0m:[93m20[0m - [91merror[0m[90m TS7031: [0mBinding element 'data' implicitly has an 'any' type.
+
+[7m1149[0m         }).then(({ data, error }) => {
+[7m    [0m [91m                   ~~~~[0m
+
+[96msrc/components/storefront/ogabassey/pages/checkout-page.tsx[0m:[93m1149[0m:[93m26[0m - [91merror[0m[90m TS7031: [0mBinding element 'error' implicitly has an 'any' type.
+
+[7m1149[0m         }).then(({ data, error }) => {
+[7m    [0m [91m                         ~~~~~[0m
+
+
+Found 6 errors in 3 files.
+
+Errors  Files
+     2  src/app/api/generate/route.ts[90m:124[0m
+     1  src/components/blog/novel-editor.tsx[90m:86[0m
+     3  src/components/storefront/ogabassey/pages/checkout-page.tsx[90m:1139[0m
+[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 2.[39m

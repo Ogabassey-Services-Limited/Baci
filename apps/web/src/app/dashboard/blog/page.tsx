@@ -1,10 +1,16 @@
 import { PenTool } from 'lucide-react';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { getMerchantForUser } from '@/lib/merchant-server';
-import { BlogClientPage } from './blog-client-page';
+import { createClient } from '@/lib/supabase/server';
+import {
+  BlogClientPage,
+  type BlogClientPageProps,
+  type BlogPost,
+} from './blog-client-page';
 
 export default async function BlogPage() {
   const { merchant } = await getMerchantForUser();
@@ -48,5 +54,71 @@ export default async function BlogPage() {
     );
   }
 
-  return <BlogClientPage merchant={merchant} />;
+  // Prefetch initial data server-side to eliminate loading jump
+  let initialData: {
+    posts: BlogPost[];
+    counts: BlogClientPageProps['initialCounts'];
+  } = {
+    posts: [],
+    counts: undefined,
+  };
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // We fetch from the database directly since we are on the server
+    const { data: posts } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .eq('merchant_id', merchant.id)
+      .order('created_at', { ascending: false })
+      .range(0, 19);
+
+    const [
+      { count: total },
+      { count: published },
+      { count: draft },
+      { count: archived },
+    ] = await Promise.all([
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id),
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'published'),
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'draft'),
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'archived'),
+    ]);
+
+    initialData = {
+      posts: posts || [],
+      counts: {
+        total: total || 0,
+        published: published || 0,
+        draft: draft || 0,
+        archived: archived || 0,
+      },
+    };
+  } catch (error) {
+    console.error('Error prefetching blog data:', error);
+  }
+
+  return (
+    <BlogClientPage
+      merchant={merchant}
+      initialPosts={initialData.posts}
+      initialCounts={initialData.counts}
+    />
+  );
 }

@@ -1,0 +1,162 @@
+import { Ratelimit } from '@upstash/ratelimit';
+import { kv } from '@vercel/kv';
+import { type CoreMessage, generateText } from 'ai';
+import { match } from 'ts-pattern';
+import { activeTextModel } from '@/ai/provider';
+
+// Check if KV is configured for rate limiting (optional)
+const ratelimit =
+  process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+    ? new Ratelimit({
+        redis: kv,
+        limiter: Ratelimit.slidingWindow(50, '1 d'),
+        analytics: true,
+      })
+    : null;
+
+export async function POST(req: Request): Promise<Response> {
+  const { prompt, option, command } = (await req.json()) as {
+    prompt: string;
+    option: string;
+    command: string;
+  };
+
+  // Rate limiting (safe failure if not configured)
+  if (ratelimit) {
+    const ip = req.headers.get('x-forwarded-for') ?? 'anonymous';
+    const { success, limit, reset, remaining } = await ratelimit.limit(
+      `novel_ratelimit_${ip}`
+    );
+
+    if (!success) {
+      return new Response('You have reached your request limit for the day.', {
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': limit.toString(),
+          'X-RateLimit-Remaining': remaining.toString(),
+          'X-RateLimit-Reset': reset.toString(),
+        },
+      });
+    }
+  }
+
+  // Generate content using Gemini via Vercel AI SDK
+  const messages: CoreMessage[] = match(option)
+    .with(
+      'continue',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that continues existing text based on context from prior text. ' +
+              'Give more weight/priority to the later characters than the beginning ones. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ] as CoreMessage[]
+    )
+    .with(
+      'improve',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that improves existing text. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: `The existing text is: ${prompt}`,
+          },
+        ] as CoreMessage[]
+    )
+    .with(
+      'shorter',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that shortens existing text. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: `The existing text is: ${prompt}`,
+          },
+        ] as CoreMessage[]
+    )
+    .with(
+      'longer',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that lengthens existing text. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: `The existing text is: ${prompt}`,
+          },
+        ] as CoreMessage[]
+    )
+    .with(
+      'fix',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that fixes grammar and spelling errors in existing text. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: `The existing text is: ${prompt}`,
+          },
+        ] as CoreMessage[]
+    )
+    .with(
+      'zap',
+      () =>
+        [
+          {
+            role: 'system',
+            content:
+              'You are an AI writing assistant that generates text based on a prompt. ' +
+              'You take an input from the user and a command for manipulating the text. ' +
+              'Limit your response to no more than 200 characters, but make sure to construct complete sentences.',
+          },
+          {
+            role: 'user',
+            content: `For this text: ${prompt}. You have to respect the command: ${command}`,
+          },
+        ] as CoreMessage[]
+    )
+    .run();
+
+  try {
+    const { text } = await generateText({
+      model: activeTextModel,
+      messages,
+      // @ts-expect-error: handling version specific parameter names (maxTokens vs max_tokens)
+      maxTokens: 400,
+      temperature: 0.7,
+      topP: 0.95,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+    });
+
+    return new Response(text);
+  } catch (error) {
+    console.error('Error generating text:', error);
+    return new Response('Unable to generate text.', { status: 500 });
+  }
+}

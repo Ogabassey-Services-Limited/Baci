@@ -261,51 +261,57 @@ export async function GET(request: NextRequest) {
     // Apply pagination
     query = query.range(offset, offset + limit - 1);
 
-    const { data: posts, error, count } = await query;
+    // Execute posts query and counts in parallel for maximum performance
+    const [
+      { data: posts, error: postsError, count },
+      { count: totalCount },
+      { count: publishedCount },
+      { count: draftCount },
+      { count: archivedCount },
+    ] = await Promise.all([
+      // 1. Fetch posts with filters and pagination
+      query,
+      // 2. Fetch total count
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id),
+      // 3. Fetch published count
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'published'),
+      // 4. Fetch draft count
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'draft'),
+      // 5. Fetch archived count
+      supabase
+        .from('blog_posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'archived'),
+    ]);
 
-    if (error) {
-      console.error('Error fetching blog posts:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (postsError) {
+      console.error('Error fetching blog posts:', postsError);
+      return NextResponse.json({ error: postsError.message }, { status: 500 });
     }
 
     return NextResponse.json({
-      posts,
+      posts: posts || [],
       total: count || 0,
       limit,
       offset,
       hasMore: (count || 0) > offset + limit,
       counts: {
-        total:
-          (
-            await supabase
-              .from('blog_posts')
-              .select('*', { count: 'exact', head: true })
-              .eq('merchant_id', merchant.id)
-          ).count || 0,
-        published:
-          (
-            await supabase
-              .from('blog_posts')
-              .select('*', { count: 'exact', head: true })
-              .eq('merchant_id', merchant.id)
-              .eq('status', 'published')
-          ).count || 0,
-        draft:
-          (
-            await supabase
-              .from('blog_posts')
-              .select('*', { count: 'exact', head: true })
-              .eq('merchant_id', merchant.id)
-              .eq('status', 'draft')
-          ).count || 0,
-        archived:
-          (
-            await supabase
-              .from('blog_posts')
-              .select('*', { count: 'exact', head: true })
-              .eq('merchant_id', merchant.id)
-              .eq('status', 'archived')
-          ).count || 0,
+        total: totalCount || 0,
+        published: publishedCount || 0,
+        draft: draftCount || 0,
+        archived: archivedCount || 0,
       },
     });
   } catch (error) {

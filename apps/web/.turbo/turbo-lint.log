@@ -1,141 +1,332 @@
 
+
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/api/admin/generate-product-images/route.ts:98:32 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
+[0msrc/app/api/admin/generate-product-images/route.ts[0m[0m:[0m[0m98[0m[0m:[0m[0m32[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-     97 │           const parts =
-   > 98 │             ((response.body as any)?.candidates?.[0]?.content
-        │                                ^^^
-     99 │               ?.parts as any[]) || [];
-    100 │           const imagePart = (
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m [0m[0m  [0m[0m[1m97 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0m=[0m[0m
+[0m[0m  [0m[0m [0m[0m[1m[31m>[0m[0m [0m[0m[1m98 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0m([0m[0mr[0m[0me[0m[0ms[0m[0mp[0m[0mo[0m[0mn[0m[0ms[0m[0me[0m[0m.[0m[0mb[0m[0mo[0m[0md[0m[0my[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0ma[0m[0mn[0m[0md[0m[0mi[0m[0md[0m[0ma[0m[0mt[0m[0me[0m[0ms[0m[0m?[0m[0m.[0m[0m[[0m[0m0[0m[0m][0m[0m?[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m [0m[0m  [0m[0m[1m99 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m.[0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m[[0m[0m][0m[0m)[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m[[0m[0m][0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m100 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mi[0m[0mm[0m[0ma[0m[0mg[0m[0me[0m[0mP[0m[0ma[0m[0mr[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/app/api/admin/generate-product-images/route.ts[0m[0m:[0m[0m99[0m[0m:[0m[0m26[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-src/app/api/admin/generate-product-images/route.ts:99:26 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m [0m[0m  [0m[0m[1m97 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0m=[0m[0m
+[0m[0m  [0m[0m [0m[0m  [0m[0m[1m98 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0m([0m[0mr[0m[0me[0m[0ms[0m[0mp[0m[0mo[0m[0mn[0m[0ms[0m[0me[0m[0m.[0m[0mb[0m[0mo[0m[0md[0m[0my[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0ma[0m[0mn[0m[0md[0m[0mi[0m[0md[0m[0ma[0m[0mt[0m[0me[0m[0ms[0m[0m?[0m[0m.[0m[0m[[0m[0m0[0m[0m][0m[0m?[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
+[0m[0m  [0m[0m [0m[0m[1m[31m>[0m[0m [0m[0m[1m99 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m.[0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m[[0m[0m][0m[0m)[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m[[0m[0m][0m[0m;[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m100 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mi[0m[0mm[0m[0ma[0m[0mg[0m[0me[0m[0mP[0m[0ma[0m[0mr[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m101 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0m{[0m[0m [0m[0mi[0m[0mn[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0mD[0m[0ma[0m[0mt[0m[0ma[0m[0m:[0m[0m [0m[0m{[0m[0m [0m[0md[0m[0ma[0m[0mt[0m[0ma[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m;[0m[0m [0m[0mm[0m[0mi[0m[0mm[0m[0me[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m [0m[0m}[0m[0m [0m[0m}[0m[0m[[0m[0m][0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/app/checkout/page.tsx[0m[0m:[0m[0m1411[0m[0m:[0m[0m61[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-     97 │           const parts =
-     98 │             ((response.body as any)?.candidates?.[0]?.content
-   > 99 │               ?.parts as any[]) || [];
-        │                          ^^^
-    100 │           const imagePart = (
-    101 │             parts as { inlineData: { data: string; mimeType: string } }[]
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m1409 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m-[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mj[0m[0mu[0m[0ms[0m[0mt[0m[0mi[0m[0mf[0m[0my[0m[0m-[0m[0mb[0m[0me[0m[0mt[0m[0mw[0m[0me[0m[0me[0m[0mn[0m[0m [0m[0mm[0m[0mb[0m[0m-[0m[0m8[0m[0m"[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m1410 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m-[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mg[0m[0ma[0m[0mp[0m[0m-[0m[0m3[0m[0m"[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m1411 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0mn[0m[0mk[0m[0m [0m[0mh[0m[0mr[0m[0me[0m[0mf[0m[0m=[0m[0m{[0m[0m`[0m[0m$[0m[0m{[0m[0mb[0m[0ma[0m[0ms[0m[0me[0m[0mP[0m[0ma[0m[0mt[0m[0mh[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m'[0m[0m'[0m[0m}[0m[0m/[0m[0mc[0m[0ma[0m[0mr[0m[0mt[0m[0m`[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m}[0m[0m>[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m1412 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mB[0m[0mu[0m[0mt[0m[0mt[0m[0mo[0m[0mn[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m1413 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mv[0m[0ma[0m[0mr[0m[0mi[0m[0ma[0m[0mn[0m[0mt[0m[0m=[0m[0m"[0m[0mg[0m[0mh[0m[0mo[0m[0ms[0m[0mt[0m[0m"[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/app/dashboard/blog/[id]/edit/page.tsx[0m[0m:[0m[0m310[0m[0m:[0m[0m31[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-src/app/checkout/page.tsx:1413:61 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m308 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ml[0m[0me[0m[0mt[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m'[0m[0m'[0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m309 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m-[0m[0md[0m[0mi[0m[0ms[0m[0ma[0m[0mb[0m[0ml[0m[0me[0m[0m-[0m[0mn[0m[0me[0m[0mx[0m[0mt[0m[0m-[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0m [0m[0m@[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0ms[0m[0mc[0m[0mr[0m[0mi[0m[0mp[0m[0mt[0m[0m-[0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m/[0m[0mn[0m[0mo[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0ml[0m[0mi[0m[0mc[0m[0mi[0m[0mt[0m[0m-[0m[0ma[0m[0mn[0m[0my[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m310 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mt[0m[0mr[0m[0ma[0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0me[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m:[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m311 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m)[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m+[0m[0m=[0m[0m [0m[0m`[0m[0m$[0m[0m{[0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m}[0m[0m [0m[0m`[0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m312 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0m&[0m[0m&[0m[0m [0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m)[0m[0m)[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/app/dashboard/blog/new/page.tsx[0m[0m:[0m[0m218[0m[0m:[0m[0m31[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-    1411 │                 <div className="flex items-center justify-between mb-8">
-    1412 │                   <div className="flex items-center gap-3">
-  > 1413 │                     <Link href={`${basePath || ''}/cart` as any}>
-         │                                                             ^^^
-    1414 │                       <Button
-    1415 │                         variant="ghost"
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m216 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ml[0m[0me[0m[0mt[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m'[0m[0m'[0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m217 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m-[0m[0md[0m[0mi[0m[0ms[0m[0ma[0m[0mb[0m[0ml[0m[0me[0m[0m-[0m[0mn[0m[0me[0m[0mx[0m[0mt[0m[0m-[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0m [0m[0m@[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0ms[0m[0mc[0m[0mr[0m[0mi[0m[0mp[0m[0mt[0m[0m-[0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m/[0m[0mn[0m[0mo[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0ml[0m[0mi[0m[0mc[0m[0mi[0m[0mt[0m[0m-[0m[0ma[0m[0mn[0m[0my[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m218 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mt[0m[0mr[0m[0ma[0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0me[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m:[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m219 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m)[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m+[0m[0m=[0m[0m [0m[0m`[0m[0m$[0m[0m{[0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m}[0m[0m [0m[0m`[0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m220 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0m&[0m[0m&[0m[0m [0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m)[0m[0m)[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-editor.tsx[0m[0m:[0m[0m80[0m[0m:[0m[0m43[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
-src/components/storefront/checkout-identity-modal.tsx:57:34 lint/suspicious/noExplicitAny ━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m78 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mR[0m[0mo[0m[0mo[0m[0mt[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m79 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mC[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m80 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mn[0m[0mi[0m[0mt[0m[0mi[0m[0ma[0m[0ml[0m[0mC[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0mi[0m[0mt[0m[0mi[0m[0ma[0m[0ml[0m[0mV[0m[0ma[0m[0ml[0m[0mu[0m[0me[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m}[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m81 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0m@[0m[0mt[0m[0ms[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0me[0m[0mc[0m[0mt[0m[0m-[0m[0me[0m[0mr[0m[0mr[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mT[0m[0mi[0m[0mp[0m[0mt[0m[0ma[0m[0mp[0m[0m [0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0m [0m[0mm[0m[0mi[0m[0ms[0m[0mm[0m[0ma[0m[0mt[0m[0mc[0m[0mh[0m[0m [0m[0mb[0m[0me[0m[0mt[0m[0mw[0m[0me[0m[0me[0m[0mn[0m[0m [0m[0mn[0m[0mo[0m[0mv[0m[0me[0m[0ml[0m[0m [0m[0ma[0m[0mn[0m[0md[0m[0m [0m[0mr[0m[0mo[0m[0mo[0m[0mt[0m[0m [0m[0md[0m[0me[0m[0mp[0m[0me[0m[0mn[0m[0md[0m[0me[0m[0mn[0m[0mc[0m[0mi[0m[0me[0m[0ms[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m82 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0mx[0m[0mt[0m[0me[0m[0mn[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0ms[0m[0m=[0m[0m{[0m[0me[0m[0mx[0m[0mt[0m[0me[0m[0mn[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0ms[0m[0m}[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/color-selector.tsx[0m[0m:[0m[0m140[0m[0m:[0m[0m20[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-    56 │       // Successful login - proceed to checkout
-  > 57 │       router.push(checkoutUrl as any);
-       │                                  ^^^
-    58 │       onOpenChange(false);
-    59 │     } catch (err) {
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m138 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mT[0m[0mE[0m[0mX[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m139 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m140 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m141 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m142 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0ms[0m[0m.[0m[0mu[0m[0mn[0m[0ms[0m[0me[0m[0mt[0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m([0m[0m)[0m[0m;[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m136 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m137 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0md[0m[0mi[0m[0mv[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m138 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mT[0m[0mE[0m[0mX[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m139 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m140 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/color-selector.tsx[0m[0m:[0m[0m175[0m[0m:[0m[0m20[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━[0m[0m
 
-src/components/storefront/checkout-identity-modal.tsx:66:32 lint/suspicious/noExplicitAny ━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m173 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mH[0m[0mI[0m[0mG[0m[0mH[0m[0mL[0m[0mI[0m[0mG[0m[0mH[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m174 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m175 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m176 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m177 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0ms[0m[0m.[0m[0mu[0m[0mn[0m[0ms[0m[0me[0m[0mt[0m[0mH[0m[0mi[0m[0mg[0m[0mh[0m[0ml[0m[0mi[0m[0mg[0m[0mh[0m[0mt[0m[0m([0m[0m)[0m[0m;[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m171 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mB[0m[0ma[0m[0mc[0m[0mk[0m[0mg[0m[0mr[0m[0mo[0m[0mu[0m[0mn[0m[0md[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m172 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0md[0m[0mi[0m[0mv[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m173 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mH[0m[0mI[0m[0mG[0m[0mH[0m[0mL[0m[0mI[0m[0mG[0m[0mH[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m174 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m175 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m24[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-    65 │   const handleGuestCheckout = () => {
-  > 66 │     router.push(checkoutUrl as any);
-       │                                ^^^
-    67 │     onOpenChange(false);
-    68 │   };
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m22 │ [0m[0me[0m[0mx[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0m [0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0mo[0m[0mr[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m [0m[0m=[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m23 │ [0m[0m [0m[0m [0m[0mn[0m[0ma[0m[0mm[0m[0me[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m;[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m24 │ [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0ma[0m[0mc[0m[0mt[0m[0m.[0m[0mF[0m[0mC[0m[0m<[0m[0ma[0m[0mn[0m[0my[0m[0m>[0m[0m;[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m25 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m<[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0mo[0m[0mf[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m>[0m[0m[[0m[0m'[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m'[0m[0m][0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0mv[0m[0mo[0m[0mi[0m[0md[0m[0m;[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m26 │ [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m<[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0mo[0m[0mf[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m>[0m[0m[[0m[0m'[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m'[0m[0m][0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0mb[0m[0mo[0m[0mo[0m[0ml[0m[0me[0m[0ma[0m[0mn[0m[0m;[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m66[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-src/components/storefront/checkout-identity-modal.tsx:155:67 lint/suspicious/noExplicitAny ━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m64 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0mC[0m[0mh[0m[0me[0m[0mc[0m[0mk[0m[0mS[0m[0mq[0m[0mu[0m[0ma[0m[0mr[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m65 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m66 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mT[0m[0ma[0m[0ms[0m[0mk[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m67 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mt[0m[0ma[0m[0ms[0m[0mk[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m68 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m67[0m[0m:[0m[0m38[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-    153 │                     variant="outline"
-    154 │                     onClick={() =>
-  > 155 │                       router.push('/signup?redirect=/checkout' as any)
-        │                                                                   ^^^
-    156 │                     }
-    157 │                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m65 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m66 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mT[0m[0ma[0m[0ms[0m[0mk[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m67 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mt[0m[0ma[0m[0ms[0m[0mk[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m68 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m69 │ [0m[0m [0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m73[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-src/components/storefront/checkout-identity-modal.tsx:210:72 lint/suspicious/noExplicitAny ━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m71 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m72 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m73 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mB[0m[0mu[0m[0ml[0m[0ml[0m[0me[0m[0mt[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m74 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mb[0m[0mu[0m[0ml[0m[0ml[0m[0me[0m[0mt[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m75 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m74[0m[0m:[0m[0m38[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-  ! Unexpected any. Specify a different type.
-  
-    208 │                     <button
-    209 │                       type="button"
-  > 210 │                       onClick={() => router.push('/forgot-password' as any)}
-        │                                                                        ^^^
-    211 │                       className="text-[10px] font-bold text-[var(--store-primary)] hover:underline uppercase"
-    212 │                     >
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m72 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m73 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mB[0m[0mu[0m[0ml[0m[0ml[0m[0me[0m[0mt[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m74 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mb[0m[0mu[0m[0ml[0m[0ml[0m[0me[0m[0mt[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m75 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m76 │ [0m[0m [0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m80[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-src/app/(storefront)/[slug]/[category]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m78 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m79 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m80 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m81 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m82 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m81[0m[0m:[0m[0m38[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
 
-  × Formatter would have printed the following content:
-  
-    190 190 │       const fallbackConfig = !defaultConfig
-    191 191 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-    192     │ - ········normalizedSlug.includes(key)
-    193     │ - ······)?.[1]
-        192 │ + ··········normalizedSlug.includes(key)
-        193 │ + ········)?.[1]
-    194 194 │         : null;
-    195 195 │   
-    ······· │ 
-    337 337 │         ...(products.length > 0 &&
-    338 338 │           products[0].images?.[0] && {
-    339     │ - ········images:·[
-    340     │ - ··········{
-    341     │ - ············url:·products[0].images[0]·as·unknown·as·string,
-    342     │ - ············alt:·categoryData.name,
-    343     │ - ··········},
-    344     │ - ········],
-    345     │ - ······}),
-        339 │ + ··········images:·[
-        340 │ + ············{
-        341 │ + ··············url:·products[0].images[0]·as·unknown·as·string,
-        342 │ + ··············alt:·categoryData.name,
-        343 │ + ············},
-        344 │ + ··········],
-        345 │ + ········}),
-    346 346 │       },
-    347 347 │       twitter: {
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m79 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m80 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m,[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m81 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m'[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m'[0m[0m)[0m[0m [0m[0m?[0m[0m?[0m[0m [0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m,[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m82 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m83 │ [0m[0m [0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m130[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━[0m[0m
 
-Checked 797 files in 507ms. No fixes applied.
-Found 1 error.
-Found 7 warnings.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m128 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m129 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m130 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m131 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m132 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m;[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m126 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0mP[0m[0mo[0m[0mp[0m[0mo[0m[0mv[0m[0me[0m[0mr[0m[0mT[0m[0mr[0m[0mi[0m[0mg[0m[0mg[0m[0me[0m[0mr[0m[0m>[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m127 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mP[0m[0mo[0m[0mp[0m[0mo[0m[0mv[0m[0me[0m[0mr[0m[0mC[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0ms[0m[0mi[0m[0md[0m[0me[0m[0mO[0m[0mf[0m[0mf[0m[0ms[0m[0me[0m[0mt[0m[0m=[0m[0m{[0m[0m5[0m[0m}[0m[0m [0m[0ma[0m[0ml[0m[0mi[0m[0mg[0m[0mn[0m[0m=[0m[0m"[0m[0ms[0m[0mt[0m[0ma[0m[0mr[0m[0mt[0m[0m"[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mw[0m[0m-[0m[0m4[0m[0m8[0m[0m [0m[0mp[0m[0m-[0m[0m1[0m[0m"[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m128 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m129 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m130 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/selectors/text-buttons.tsx[0m[0m:[0m[0m54[0m[0m:[0m[0m16[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━[0m[0m
 
-  × Some errors were emitted while running checks.
-  
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m52 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m53 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m54 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m55 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m56 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m;[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m50 │ [0m[0m [0m[0m [0m[0mr[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m51 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m"[0m[0m>[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m52 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m53 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m54 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m38[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
 
- ELIFECYCLE  Command failed with exit code 1.
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m36 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mC[0m[0mh[0m[0me[0m[0mc[0m[0mk[0m[0mS[0m[0mq[0m[0mu[0m[0ma[0m[0mr[0m[0me[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m37 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m38 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0md[0m[0me[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0mR[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m([0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mT[0m[0ma[0m[0ms[0m[0mk[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m;[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m39 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m40 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m89[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m87 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m88 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m89 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m90 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m91 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m103[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+
+[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m101 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m102 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
+[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m103 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m
+[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m104 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m
+[0m[0m  [0m[0m  [0m[0m[1m105 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m
+[0m[0m  [0m[0m
+[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
+[0m[0m  [0m[0m
+[0m
+[0m[33mThe number of diagnostics exceeds the limit allowed. Use [0m[0m[1m[33m--max-diagnostics[0m[0m[33m to increase it.
+[0m[0m[34mDiagnostics not shown: [0m[0m[1m9[0m[0m[34m.[0m
+[0m[34mChecked [0m[0m[34m808[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m714[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m[0m
+[0m[0m[33mFound [0m[0m[33m29[0m[0m[33m warnings.[0m

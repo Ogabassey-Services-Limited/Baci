@@ -61,7 +61,7 @@ import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 
-interface BlogPost {
+export interface BlogPost {
   id: string;
   title: string;
   slug: string;
@@ -77,20 +77,31 @@ interface BlogPost {
   published_at: string | null;
 }
 
-interface BlogClientPageProps {
+export interface BlogClientPageProps {
   merchant: {
     id: string;
     slug?: string | null;
   };
+  initialPosts?: BlogPost[];
+  initialCounts?: {
+    total: number;
+    published: number;
+    draft: number;
+    archived: number;
+  };
 }
 
-export function BlogClientPage({ merchant }: BlogClientPageProps) {
+export function BlogClientPage({
+  merchant,
+  initialPosts = [],
+  initialCounts = undefined,
+}: BlogClientPageProps) {
   const _router = useRouter();
   const { toast } = useToast();
   const { autoBlogEnabled } = useMerchantFeatures();
 
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
+  const [isLoading, setIsLoading] = useState(initialPosts.length === 0);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -99,12 +110,16 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   const [hasMore, setHasMore] = useState(false);
   const ITEMS_PER_PAGE = 20;
 
-  const [statsData, setStatsData] = useState<{
-    total: number;
-    published: number;
-    draft: number;
-    archived: number;
-  } | null>(null);
+  const [statsData, setStatsData] = useState<
+    | {
+        total: number;
+        published: number;
+        draft: number;
+        archived: number;
+      }
+    | null
+    | undefined
+  >(initialCounts);
 
   const fetchPosts = useCallback(async () => {
     if (!merchant?.id) return;

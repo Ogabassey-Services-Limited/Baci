@@ -37,6 +37,8 @@ export default function EditContentScreen() {
   // AI State
   const [isAIProcessing, setIsAIProcessing] = useState(false);
   const [isAIModalVisible, setIsAIModalVisible] = useState(false);
+  const [isLinkModalVisible, setIsLinkModalVisible] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
   const [aiInstruction, setAiInstruction] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
@@ -180,6 +182,23 @@ export default function EditContentScreen() {
     }
   };
 
+  const handleInsertLink = () => {
+    if (!linkUrl.trim()) return;
+
+    let url = linkUrl;
+    if (!url.startsWith('http')) {
+      url = 'https://' + url;
+    }
+
+    webViewRef.current?.injectJavaScript(`
+      document.execCommand('createLink', false, '${url}');
+      true;
+    `);
+
+    setLinkUrl('');
+    setIsLinkModalVisible(false);
+  };
+
   const formatAction = (command: string, value?: string) => {
     const js = value
       ? `document.execCommand('${command}', false, '${value}'); true;`
@@ -282,36 +301,76 @@ export default function EditContentScreen() {
             <style>
                 * { box-sizing: border-box; margin: 0; padding: 0; }
                 body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    font-size: 16px;
-                    line-height: 1.6;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+                    font-size: 17px;
+                    line-height: 1.7;
                     background: ${colors.background};
                     color: ${colors.text};
-                    padding: 16px;
+                    padding: 20px;
                     min-height: 100vh;
+                    -webkit-user-select: text;
                 }
                 #editor {
                     outline: none;
-                    min-height: 300px;
+                    min-height: 400px;
+                    padding-bottom: 100px;
                 }
                 #editor:empty:before {
                     content: 'Start writing your story...';
                     color: ${colors.textMuted};
                 }
-                h1 { font-size: 28px; margin-bottom: 16px; }
-                h2 { font-size: 24px; margin-bottom: 12px; }
-                h3 { font-size: 20px; margin-bottom: 10px; }
-                p { margin-bottom: 12px; }
-                ul, ol { margin: 12px 0; padding-left: 24px; }
-                li { margin-bottom: 4px; }
-                a { color: ${colors.primary}; }
-                img { max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
+                h1, h2, h3 { font-family: 'Inter', sans-serif; color: ${colors.text}; font-weight: 700; margin-top: 24px; }
+                h1 { font-size: 30px; margin-bottom: 16px; letter-spacing: -0.5px; }
+                h2 { font-size: 26px; margin-bottom: 12px; }
+                h3 { font-size: 22px; margin-bottom: 10px; }
+                p { margin-bottom: 16px; font-weight: 400; }
+                ul, ol { margin: 16px 0; padding-left: 28px; }
+                li { margin-bottom: 8px; }
+                a { color: ${colors.primary}; text-decoration: underline; text-underline-offset: 4px; }
+                img { max-width: 100%; height: auto; border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
                 blockquote {
-                    border-left: 3px solid ${colors.primary};
-                    padding-left: 16px;
-                    margin: 12px 0;
+                    border-left: 4px solid ${colors.primary};
+                    padding-left: 20px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    margin: 20px 0;
                     font-style: italic;
-                    opacity: 0.9;
+                    color: ${colors.textMuted};
+                    background: ${colors.card}40;
+                    border-radius: 0 8px 8px 0;
+                }
+                hr { border: 0; border-top: 1px solid ${colors.border}; margin: 24px 0; }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                    font-size: 15px;
+                }
+                th, td {
+                    border: 1px solid ${colors.border};
+                    padding: 12px;
+                    text-align: left;
+                }
+                th {
+                    background: ${colors.card};
+                    font-weight: 600;
+                }
+                .video-container {
+                    position: relative;
+                    padding-bottom: 56.25%;
+                    height: 0;
+                    overflow: hidden;
+                    margin: 20px 0;
+                    border-radius: 12px;
+                    background: #000;
+                }
+                .video-container iframe {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    border: 0;
                 }
             </style>
         </head>
@@ -382,6 +441,64 @@ export default function EditContentScreen() {
           </View>
         </View>
       )}
+
+      {/* Link Input Modal */}
+      <Modal
+        transparent
+        visible={isLinkModalVisible}
+        animationType="fade"
+        onRequestClose={() => setIsLinkModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              🔗 Insert Link
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.text,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                },
+              ]}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder="https://example.com"
+              placeholderTextColor={colors.textMuted}
+              value={linkUrl}
+              onChangeText={setLinkUrl}
+              onSubmitEditing={handleInsertLink}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, { backgroundColor: colors.border }]}
+                onPress={() => setIsLinkModalVisible(false)}
+              >
+                <Text style={[styles.buttonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                onPress={handleInsertLink}
+              >
+                <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                  Insert
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* AI Instruction Modal */}
       <Modal
@@ -466,6 +583,19 @@ export default function EditContentScreen() {
         >
           <Pressable
             style={styles.toolbarButton}
+            onPress={() => formatAction('undo')}
+          >
+            <Ionicons name="arrow-undo-outline" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => formatAction('redo')}
+          >
+            <Ionicons name="arrow-redo-outline" size={20} color={colors.text} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            style={styles.toolbarButton}
             onPress={() => formatAction('bold')}
           >
             <Ionicons name="text" size={20} color={colors.text} />
@@ -533,9 +663,41 @@ export default function EditContentScreen() {
           </Pressable>
           <Pressable
             style={styles.toolbarButton}
+            onPress={() => formatAction('formatBlock', 'h3')}
+          >
+            <Text
+              style={[
+                styles.toolbarLabel,
+                { color: colors.text, fontWeight: 'bold' },
+              ]}
+            >
+              H3
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
             onPress={() => formatAction('formatBlock', 'p')}
           >
             <Text style={[styles.toolbarLabel, { color: colors.text }]}>¶</Text>
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => formatAction('justifyLeft')}
+          >
+            <Ionicons name="align-left" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => formatAction('justifyCenter')}
+          >
+            <Ionicons name="align-center" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => formatAction('justifyRight')}
+          >
+            <Ionicons name="align-right" size={20} color={colors.text} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
@@ -549,6 +711,70 @@ export default function EditContentScreen() {
             onPress={() => formatAction('insertOrderedList')}
           >
             <Ionicons name="list-outline" size={20} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => formatAction('insertHorizontalRule')}
+          >
+            <Ionicons name="remove-outline" size={22} color={colors.text} />
+          </Pressable>
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => setIsLinkModalVisible(true)}
+          >
+            <Ionicons name="link-outline" size={22} color={colors.primary} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => {
+              webViewRef.current?.injectJavaScript(`
+                const rows = 2;
+                const cols = 2;
+                let table = '<table>';
+                for (let i = 0; i < rows; i++) {
+                  table += '<tr>';
+                  for (let j = 0; j < cols; j++) {
+                    table += i === 0 ? '<th>Header</th>' : '<td>Data</td>';
+                  }
+                  table += '</tr>';
+                }
+                table += '</table><p></p>';
+                document.execCommand('insertHTML', false, table);
+                true;
+              `);
+            }}
+          >
+            <Ionicons name="grid-outline" size={20} color={colors.text} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            style={styles.toolbarButton}
+            onPress={() => {
+              Alert.prompt(
+                'Insert YouTube Video',
+                'Enter the YouTube video URL or ID',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Insert',
+                    onPress: (url) => {
+                      if (!url) return;
+                      // Simple regex to extract ID if full URL is provided
+                      const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=|\/sandaylm\?v=))([\w-]{11})/)?.[1] || url;
+
+                      const embedHtml = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div><p></p>`;
+                      webViewRef.current?.injectJavaScript(`
+                        document.execCommand('insertHTML', false, '${embedHtml}');
+                        true;
+                      `);
+                    }
+                  }
+                ]
+              );
+            }}
+          >
+            <Ionicons name="logo-youtube" size={20} color={colors.text} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable

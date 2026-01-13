@@ -121,7 +121,6 @@ function Step0_Auth({
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<OtpAuthFormValues>({
-    // @ts-expect-error: zodResolver type mismatch
     resolver: zodResolver(otpAuthSchema),
     defaultValues: { email: '' },
   });
@@ -965,8 +964,7 @@ function CheckoutPageContent() {
     fetchPaymentSettings();
   }, [merchant?.id]);
 
-  const shippingForm = useForm<ShippingFormValues>({
-    // @ts-expect-error: zodResolver type mismatch
+  const shippingForm = useForm<z.infer<typeof shippingSchema>>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
       firstName: '',

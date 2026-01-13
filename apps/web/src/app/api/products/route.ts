@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
     const status = searchParams.get('status') || 'All';
     const stock = searchParams.get('stock') || 'All';
+    const ids = searchParams.get('ids');
 
     const offset = (page - 1) * limit;
 
@@ -92,27 +93,36 @@ export async function GET(request: NextRequest) {
         { count: 'exact' }
       )
       .eq('merchant_id', merchant.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
-    // Apply filters
-    if (status !== 'All') {
-      query = query.eq('status', status);
-    }
-
-    if (stock !== 'All') {
-      if (stock === 'out_of_stock') {
-        query = query.eq('stock_quantity', 0);
-      } else if (stock === 'in_stock') {
-        query = query.gt('stock_quantity', 0);
+    // If fetching by IDs, ignore pagination and other filters usually
+    if (ids) {
+      const idList = ids.split(',').filter(Boolean);
+      if (idList.length > 0) {
+        query = query.in('id', idList);
       }
-    }
+    } else {
+      query = query.range(offset, offset + limit - 1);
 
-    if (search?.trim()) {
-      const sanitizedPattern = sanitizeLikePattern(search);
-      query = query.or(
-        `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%`
-      );
+      // Apply filters only if not fetching by ID
+      if (status !== 'All') {
+        query = query.eq('status', status);
+      }
+
+      if (stock !== 'All') {
+        if (stock === 'out_of_stock') {
+          query = query.eq('stock_quantity', 0);
+        } else if (stock === 'in_stock') {
+          query = query.gt('stock_quantity', 0);
+        }
+      }
+
+      if (search?.trim()) {
+        const sanitizedPattern = sanitizeLikePattern(search);
+        query = query.or(
+          `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%`
+        );
+      }
     }
 
     const { data: products, error, count } = await query;

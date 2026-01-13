@@ -13,7 +13,9 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { BlogEditor } from '@/components/blog/blog-editor';
+import { ProductGrid } from '@/components/blog/product-embed';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
@@ -32,6 +34,16 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  compare_at_price?: number;
+  images: string[];
+  slug: string;
+  status: string;
+}
 
 interface PostFormData {
   title: string;
@@ -72,6 +84,7 @@ export default function EditBlogPostPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
+  const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [originalPost, setOriginalPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState<PostFormData>({
     title: '',
@@ -127,6 +140,21 @@ export default function EditBlogPostPage() {
           focus_keyword: post.focus_keyword || '',
           status: post.status || 'draft',
         });
+
+        // Fetch embedded products if any
+        if (
+          post.embedded_products &&
+          Array.isArray(post.embedded_products) &&
+          post.embedded_products.length > 0
+        ) {
+          const productsResponse = await fetch(
+            `/api/products?ids=${post.embedded_products.join(',')}`
+          );
+          if (productsResponse.ok) {
+            const data = await productsResponse.json();
+            setEmbeddedProducts(data.products || []);
+          }
+        }
       } catch (error) {
         console.error('Error fetching post:', error);
         toast({
@@ -143,6 +171,25 @@ export default function EditBlogPostPage() {
       fetchPost();
     }
   }, [postId, router, toast]);
+
+  // Image upload handler
+  const handleImageUpload = useCallback(async (file: File): Promise<string> => {
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
+
+    const response = await fetch('/api/merchant/blog/upload', {
+      method: 'POST',
+      body: formDataUpload,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload image');
+    }
+
+    const data = await response.json();
+    return data.url;
+  }, []);
 
   const handleChange = (field: keyof PostFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -198,6 +245,7 @@ export default function EditBlogPostPage() {
         seo_description: formData.seo_description || undefined,
         focus_keyword: formData.focus_keyword || undefined,
         status: newStatus || formData.status,
+        embedded_products: embeddedProducts.map((p) => p.id),
       };
 
       const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
@@ -244,7 +292,36 @@ export default function EditBlogPostPage() {
   const titleLength = formData.seo_title?.length || formData.title.length;
   const descriptionLength =
     formData.seo_description?.length || formData.excerpt.length;
-  const wordCount = formData.content.split(/\s+/).filter(Boolean).length;
+
+  // Calculate word count from JSON content
+  const getTextContent = (jsonString: string) => {
+    try {
+      if (!jsonString) return '';
+      // If it looks like HTML (starts with <), use DOMParser
+      if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(jsonString, 'text/html');
+        return doc.body.textContent || '';
+      }
+
+      const json = JSON.parse(jsonString);
+      let text = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const traverse = (node: any) => {
+        if (node.text) text += `${node.text} `;
+        if (node.content && Array.isArray(node.content)) {
+          node.content.forEach(traverse);
+        }
+      };
+      traverse(json);
+      return text.trim();
+    } catch {
+      return '';
+    }
+  };
+  const wordCount = getTextContent(formData.content)
+    .split(/\s+/)
+    .filter(Boolean).length;
   const readingTime = Math.ceil(wordCount / 200);
 
   if (isLoading) {
@@ -397,19 +474,44 @@ export default function EditBlogPostPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="content">Content *</Label>
-                <Textarea
-                  id="content"
-                  placeholder="Write your blog post content here... (Markdown supported)"
-                  value={formData.content}
-                  onChange={(e) => handleChange('content', e.target.value)}
-                  rows={20}
-                  className="font-mono"
+                <BlogEditor
+                  content={formData.content}
+                  onChange={(content) => handleChange('content', content)}
+                  onImageUpload={handleImageUpload}
+                  onProductsChange={setEmbeddedProducts}
+                  embeddedProducts={embeddedProducts}
+                  placeholder="Start writing... Drag and drop images, or click the shopping bag icon to embed products."
                 />
-                <p className="text-xs text-muted-foreground">
-                  Tip: Use Markdown for formatting. **bold**, *italic*, #
-                  headings, etc.
-                </p>
               </div>
+
+              {/* Embedded Products Preview */}
+              {embeddedProducts.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      Embedded Products ({embeddedProducts.length})
+                    </CardTitle>
+                    <CardDescription>
+                      These products will appear in your blog post
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ProductGrid
+                      products={embeddedProducts}
+                      merchantSlug={merchant?.slug}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => setEmbeddedProducts([])}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Clear All Products
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="excerpt">Excerpt</Label>

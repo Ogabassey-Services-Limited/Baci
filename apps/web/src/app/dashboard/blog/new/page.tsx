@@ -201,12 +201,31 @@ export default function NewBlogPostPage() {
     }
   };
 
-  // Calculate word count from HTML content
-  const getTextContent = (html: string) => {
-    if (typeof window === 'undefined') return '';
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    return doc.body.textContent || '';
+  // Calculate word count from JSON content
+  const getTextContent = (jsonString: string) => {
+    try {
+      if (!jsonString) return '';
+      // If it looks like HTML (starts with <), use DOMParser
+      if (jsonString.trim().startsWith('<') && typeof window !== 'undefined') {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(jsonString, 'text/html');
+        return doc.body.textContent || '';
+      }
+
+      const json = JSON.parse(jsonString);
+      let text = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const traverse = (node: any) => {
+        if (node.text) text += `${node.text} `;
+        if (node.content && Array.isArray(node.content)) {
+          node.content.forEach(traverse);
+        }
+      };
+      traverse(json);
+      return text.trim();
+    } catch {
+      return '';
+    }
   };
   const wordCount = getTextContent(formData.content)
     .split(/\s+/)
