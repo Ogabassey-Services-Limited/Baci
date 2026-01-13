@@ -25,6 +25,7 @@ export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
       ]}
     >
       <Image
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require('@/assets/images/icon.png')}
         style={{ width: size, height: size }}
         resizeMode="cover"

@@ -28,23 +28,27 @@ export const generateOrdersCSV = (orders: Order[]): string => {
     'Items',
     'Address',
     'City',
-    'State'
+    'State',
   ];
 
-  const rows = orders.map(order => [
-    order.order_number,
-    order.customer_name,
-    order.customer_email,
-    order.customer_phone,
-    format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss'),
-    order.shipping_status,
-    order.payment_status,
-    order.total,
-    order.item_count || 0, // Assuming OrderWithCount type or simplified
-    order.shipping_address?.address_line1,
-    order.shipping_address?.city,
-    order.shipping_address?.state,
-  ].map(escapeCtx).join(','));
+  const rows = orders.map((order) =>
+    [
+      order.order_number,
+      order.customer_name,
+      order.customer_email,
+      order.customer_phone,
+      format(new Date(order.created_at), 'yyyy-MM-dd HH:mm:ss'),
+      order.shipping_status,
+      order.payment_status,
+      order.total,
+      order.item_count || 0, // Assuming OrderWithCount type or simplified
+      order.shipping_address?.address_line1,
+      order.shipping_address?.city,
+      order.shipping_address?.state,
+    ]
+      .map(escapeCtx)
+      .join(',')
+  );
 
   return [headers.join(','), ...rows].join('\n');
 };
@@ -59,12 +63,11 @@ export const exportOrdersRPC = async (orders: Order[]) => {
       encoding: (FileSystem as any).EncodingType?.UTF8 || 'utf8',
     });
 
-
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(fileUri, {
         mimeType: 'text/csv',
         dialogTitle: 'Export Orders Report',
-        UTI: 'public.comma-separated-values-text'
+        UTI: 'public.comma-separated-values-text',
       });
     } else {
       throw new Error('Sharing is not available on this device');
@@ -75,22 +78,47 @@ export const exportOrdersRPC = async (orders: Order[]) => {
   }
 };
 
-
 // ... existing generateOrdersCSV ...
 
-export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: string, storeName: string = 'My Store', logoUrl?: string) => {
+export const exportOrderReportPDF = async (
+  orders: Order[],
+  dateRangeLabel: string,
+  storeName: string = 'My Store',
+  logoUrl?: string
+) => {
   try {
     const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const totalSubtotal = orders.reduce((sum, o) => sum + (Number(o.subtotal) || 0), 0);
-    const totalShipping = orders.reduce((sum, o) => sum + (Number(o.shipping_fee) || 0), 0);
-    const totalDiscounts = orders.reduce((sum, o) => sum + (Number(o.discount_amount) || 0), 0);
+    const totalRevenue = orders.reduce(
+      (sum, o) => sum + (Number(o.total) || 0),
+      0
+    );
+    const totalSubtotal = orders.reduce(
+      (sum, o) => sum + (Number(o.subtotal) || 0),
+      0
+    );
+    const totalShipping = orders.reduce(
+      (sum, o) => sum + (Number(o.shipping_fee) || 0),
+      0
+    );
+    const totalDiscounts = orders.reduce(
+      (sum, o) => sum + (Number(o.discount_amount) || 0),
+      0
+    );
     // Note: tax_amount is in DB but might not be in shared type yet - calculating as difference or 0
-    const totalTax = orders.reduce((sum, o) => sum + (Number((o as any).tax_amount) || 0), 0);
+    const totalTax = orders.reduce(
+      (sum, o) => sum + (Number((o as any).tax_amount) || 0),
+      0
+    );
 
-    const pendingCount = orders.filter(o => o.shipping_status === 'pending').length;
-    const processingCount = orders.filter(o => o.shipping_status === 'processing').length;
-    const completedCount = orders.filter(o => o.shipping_status === 'delivered').length;
+    const pendingCount = orders.filter(
+      (o) => o.shipping_status === 'pending'
+    ).length;
+    const processingCount = orders.filter(
+      (o) => o.shipping_status === 'processing'
+    ).length;
+    const completedCount = orders.filter(
+      (o) => o.shipping_status === 'delivered'
+    ).length;
 
     // Grouping Helpers
     const groupBy = <T>(array: T[], keyGetter: (item: T) => string) => {
@@ -100,37 +128,51 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
         const current = map.get(key) || { count: 0, total: 0 };
         map.set(key, {
           count: current.count + 1,
-          total: current.total + (Number((item as any).total) || 0)
+          total: current.total + (Number((item as any).total) || 0),
         });
       });
       return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
     };
 
     const salesByOrigin = groupBy(orders, (o) => o.source || 'Direct');
-    const salesByPaymentMethod = groupBy(orders, (o) => o.payment_method || 'Other');
+    const salesByPaymentMethod = groupBy(
+      orders,
+      (o) => o.payment_method || 'Other'
+    );
 
     // Fetch Item Details for deep insights
     let totalUnitsSold = 0;
-    let topProduct: { name: string; qty: number; revenue: number } | null = null;
+    let topProduct: { name: string; qty: number; revenue: number } | null =
+      null;
 
     try {
-      const orderIds = orders.map(o => o.id);
+      const orderIds = orders.map((o) => o.id);
       if (orderIds.length > 0) {
         const { data: itemData } = await supabase
           .from('order_items')
           .select('product_id, quantity, price, products(name)')
           .in('order_id', orderIds);
 
-        totalUnitsSold = itemData?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) || 0;
+        totalUnitsSold =
+          itemData?.reduce(
+            (sum, item) => sum + (Number(item.quantity) || 0),
+            0
+          ) || 0;
 
-        const productStats: Record<string, { name: string; qty: number; revenue: number }> = {};
-        itemData?.forEach(item => {
+        const productStats: Record<
+          string,
+          { name: string; qty: number; revenue: number }
+        > = {};
+        itemData?.forEach((item) => {
           const name = (item.products as any)?.name || 'Unknown Product';
-          if (!productStats[name]) productStats[name] = { name, qty: 0, revenue: 0 };
-          productStats[name].qty += (Number(item.quantity) || 0);
-          productStats[name].revenue += (Number(item.quantity) || 0) * (Number(item.price) || 0);
+          if (!productStats[name])
+            productStats[name] = { name, qty: 0, revenue: 0 };
+          productStats[name].qty += Number(item.quantity) || 0;
+          productStats[name].revenue +=
+            (Number(item.quantity) || 0) * (Number(item.price) || 0);
         });
-        topProduct = Object.values(productStats).sort((a, b) => b.qty - a.qty)[0] || null;
+        topProduct =
+          Object.values(productStats).sort((a, b) => b.qty - a.qty)[0] || null;
       }
     } catch (err) {
       console.warn('Failed to fetch item data for report:', err);
@@ -508,7 +550,9 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
           </div>
         </div>
 
-        ${topProduct ? `
+        ${
+          topProduct
+            ? `
         <div class="section-label">Top Performer</div>
         <div class="insights-grid">
           <div class="insight-card">
@@ -543,14 +587,18 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
             </div>
           </div>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         <div class="section-label">Strategic Breakdowns</div>
 
         <div class="split-grid">
           <div class="board">
             <div class="board-title">Sales by Origin</div>
-            ${salesByOrigin.map(([name, data]) => `
+            ${salesByOrigin
+              .map(
+                ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
                   <span class="item-name">${name}</span>
@@ -558,12 +606,16 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
                 </div>
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
 
           <div class="board">
             <div class="board-title">Payment Method</div>
-            ${salesByPaymentMethod.map(([name, data]) => `
+            ${salesByPaymentMethod
+              .map(
+                ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
                   <span class="item-name">${name}</span>
@@ -571,7 +623,9 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
                 </div>
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
               </div>
-            `).join('')}
+            `
+              )
+              .join('')}
           </div>
         </div>
 
@@ -617,7 +671,10 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
               </tr>
             </thead>
             <tbody>
-              ${orders.slice(0, 15).map(o => `
+              ${orders
+                .slice(0, 15)
+                .map(
+                  (o) => `
                 <tr>
                   <td class="order-id">#${o.id.slice(0, 8).toUpperCase()}</td>
                   <td>
@@ -633,7 +690,9 @@ export const exportOrderReportPDF = async (orders: Order[], dateRangeLabel: stri
                   </td>
                   <td style="font-weight: 800;">₦${(Number(o.total) || 0).toLocaleString()}</td>
                 </tr>
-              `).join('')}
+              `
+                )
+                .join('')}
             </tbody>
           </table>
           ${orders.length > 15 ? `<div style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 16px;">+ ${orders.length - 15} more orders not shown</div>` : ''}

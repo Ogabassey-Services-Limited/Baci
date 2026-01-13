@@ -3,7 +3,14 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Switch,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -13,7 +20,7 @@ import { useOnboarding } from '@/context/OnboardingContext';
 export default function SettingsScreen() {
   const { resetOnboarding } = useOnboarding();
   const colorScheme = useColorScheme();
-  const router = useRouter();
+  const _router = useRouter();
   const isDark = colorScheme === 'dark';
 
   const colors = {
@@ -43,76 +50,175 @@ export default function SettingsScreen() {
       style={[styles.settingItem, { borderBottomColor: colors.border }]}
       onPress={onPress}
     >
-      <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.settingIcon, { backgroundColor: colors.background }]}
+      >
         <Ionicons name={icon} size={20} color="#3B82F6" />
       </View>
       <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.settingTitle, { color: colors.text }]}>
+          {title}
+        </Text>
         {subtitle && (
-          <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+          <Text
+            style={[styles.settingSubtitle, { color: colors.textSecondary }]}
+          >
+            {subtitle}
+          </Text>
         )}
       </View>
       {toggle !== undefined ? (
-        <Switch value={toggle} onValueChange={() => { }} trackColor={{ true: '#3B82F6' }} />
+        <Switch
+          value={toggle}
+          onValueChange={() => { }}
+          trackColor={{ true: '#3B82F6' }}
+        />
       ) : showArrow ? (
-        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textSecondary}
+        />
       ) : null}
     </Pressable>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Store Info */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>STORE</Text>
-          <SettingItem icon="storefront-outline" title="Store Profile" subtitle="Name, logo, contact info" />
-          <SettingItem icon="time-outline" title="Business Hours" subtitle="Set operating hours" />
-          <SettingItem icon="location-outline" title="Store Locations" subtitle="Manage pickup points" />
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            STORE
+          </Text>
+          <SettingItem
+            icon="storefront-outline"
+            title="Store Profile"
+            subtitle="Name, logo, contact info"
+          />
+          <SettingItem
+            icon="time-outline"
+            title="Business Hours"
+            subtitle="Set operating hours"
+          />
+          <SettingItem
+            icon="location-outline"
+            title="Store Locations"
+            subtitle="Manage pickup points"
+          />
         </View>
 
         {/* Notifications */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>NOTIFICATIONS</Text>
-          <SettingItem icon="notifications-outline" title="Push Notifications" toggle={true} />
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            NOTIFICATIONS
+          </Text>
+          <SettingItem
+            icon="notifications-outline"
+            title="Push Notifications"
+            toggle={true}
+          />
           <SettingItem icon="mail-outline" title="Email Alerts" toggle={true} />
-          <SettingItem icon="musical-notes-outline" title="Order Sound" toggle={false} />
+          <SettingItem
+            icon="musical-notes-outline"
+            title="Order Sound"
+            toggle={false}
+          />
         </View>
 
         {/* Orders */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ORDERS</Text>
-          <SettingItem icon="print-outline" title="Receipt Printer" subtitle="Connect thermal printer" />
-          <SettingItem icon="bicycle-outline" title="Delivery Settings" subtitle="Zones, fees, partners" />
-          <SettingItem icon="pricetag-outline" title="Tax Configuration" subtitle="VAT and pricing rules" />
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            ORDERS
+          </Text>
+          <SettingItem
+            icon="print-outline"
+            title="Receipt Printer"
+            subtitle="Connect thermal printer"
+          />
+          <SettingItem
+            icon="bicycle-outline"
+            title="Delivery Settings"
+            subtitle="Zones, fees, partners"
+          />
+          <SettingItem
+            icon="pricetag-outline"
+            title="Tax Configuration"
+            subtitle="VAT and pricing rules"
+          />
         </View>
 
         {/* Account */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACCOUNT</Text>
-          <SettingItem icon="people-outline" title="Team Members" subtitle="Manage staff access" />
-          <SettingItem icon="shield-checkmark-outline" title="Security" subtitle="Password, 2FA" />
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            ACCOUNT
+          </Text>
+          <SettingItem
+            icon="people-outline"
+            title="Team Members"
+            subtitle="Manage staff access"
+          />
+          <SettingItem
+            icon="shield-checkmark-outline"
+            title="Security"
+            subtitle="Password, 2FA"
+          />
           <SettingItem icon="help-circle-outline" title="Help & Support" />
         </View>
 
         {/* Logout */}
-        <Pressable style={[styles.logoutButton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Pressable
+          style={[
+            styles.logoutButton,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
           <Text style={styles.logoutText}>Sign Out</Text>
         </Pressable>
 
-        <Text style={[styles.version, { color: colors.textSecondary }]}>Baci Admin v1.0.0</Text>
+        <Text style={[styles.version, { color: colors.textSecondary }]}>
+          Baci Admin v1.0.0
+        </Text>
 
         {/* DEV: Reset Onboarding */}
         {__DEV__ && (
           <Pressable
-            style={[styles.devButton, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}
+            style={[
+              styles.devButton,
+              { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' },
+            ]}
             onPress={async () => {
               await resetOnboarding();
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />
-            <Text style={{ color: '#D97706', fontWeight: '600' }}>Reset Onboarding (Dev)</Text>
+            <Text style={{ color: '#D97706', fontWeight: '600' }}>
+              Reset Onboarding (Dev)
+            </Text>
           </Pressable>
         )}
       </ScrollView>

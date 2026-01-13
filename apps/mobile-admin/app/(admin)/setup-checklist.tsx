@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,292 +20,377 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useQueryClient } from '@tanstack/react-query';
 
 const CATEGORY_ICONS: Record<string, string> = {
-    payments: 'card-outline',
-    products: 'cube-outline',
-    store: 'storefront-outline',
-    legal: 'document-text-outline',
-    marketing: 'megaphone-outline',
+  payments: 'card-outline',
+  products: 'cube-outline',
+  store: 'storefront-outline',
+  legal: 'document-text-outline',
+  marketing: 'megaphone-outline',
 };
 
 const PRIORITY_COLORS = {
-    required: { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626' },
-    recommended: { bg: '#FFFBEB', border: '#FDE68A', text: '#D97706' },
-    optional: { bg: '#EFF6FF', border: '#BFDBFE', text: '#2563EB' },
+  required: { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626' },
+  recommended: { bg: '#FFFBEB', border: '#FDE68A', text: '#D97706' },
+  optional: { bg: '#EFF6FF', border: '#BFDBFE', text: '#2563EB' },
 };
 
 const PRIORITY_LABELS = {
-    required: 'Required',
-    recommended: 'Recommended',
-    optional: 'Optional',
+  required: 'Required',
+  recommended: 'Recommended',
+  optional: 'Optional',
 };
 
 export default function SetupChecklistScreen() {
-    const { colors, isDark } = useTheme();
-    const router = useRouter();
-    const { readiness, isLoading, refetch } = useStoreReadiness();
-    const { merchant } = useMerchant();
-    const queryClient = useQueryClient();
-    const [isPublishing, setIsPublishing] = React.useState(false);
+  const { colors, isDark } = useTheme();
+  const router = useRouter();
+  const { readiness, isLoading, refetch } = useStoreReadiness();
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+  const [isPublishing, setIsPublishing] = React.useState(false);
 
-    const handlePublish = async () => {
-        if (!readiness?.isReady) {
-            Alert.alert('Not Ready', 'Please complete all required items to publish your store.');
-            return;
-        }
-
-        setIsPublishing(true);
-        try {
-            const { error } = await supabase
-                .from('merchants')
-                .update({ is_published: true })
-                .eq('id', merchant?.id);
-
-            if (error) throw error;
-
-            await queryClient.invalidateQueries({ queryKey: ['merchant'] });
-            await refetch();
-            Alert.alert('Success', 'Your store is now LIVE!');
-        } catch (error) {
-            console.error('Publish error:', error);
-            Alert.alert('Error', 'Failed to publish store. Please try again.');
-        } finally {
-            setIsPublishing(false);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-                <ActivityIndicator size="large" color={colors.primary} />
-            </SafeAreaView>
-        );
+  const handlePublish = async () => {
+    if (!readiness?.isReady) {
+      Alert.alert(
+        'Not Ready',
+        'Please complete all required items to publish your store.'
+      );
+      return;
     }
 
-    if (!readiness) return null;
+    setIsPublishing(true);
+    try {
+      const { error } = await supabase
+        .from('merchants')
+        .update({ is_published: true })
+        .eq('id', merchant?.id);
 
-    const renderItem = (item: SetupItem, isNext: boolean) => {
-        const priorityColor = PRIORITY_COLORS[item.priority];
-        const iconName = CATEGORY_ICONS[item.category] as any || 'list-outline';
+      if (error) throw error;
 
-        return (
-            <Pressable
-                key={item.id}
-                onPress={() => item.href.startsWith('/') ? router.push(item.href as any) : null}
-                style={[
-                    styles.itemCard,
-                    {
-                        backgroundColor: colors.card,
-                        borderColor: item.completed
-                            ? (isDark ? '#065F46' : '#DCFCE7') // Green tint
-                            : isNext
-                                ? colors.primary
-                                : colors.border,
-                        borderWidth: isNext ? 2 : 1,
-                    },
-                    item.completed && { opacity: 0.8 }
-                ]}
-            >
-                {/* Status Icon */}
-                <View style={[
-                    styles.statusIcon,
-                    {
-                        backgroundColor: item.completed ? colors.success : (isNext ? colors.primaryLight : colors.cardHover)
-                    }
-                ]}>
-                    <Ionicons
-                        name={item.completed ? 'checkmark' : (isNext ? 'arrow-forward' : 'ellipse-outline')}
-                        size={18}
-                        color={item.completed ? '#fff' : (isNext ? colors.primary : colors.textMuted)}
-                    />
-                </View>
+      await queryClient.invalidateQueries({ queryKey: ['merchant'] });
+      await refetch();
+      Alert.alert('Success', 'Your store is now LIVE!');
+    } catch (error) {
+      console.error('Publish error:', error);
+      Alert.alert('Error', 'Failed to publish store. Please try again.');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
 
-                {/* Content */}
-                <View style={styles.itemContent}>
-                    <View style={styles.itemHeader}>
-                        <Text style={[
-                            styles.itemLabel,
-                            {
-                                color: colors.text,
-                                textDecorationLine: item.completed ? 'line-through' : 'none'
-                            }
-                        ]}>
-                            {item.label}
-                        </Text>
-                        {!item.completed && !isNext && (
-                            <View style={[styles.priorityBadge, { backgroundColor: priorityColor.bg, borderColor: priorityColor.border }]}>
-                                <Text style={[styles.priorityText, { color: priorityColor.text }]}>
-                                    {PRIORITY_LABELS[item.priority]}
-                                </Text>
-                            </View>
-                        )}
-                        {isNext && (
-                            <View style={[styles.priorityBadge, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-                                <Text style={[styles.priorityText, { color: colors.primary }]}>NEXT STEP</Text>
-                            </View>
-                        )}
-                    </View>
-                    <Text style={[styles.itemDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-                        {item.description}
-                    </Text>
-                </View>
+  if (isLoading) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </Pressable>
-        );
-    };
+  if (!readiness) return null;
 
-    // Determine the next incomplete item to leverage "Next Step" highlighting
-    const incompleteItems = readiness.items.filter(i => !i.completed);
-    const nextItem = incompleteItems[0]; // Logic matches web
+  const renderItem = (item: SetupItem, isNext: boolean) => {
+    const priorityColor = PRIORITY_COLORS[item.priority];
+    const _iconName = (CATEGORY_ICONS[item.category] as keyof typeof Ionicons.glyphMap) || 'list-outline';
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
-            <Stack.Screen options={{ title: 'Store Setup', headerBackTitle: 'Back' }} />
+      <Pressable
+        key={item.id}
+        onPress={() =>
+          item.href.startsWith('/') ? router.push(item.href as `/(admin)/${string}`) : undefined
+        }
+        style={[
+          styles.itemCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: item.completed
+              ? isDark
+                ? '#065F46'
+                : '#DCFCE7' // Green tint
+              : isNext
+                ? colors.primary
+                : colors.border,
+            borderWidth: isNext ? 2 : 1,
+          },
+          item.completed && { opacity: 0.8 },
+        ]}
+      >
+        {/* Status Icon */}
+        <View
+          style={[
+            styles.statusIcon,
+            {
+              backgroundColor: item.completed
+                ? colors.success
+                : isNext
+                  ? colors.primaryLight
+                  : colors.cardHover,
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              item.completed
+                ? 'checkmark'
+                : isNext
+                  ? 'arrow-forward'
+                  : 'ellipse-outline'
+            }
+            size={18}
+            color={
+              item.completed
+                ? '#fff'
+                : isNext
+                  ? colors.primary
+                  : colors.textMuted
+            }
+          />
+        </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Header Card */}
-                <View style={[styles.headerCard, { backgroundColor: isPublishing ? colors.card : '#F0F9FF', borderColor: '#BAE6FD', borderWidth: 1 }]}>
-                    <View style={styles.headerRow}>
-                        <View style={styles.headerTextContainer}>
-                            <Text style={[styles.headerTitle, { color: '#0369A1' }]}>
-                                {readiness.isPublished ? 'Store is Live 🚀' : (readiness.isReady ? 'Ready to Launch 🚀' : 'Finish Setup')}
-                            </Text>
-                            <Text style={[styles.headerSubtitle, { color: '#0C4A6E' }]}>
-                                {readiness.isPublished
-                                    ? 'Keep improving your store to boost sales.'
-                                    : readiness.isReady
-                                        ? 'All required steps complete!'
-                                        : `${readiness.completedRequired} of ${readiness.totalRequired} required steps complete`}
-                            </Text>
-                        </View>
-                        <View style={styles.progressCircle}>
-                            <Text style={[styles.progressText, { color: '#0284C7' }]}>{readiness.overallProgress}%</Text>
-                        </View>
-                    </View>
+        {/* Content */}
+        <View style={styles.itemContent}>
+          <View style={styles.itemHeader}>
+            <Text
+              style={[
+                styles.itemLabel,
+                {
+                  color: colors.text,
+                  textDecorationLine: item.completed ? 'line-through' : 'none',
+                },
+              ]}
+            >
+              {item.label}
+            </Text>
+            {!item.completed && !isNext && (
+              <View
+                style={[
+                  styles.priorityBadge,
+                  {
+                    backgroundColor: priorityColor.bg,
+                    borderColor: priorityColor.border,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.priorityText, { color: priorityColor.text }]}
+                >
+                  {PRIORITY_LABELS[item.priority]}
+                </Text>
+              </View>
+            )}
+            {isNext && (
+              <View
+                style={[
+                  styles.priorityBadge,
+                  {
+                    backgroundColor: colors.primaryLight,
+                    borderColor: colors.primary,
+                  },
+                ]}
+              >
+                <Text style={[styles.priorityText, { color: colors.primary }]}>
+                  NEXT STEP
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text
+            style={[styles.itemDescription, { color: colors.textSecondary }]}
+            numberOfLines={2}
+          >
+            {item.description}
+          </Text>
+        </View>
 
-                    {/* Publish Button */}
-                    {!readiness.isPublished && readiness.isReady && (
-                        <Pressable
-                            style={[styles.publishButton, { backgroundColor: colors.primary }]}
-                            onPress={handlePublish}
-                            disabled={isPublishing}
-                        >
-                            {isPublishing ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.publishButtonText}>Publish Store Now</Text>
-                            )}
-                        </Pressable>
-                    )}
-                </View>
-
-                {/* Items List */}
-                <View style={styles.listContainer}>
-                    {readiness.items.map((item) => renderItem(item, !readiness.isPublished && item.id === nextItem?.id))}
-                </View>
-
-                {/* Success State if empty */}
-                {readiness.items.every(i => i.completed) && (
-                    <View style={styles.emptyState}>
-                        <Ionicons name="trophy-outline" size={48} color={colors.gold} />
-                        <Text style={[styles.emptyStateText, { color: colors.text }]}>You've completed everything!</Text>
-                    </View>
-                )}
-            </ScrollView>
-        </SafeAreaView>
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </Pressable>
     );
+  };
+
+  // Determine the next incomplete item to leverage "Next Step" highlighting
+  const incompleteItems = readiness.items.filter((i) => !i.completed);
+  const nextItem = incompleteItems[0]; // Logic matches web
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
+      <Stack.Screen
+        options={{ title: 'Store Setup', headerBackTitle: 'Back' }}
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Card */}
+        <View
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: isPublishing ? colors.card : '#F0F9FF',
+              borderColor: '#BAE6FD',
+              borderWidth: 1,
+            },
+          ]}
+        >
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextContainer}>
+              <Text style={[styles.headerTitle, { color: '#0369A1' }]}>
+                {readiness.isPublished
+                  ? 'Store is Live 🚀'
+                  : readiness.isReady
+                    ? 'Ready to Launch 🚀'
+                    : 'Finish Setup'}
+              </Text>
+              <Text style={[styles.headerSubtitle, { color: '#0C4A6E' }]}>
+                {readiness.isPublished
+                  ? 'Keep improving your store to boost sales.'
+                  : readiness.isReady
+                    ? 'All required steps complete!'
+                    : `${readiness.completedRequired} of ${readiness.totalRequired} required steps complete`}
+              </Text>
+            </View>
+            <View style={styles.progressCircle}>
+              <Text style={[styles.progressText, { color: '#0284C7' }]}>
+                {readiness.overallProgress}%
+              </Text>
+            </View>
+          </View>
+
+          {/* Publish Button */}
+          {!readiness.isPublished && readiness.isReady && (
+            <Pressable
+              style={[
+                styles.publishButton,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={handlePublish}
+              disabled={isPublishing}
+            >
+              {isPublishing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.publishButtonText}>Publish Store Now</Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+
+        {/* Items List */}
+        <View style={styles.listContainer}>
+          {readiness.items.map((item) =>
+            renderItem(item, !readiness.isPublished && item.id === nextItem?.id)
+          )}
+        </View>
+
+        {/* Success State if empty */}
+        {readiness.items.every((i) => i.completed) && (
+          <View style={styles.emptyState}>
+            <Ionicons name="trophy-outline" size={48} color={colors.gold} />
+            <Text style={[styles.emptyStateText, { color: colors.text }]}>
+              You've completed everything!
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    scrollContent: { padding: SPACING.lg },
-    headerCard: {
-        padding: SPACING.lg,
-        borderRadius: RADIUS.lg,
-        marginBottom: SPACING.xl,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    headerTextContainer: { flex: 1, marginRight: SPACING.md },
-    headerTitle: {
-        fontSize: TYPOGRAPHY.size.lg,
-        fontFamily: TYPOGRAPHY.fontFamily.bold,
-        marginBottom: SPACING.xs,
-    },
-    headerSubtitle: {
-        fontSize: TYPOGRAPHY.size.sm,
-        fontFamily: TYPOGRAPHY.fontFamily.medium,
-    },
-    progressCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#E0F2FE',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: '#7DD3FC',
-    },
-    progressText: {
-        fontSize: TYPOGRAPHY.size.sm,
-        fontFamily: TYPOGRAPHY.fontFamily.bold,
-    },
-    publishButton: {
-        marginTop: SPACING.lg,
-        paddingVertical: SPACING.md,
-        borderRadius: RADIUS.md,
-        alignItems: 'center',
-    },
-    publishButtonText: {
-        color: '#fff',
-        fontFamily: TYPOGRAPHY.fontFamily.bold,
-        fontSize: TYPOGRAPHY.size.md,
-    },
-    listContainer: { gap: SPACING.md },
-    itemCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: SPACING.md,
-        borderRadius: RADIUS.md,
-    },
-    statusIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: SPACING.md,
-    },
-    itemContent: { flex: 1, marginRight: SPACING.sm },
-    itemHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        marginBottom: 2,
-    },
-    itemLabel: {
-        fontSize: TYPOGRAPHY.size.md,
-        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-        marginRight: SPACING.sm,
-    },
-    priorityBadge: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: RADIUS.sm,
-        borderWidth: 1,
-    },
-    priorityText: {
-        fontSize: 10,
-        fontFamily: TYPOGRAPHY.fontFamily.bold,
-        textTransform: 'uppercase',
-    },
-    itemDescription: {
-        fontSize: TYPOGRAPHY.size.xs,
-        fontFamily: TYPOGRAPHY.fontFamily.regular,
-    },
-    emptyState: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.md },
-    emptyStateText: { fontSize: TYPOGRAPHY.size.lg, fontFamily: TYPOGRAPHY.fontFamily.semiBold },
+  container: { flex: 1 },
+  scrollContent: { padding: SPACING.lg },
+  headerCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.xl,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTextContainer: { flex: 1, marginRight: SPACING.md },
+  headerTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.xs,
+  },
+  headerSubtitle: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  progressCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0F2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#7DD3FC',
+  },
+  progressText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  publishButton: {
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  publishButtonText: {
+    color: '#fff',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontSize: TYPOGRAPHY.size.md,
+  },
+  listContainer: { gap: SPACING.md },
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  statusIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  itemContent: { flex: 1, marginRight: SPACING.sm },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginBottom: 2,
+  },
+  itemLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginRight: SPACING.sm,
+  },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  priorityText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textTransform: 'uppercase',
+  },
+  itemDescription: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  emptyState: { alignItems: 'center', padding: SPACING.xl, gap: SPACING.md },
+  emptyStateText: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
 });

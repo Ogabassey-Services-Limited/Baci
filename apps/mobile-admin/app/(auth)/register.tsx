@@ -57,8 +57,8 @@ export default function RegisterScreen() {
     const [isSlugEdited, setIsSlugEdited] = useState(false);
 
     const updateForm = (key: string, value: string) => {
-        setFormData(prev => {
-            const updates: any = { [key]: value };
+        setFormData((prev) => {
+            const updates: Partial<typeof formData> = { [key]: value };
 
             // Auto-generate slug if business name changes and slug hasn't been manually edited
             if (key === 'businessName' && !isSlugEdited) {
@@ -77,7 +77,7 @@ export default function RegisterScreen() {
         setIsSlugEdited(true);
         // Basic sanitization for manual input (allow hyphens, lowercase)
         const sanitized = text.toLowerCase().replace(/[^a-z0-9-]/g, '');
-        setFormData(prev => ({ ...prev, slug: sanitized }));
+        setFormData((prev) => ({ ...prev, slug: sanitized }));
     };
 
     const handleNext = () => {
@@ -104,7 +104,10 @@ export default function RegisterScreen() {
             return;
         }
 
-        if (formData.businessType === 'other' && !formData.otherBusinessType.trim()) {
+        if (
+            formData.businessType === 'other' &&
+            !formData.otherBusinessType.trim()
+        ) {
             Alert.alert('Error', 'Please specify your business type');
             return;
         }
@@ -128,9 +131,9 @@ export default function RegisterScreen() {
                     brandColors: JSON.stringify({
                         primary: '#000000',
                         background: '#ffffff',
-                        accent: '#F59E0B'
+                        accent: '#F59E0B',
                     }),
-                    logoUrl: 'https://via.placeholder.com/150' // Placeholder for now, or add logo upload step later
+                    logoUrl: 'https://via.placeholder.com/150', // Placeholder for now, or add logo upload step later
                 }),
             });
 
@@ -142,22 +145,23 @@ export default function RegisterScreen() {
 
             // Check if user is already verified (e.g. if Supabase "Confirm Email" is disabled)
             if (data.user?.email_confirmed_at) {
-                Alert.alert(
-                    'Success',
-                    'Account created!',
-                    [{ text: 'Continue', onPress: () => router.push('/(auth)/login') }]
-                );
+                Alert.alert('Success', 'Account created!', [
+                    { text: 'Continue', onPress: () => router.push('/(auth)/login') },
+                ]);
             } else {
                 // Navigate to verification
                 router.push({
                     pathname: '/(auth)/verify',
-                    params: { email: formData.email }
+                    params: { email: formData.email },
                 });
             }
-
-        } catch (error: any) {
-            console.error('Registration error:', error);
-            Alert.alert('Registration Failed', error.message || 'Please try again later.');
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Registration error:', err);
+            Alert.alert(
+                'Registration Failed',
+                err.message || 'Please try again later.'
+            );
         } finally {
             setIsLoading(false);
         }
@@ -173,7 +177,10 @@ export default function RegisterScreen() {
 
             <SafeAreaView style={styles.safeArea}>
                 <View style={styles.header}>
-                    <Pressable onPress={() => step === 1 ? router.back() : setStep(1)} style={styles.backButton}>
+                    <Pressable
+                        onPress={() => (step === 1 ? router.back() : setStep(1))}
+                        style={styles.backButton}
+                    >
                         <Ionicons name="arrow-back" size={24} color="#FFF" />
                     </Pressable>
                     <Text style={styles.headerTitle}>Create Account</Text>
@@ -185,10 +192,14 @@ export default function RegisterScreen() {
                     style={{ flex: 1 }}
                 >
                     <ScrollView contentContainerStyle={styles.content}>
-
                         {/* Progress Indicator */}
                         <View style={styles.progressContainer}>
-                            <View style={[styles.progressBar, { width: step === 1 ? '50%' : '100%' }]} />
+                            <View
+                                style={[
+                                    styles.progressBar,
+                                    { width: step === 1 ? '50%' : '100%' },
+                                ]}
+                            />
                         </View>
                         <Text style={styles.stepText}>Step {step} of 2</Text>
 
@@ -227,7 +238,7 @@ export default function RegisterScreen() {
                                             style={styles.eyeButton}
                                         >
                                             <Ionicons
-                                                name={showPassword ? "eye-off" : "eye"}
+                                                name={showPassword ? 'eye-off' : 'eye'}
                                                 size={20}
                                                 color="#9CA3AF"
                                             />
@@ -251,7 +262,7 @@ export default function RegisterScreen() {
                                             style={styles.eyeButton}
                                         >
                                             <Ionicons
-                                                name={showPassword ? "eye-off" : "eye"}
+                                                name={showPassword ? 'eye-off' : 'eye'}
                                                 size={20}
                                                 color="#9CA3AF"
                                             />
@@ -268,7 +279,9 @@ export default function RegisterScreen() {
                             // Step 2: Business Info
                             <View style={styles.formSection}>
                                 <Text style={styles.sectionTitle}>Business Info</Text>
-                                <Text style={styles.sectionValidation}>Tell us about your store</Text>
+                                <Text style={styles.sectionValidation}>
+                                    Tell us about your store
+                                </Text>
 
                                 <View style={styles.inputGroup}>
                                     <Text style={styles.label}>Business Name</Text>
@@ -304,14 +317,18 @@ export default function RegisterScreen() {
                                                 key={type.id}
                                                 style={[
                                                     styles.typeCard,
-                                                    formData.businessType === type.id && styles.typeCardSelected
+                                                    formData.businessType === type.id &&
+                                                    styles.typeCardSelected,
                                                 ]}
                                                 onPress={() => updateForm('businessType', type.id)}
                                             >
-                                                <Text style={[
-                                                    styles.typeText,
-                                                    formData.businessType === type.id && styles.typeTextSelected
-                                                ]}>
+                                                <Text
+                                                    style={[
+                                                        styles.typeText,
+                                                        formData.businessType === type.id &&
+                                                        styles.typeTextSelected,
+                                                    ]}
+                                                >
                                                     {type.label}
                                                 </Text>
                                             </Pressable>
@@ -327,7 +344,9 @@ export default function RegisterScreen() {
                                             placeholder="e.g. Pet Supplies"
                                             placeholderTextColor="#6B7280"
                                             value={formData.otherBusinessType}
-                                            onChangeText={(text) => updateForm('otherBusinessType', text)}
+                                            onChangeText={(text) =>
+                                                updateForm('otherBusinessType', text)
+                                            }
                                         />
                                     </View>
                                 )}
@@ -450,7 +469,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center', // Center content horizontally
-        paddingVertical: 16,     // Increase padding for touch target
+        paddingVertical: 16, // Increase padding for touch target
         borderRadius: RADIUS.full,
         marginTop: SPACING.lg,
         gap: SPACING.sm,

@@ -34,30 +34,69 @@ export function StatCard({
   const finalIconColor = iconColor || colors.primary;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card }, shadows.sm, isLarge && styles.containerLarge]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.card },
+        shadows.sm,
+        isLarge && styles.containerLarge,
+      ]}
+    >
       <View style={styles.header}>
         {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: finalIconColor + '20' }]}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: finalIconColor + '20' },
+            ]}
+          >
             <Ionicons name={icon} size={16} color={finalIconColor} />
           </View>
         )}
-        <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
       </View>
 
-      <Text style={[styles.value, { color: colors.text }, isLarge && styles.valueLarge]}>{value}</Text>
+      <Text
+        style={[
+          styles.value,
+          { color: colors.text },
+          isLarge && styles.valueLarge,
+        ]}
+      >
+        {value}
+      </Text>
 
       {trend && (
         <View style={styles.trendContainer}>
           <Ionicons
-            name={trend.direction === 'up' ? 'trending-up' : trend.direction === 'down' ? 'trending-down' : 'remove'}
+            name={
+              trend.direction === 'up'
+                ? 'trending-up'
+                : trend.direction === 'down'
+                  ? 'trending-down'
+                  : 'remove'
+            }
             size={14}
-            color={trend.direction === 'up' ? colors.success : trend.direction === 'down' ? colors.error : colors.textMuted}
+            color={
+              trend.direction === 'up'
+                ? colors.success
+                : trend.direction === 'down'
+                  ? colors.error
+                  : colors.textMuted
+            }
           />
           <Text
             style={[
               styles.trendText,
               {
-                color: trend.direction === 'up' ? colors.success : trend.direction === 'down' ? colors.error : colors.textMuted,
+                color:
+                  trend.direction === 'up'
+                    ? colors.success
+                    : trend.direction === 'down'
+                      ? colors.error
+                      : colors.textMuted,
               },
             ]}
           >

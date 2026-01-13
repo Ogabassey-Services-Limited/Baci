@@ -79,4 +79,3 @@ export interface Order {
   item_count?: number;
   items?: OrderItem[];
 }
-

@@ -1,4 +1,3 @@
-
 /**
  * Baci Mobile Admin - Root Layout
  * 2026 Best Practice: Route Groups Architecture
@@ -6,7 +5,11 @@
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import {
   Inter_400Regular,
@@ -15,13 +18,13 @@ import {
   Inter_700Bold,
   Inter_800ExtraBold,
 } from '@expo-google-fonts/inter';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, Text } from 'react-native';
+import { useColorScheme } from 'react-native';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { OnboardingProvider } from '@/context/OnboardingContext';

@@ -27,7 +27,9 @@ Notifications.setNotificationHandler({
  * - Permissions not granted
  * - Running in Expo Go (requires development build)
  */
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+export async function registerForPushNotificationsAsync(): Promise<
+  string | null
+> {
   // Push notifications only work on physical devices
   if (!Device.isDevice) {
     console.warn('Push notifications require a physical device');
@@ -123,7 +125,9 @@ export async function registerPushTokenWithBackend(
   merchantId: string
 ): Promise<boolean> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       console.error('No user logged in');
@@ -131,19 +135,22 @@ export async function registerPushTokenWithBackend(
     }
 
     // Call our backend API to register the token
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/push-tokens/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-      },
-      body: JSON.stringify({
-        token,
-        platform: Platform.OS as 'ios' | 'android',
-        device_name: Device.modelName || `${Device.brand} ${Device.modelId}`,
-        merchant_id: merchantId,
-      }),
-    });
+    const response = await fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/push-tokens/register`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          token,
+          platform: Platform.OS as 'ios' | 'android',
+          device_name: Device.modelName || `${Device.brand} ${Device.modelId}`,
+          merchant_id: merchantId,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json();

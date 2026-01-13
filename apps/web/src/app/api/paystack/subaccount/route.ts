@@ -17,7 +17,9 @@ export async function POST(request: NextRequest) {
   try {
     const { bankCode, accountNumber, businessName } = await request.json();
     const authHeader = request.headers.get('Authorization');
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase client type complex
     let supabase: any;
+    // biome-ignore lint/suspicious/noExplicitAny: User type complex
     let user: any;
 
     if (authHeader) {
@@ -26,8 +28,8 @@ export async function POST(request: NextRequest) {
         '@supabase/supabase-js'
       );
       supabase = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
         {
           global: { headers: { Authorization: authHeader } },
         }

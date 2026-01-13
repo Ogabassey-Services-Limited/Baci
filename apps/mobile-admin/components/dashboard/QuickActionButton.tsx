@@ -41,7 +41,9 @@ export function QuickActionButton({
       <View style={[styles.iconContainer, { backgroundColor: finalBgColor }]}>
         <Ionicons name={icon} size={24} color={finalIconColor} />
       </View>
-      <Text style={[styles.label, { color: colors.text }]} numberOfLines={2}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]} numberOfLines={2}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

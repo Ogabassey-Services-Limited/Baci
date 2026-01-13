@@ -123,7 +123,7 @@ export interface CachedMerchant {
   favicon_svg_url?: string;
   favicon_png_32_url?: string;
   favicon_apple_touch_url?: string;
-  feature_settings?: any;
+  feature_settings?: Record<string, unknown>;
 }
 
 /**
@@ -977,7 +977,7 @@ export const getCachedPlatformAnalytics = unstable_cache(
  * Cached merchant feature settings
  * Uses service role to bypass RLS since settings are public-facing configuration
  */
-export const getCachedFeatureSettings = async (merchantId: string) => {
+export const getCachedFeatureSettings = (merchantId: string) => {
   return unstable_cache(
     async () => {
       try {

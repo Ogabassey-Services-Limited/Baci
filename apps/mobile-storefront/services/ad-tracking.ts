@@ -56,8 +56,10 @@ import {
 const FB_APP_ID = Constants.expoConfig?.extra?.facebookAppId || '';
 const FB_CLIENT_TOKEN = Constants.expoConfig?.extra?.facebookClientToken || '';
 const TIKTOK_APP_ID = Constants.expoConfig?.extra?.tiktokAppId || '';
-const TIKTOK_ACCESS_TOKEN = Constants.expoConfig?.extra?.tiktokAccessToken || '';
-const API_URL = Constants.expoConfig?.extra?.apiUrl || 'https://ogabassey.com/api';
+const TIKTOK_ACCESS_TOKEN =
+  Constants.expoConfig?.extra?.tiktokAccessToken || '';
+const API_URL =
+  Constants.expoConfig?.extra?.apiUrl || 'https://ogabassey.com/api';
 
 let isTrackingAllowed = false;
 let isInitialized = false;
@@ -147,7 +149,10 @@ export async function initAdTracking(): Promise<void> {
     }
 
     isInitialized = true;
-    console.log('[AdTracking] Initialized. Server-side tracking enabled. ATT:', isTrackingAllowed);
+    console.log(
+      '[AdTracking] Initialized. Server-side tracking enabled. ATT:',
+      isTrackingAllowed
+    );
   } catch (error) {
     console.error('[AdTracking] Initialization error:', error);
   }
@@ -205,9 +210,10 @@ export async function identifyUser(
   // PostHog (product analytics)
   posthogIdentify(userId, {
     email: properties?.email,
-    name: properties?.firstName && properties?.lastName
-      ? `${properties.firstName} ${properties.lastName}`
-      : undefined,
+    name:
+      properties?.firstName && properties?.lastName
+        ? `${properties.firstName} ${properties.lastName}`
+        : undefined,
     phone: properties?.phone,
   });
 
@@ -246,7 +252,12 @@ interface ConversionData {
   orderId?: string;
   value?: number;
   currency?: string;
-  items?: Array<{ id: string; quantity: number; name?: string; price?: number }>;
+  items?: Array<{
+    id: string;
+    quantity: number;
+    name?: string;
+    price?: number;
+  }>;
 }
 
 /**
@@ -364,12 +375,14 @@ export async function trackProductViewed(product: {
 
   // 2. Firebase (Google Ads)
   await analytics().logViewItem({
-    items: [{
-      item_id: product.id,
-      item_name: product.name,
-      price: product.price,
-      item_category: product.category,
-    }],
+    items: [
+      {
+        item_id: product.id,
+        item_name: product.name,
+        price: product.price,
+        item_category: product.category,
+      },
+    ],
     currency,
     value: product.price,
   });
@@ -378,7 +391,9 @@ export async function trackProductViewed(product: {
   sendServerConversion('VIEW_CONTENT', eventId, {
     value: product.price,
     currency,
-    items: [{ id: product.id, quantity: 1, name: product.name, price: product.price }],
+    items: [
+      { id: product.id, quantity: 1, name: product.name, price: product.price },
+    ],
   });
 
   // 4. CLIENT-SIDE (BACKUP) - with same event_id for deduplication
@@ -418,24 +433,29 @@ export async function trackAddToCart(
   const value = product.price * product.quantity;
 
   // 1. PostHog
-  posthogAddToCart({
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    quantity: product.quantity,
-    currency,
-    category: product.category,
-  }, cartTotal);
+  posthogAddToCart(
+    {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: product.quantity,
+      currency,
+      category: product.category,
+    },
+    cartTotal
+  );
 
   // 2. Firebase
   await analytics().logAddToCart({
-    items: [{
-      item_id: product.id,
-      item_name: product.name,
-      price: product.price,
-      quantity: product.quantity,
-      item_category: product.category,
-    }],
+    items: [
+      {
+        item_id: product.id,
+        item_name: product.name,
+        price: product.price,
+        quantity: product.quantity,
+        item_category: product.category,
+      },
+    ],
     currency,
     value,
   });
@@ -444,7 +464,14 @@ export async function trackAddToCart(
   sendServerConversion('ADD_CART', eventId, {
     value,
     currency,
-    items: [{ id: product.id, quantity: product.quantity, name: product.name, price: product.price }],
+    items: [
+      {
+        id: product.id,
+        quantity: product.quantity,
+        name: product.name,
+        price: product.price,
+      },
+    ],
   });
 
   // 4. CLIENT-SIDE (BACKUP)
@@ -480,12 +507,13 @@ export async function trackCheckoutStarted(checkout: {
 
   // 1. Firebase
   await analytics().logBeginCheckout({
-    items: checkout.items?.map((item) => ({
-      item_id: item.id,
-      item_name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-    })) || [],
+    items:
+      checkout.items?.map((item) => ({
+        item_id: item.id,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      })) || [],
     currency,
     value: checkout.subtotal,
   });
@@ -494,7 +522,12 @@ export async function trackCheckoutStarted(checkout: {
   sendServerConversion('START_CHECKOUT', eventId, {
     value: checkout.subtotal,
     currency,
-    items: checkout.items?.map((i) => ({ id: i.id, quantity: i.quantity, name: i.name, price: i.price })),
+    items: checkout.items?.map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      name: i.name,
+      price: i.price,
+    })),
   });
 
   // 3. CLIENT-SIDE (BACKUP)
@@ -525,7 +558,13 @@ export async function trackPurchase(order: {
   shipping?: number;
   tax?: number;
   currency?: string;
-  items: Array<{ id: string; name: string; price: number; quantity: number; category?: string }>;
+  items: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    category?: string;
+  }>;
   paymentMethod?: string;
   couponCode?: string;
   email?: string;
@@ -577,7 +616,12 @@ export async function trackPurchase(order: {
     email: order.email,
     phone: order.phone,
     userId: order.userId,
-    items: order.items.map((i) => ({ id: i.id, quantity: i.quantity, name: i.name, price: i.price })),
+    items: order.items.map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      name: i.name,
+      price: i.price,
+    })),
   });
 
   // 4. CLIENT-SIDE (BACKUP) - with same event_id
@@ -615,13 +659,17 @@ export async function trackPurchase(order: {
     });
   }
 
-  console.log(`[AdTracking] Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
+  console.log(
+    `[AdTracking] Purchase tracked: ${order.orderId} - ${order.total} ${currency}`
+  );
 }
 
 /**
  * Track payment info added
  */
-export async function trackPaymentInfoAdded(paymentMethod: string): Promise<void> {
+export async function trackPaymentInfoAdded(
+  paymentMethod: string
+): Promise<void> {
   const eventId = generateEventIdSync();
 
   await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
@@ -642,7 +690,10 @@ export async function trackPaymentInfoAdded(paymentMethod: string): Promise<void
 /**
  * Track search
  */
-export async function trackSearch(query: string, resultCount: number): Promise<void> {
+export async function trackSearch(
+  query: string,
+  resultCount: number
+): Promise<void> {
   const eventId = generateEventIdSync();
 
   posthogSearch(query, resultCount);
@@ -679,7 +730,10 @@ export async function trackAppOpen(): Promise<void> {
 /**
  * Track screen view
  */
-export async function trackScreenView(screenName: string, screenClass?: string): Promise<void> {
+export async function trackScreenView(
+  screenName: string,
+  screenClass?: string
+): Promise<void> {
   await analytics().logScreenView({
     screen_name: screenName,
     screen_class: screenClass || screenName,

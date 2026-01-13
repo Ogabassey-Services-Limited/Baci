@@ -36,39 +36,35 @@ export default function CartScreen() {
   const handleQuantityChange = (item: CartItem, delta: number) => {
     const newQuantity = item.quantity + delta;
     if (newQuantity <= 0) {
-      Alert.alert(
-        'Remove Item',
-        `Remove ${item.name} from cart?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Remove', style: 'destructive', onPress: () => removeItem(item.id) },
-        ]
-      );
+      Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => removeItem(item.id),
+        },
+      ]);
     } else {
       updateQuantity(item.id, newQuantity);
     }
   };
 
   const handleRemoveItem = (item: CartItem) => {
-    Alert.alert(
-      'Remove Item',
-      `Remove ${item.name} from cart?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => removeItem(item.id) },
-      ]
-    );
+    Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeItem(item.id),
+      },
+    ]);
   };
 
   const handleClearCart = () => {
-    Alert.alert(
-      'Clear Cart',
-      'Remove all items from your cart?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear', style: 'destructive', onPress: clearCart },
-      ]
-    );
+    Alert.alert('Clear Cart', 'Remove all items from your cart?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: clearCart },
+    ]);
   };
 
   const handleCheckout = () => {
@@ -76,15 +72,27 @@ export default function CartScreen() {
   };
 
   const renderCartItem = ({ item }: { item: CartItem }) => (
-    <View style={[styles.cartItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.cartItem,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Image
-        source={{ uri: item.image_url || 'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image' }}
+        source={{
+          uri:
+            item.image_url ||
+            'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image',
+        }}
         style={styles.itemImage}
         resizeMode="cover"
       />
 
       <View style={styles.itemDetails}>
-        <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.itemName, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {item.name}
         </Text>
 
@@ -99,14 +107,18 @@ export default function CartScreen() {
             {formatPrice(item.price)}
           </Text>
           {item.compare_at_price && item.compare_at_price > item.price && (
-            <Text style={[styles.comparePrice, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.comparePrice, { color: colors.textSecondary }]}
+            >
               {formatPrice(item.compare_at_price)}
             </Text>
           )}
         </View>
 
         <View style={styles.quantityRow}>
-          <View style={[styles.quantityControls, { borderColor: colors.border }]}>
+          <View
+            style={[styles.quantityControls, { borderColor: colors.border }]}
+          >
             <Pressable
               style={({ pressed }) => [
                 styles.quantityButton,
@@ -183,7 +195,9 @@ export default function CartScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            <Text style={[styles.itemCountText, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.itemCountText, { color: colors.textSecondary }]}
+            >
               {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
             </Text>
             <Pressable onPress={handleClearCart}>
@@ -196,9 +210,17 @@ export default function CartScreen() {
       />
 
       {/* Checkout Summary */}
-      <SafeAreaView edges={['bottom']} style={[styles.checkoutContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <SafeAreaView
+        edges={['bottom']}
+        style={[
+          styles.checkoutContainer,
+          { backgroundColor: colors.card, borderTopColor: colors.border },
+        ]}
+      >
         {totalSavings > 0 && (
-          <View style={[styles.savingsRow, { backgroundColor: BRAND.primaryLight }]}>
+          <View
+            style={[styles.savingsRow, { backgroundColor: BRAND.primaryLight }]}
+          >
             <Ionicons name="pricetag" size={16} color={BRAND.primary} />
             <Text style={[styles.savingsText, { color: BRAND.primary }]}>
               You save {formatPrice(totalSavings)}
@@ -223,9 +245,7 @@ export default function CartScreen() {
           ]}
           onPress={handleCheckout}
         >
-          <Text style={styles.checkoutButtonText}>
-            Proceed to Checkout
-          </Text>
+          <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
           <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
         </Pressable>
       </SafeAreaView>

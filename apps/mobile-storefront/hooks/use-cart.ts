@@ -29,16 +29,24 @@ const showToast = (message: string, type: 'error' | 'success' = 'error') => {
     ToastAndroid.show(message, ToastAndroid.SHORT);
   } else {
     // iOS doesn't have native toast, use a light alert
-    Alert.alert(type === 'error' ? 'Stock Error' : 'Success', message, [{ text: 'OK' }], {
-      cancelable: true,
-    });
+    Alert.alert(
+      type === 'error' ? 'Stock Error' : 'Success',
+      message,
+      [{ text: 'OK' }],
+      {
+        cancelable: true,
+      }
+    );
   }
 };
 
 /**
  * Check stock availability from the database
  */
-async function checkStock(productId: string, requestedQuantity: number): Promise<StockCheckResult> {
+async function checkStock(
+  productId: string,
+  requestedQuantity: number
+): Promise<StockCheckResult> {
   const { data, error } = await supabase
     .from('products')
     .select('stock_quantity')
@@ -129,7 +137,10 @@ export function useCart() {
       }
 
       // Show stock error toast
-      showToast(error instanceof Error ? error.message : 'Failed to add to cart', 'error');
+      showToast(
+        error instanceof Error ? error.message : 'Failed to add to cart',
+        'error'
+      );
     },
 
     // Cleanup on success

@@ -5,13 +5,7 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
@@ -23,10 +17,22 @@ interface SocialLink {
 }
 
 const SOCIAL_LINKS: SocialLink[] = [
-  { name: 'Instagram', icon: 'logo-instagram', url: 'https://instagram.com/ogabassey' },
-  { name: 'Facebook', icon: 'logo-facebook', url: 'https://facebook.com/ogabassey' },
+  {
+    name: 'Instagram',
+    icon: 'logo-instagram',
+    url: 'https://instagram.com/ogabassey',
+  },
+  {
+    name: 'Facebook',
+    icon: 'logo-facebook',
+    url: 'https://facebook.com/ogabassey',
+  },
   { name: 'TikTok', icon: 'logo-tiktok', url: 'https://tiktok.com/@ogabassey' },
-  { name: 'Twitter', icon: 'logo-twitter', url: 'https://twitter.com/ogabassey' },
+  {
+    name: 'Twitter',
+    icon: 'logo-twitter',
+    url: 'https://twitter.com/ogabassey',
+  },
 ];
 
 interface FooterLink {
@@ -59,14 +65,19 @@ export function Footer() {
       {/* Brand Section */}
       <View style={styles.brandSection}>
         <Text style={styles.logoText}>Ogabassey</Text>
-        <Text style={styles.tagline}>Making Smartphones Accessible and Affordable</Text>
+        <Text style={styles.tagline}>
+          Making Smartphones Accessible and Affordable
+        </Text>
 
         {/* Social Icons */}
         <View style={styles.socialRow}>
           {SOCIAL_LINKS.map((social) => (
             <Pressable
               key={social.name}
-              style={({ pressed }) => [styles.socialButton, pressed && styles.socialPressed]}
+              style={({ pressed }) => [
+                styles.socialButton,
+                pressed && styles.socialPressed,
+              ]}
               onPress={() => handleSocialPress(social.url)}
             >
               <Ionicons name={social.icon} size={20} color="#9CA3AF" />
@@ -100,7 +111,9 @@ export function Footer() {
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
-        <Text style={styles.copyright}>© {currentYear} Ogabassey. All rights reserved.</Text>
+        <Text style={styles.copyright}>
+          © {currentYear} Ogabassey. All rights reserved.
+        </Text>
         <View style={styles.legalLinks}>
           <Pressable>
             <Text style={styles.legalText}>Privacy</Text>

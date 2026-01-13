@@ -16,15 +16,15 @@ export async function POST(request: NextRequest) {
 
     // Auth Check (Support both Cookie and Bearer Token)
     const authHeader = request.headers.get('Authorization');
-    let user: any;
+    let user: unknown;
 
     if (authHeader) {
       const { createClient: createSupabaseClient } = await import(
         '@supabase/supabase-js'
       );
       const supabase = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
         { global: { headers: { Authorization: authHeader } } }
       );
       const { data } = await supabase.auth.getUser();

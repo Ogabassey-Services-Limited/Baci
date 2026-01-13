@@ -126,7 +126,9 @@ export function ConnectivityBanner() {
     >
       <View style={styles.content}>
         <Ionicons
-          name={isOffline ? 'cloud-offline-outline' : 'checkmark-circle-outline'}
+          name={
+            isOffline ? 'cloud-offline-outline' : 'checkmark-circle-outline'
+          }
           size={18}
           color={bannerColors.icon}
         />

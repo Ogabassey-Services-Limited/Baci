@@ -4,13 +4,7 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,14 +56,19 @@ export default function NotificationsScreen() {
         }
       }}
     >
-      <View style={[styles.iconContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.iconContainer, { backgroundColor: colors.background }]}
+      >
         <Ionicons name={getIcon(item.type)} size={24} color={BRAND.primary} />
       </View>
       <View style={styles.content}>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={2}>
+        <Text
+          style={[styles.message, { color: colors.textSecondary }]}
+          numberOfLines={2}
+        >
           {item.message}
         </Text>
       </View>
@@ -78,15 +77,18 @@ export default function NotificationsScreen() {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="notifications-off-outline" size={64} color={colors.textSecondary} />
+      <Ionicons
+        name="notifications-off-outline"
+        size={64}
+        color={colors.textSecondary}
+      />
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
         No notifications yet
       </Text>
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-        {user ?
-          "We'll notify you about order updates and special offers" :
-          "Sign in to receive order updates and special offers"
-        }
+        {user
+          ? "We'll notify you about order updates and special offers"
+          : 'Sign in to receive order updates and special offers'}
       </Text>
       {!user && (
         <Pressable
@@ -100,7 +102,10 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
           title: 'Notifications',

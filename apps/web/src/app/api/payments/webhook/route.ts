@@ -338,8 +338,11 @@ export async function POST(request: NextRequest) {
     // DOMAIN PURCHASE FULFILLMENT
     // ============================================
     // Check metadata for valid domain purchase
-    const metadata = transaction.metadata as Record<string, any>;
-    if (metadata?.transaction_type === 'domain_purchase' && metadata.domain) {
+    const metadata = transaction.metadata as Record<string, unknown>;
+    if (
+      metadata?.transaction_type === 'domain_purchase' &&
+      typeof metadata.domain === 'string'
+    ) {
       logger.info({
         message: 'Processing domain purchase fulfillment',
         reference,
@@ -348,7 +351,7 @@ export async function POST(request: NextRequest) {
 
       try {
         // 1. Fetch Merchant Details for Registration
-        const { data: merchantData, error: merchantError } = await supabase
+        const { data: merchantData } = await supabase
           .from('merchants')
           .select('*, users:user_id(first_name, last_name)') // simplified join syntax
           .eq('id', transaction.merchant_id)

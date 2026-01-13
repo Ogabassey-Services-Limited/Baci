@@ -15,7 +15,12 @@ interface SkeletonProps {
   style?: ViewStyle;
 }
 
-export function Skeleton({ width = '100%', height = 20, borderRadius = 4, style }: SkeletonProps) {
+export function Skeleton({
+  width = '100%',
+  height = 20,
+  borderRadius = 4,
+  style,
+}: SkeletonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -86,7 +91,13 @@ export function ProductGridSkeleton({ count = 4 }: { count?: number }) {
   return (
     <View style={styles.grid}>
       {Array.from({ length: count }).map((_, index) => (
-        <View key={index} style={[styles.gridItem, index % 2 === 0 ? styles.gridLeft : styles.gridRight]}>
+        <View
+          key={index}
+          style={[
+            styles.gridItem,
+            index % 2 === 0 ? styles.gridLeft : styles.gridRight,
+          ]}
+        >
           <ProductCardSkeleton />
         </View>
       ))}
@@ -103,7 +114,13 @@ export function HeroSkeleton() {
       <Skeleton width="100%" height={180} borderRadius={16} />
       <View style={styles.heroDots}>
         {[0, 1, 2].map((i) => (
-          <Skeleton key={i} width={8} height={8} borderRadius={4} style={styles.dot} />
+          <Skeleton
+            key={i}
+            width={8}
+            height={8}
+            borderRadius={4}
+            style={styles.dot}
+          />
         ))}
       </View>
     </View>

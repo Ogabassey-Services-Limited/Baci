@@ -87,7 +87,12 @@ export default function WalletScreen() {
         { points_attempted: points, customer_id: customer?.id }
       );
 
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to redeem points. Please try again.');
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : 'Failed to redeem points. Please try again.'
+      );
     }
   };
 
@@ -125,9 +130,21 @@ export default function WalletScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Wallet' }} />
-        <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-          <Ionicons name="wallet-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign in to view your wallet</Text>
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <Ionicons
+            name="wallet-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Sign in to view your wallet
+          </Text>
           <Pressable
             style={[styles.signInBtn, { backgroundColor: BRAND.primary }]}
             onPress={() => router.push('/auth/login')}
@@ -143,7 +160,13 @@ export default function WalletScreen() {
     return (
       <>
         <Stack.Screen options={{ title: 'Wallet' }} />
-        <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: colors.background },
+          ]}
+        >
           <ActivityIndicator size="large" color={BRAND.primary} />
         </View>
       </>
@@ -156,7 +179,10 @@ export default function WalletScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Wallet & Loyalty' }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
+      >
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -183,7 +209,11 @@ export default function WalletScreen() {
               </Pressable>
               <View style={styles.divider} />
               <Pressable style={styles.balanceAction}>
-                <Ionicons name="arrow-up-circle-outline" size={20} color="#FFF" />
+                <Ionicons
+                  name="arrow-up-circle-outline"
+                  size={20}
+                  color="#FFF"
+                />
                 <Text style={styles.balanceActionText}>Withdraw</Text>
               </Pressable>
             </View>
@@ -192,11 +222,16 @@ export default function WalletScreen() {
           {/* Loyalty Points Card */}
           <Animated.View
             entering={FadeIn.duration(400).delay(100)}
-            style={[styles.loyaltyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[
+              styles.loyaltyCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
           >
             <View style={styles.loyaltyHeader}>
               <View>
-                <Text style={[styles.loyaltyLabel, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.loyaltyLabel, { color: colors.textSecondary }]}
+                >
                   Loyalty Points
                 </Text>
                 <Text style={[styles.loyaltyPoints, { color: colors.text }]}>
@@ -206,22 +241,35 @@ export default function WalletScreen() {
               <View
                 style={[
                   styles.tierBadge,
-                  { backgroundColor: getTierColor(walletData?.loyalty_tier || 'Bronze') },
+                  {
+                    backgroundColor: getTierColor(
+                      walletData?.loyalty_tier || 'Bronze'
+                    ),
+                  },
                 ]}
               >
                 <Ionicons name="star" size={14} color="#FFF" />
-                <Text style={styles.tierText}>{walletData?.loyalty_tier || 'Bronze'}</Text>
+                <Text style={styles.tierText}>
+                  {walletData?.loyalty_tier || 'Bronze'}
+                </Text>
               </View>
             </View>
 
-            <View style={[styles.redeemSection, { borderTopColor: colors.border }]}>
-              <Text style={[styles.redeemInfo, { color: colors.textSecondary }]}>
+            <View
+              style={[styles.redeemSection, { borderTopColor: colors.border }]}
+            >
+              <Text
+                style={[styles.redeemInfo, { color: colors.textSecondary }]}
+              >
                 100 points = ₦100 wallet credit
               </Text>
               <Pressable
                 style={({ pressed }) => [
                   styles.redeemBtn,
-                  { backgroundColor: BRAND.primary, opacity: pressed ? 0.8 : 1 },
+                  {
+                    backgroundColor: BRAND.primary,
+                    opacity: pressed ? 0.8 : 1,
+                  },
                 ]}
                 onPress={() => setShowRedeemModal(true)}
                 disabled={(walletData?.loyalty_points || 0) < 100}
@@ -236,19 +284,32 @@ export default function WalletScreen() {
           {showRedeemModal && (
             <Animated.View
               entering={FadeIn.duration(200)}
-              style={[styles.redeemModal, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.redeemModal,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
             >
               <Text style={[styles.redeemModalTitle, { color: colors.text }]}>
                 Redeem Loyalty Points
               </Text>
-              <Text style={[styles.redeemModalSubtitle, { color: colors.textSecondary }]}>
-                Available: {(walletData?.loyalty_points || 0).toLocaleString()} points
+              <Text
+                style={[
+                  styles.redeemModalSubtitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Available: {(walletData?.loyalty_points || 0).toLocaleString()}{' '}
+                points
               </Text>
 
               <TextInput
                 style={[
                   styles.redeemInput,
-                  { backgroundColor: colors.background, borderColor: colors.border, color: colors.text },
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
                 ]}
                 value={redeemPoints}
                 onChangeText={setRedeemPoints}
@@ -265,10 +326,15 @@ export default function WalletScreen() {
                     setRedeemPoints('');
                   }}
                 >
-                  <Text style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</Text>
+                  <Text style={[styles.cancelBtnText, { color: colors.text }]}>
+                    Cancel
+                  </Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.confirmBtn, { backgroundColor: BRAND.primary }]}
+                  style={[
+                    styles.confirmBtn,
+                    { backgroundColor: BRAND.primary },
+                  ]}
                   onPress={handleRedeemPoints}
                   disabled={redeemMutation.isPending}
                 >
@@ -293,8 +359,14 @@ export default function WalletScreen() {
 
             {transactions.length === 0 ? (
               <View style={styles.emptyTransactions}>
-                <Ionicons name="receipt-outline" size={40} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={40}
+                  color={colors.textSecondary}
+                />
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
                   No transactions yet
                 </Text>
               </View>
@@ -302,12 +374,18 @@ export default function WalletScreen() {
               transactions.map((tx) => (
                 <View
                   key={tx.id}
-                  style={[styles.transactionItem, { borderBottomColor: colors.border }]}
+                  style={[
+                    styles.transactionItem,
+                    { borderBottomColor: colors.border },
+                  ]}
                 >
                   <View
                     style={[
                       styles.txIcon,
-                      { backgroundColor: tx.type === 'credit' ? '#10B98120' : '#EF444420' },
+                      {
+                        backgroundColor:
+                          tx.type === 'credit' ? '#10B98120' : '#EF444420',
+                      },
                     ]}
                   >
                     <Ionicons
@@ -317,10 +395,14 @@ export default function WalletScreen() {
                     />
                   </View>
                   <View style={styles.txDetails}>
-                    <Text style={[styles.txDescription, { color: colors.text }]}>
+                    <Text
+                      style={[styles.txDescription, { color: colors.text }]}
+                    >
                       {tx.description}
                     </Text>
-                    <Text style={[styles.txDate, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[styles.txDate, { color: colors.textSecondary }]}
+                    >
                       {formatDate(tx.created_at)}
                     </Text>
                   </View>

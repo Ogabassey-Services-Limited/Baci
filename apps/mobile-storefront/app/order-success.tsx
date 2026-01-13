@@ -44,7 +44,9 @@ export default function OrderSuccessScreen() {
         }}
       />
 
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.content}>
           {/* Success Icon */}
           <Animated.View
@@ -53,7 +55,12 @@ export default function OrderSuccessScreen() {
               { transform: [{ scale: scaleAnim }] },
             ]}
           >
-            <View style={[styles.iconCircle, { backgroundColor: BRAND.primaryLight }]}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: BRAND.primaryLight },
+              ]}
+            >
               <View style={[styles.iconInner, { backgroundColor: '#10B981' }]}>
                 <Ionicons name="checkmark" size={48} color="#FFFFFF" />
               </View>
@@ -70,10 +77,21 @@ export default function OrderSuccessScreen() {
           </Text>
 
           {/* Order Info */}
-          <View style={[styles.orderInfo, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.orderInfo,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
             <View style={styles.orderRow}>
-              <Ionicons name="receipt-outline" size={20} color={BRAND.primary} />
-              <Text style={[styles.orderLabel, { color: colors.textSecondary }]}>
+              <Ionicons
+                name="receipt-outline"
+                size={20}
+                color={BRAND.primary}
+              />
+              <Text
+                style={[styles.orderLabel, { color: colors.textSecondary }]}
+              >
                 Order Number
               </Text>
               <Text style={[styles.orderValue, { color: colors.text }]}>
@@ -81,11 +99,15 @@ export default function OrderSuccessScreen() {
               </Text>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
 
             <View style={styles.orderRow}>
               <Ionicons name="time-outline" size={20} color={BRAND.primary} />
-              <Text style={[styles.orderLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.orderLabel, { color: colors.textSecondary }]}
+              >
                 Estimated Delivery
               </Text>
               <Text style={[styles.orderValue, { color: colors.text }]}>
@@ -101,8 +123,15 @@ export default function OrderSuccessScreen() {
             </Text>
 
             <View style={styles.stepItem}>
-              <View style={[styles.stepNumber, { backgroundColor: BRAND.primaryLight }]}>
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>1</Text>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: BRAND.primaryLight },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
+                  1
+                </Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
                 You'll receive an order confirmation email
@@ -110,8 +139,15 @@ export default function OrderSuccessScreen() {
             </View>
 
             <View style={styles.stepItem}>
-              <View style={[styles.stepNumber, { backgroundColor: BRAND.primaryLight }]}>
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>2</Text>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: BRAND.primaryLight },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
+                  2
+                </Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
                 We'll prepare and ship your order
@@ -119,8 +155,15 @@ export default function OrderSuccessScreen() {
             </View>
 
             <View style={styles.stepItem}>
-              <View style={[styles.stepNumber, { backgroundColor: BRAND.primaryLight }]}>
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>3</Text>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: BRAND.primaryLight },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
+                  3
+                </Text>
               </View>
               <Text style={[styles.stepText, { color: colors.textSecondary }]}>
                 Track your delivery in real-time

@@ -17,7 +17,12 @@ interface ProgressCardProps {
   onPress?: () => void;
 }
 
-export function ProgressCard({ title, subtitle, progress, onPress }: ProgressCardProps) {
+export function ProgressCard({
+  title,
+  subtitle,
+  progress,
+  onPress,
+}: ProgressCardProps) {
   const { colors, shadows } = useTheme();
   const size = 48;
   const strokeWidth = 5;
@@ -39,7 +44,11 @@ export function ProgressCard({ title, subtitle, progress, onPress }: ProgressCar
       <View style={styles.content}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          {subtitle && <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>}
+          {subtitle && (
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {subtitle}
+            </Text>
+          )}
         </View>
 
         <View style={styles.progressContainer}>
@@ -68,13 +77,19 @@ export function ProgressCard({ title, subtitle, progress, onPress }: ProgressCar
             />
           </Svg>
           <View style={styles.progressTextContainer}>
-            <Text style={[styles.progressText, { color: colors.gold }]}>{Math.round(progress)}%</Text>
+            <Text style={[styles.progressText, { color: colors.gold }]}>
+              {Math.round(progress)}%
+            </Text>
           </View>
         </View>
       </View>
 
       <View style={styles.arrow}>
-        <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={colors.textSecondary}
+        />
       </View>
     </Pressable>
   );

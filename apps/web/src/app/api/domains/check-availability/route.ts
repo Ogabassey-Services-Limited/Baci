@@ -10,9 +10,7 @@ import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
 export async function POST(request: Request) {
   try {
     // Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(
-      request as any
-    );
+    const { user, error: authError } = await authenticateApiRequest(request);
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

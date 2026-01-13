@@ -90,7 +90,10 @@ export default function CheckoutScreen() {
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [orderTotals, setOrderTotals] = React.useState<{ total: number; taxAmount: number } | null>(null);
+  const [orderTotals, setOrderTotals] = React.useState<{
+    total: number;
+    taxAmount: number;
+  } | null>(null);
   const [selectedPayment, setSelectedPayment] = React.useState<string>('card');
 
   // React Hook Form with Zod resolver
@@ -141,17 +144,17 @@ export default function CheckoutScreen() {
         const result = await calculateCommerce('calculate_order', {
           subtotal,
           shippingFee: deliveryFee,
-          taxRate: 0.075 // Nigeria Standard
+          taxRate: 0.075, // Nigeria Standard
         });
         setOrderTotals(result);
       } catch (err) {
-        console.error("Failed to fetch totals from brain", err);
+        console.error('Failed to fetch totals from brain', err);
       }
     };
     fetchTotals();
   }, [subtotal, deliveryFee]);
 
-  const total = orderTotals?.total || (subtotal + deliveryFee);
+  const total = orderTotals?.total || subtotal + deliveryFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
     // Track shipping info completed
@@ -237,7 +240,7 @@ export default function CheckoutScreen() {
   };
 
   const renderStepIndicator = () => (
-    <View 
+    <View
       style={styles.stepIndicator}
       accessibilityRole="header"
       accessibilityLabel={`Checkout progress: Step ${step === 'address' ? '1 of 3' : step === 'payment' ? '2 of 3' : '3 of 3'}`}
@@ -254,7 +257,8 @@ export default function CheckoutScreen() {
               style={[
                 styles.stepDot,
                 {
-                  backgroundColor: isActive || isCompleted ? BRAND.primary : colors.border,
+                  backgroundColor:
+                    isActive || isCompleted ? BRAND.primary : colors.border,
                 },
               ]}
               accessibilityLabel={`Step ${index + 1}: ${s}`}
@@ -277,7 +281,11 @@ export default function CheckoutScreen() {
               <View
                 style={[
                   styles.stepLine,
-                  { backgroundColor: isCompleted ? BRAND.primary : colors.border },
+                  {
+                    backgroundColor: isCompleted
+                      ? BRAND.primary
+                      : colors.border,
+                  },
                 ]}
               />
             )}
@@ -304,7 +312,9 @@ export default function CheckoutScreen() {
     style?: object;
   }) => (
     <View style={[styles.inputGroup, style]}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
       <Controller
         control={control}
         name={name}
@@ -338,25 +348,20 @@ export default function CheckoutScreen() {
   );
 
   const renderAddressForm = () => (
-    <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.formContainer}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Delivery Address
       </Text>
 
       <View style={styles.row}>
         <View style={styles.halfInput}>
-          <FormField
-            name="firstName"
-            label="First Name"
-            placeholder="John"
-          />
+          <FormField name="firstName" label="First Name" placeholder="John" />
         </View>
         <View style={styles.halfInput}>
-          <FormField
-            name="lastName"
-            label="Last Name"
-            placeholder="Doe"
-          />
+          <FormField name="lastName" label="Last Name" placeholder="Doe" />
         </View>
       </View>
 
@@ -376,21 +381,29 @@ export default function CheckoutScreen() {
 
       <View style={styles.row}>
         <View style={styles.halfInput}>
-          <FormField
-            name="city"
-            label="City"
-            placeholder="Lagos"
-          />
+          <FormField name="city" label="City" placeholder="Lagos" />
         </View>
         <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>State</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            State
+          </Text>
           <Controller
             control={control}
             name="state"
             render={({ field: { value } }) => (
-              <View style={[styles.input, styles.selectInput, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.input,
+                  styles.selectInput,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
                 <Text style={{ color: colors.text }}>{value}</Text>
-                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-down"
+                  size={18}
+                  color={colors.textSecondary}
+                />
               </View>
             )}
           />
@@ -407,7 +420,10 @@ export default function CheckoutScreen() {
   );
 
   const renderPaymentOptions = () => (
-    <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.formContainer}
+      showsVerticalScrollIndicator={false}
+    >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Payment Method
       </Text>
@@ -419,30 +435,46 @@ export default function CheckoutScreen() {
             styles.paymentOption,
             {
               backgroundColor: colors.card,
-              borderColor: selectedPayment === method.id ? BRAND.primary : colors.border,
+              borderColor:
+                selectedPayment === method.id ? BRAND.primary : colors.border,
             },
           ]}
           onPress={() => setSelectedPayment(method.id)}
         >
-          <View style={[styles.paymentIconContainer, { backgroundColor: BRAND.primaryLight }]}>
+          <View
+            style={[
+              styles.paymentIconContainer,
+              { backgroundColor: BRAND.primaryLight },
+            ]}
+          >
             <Ionicons name={method.icon} size={24} color={BRAND.primary} />
           </View>
           <View style={styles.paymentInfo}>
             <Text style={[styles.paymentLabel, { color: colors.text }]}>
               {method.label}
             </Text>
-            <Text style={[styles.paymentDescription, { color: colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.paymentDescription,
+                { color: colors.textSecondary },
+              ]}
+            >
               {method.description}
             </Text>
           </View>
           <View
             style={[
               styles.radioOuter,
-              { borderColor: selectedPayment === method.id ? BRAND.primary : colors.border },
+              {
+                borderColor:
+                  selectedPayment === method.id ? BRAND.primary : colors.border,
+              },
             ]}
           >
             {selectedPayment === method.id && (
-              <View style={[styles.radioInner, { backgroundColor: BRAND.primary }]} />
+              <View
+                style={[styles.radioInner, { backgroundColor: BRAND.primary }]}
+              />
             )}
           </View>
         </Pressable>
@@ -454,17 +486,29 @@ export default function CheckoutScreen() {
     const address = getValues();
 
     return (
-      <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.formContainer}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Order Review
         </Text>
 
         {/* Delivery Address Summary */}
-        <View style={[styles.reviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.reviewCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>Delivery Address</Text>
+            <Text style={[styles.reviewTitle, { color: colors.text }]}>
+              Delivery Address
+            </Text>
             <Pressable onPress={() => setStep('address')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>Edit</Text>
+              <Text style={[styles.editLink, { color: BRAND.primary }]}>
+                Edit
+              </Text>
             </Pressable>
           </View>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
@@ -479,11 +523,20 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Payment Method Summary */}
-        <View style={[styles.reviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.reviewCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.reviewHeader}>
-            <Text style={[styles.reviewTitle, { color: colors.text }]}>Payment Method</Text>
+            <Text style={[styles.reviewTitle, { color: colors.text }]}>
+              Payment Method
+            </Text>
             <Pressable onPress={() => setStep('payment')}>
-              <Text style={[styles.editLink, { color: BRAND.primary }]}>Edit</Text>
+              <Text style={[styles.editLink, { color: BRAND.primary }]}>
+                Edit
+              </Text>
             </Pressable>
           </View>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
@@ -492,16 +545,26 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Order Items Summary */}
-        <View style={[styles.reviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.reviewCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Text style={[styles.reviewTitle, { color: colors.text }]}>
             Order Items ({items.length})
           </Text>
           {items.map((item) => (
             <View key={item.id} style={styles.orderItem}>
-              <Text style={[styles.orderItemName, { color: colors.text }]} numberOfLines={1}>
+              <Text
+                style={[styles.orderItemName, { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {item.name}
               </Text>
-              <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.orderItemQty, { color: colors.textSecondary }]}
+              >
                 x{item.quantity}
               </Text>
               <Text style={[styles.orderItemPrice, { color: colors.text }]}>
@@ -512,24 +575,47 @@ export default function CheckoutScreen() {
         </View>
 
         {/* Order Total */}
-        <View style={[styles.totalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.totalCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Subtotal</Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(subtotal)}</Text>
+            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
+              Subtotal
+            </Text>
+            <Text style={[styles.totalValue, { color: colors.text }]}>
+              {formatPrice(subtotal)}
+            </Text>
           </View>
           <View style={styles.totalRow}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Delivery</Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(deliveryFee)}</Text>
+            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
+              Delivery
+            </Text>
+            <Text style={[styles.totalValue, { color: colors.text }]}>
+              {formatPrice(deliveryFee)}
+            </Text>
           </View>
           {orderTotals && (
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>VAT (7.5%)</Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(orderTotals.taxAmount)}</Text>
+              <Text
+                style={[styles.totalLabel, { color: colors.textSecondary }]}
+              >
+                VAT (7.5%)
+              </Text>
+              <Text style={[styles.totalValue, { color: colors.text }]}>
+                {formatPrice(orderTotals.taxAmount)}
+              </Text>
             </View>
           )}
           <View style={[styles.totalRow, styles.grandTotalRow]}>
-            <Text style={[styles.grandTotalLabel, { color: colors.text }]}>Total</Text>
-            <Text style={[styles.grandTotalValue, { color: BRAND.primary }]}>{formatPrice(total)}</Text>
+            <Text style={[styles.grandTotalLabel, { color: colors.text }]}>
+              Total
+            </Text>
+            <Text style={[styles.grandTotalValue, { color: BRAND.primary }]}>
+              {formatPrice(total)}
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -560,7 +646,13 @@ export default function CheckoutScreen() {
         {step === 'review' && renderReview()}
 
         {/* Bottom Action */}
-        <SafeAreaView edges={['bottom']} style={[styles.bottomAction, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <SafeAreaView
+          edges={['bottom']}
+          style={[
+            styles.bottomAction,
+            { backgroundColor: colors.card, borderTopColor: colors.border },
+          ]}
+        >
           {step === 'review' ? (
             <Pressable
               style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
@@ -572,7 +664,9 @@ export default function CheckoutScreen() {
               ) : (
                 <>
                   <Text style={styles.actionButtonText}>Place Order</Text>
-                  <Text style={styles.actionButtonPrice}>{formatPrice(total)}</Text>
+                  <Text style={styles.actionButtonPrice}>
+                    {formatPrice(total)}
+                  </Text>
                 </>
               )}
             </Pressable>

@@ -88,7 +88,7 @@ export const TYPOGRAPHY = {
     '3xl': clamp(32, 40),
     '4xl': clamp(40, 56),
     '5xl': clamp(48, 72),
-    'hero': clamp(32, 48), // Dedicated hero size
+    hero: clamp(32, 48), // Dedicated hero size
   },
   // Font weights (Testing with system serif - can upgrade to Google Font later)
   weight: {

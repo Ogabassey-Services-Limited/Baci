@@ -15,12 +15,18 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring
+  withSpring,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useCategories } from '@/hooks/use-products-query';
 import { getCategoryIcon } from '@/lib/icon-bridge';
-import { BRAND, SPACING, RADIUS, TYPOGRAPHY, SPRING_CONFIG } from '@/constants/Colors';
+import {
+  BRAND,
+  SPACING,
+  RADIUS,
+  TYPOGRAPHY,
+  SPRING_CONFIG,
+} from '@/constants/Colors';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -36,20 +42,20 @@ const CategoryItem = ({
   slug,
   variant,
   isActive,
-  onPress
+  onPress,
 }: {
-  id: string | null,
-  name: string,
-  slug: string,
-  variant: string,
-  isActive: boolean,
-  onPress: () => void
+  id: string | null;
+  name: string;
+  slug: string;
+  variant: string;
+  isActive: boolean;
+  onPress: () => void;
 }) => {
   const scale = useSharedValue(1);
   const iconName = getCategoryIcon(slug);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }]
+    transform: [{ scale: scale.value }],
   }));
 
   const handlePressIn = () => {
@@ -68,10 +74,29 @@ const CategoryItem = ({
         onPressOut={handlePressOut}
         style={[styles.circleItem, animatedStyle]}
       >
-        <View style={[styles.circleIcon, isActive && { backgroundColor: BRAND.primary, borderColor: BRAND.primary }]}>
-          <Ionicons name={iconName} size={26} color={isActive ? '#FFF' : BRAND.primary} />
+        <View
+          style={[
+            styles.circleIcon,
+            isActive && {
+              backgroundColor: BRAND.primary,
+              borderColor: BRAND.primary,
+            },
+          ]}
+        >
+          <Ionicons
+            name={iconName}
+            size={26}
+            color={isActive ? '#FFF' : BRAND.primary}
+          />
         </View>
-        <Text style={[styles.circleLabel, isActive && { color: BRAND.primary, fontWeight: '700' }]}>{name}</Text>
+        <Text
+          style={[
+            styles.circleLabel,
+            isActive && { color: BRAND.primary, fontWeight: '700' },
+          ]}
+        >
+          {name}
+        </Text>
       </AnimatedPressable>
     );
   }
@@ -84,11 +109,16 @@ const CategoryItem = ({
         onPressOut={handlePressOut}
         style={[
           styles.pillItem,
-          isActive && { backgroundColor: BRAND.primary, borderColor: BRAND.primary },
-          animatedStyle
+          isActive && {
+            backgroundColor: BRAND.primary,
+            borderColor: BRAND.primary,
+          },
+          animatedStyle,
         ]}
       >
-        <Text style={[styles.pillLabel, isActive && { color: '#FFF' }]}>{name}</Text>
+        <Text style={[styles.pillLabel, isActive && { color: '#FFF' }]}>
+          {name}
+        </Text>
       </AnimatedPressable>
     );
   }
@@ -98,12 +128,26 @@ const CategoryItem = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.categoryItem, isActive && styles.categoryActive, animatedStyle]}
+      style={[
+        styles.categoryItem,
+        isActive && styles.categoryActive,
+        animatedStyle,
+      ]}
     >
-      <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
-        <Ionicons name={id === null ? 'grid-outline' : iconName} size={24} color={isActive ? '#FFF' : BRAND.primary} />
+      <View
+        style={[styles.iconContainer, isActive && styles.iconContainerActive]}
+      >
+        <Ionicons
+          name={id === null ? 'grid-outline' : iconName}
+          size={24}
+          color={isActive ? '#FFF' : BRAND.primary}
+        />
       </View>
-      <Text style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}>{name}</Text>
+      <Text
+        style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}
+      >
+        {name}
+      </Text>
     </AnimatedPressable>
   );
 };
@@ -111,7 +155,7 @@ const CategoryItem = ({
 export function UtilityPanel({
   variant = 'pill',
   selectedCategoryId,
-  onCategorySelect
+  onCategorySelect,
 }: UtilityPanelProps) {
   const { data: categories = [], isLoading } = useCategories();
 
@@ -124,11 +168,14 @@ export function UtilityPanel({
   }
 
   return (
-    <View style={variant === 'card' ? styles.container : styles.minimalContainer}>
+    <View
+      style={variant === 'card' ? styles.container : styles.minimalContainer}
+    >
       {variant === 'card' && (
         <View style={styles.promoBanner}>
           <Text style={styles.promoText}>
-            Exclusive <Text style={styles.promoHighlight}>DEALS</Text> for you today!
+            Exclusive <Text style={styles.promoHighlight}>DEALS</Text> for you
+            today!
           </Text>
         </View>
       )}
@@ -136,7 +183,9 @@ export function UtilityPanel({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={variant === 'pill' ? styles.pillRail : styles.categoriesContent}
+        contentContainerStyle={
+          variant === 'pill' ? styles.pillRail : styles.categoriesContent
+        }
       >
         <CategoryItem
           id={null}
@@ -186,9 +235,22 @@ const styles = StyleSheet.create({
 
   categoryItem: { alignItems: 'center', minWidth: 80 },
   categoryActive: { opacity: 1 },
-  iconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   iconContainerActive: { backgroundColor: BRAND.primary },
-  categoryLabel: { fontSize: 11, fontWeight: '600', color: '#4B5563', textAlign: 'center' },
+  categoryLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+    textAlign: 'center',
+  },
   categoryLabelActive: { color: BRAND.primary },
 
   circleItem: { alignItems: 'center', gap: 8, marginRight: 8 },
@@ -198,16 +260,23 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: '#FEF2F2', // Light Red / Pink
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   circleLabel: {
     fontSize: 12,
     fontWeight: '500',
     color: '#374151',
-    marginTop: 4
+    marginTop: 4,
   },
 
   pillRail: { paddingHorizontal: SPACING.md, gap: 8 },
-  pillItem: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 25, borderWidth: 1, borderColor: '#EEE', backgroundColor: '#FFF' },
-  pillLabel: { fontSize: 14, fontWeight: '600', color: '#666' }
+  pillItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#EEE',
+    backgroundColor: '#FFF',
+  },
+  pillLabel: { fontSize: 14, fontWeight: '600', color: '#666' },
 });

@@ -87,9 +87,15 @@ export default function LoginScreen() {
     const result = await signInWithOtp(email.toLowerCase().trim());
 
     if (result.success) {
-      Alert.alert('Success', 'A new verification code has been sent to your email');
+      Alert.alert(
+        'Success',
+        'A new verification code has been sent to your email'
+      );
     } else {
-      Alert.alert('Error', result.error || 'Failed to resend verification code');
+      Alert.alert(
+        'Error',
+        result.error || 'Failed to resend verification code'
+      );
     }
   };
 
@@ -104,20 +110,29 @@ export default function LoginScreen() {
 
   const renderEmailStep = () => (
     <>
-      <Text style={[styles.title, { color: colors.text }]}>
-        Welcome Back
-      </Text>
+      <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
       <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
         Enter your email to receive a verification code
       </Text>
 
       <View style={styles.inputGroup}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Email Address</Text>
-        <View style={[
-          styles.inputContainer,
-          { backgroundColor: colors.card, borderColor: emailError ? '#EF4444' : colors.border }
-        ]}>
-          <Ionicons name="mail-outline" size={20} color={emailError ? '#EF4444' : colors.textSecondary} />
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Email Address
+        </Text>
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              backgroundColor: colors.card,
+              borderColor: emailError ? '#EF4444' : colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="mail-outline"
+            size={20}
+            color={emailError ? '#EF4444' : colors.textSecondary}
+          />
           <TextInput
             style={[styles.input, { color: colors.text }]}
             placeholder="john@example.com"
@@ -133,13 +148,15 @@ export default function LoginScreen() {
             editable={!isLoading}
           />
         </View>
-        {emailError && (
-          <Text style={styles.errorText}>{emailError}</Text>
-        )}
+        {emailError && <Text style={styles.errorText}>{emailError}</Text>}
       </View>
 
       <Pressable
-        style={[styles.primaryButton, { backgroundColor: BRAND.primary }, isLoading && styles.buttonDisabled]}
+        style={[
+          styles.primaryButton,
+          { backgroundColor: BRAND.primary },
+          isLoading && styles.buttonDisabled,
+        ]}
         onPress={handleSendOtp}
         disabled={isLoading}
       >
@@ -151,14 +168,22 @@ export default function LoginScreen() {
       </Pressable>
 
       <View style={styles.divider}>
-        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-        <Text style={[styles.dividerText, { color: colors.textSecondary }]}>or</Text>
-        <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+        />
+        <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
+          or
+        </Text>
+        <View
+          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+        />
       </View>
 
       <Pressable
         style={[styles.socialButton, { borderColor: colors.border }]}
-        onPress={() => Alert.alert('Coming Soon', 'Google Sign-In will be available soon')}
+        onPress={() =>
+          Alert.alert('Coming Soon', 'Google Sign-In will be available soon')
+        }
       >
         <Ionicons name="logo-google" size={20} color={colors.text} />
         <Text style={[styles.socialButtonText, { color: colors.text }]}>
@@ -168,9 +193,13 @@ export default function LoginScreen() {
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
         By continuing, you agree to our{' '}
-        <Text style={[styles.link, { color: BRAND.primary }]}>Terms of Service</Text>
-        {' '}and{' '}
-        <Text style={[styles.link, { color: BRAND.primary }]}>Privacy Policy</Text>
+        <Text style={[styles.link, { color: BRAND.primary }]}>
+          Terms of Service
+        </Text>{' '}
+        and{' '}
+        <Text style={[styles.link, { color: BRAND.primary }]}>
+          Privacy Policy
+        </Text>
       </Text>
     </>
   );
@@ -186,12 +215,23 @@ export default function LoginScreen() {
       </Text>
 
       <View style={styles.inputGroup}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Verification Code</Text>
-        <View style={[
-          styles.inputContainer,
-          { backgroundColor: colors.card, borderColor: otpError ? '#EF4444' : colors.border }
-        ]}>
-          <Ionicons name="keypad-outline" size={20} color={otpError ? '#EF4444' : colors.textSecondary} />
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Verification Code
+        </Text>
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              backgroundColor: colors.card,
+              borderColor: otpError ? '#EF4444' : colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="keypad-outline"
+            size={20}
+            color={otpError ? '#EF4444' : colors.textSecondary}
+          />
           <TextInput
             style={[styles.input, styles.otpInput, { color: colors.text }]}
             placeholder="000000"
@@ -206,13 +246,15 @@ export default function LoginScreen() {
             editable={!isLoading}
           />
         </View>
-        {otpError && (
-          <Text style={styles.errorText}>{otpError}</Text>
-        )}
+        {otpError && <Text style={styles.errorText}>{otpError}</Text>}
       </View>
 
       <Pressable
-        style={[styles.primaryButton, { backgroundColor: BRAND.primary }, isLoading && styles.buttonDisabled]}
+        style={[
+          styles.primaryButton,
+          { backgroundColor: BRAND.primary },
+          isLoading && styles.buttonDisabled,
+        ]}
         onPress={handleVerifyOtp}
         disabled={isLoading}
       >

@@ -3,7 +3,7 @@
  * Manage product details and inventory
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,26 +16,34 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
-  Platform,
   FlatList,
+  ViewStyle,
+  TextStyle,
+  ImageStyle,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useCategories, useProduct, useCreateCategory, useUpdateProduct, useCreateProduct } from '@/hooks/useProducts';
+import {
+  useCategories,
+  useProduct,
+  useCreateCategory,
+  useUpdateProduct,
+  useCreateProduct,
+} from '@/hooks/useProducts';
 import { useMerchant } from '@/hooks/useMerchant';
 import * as ImagePicker from 'expo-image-picker';
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
   const symbols: Record<string, string> = {
-    'NGN': '₦',
-    'USD': '$',
-    'GBP': '£',
-    'EUR': '€',
+    NGN: '₦',
+    USD: '$',
+    GBP: '£',
+    EUR: '€',
   };
   return symbols[currencyCode || 'NGN'] || '₦';
 };
@@ -47,13 +55,13 @@ const PriceInput = ({
   placeholder,
   colors,
   styles,
-  currencySymbol
+  currencySymbol,
 }: {
   value: number;
   onChange: (val: number) => void;
   placeholder: string;
-  colors: any;
-  styles: any;
+  colors: Record<string, string>;
+  styles: Record<string, ViewStyle | TextStyle | ImageStyle>;
   currencySymbol: string;
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -84,10 +92,13 @@ const PriceInput = ({
 
     // Prevent multiple decimals
     const parts = cleaned.split('.');
-    const sanitaryText = parts[0] + (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
+    const sanitaryText =
+      parts[0] + (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
 
     // Format with commas for the display
-    const formatted = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
+    const formatted =
+      parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') +
+      (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
 
     setDisplayValue(formatted);
     const num = parseFloat(sanitaryText);
@@ -95,20 +106,29 @@ const PriceInput = ({
   };
 
   return (
-    <View style={[styles.input, {
-      backgroundColor: colors.inputBg,
-      borderColor: colors.border,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingLeft: 12
-    }]}>
-      <Text style={{ color: colors.textSecondary, marginRight: 4, fontSize: 16 }}>{currencySymbol}</Text>
+    <View
+      style={[
+        styles.input,
+        {
+          backgroundColor: colors.inputBg,
+          borderColor: colors.border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: 12,
+        },
+      ]}
+    >
+      <Text
+        style={{ color: colors.textSecondary, marginRight: 4, fontSize: 16 }}
+      >
+        {currencySymbol}
+      </Text>
       <TextInput
         style={{
           flex: 1,
           color: colors.text,
           height: '100%',
-          fontSize: 16
+          fontSize: 16,
         }}
         value={displayValue}
         onChangeText={handleChangeText}
@@ -127,7 +147,7 @@ export default function ProductEditScreen() {
   const isEditing = id !== 'new';
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter(); // Use useRouter instead of router
@@ -158,14 +178,17 @@ export default function ProductEditScreen() {
     category_id: '',
     color: '',
     variant_attributes: [] as Array<{ key: string; value: string }>,
-    fulfillment_details: { items: [] as Array<{ imei: string; serial_number: string }> },
+    fulfillment_details: {
+      items: [] as Array<{ imei: string; serial_number: string }>,
+    },
     images: [] as string[],
     manage_stock: true,
     status: 'active' as 'active' | 'draft' | 'archived',
   });
 
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
-  const [isFulfillmentModalVisible, setIsFulfillmentModalVisible] = useState(false);
+  const [isFulfillmentModalVisible, setIsFulfillmentModalVisible] =
+    useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -179,7 +202,11 @@ export default function ProductEditScreen() {
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: (newCategory) => {
         // Auto-select the new category
-        setFormData(prev => ({ ...prev, category: newCategory.name, category_id: newCategory.id }));
+        setFormData((prev) => ({
+          ...prev,
+          category: newCategory.name,
+          category_id: newCategory.id,
+        }));
         setNewCategoryName('');
         setIsCreatingCategory(false);
         setIsCategoryModalVisible(false); // Optional: close modal or just keep open with selection
@@ -187,14 +214,12 @@ export default function ProductEditScreen() {
       },
       onError: (err) => {
         Alert.alert('Error', err.message);
-      }
+      },
     });
   };
 
-
-
   // Fetch product details using the new hook
-  const { data: product, isLoading, error, refetch } = useProduct(id);
+  const { data: product, isLoading, error } = useProduct(id);
 
   // Helper to strip HTML tags
   const stripHtml = (html: string) => {
@@ -220,11 +245,22 @@ export default function ProductEditScreen() {
         category_id: product.category_id || '',
         color: product.color || '',
         variant_attributes: product.variant_attributes
-          ? Object.entries(product.variant_attributes).map(([key, value]) => ({ key, value: String(value) }))
+          ? Object.entries(product.variant_attributes).map(([key, value]) => ({
+            key,
+            value: String(value),
+          }))
           : [],
-        fulfillment_details: product.fulfillment_details && 'items' in product.fulfillment_details
-          ? product.fulfillment_details as { items: Array<{ imei: string; serial_number: string }> }
-          : { items: Array(product.stock_quantity || 0).fill({ imei: '', serial_number: '' }) },
+        fulfillment_details:
+          product.fulfillment_details && 'items' in product.fulfillment_details
+            ? (product.fulfillment_details as {
+              items: Array<{ imei: string; serial_number: string }>;
+            })
+            : {
+              items: Array(product.stock_quantity || 0).fill({
+                imei: '',
+                serial_number: '',
+              }),
+            },
         images: product.images || [],
         manage_stock: product.manage_stock ?? true,
         status: product.status || 'active',
@@ -242,20 +278,23 @@ export default function ProductEditScreen() {
     const payload = { ...formData }; // Clone to avoid mutation issues
 
     if (isEditing) {
-      updateProductMutation.mutate({ id, updates: payload as any }, {
-        onSuccess: () => {
-          Alert.alert('Success', 'Product updated successfully');
-          router.back();
-        },
-        onError: (err: any) => Alert.alert('Error', err.message)
-      });
+      updateProductMutation.mutate(
+        { id, updates: payload },
+        {
+          onSuccess: () => {
+            Alert.alert('Success', 'Product updated successfully');
+            router.back();
+          },
+          onError: (err: unknown) => Alert.alert('Error', (err as Error).message),
+        }
+      );
     } else {
-      createProductMutation.mutate(payload as any, {
+      createProductMutation.mutate(payload, {
         onSuccess: () => {
           Alert.alert('Success', 'Product created successfully');
           router.back();
         },
-        onError: (err: any) => Alert.alert('Error', err.message)
+        onError: (err: unknown) => Alert.alert('Error', (err as Error).message),
       });
     }
   };
@@ -270,7 +309,10 @@ export default function ProductEditScreen() {
     if (newStock > currentItems.length) {
       // Add empty items
       const itemsToAdd = newStock - currentItems.length;
-      newItems = [...newItems, ...Array(itemsToAdd).fill({ imei: '', serial_number: '' })];
+      newItems = [
+        ...newItems,
+        ...Array(itemsToAdd).fill({ imei: '', serial_number: '' }),
+      ];
     } else if (newStock < currentItems.length) {
       // Remove last items
       newItems = newItems.slice(0, newStock);
@@ -279,28 +321,39 @@ export default function ProductEditScreen() {
     setFormData({
       ...formData,
       stock_quantity: newStock,
-      fulfillment_details: { items: newItems }
+      fulfillment_details: { items: newItems },
     });
   };
 
-  const updateFulfillmentItem = (index: number, field: 'imei' | 'serial_number', value: string) => {
+  const updateFulfillmentItem = (
+    index: number,
+    field: 'imei' | 'serial_number',
+    value: string
+  ) => {
     const newItems = [...(formData.fulfillment_details.items || [])];
     if (!newItems[index]) newItems[index] = { imei: '', serial_number: '' };
     newItems[index] = { ...newItems[index], [field]: value };
     setFormData({
       ...formData,
-      fulfillment_details: { items: newItems }
+      fulfillment_details: { items: newItems },
     });
   };
 
   const addAttribute = () => {
     setFormData({
       ...formData,
-      variant_attributes: [...formData.variant_attributes, { key: '', value: '' }]
+      variant_attributes: [
+        ...formData.variant_attributes,
+        { key: '', value: '' },
+      ],
     });
   };
 
-  const updateAttribute = (index: number, field: 'key' | 'value', text: string) => {
+  const updateAttribute = (
+    index: number,
+    field: 'key' | 'value',
+    text: string
+  ) => {
     const newAttrs = [...formData.variant_attributes];
     newAttrs[index] = { ...newAttrs[index], [field]: text };
     setFormData({ ...formData, variant_attributes: newAttrs });
@@ -313,52 +366,51 @@ export default function ProductEditScreen() {
   };
 
   const handleImagePick = async () => {
-    Alert.alert(
-      'Upload Image',
-      'Choose an option',
-      [
-        {
-          text: 'Take Photo',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
-              return;
-            }
+    Alert.alert('Upload Image', 'Choose an option', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert(
+              'Permission Denied',
+              'Camera permission is required to take photos.'
+            );
+            return;
+          }
 
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'], // Use the string literal directly if Typescript complains about ImagePicker.MediaTypeOptions
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
+          const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'], // Use the string literal directly if Typescript complains about ImagePicker.MediaTypeOptions
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
 
-            if (!result.canceled && result.assets && result.assets[0]) {
-              await uploadImage(result.assets[0].uri);
-            }
-          },
+          if (!result.canceled && result.assets && result.assets[0]) {
+            await uploadImage(result.assets[0].uri);
+          }
         },
-        {
-          text: 'Choose from Library',
-          onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+          });
 
-            if (!result.canceled && result.assets && result.assets[0]) {
-              await uploadImage(result.assets[0].uri);
-            }
-          },
+          if (!result.canceled && result.assets && result.assets[0]) {
+            await uploadImage(result.assets[0].uri);
+          }
         },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+      },
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+    ]);
   };
 
   const uploadImage = async (uri: string) => {
@@ -375,29 +427,29 @@ export default function ProductEditScreen() {
       fileData.append('file', {
         uri,
         name: fileName,
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`
-      } as any);
+        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+      } as unknown as Blob);
 
       const { error: uploadError } = await supabase.storage
         .from('media')
         .upload(filePath, fileData, {
           contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-          upsert: true
+          upsert: true,
         });
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('media').getPublicUrl(filePath);
 
       // Update local state - replace existing or add new
       // Currently supporting single image for edit, so replace index 0
       setFormData({ ...formData, images: [publicUrl] });
-
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      Alert.alert('Error', error.message || 'Failed to upload image');
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error('Upload error:', err);
+      Alert.alert('Error', err.message || 'Failed to upload image');
     } finally {
       setIsUploading(false);
     }
@@ -405,17 +457,26 @@ export default function ProductEditScreen() {
 
   const calculateProfitMargin = (price: number, costPrice: number) => {
     if (!costPrice || costPrice <= 0) {
-      return { profit: 0, percentage: '0.0%', color: colors.textSecondary, active: false };
+      return {
+        profit: 0,
+        percentage: '0.0%',
+        color: colors.textSecondary,
+        active: false,
+      };
     }
     const profit = price - costPrice;
-    const percentage = price > 0 ? ((profit / price) * 100).toFixed(1) + '%' : '0.0%';
-    const color = profit > 0 ? '#10B981' : (profit < 0 ? '#EF4444' : colors.textSecondary);
+    const percentage =
+      price > 0 ? ((profit / price) * 100).toFixed(1) + '%' : '0.0%';
+    const color =
+      profit > 0 ? '#10B981' : profit < 0 ? '#EF4444' : colors.textSecondary;
     return { profit, percentage, color, active: true };
   };
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.centerContainer, { backgroundColor: colors.background }]}
+      >
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
     );
@@ -423,7 +484,9 @@ export default function ProductEditScreen() {
 
   if (error) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.centerContainer, { backgroundColor: colors.background }]}
+      >
         <Text style={{ color: colors.text }}>Error loading product</Text>
         <Text style={{ color: colors.textSecondary }}>{error.message}</Text>
       </View>
@@ -431,19 +494,40 @@ export default function ProductEditScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={updateProductMutation.isPending || createProductMutation.isPending}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, flexDirection: 'row', alignItems: 'center' })}
+              disabled={
+                updateProductMutation.isPending ||
+                createProductMutation.isPending
+              }
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.6 : 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+              })}
             >
-              {(updateProductMutation.isPending || createProductMutation.isPending) && (
-                <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 8 }} />
-              )}
-              <Text style={{ color: colors.primary, fontSize: 17, fontWeight: '600' }}>
+              {(updateProductMutation.isPending ||
+                createProductMutation.isPending) && (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                )}
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontSize: 17,
+                  fontWeight: '600',
+                }}
+              >
                 Save
               </Text>
             </Pressable>
@@ -454,12 +538,20 @@ export default function ProductEditScreen() {
         {/* Product Image */}
         {/* Product Image */}
         <Pressable
-          style={[styles.imageContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.imageContainer,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
           onPress={handleImagePick}
           disabled={isUploading}
         >
           {isUploading ? (
-            <View style={[styles.imagePlaceholder, { backgroundColor: colors.inputBg }]}>
+            <View
+              style={[
+                styles.imagePlaceholder,
+                { backgroundColor: colors.inputBg },
+              ]}
+            >
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : formData.images && formData.images.length > 0 ? (
@@ -476,31 +568,62 @@ export default function ProductEditScreen() {
               </View>
             </View>
           ) : (
-            <View style={[styles.imagePlaceholder, { backgroundColor: colors.inputBg }]}>
-              <Ionicons name="image-outline" size={48} color={colors.textSecondary} />
-              <Text style={[styles.imageText, { color: colors.textSecondary }]}>Tap to upload image</Text>
+            <View
+              style={[
+                styles.imagePlaceholder,
+                { backgroundColor: colors.inputBg },
+              ]}
+            >
+              <Ionicons
+                name="image-outline"
+                size={48}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.imageText, { color: colors.textSecondary }]}>
+                Tap to upload image
+              </Text>
             </View>
           )}
         </Pressable>
 
         {/* Status / Visibility */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            },
+          ]}
+        >
           <View>
-            <Text style={[styles.cardTitle, { color: colors.text, marginBottom: 4 }]}>Product Status</Text>
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: colors.text, marginBottom: 4 },
+              ]}
+            >
+              Product Status
+            </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              {formData.status === 'active' ? 'Product is visible to customers.' : 'Product is hidden from store.'}
+              {formData.status === 'active'
+                ? 'Product is visible to customers.'
+                : 'Product is hidden from store.'}
             </Text>
           </View>
           <Switch
             value={formData.status === 'active'}
             onValueChange={(val) => {
               const newStatus = val ? 'active' : 'draft';
-              setFormData(prev => ({ ...prev, status: newStatus }));
+              setFormData((prev) => ({ ...prev, status: newStatus }));
               // Autosave status change immediately if editing
               if (isEditing) {
                 updateProductMutation.mutate({
                   id,
-                  updates: { ...formData, status: newStatus }
+                  updates: { ...formData, status: newStatus },
                 });
               }
             }}
@@ -509,56 +632,121 @@ export default function ProductEditScreen() {
         </View>
 
         {/* Basic Info */}
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Basic Information</Text>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Basic Information
+          </Text>
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Product Name <Text style={{ color: '#EF4444' }}>*</Text></Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Product Name <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
             value={formData.name}
             onChangeText={(text) => setFormData({ ...formData, name: text })}
             placeholder="Enter product name"
             placeholderTextColor={colors.textSecondary}
           />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>SKU <Text style={{ color: '#EF4444' }}>*</Text></Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            SKU <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
             value={formData.sku}
             onChangeText={(text) => setFormData({ ...formData, sku: text })}
             placeholder="Enter SKU"
             placeholderTextColor={colors.textSecondary}
           />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Category <Text style={{ color: '#EF4444' }}>*</Text></Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Category <Text style={{ color: '#EF4444' }}>*</Text>
+          </Text>
           <Pressable
-            style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                borderColor: colors.border,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              },
+            ]}
             onPress={() => setIsCategoryModalVisible(true)}
           >
-            <Text style={{ color: formData.category_id ? colors.text : colors.textSecondary }}>
-              {categories.find(c => c.id === formData.category_id)?.name || formData.category || 'Select Category'}
+            <Text
+              style={{
+                color: formData.category_id
+                  ? colors.text
+                  : colors.textSecondary,
+              }}
+            >
+              {categories.find((c) => c.id === formData.category_id)?.name ||
+                formData.category ||
+                'Select Category'}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={colors.textSecondary}
+            />
           </Pressable>
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Color</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Color
+          </Text>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
             value={formData.color}
             onChangeText={(text) => setFormData({ ...formData, color: text })}
             placeholder="e.g. Midnight Blue"
             placeholderTextColor={colors.textSecondary}
           />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Description
+          </Text>
           <TextInput
             style={[
               styles.input,
               styles.textArea,
-              { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border },
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
             ]}
             value={formData.description}
-            onChangeText={(text) => setFormData({ ...formData, description: text })}
+            onChangeText={(text) =>
+              setFormData({ ...formData, description: text })
+            }
             placeholder="Enter product description"
             placeholderTextColor={colors.textSecondary}
             multiline
@@ -568,18 +756,65 @@ export default function ProductEditScreen() {
 
         {/* Variants Section - Only if Parent */}
         {product?.variants && product.variants.length > 0 ? (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>Variants</Text>
-              <View style={{ backgroundColor: colors.inputBg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '600' }}>{product.variants.length} Items</Text>
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={[
+                  styles.cardTitle,
+                  { color: colors.text, marginBottom: 0 },
+                ]}
+              >
+                Variants
+              </Text>
+              <View
+                style={{
+                  backgroundColor: colors.inputBg,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  {product.variants.length} Items
+                </Text>
               </View>
             </View>
-            <Text style={{ color: colors.textSecondary, marginBottom: 16, fontSize: 13 }}>
-              This is a parent product. Manage stock, pricing, and specific attributes on the individual variants below.
+            <Text
+              style={{
+                color: colors.textSecondary,
+                marginBottom: 16,
+                fontSize: 13,
+              }}
+            >
+              This is a parent product. Manage stock, pricing, and specific
+              attributes on the individual variants below.
             </Text>
 
-            {product.variants.map((variant: any) => (
+            {product.variants.map((variant: {
+              id: string;
+              name: string;
+              variant_attributes?: Record<string, string>;
+              sku?: string;
+              stock_quantity?: number;
+            }) => (
               <Pressable
                 key={variant.id}
                 style={{
@@ -588,35 +823,90 @@ export default function ProductEditScreen() {
                   justifyContent: 'space-between',
                   paddingVertical: 12,
                   borderTopWidth: 1,
-                  borderTopColor: colors.border
+                  borderTopColor: colors.border,
                 }}
                 onPress={() => router.push(`/product/${variant.id}`)}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15 }}>
-                    {variant.variant_attributes ? Object.values(variant.variant_attributes).join(' / ') : variant.name}
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontWeight: '600',
+                      fontSize: 15,
+                    }}
+                  >
+                    {variant.variant_attributes
+                      ? Object.values(variant.variant_attributes).join(' / ')
+                      : variant.name}
                   </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 2 }}>
-                    {variant.sku || 'No SKU'} • Stock: {variant.stock_quantity || 0}
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      marginTop: 2,
+                    }}
+                  >
+                    {variant.sku || 'No SKU'} • Stock:{' '}
+                    {variant.stock_quantity || 0}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textSecondary}
+                />
               </Pressable>
             ))}
           </View>
         ) : (
           <>
             {/* Attributes Section - Only if NOT a parent with existing variants */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={[styles.cardTitle, { color: colors.text, marginBottom: 0 }]}>Attributes</Text>
-                <Pressable onPress={addAttribute} style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    { color: colors.text, marginBottom: 0 },
+                  ]}
+                >
+                  Attributes
+                </Text>
+                <Pressable
+                  onPress={addAttribute}
+                  style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
                   <Ionicons name="add" size={20} color={colors.primary} />
-                  <Text style={{ color: colors.primary, marginLeft: 4, fontWeight: '600' }}>Add</Text>
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      marginLeft: 4,
+                      fontWeight: '600',
+                    }}
+                  >
+                    Add
+                  </Text>
                 </Pressable>
               </View>
               {formData.variant_attributes.length === 0 && (
-                <Text style={{ color: colors.textSecondary, fontSize: 13, fontStyle: 'italic' }}>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                    fontStyle: 'italic',
+                  }}
+                >
                   No attributes defined (e.g. Storage, RAM).
                 </Text>
               )}
@@ -624,23 +914,44 @@ export default function ProductEditScreen() {
                 <View key={index} style={[styles.row, { marginBottom: 12 }]}>
                   <View style={{ flex: 1 }}>
                     <TextInput
-                      style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          color: colors.text,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       value={attr.key}
-                      onChangeText={(text) => updateAttribute(index, 'key', text)}
+                      onChangeText={(text) =>
+                        updateAttribute(index, 'key', text)
+                      }
                       placeholder="Key (e.g. Storage)"
                       placeholderTextColor={colors.textSecondary}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
                     <TextInput
-                      style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          color: colors.text,
+                          borderColor: colors.border,
+                        },
+                      ]}
                       value={attr.value}
-                      onChangeText={(text) => updateAttribute(index, 'value', text)}
+                      onChangeText={(text) =>
+                        updateAttribute(index, 'value', text)
+                      }
                       placeholder="Value (e.g. 256GB)"
                       placeholderTextColor={colors.textSecondary}
                     />
                   </View>
-                  <Pressable onPress={() => removeAttribute(index)} style={{ justifyContent: 'center', paddingHorizontal: 8 }}>
+                  <Pressable
+                    onPress={() => removeAttribute(index)}
+                    style={{ justifyContent: 'center', paddingHorizontal: 8 }}
+                  >
                     <Ionicons name="trash-outline" size={20} color="#EF4444" />
                   </Pressable>
                 </View>
@@ -648,11 +959,20 @@ export default function ProductEditScreen() {
             </View>
 
             {/* Pricing - Show for single variants */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Pricing</Text>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.cardTitle, { color: colors.text }]}>
+                Pricing
+              </Text>
               <View style={styles.row}>
                 <View style={[styles.halfInput, { marginRight: 8 }]}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Selling Price <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Selling Price <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
                   <PriceInput
                     value={formData.price}
                     onChange={(val) => setFormData({ ...formData, price: val })}
@@ -663,10 +983,14 @@ export default function ProductEditScreen() {
                   />
                 </View>
                 <View style={[styles.halfInput, { marginLeft: 8 }]}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Cost Price</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Cost Price
+                  </Text>
                   <PriceInput
                     value={formData.cost_price}
-                    onChange={(val) => setFormData({ ...formData, cost_price: val })}
+                    onChange={(val) =>
+                      setFormData({ ...formData, cost_price: val })
+                    }
                     placeholder="0.00"
                     colors={colors}
                     styles={styles}
@@ -675,14 +999,50 @@ export default function ProductEditScreen() {
                 </View>
               </View>
               {/* Profit Margin Calculation */}
-              <View style={[styles.profitCard, { backgroundColor: colors.inputBg }]}>
-                <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Profit Margin</Text>
-                {calculateProfitMargin(formData.price, formData.cost_price).active ? (
-                  <Text style={[styles.profitValue, { color: calculateProfitMargin(formData.price, formData.cost_price).color }]}>
-                    {currencySymbol}{new Intl.NumberFormat().format(formData.price - formData.cost_price)} ({calculateProfitMargin(formData.price, formData.cost_price).percentage})
+              <View
+                style={[styles.profitCard, { backgroundColor: colors.inputBg }]}
+              >
+                <Text
+                  style={[styles.profitLabel, { color: colors.textSecondary }]}
+                >
+                  Profit Margin
+                </Text>
+                {calculateProfitMargin(formData.price, formData.cost_price)
+                  .active ? (
+                  <Text
+                    style={[
+                      styles.profitValue,
+                      {
+                        color: calculateProfitMargin(
+                          formData.price,
+                          formData.cost_price
+                        ).color,
+                      },
+                    ]}
+                  >
+                    {currencySymbol}
+                    {new Intl.NumberFormat().format(
+                      formData.price - formData.cost_price
+                    )}{' '}
+                    (
+                    {
+                      calculateProfitMargin(formData.price, formData.cost_price)
+                        .percentage
+                    }
+                    )
                   </Text>
                 ) : (
-                  <Text style={[styles.profitValue, { color: colors.textSecondary, fontSize: 13, fontWeight: '500', marginTop: 4 }]}>
+                  <Text
+                    style={[
+                      styles.profitValue,
+                      {
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: '500',
+                        marginTop: 4,
+                      },
+                    ]}
+                  >
                     Enter cost price to calculate margin
                   </Text>
                 )}
@@ -690,38 +1050,98 @@ export default function ProductEditScreen() {
             </View>
 
             {/* Inventory Tracking Toggle */}
-            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                },
+              ]}
+            >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { marginBottom: 4, color: colors.text }]}>Track Inventory</Text>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    { marginBottom: 4, color: colors.text },
+                  ]}
+                >
+                  Track Inventory
+                </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                   Automatically manage stock levels and fulfillments.
                 </Text>
               </View>
               <Switch
                 value={formData.manage_stock}
-                onValueChange={(value) => setFormData({ ...formData, manage_stock: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, manage_stock: value })
+                }
                 trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={Platform.OS === 'ios' ? undefined : (formData.manage_stock ? colors.primary : '#f4f3f4')}
+                thumbColor={
+                  Platform.OS === 'ios'
+                    ? undefined
+                    : formData.manage_stock
+                      ? colors.primary
+                      : '#f4f3f4'
+                }
               />
             </View>
 
             {/* Fulfillment - Show only if tracking inventory */}
             {formData.manage_stock && (
-
-              <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
                 <View style={[styles.row, { marginBottom: 16 }]}>
                   <View>
-                    <Text style={[styles.cardTitle, { color: colors.text, marginBottom: 4 }]}>Fulfillment Details</Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13, maxWidth: '90%' }}>
+                    <Text
+                      style={[
+                        styles.cardTitle,
+                        { color: colors.text, marginBottom: 4 },
+                      ]}
+                    >
+                      Fulfillment Details
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        maxWidth: '90%',
+                      }}
+                    >
                       Manage unique identifiers (IMEI, S/N).
                     </Text>
                   </View>
-                  <Ionicons name="barcode-outline" size={24} color={colors.primary} />
+                  <Ionicons
+                    name="barcode-outline"
+                    size={24}
+                    color={colors.primary}
+                  />
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 16,
+                  }}
+                >
                   <View>
-                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontSize: 16,
+                        fontWeight: '600',
+                      }}
+                    >
                       {formData.fulfillment_details.items.length} Units
                     </Text>
                     <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
@@ -729,25 +1149,67 @@ export default function ProductEditScreen() {
                     </Text>
                   </View>
                   <Pressable
-                    style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+                    style={{
+                      backgroundColor: colors.primary,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                    }}
                     onPress={() => setIsFulfillmentModalVisible(true)}
                   >
                     <Text style={{ color: '#fff', fontWeight: '600' }}>
-                      {formData.fulfillment_details.items.length > 0 ? 'View/Edit Items' : 'Add Details'}
+                      {formData.fulfillment_details.items.length > 0
+                        ? 'View/Edit Items'
+                        : 'Add Details'}
                     </Text>
                   </Pressable>
                 </View>
 
-                <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 16 }} />
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: colors.border,
+                    marginVertical: 16,
+                  }}
+                />
 
                 <View>
-                  <Text style={[styles.cardTitle, { color: colors.text, fontSize: 16 }]}>Stock Management</Text>
+                  <Text
+                    style={[
+                      styles.cardTitle,
+                      { color: colors.text, fontSize: 16 },
+                    ]}
+                  >
+                    Stock Management
+                  </Text>
                   <View style={styles.stockRow}>
                     <View style={styles.stockInfo}>
-                      <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>Quantity <Text style={{ color: '#EF4444' }}>*</Text></Text>
+                      <Text
+                        style={[
+                          styles.stockLabel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Quantity <Text style={{ color: '#EF4444' }}>*</Text>
+                      </Text>
                       <TextInput
-                        style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border, width: 120, textAlign: 'center' }]}
-                        value={formData.stock_quantity === 0 ? '' : new Intl.NumberFormat().format(formData.stock_quantity)}
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: colors.inputBg,
+                            color: colors.text,
+                            borderColor: colors.border,
+                            width: 120,
+                            textAlign: 'center',
+                          },
+                        ]}
+                        value={
+                          formData.stock_quantity === 0
+                            ? ''
+                            : new Intl.NumberFormat().format(
+                              formData.stock_quantity
+                            )
+                        }
                         onChangeText={(text) => {
                           const num = parseInt(text.replace(/,/g, ''));
                           adjustStock(isNaN(num) ? 0 : num);
@@ -757,25 +1219,55 @@ export default function ProductEditScreen() {
                     </View>
                     <View style={styles.stockActions}>
                       <Pressable
-                        style={[styles.stockButton, { backgroundColor: '#EF4444' }]}
+                        style={[
+                          styles.stockButton,
+                          { backgroundColor: '#EF4444' },
+                        ]}
                         onPress={() => adjustStock(formData.stock_quantity - 1)}
                       >
                         <Ionicons name="remove" size={20} color="#FFFFFF" />
                       </Pressable>
                       <Pressable
-                        style={[styles.stockButton, { backgroundColor: '#10B981' }]}
+                        style={[
+                          styles.stockButton,
+                          { backgroundColor: '#10B981' },
+                        ]}
                         onPress={() => adjustStock(formData.stock_quantity + 1)}
                       >
                         <Ionicons name="add" size={20} color="#FFFFFF" />
                       </Pressable>
                     </View>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Low Stock Threshold</Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 12,
+                    }}
+                  >
+                    <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                      Low Stock Threshold
+                    </Text>
                     <TextInput
-                      style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border, width: 80, padding: 8, textAlign: 'center' }]}
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.inputBg,
+                          color: colors.text,
+                          borderColor: colors.border,
+                          width: 80,
+                          padding: 8,
+                          textAlign: 'center',
+                        },
+                      ]}
                       value={formData.low_stock_threshold?.toString()}
-                      onChangeText={(text) => setFormData({ ...formData, low_stock_threshold: Number(text) || 0 })}
+                      onChangeText={(text) =>
+                        setFormData({
+                          ...formData,
+                          low_stock_threshold: Number(text) || 0,
+                        })
+                      }
                       keyboardType="numeric"
                       placeholder="3"
                       placeholderTextColor={colors.textSecondary}
@@ -803,34 +1295,45 @@ export default function ProductEditScreen() {
         >
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Select Category</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Select Category
+              </Text>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
+              >
                 <Pressable
                   onPress={() => setIsCreatingCategory(!isCreatingCategory)}
                   style={{
-                    backgroundColor: isCreatingCategory ? '#EF4444' + '15' : colors.primary + '15',
+                    backgroundColor: isCreatingCategory
+                      ? '#EF4444' + '15'
+                      : colors.primary + '15',
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 20,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 6
+                    gap: 6,
                   }}
                 >
                   <Ionicons
-                    name={isCreatingCategory ? "close" : "add"}
+                    name={isCreatingCategory ? 'close' : 'add'}
                     size={20}
                     color={isCreatingCategory ? '#EF4444' : colors.primary}
                   />
-                  <Text style={{
-                    color: isCreatingCategory ? '#EF4444' : colors.primary,
-                    fontWeight: '700',
-                    fontSize: 14
-                  }}>
-                    {isCreatingCategory ? "Cancel" : "Add New"}
+                  <Text
+                    style={{
+                      color: isCreatingCategory ? '#EF4444' : colors.primary,
+                      fontWeight: '700',
+                      fontSize: 14,
+                    }}
+                  >
+                    {isCreatingCategory ? 'Cancel' : 'Add New'}
                   </Text>
                 </Pressable>
-                <Pressable onPress={() => setIsCategoryModalVisible(false)} style={{ padding: 4 }}>
+                <Pressable
+                  onPress={() => setIsCategoryModalVisible(false)}
+                  style={{ padding: 4 }}
+                >
                   <Ionicons name="close" size={24} color={colors.text} />
                 </Pressable>
               </View>
@@ -839,19 +1342,38 @@ export default function ProductEditScreen() {
             {isCreatingCategory && (
               <View style={{ marginBottom: 16, flexDirection: 'row', gap: 8 }}>
                 <TextInput
-                  style={[styles.input, { flex: 1, backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                  style={[
+                    styles.input,
+                    {
+                      flex: 1,
+                      backgroundColor: colors.inputBg,
+                      color: colors.text,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   value={newCategoryName}
                   onChangeText={setNewCategoryName}
                   placeholder="New Category Name"
                   placeholderTextColor={colors.textSecondary}
-                  autoFocus
                 />
                 <Pressable
-                  style={{ backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 8 }}
+                  style={{
+                    backgroundColor: colors.primary,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                  }}
                   onPress={handleCreateCategory}
                   disabled={createCategoryMutation.isPending}
                 >
-                  {createCategoryMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: 'bold' }}>Add</Text>}
+                  {createCategoryMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                      Add
+                    </Text>
+                  )}
                 </Pressable>
               </View>
             )}
@@ -861,13 +1383,24 @@ export default function ProductEditScreen() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <Pressable
-                  style={[styles.categoryItem, { borderBottomColor: colors.border }]}
+                  style={[
+                    styles.categoryItem,
+                    { borderBottomColor: colors.border },
+                  ]}
                   onPress={() => {
-                    setFormData({ ...formData, category: item.name, category_id: item.id });
+                    setFormData({
+                      ...formData,
+                      category: item.name,
+                      category_id: item.id,
+                    });
                     setIsCategoryModalVisible(false);
                   }}
                 >
-                  <Text style={[styles.categoryItemText, { color: colors.text }]}>{item.name}</Text>
+                  <Text
+                    style={[styles.categoryItemText, { color: colors.text }]}
+                  >
+                    {item.name}
+                  </Text>
                   {formData.category_id === item.id && (
                     <Ionicons name="checkmark" size={20} color={colors.text} />
                   )}
@@ -886,10 +1419,17 @@ export default function ProductEditScreen() {
         onRequestClose={() => setIsFulfillmentModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card, height: '80%' }]}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.card, height: '80%' },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <View>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Fulfillment Details</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  Fulfillment Details
+                </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                   Enter details for {formData.stock_quantity} units
                 </Text>
@@ -904,28 +1444,73 @@ export default function ProductEditScreen() {
               keyExtractor={(_, index) => index.toString()}
               contentContainerStyle={{ paddingBottom: 24 }}
               renderItem={({ item, index }) => (
-                <View style={{ marginBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 16 }}>
-                  <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8 }}>
+                <View
+                  style={{
+                    marginBottom: 20,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    paddingBottom: 16,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontWeight: '700',
+                      marginBottom: 8,
+                    }}
+                  >
                     Item #{index + 1}
                   </Text>
 
                   <View style={{ gap: 12 }}>
                     <View>
-                      <Text style={[styles.label, { color: colors.textSecondary, marginTop: 0 }]}>IMEI</Text>
+                      <Text
+                        style={[
+                          styles.label,
+                          { color: colors.textSecondary, marginTop: 0 },
+                        ]}
+                      >
+                        IMEI
+                      </Text>
                       <TextInput
-                        style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: colors.inputBg,
+                            color: colors.text,
+                            borderColor: colors.border,
+                          },
+                        ]}
                         value={item.imei}
-                        onChangeText={(text) => updateFulfillmentItem(index, 'imei', text)}
+                        onChangeText={(text) =>
+                          updateFulfillmentItem(index, 'imei', text)
+                        }
                         placeholder="Enter IMEI"
                         placeholderTextColor={colors.textSecondary}
                       />
                     </View>
                     <View>
-                      <Text style={[styles.label, { color: colors.textSecondary, marginTop: 0 }]}>Serial Number</Text>
+                      <Text
+                        style={[
+                          styles.label,
+                          { color: colors.textSecondary, marginTop: 0 },
+                        ]}
+                      >
+                        Serial Number
+                      </Text>
                       <TextInput
-                        style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: colors.inputBg,
+                            color: colors.text,
+                            borderColor: colors.border,
+                          },
+                        ]}
                         value={item.serial_number}
-                        onChangeText={(text) => updateFulfillmentItem(index, 'serial_number', text)}
+                        onChangeText={(text) =>
+                          updateFulfillmentItem(index, 'serial_number', text)
+                        }
                         placeholder="Enter Serial Number"
                         placeholderTextColor={colors.textSecondary}
                       />
@@ -944,7 +1529,7 @@ export default function ProductEditScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 

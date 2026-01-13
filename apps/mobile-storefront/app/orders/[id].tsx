@@ -216,7 +216,13 @@ export default function OrderDetailsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
@@ -224,20 +230,33 @@ export default function OrderDetailsScreen() {
 
   if (error || !order) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.errorText, { color: colors.text }]}>
           {error || 'Order not found'}
         </Text>
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={[styles.retryText, { color: BRAND.primary }]}>Go back</Text>
+          <Text style={[styles.retryText, { color: BRAND.primary }]}>
+            Go back
+          </Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const currentStepIndex = getCurrentStepIndex(order.status);
-  const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
+  const isCancelled =
+    order.status === 'cancelled' || order.status === 'refunded';
 
   return (
     <ScrollView
@@ -260,7 +279,9 @@ export default function OrderDetailsScreen() {
       {/* Order Status Timeline */}
       {!isCancelled && (
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Status</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Order Status
+          </Text>
           <View style={styles.timeline}>
             {ORDER_STATUS_STEPS.map((step, index) => {
               const isCompleted = index <= currentStepIndex;
@@ -313,7 +334,11 @@ export default function OrderDetailsScreen() {
               style={[styles.trackButton, { borderColor: BRAND.primary }]}
               onPress={handleTrackOrder}
             >
-              <Ionicons name="location-outline" size={18} color={BRAND.primary} />
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={BRAND.primary}
+              />
               <Text style={[styles.trackButtonText, { color: BRAND.primary }]}>
                 Track Order
               </Text>
@@ -346,20 +371,29 @@ export default function OrderDetailsScreen() {
             onPress={() => router.push(`/product/${item.product_slug}`)}
           >
             <Image
-              source={{ uri: item.image_url || 'https://via.placeholder.com/80' }}
+              source={{
+                uri: item.image_url || 'https://via.placeholder.com/80',
+              }}
               style={styles.itemImage}
             />
             <View style={styles.itemDetails}>
-              <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+              <Text
+                style={[styles.itemName, { color: colors.text }]}
+                numberOfLines={2}
+              >
                 {item.product_name}
               </Text>
               {item.variant_name && (
-                <Text style={[styles.itemVariant, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.itemVariant, { color: colors.textSecondary }]}
+                >
                   {item.variant_name}
                 </Text>
               )}
               <View style={styles.itemPriceRow}>
-                <Text style={[styles.itemQuantity, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.itemQuantity, { color: colors.textSecondary }]}
+                >
                   Qty: {item.quantity}
                 </Text>
                 <Text style={[styles.itemPrice, { color: colors.text }]}>
@@ -373,9 +407,15 @@ export default function OrderDetailsScreen() {
 
       {/* Shipping Address */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Shipping Address</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Shipping Address
+        </Text>
         <View style={styles.addressContent}>
-          <Ionicons name="location-outline" size={20} color={colors.textSecondary} />
+          <Ionicons
+            name="location-outline"
+            size={20}
+            color={colors.textSecondary}
+          />
           <View style={styles.addressDetails}>
             <Text style={[styles.addressName, { color: colors.text }]}>
               {order.shipping_address?.name}
@@ -395,22 +435,34 @@ export default function OrderDetailsScreen() {
 
       {/* Order Summary */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Order Summary</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Order Summary
+        </Text>
         <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            Subtotal
+          </Text>
           <Text style={[styles.summaryValue, { color: colors.text }]}>
             {formatPrice(order.subtotal)}
           </Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Shipping</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            Shipping
+          </Text>
           <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {order.shipping_fee === 0 ? 'Free' : formatPrice(order.shipping_fee)}
+            {order.shipping_fee === 0
+              ? 'Free'
+              : formatPrice(order.shipping_fee)}
           </Text>
         </View>
         {order.discount > 0 && (
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Discount</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Discount
+            </Text>
             <Text style={[styles.summaryValue, { color: '#059669' }]}>
               -{formatPrice(order.discount)}
             </Text>
@@ -434,7 +486,11 @@ export default function OrderDetailsScreen() {
         style={[styles.supportButton, { borderColor: colors.border }]}
         onPress={handleContactSupport}
       >
-        <Ionicons name="chatbubble-ellipses-outline" size={20} color={BRAND.primary} />
+        <Ionicons
+          name="chatbubble-ellipses-outline"
+          size={20}
+          color={BRAND.primary}
+        />
         <Text style={[styles.supportButtonText, { color: BRAND.primary }]}>
           Need help with this order?
         </Text>

@@ -33,21 +33,20 @@ import {
   useSendReminder,
   useRecordPayment,
   type ShippingStatus,
-  type PaymentStatus
+  type PaymentStatus,
 } from '@/hooks/useOrders';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import {
   SHIPPING_STATUS_CONFIG,
   SHIPPING_STATUS_ACTIONS,
   PAYMENT_STATUS_CONFIG,
-  ORDER_SOURCE_CONFIG,
-  BRAND_COLORS
+  BRAND_COLORS,
 } from '@baci/shared';
 import { supabase } from '@/lib/supabase';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 
 // Helper to get consistent theme colors for statuses
-const getStatusColor = (key: string | undefined, colors: any) => {
+const getStatusColor = (key: string | undefined, colors: Record<string, string>) => {
   const colorMap: Record<string, string> = {
     pending: colors.pending,
     processing: colors.processing,
@@ -63,7 +62,10 @@ const getStatusColor = (key: string | undefined, colors: any) => {
 };
 
 // Status Transition Logic
-const isStatusActionAllowed = (currentStatus: string, targetStatus: string): boolean => {
+const isStatusActionAllowed = (
+  currentStatus: string,
+  targetStatus: string
+): boolean => {
   if (currentStatus === targetStatus) return true; // Always allow keeping same status
 
   switch (currentStatus) {
@@ -87,16 +89,41 @@ const isStatusActionAllowed = (currentStatus: string, targetStatus: string): boo
   }
 };
 
-const generateReceiptHtml = (order: any) => {
+const generateReceiptHtml = (order: {
+  total: number;
+  created_at: string;
+  payment_status: string;
+  order_number: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  payment_method: string | null;
+  items: Array<{
+    product_name: string;
+    quantity: number;
+    price: number;
+  }>;
+}) => {
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(amount);
+    new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+    }).format(amount);
   const total = formatCurrency(order.total);
-  const date = new Date(order.created_at).toLocaleDateString('en-NG', { dateStyle: 'medium' });
-  const time = new Date(order.created_at).toLocaleTimeString('en-NG', { timeStyle: 'short' });
+  const date = new Date(order.created_at).toLocaleDateString('en-NG', {
+    dateStyle: 'medium',
+  });
+  const time = new Date(order.created_at).toLocaleTimeString('en-NG', {
+    timeStyle: 'short',
+  });
   const isPaid = order.payment_status === 'paid';
   const documentTitle = isPaid ? 'Receipt' : 'Invoice';
-  const watermarkColor = isPaid ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)';
-  const watermarkBorderColor = isPaid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+  const watermarkColor = isPaid
+    ? 'rgba(34, 197, 94, 0.08)'
+    : 'rgba(239, 68, 68, 0.08)';
+  const watermarkBorderColor = isPaid
+    ? 'rgba(34, 197, 94, 0.15)'
+    : 'rgba(239, 68, 68, 0.15)';
   const watermarkText = isPaid ? 'PAID' : 'UNPAID';
 
   return `
@@ -199,7 +226,9 @@ const generateReceiptHtml = (order: any) => {
             </div>
 
             <div class="section-label">Product Details</div>
-            ${order.items.map((item: any) => `
+            ${order.items
+      .map(
+        (item: { product_name: string; quantity: number; price: number }) => `
               <div class="product-card">
                 <div class="product-row">
                   <div>
@@ -209,7 +238,9 @@ const generateReceiptHtml = (order: any) => {
                   <div class="product-price">${formatCurrency(item.price * item.quantity)}</div>
                 </div>
               </div>
-            `).join('')}
+            `
+      )
+      .join('')}
 
             <div class="footer">
               <div class="footer-help">Questions regarding this ${documentTitle.toLowerCase()}?</div>
@@ -223,10 +254,13 @@ const generateReceiptHtml = (order: any) => {
 };
 
 export default function OrderDetailsScreen() {
-  const { id, action } = useLocalSearchParams<{ id: string; action?: string }>();
+  const { id, action } = useLocalSearchParams<{
+    id: string;
+    action?: string;
+  }>();
   const orderId = Array.isArray(id) ? id[0] : id;
   const actionParam = Array.isArray(action) ? action[0] : action;
-  const { colors, shadows, isDark } = useTheme();
+  const { colors, shadows } = useTheme();
 
   // Data Fetching
   const queryClient = useQueryClient();
@@ -247,7 +281,6 @@ export default function OrderDetailsScreen() {
   });
   const [riderPhone, setRiderPhone] = useState('');
   const [savedRiders, setSavedRiders] = useState<string[]>([]);
-  const [pendingShipConfirm, setPendingShipConfirm] = useState(false);
 
   // Payment Recording State
   const [showPaymentOptionModal, setShowPaymentOptionModal] = useState(false);
@@ -260,7 +293,7 @@ export default function OrderDetailsScreen() {
     visible: false,
     title: 'Success!',
     message: '',
-    subMessage: ''
+    subMessage: '',
   });
 
   // Formatting Helpers
@@ -304,7 +337,8 @@ export default function OrderDetailsScreen() {
     if (actionParam === 'record-payment') {
       setShowRecordPaymentModal(true);
       // Pre-fill with outstanding balance
-      const balance = order.balance || (Number(order.total) - Number(order.amount_paid || 0));
+      const balance =
+        order.balance || Number(order.total) - Number(order.amount_paid || 0);
       if (balance > 0) {
         setPaymentAmount(String(Math.round(balance)));
       }
@@ -344,9 +378,9 @@ export default function OrderDetailsScreen() {
 
     await handleSaveRider(riderPhone);
 
-    const itemsList = order?.items?.map((item: any) =>
-      `- ${item.quantity}x ${item.name}`
-    ).join('\n');
+    const itemsList = order?.items
+      ?.map((item: { quantity: number; name: string }) => `- ${item.quantity}x ${item.name}`)
+      .join('\n');
 
     const message = `
 📦 *New Order Dispatch*
@@ -371,24 +405,26 @@ ${itemsList}
 
     const url = `https://wa.me/${riderPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
 
-    Linking.openURL(url).then(() => {
-      Alert.alert(
-        'Order Sent to Rider',
-        'Have you handed over the items to the rider?',
-        [
-          { text: 'No, invalid dispatch', style: 'cancel' },
-          {
-            text: 'Yes, Mark Shipped',
-            onPress: () => {
-              setShowRiderModal(false);
-              handleStatusUpdate('shipped');
-            }
-          }
-        ]
-      );
-    }).catch(err => {
-      Alert.alert('Error', 'Could not open WhatsApp');
-    });
+    Linking.openURL(url)
+      .then(() => {
+        Alert.alert(
+          'Order Sent to Rider',
+          'Have you handed over the items to the rider?',
+          [
+            { text: 'No, invalid dispatch', style: 'cancel' },
+            {
+              text: 'Yes, Mark Shipped',
+              onPress: () => {
+                setShowRiderModal(false);
+                handleStatusUpdate('shipped');
+              },
+            },
+          ]
+        );
+      })
+      .catch(() => {
+        Alert.alert('Error', 'Could not open WhatsApp');
+      });
   };
 
   const handleSendRiderToCustomer = () => {
@@ -409,7 +445,11 @@ Thank you for choosing Ogabassey!
   };
 
   const handleRecordPayment = async () => {
-    if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
+    if (
+      !paymentAmount ||
+      isNaN(Number(paymentAmount)) ||
+      Number(paymentAmount) <= 0
+    ) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
@@ -423,7 +463,7 @@ Thank you for choosing Ogabassey!
         orderId: order.id,
         amount: Number(paymentAmount),
         paymentMethod,
-        notes: paymentNotes
+        notes: paymentNotes,
       });
 
       setShowRecordPaymentModal(false);
@@ -437,14 +477,17 @@ Thank you for choosing Ogabassey!
           `Remaining Balance: ${formatPrice(result.new_balance)}. Ship remaining on credit?`,
           [
             { text: 'No', style: 'cancel' },
-            { text: 'Yes, Ship on Credit', onPress: () => setShowCreditModal(true) }
+            {
+              text: 'Yes, Ship on Credit',
+              onPress: () => setShowCreditModal(true),
+            },
           ]
         );
       } else {
         Alert.alert('Success', 'Payment recorded. Order is now fully paid.');
       }
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to record payment');
+    } catch (err: unknown) {
+      Alert.alert('Error', (err as Error).message || 'Failed to record payment');
     }
   };
 
@@ -453,7 +496,8 @@ Thank you for choosing Ogabassey!
   };
 
   const handleEmail = () => {
-    if (order?.customer_email) Linking.openURL(`mailto:${order.customer_email}`);
+    if (order?.customer_email)
+      Linking.openURL(`mailto:${order.customer_email}`);
   };
 
   const handleWhatsApp = () => {
@@ -476,22 +520,27 @@ Thank you for choosing Ogabassey!
   const handleStatusUpdate = async (newStatus: ShippingStatus) => {
     if (!order) return;
 
-    if (newStatus === 'processing' && order.payment_status !== 'paid' && !order.is_credit_order) {
+    if (
+      newStatus === 'processing' &&
+      order.payment_status !== 'paid' &&
+      !order.is_credit_order
+    ) {
       setShowStatusModal(false);
       setShowPaymentOptionModal(true);
       return;
     }
 
     if (newStatus === 'shipped' && order.shipping_status === 'processing') {
-      const hasGadgetItems = order.items?.some((item: any) =>
-        item.name?.toLowerCase().includes('phone') ||
-        item.name?.toLowerCase().includes('laptop') ||
-        item.name?.toLowerCase().includes('iphone') ||
-        item.name?.toLowerCase().includes('samsung') ||
-        item.name?.toLowerCase().includes('dell') ||
-        item.name?.toLowerCase().includes('hp') ||
-        item.name?.toLowerCase().includes('alienware') ||
-        item.name?.toLowerCase().includes('gaming')
+      const hasGadgetItems = order.items?.some(
+        (item: { name: string }) =>
+          item.name?.toLowerCase().includes('phone') ||
+          item.name?.toLowerCase().includes('laptop') ||
+          item.name?.toLowerCase().includes('iphone') ||
+          item.name?.toLowerCase().includes('samsung') ||
+          item.name?.toLowerCase().includes('dell') ||
+          item.name?.toLowerCase().includes('hp') ||
+          item.name?.toLowerCase().includes('alienware') ||
+          item.name?.toLowerCase().includes('gaming')
       );
 
       if (hasGadgetItems && !order.fulfillment_details?.imei) {
@@ -502,23 +551,31 @@ Thank you for choosing Ogabassey!
     }
 
     try {
-      await updateStatusMutation.mutateAsync({ orderId: order.id, status: newStatus });
+      await updateStatusMutation.mutateAsync({
+        orderId: order.id,
+        status: newStatus,
+      });
       setShowStatusModal(false);
 
       // Send shipped notification email when status changes to 'shipped'
       if (newStatus === 'shipped') {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session?.access_token) {
             // Fire and forget - don't block the UI
-            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/shipped`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
-            }).catch(() => { }); // Silently ignore email errors
+            fetch(
+              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/shipped`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
+              }
+            ).catch(() => { }); // Silently ignore email errors
           }
         } catch {
           // Ignore email errors - status update already succeeded
@@ -528,22 +585,30 @@ Thank you for choosing Ogabassey!
       // Send delivered notification email when status changes to 'delivered'
       if (newStatus === 'delivered') {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session?.access_token) {
             console.log('UseOrder: Sending delivered email...');
             // Fire and forget - don't block the UI
-            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/delivered`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-              },
-            })
-              .then(res => {
-                if (!res.ok) console.log('UseOrder: Delivered email failed', res.status);
+            fetch(
+              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/delivered`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              }
+            )
+              .then((res) => {
+                if (!res.ok)
+                  console.log('UseOrder: Delivered email failed', res.status);
                 else console.log('UseOrder: Delivered email sent successfully');
               })
-              .catch(err => console.log('UseOrder: Delivered email fetch error', err));
+              .catch((err) =>
+                console.log('UseOrder: Delivered email fetch error', err)
+              );
           }
         } catch (e) {
           console.log('UseOrder: Error in delivered block', e);
@@ -553,29 +618,36 @@ Thank you for choosing Ogabassey!
       // Send cancellation notification email when status changes to 'cancelled'
       if (newStatus === 'cancelled') {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
           if (session?.access_token) {
             console.log('UseOrder: Sending cancelled email...');
             // Fire and forget - don't block the UI
-            fetch(`${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/cancelled`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({ cancelled_by: 'merchant' }),
-            })
-              .then(res => {
-                if (!res.ok) console.log('UseOrder: Cancelled email failed', res.status);
+            fetch(
+              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/cancelled`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ cancelled_by: 'merchant' }),
+              }
+            )
+              .then((res) => {
+                if (!res.ok)
+                  console.log('UseOrder: Cancelled email failed', res.status);
                 else console.log('UseOrder: Cancelled email sent successfully');
               })
-              .catch(err => console.log('UseOrder: Cancelled email fetch error', err));
+              .catch((err) =>
+                console.log('UseOrder: Cancelled email fetch error', err)
+              );
           }
         } catch (e) {
           console.log('UseOrder: Error in cancelled block', e);
         }
       }
-
 
       // Determine feedback message
       let subMessage = '';
@@ -585,12 +657,17 @@ Thank you for choosing Ogabassey!
 
       setSuccessModal({
         visible: true,
-        title: newStatus === 'delivered' ? 'Order Delivered! 🎉' : 'Status Updated',
+        title:
+          newStatus === 'delivered' ? 'Order Delivered! 🎉' : 'Status Updated',
         message: `Order status updated to ${newStatus}`,
-        subMessage
+        subMessage,
       });
-    } catch (err: any) {
-      if (err.message?.includes('PAYMENT_REQUIRED') || err.message?.includes('paid before processing')) {
+    } catch (err: unknown) {
+      const error = err as Error;
+      if (
+        error.message?.includes('PAYMENT_REQUIRED') ||
+        error.message?.includes('paid before processing')
+      ) {
         Alert.alert(
           'Payment Required',
           'This order must be paid before processing. Would you like to ship on credit?',
@@ -608,22 +685,33 @@ Thank you for choosing Ogabassey!
   const handleShipOnCredit = async () => {
     if (!order) return;
     try {
-      await shipOnCreditMutation.mutateAsync({ orderId: order.id, creditNotes });
+      await shipOnCreditMutation.mutateAsync({
+        orderId: order.id,
+        creditNotes,
+      });
       setShowCreditModal(false);
       setCreditNotes('');
-      Alert.alert('Success', 'Order shipped on credit. A virtual account has been created for payment.');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to ship on credit');
+      Alert.alert(
+        'Success',
+        'Order shipped on credit. A virtual account has been created for payment.'
+      );
+    } catch (err: unknown) {
+      Alert.alert('Error', (err as Error).message || 'Failed to ship on credit');
     }
   };
 
   const handleSendReminder = async () => {
     if (!order) return;
     try {
-      const result = await sendReminderMutation.mutateAsync({ orderId: order.id });
-      Alert.alert('Reminder Sent', `Payment reminder sent to ${order.customer_email}`);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to send reminder');
+      await sendReminderMutation.mutateAsync({
+        orderId: order.id,
+      });
+      Alert.alert(
+        'Reminder Sent',
+        `Payment reminder sent to ${order.customer_email}`
+      );
+    } catch (err: unknown) {
+      Alert.alert('Error', (err as Error).message || 'Failed to send reminder');
     }
   };
 
@@ -649,12 +737,15 @@ Thank you for choosing Ogabassey!
 
       setShowFulfillmentModal(false);
       setFulfillmentDetails({ imei: '', serialNumber: '' });
-      Alert.alert('Success', 'Order marked as shipped with fulfillment details');
+      Alert.alert(
+        'Success',
+        'Order marked as shipped with fulfillment details'
+      );
 
       queryClient.invalidateQueries({ queryKey: ['order', order.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to save fulfillment details');
+    } catch (err: unknown) {
+      Alert.alert('Error', (err as Error).message || 'Failed to save fulfillment details');
     }
   };
 
@@ -663,15 +754,20 @@ Thank you for choosing Ogabassey!
     try {
       const html = generateReceiptHtml(order);
       const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (error) {
+      await Sharing.shareAsync(uri, {
+        UTI: '.pdf',
+        mimeType: 'application/pdf',
+      });
+    } catch (_error) {
       Alert.alert('Error', 'Failed to generate receipt');
     }
   };
 
   if (isLoading) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.centerContainer, { backgroundColor: colors.background }]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -679,9 +775,13 @@ Thank you for choosing Ogabassey!
 
   if (error || !order) {
     return (
-      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.centerContainer, { backgroundColor: colors.background }]}
+      >
         <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
-        <Text style={[styles.errorText, { color: colors.text }]}>Failed to load order</Text>
+        <Text style={[styles.errorText, { color: colors.text }]}>
+          Failed to load order
+        </Text>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={{ color: colors.primary }}>Go Back</Text>
         </Pressable>
@@ -689,26 +789,58 @@ Thank you for choosing Ogabassey!
     );
   }
 
-  const shippingConfig = SHIPPING_STATUS_CONFIG[order.shipping_status as ShippingStatus] || SHIPPING_STATUS_CONFIG.pending;
-  const paymentConfig = PAYMENT_STATUS_CONFIG[order.payment_status as PaymentStatus] || PAYMENT_STATUS_CONFIG.pending;
+  const shippingConfig =
+    SHIPPING_STATUS_CONFIG[order.shipping_status as ShippingStatus] ||
+    SHIPPING_STATUS_CONFIG.pending;
+  const paymentConfig =
+    PAYMENT_STATUS_CONFIG[order.payment_status as PaymentStatus] ||
+    PAYMENT_STATUS_CONFIG.pending;
   const shippingColor = getStatusColor(shippingConfig.colorKey, colors);
   const paymentColor = getStatusColor(paymentConfig.colorKey, colors);
 
   const getSourceIcon = (source: string | null) => {
     const s = (source || '').toLowerCase().trim();
-    if (s === 'instagram') return { name: 'logo-instagram', color: '#C13584', label: 'Instagram' };
-    if (s === 'whatsapp') return { name: 'logo-whatsapp', color: '#25D366', label: 'WhatsApp' };
-    if (s === 'facebook') return { name: 'logo-facebook', color: '#1877F2', label: 'Facebook' };
-    if (s === 'tiktok') return { name: 'logo-tiktok', color: '#000000', label: 'TikTok' };
-    if (s === 'mobile_app') return { name: 'phone-portrait-outline', color: colors.primary, label: 'Mobile App' };
-    if (s === 'physical') return { name: 'storefront-outline', color: colors.gold, label: 'Store' };
-    if (s === 'staff_entry') return { name: 'person-outline', color: colors.textSecondary, label: 'Staff Entry' };
-    if (s === 'online_store' || s === 'website' || s === 'storefront') return { name: 'globe-outline', color: colors.textSecondary, label: 'Website' };
-    return { name: 'pricetag-outline', color: colors.textSecondary, label: s.charAt(0).toUpperCase() + s.slice(1) || 'Order' };
+    if (s === 'instagram')
+      return { name: 'logo-instagram', color: '#C13584', label: 'Instagram' };
+    if (s === 'whatsapp')
+      return { name: 'logo-whatsapp', color: '#25D366', label: 'WhatsApp' };
+    if (s === 'facebook')
+      return { name: 'logo-facebook', color: '#1877F2', label: 'Facebook' };
+    if (s === 'tiktok')
+      return { name: 'logo-tiktok', color: '#000000', label: 'TikTok' };
+    if (s === 'mobile_app')
+      return {
+        name: 'phone-portrait-outline',
+        color: colors.primary,
+        label: 'Mobile App',
+      };
+    if (s === 'physical')
+      return { name: 'storefront-outline', color: colors.gold, label: 'Store' };
+    if (s === 'staff_entry')
+      return {
+        name: 'person-outline',
+        color: colors.textSecondary,
+        label: 'Staff Entry',
+      };
+    if (s === 'online_store' || s === 'website' || s === 'storefront')
+      return {
+        name: 'globe-outline',
+        color: colors.textSecondary,
+        label: 'Website',
+      };
+    return {
+      name: 'pricetag-outline',
+      color: colors.textSecondary,
+      label: s.charAt(0).toUpperCase() + s.slice(1) || 'Order',
+    };
   };
   const sourceInfo = getSourceIcon(order.source);
 
-  const formatAddress = (addr: any) => {
+  const formatAddress = (addr: {
+    address: string;
+    city: string;
+    state: string;
+  } | null) => {
     if (!addr) return 'No shipping address provided';
     if (typeof addr === 'string') return addr;
     if (typeof addr === 'object') {
@@ -718,7 +850,10 @@ Thank you for choosing Ogabassey!
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
           headerShown: true,
@@ -736,22 +871,35 @@ Thank you for choosing Ogabassey!
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Status Timeline */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <View style={styles.statusHeader}>
             <View>
               <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
                 Placed on {formatDate(order.created_at)}
               </Text>
               <View style={styles.sourceRow}>
-                <Ionicons name={sourceInfo.name as any} size={14} color={sourceInfo.color} />
-                <Text style={[styles.sourceText, { color: colors.textSecondary }]}>
+                <Ionicons
+                  name={sourceInfo.name as keyof typeof Ionicons.glyphMap}
+                  size={14}
+                  color={sourceInfo.color}
+                />
+                <Text
+                  style={[styles.sourceText, { color: colors.textSecondary }]}
+                >
                   {order.source === 'staff_entry' && order.recorded_by_name
                     ? `Recorded by ${order.recorded_by_name}`
                     : `via ${sourceInfo.label}`}
                 </Text>
               </View>
             </View>
-            <View style={[styles.statusBadgeBig, { backgroundColor: shippingColor + '15' }]}>
+            <View
+              style={[
+                styles.statusBadgeBig,
+                { backgroundColor: shippingColor + '15' },
+              ]}
+            >
               <Text style={[styles.statusTextBig, { color: shippingColor }]}>
                 {shippingConfig.label}
               </Text>
@@ -761,8 +909,16 @@ Thank you for choosing Ogabassey!
           <View style={styles.progressContainer}>
             {/* 4-Step Order Journey + Return/Cancel */}
             {(() => {
-              const baseSteps = ['pending', 'processing', 'shipped', 'delivered'];
-              const currentStatus = order.shipping_status === 'fulfilled' ? 'pending' : order.shipping_status;
+              const baseSteps = [
+                'pending',
+                'processing',
+                'shipped',
+                'delivered',
+              ];
+              const currentStatus =
+                order.shipping_status === 'fulfilled'
+                  ? 'pending'
+                  : order.shipping_status;
 
               const steps = [...baseSteps];
               if (currentStatus === 'returned') steps.push('returned');
@@ -777,21 +933,36 @@ Thank you for choosing Ogabassey!
 
                 return (
                   <React.Fragment key={step}>
-                    <View style={[
-                      styles.progressDot,
-                      { backgroundColor: isActive ? getStatusColor(step, colors) : colors.border }
-                    ]}>
-                      {isActive && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                    <View
+                      style={[
+                        styles.progressDot,
+                        {
+                          backgroundColor: isActive
+                            ? getStatusColor(step, colors)
+                            : colors.border,
+                        },
+                      ]}
+                    >
+                      {isActive && (
+                        <Ionicons name="checkmark" size={10} color="#FFF" />
+                      )}
                     </View>
                     {!isLast && (
-                      <View style={[
-                        styles.progressLine,
-                        { backgroundColor: index < currentStepIndex ? getStatusColor(step, colors) : colors.border }
-                      ]} />
+                      <View
+                        style={[
+                          styles.progressLine,
+                          {
+                            backgroundColor:
+                              index < currentStepIndex
+                                ? getStatusColor(step, colors)
+                                : colors.border,
+                          },
+                        ]}
+                      />
                     )}
                   </React.Fragment>
                 );
-              })
+              });
             })()}
           </View>
           <Text style={[styles.statusNote, { color: colors.textMuted }]}>
@@ -800,23 +971,38 @@ Thank you for choosing Ogabassey!
         </View>
 
         {/* Customer Card */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Customer</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Customer
+            </Text>
           </View>
 
           <View style={styles.customerRow}>
-            <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary + '15' }]}>
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                { backgroundColor: colors.primary + '15' },
+              ]}
+            >
               <Text style={[styles.avatarText, { color: colors.primary }]}>
                 {order.customer_name?.[0]?.toUpperCase()}
               </Text>
             </View>
             <View style={styles.customerInfo}>
-              <Text style={[styles.customerName, { color: colors.text }]}>{order.customer_name}</Text>
-              <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>
+              <Text style={[styles.customerName, { color: colors.text }]}>
+                {order.customer_name}
+              </Text>
+              <Text
+                style={[styles.customerDetail, { color: colors.textSecondary }]}
+              >
                 {order.customer_email}
               </Text>
-              <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.customerDetail, { color: colors.textSecondary }]}
+              >
                 {order.customer_phone}
               </Text>
             </View>
@@ -833,135 +1019,257 @@ Thank you for choosing Ogabassey!
 
           <View style={styles.actionButtons}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.backgroundLight }]}
+              style={[
+                styles.actionBtn,
+                { backgroundColor: colors.backgroundLight },
+              ]}
               onPress={handleCall}
               activeOpacity={0.7}
             >
               <Ionicons name="call" size={20} color={colors.primary} />
-              <Text style={[styles.actionBtnText, { color: colors.primary }]}>Call</Text>
+              <Text style={[styles.actionBtnText, { color: colors.primary }]}>
+                Call
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.backgroundLight }]}
+              style={[
+                styles.actionBtn,
+                { backgroundColor: colors.backgroundLight },
+              ]}
               onPress={handleWhatsApp}
               activeOpacity={0.7}
             >
-              <Ionicons name="logo-whatsapp" size={20} color={BRAND_COLORS.whatsapp} />
-              <Text style={[styles.actionBtnText, { color: BRAND_COLORS.whatsapp }]}>WhatsApp</Text>
+              <Ionicons
+                name="logo-whatsapp"
+                size={20}
+                color={BRAND_COLORS.whatsapp}
+              />
+              <Text
+                style={[styles.actionBtnText, { color: BRAND_COLORS.whatsapp }]}
+              >
+                WhatsApp
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.backgroundLight }]}
+              style={[
+                styles.actionBtn,
+                { backgroundColor: colors.backgroundLight },
+              ]}
               onPress={handleEmail}
               activeOpacity={0.7}
             >
               <Ionicons name="mail" size={20} color={colors.textSecondary} />
-              <Text style={[styles.actionBtnText, { color: colors.textSecondary }]}>Email</Text>
+              <Text
+                style={[styles.actionBtnText, { color: colors.textSecondary }]}
+              >
+                Email
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Rider Actions - Full Width */}
           {order.shipping_status === 'processing' && !pendingShipConfirm && (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.warning + '20', marginTop: 12, width: '100%' }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: colors.warning + '20',
+                  marginTop: 12,
+                  width: '100%',
+                },
+              ]}
               onPress={() => setShowRiderModal(true)}
               activeOpacity={0.7}
             >
               <Ionicons name="bicycle" size={20} color={colors.warning} />
-              <Text style={[styles.actionBtnText, { color: colors.warning }]}>Dispatch Rider</Text>
+              <Text style={[styles.actionBtnText, { color: colors.warning }]}>
+                Dispatch Rider
+              </Text>
             </TouchableOpacity>
           )}
 
           {order.shipping_status === 'shipped' && (
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.success + '20', marginTop: 12, width: '100%' }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: colors.success + '20',
+                  marginTop: 12,
+                  width: '100%',
+                },
+              ]}
               onPress={handleSendRiderToCustomer}
               activeOpacity={0.7}
             >
               <Ionicons name="share-social" size={20} color={colors.success} />
-              <Text style={[styles.actionBtnText, { color: colors.success }]}>Share Rider Info</Text>
+              <Text style={[styles.actionBtnText, { color: colors.success }]}>
+                Share Rider Info
+              </Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Order Items */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Items ({order.items?.length || 0})</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Items ({order.items?.length || 0})
+            </Text>
           </View>
-          {order.items?.map((item: any, index: number) => (
+          {order.items?.map((item: { id: string; name: string; quantity: number; price: number; image_url?: string; color?: string; size?: string }, index: number) => (
             <Pressable
               key={item.id}
               style={[
                 styles.itemRow,
-                index !== (order.items?.length || 0) - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border }
+                index !== (order.items?.length || 0) - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                },
               ]}
               onPress={() => router.push(`/product/${item.product_id}`)}
             >
-              <View style={[styles.itemImagePlaceholder, { backgroundColor: colors.backgroundLight }]}>
+              <View
+                style={[
+                  styles.itemImagePlaceholder,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
                 {item.image_url ? (
-                  <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+                  <Image
+                    source={{ uri: item.image_url }}
+                    style={styles.itemImage}
+                  />
                 ) : (
-                  <Ionicons name="image-outline" size={24} color={colors.textMuted} />
+                  <Ionicons
+                    name="image-outline"
+                    size={24}
+                    color={colors.textMuted}
+                  />
                 )}
               </View>
               <View style={styles.itemDetails}>
-                <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+                <Text
+                  style={[styles.itemName, { color: colors.text }]}
+                  numberOfLines={2}
+                >
                   {item.name}
                 </Text>
-                <Text style={[styles.itemRef, { color: colors.textMuted }]}>SKU: {item.product_id?.slice(0, 8)}...</Text>
+                <Text style={[styles.itemRef, { color: colors.textMuted }]}>
+                  SKU: {item.product_id?.slice(0, 8)}...
+                </Text>
                 <View style={styles.itemPriceRow}>
-                  <Text style={[styles.itemQty, { color: colors.textSecondary }]}>x{item.quantity}</Text>
-                  <Text style={[styles.itemPrice, { color: colors.text }]}>{formatPrice(item.price)}</Text>
+                  <Text
+                    style={[styles.itemQty, { color: colors.textSecondary }]}
+                  >
+                    x{item.quantity}
+                  </Text>
+                  <Text style={[styles.itemPrice, { color: colors.text }]}>
+                    {formatPrice(item.price)}
+                  </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textMuted}
+              />
             </Pressable>
           ))}
         </View>
 
-
-
         {/* Order Summary */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Payment Summary</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Payment Summary
+            </Text>
           </View>
 
           {order.payment_status !== 'paid' && (
             <>
               <View style={styles.paymentActionsRow}>
                 <TouchableOpacity
-                  style={[styles.paymentActionBtn, { borderColor: colors.success }]}
+                  style={[
+                    styles.paymentActionBtn,
+                    { borderColor: colors.success },
+                  ]}
                   onPress={() => {
-                    const balance = order.balance || (Number(order.total) - Number(order.amount_paid || 0));
+                    const balance =
+                      order.balance ||
+                      Number(order.total) - Number(order.amount_paid || 0);
                     setPaymentAmount(String(Math.round(balance)));
                     setShowRecordPaymentModal(true);
                   }}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="card-outline" size={18} color={colors.success} />
-                  <Text style={[styles.paymentActionBtnText, { color: colors.success }]}>Record Payment</Text>
+                  <Ionicons
+                    name="card-outline"
+                    size={18}
+                    color={colors.success}
+                  />
+                  <Text
+                    style={[
+                      styles.paymentActionBtnText,
+                      { color: colors.success },
+                    ]}
+                  >
+                    Record Payment
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.paymentActionBtn, { borderColor: colors.primary }]}
+                  style={[
+                    styles.paymentActionBtn,
+                    { borderColor: colors.primary },
+                  ]}
                   onPress={handleSendReminder}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="notifications-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.paymentActionBtnText, { color: colors.primary }]}>Request Payment</Text>
+                  <Ionicons
+                    name="notifications-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.paymentActionBtnText,
+                      { color: colors.primary },
+                    ]}
+                  >
+                    Request Payment
+                  </Text>
                 </TouchableOpacity>
               </View>
-              <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 16 }]} />
+              <View
+                style={[
+                  styles.divider,
+                  { backgroundColor: colors.border, marginVertical: 16 },
+                ]}
+              />
             </>
           )}
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
-            <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(order.subtotal || order.total)}</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Subtotal
+            </Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
+              {formatPrice(order.subtotal || order.total)}
+            </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Shipping</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Shipping
+            </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
               {order.shipping_fee ? formatPrice(order.shipping_fee) : 'Free'}
             </Text>
@@ -969,28 +1277,61 @@ Thank you for choosing Ogabassey!
 
           {order.discount_amount > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Discount</Text>
-              <Text style={[styles.summaryValue, { color: colors.error }]}>-{formatPrice(order.discount_amount)}</Text>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                Discount
+              </Text>
+              <Text style={[styles.summaryValue, { color: colors.error }]}>
+                -{formatPrice(order.discount_amount)}
+              </Text>
             </View>
           )}
 
-          <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 12 }]} />
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: colors.border, marginVertical: 12 },
+            ]}
+          />
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.totalLabel, { color: colors.text }]}>Total Order</Text>
-            <Text style={[styles.totalValueMain, { color: colors.text }]}>{formatPrice(order.total)}</Text>
+            <Text style={[styles.totalLabel, { color: colors.text }]}>
+              Total Order
+            </Text>
+            <Text style={[styles.totalValueMain, { color: colors.text }]}>
+              {formatPrice(order.total)}
+            </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Method</Text>
-            <Text style={[styles.summaryValue, { color: colors.text, textTransform: 'capitalize' }]}>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Payment Method
+            </Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                { color: colors.text, textTransform: 'capitalize' },
+              ]}
+            >
               {order.payment_method?.replace(/_/g, ' ') || 'N/A'}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Payment Status</Text>
-            <View style={[styles.statusBadgeSmall, { backgroundColor: paymentColor + '15' }]}>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Payment Status
+            </Text>
+            <View
+              style={[
+                styles.statusBadgeSmall,
+                { backgroundColor: paymentColor + '15' },
+              ]}
+            >
               <Text style={[styles.statusTextSmall, { color: paymentColor }]}>
                 {paymentConfig.label}
               </Text>
@@ -998,28 +1339,58 @@ Thank you for choosing Ogabassey!
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Amount Paid</Text>
-            <Text style={[styles.summaryValue, { color: order.amount_paid > 0 ? colors.success : colors.textSecondary, fontWeight: '700' }]}>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
+              Amount Paid
+            </Text>
+            <Text
+              style={[
+                styles.summaryValue,
+                {
+                  color:
+                    order.amount_paid > 0
+                      ? colors.success
+                      : colors.textSecondary,
+                  fontWeight: '700',
+                },
+              ]}
+            >
               {formatPrice(order.amount_paid || 0)}
             </Text>
           </View>
 
           {order.balance > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={[styles.totalLabel, { color: colors.text, fontSize: 14 }]}>Balance Due</Text>
-              <Text style={[styles.totalValueMain, { color: colors.error, fontSize: 18 }]}>
+              <Text
+                style={[
+                  styles.totalLabel,
+                  { color: colors.text, fontSize: 14 },
+                ]}
+              >
+                Balance Due
+              </Text>
+              <Text
+                style={[
+                  styles.totalValueMain,
+                  { color: colors.error, fontSize: 18 },
+                ]}
+              >
                 {formatPrice(order.balance)}
               </Text>
             </View>
           )}
-
         </View>
 
         {/* Shipping Card */}
-        <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+        >
           <View style={styles.cardHeader}>
             <Ionicons name="location-outline" size={18} color={colors.text} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Shipping Address</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Shipping Address
+            </Text>
           </View>
           <Text style={[styles.addressText, { color: colors.textSecondary }]}>
             {formatAddress(order.shipping_address)}
@@ -1030,11 +1401,21 @@ Thank you for choosing Ogabassey!
       </ScrollView>
 
       {/* Floating Footer */}
-      <View style={[styles.floatingFooter, { backgroundColor: colors.card, borderTopColor: colors.border }, shadows.lg]}>
+      <View
+        style={[
+          styles.floatingFooter,
+          { backgroundColor: colors.card, borderTopColor: colors.border },
+          shadows.lg,
+        ]}
+      >
         <View style={styles.footerContent}>
           <View>
-            <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>Current Status</Text>
-            <Text style={[styles.footerStatus, { color: shippingColor }]}>{shippingConfig.label}</Text>
+            <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>
+              Current Status
+            </Text>
+            <Text style={[styles.footerStatus, { color: shippingColor }]}>
+              {shippingConfig.label}
+            </Text>
           </View>
           <Pressable
             style={[styles.updateButton, { backgroundColor: colors.primary }]}
@@ -1049,12 +1430,23 @@ Thank you for choosing Ogabassey!
       {/* Status Modal */}
       {showStatusModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowStatusModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowStatusModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Update Order Status</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Update Order Status
+            </Text>
             {Object.entries(SHIPPING_STATUS_CONFIG).map(([key, config]) => {
-              const currentStatus = order.shipping_status === 'fulfilled' ? 'pending' : order.shipping_status;
-              const isAllowed = isStatusActionAllowed(order.shipping_status, key);
+              const currentStatus =
+                order.shipping_status === 'fulfilled'
+                  ? 'pending'
+                  : order.shipping_status;
+              const isAllowed = isStatusActionAllowed(
+                order.shipping_status,
+                key
+              );
               const isCurrent = currentStatus === key;
               return (
                 <Pressable
@@ -1063,27 +1455,45 @@ Thank you for choosing Ogabassey!
                   style={[
                     styles.modalOption,
                     {
-                      backgroundColor: isCurrent ? colors.primary + '10' : 'transparent',
-                      opacity: isAllowed ? 1 : 0.4
-                    }
+                      backgroundColor: isCurrent
+                        ? colors.primary + '10'
+                        : 'transparent',
+                      opacity: isAllowed ? 1 : 0.4,
+                    },
                   ]}
                   onPress={() => handleStatusUpdate(key as ShippingStatus)}
                 >
-                  <View style={[styles.modalDot, { backgroundColor: getStatusColor(config.colorKey, colors) }]} />
-                  <Text style={[
-                    styles.modalOptionText,
-                    {
-                      color: isCurrent ? colors.primary : colors.text,
-                      fontWeight: isCurrent ? '700' : '400'
-                    }
-                  ]}>
+                  <View
+                    style={[
+                      styles.modalDot,
+                      {
+                        backgroundColor: getStatusColor(
+                          config.colorKey,
+                          colors
+                        ),
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.modalOptionText,
+                      {
+                        color: isCurrent ? colors.primary : colors.text,
+                        fontWeight: isCurrent ? '700' : '400',
+                      },
+                    ]}
+                  >
                     {(() => {
                       if (isCurrent) return config.label;
 
                       // Find the label in SHIPPING_STATUS_ACTIONS by searching all possible transitions
                       let actionLabel = config.label;
-                      for (const actions of Object.values(SHIPPING_STATUS_ACTIONS)) {
-                        const foundAction = actions.find(a => a.nextStatus === key);
+                      for (const actions of Object.values(
+                        SHIPPING_STATUS_ACTIONS
+                      )) {
+                        const foundAction = actions.find(
+                          (a) => a.nextStatus === key
+                        );
                         if (foundAction) {
                           actionLabel = foundAction.label;
                           break;
@@ -1092,14 +1502,27 @@ Thank you for choosing Ogabassey!
                       return actionLabel;
                     })()}
                   </Text>
-                  {isCurrent && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                  {isCurrent && (
+                    <Ionicons
+                      name="checkmark"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  )}
                   {!isAllowed && !isCurrent && (
-                    <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={16}
+                      color={colors.textMuted}
+                    />
                   )}
                 </Pressable>
-              )
+              );
             })}
-            <Pressable style={styles.closeButton} onPress={() => setShowStatusModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowStatusModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
@@ -1109,16 +1532,42 @@ Thank you for choosing Ogabassey!
       {/* Credit Modal */}
       {showCreditModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowCreditModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowCreditModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="alert-circle" size={48} color={colors.warning} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Ship on Credit?</Text>
-            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
-              This order has not been paid yet. Confirm to ship on credit and create a virtual account for payment.
+            <Ionicons
+              name="alert-circle"
+              size={48}
+              color={colors.warning}
+              style={{ alignSelf: 'center', marginBottom: 16 }}
+            />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Ship on Credit?
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
+              This order has not been paid yet. Confirm to ship on credit and
+              create a virtual account for payment.
             </Text>
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Add a note (optional)</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Add a note (optional)
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="e.g., Trusted customer, will pay on delivery"
                   placeholderTextColor={colors.textSecondary}
@@ -1130,7 +1579,10 @@ Thank you for choosing Ogabassey!
               </View>
             </View>
             <Pressable
-              style={[styles.updateButton, { backgroundColor: colors.warning, marginBottom: 12 }]}
+              style={[
+                styles.updateButton,
+                { backgroundColor: colors.warning, marginBottom: 12 },
+              ]}
               onPress={handleShipOnCredit}
               disabled={shipOnCreditMutation.isPending}
             >
@@ -1139,11 +1591,16 @@ Thank you for choosing Ogabassey!
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                  <Text style={styles.updateButtonText}>Confirm Ship on Credit</Text>
+                  <Text style={styles.updateButtonText}>
+                    Confirm Ship on Credit
+                  </Text>
                 </>
               )}
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={() => setShowCreditModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowCreditModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
@@ -1153,21 +1610,48 @@ Thank you for choosing Ogabassey!
       {/* Fulfillment Modal */}
       {showFulfillmentModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowFulfillmentModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowFulfillmentModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="barcode-outline" size={48} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Fulfillment Details Required</Text>
-            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
+            <Ionicons
+              name="barcode-outline"
+              size={48}
+              color={colors.primary}
+              style={{ alignSelf: 'center', marginBottom: 16 }}
+            />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Fulfillment Details Required
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
               Enter the device IMEI/serial number before marking as shipped.
             </Text>
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>IMEI Number *</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                IMEI Number *
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="e.g., 353456789012345"
                   placeholderTextColor={colors.textSecondary}
                   value={fulfillmentDetails.imei}
-                  onChangeText={(text) => setFulfillmentDetails(prev => ({ ...prev, imei: text }))}
+                  onChangeText={(text) =>
+                    setFulfillmentDetails((prev) => ({ ...prev, imei: text }))
+                  }
                   keyboardType="numeric"
                   maxLength={15}
                   style={{ color: colors.text }}
@@ -1175,25 +1659,47 @@ Thank you for choosing Ogabassey!
               </View>
             </View>
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Serial Number (optional)</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Serial Number (optional)
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="e.g., ABC123XYZ"
                   placeholderTextColor={colors.textSecondary}
                   value={fulfillmentDetails.serialNumber}
-                  onChangeText={(text) => setFulfillmentDetails(prev => ({ ...prev, serialNumber: text }))}
+                  onChangeText={(text) =>
+                    setFulfillmentDetails((prev) => ({
+                      ...prev,
+                      serialNumber: text,
+                    }))
+                  }
                   style={{ color: colors.text }}
                 />
               </View>
             </View>
             <Pressable
-              style={[styles.updateButton, { backgroundColor: colors.success, marginBottom: 12 }]}
+              style={[
+                styles.updateButton,
+                { backgroundColor: colors.success, marginBottom: 12 },
+              ]}
               onPress={handleSubmitFulfillment}
             >
               <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={styles.updateButtonText}>Confirm & Mark Shipped</Text>
+              <Text style={styles.updateButtonText}>
+                Confirm & Mark Shipped
+              </Text>
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={() => setShowFulfillmentModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowFulfillmentModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
@@ -1203,16 +1709,41 @@ Thank you for choosing Ogabassey!
       {/* Rider Modal */}
       {showRiderModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowRiderModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowRiderModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="bicycle-outline" size={48} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Dispatch Rider</Text>
-            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
+            <Ionicons
+              name="bicycle-outline"
+              size={48}
+              color={colors.primary}
+              style={{ alignSelf: 'center', marginBottom: 16 }}
+            />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Dispatch Rider
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
               Enter rider's WhatsApp number to send order details.
             </Text>
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Rider Phone Number</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Rider Phone Number
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="e.g., +23480..."
                   placeholderTextColor={colors.textSecondary}
@@ -1225,8 +1756,20 @@ Thank you for choosing Ogabassey!
             </View>
             {savedRiders.length > 0 && (
               <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: colors.textSecondary, marginBottom: 8, fontSize: 12 }}>Saved Riders</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    marginBottom: 8,
+                    fontSize: 12,
+                  }}
+                >
+                  Saved Riders
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 8 }}
+                >
                   {savedRiders.map((phone, index) => (
                     <TouchableOpacity
                       key={index}
@@ -1236,24 +1779,33 @@ Thank you for choosing Ogabassey!
                         paddingVertical: 8,
                         borderRadius: RADIUS.full,
                         borderWidth: 1,
-                        borderColor: riderPhone === phone ? colors.primary : 'transparent'
+                        borderColor:
+                          riderPhone === phone ? colors.primary : 'transparent',
                       }}
                       onPress={() => setRiderPhone(phone)}
                     >
-                      <Text style={{ color: colors.text, fontSize: 12 }}>{phone}</Text>
+                      <Text style={{ color: colors.text, fontSize: 12 }}>
+                        {phone}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
             )}
             <Pressable
-              style={[styles.updateButton, { backgroundColor: colors.success, marginBottom: 12 }]}
+              style={[
+                styles.updateButton,
+                { backgroundColor: colors.success, marginBottom: 12 },
+              ]}
               onPress={handleSendToRider}
             >
               <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
               <Text style={styles.updateButtonText}>Send & Dispatch</Text>
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={() => setShowRiderModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowRiderModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
@@ -1263,18 +1815,40 @@ Thank you for choosing Ogabassey!
       {/* Payment Option Modal */}
       {showPaymentOptionModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowPaymentOptionModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowPaymentOptionModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons name="card-outline" size={48} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Processing Unpaid Order</Text>
-            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-              This order has an outstanding balance of {formatPrice(order.balance || order.total)}.
+            <Ionicons
+              name="card-outline"
+              size={48}
+              color={colors.primary}
+              style={{ alignSelf: 'center', marginBottom: 16 }}
+            />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Processing Unpaid Order
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginBottom: 24,
+              }}
+            >
+              This order has an outstanding balance of{' '}
+              {formatPrice(order.balance || order.total)}.
             </Text>
             <Pressable
-              style={[styles.updateButton, { backgroundColor: colors.primary, marginBottom: 12 }]}
+              style={[
+                styles.updateButton,
+                { backgroundColor: colors.primary, marginBottom: 12 },
+              ]}
               onPress={() => {
                 setShowPaymentOptionModal(false);
-                setPaymentAmount(String(Math.round(order.balance || order.total)));
+                setPaymentAmount(
+                  String(Math.round(order.balance || order.total))
+                );
                 setShowRecordPaymentModal(true);
               }}
             >
@@ -1282,16 +1856,31 @@ Thank you for choosing Ogabassey!
               <Text style={styles.updateButtonText}>Record Manual Payment</Text>
             </Pressable>
             <Pressable
-              style={[styles.updateButton, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 12 }]}
+              style={[
+                styles.updateButton,
+                {
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  marginBottom: 12,
+                },
+              ]}
               onPress={() => {
                 setShowPaymentOptionModal(false);
                 setShowCreditModal(true);
               }}
             >
               <Ionicons name="timer-outline" size={20} color={colors.primary} />
-              <Text style={[styles.updateButtonText, { color: colors.primary }]}>Ship on Credit</Text>
+              <Text
+                style={[styles.updateButtonText, { color: colors.primary }]}
+              >
+                Ship on Credit
+              </Text>
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={() => setShowPaymentOptionModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowPaymentOptionModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
@@ -1301,27 +1890,55 @@ Thank you for choosing Ogabassey!
       {/* Record Payment Modal */}
       {showRecordPaymentModal && (
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowRecordPaymentModal(false)} />
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowRecordPaymentModal(false)}
+          />
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Record Payment</Text>
-            <Text style={{ color: colors.textSecondary, textAlign: 'center', marginBottom: 20 }}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Record Payment
+            </Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                textAlign: 'center',
+                marginBottom: 20,
+              }}
+            >
               Enter payment details manually.
             </Text>
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Amount Paid</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Amount Paid
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="₦0"
                   placeholderTextColor={colors.textSecondary}
-                  value={paymentAmount ? formatCurrencyInput(paymentAmount) : ''}
+                  value={
+                    paymentAmount ? formatCurrencyInput(paymentAmount) : ''
+                  }
                   onChangeText={handlePaymentAmountChange}
                   keyboardType="numeric"
-                  style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}
+                  style={{
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: '600',
+                  }}
                 />
               </View>
             </View>
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Payment Method</Text>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Payment Method
+              </Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {['transfer', 'pos', 'cash'].map((method) => (
                   <TouchableOpacity
@@ -1330,25 +1947,44 @@ Thank you for choosing Ogabassey!
                       flex: 1,
                       paddingVertical: 10,
                       borderRadius: RADIUS.md,
-                      backgroundColor: paymentMethod === method ? colors.primary : colors.backgroundLight,
+                      backgroundColor:
+                        paymentMethod === method
+                          ? colors.primary
+                          : colors.backgroundLight,
                       alignItems: 'center',
                       borderWidth: 1,
-                      borderColor: paymentMethod === method ? colors.primary : colors.border
+                      borderColor:
+                        paymentMethod === method
+                          ? colors.primary
+                          : colors.border,
                     }}
                     onPress={() => setPaymentMethod(method)}
                   >
-                    <Text style={{
-                      color: paymentMethod === method ? '#FFF' : colors.text,
-                      fontWeight: '500',
-                      textTransform: 'capitalize'
-                    }}>{method === 'pos' ? 'POS' : method}</Text>
+                    <Text
+                      style={{
+                        color: paymentMethod === method ? '#FFF' : colors.text,
+                        fontWeight: '500',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {method === 'pos' ? 'POS' : method}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
             <View style={{ marginBottom: 24 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>Notes (Optional)</Text>
-              <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: RADIUS.md, padding: 12 }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                Notes (Optional)
+              </Text>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: RADIUS.md,
+                  padding: 12,
+                }}
+              >
                 <TextInput
                   placeholder="E.g., Received by John"
                   placeholderTextColor={colors.textSecondary}
@@ -1361,10 +1997,18 @@ Thank you for choosing Ogabassey!
             <Pressable
               style={[
                 styles.updateButton,
-                { backgroundColor: colors.success, marginBottom: 12, opacity: (!paymentMethod || !paymentAmount) ? 0.5 : 1 }
+                {
+                  backgroundColor: colors.success,
+                  marginBottom: 12,
+                  opacity: !paymentMethod || !paymentAmount ? 0.5 : 1,
+                },
               ]}
               onPress={handleRecordPayment}
-              disabled={recordPaymentMutation.isPending || !paymentMethod || !paymentAmount}
+              disabled={
+                recordPaymentMutation.isPending ||
+                !paymentMethod ||
+                !paymentAmount
+              }
             >
               {recordPaymentMutation.isPending ? (
                 <ActivityIndicator color="#FFF" />
@@ -1375,20 +2019,22 @@ Thank you for choosing Ogabassey!
                 </>
               )}
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={() => setShowRecordPaymentModal(false)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowRecordPaymentModal(false)}
+            >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-
       <SuccessModal
         visible={successModal.visible}
         title={successModal.title}
         message={successModal.message}
         subMessage={successModal.subMessage}
-        onClose={() => setSuccessModal(prev => ({ ...prev, visible: false }))}
+        onClose={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );
@@ -1402,51 +2048,143 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 16, marginTop: 12, marginBottom: 24, opacity: 0.7 },
   backButton: { padding: 12 },
 
-  card: { borderRadius: RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.xs },
+  card: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.xs,
+  },
 
-  statusHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.lg },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
   orderDate: { fontSize: TYPOGRAPHY.size.xs, marginBottom: 4 },
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sourceText: { fontSize: TYPOGRAPHY.size.xs, fontWeight: '500' },
-  statusBadgeBig: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full },
+  statusBadgeBig: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+  },
   statusTextBig: { fontSize: TYPOGRAPHY.size.sm, fontWeight: '700' },
-  statusNote: { fontSize: TYPOGRAPHY.size.xs, marginTop: 12, textAlign: 'center' },
+  statusNote: {
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: 12,
+    textAlign: 'center',
+  },
 
-  progressContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  progressDot: { width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  progressDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
   progressLine: { flex: 1, height: 2, marginHorizontal: -2 },
 
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
   cardTitle: { fontSize: TYPOGRAPHY.size.md, fontWeight: '700' },
 
   customerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  avatarPlaceholder: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
   avatarText: { fontSize: 20, fontWeight: '700' },
   customerInfo: { flex: 1 },
-  customerName: { fontSize: TYPOGRAPHY.size.md, fontWeight: '700', marginBottom: 4 },
+  customerName: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
   customerDetail: { fontSize: TYPOGRAPHY.size.sm, marginBottom: 2 },
 
   actionButtons: { flexDirection: 'row', gap: 12 },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, borderRadius: RADIUS.md, gap: 6 },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: RADIUS.md,
+    gap: 6,
+  },
   actionBtnText: { fontSize: TYPOGRAPHY.size.xs, fontWeight: '600' },
 
-  receiptBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md },
-  receiptBtnText: { fontSize: TYPOGRAPHY.size.xs, fontWeight: '600', color: '#FFF' },
+  receiptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+  },
+  receiptBtnText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '600',
+    color: '#FFF',
+  },
 
-  itemRow: { flexDirection: 'row', gap: 12, paddingVertical: 12, alignItems: 'center' },
-  itemImagePlaceholder: { width: 60, height: 60, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  itemRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  itemImagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: RADIUS.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
   itemImage: { width: '100%', height: '100%' },
   itemDetails: { flex: 1, justifyContent: 'center' },
-  itemName: { fontSize: TYPOGRAPHY.size.sm, fontWeight: '600', marginBottom: 4 },
+  itemName: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   itemRef: { fontSize: TYPOGRAPHY.size.xs, marginBottom: 6 },
-  itemPriceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  itemPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   itemQty: { fontSize: TYPOGRAPHY.size.sm },
   itemPrice: { fontSize: TYPOGRAPHY.size.sm, fontWeight: '700' },
-  statusBadgeSmall: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  statusBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
   statusTextSmall: { fontSize: 11, fontWeight: '700' },
   addressText: { fontSize: 13, lineHeight: 18, marginTop: 8 },
 
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   summaryLabel: { fontSize: 14 },
   summaryValue: { fontSize: 14, fontWeight: '600' },
   divider: { height: 1, marginVertical: 12 },
@@ -1454,24 +2192,72 @@ const styles = StyleSheet.create({
   totalValueMain: { fontSize: 20, fontWeight: '800' },
 
   paymentActionsRow: { flexDirection: 'row', gap: 12 },
-  paymentActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, gap: 8 },
+  paymentActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    gap: 8,
+  },
   paymentActionBtnText: { fontSize: 13, fontWeight: '700' },
 
   floatingFooter: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: 20, paddingBottom: 34, borderTopWidth: 1
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 20,
+    paddingBottom: 34,
+    borderTopWidth: 1,
   },
-  footerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   footerLabel: { fontSize: 12 },
   footerStatus: { fontSize: 14, fontWeight: '700' },
-  updateButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: RADIUS.full, gap: 8 },
+  updateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: RADIUS.full,
+    gap: 8,
+  },
   updateButtonText: { color: '#FFF', fontWeight: '600' },
 
-  modalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', zIndex: 100 },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
-  modalOption: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 8 },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
   modalDot: { width: 10, height: 10, borderRadius: 5, marginRight: 12 },
   modalOptionText: { fontSize: 16, flex: 1 },
   closeButton: { alignItems: 'center', padding: 16, marginTop: 8 },

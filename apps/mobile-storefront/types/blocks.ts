@@ -13,12 +13,12 @@ export interface PageConfig {
   };
 }
 
-export type Block = 
-  | HeaderBlock 
-  | HeroCarouselBlock 
-  | FeaturesBlock 
-  | ProductGridBlock 
-  | NewsletterBlock 
+export type Block =
+  | HeaderBlock
+  | HeroCarouselBlock
+  | FeaturesBlock
+  | ProductGridBlock
+  | NewsletterBlock
   | FooterBlock
   | CategoryRailBlock;
 

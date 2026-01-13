@@ -144,8 +144,15 @@ export default function AddressesScreen() {
             {item.label || 'Address'}
           </Text>
           {item.is_default && (
-            <View style={[styles.defaultBadge, { backgroundColor: `${BRAND.primary}20` }]}>
-              <Text style={[styles.defaultText, { color: BRAND.primary }]}>Default</Text>
+            <View
+              style={[
+                styles.defaultBadge,
+                { backgroundColor: `${BRAND.primary}20` },
+              ]}
+            >
+              <Text style={[styles.defaultText, { color: BRAND.primary }]}>
+                Default
+              </Text>
             </View>
           )}
         </View>
@@ -176,14 +183,24 @@ export default function AddressesScreen() {
             );
           }}
         >
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
+          <Ionicons
+            name="ellipsis-vertical"
+            size={20}
+            color={colors.textSecondary}
+          />
         </TouchableOpacity>
       </View>
 
       <View style={styles.addressContent}>
-        <Text style={[styles.addressName, { color: colors.text }]}>{item.name}</Text>
-        <Text style={[styles.addressPhone, { color: colors.textSecondary }]}>{item.phone}</Text>
-        <Text style={[styles.addressLine, { color: colors.textSecondary }]}>{item.address}</Text>
+        <Text style={[styles.addressName, { color: colors.text }]}>
+          {item.name}
+        </Text>
+        <Text style={[styles.addressPhone, { color: colors.textSecondary }]}>
+          {item.phone}
+        </Text>
+        <Text style={[styles.addressLine, { color: colors.textSecondary }]}>
+          {item.address}
+        </Text>
         <Text style={[styles.addressLine, { color: colors.textSecondary }]}>
           {item.city}, {item.state}
           {item.postal_code ? ` ${item.postal_code}` : ''}
@@ -203,8 +220,14 @@ export default function AddressesScreen() {
             style={[styles.actionButton, { borderColor: BRAND.primary }]}
             onPress={() => handleSetDefault(item.id)}
           >
-            <Ionicons name="checkmark-circle-outline" size={16} color={BRAND.primary} />
-            <Text style={[styles.actionText, { color: BRAND.primary }]}>Set Default</Text>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color={BRAND.primary}
+            />
+            <Text style={[styles.actionText, { color: BRAND.primary }]}>
+              Set Default
+            </Text>
           </TouchableOpacity>
         )}
       </View>
@@ -213,8 +236,14 @@ export default function AddressesScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="location-outline" size={64} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>No saved addresses</Text>
+      <Ionicons
+        name="location-outline"
+        size={64}
+        color={colors.textSecondary}
+      />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No saved addresses
+      </Text>
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
         Add an address for faster checkout
       </Text>
@@ -232,8 +261,14 @@ export default function AddressesScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.emptyState}>
-          <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign in required</Text>
+          <Ionicons
+            name="person-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Sign in required
+          </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             Sign in to manage your addresses
           </Text>
@@ -250,7 +285,13 @@ export default function AddressesScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
@@ -258,11 +299,23 @@ export default function AddressesScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
         <TouchableOpacity onPress={fetchAddresses}>
-          <Text style={[styles.retryText, { color: BRAND.primary }]}>Tap to retry</Text>
+          <Text style={[styles.retryText, { color: BRAND.primary }]}>
+            Tap to retry
+          </Text>
         </TouchableOpacity>
       </View>
     );

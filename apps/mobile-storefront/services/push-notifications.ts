@@ -133,22 +133,20 @@ export async function savePushTokenToServer(
   merchantId?: string
 ): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('push_tokens')
-      .upsert(
-        {
-          user_id: userId,
-          merchant_id: merchantId || null,
-          token: token,
-          platform: Platform.OS,
-          device_name: Device.modelName || 'Unknown',
-          is_active: true,
-          last_used_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'token',
-        }
-      );
+    const { error } = await supabase.from('push_tokens').upsert(
+      {
+        user_id: userId,
+        merchant_id: merchantId || null,
+        token: token,
+        platform: Platform.OS,
+        device_name: Device.modelName || 'Unknown',
+        is_active: true,
+        last_used_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'token',
+      }
+    );
 
     if (error) {
       console.error('Failed to save push token:', error);
@@ -166,7 +164,9 @@ export async function savePushTokenToServer(
 /**
  * Remove push token from server (on logout)
  */
-export async function removePushTokenFromServer(token: string): Promise<boolean> {
+export async function removePushTokenFromServer(
+  token: string
+): Promise<boolean> {
   try {
     const { error } = await supabase
       .from('push_tokens')
@@ -254,7 +254,9 @@ export async function scheduleLocalNotification(
 /**
  * Cancel a scheduled notification
  */
-export async function cancelNotification(notificationId: string): Promise<void> {
+export async function cancelNotification(
+  notificationId: string
+): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 

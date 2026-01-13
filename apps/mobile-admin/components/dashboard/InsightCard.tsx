@@ -28,8 +28,8 @@ export function InsightCard({
   const { colors, isDark } = useTheme();
 
   const gradientColors = isDark
-    ? ['#1A1A2E', '#252542'] as const
-    : ['#F8FAFC', '#EFF6FF'] as const;
+    ? (['#1A1A2E', '#252542'] as const)
+    : (['#F8FAFC', '#EFF6FF'] as const);
 
   return (
     <Pressable
@@ -48,22 +48,37 @@ export function InsightCard({
         style={styles.gradient}
       >
         <View style={styles.header}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.goldLight }]}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: colors.goldLight },
+            ]}
+          >
             <Ionicons name={icon} size={16} color={colors.gold} />
           </View>
           {onDismiss && (
-            <Pressable style={[styles.dismissButton, { backgroundColor: colors.backgroundLight }]} onPress={onDismiss}>
+            <Pressable
+              style={[
+                styles.dismissButton,
+                { backgroundColor: colors.backgroundLight },
+              ]}
+              onPress={onDismiss}
+            >
               <Ionicons name="close" size={14} color={colors.textSecondary} />
             </Pressable>
           )}
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>
+          {message}
+        </Text>
 
         {onPress && (
           <View style={styles.actionContainer}>
-            <Text style={[styles.actionText, { color: colors.gold }]}>Learn more</Text>
+            <Text style={[styles.actionText, { color: colors.gold }]}>
+              Learn more
+            </Text>
             <Ionicons name="arrow-forward" size={14} color={colors.gold} />
           </View>
         )}

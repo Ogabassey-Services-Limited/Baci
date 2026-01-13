@@ -121,7 +121,7 @@ function Step0_Auth({
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<OtpAuthFormValues>({
-    resolver: zodResolver(otpAuthSchema as any),
+    resolver: zodResolver(otpAuthSchema),
     defaultValues: { email: '' },
   });
 
@@ -965,7 +965,7 @@ function CheckoutPageContent() {
   }, [merchant?.id]);
 
   const shippingForm = useForm<ShippingFormValues>({
-    resolver: zodResolver(shippingSchema as any),
+    resolver: zodResolver(shippingSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -1408,7 +1408,7 @@ function CheckoutPageContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
-                    <Link href={`${basePath || ''}/cart` as any}>
+                    <Link href={`${basePath || ''}/cart` as string}>
                       <Button
                         variant="ghost"
                         size="icon"

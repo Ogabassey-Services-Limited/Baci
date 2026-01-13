@@ -19,7 +19,6 @@ interface WelcomeHeaderProps {
   onNotificationPress?: () => void;
   onAvatarPress?: () => void;
   notificationCount?: number;
-
 }
 
 export function WelcomeHeader({
@@ -29,7 +28,6 @@ export function WelcomeHeader({
   onNotificationPress,
   onAvatarPress,
   notificationCount = 0,
-
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
 
@@ -43,7 +41,12 @@ export function WelcomeHeader({
     if (canShowSvg) {
       // Remote SVG URL - use SvgUri
       return (
-        <View style={[styles.avatar, { backgroundColor: colors.card, overflow: 'hidden' }]}>
+        <View
+          style={[
+            styles.avatar,
+            { backgroundColor: colors.card, overflow: 'hidden' },
+          ]}
+        >
           <SvgUri uri={avatarUrl} width={48} height={48} />
         </View>
       );
@@ -51,7 +54,10 @@ export function WelcomeHeader({
     if (canShowImage) {
       // Regular image URL (PNG, JPG, etc.)
       return (
-        <Image source={{ uri: avatarUrl }} style={[styles.avatar, { backgroundColor: colors.card }]} />
+        <Image
+          source={{ uri: avatarUrl }}
+          style={[styles.avatar, { backgroundColor: colors.card }]}
+        />
       );
     }
     // Fallback to Baci logo
@@ -63,23 +69,48 @@ export function WelcomeHeader({
       <View style={styles.leftSection}>
         <Pressable style={styles.avatarContainer} onPress={onAvatarPress}>
           {renderAvatar()}
-          <View style={[styles.editBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+          <View
+            style={[
+              styles.editBadge,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.background,
+              },
+            ]}
+          >
             <Ionicons name="camera" size={10} color="#FFFFFF" />
           </View>
         </Pressable>
 
         <View style={styles.textContainer}>
           <View style={styles.urlRow}>
-            <Text style={[styles.storeUrl, { color: colors.gold }]} numberOfLines={1}>
+            <Text
+              style={[styles.storeUrl, { color: colors.gold }]}
+              numberOfLines={1}
+            >
               {storeUrl}
             </Text>
             {isLive ? (
-              <View style={[styles.statusBadge, { backgroundColor: colors.live + '20' }]}>
-                <Text style={[styles.statusText, { color: colors.live }]}>LIVE</Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: colors.live + '20' },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: colors.live }]}>
+                  LIVE
+                </Text>
               </View>
             ) : (
-              <View style={[styles.statusBadge, { backgroundColor: colors.textMuted + '20' }]}>
-                <Text style={[styles.statusText, { color: colors.textMuted }]}>NOT LIVE</Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: colors.textMuted + '20' },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: colors.textMuted }]}>
+                  NOT LIVE
+                </Text>
               </View>
             )}
           </View>
@@ -92,14 +123,16 @@ export function WelcomeHeader({
       >
         <Ionicons name="notifications-outline" size={24} color={colors.text} />
         {notificationCount > 0 && (
-          <View style={[styles.badge, { backgroundColor: colors.notification }]}>
+          <View
+            style={[styles.badge, { backgroundColor: colors.notification }]}
+          >
             <Text style={styles.badgeText}>
               {notificationCount > 9 ? '9+' : notificationCount}
             </Text>
           </View>
         )}
       </Pressable>
-    </View >
+    </View>
   );
 }
 

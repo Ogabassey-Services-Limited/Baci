@@ -49,10 +49,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: dbError.message }, { status: 500 });
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: Temporary loose typing for generation logic
-    const processed: any[] = [];
-    // biome-ignore lint/suspicious/noExplicitAny: Temporary loose typing for error tracking
-    const errors: any[] = [];
+    const processed: Record<string, unknown>[] = [];
+    const errors: Record<string, unknown>[] = [];
 
     // Filter locally
     const candidates = (products || [])
@@ -97,10 +95,11 @@ export async function POST(req: NextRequest) {
           });
 
           const parts =
-            // biome-ignore lint/suspicious/noExplicitAny: AI SDK response type varies by provider
-            (response.body as any)?.candidates?.[0]?.content?.parts || [];
-          // biome-ignore lint/suspicious/noExplicitAny: provider type casting
-          const imagePart = parts.find((p: any) => p.inlineData);
+            (response.body as Record<string, unknown>)?.candidates?.[0]?.content
+              ?.parts || [];
+          const imagePart = (
+            parts as { inlineData: { data: string; mimeType: string } }[]
+          ).find((p) => p.inlineData);
 
           let base64Data = null;
           let contentType = 'image/png';
@@ -156,10 +155,9 @@ export async function POST(req: NextRequest) {
             new_image: publicUrl,
           });
         }
-        // biome-ignore lint/suspicious/noExplicitAny: Catch all error type
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(`Failed to process ${product.id}:`, err);
-        errors.push({ id: product.id, error: err.message });
+        errors.push({ id: product.id, error: (err as Error).message });
       }
     }
 
@@ -169,9 +167,11 @@ export async function POST(req: NextRequest) {
       processed,
       errors,
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Catch all error type
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 500 }
+    );
   }
 }

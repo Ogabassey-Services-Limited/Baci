@@ -70,12 +70,7 @@
       "backToSchool": ["student laptop", "back to school tech"]
     },
 
-    "competitorKeywords": [
-      "jumia",
-      "konga",
-      "slot",
-      "pointek"
-    ],
+    "competitorKeywords": ["jumia", "konga", "slot", "pointek"],
 
     "reviewStrategy": {
       "promptTriggers": [

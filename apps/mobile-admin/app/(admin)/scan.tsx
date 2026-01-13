@@ -33,7 +33,13 @@ export default function ScanScreen() {
 
   const { merchant } = useMerchant();
 
-  const handleBarcodeScanned = async ({ type, data }: { type: string; data: string }) => {
+  const handleBarcodeScanned = async ({
+    _type,
+    data,
+  }: {
+    type: string;
+    data: string;
+  }) => {
     setScanned(true);
 
     try {
@@ -56,10 +62,11 @@ export default function ScanScreen() {
             },
             {
               text: 'Add New Product',
-              onPress: () => router.push({
-                pathname: '/product/new',
-                params: { sku: data }
-              }),
+              onPress: () =>
+                router.push({
+                  pathname: '/product/new',
+                  params: { sku: data },
+                }),
             },
           ]
         );
@@ -91,9 +98,13 @@ export default function ScanScreen() {
 
   if (hasPermission === null) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.centerContent}>
-          <Text style={[styles.message, { color: colors.text }]}>Requesting camera permission...</Text>
+          <Text style={[styles.message, { color: colors.text }]}>
+            Requesting camera permission...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -101,10 +112,14 @@ export default function ScanScreen() {
 
   if (hasPermission === false) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.centerContent}>
           <Ionicons name="camera-outline" size={64} color="#EF4444" />
-          <Text style={[styles.message, { color: colors.text }]}>Camera permission denied</Text>
+          <Text style={[styles.message, { color: colors.text }]}>
+            Camera permission denied
+          </Text>
           <Text style={[styles.subMessage, { color: colors.text }]}>
             Please enable camera access in settings
           </Text>

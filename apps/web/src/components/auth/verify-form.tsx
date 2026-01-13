@@ -41,7 +41,7 @@ export default function VerifyForm() {
   const [resendTimer, setResendTimer] = useState(30);
 
   const form = useForm<z.infer<typeof verifySchema>>({
-    resolver: zodResolver(verifySchema as any),
+    resolver: zodResolver(verifySchema),
     defaultValues: {
       code: '',
     },
@@ -98,11 +98,14 @@ export default function VerifyForm() {
       // Force refresh to update auth state
       router.refresh();
       router.replace('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Verification Failed',
-        description: error.message || 'Invalid code. Please try again.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Invalid code. Please try again.',
       });
     } finally {
       setIsLoading(false);
@@ -125,11 +128,11 @@ export default function VerifyForm() {
         description: 'A new verification code has been sent to your email.',
       });
       setResendTimer(60);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description: (error as Error).message,
       });
     } finally {
       setIsLoading(false);
@@ -216,6 +219,7 @@ export default function VerifyForm() {
 
             <div className="mt-6 text-center text-sm">
               <button
+                type="button"
                 onClick={onResend}
                 disabled={resendTimer > 0 || isLoading}
                 className="text-primary hover:underline disabled:opacity-50 disabled:no-underline font-medium transition-colors"

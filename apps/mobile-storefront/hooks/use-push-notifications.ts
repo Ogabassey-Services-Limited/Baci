@@ -37,24 +37,27 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const responseListener = useRef<EventSubscription | null>(null);
 
   // Navigation helper for notification taps
-  const navigate = useCallback((screen: string, params?: Record<string, string>) => {
-    switch (screen) {
-      case 'order-details':
-        router.push(`/orders/${params?.id}`);
-        break;
-      case 'orders':
-        router.push('/orders');
-        break;
-      case 'product':
-        router.push(`/product/${params?.slug}`);
-        break;
-      case 'category':
-        router.push(`/category/${params?.slug}` as any);
-        break;
-      default:
-        router.push('/');
-    }
-  }, []);
+  const navigate = useCallback(
+    (screen: string, params?: Record<string, string>) => {
+      switch (screen) {
+        case 'order-details':
+          router.push(`/orders/${params?.id}`);
+          break;
+        case 'orders':
+          router.push('/orders');
+          break;
+        case 'product':
+          router.push(`/product/${params?.slug}`);
+          break;
+        case 'category':
+          router.push(`/category/${params?.slug}` as any);
+          break;
+        default:
+          router.push('/');
+      }
+    },
+    []
+  );
 
   // Register for push notifications
   const register = useCallback(async () => {
@@ -71,7 +74,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
         // Save to server if user is logged in
         if (user?.id) {
-          const saved = await savePushTokenToServer(token, user.id, merchantId || undefined);
+          const saved = await savePushTokenToServer(
+            token,
+            user.id,
+            merchantId || undefined
+          );
           setIsRegistered(saved);
 
           if (!saved) {
@@ -103,22 +110,20 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Set up notification listeners on mount
   useEffect(() => {
     // Listener for notifications received while app is foregrounded
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
         console.log('Notification received:', notification);
         // You can show an in-app toast/banner here if desired
-      }
-    );
+      });
 
     // Listener for when user taps on a notification
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
         console.log('Notification tapped:', response);
         handleNotificationResponse(response, navigate);
         // Clear badge when user interacts with notification
         clearBadge();
-      }
-    );
+      });
 
     // Check for notification that launched the app
     Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -142,9 +147,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Auto-register when user logs in
   useEffect(() => {
     if (user?.id && pushToken && !isRegistered) {
-      savePushTokenToServer(pushToken, user.id, merchantId || undefined).then((saved) => {
-        setIsRegistered(saved);
-      });
+      savePushTokenToServer(pushToken, user.id, merchantId || undefined).then(
+        (saved) => {
+          setIsRegistered(saved);
+        }
+      );
     }
   }, [user?.id, pushToken, isRegistered, merchantId]);
 

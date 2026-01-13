@@ -5,13 +5,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND } from '@/constants/Colors';
 
@@ -84,21 +78,24 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         return {
           icon: 'wifi-outline' as const,
           title: 'Connection Error',
-          message: 'Unable to connect to the server. Please check your internet connection and try again.',
+          message:
+            'Unable to connect to the server. Please check your internet connection and try again.',
           buttonText: 'Retry',
         };
       case 'supabase':
         return {
           icon: 'server-outline' as const,
           title: 'Service Unavailable',
-          message: 'Our servers are temporarily unavailable. Please try again in a moment.',
+          message:
+            'Our servers are temporarily unavailable. Please try again in a moment.',
           buttonText: 'Try Again',
         };
       default:
         return {
           icon: 'alert-circle-outline' as const,
           title: 'Something Went Wrong',
-          message: 'An unexpected error occurred. We apologize for the inconvenience.',
+          message:
+            'An unexpected error occurred. We apologize for the inconvenience.',
           buttonText: 'Retry',
         };
     }
@@ -160,7 +157,8 @@ export function ErrorFallback({
   let content = {
     icon: 'alert-circle-outline' as const,
     title: 'Something Went Wrong',
-    message: 'An unexpected error occurred. We apologize for the inconvenience.',
+    message:
+      'An unexpected error occurred. We apologize for the inconvenience.',
     buttonText: 'Retry',
   };
 
@@ -172,7 +170,8 @@ export function ErrorFallback({
     content = {
       icon: 'wifi-outline' as const,
       title: 'Connection Error',
-      message: 'Unable to connect to the server. Please check your internet connection and try again.',
+      message:
+        'Unable to connect to the server. Please check your internet connection and try again.',
       buttonText: 'Retry',
     };
   } else if (
@@ -182,7 +181,8 @@ export function ErrorFallback({
     content = {
       icon: 'server-outline' as const,
       title: 'Service Unavailable',
-      message: 'Our servers are temporarily unavailable. Please try again in a moment.',
+      message:
+        'Our servers are temporarily unavailable. Please try again in a moment.',
       buttonText: 'Try Again',
     };
   }
@@ -290,5 +290,3 @@ const styles = StyleSheet.create({
     fontFamily: 'SpaceMono',
   },
 });
-
-

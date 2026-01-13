@@ -34,12 +34,19 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  signInWithOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
-  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithOtp: (
+    email: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (
+    email: string,
+    token: string
+  ) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  updateProfile: (data: Partial<Customer>) => Promise<{ success: boolean; error?: string }>;
+  updateProfile: (
+    data: Partial<Customer>
+  ) => Promise<{ success: boolean; error?: string }>;
   clearError: () => void;
 }
 
@@ -67,7 +74,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (merchantError || !merchant) {
         // Merchant not found - app can still work in guest mode
-        console.warn(`Store "${MERCHANT_SLUG}" not found in database. Running in guest mode.`);
+        console.warn(
+          `Store "${MERCHANT_SLUG}" not found in database. Running in guest mode.`
+        );
         set({
           merchantId: null,
           isLoading: false,
@@ -79,7 +88,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ merchantId: merchant.id });
 
       // Get current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
       if (sessionError) {
         throw sessionError;
@@ -89,7 +101,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Fetch customer data for this merchant
         const { data: customer } = await supabase
           .from('customers')
-          .select('id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier')
+          .select(
+            'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+          )
           .eq('merchant_id', merchant.id)
           .eq('email', session.user.email)
           .single();
@@ -120,7 +134,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // Fetch or create customer record
           let { data: customer } = await supabase
             .from('customers')
-            .select('id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier')
+            .select(
+              'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+            )
             .eq('merchant_id', merchantId)
             .eq('email', session.user.email)
             .single();
@@ -132,12 +148,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .insert({
                 merchant_id: merchantId,
                 email: session.user.email,
-                first_name: session.user.user_metadata?.full_name?.split(' ')[0] || '',
-                last_name: session.user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+                first_name:
+                  session.user.user_metadata?.full_name?.split(' ')[0] || '',
+                last_name:
+                  session.user.user_metadata?.full_name
+                    ?.split(' ')
+                    .slice(1)
+                    .join(' ') || '',
                 avatar_url: session.user.user_metadata?.avatar_url,
                 source: 'mobile_app',
               })
-              .select('id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier')
+              .select(
+                'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+              )
               .single();
 
             customer = newCustomer;
@@ -188,7 +211,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to send OTP';
+      const message =
+        error instanceof Error ? error.message : 'Failed to send OTP';
       set({ error: message, isLoading: false });
       return { success: false, error: message };
     }
@@ -214,7 +238,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to verify OTP';
+      const message =
+        error instanceof Error ? error.message : 'Failed to verify OTP';
       set({ error: message, isLoading: false });
       return { success: false, error: message };
     }
@@ -240,7 +265,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to sign in with Google';
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to sign in with Google';
       set({ error: message, isLoading: false });
       return { success: false, error: message };
     }
@@ -266,7 +294,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Refresh session
   refreshSession: async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.refreshSession();
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.refreshSession();
 
       if (error) {
         console.error('Session refresh error:', error);
@@ -300,7 +331,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         })
         .eq('id', customer.id)
         .eq('merchant_id', merchantId)
-        .select('id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier')
+        .select(
+          'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+        )
         .single();
 
       if (error) {
@@ -310,7 +343,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ customer: updated });
       return { success: true };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to update profile';
+      const message =
+        error instanceof Error ? error.message : 'Failed to update profile';
       return { success: false, error: message };
     }
   },

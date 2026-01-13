@@ -90,7 +90,8 @@ function generateEmailHtml(
   const safeUrl = escapeHtml(confirmationUrl);
   const safeLogo = escapeHtml(LOGO_URL);
 
-  const tokenHtml = token ? `
+  const tokenHtml = token
+    ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
       <tr>
         <td align="center">
@@ -101,7 +102,8 @@ function generateEmailHtml(
         </td>
       </tr>
     </table>
-  ` : '';
+  `
+    : '';
 
   return `<!DOCTYPE html>
 <html>

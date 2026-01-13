@@ -10,7 +10,8 @@ import Constants from 'expo-constants';
 
 // PostHog configuration
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
-const POSTHOG_HOST = Constants.expoConfig?.extra?.posthogHost || 'https://us.i.posthog.com';
+const POSTHOG_HOST =
+  Constants.expoConfig?.extra?.posthogHost || 'https://us.i.posthog.com';
 
 // Initialize PostHog client
 let posthogClient: PostHog | null = null;

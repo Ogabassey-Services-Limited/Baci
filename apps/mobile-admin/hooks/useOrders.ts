@@ -4,11 +4,21 @@
  * 2025 best practices: React Query v5, proper typing, optimistic updates
  */
 
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  useQuery,
+} from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 // Import shared types from monorepo
-import type { ShippingStatus, PaymentStatus, Order, OrderItem } from '@baci/shared';
+import type {
+  ShippingStatus,
+  PaymentStatus,
+  Order,
+  OrderItem,
+} from '@baci/shared';
 
 // Re-export for backward compatibility
 export type { ShippingStatus, PaymentStatus, Order, OrderItem };
@@ -30,7 +40,11 @@ const PAGE_SIZE = 20;
 async function fetchOrders(
   merchantId: string,
   cursor: number = 0,
-  filters?: { status?: ShippingStatus; search?: string; dateFilter?: string | { start: Date; end: Date } | null }
+  filters?: {
+    status?: ShippingStatus;
+    search?: string;
+    dateFilter?: string | { start: Date; end: Date } | null;
+  }
 ): Promise<OrdersPage> {
   let query = supabase
     .from('orders')
@@ -63,16 +77,25 @@ async function fetchOrders(
       const start = new Date(now.setDate(now.getDate() - 30)).toISOString();
       query = query.gte('created_at', start);
     } else if (dateFilter === 'This Month') {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      ).toISOString();
       query = query.gte('created_at', start);
-    } else if (typeof dateFilter === 'object' && dateFilter?.start && dateFilter?.end) {
+    } else if (
+      typeof dateFilter === 'object' &&
+      dateFilter?.start &&
+      dateFilter?.end
+    ) {
       const start = new Date(dateFilter.start);
       start.setHours(0, 0, 0, 0);
 
       const end = new Date(dateFilter.end);
       end.setHours(23, 59, 59, 999);
 
-      query = query.gte('created_at', start.toISOString())
+      query = query
+        .gte('created_at', start.toISOString())
         .lte('created_at', end.toISOString());
     }
   }
@@ -129,7 +152,8 @@ export function useOrders(
 
   return useInfiniteQuery({
     queryKey: ['orders', merchantId, filters, dateFilter], // Include dateFilter in queryKey
-    queryFn: ({ pageParam = 0 }) => fetchOrders(merchantId!, pageParam, filters),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchOrders(merchantId!, pageParam, filters),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
     enabled: !!merchantId,
@@ -142,8 +166,13 @@ export function useUpdateOrderStatus() {
   const { merchant } = useMerchant();
 
   return useMutation({
-    mutationFn: ({ orderId, status }: { orderId: string; status: ShippingStatus }) =>
-      updateOrderStatus(orderId, status),
+    mutationFn: ({
+      orderId,
+      status,
+    }: {
+      orderId: string;
+      status: ShippingStatus;
+    }) => updateOrderStatus(orderId, status),
     onMutate: async ({ orderId, status }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders', merchant?.id] });
@@ -159,7 +188,9 @@ export function useUpdateOrderStatus() {
           pages: old.pages.map((page: OrdersPage) => ({
             ...page,
             orders: page.orders.map((order: Order) =>
-              order.id === orderId ? { ...order, shipping_status: status } : order
+              order.id === orderId
+                ? { ...order, shipping_status: status }
+                : order
             ),
           })),
         };
@@ -177,17 +208,27 @@ export function useUpdateOrderStatus() {
     onError: (_err, vars, context) => {
       // Rollback on error
       if (context?.previousOrders) {
-        queryClient.setQueryData(['orders', merchant?.id], context.previousOrders);
+        queryClient.setQueryData(
+          ['orders', merchant?.id],
+          context.previousOrders
+        );
       }
       if (context?.previousOrder) {
-        queryClient.setQueryData(['order', vars.orderId], context.previousOrder);
+        queryClient.setQueryData(
+          ['order', vars.orderId],
+          context.previousOrder
+        );
       }
     },
     onSettled: () => {
       // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-counts', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['dashboard-stats', merchant?.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['order-counts', merchant?.id],
+      });
     },
   });
 }
@@ -243,7 +284,8 @@ export function useOrder(orderId: string) {
         }
       }
 
-      const transTotal = transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
+      const transTotal =
+        transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
       const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
       const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
 
@@ -274,7 +316,13 @@ export function useShipOnCredit() {
   const { merchant } = useMerchant();
 
   return useMutation({
-    mutationFn: async ({ orderId, creditNotes }: { orderId: string; creditNotes?: string }) => {
+    mutationFn: async ({
+      orderId,
+      creditNotes,
+    }: {
+      orderId: string;
+      creditNotes?: string;
+    }) => {
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/ship-on-credit`,
         {
@@ -289,7 +337,9 @@ export function useShipOnCredit() {
           const error = await response.json();
           throw new Error(error.error || 'Failed to ship on credit');
         } catch {
-          throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Request failed: ${response.status} ${response.statusText}`
+          );
         }
       }
       return response.json();
@@ -297,7 +347,9 @@ export function useShipOnCredit() {
     onSuccess: (_data, { orderId }) => {
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-counts', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['order-counts', merchant?.id],
+      });
     },
   });
 }
@@ -317,7 +369,9 @@ export function useSendReminder() {
       message?: string;
     }) => {
       // Get the current session for auth
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');
       }
@@ -328,7 +382,7 @@ export function useSendReminder() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ channel, message }),
         }
@@ -339,7 +393,9 @@ export function useSendReminder() {
           const error = await response.json();
           throw new Error(error.error || 'Failed to send reminder');
         } catch {
-          throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Request failed: ${response.status} ${response.statusText}`
+          );
         }
       }
       return response.json();
@@ -369,7 +425,9 @@ export function useRecordPayment() {
       notes?: string;
     }) => {
       // Get the current session for auth token
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Not authenticated');
       }
@@ -385,9 +443,14 @@ export function useRecordPayment() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ amount, payment_method: paymentMethod, reference, notes }),
+            body: JSON.stringify({
+              amount,
+              payment_method: paymentMethod,
+              reference,
+              notes,
+            }),
             signal: controller.signal,
           }
         );
@@ -400,14 +463,18 @@ export function useRecordPayment() {
             throw new Error(error.error || 'Failed to record payment');
           } catch {
             // Response was not JSON (could be HTML error page)
-            throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+            throw new Error(
+              `Request failed: ${response.status} ${response.statusText}`
+            );
           }
         }
         return response.json();
       } catch (error: any) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-          throw new Error('Request timed out. Please check your connection and try again.');
+          throw new Error(
+            'Request timed out. Please check your connection and try again.'
+          );
         }
         throw error;
       }
@@ -415,8 +482,12 @@ export function useRecordPayment() {
     onSuccess: (_data, { orderId }) => {
       queryClient.invalidateQueries({ queryKey: ['order', orderId] });
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['order-counts', merchant?.id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats', merchant?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ['order-counts', merchant?.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['dashboard-stats', merchant?.id],
+      });
     },
   });
 }

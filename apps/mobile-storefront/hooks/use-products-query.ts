@@ -3,7 +3,11 @@
  * 2025 Best Practice: Stale-while-revalidate, infinite queries, prefetching
  */
 
-import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useInfiniteQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { CONFIG } from '@/lib/config';
 import type { Product } from '@/types/product';
@@ -233,10 +237,9 @@ export function useProduct(slug: string) {
     staleTime: 1000 * 60 * 5, // 5 minutes
     // Try to get initial data from products list cache
     initialData: () => {
-      const productsCache = queryClient.getQueryData<{ pages: ProductsPage[] }>([
-        'products',
-        {},
-      ]);
+      const productsCache = queryClient.getQueryData<{ pages: ProductsPage[] }>(
+        ['products', {}]
+      );
       if (!productsCache) return undefined;
 
       for (const page of productsCache.pages) {

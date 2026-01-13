@@ -9,7 +9,11 @@ import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
-import type { Block, ProductGridBlock, HeroCarouselBlock } from '@/types/blocks';
+import type {
+  Block,
+  ProductGridBlock,
+  HeroCarouselBlock,
+} from '@/types/blocks';
 
 interface BlockRendererProps {
   blocks: Block[];
@@ -17,10 +21,14 @@ interface BlockRendererProps {
   onCategorySelect: (id: string | null) => void;
 }
 
-const ProductGrid = ({ block, selectedCategoryId, variant }: {
-  block: ProductGridBlock,
-  selectedCategoryId: string | null,
-  variant: 'grid' | 'editorial' | 'list'
+const ProductGrid = ({
+  block,
+  selectedCategoryId,
+  variant,
+}: {
+  block: ProductGridBlock;
+  selectedCategoryId: string | null;
+  variant: 'grid' | 'editorial' | 'list';
 }) => {
   // Filter state
   const [selectedCategoryName, setSelectedCategoryName] = useState('All');
@@ -36,7 +44,9 @@ const ProductGrid = ({ block, selectedCategoryId, variant }: {
   // Map category name to ID for API query
   const selectedCategoryIdFromFilter = useMemo(() => {
     if (selectedCategoryName === 'All') return undefined;
-    const cat = categoriesData.find((c: any) => c.name === selectedCategoryName);
+    const cat = categoriesData.find(
+      (c: any) => c.name === selectedCategoryName
+    );
     return cat?.id;
   }, [selectedCategoryName, categoriesData]);
 
@@ -58,7 +68,9 @@ const ProductGrid = ({ block, selectedCategoryId, variant }: {
   }, [categoriesData]);
 
   const brands = useMemo(() => {
-    return Array.from(new Set(products.map(p => p.brand).filter(Boolean) as string[]));
+    return Array.from(
+      new Set(products.map((p) => p.brand).filter(Boolean) as string[])
+    );
   }, [products]);
 
   const handlePriceChange = (min: number, max: number) => {
@@ -97,7 +109,16 @@ const ProductGrid = ({ block, selectedCategoryId, variant }: {
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {products.map((product) => (
-          <View key={product.id} style={currentVariant === 'editorial' ? styles.editorialWrapper : currentVariant === 'list' ? styles.listWrapper : styles.gridWrapper}>
+          <View
+            key={product.id}
+            style={
+              currentVariant === 'editorial'
+                ? styles.editorialWrapper
+                : currentVariant === 'list'
+                  ? styles.listWrapper
+                  : styles.gridWrapper
+            }
+          >
             <ProductCard product={product} variant={currentVariant} />
           </View>
         ))}
@@ -106,10 +127,10 @@ const ProductGrid = ({ block, selectedCategoryId, variant }: {
   );
 };
 
-export const BlockRenderer: React.FC<BlockRendererProps> = ({ 
-  blocks, 
-  selectedCategoryId, 
-  onCategorySelect 
+export const BlockRenderer: React.FC<BlockRendererProps> = ({
+  blocks,
+  selectedCategoryId,
+  onCategorySelect,
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
 
@@ -119,15 +140,15 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         switch (block.type) {
           case 'HeroCarousel':
             return (
-              <Hero 
-                key={block.props.id} 
-                slides={(block as HeroCarouselBlock).props.slides} 
+              <Hero
+                key={block.props.id}
+                slides={(block as HeroCarouselBlock).props.slides}
                 autoplayDelay={(block as HeroCarouselBlock).props.autoplayDelay}
               />
             );
           case 'CategoryRail':
             return (
-              <UtilityPanel 
+              <UtilityPanel
                 key={block.props.id}
                 variant={template.categoryStyle}
                 selectedCategoryId={selectedCategoryId}
@@ -136,9 +157,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             );
           case 'ProductGrid':
             return (
-              <ProductGrid 
-                key={block.props.id} 
-                block={block as ProductGridBlock} 
+              <ProductGrid
+                key={block.props.id}
+                block={block as ProductGridBlock}
                 selectedCategoryId={selectedCategoryId}
                 variant={template.cardVariant}
               />

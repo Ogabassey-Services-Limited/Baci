@@ -6,9 +6,9 @@
 
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { TYPOGRAPHY, RADIUS } from '@/constants/theme';
+import { RADIUS } from '@/constants/theme';
 
 import { useFailedOrders } from '@/hooks/useFailedOrders';
 
@@ -19,7 +19,6 @@ export default function TabLayout() {
   const failedCount = failedOrders?.length ?? 0;
 
   return (
-
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -38,7 +37,13 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
+            <View
+              style={
+                focused
+                  ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
+                  : undefined
+              }
+            >
               <Ionicons
                 name={focused ? 'home' : 'home-outline'}
                 size={24}
@@ -53,7 +58,13 @@ export default function TabLayout() {
         options={{
           title: 'Orders',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
+            <View
+              style={
+                focused
+                  ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
+                  : undefined
+              }
+            >
               <Ionicons
                 name={focused ? 'receipt' : 'receipt-outline'}
                 size={24}
@@ -68,7 +79,13 @@ export default function TabLayout() {
         options={{
           title: 'Products',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
+            <View
+              style={
+                focused
+                  ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
+                  : undefined
+              }
+            >
               <Ionicons
                 name={focused ? 'cube' : 'cube-outline'}
                 size={24}
@@ -84,7 +101,13 @@ export default function TabLayout() {
           title: 'Customers',
           tabBarBadge: failedCount > 0 ? failedCount : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
+            <View
+              style={
+                focused
+                  ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
+                  : undefined
+              }
+            >
               <Ionicons
                 name={focused ? 'people' : 'people-outline'}
                 size={24}
@@ -99,7 +122,13 @@ export default function TabLayout() {
         options={{
           title: 'Menu',
           tabBarIcon: ({ color, focused }) => (
-            <View style={focused ? [styles.activeIcon, { backgroundColor: colors.goldLight }] : undefined}>
+            <View
+              style={
+                focused
+                  ? [styles.activeIcon, { backgroundColor: colors.goldLight }]
+                  : undefined
+              }
+            >
               <Ionicons
                 name={focused ? 'menu' : 'menu-outline'}
                 size={24}
@@ -114,7 +143,6 @@ export default function TabLayout() {
       <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
-
 }
 
 const styles = StyleSheet.create({

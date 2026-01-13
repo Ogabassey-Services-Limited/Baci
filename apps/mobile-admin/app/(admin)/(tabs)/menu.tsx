@@ -12,7 +12,6 @@ import {
   Pressable,
   StatusBar,
   Alert,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,21 +46,17 @@ export default function MenuScreen() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/login');
-          }
+    Alert.alert('Log Out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/login');
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const menuSections: MenuSection[] = [
@@ -207,7 +202,12 @@ export default function MenuScreen() {
       ]}
       onPress={item.onPress}
     >
-      <View style={[styles.menuIcon, { backgroundColor: (item.iconColor || colors.primary) + '20' }]}>
+      <View
+        style={[
+          styles.menuIcon,
+          { backgroundColor: (item.iconColor || colors.primary) + '20' },
+        ]}
+      >
         <Ionicons
           name={item.icon}
           size={20}
@@ -217,17 +217,28 @@ export default function MenuScreen() {
 
       <View style={styles.menuContent}>
         <View style={styles.menuLabelRow}>
-          <Text style={[styles.menuLabel, { color: item.destructive ? colors.error : colors.text }]}>
+          <Text
+            style={[
+              styles.menuLabel,
+              { color: item.destructive ? colors.error : colors.text },
+            ]}
+          >
             {item.label}
           </Text>
           {item.badge && (
             <View style={[styles.badge, { backgroundColor: colors.goldLight }]}>
-              <Text style={[styles.badgeText, { color: colors.gold }]}>{item.badge}</Text>
+              <Text style={[styles.badgeText, { color: colors.gold }]}>
+                {item.badge}
+              </Text>
             </View>
           )}
         </View>
         {item.description && (
-          <Text style={[styles.menuDescription, { color: colors.textSecondary }]}>{item.description}</Text>
+          <Text
+            style={[styles.menuDescription, { color: colors.textSecondary }]}
+          >
+            {item.description}
+          </Text>
         )}
       </View>
 
@@ -236,8 +247,14 @@ export default function MenuScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -250,8 +267,16 @@ export default function MenuScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Store Preview Card */}
-        <Pressable style={[styles.storeCard, { backgroundColor: colors.card }, shadows.sm]}>
-          <View style={[styles.storeAvatar, { backgroundColor: colors.primary }]}>
+        <Pressable
+          style={[
+            styles.storeCard,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+        >
+          <View
+            style={[styles.storeAvatar, { backgroundColor: colors.primary }]}
+          >
             <Text style={styles.storeAvatarText}>
               {merchant?.business_name?.charAt(0).toUpperCase() || 'B'}
             </Text>
@@ -265,9 +290,18 @@ export default function MenuScreen() {
             </Text>
           </View>
           {isLive && (
-            <View style={[styles.liveBadge, { backgroundColor: colors.successLight }]}>
-              <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
-              <Text style={[styles.liveText, { color: colors.success }]}>Live</Text>
+            <View
+              style={[
+                styles.liveBadge,
+                { backgroundColor: colors.successLight },
+              ]}
+            >
+              <View
+                style={[styles.liveDot, { backgroundColor: colors.success }]}
+              />
+              <Text style={[styles.liveText, { color: colors.success }]}>
+                Live
+              </Text>
             </View>
           )}
         </Pressable>
@@ -275,12 +309,29 @@ export default function MenuScreen() {
         {/* Menu Sections */}
         {menuSections.map((section) => (
           <View key={section.title} style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
-            <View style={[styles.sectionCard, { backgroundColor: colors.card }, shadows.sm]}>
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              {section.title}
+            </Text>
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
+            >
               {section.items.map((item, index) => (
                 <React.Fragment key={item.id}>
                   {renderMenuItem(item)}
-                  {index < section.items.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                  {index < section.items.length - 1 && (
+                    <View
+                      style={[
+                        styles.divider,
+                        { backgroundColor: colors.border },
+                      ]}
+                    />
+                  )}
                 </React.Fragment>
               ))}
             </View>
@@ -288,7 +339,9 @@ export default function MenuScreen() {
         ))}
 
         {/* App Version */}
-        <Text style={[styles.version, { color: colors.textMuted }]}>Baci Admin v1.0.0</Text>
+        <Text style={[styles.version, { color: colors.textMuted }]}>
+          Baci Admin v1.0.0
+        </Text>
 
         {/* DEV: Reset Onboarding */}
         {__DEV__ && (
@@ -311,7 +364,9 @@ export default function MenuScreen() {
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />
-            <Text style={{ color: '#D97706', fontWeight: '600' }}>Reset Onboarding (Dev)</Text>
+            <Text style={{ color: '#D97706', fontWeight: '600' }}>
+              Reset Onboarding (Dev)
+            </Text>
           </Pressable>
         )}
       </ScrollView>

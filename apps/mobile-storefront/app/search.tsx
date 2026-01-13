@@ -33,13 +33,13 @@ const RECENT_SEARCHES = [
 ];
 
 const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  'phones': 'phone-portrait-outline',
-  'gaming': 'game-controller-outline',
-  'accessories': 'headset-outline',
-  'laptops': 'laptop-outline',
-  'audio': 'musical-notes-outline',
-  'tablets': 'tablet-portrait-outline',
-  'smartwatches': 'watch-outline',
+  phones: 'phone-portrait-outline',
+  gaming: 'game-controller-outline',
+  accessories: 'headset-outline',
+  laptops: 'laptop-outline',
+  audio: 'musical-notes-outline',
+  tablets: 'tablet-portrait-outline',
+  smartwatches: 'watch-outline',
 };
 
 import { FilterBar } from '@/components/storefront/FilterBar';
@@ -72,8 +72,10 @@ export default function SearchScreen() {
 
   // Derived data for filters (mocking for now)
   // Derive brand names for filter
-  const categoryNames = ['All', ...categories.map(c => c.name)];
-  const brandNames = Array.from(new Set(products.map(p => p.brand).filter(Boolean) as string[])).slice(0, 10);
+  const categoryNames = ['All', ...categories.map((c) => c.name)];
+  const brandNames = Array.from(
+    new Set(products.map((p) => p.brand).filter(Boolean) as string[])
+  ).slice(0, 10);
 
   const handleSearch = useCallback((text: string) => {
     setQuery(text);
@@ -119,7 +121,11 @@ export default function SearchScreen() {
     if (products.length === 0 && query.length >= 2) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={64} color={colors.textSecondary} />
+          <Ionicons
+            name="search-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No results found
           </Text>
@@ -134,7 +140,12 @@ export default function SearchScreen() {
       <FlatList
         data={products}
         renderItem={({ item, index }) => (
-          <View style={[styles.productWrapper, index % 2 === 0 ? styles.productLeft : styles.productRight]}>
+          <View
+            style={[
+              styles.productWrapper,
+              index % 2 === 0 ? styles.productLeft : styles.productRight,
+            ]}
+          >
             <ProductCard
               product={item}
               onPress={() => handleProductPress(item)}
@@ -183,7 +194,10 @@ export default function SearchScreen() {
           {categories.slice(0, 4).map((category) => (
             <Pressable
               key={category.slug}
-              style={[styles.categoryCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.categoryCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
               onPress={() => handleCategoryPress(category.slug)}
               accessibilityRole="button"
               accessibilityLabel={`Category: ${category.name}`}
@@ -206,11 +220,12 @@ export default function SearchScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top']}
+      >
         {/* Search Header */}
-        <View style={styles.header}>
-          {/* ... header code ... */}
-        </View>
+        <View style={styles.header}>{/* ... header code ... */}</View>
 
         {/* Filter Bar - Show only when searching */}
         {isSearching && (
@@ -220,7 +235,10 @@ export default function SearchScreen() {
             onSelectCategory={setSelectedCategory}
             minPrice={minPrice}
             maxPrice={maxPrice}
-            onPriceChange={(min, max) => { setMinPrice(min); setMaxPrice(max); }}
+            onPriceChange={(min, max) => {
+              setMinPrice(min);
+              setMaxPrice(max);
+            }}
             brands={brandNames}
             selectedBrand={selectedBrand}
             onSelectBrand={setSelectedBrand}

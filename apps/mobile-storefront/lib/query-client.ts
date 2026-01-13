@@ -5,7 +5,7 @@
  * - Data displayed from cache within 50ms on app start
  * - Background refresh happens after cached data is shown
  * - 24-hour cache retention for offline resilience
- * 
+ *
  * Note: Using AsyncStorage for Expo Go compatibility.
  * For production builds, consider switching to MMKV for better performance.
  */

@@ -68,7 +68,10 @@ export default function AccountScreen() {
         },
         (payload) => {
           if (payload.new && 'loyalty_points' in payload.new) {
-            console.log('Account: Loyalty points updated:', payload.new.loyalty_points);
+            console.log(
+              'Account: Loyalty points updated:',
+              payload.new.loyalty_points
+            );
             setLoyaltyPoints(payload.new.loyalty_points as number);
           }
         }
@@ -86,20 +89,16 @@ export default function AccountScreen() {
   }, [customer?.id]);
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-          },
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const menuItems: MenuItem[] = [
@@ -165,7 +164,12 @@ export default function AccountScreen() {
       ]}
       onPress={() => handleMenuPress(item)}
     >
-      <View style={[styles.menuIconContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.menuIconContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <Ionicons name={item.icon} size={22} color={BRAND.primary} />
       </View>
       <Text style={[styles.menuLabel, { color: colors.text }]}>
@@ -182,8 +186,14 @@ export default function AccountScreen() {
 
   const renderGuestView = () => (
     <View style={styles.guestContainer}>
-      <View style={[styles.guestIconContainer, { backgroundColor: colors.card }]}>
-        <Ionicons name="person-outline" size={48} color={colors.textSecondary} />
+      <View
+        style={[styles.guestIconContainer, { backgroundColor: colors.card }]}
+      >
+        <Ionicons
+          name="person-outline"
+          size={48}
+          color={colors.textSecondary}
+        />
       </View>
       <Text style={[styles.guestTitle, { color: colors.text }]}>
         Welcome to Ogabassey
@@ -211,14 +221,18 @@ export default function AccountScreen() {
   const renderProfileHeader = () => (
     <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
       {customer?.avatar_url ? (
-        <Image
-          source={{ uri: customer.avatar_url }}
-          style={styles.avatar}
-        />
+        <Image source={{ uri: customer.avatar_url }} style={styles.avatar} />
       ) : (
-        <View style={[styles.avatarPlaceholder, { backgroundColor: BRAND.primaryLight }]}>
+        <View
+          style={[
+            styles.avatarPlaceholder,
+            { backgroundColor: BRAND.primaryLight },
+          ]}
+        >
           <Text style={[styles.avatarInitials, { color: BRAND.primary }]}>
-            {customer?.first_name?.[0] || customer?.email?.[0]?.toUpperCase() || 'U'}
+            {customer?.first_name?.[0] ||
+              customer?.email?.[0]?.toUpperCase() ||
+              'U'}
           </Text>
         </View>
       )}
@@ -256,13 +270,18 @@ export default function AccountScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
       <ScrollView showsVerticalScrollIndicator={false}>
         {customer ? (
           <>
             {renderProfileHeader()}
 
-            <View style={[styles.menuContainer, { backgroundColor: colors.card }]}>
+            <View
+              style={[styles.menuContainer, { backgroundColor: colors.card }]}
+            >
               {menuItems.map(renderMenuItem)}
             </View>
 
@@ -284,7 +303,9 @@ export default function AccountScreen() {
           <>
             {renderGuestView()}
 
-            <View style={[styles.menuContainer, { backgroundColor: colors.card }]}>
+            <View
+              style={[styles.menuContainer, { backgroundColor: colors.card }]}
+            >
               {menuItems
                 .filter((item) => ['help', 'settings'].includes(item.id))
                 .map(renderMenuItem)}

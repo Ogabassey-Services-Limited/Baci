@@ -49,7 +49,11 @@ export default function CategoriesScreen() {
       accessibilityRole="button"
     >
       <Image
-        source={{ uri: item.image_url || 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image' }}
+        source={{
+          uri:
+            item.image_url ||
+            'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image',
+        }}
         style={styles.categoryImage}
         contentFit="cover"
         transition={300}

@@ -61,7 +61,8 @@ export default function InventoryScreen() {
   // Calculate stats from real data
   const totalProducts = products.length;
   const lowStockCount = products.filter(
-    (p) => p.low_stock_threshold && p.stock <= p.low_stock_threshold && p.stock > 0
+    (p) =>
+      p.low_stock_threshold && p.stock <= p.low_stock_threshold && p.stock > 0
   ).length;
   const outOfStockCount = products.filter((p) => p.stock === 0).length;
 
@@ -72,24 +73,44 @@ export default function InventoryScreen() {
 
     return (
       <Pressable
-        style={[styles.productCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        style={[
+          styles.productCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
         onPress={() => router.push(`/product/${item.id}`)}
       >
-        <View style={[styles.productImage, { backgroundColor: colors.inputBg }]}>
+        <View
+          style={[styles.productImage, { backgroundColor: colors.inputBg }]}
+        >
           {item.images?.[0] ? (
             <View style={styles.productImage}>
-              <Ionicons name="cube-outline" size={32} color={colors.textSecondary} />
+              <Ionicons
+                name="cube-outline"
+                size={32}
+                color={colors.textSecondary}
+              />
             </View>
           ) : (
-            <Ionicons name="cube-outline" size={32} color={colors.textSecondary} />
+            <Ionicons
+              name="cube-outline"
+              size={32}
+              color={colors.textSecondary}
+            />
           )}
         </View>
         <View style={styles.productInfo}>
-          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.productName, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {item.name}
           </Text>
-          <Text style={[styles.productSku, { color: colors.textSecondary }]}>{item.sku || 'No SKU'}</Text>
-          <Text style={[styles.productPrice, { color: colors.text }]}>{formatPrice(item.price)}</Text>
+          <Text style={[styles.productSku, { color: colors.textSecondary }]}>
+            {item.sku || 'No SKU'}
+          </Text>
+          <Text style={[styles.productPrice, { color: colors.text }]}>
+            {formatPrice(item.price)}
+          </Text>
         </View>
         <View style={styles.stockInfo}>
           <View
@@ -108,14 +129,20 @@ export default function InventoryScreen() {
               style={[
                 styles.stockText,
                 {
-                  color: isOutOfStock ? '#DC2626' : isLowStock ? '#D97706' : '#059669',
+                  color: isOutOfStock
+                    ? '#DC2626'
+                    : isLowStock
+                      ? '#D97706'
+                      : '#059669',
                 },
               ]}
             >
               {item.stock}
             </Text>
           </View>
-          <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>in stock</Text>
+          <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>
+            in stock
+          </Text>
         </View>
       </Pressable>
     );
@@ -138,18 +165,34 @@ export default function InventoryScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading inventory...</Text>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading inventory...
+        </Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={[styles.searchInputWrapper, { backgroundColor: colors.inputBg }]}>
+        <View
+          style={[
+            styles.searchInputWrapper,
+            { backgroundColor: colors.inputBg },
+          ]}
+        >
           <Ionicons name="search" size={20} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -169,17 +212,44 @@ export default function InventoryScreen() {
 
       {/* Quick Stats */}
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: colors.text }]}>{totalProducts}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Products</Text>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: colors.text }]}>
+            {totalProducts}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Products
+          </Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: '#D97706' }]}>{lowStockCount}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Low Stock</Text>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: '#D97706' }]}>
+            {lowStockCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Low Stock
+          </Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.statValue, { color: '#DC2626' }]}>{outOfStockCount}</Text>
-          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Out of Stock</Text>
+        <View
+          style={[
+            styles.statCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.statValue, { color: '#DC2626' }]}>
+            {outOfStockCount}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
+            Out of Stock
+          </Text>
         </View>
       </View>
 
@@ -190,17 +260,31 @@ export default function InventoryScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#3B82F6" />
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            tintColor="#3B82F6"
+          />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No products found</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-              {searchQuery ? 'Try a different search term' : 'Add products to get started'}
+            <Ionicons
+              name="cube-outline"
+              size={64}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              No products found
+            </Text>
+            <Text
+              style={[styles.emptySubtitle, { color: colors.textSecondary }]}
+            >
+              {searchQuery
+                ? 'Try a different search term'
+                : 'Add products to get started'}
             </Text>
           </View>
         }

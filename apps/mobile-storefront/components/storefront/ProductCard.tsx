@@ -9,13 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,9 +20,20 @@ import Animated, {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY, SHADOWS, SPRING_CONFIG } from '@/constants/Colors';
+import Colors, {
+  BRAND,
+  SPACING,
+  RADIUS,
+  TYPOGRAPHY,
+  SHADOWS,
+  SPRING_CONFIG,
+} from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { formatPrice, getDiscountPercentage, type Product } from '@/types/product';
+import {
+  formatPrice,
+  getDiscountPercentage,
+  type Product,
+} from '@/types/product';
 import { useCartStore } from '@/stores/cart-store';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -126,11 +131,11 @@ export function ProductCard({
     stockQuantity < LOW_STOCK_THRESHOLD;
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }]
+    transform: [{ scale: scale.value }],
   }));
 
   const heartAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }]
+    transform: [{ scale: heartScale.value }],
   }));
 
   const handlePress = () => {
@@ -170,7 +175,10 @@ export function ProductCard({
     });
   };
 
-  const discount = getDiscountPercentage(product.price, product.compare_at_price);
+  const discount = getDiscountPercentage(
+    product.price,
+    product.compare_at_price
+  );
 
   // Common image props for all variants
   const imageProps = {
@@ -195,8 +203,12 @@ export function ProductCard({
           {...imageProps}
         />
         <View style={styles.editorialContent}>
-          <Text style={[styles.editorialName, { color: colors.text }]}>{product.name}</Text>
-          <Text style={[styles.editorialPrice, { color: BRAND.primary }]}>{formatPrice(product.price)}</Text>
+          <Text style={[styles.editorialName, { color: colors.text }]}>
+            {product.name}
+          </Text>
+          <Text style={[styles.editorialPrice, { color: BRAND.primary }]}>
+            {formatPrice(product.price)}
+          </Text>
         </View>
       </AnimatedPressable>
     );
@@ -209,7 +221,11 @@ export function ProductCard({
         onPress={handlePress}
         onPressIn={handleAnimateIn}
         onPressOut={handleAnimateOut}
-        style={[styles.listContainer, { borderColor: colors.border }, animatedStyle]}
+        style={[
+          styles.listContainer,
+          { borderColor: colors.border },
+          animatedStyle,
+        ]}
       >
         <Image
           source={{ uri: product.image }}
@@ -218,8 +234,15 @@ export function ProductCard({
           contentFit="contain"
         />
         <View style={styles.listContent}>
-          <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
-          <Text style={[styles.listPrice, { color: colors.price }]}>{formatPrice(product.price)}</Text>
+          <Text
+            style={[styles.listName, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {product.name}
+          </Text>
+          <Text style={[styles.listPrice, { color: colors.price }]}>
+            {formatPrice(product.price)}
+          </Text>
         </View>
         <Pressable onPress={handleAddToCart} style={styles.listAddBtn}>
           <Ionicons name="add" size={24} color={BRAND.primary} />
@@ -233,8 +256,12 @@ export function ProductCard({
     <AnimatedPressable
       style={[
         styles.gridContainer,
-        { backgroundColor: '#FFF', borderColor: '#F3F4F6', shadowColor: colors.black },
-        animatedStyle
+        {
+          backgroundColor: '#FFF',
+          borderColor: '#F3F4F6',
+          shadowColor: colors.black,
+        },
+        animatedStyle,
       ]}
       onPress={handlePress}
       onPressIn={handleAnimateIn}
@@ -259,23 +286,31 @@ export function ProductCard({
 
         {/* Condition Badge - Top Left */}
         {product.condition && (
-          <View style={[styles.badgeContainer,
-          product.condition === 'New' ? { backgroundColor: '#111827' } :
-            product.condition === 'Open Box' ? { backgroundColor: '#4F46E5' } :
-              { backgroundColor: '#78716C' }
-          ]}>
+          <View
+            style={[
+              styles.badgeContainer,
+              product.condition === 'New'
+                ? { backgroundColor: '#111827' }
+                : product.condition === 'Open Box'
+                  ? { backgroundColor: '#4F46E5' }
+                  : { backgroundColor: '#78716C' },
+            ]}
+          >
             <Text style={styles.badgeText}>{product.condition}</Text>
           </View>
         )}
 
         {/* Platform Badge - Bottom Left */}
-        {product.variant_attributes?.Platform && product.variant_attributes.Platform.length > 0 && (
-          <View style={styles.platformBadge}>
-            <Text style={styles.platformText}>
-              {product.variant_attributes.Platform[0].replace('PlayStation ', 'PS').substring(0, 10)}
-            </Text>
-          </View>
-        )}
+        {product.variant_attributes?.Platform &&
+          product.variant_attributes.Platform.length > 0 && (
+            <View style={styles.platformBadge}>
+              <Text style={styles.platformText}>
+                {product.variant_attributes.Platform[0]
+                  .replace('PlayStation ', 'PS')
+                  .substring(0, 10)}
+              </Text>
+            </View>
+          )}
 
         <Image
           source={{ uri: product.image }}
@@ -302,9 +337,19 @@ export function ProductCard({
         {product.colors && product.colors.length > 0 && (
           <View style={styles.swatchRow}>
             {product.colors.slice(0, 4).map((c, i) => (
-              <View key={i} style={[styles.swatch, { backgroundColor: typeof c === 'string' ? c : c.value }]} />
+              <View
+                key={i}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: typeof c === 'string' ? c : c.value },
+                ]}
+              />
             ))}
-            {product.colors.length > 4 && <Text style={styles.moreColors}>+{product.colors.length - 4}</Text>}
+            {product.colors.length > 4 && (
+              <Text style={styles.moreColors}>
+                +{product.colors.length - 4}
+              </Text>
+            )}
           </View>
         )}
 
@@ -315,7 +360,9 @@ export function ProductCard({
 
         {/* Price Row */}
         <View style={styles.priceRow}>
-          <Text style={[styles.gridPrice, { color: BRAND.primary }]}>{formatPrice(product.price)}</Text>
+          <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
+            {formatPrice(product.price)}
+          </Text>
           {/* Details Link */}
           <Text style={styles.detailsText}>Details</Text>
         </View>
@@ -344,7 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
     marginBottom: 10,
-    position: 'relative'
+    position: 'relative',
   },
   gridImage: { width: '100%', height: '100%' },
 
@@ -362,7 +409,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 9,
     fontWeight: '800',
-    textTransform: 'uppercase'
+    textTransform: 'uppercase',
   },
   platformBadge: {
     position: 'absolute',
@@ -374,13 +421,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     zIndex: 10,
     borderWidth: 1,
-    borderColor: '#F3F4F6'
+    borderColor: '#F3F4F6',
   },
   platformText: {
     fontSize: 9,
     fontWeight: '800',
     color: '#111827',
-    textTransform: 'uppercase'
+    textTransform: 'uppercase',
   },
   scarcityBadge: {
     position: 'absolute',
@@ -390,7 +437,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    zIndex: 9
+    zIndex: 9,
   },
   scarcityText: { color: '#D97706', fontSize: 10, fontWeight: '700' },
 
@@ -426,7 +473,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#F3F4F6'
+    borderColor: '#F3F4F6',
   },
 
   gridContent: { paddingHorizontal: 4 },
@@ -435,27 +482,80 @@ const styles = StyleSheet.create({
     fontFamily: 'serif', // System Serif
     marginBottom: 4,
     lineHeight: 18,
-    fontWeight: '500' // Serif normal/medium
+    fontWeight: '500', // Serif normal/medium
   },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 8 },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 8,
+  },
   gridPrice: { fontSize: 16, fontFamily: 'serif', fontWeight: 'bold' },
-  detailsText: { fontSize: 11, fontFamily: 'serif', color: '#111827', fontWeight: '600' },
+  detailsText: {
+    fontSize: 11,
+    fontFamily: 'serif',
+    color: '#111827',
+    fontWeight: '600',
+  },
 
-  swatchRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
-  swatch: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1, elevation: 1 },
+  swatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  swatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
   moreColors: { fontSize: 9, color: '#6B7280', fontWeight: '600' },
 
-
   // Existing variants ...
-  editorialContainer: { width: SCREEN_WIDTH - 32, marginBottom: 24, marginHorizontal: 16 },
+  editorialContainer: {
+    width: SCREEN_WIDTH - 32,
+    marginBottom: 24,
+    marginHorizontal: 16,
+  },
   editorialImage: { width: '100%', aspectRatio: 0.8, borderRadius: RADIUS.md },
   editorialContent: { marginTop: 12, alignItems: 'center' },
-  editorialName: { fontSize: 18, fontFamily: 'serif', textTransform: 'uppercase', letterSpacing: 1 },
+  editorialName: {
+    fontSize: 18,
+    fontFamily: 'serif',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   editorialPrice: { fontSize: 16, marginTop: 4, fontWeight: '500' },
-  listContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, gap: 16 },
+  listContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    gap: 16,
+  },
   listImage: { width: 60, height: 60, borderRadius: RADIUS.md },
   listContent: { flex: 1 },
   listName: { fontSize: 15, fontFamily: 'serif', fontWeight: '500' },
-  listPrice: { fontSize: 14, fontFamily: 'serif', fontWeight: '700', marginTop: 2 },
-  listAddBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }
+  listPrice: {
+    fontSize: 14,
+    fontFamily: 'serif',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  listAddBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

@@ -1,93 +1,97 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
-import { DiscountCode, CreateDiscountDTO, UpdateDiscountDTO } from '@/lib/types/discounts';
+import {
+  DiscountCode,
+  CreateDiscountDTO,
+  UpdateDiscountDTO,
+} from '@/lib/types/discounts';
 
 export function useDiscounts() {
-    const { merchant } = useMerchant();
-    const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
 
-    const query = useQuery({
-        queryKey: ['discounts', merchant?.id],
-        queryFn: async () => {
-            if (!merchant?.id) return [];
+  const query = useQuery({
+    queryKey: ['discounts', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return [];
 
-            const { data, error } = await supabase
-                .from('discount_codes')
-                .select('*')
-                .eq('merchant_id', merchant.id)
-                .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('discount_codes')
+        .select('*')
+        .eq('merchant_id', merchant.id)
+        .order('created_at', { ascending: false });
 
-            if (error) throw error;
-            return data as DiscountCode[];
-        },
-        enabled: !!merchant?.id,
-    });
+      if (error) throw error;
+      return data as DiscountCode[];
+    },
+    enabled: !!merchant?.id,
+  });
 
-    const createMutation = useMutation({
-        mutationFn: async (newDiscount: CreateDiscountDTO) => {
-            if (!merchant?.id) throw new Error('No merchant found');
+  const createMutation = useMutation({
+    mutationFn: async (newDiscount: CreateDiscountDTO) => {
+      if (!merchant?.id) throw new Error('No merchant found');
 
-            const { data, error } = await supabase
-                .from('discount_codes')
-                .insert([{ ...newDiscount, merchant_id: merchant.id }])
-                .select()
-                .single();
+      const { data, error } = await supabase
+        .from('discount_codes')
+        .insert([{ ...newDiscount, merchant_id: merchant.id }])
+        .select()
+        .single();
 
-            if (error) throw error;
-            return data as DiscountCode;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
-        },
-    });
+      if (error) throw error;
+      return data as DiscountCode;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
+    },
+  });
 
-    const updateMutation = useMutation({
-        mutationFn: async ({ id, ...updates }: UpdateDiscountDTO) => {
-            if (!merchant?.id) throw new Error('No merchant found');
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateDiscountDTO) => {
+      if (!merchant?.id) throw new Error('No merchant found');
 
-            const { data, error } = await supabase
-                .from('discount_codes')
-                .update(updates)
-                .eq('id', id)
-                .eq('merchant_id', merchant.id)
-                .select()
-                .single();
+      const { data, error } = await supabase
+        .from('discount_codes')
+        .update(updates)
+        .eq('id', id)
+        .eq('merchant_id', merchant.id)
+        .select()
+        .single();
 
-            if (error) throw error;
-            return data as DiscountCode;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
-        },
-    });
+      if (error) throw error;
+      return data as DiscountCode;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
+    },
+  });
 
-    const deleteMutation = useMutation({
-        mutationFn: async (id: string) => {
-            if (!merchant?.id) throw new Error('No merchant found');
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      if (!merchant?.id) throw new Error('No merchant found');
 
-            const { error } = await supabase
-                .from('discount_codes')
-                .delete()
-                .eq('id', id)
-                .eq('merchant_id', merchant.id);
+      const { error } = await supabase
+        .from('discount_codes')
+        .delete()
+        .eq('id', id)
+        .eq('merchant_id', merchant.id);
 
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
-        },
-    });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['discounts', merchant?.id] });
+    },
+  });
 
-    return {
-        discounts: query.data || [],
-        isLoading: query.isLoading,
-        error: query.error,
-        createDiscount: createMutation.mutateAsync,
-        updateDiscount: updateMutation.mutateAsync,
-        deleteDiscount: deleteMutation.mutateAsync,
-        isCreating: createMutation.isPending,
-        isUpdating: updateMutation.isPending,
-        isDeleting: deleteMutation.isPending,
-    };
+  return {
+    discounts: query.data || [],
+    isLoading: query.isLoading,
+    error: query.error,
+    createDiscount: createMutation.mutateAsync,
+    updateDiscount: updateMutation.mutateAsync,
+    deleteDiscount: deleteMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
 }

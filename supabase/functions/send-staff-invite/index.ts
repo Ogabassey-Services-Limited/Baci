@@ -3,25 +3,31 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const SUPABASE_SERVICE_ROLE_KEY =
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 interface StaffMember {
-    id: string;
-    merchant_id: string;
-    email: string;
-    name: string | null;
-    role: string;
-    invitation_token: string;
+  id: string;
+  merchant_id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  invitation_token: string;
 }
 
 interface WebhookPayload {
-    type: 'INSERT';
-    table: string;
-    record: StaffMember;
-    schema: string;
+  type: 'INSERT';
+  table: string;
+  record: StaffMember;
+  schema: string;
 }
 
-const EMAIL_TEMPLATE = (name: string, businessName: string, role: string, inviteUrl: string) => `
+const EMAIL_TEMPLATE = (
+  name: string,
+  businessName: string,
+  role: string,
+  inviteUrl: string
+) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -74,76 +80,83 @@ const EMAIL_TEMPLATE = (name: string, businessName: string, role: string, invite
 `;
 
 Deno.serve(async (req) => {
-    if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  try {
+    const payload: WebhookPayload = await req.json();
+    const { record } = payload;
+
+    // Only process staff invites
+    if (!record.email || !record.invitation_token || !record.merchant_id) {
+      console.log('Skipping: Missing required fields');
+      return new Response(JSON.stringify({ message: 'Skipped' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    try {
-        const payload: WebhookPayload = await req.json();
-        const { record } = payload;
+    // Initialize Supabase Admin Client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // Only process staff invites
-        if (!record.email || !record.invitation_token || !record.merchant_id) {
-            console.log('Skipping: Missing required fields');
-            return new Response(JSON.stringify({ message: 'Skipped' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        }
+    // Fetch Merchant Details
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('business_name')
+      .eq('id', record.merchant_id)
+      .single();
 
-        // Initialize Supabase Admin Client
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-        // Fetch Merchant Details
-        const { data: merchant, error: merchantError } = await supabase
-            .from('merchants')
-            .select('business_name')
-            .eq('id', record.merchant_id)
-            .single();
-
-        if (merchantError || !merchant) {
-            console.error('Merchant fetch error:', merchantError);
-            throw new Error('Merchant not found');
-        }
-
-        const businessName = merchant.business_name || 'Your Store';
-        const inviteUrl = `https://usebaci.com/invite/${record.invitation_token}`;
-        const name = record.name || 'there';
-
-        const htmlBody = EMAIL_TEMPLATE(name, businessName, record.role, inviteUrl);
-
-        console.log(`Sending invite email to ${record.email} for ${businessName}`);
-
-        // Send via ZeptoMail
-        const response = await fetch('https://api.zeptomail.com/v1.1/email', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
-            },
-            body: JSON.stringify({
-                from: { address: 'noreply@usebaci.com', name: 'Baci' },
-                to: [{ email_address: { address: record.email, name: record.name || '' } }],
-                subject: `You've been invited to join ${businessName}`,
-                htmlbody: htmlBody,
-            }),
-        });
-
-        const responseText = await response.text();
-
-        if (!response.ok) {
-            console.error('ZeptoMail Error:', responseText);
-            throw new Error(`ZeptoMail failed: ${responseText}`);
-        }
-
-        return new Response(JSON.stringify({ success: true, message: 'Email sent' }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        });
-
-    } catch (error) {
-        console.error('Error processing webhook:', error);
-        return new Response(JSON.stringify({ error: error.message }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-        });
+    if (merchantError || !merchant) {
+      console.error('Merchant fetch error:', merchantError);
+      throw new Error('Merchant not found');
     }
+
+    const businessName = merchant.business_name || 'Your Store';
+    const inviteUrl = `https://usebaci.com/invite/${record.invitation_token}`;
+    const name = record.name || 'there';
+
+    const htmlBody = EMAIL_TEMPLATE(name, businessName, record.role, inviteUrl);
+
+    console.log(`Sending invite email to ${record.email} for ${businessName}`);
+
+    // Send via ZeptoMail
+    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
+      },
+      body: JSON.stringify({
+        from: { address: 'noreply@usebaci.com', name: 'Baci' },
+        to: [
+          { email_address: { address: record.email, name: record.name || '' } },
+        ],
+        subject: `You've been invited to join ${businessName}`,
+        htmlbody: htmlBody,
+      }),
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      console.error('ZeptoMail Error:', responseText);
+      throw new Error(`ZeptoMail failed: ${responseText}`);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, message: 'Email sent' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 });

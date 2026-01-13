@@ -256,9 +256,9 @@ export function GadgetDefaultTemplate({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {browseMode === 'category' &&
-              categories.map((cat, i) => (
+              categories.map((cat, _i) => (
                 <Link
-                  key={i}
+                  key={cat.href}
                   href={asRoute(getFullHref(cat.href))}
                   className={cn(
                     'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
@@ -287,9 +287,9 @@ export function GadgetDefaultTemplate({
 
             {browseMode === 'brand' &&
               (allBrands.length > 0 ? (
-                allBrands.map((brand, i) => (
+                allBrands.map((brand, _i) => (
                   <Link
-                    key={i}
+                    key={brand}
                     href={asRoute(getFullHref(`/search?q=${brand}`))}
                     className={cn(
                       'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
@@ -319,9 +319,9 @@ export function GadgetDefaultTemplate({
               ))}
 
             {browseMode === 'price' &&
-              PRICE_RANGES.map((range, i) => (
+              PRICE_RANGES.map((range, _i) => (
                 <Link
-                  key={i}
+                  key={range.href}
                   href={asRoute(getFullHref(range.href))}
                   className={cn(
                     'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',

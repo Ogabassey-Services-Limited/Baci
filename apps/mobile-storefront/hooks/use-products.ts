@@ -31,7 +31,9 @@ interface UseProductsResult {
   loadMore: () => Promise<void>;
 }
 
-export function useProducts(options: UseProductsOptions = {}): UseProductsResult {
+export function useProducts(
+  options: UseProductsOptions = {}
+): UseProductsResult {
   const {
     category,
     limit = 20,
@@ -70,7 +72,10 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsResult
 
         if (merchantError || !merchant) {
           // Merchant not found - return empty products
-          console.warn(`Store "${MERCHANT_SLUG}" not found. Error:`, merchantError);
+          console.warn(
+            `Store "${MERCHANT_SLUG}" not found. Error:`,
+            merchantError
+          );
           setProducts([]);
           setTotal(0);
           setHasMore(false);
@@ -153,22 +158,24 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsResult
         }
 
         // Transform data to match Product type
-        const transformedProducts: Product[] = (data || []).map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          slug: item.slug,
-          description: item.description,
-          price: item.price,
-          compare_at_price: item.compare_at_price,
-          image: item.images?.[0] || '',
-          images: item.images || [],
-          brand: item.brand,
-          category: item.categories?.[0]?.name,
-          condition: item.condition,
-          rating: 4.5, // Default rating - implement actual ratings later
-          review_count: 0,
-          in_stock: true,
-        }));
+        const transformedProducts: Product[] = (data || []).map(
+          (item: any) => ({
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            description: item.description,
+            price: item.price,
+            compare_at_price: item.compare_at_price,
+            image: item.images?.[0] || '',
+            images: item.images || [],
+            brand: item.brand,
+            category: item.categories?.[0]?.name,
+            condition: item.condition,
+            rating: 4.5, // Default rating - implement actual ratings later
+            review_count: 0,
+            in_stock: true,
+          })
+        );
 
         if (isLoadMore) {
           setProducts((prev) => [...prev, ...transformedProducts]);
@@ -182,12 +189,23 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsResult
         setError(null);
       } catch (err) {
         console.error('Error fetching products:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch products');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch products'
+        );
       } finally {
         setIsLoading(false);
       }
     },
-    [category, limit, sortBy, search, condition, minPrice, maxPrice, currentOffset]
+    [
+      category,
+      limit,
+      sortBy,
+      search,
+      condition,
+      minPrice,
+      maxPrice,
+      currentOffset,
+    ]
   );
 
   useEffect(() => {
@@ -280,7 +298,10 @@ export function useProduct(slug: string) {
 
         // Build variants from variant_attributes if product has variants
         // Note: product_variants table requires merchant auth, so we use variant_attributes instead
-        const variantAttrs = (data as any).variant_attributes as Record<string, string[]> | null;
+        const variantAttrs = (data as any).variant_attributes as Record<
+          string,
+          string[]
+        > | null;
         const variants: any[] = [];
 
         // If product has variants, create synthetic variant entries from attributes
@@ -314,7 +335,9 @@ export function useProduct(slug: string) {
         setError(null);
       } catch (err) {
         console.error('Error fetching product:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch product');
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch product'
+        );
       } finally {
         setIsLoading(false);
       }

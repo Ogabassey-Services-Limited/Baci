@@ -3,7 +3,12 @@
  * Fetches products with infinite scroll, search, and mutations
  */
 
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  useQuery,
+} from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
@@ -26,7 +31,10 @@ export interface Product {
   category_id: string | null;
   brand: string | null;
   brand_id: string | null;
-  fulfillment_details: { items?: Array<{ imei: string; serial_number: string }>;[key: string]: any } | null;
+  fulfillment_details: {
+    items?: Array<{ imei: string; serial_number: string }>;
+    [key: string]: any;
+  } | null;
   color: string | null;
   variant_attributes: Record<string, any> | null;
   has_variants: boolean;
@@ -74,7 +82,9 @@ async function fetchProducts(
   }
 
   if (filters?.search) {
-    query = query.or(`name.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`);
+    query = query.or(
+      `name.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`
+    );
   }
 
   const { data, error, count } = await query;
@@ -96,7 +106,11 @@ async function updateProductStock(
 ): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
-    .update({ stock, stock_quantity: stock, updated_at: new Date().toISOString() })
+    .update({
+      stock,
+      stock_quantity: stock,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', productId)
     .select()
     .single();
@@ -120,13 +134,18 @@ async function updateProductStatus(
   return data;
 }
 
-export function useProducts(filters?: { status?: ProductStatus; search?: string; category?: string }) {
+export function useProducts(filters?: {
+  status?: ProductStatus;
+  search?: string;
+  category?: string;
+}) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
 
   return useInfiniteQuery({
     queryKey: ['products', merchantId, filters],
-    queryFn: ({ pageParam = 0 }) => fetchProducts(merchantId!, pageParam, filters),
+    queryFn: ({ pageParam = 0 }) =>
+      fetchProducts(merchantId!, pageParam, filters),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
     enabled: !!merchantId,
@@ -159,24 +178,38 @@ export function useProduct(productId: string) {
         .eq('parent_product_id', productId)
         .eq('merchant_id', merchant?.id); // Ensure variants also belong to the merchant
 
-      if (variantsError && variantsError.code !== 'PGRST116') { // PGRST116 is "No rows found"
+      if (variantsError && variantsError.code !== 'PGRST116') {
+        // PGRST116 is "No rows found"
         console.log('Error fetching variants', variantsError);
       }
 
-      return { ...productData, variants: variants || [] } as Product & { categories?: { name: string }; brands?: { name: string }; variants: Product[] };
+      return { ...productData, variants: variants || [] } as Product & {
+        categories?: { name: string };
+        brands?: { name: string };
+        variants: Product[];
+      };
     },
     enabled: !!productId && productId !== 'new' && !!merchant?.id,
   });
 }
 
-import { ProductDbSchema, type ProductFormValues } from '@/lib/validators/product';
+import {
+  ProductDbSchema,
+  type ProductFormValues,
+} from '@/lib/validators/product';
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: ProductFormValues }) => {
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: ProductFormValues;
+    }) => {
       // 1. Validate & Transform (Client-side validation)
       // We perform the parse here to ensure the data matches our schema before transform
       const dbPayload = ProductDbSchema.parse(updates);
@@ -185,7 +218,7 @@ export function useUpdateProduct() {
         .from('products')
         .update({
           ...dbPayload,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()
@@ -212,10 +245,12 @@ export function useCreateProduct() {
 
       const { data, error } = await supabase
         .from('products')
-        .insert([{
-          ...dbPayload,
-          merchant_id: merchant?.id,
-        }])
+        .insert([
+          {
+            ...dbPayload,
+            merchant_id: merchant?.id,
+          },
+        ])
         .select()
         .single();
 
@@ -238,7 +273,10 @@ export function useUpdateProductStock() {
     onMutate: async ({ productId, stock }) => {
       await queryClient.cancelQueries({ queryKey: ['products', merchant?.id] });
 
-      const previousProducts = queryClient.getQueryData(['products', merchant?.id]);
+      const previousProducts = queryClient.getQueryData([
+        'products',
+        merchant?.id,
+      ]);
 
       queryClient.setQueryData(['products', merchant?.id], (old: any) => {
         if (!old?.pages) return old;
@@ -247,7 +285,9 @@ export function useUpdateProductStock() {
           pages: old.pages.map((page: ProductsPage) => ({
             ...page,
             products: page.products.map((product: Product) =>
-              product.id === productId ? { ...product, stock, stock_quantity: stock } : product
+              product.id === productId
+                ? { ...product, stock, stock_quantity: stock }
+                : product
             ),
           })),
         };
@@ -257,7 +297,10 @@ export function useUpdateProductStock() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previousProducts) {
-        queryClient.setQueryData(['products', merchant?.id], context.previousProducts);
+        queryClient.setQueryData(
+          ['products', merchant?.id],
+          context.previousProducts
+        );
       }
     },
     onSettled: () => {
@@ -271,8 +314,13 @@ export function useUpdateProductStatus() {
   const { merchant } = useMerchant();
 
   return useMutation({
-    mutationFn: ({ productId, status }: { productId: string; status: ProductStatus }) =>
-      updateProductStatus(productId, status),
+    mutationFn: ({
+      productId,
+      status,
+    }: {
+      productId: string;
+      status: ProductStatus;
+    }) => updateProductStatus(productId, status),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
@@ -306,7 +354,10 @@ export function useCreateCategory() {
   return useMutation({
     mutationFn: async (name: string) => {
       if (!name.trim()) throw new Error('Category name is required');
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
 
       const { data, error } = await supabase
         .from('categories')
@@ -384,9 +435,12 @@ export function useInventoryStats() {
   return useQuery({
     queryKey: ['inventory-stats', merchantId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_merchant_inventory_stats', {
-        p_merchant_id: merchantId,
-      });
+      const { data, error } = await supabase.rpc(
+        'get_merchant_inventory_stats',
+        {
+          p_merchant_id: merchantId,
+        }
+      );
 
       if (error) throw error;
       return data as InventoryStats;

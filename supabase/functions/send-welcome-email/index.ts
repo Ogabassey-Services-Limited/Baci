@@ -1,15 +1,14 @@
-
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 // DB Webhook payload type
 interface WebhookPayload {
-    type: 'INSERT' | 'UPDATE' | 'DELETE';
-    table: string;
-    schema: string;
-    record: any;
-    old_record: any;
+  type: 'INSERT' | 'UPDATE' | 'DELETE';
+  table: string;
+  schema: string;
+  record: any;
+  old_record: any;
 }
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -18,61 +17,65 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 Deno.serve(async (req) => {
-    if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  try {
+    const payload: WebhookPayload = await req.json();
+    console.log('Received webhook:', payload.type, payload.table);
+
+    // 1. Verify it's the right event
+    if (payload.table !== 'users' || payload.schema !== 'auth') {
+      return new Response('Ignored: Not auth.users', { status: 200 });
     }
 
-    try {
-        const payload: WebhookPayload = await req.json();
-        console.log('Received webhook:', payload.type, payload.table);
+    if (payload.type !== 'UPDATE') {
+      return new Response('Ignored: Not UPDATE', { status: 200 });
+    }
 
-        // 1. Verify it's the right event
-        if (payload.table !== 'users' || payload.schema !== 'auth') {
-            return new Response('Ignored: Not auth.users', { status: 200 });
-        }
+    const { record, old_record } = payload;
 
-        if (payload.type !== 'UPDATE') {
-            return new Response('Ignored: Not UPDATE', { status: 200 });
-        }
+    // Check if email_confirmed_at changed from null to something
+    const wasConfirmed = old_record.email_confirmed_at !== null;
+    const isConfirmed = record.email_confirmed_at !== null;
 
-        const { record, old_record } = payload;
+    if (wasConfirmed || !isConfirmed) {
+      return new Response('Ignored: Not an email confirmation event', {
+        status: 200,
+      });
+    }
 
-        // Check if email_confirmed_at changed from null to something
-        const wasConfirmed = old_record.email_confirmed_at !== null;
-        const isConfirmed = record.email_confirmed_at !== null;
+    console.log('Email confirmed for user:', record.id, record.email);
 
-        if (wasConfirmed || !isConfirmed) {
-            return new Response('Ignored: Not an email confirmation event', { status: 200 });
-        }
+    // 2. Fetch Merchant Name
+    // We need to wait a moment because the merchant creation might be happening in parallel/transaction
+    // checking public.merchants
 
-        console.log('Email confirmed for user:', record.id, record.email);
+    // Simple retry logic if merchant not found immediately (race condition possible during signup)
+    let businessName = 'Merchant';
 
-        // 2. Fetch Merchant Name
-        // We need to wait a moment because the merchant creation might be happening in parallel/transaction
-        // checking public.merchants
+    // Try to fetch merchant
+    const { data: merchant, error } = await supabase
+      .from('merchants')
+      .select('business_name')
+      .eq('user_id', record.id)
+      .single();
 
-        // Simple retry logic if merchant not found immediately (race condition possible during signup)
-        let businessName = 'Merchant';
+    if (merchant) {
+      businessName = merchant.business_name;
+    } else {
+      console.log(
+        'Merchant record not found immediately via user_id, defaulting name.'
+      );
+    }
 
-        // Try to fetch merchant
-        const { data: merchant, error } = await supabase
-            .from('merchants')
-            .select('business_name')
-            .eq('user_id', record.id)
-            .single();
+    // 3. Send Email
+    const emailTo = record.email;
 
-        if (merchant) {
-            businessName = merchant.business_name;
-        } else {
-            console.log('Merchant record not found immediately via user_id, defaulting name.');
-        }
+    console.log('Sending welcome email to:', emailTo, 'Name:', businessName);
 
-        // 3. Send Email
-        const emailTo = record.email;
-
-        console.log('Sending welcome email to:', emailTo, 'Name:', businessName);
-
-        const htmlBody = `
+    const htmlBody = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -97,36 +100,39 @@ Deno.serve(async (req) => {
 </html>
     `;
 
-        const response = await fetch('https://api.zeptomail.com/v1.1/email', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
-            },
-            body: JSON.stringify({
-                from: { address: 'noreply@usebaci.com', name: 'Baci' },
-                to: [{ email_address: { address: emailTo, name: businessName } }],
-                subject: 'Welcome to Baci - Your store is ready!',
-                htmlbody: htmlBody,
-            }),
-        });
+    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
+      },
+      body: JSON.stringify({
+        from: { address: 'noreply@usebaci.com', name: 'Baci' },
+        to: [{ email_address: { address: emailTo, name: businessName } }],
+        subject: 'Welcome to Baci - Your store is ready!',
+        htmlbody: htmlBody,
+      }),
+    });
 
-        const responseText = await response.text();
-        console.log('ZeptoMail response:', response.status, responseText);
+    const responseText = await response.text();
+    console.log('ZeptoMail response:', response.status, responseText);
 
-        if (!response.ok) {
-            console.error('Failed to send welcome email via Zepto');
-            return new Response(JSON.stringify({ error: 'ZeptoMail failed' }), { status: 500 });
-        }
-
-        return new Response(JSON.stringify({ success: true }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-    } catch (err) {
-        console.error('Error processing webhook:', err);
-        return new Response(JSON.stringify({ error: 'Internal Error' }), { status: 500 });
+    if (!response.ok) {
+      console.error('Failed to send welcome email via Zepto');
+      return new Response(JSON.stringify({ error: 'ZeptoMail failed' }), {
+        status: 500,
+      });
     }
+
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error('Error processing webhook:', err);
+    return new Response(JSON.stringify({ error: 'Internal Error' }), {
+      status: 500,
+    });
+  }
 });

@@ -9,8 +9,14 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 // Get Supabase credentials from app.json extra config
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl =
+  Constants.expoConfig?.extra?.supabaseUrl ||
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  '';
+const supabaseAnonKey =
+  Constants.expoConfig?.extra?.supabaseAnonKey ||
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  '';
 
 /**
  * Custom storage adapter using expo-secure-store
@@ -85,7 +91,10 @@ export function isSupabaseConfigured(): boolean {
  * Get the current user session
  */
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
   if (error) {
     console.error('Error getting session:', error);
     return null;
@@ -97,7 +106,10 @@ export async function getSession() {
  * Get the current user
  */
 export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error) {
     console.error('Error getting user:', error);
     return null;
@@ -147,13 +159,18 @@ export async function calculateCommerce(
 export async function calculateCommerce(
   action: 'calculate_vtu' | 'calculate_order' | 'redeem_loyalty',
   data: CalculateOrderInputType | CalculateVTUInputType | RedeemLoyaltyInputType
-): Promise<CalculateOrderOutputType | CalculateVTUOutputType | RedeemLoyaltyOutputType> {
+): Promise<
+  CalculateOrderOutputType | CalculateVTUOutputType | RedeemLoyaltyOutputType
+> {
   const startTime = Date.now();
 
   try {
-    const { data: result, error } = await supabase.functions.invoke('calculate-commerce', {
-      body: { action, data }
-    });
+    const { data: result, error } = await supabase.functions.invoke(
+      'calculate-commerce',
+      {
+        body: { action, data },
+      }
+    );
 
     if (error) {
       console.error(`Commerce Brain Error [${action}]:`, error);
@@ -180,10 +197,14 @@ export async function calculateCommerce(
   } catch (error) {
     // Track commerce brain failure for network errors
     const { trackError } = await import('@/services/analytics');
-    trackError('commerce_brain_error', error instanceof Error ? error.message : 'Unknown error', {
-      action,
-      duration_ms: Date.now() - startTime,
-    });
+    trackError(
+      'commerce_brain_error',
+      error instanceof Error ? error.message : 'Unknown error',
+      {
+        action,
+        duration_ms: Date.now() - startTime,
+      }
+    );
 
     throw error;
   }

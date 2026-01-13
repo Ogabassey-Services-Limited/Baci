@@ -17,13 +17,7 @@ function TabBarIcon(props: {
   color: string;
   focused: boolean;
 }) {
-  return (
-    <Ionicons
-      size={24}
-      style={{ marginBottom: -2 }}
-      {...props}
-    />
-  );
+  return <Ionicons size={24} style={{ marginBottom: -2 }} {...props} />;
 }
 
 function CartIcon({ color, focused }: { color: string; focused: boolean }) {

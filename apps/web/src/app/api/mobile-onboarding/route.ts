@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     // Mobile users are likely new.
     // We will try to sign up.
 
-    let user: any = null;
+    let user: User | null = null;
 
     // Create user via SignUp
     // If user already exists, we will catch it below.
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
         businessName,
         businessType: finalBusinessType,
         brandColors: safeBrandColors,
-        merchant: merchant as any,
+        merchant: merchant as unknown as Record<string, unknown>,
       });
       await adminSupabase.from('page_configs').insert({
         merchant_id: merchant.id,
@@ -229,10 +230,13 @@ export async function POST(req: NextRequest) {
       merchant,
       message: 'Account created successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Mobile onboarding error:', error);
     return NextResponse.json(
-      { success: false, message: error.message || 'Internal Server Error' },
+      {
+        success: false,
+        message: (error as Error).message || 'Internal Server Error',
+      },
       { status: 500 }
     );
   }

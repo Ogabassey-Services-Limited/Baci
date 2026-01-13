@@ -88,7 +88,6 @@ export default async function StaffAcceptPage({
         merchantName={merchantName}
         role={invitation.role}
         inviteEmail={invitation.email}
-        isLoggedIn={false}
         token={token}
       />
     );
@@ -138,13 +137,13 @@ function InvitePage({
   merchantName,
   role,
   inviteEmail,
-  isLoggedIn,
   token,
 }: {
   merchantName: string;
   role: string;
+  merchantName: string;
+  role: string;
   inviteEmail: string;
-  isLoggedIn: boolean;
   token: string;
 }) {
   return (

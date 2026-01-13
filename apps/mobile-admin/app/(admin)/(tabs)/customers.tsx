@@ -3,7 +3,7 @@
  * View customer list and details with real-time data
  */
 
-import React, { useCallback, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,13 +22,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
-import { useCustomers, useCustomerStats, type Customer } from '@/hooks/useCustomers';
+import {
+  useCustomers,
+  useCustomerStats,
+  type Customer,
+} from '@/hooks/useCustomers';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { useFailedOrders, type FailedOrder } from '@/hooks/useFailedOrders';
 import * as Linking from 'expo-linking';
 
 export default function CustomersScreen() {
-  const { colors, shadows, isDark } = useTheme();
+  const { colors, shadows } = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -38,33 +42,36 @@ export default function CustomersScreen() {
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const currentScrollY = event.nativeEvent.contentOffset.y;
+      const diff = currentScrollY - lastScrollY.current;
 
-    // Only trigger animation if scrolled more than 10px and not at top
-    if (Math.abs(diff) > 10) {
-      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-        // Scrolling down - hide search bar
-        isSearchVisible.current = false;
-        Animated.timing(searchBarHeight, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
-      } else if (diff < 0 && !isSearchVisible.current) {
-        // Scrolling up - show search bar
-        isSearchVisible.current = true;
-        Animated.timing(searchBarHeight, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
+      // Only trigger animation if scrolled more than 10px and not at top
+      if (Math.abs(diff) > 10) {
+        if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+          // Scrolling down - hide search bar
+          isSearchVisible.current = false;
+          Animated.timing(searchBarHeight, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
+        } else if (diff < 0 && !isSearchVisible.current) {
+          // Scrolling up - show search bar
+          isSearchVisible.current = true;
+          Animated.timing(searchBarHeight, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
+        }
       }
-    }
 
-    lastScrollY.current = currentScrollY;
-  }, [searchBarHeight]);
+      lastScrollY.current = currentScrollY;
+    },
+    [searchBarHeight]
+  );
 
   const {
     data,
@@ -75,7 +82,11 @@ export default function CustomersScreen() {
     refetch,
   } = useCustomers();
 
-  const { data: failedOrders, isLoading: isLoadingFailed, refetch: refetchFailed } = useFailedOrders();
+  const {
+    data: failedOrders,
+    isLoading: isLoadingFailed,
+    refetch: refetchFailed,
+  } = useFailedOrders();
 
   const { data: stats } = useCustomerStats();
 
@@ -84,10 +95,11 @@ export default function CustomersScreen() {
     const allCustomers = data?.pages.flatMap((page) => page.customers) ?? [];
     if (!searchQuery.trim()) return allCustomers;
     const q = searchQuery.toLowerCase();
-    return allCustomers.filter(c =>
-      c.first_name?.toLowerCase().includes(q) ||
-      c.last_name?.toLowerCase().includes(q) ||
-      c.email.toLowerCase().includes(q)
+    return allCustomers.filter(
+      (c) =>
+        c.first_name?.toLowerCase().includes(q) ||
+        c.last_name?.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q)
     );
   }, [data, searchQuery]);
 
@@ -96,9 +108,10 @@ export default function CustomersScreen() {
     if (!failedOrders) return [];
     if (!searchQuery.trim()) return failedOrders;
     const q = searchQuery.toLowerCase();
-    return failedOrders.filter(o =>
-      o.customer_name?.toLowerCase().includes(q) ||
-      o.customer_email.toLowerCase().includes(q)
+    return failedOrders.filter(
+      (o) =>
+        o.customer_name?.toLowerCase().includes(q) ||
+        o.customer_email.toLowerCase().includes(q)
     );
   }, [failedOrders, searchQuery]);
 
@@ -118,12 +131,6 @@ export default function CustomersScreen() {
     return `₦${amount.toLocaleString()} `;
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' });
-  };
-
   const getInitials = (name: string | null) => {
     if (!name) return '?';
     return name
@@ -135,7 +142,9 @@ export default function CustomersScreen() {
   };
 
   const getDisplayName = (customer: Customer) => {
-    const names = [customer.first_name, customer.last_name].filter(Boolean).join(' ');
+    const names = [customer.first_name, customer.last_name]
+      .filter(Boolean)
+      .join(' ');
     if (names) return names;
     return customer.email.split('@')[0];
   };
@@ -161,8 +170,11 @@ export default function CustomersScreen() {
 
   const renderFailedOrder = ({ item }: { item: FailedOrder }) => {
     // Determine error message based on gateway response or status
-    const errorMessage = item.gateway_response?.message ||
-      (item.payment_status === 'bnpl_pending' ? 'BNPL Drop-off' : 'Payment Failed');
+    const errorMessage =
+      item.gateway_response?.message ||
+      (item.payment_status === 'bnpl_pending'
+        ? 'BNPL Drop-off'
+        : 'Payment Failed');
 
     const displayName = item.customer_name || 'Guest';
 
@@ -184,15 +196,33 @@ export default function CustomersScreen() {
         }}
       >
         <View style={[styles.avatar, { backgroundColor: colors.goldLight }]}>
-          <Text style={[styles.avatarText, { color: colors.gold }]}>{getInitials(displayName)}</Text>
+          <Text style={[styles.avatarText, { color: colors.gold }]}>
+            {getInitials(displayName)}
+          </Text>
         </View>
 
         <View style={styles.customerInfo}>
-          <Text style={[styles.customerName, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
-          <Text style={[styles.customerEmail, { color: colors.textSecondary }]} numberOfLines={1}>{item.customer_email}</Text>
+          <Text
+            style={[styles.customerName, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {displayName}
+          </Text>
+          <Text
+            style={[styles.customerEmail, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {item.customer_email}
+          </Text>
 
-          <Text style={[styles.errorText, { color: '#EF4444' }]} numberOfLines={1}>
-            {formatCurrency(item.total)} • {item.attempt_count > 1 ? `${item.attempt_count} attempts` : errorMessage}
+          <Text
+            style={[styles.errorText, { color: '#EF4444' }]}
+            numberOfLines={1}
+          >
+            {formatCurrency(item.total)} •{' '}
+            {item.attempt_count > 1
+              ? `${item.attempt_count} attempts`
+              : errorMessage}
           </Text>
         </View>
 
@@ -200,7 +230,10 @@ export default function CustomersScreen() {
           {item.customer_phone && (
             <>
               <Pressable
-                style={[styles.miniActionButton, { backgroundColor: '#DCFCE7' }]}
+                style={[
+                  styles.miniActionButton,
+                  { backgroundColor: '#DCFCE7' },
+                ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   handleWhatsApp(item.customer_phone!);
@@ -209,7 +242,10 @@ export default function CustomersScreen() {
                 <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
               </Pressable>
               <Pressable
-                style={[styles.miniActionButton, { backgroundColor: '#F3F4F6' }]}
+                style={[
+                  styles.miniActionButton,
+                  { backgroundColor: '#F3F4F6' },
+                ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   handleCall(item.customer_phone!);
@@ -247,21 +283,41 @@ export default function CustomersScreen() {
         onPress={() => router.push(`/customer/${item.id}`)}
       >
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={[styles.avatarText, { color: colors.primary }]}>{getInitials(displayName)}</Text>
+          <Text style={[styles.avatarText, { color: colors.primary }]}>
+            {getInitials(displayName)}
+          </Text>
         </View>
 
         <View style={styles.customerInfo}>
-          <Text style={[styles.customerName, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
-          <Text style={[styles.customerEmail, { color: colors.textSecondary }]} numberOfLines={1}>{item.email}</Text>
+          <Text
+            style={[styles.customerName, { color: colors.text }]}
+            numberOfLines={1}
+          >
+            {displayName}
+          </Text>
+          <Text
+            style={[styles.customerEmail, { color: colors.textSecondary }]}
+            numberOfLines={1}
+          >
+            {item.email}
+          </Text>
 
           <View style={styles.statsRow}>
             <View style={styles.stat}>
-              <Ionicons name="cart-outline" size={14} color={colors.textMuted} />
-              <Text style={[styles.statText, { color: colors.textMuted }]}>{item.total_orders} orders</Text>
+              <Ionicons
+                name="cart-outline"
+                size={14}
+                color={colors.textMuted}
+              />
+              <Text style={[styles.statText, { color: colors.textMuted }]}>
+                {item.total_orders} orders
+              </Text>
             </View>
             <Text style={[styles.statDot, { color: colors.textMuted }]}>•</Text>
             <View style={styles.stat}>
-              <Text style={[styles.statText, { color: colors.success }]}>{formatCurrency(item.total_spent)}</Text>
+              <Text style={[styles.statText, { color: colors.success }]}>
+                {formatCurrency(item.total_spent)}
+              </Text>
             </View>
           </View>
         </View>
@@ -270,7 +326,10 @@ export default function CustomersScreen() {
           {item.phone && (
             <>
               <Pressable
-                style={[styles.miniActionButton, { backgroundColor: '#DCFCE7' }]}
+                style={[
+                  styles.miniActionButton,
+                  { backgroundColor: '#DCFCE7' },
+                ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   handleWhatsApp(item.phone!);
@@ -279,7 +338,10 @@ export default function CustomersScreen() {
                 <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
               </Pressable>
               <Pressable
-                style={[styles.miniActionButton, { backgroundColor: '#F3F4F6' }]}
+                style={[
+                  styles.miniActionButton,
+                  { backgroundColor: '#F3F4F6' },
+                ]}
                 onPress={(e) => {
                   e.stopPropagation();
                   handleCall(item.phone!);
@@ -304,8 +366,14 @@ export default function CustomersScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
 
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Customers</Text>
@@ -338,7 +406,11 @@ export default function CustomersScreen() {
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={colors.textMuted}
+              />
             </Pressable>
           )}
         </View>
@@ -349,26 +421,44 @@ export default function CustomersScreen() {
         <Pressable
           style={[
             styles.tab,
-            activeTab === 'failed' && { backgroundColor: colors.gold, borderColor: colors.gold }
+            activeTab === 'failed' && {
+              backgroundColor: colors.gold,
+              borderColor: colors.gold,
+            },
           ]}
           onPress={() => setActiveTab('failed')}
         >
-          <Text style={[
-            styles.tabText,
-            activeTab === 'failed' ? { color: '#FFF' } : { color: colors.textSecondary }
-          ]}>Follow Up {failedOrders?.length ? `(${failedOrders.length})` : ''}</Text>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'failed'
+                ? { color: '#FFF' }
+                : { color: colors.textSecondary },
+            ]}
+          >
+            Follow Up {failedOrders?.length ? `(${failedOrders.length})` : ''}
+          </Text>
         </Pressable>
         <Pressable
           style={[
             styles.tab,
-            activeTab === 'all' && { backgroundColor: colors.gold, borderColor: colors.gold }
+            activeTab === 'all' && {
+              backgroundColor: colors.gold,
+              borderColor: colors.gold,
+            },
           ]}
           onPress={() => setActiveTab('all')}
         >
-          <Text style={[
-            styles.tabText,
-            activeTab === 'all' ? { color: '#FFF' } : { color: colors.textSecondary }
-          ]}>All Customers</Text>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === 'all'
+                ? { color: '#FFF' }
+                : { color: colors.textSecondary },
+            ]}
+          >
+            All Customers
+          </Text>
         </Pressable>
       </View>
 
@@ -376,17 +466,53 @@ export default function CustomersScreen() {
         <>
           {/* Stats Summary - Only for All Customers */}
           <View style={styles.summaryRow}>
-            <View style={[styles.summaryCard, { backgroundColor: colors.card }, shadows.sm]}>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>{stats?.total ?? 0}</Text>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Total</Text>
+            <View
+              style={[
+                styles.summaryCard,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
+            >
+              <Text style={[styles.summaryValue, { color: colors.text }]}>
+                {stats?.total ?? 0}
+              </Text>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                Total
+              </Text>
             </View>
-            <View style={[styles.summaryCard, { backgroundColor: colors.card }, shadows.sm]}>
-              <Text style={[styles.summaryValue, { color: colors.success }]}>{stats?.newThisWeek ?? 0}</Text>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>New</Text>
+            <View
+              style={[
+                styles.summaryCard,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
+            >
+              <Text style={[styles.summaryValue, { color: colors.success }]}>
+                {stats?.newThisWeek ?? 0}
+              </Text>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                New
+              </Text>
             </View>
-            <View style={[styles.summaryCard, { backgroundColor: colors.card }, shadows.sm]}>
-              <Text style={[styles.summaryValue, { color: colors.gold }]}>{stats?.retentionRate ?? 0}%</Text>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Returning</Text>
+            <View
+              style={[
+                styles.summaryCard,
+                { backgroundColor: colors.card },
+                shadows.sm,
+              ]}
+            >
+              <Text style={[styles.summaryValue, { color: colors.gold }]}>
+                {stats?.retentionRate ?? 0}%
+              </Text>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                Returning
+              </Text>
             </View>
           </View>
 
@@ -418,9 +544,19 @@ export default function CustomersScreen() {
             ListEmptyComponent={
               !isLoading ? (
                 <View style={styles.emptyContainer}>
-                  <Ionicons name="people-outline" size={56} color={colors.textMuted} />
-                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No customers yet</Text>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Customers will appear here after their first purchase</Text>
+                  <Ionicons
+                    name="people-outline"
+                    size={56}
+                    color={colors.textMuted}
+                  />
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    No customers yet
+                  </Text>
+                  <Text
+                    style={[styles.emptyText, { color: colors.textSecondary }]}
+                  >
+                    Customers will appear here after their first purchase
+                  </Text>
                 </View>
               ) : null
             }
@@ -447,9 +583,19 @@ export default function CustomersScreen() {
           ListEmptyComponent={
             !isLoadingFailed ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="checkmark-circle-outline" size={56} color={colors.success} />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>No issues</Text>
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>All recent transactions are successful!</Text>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={56}
+                  color={colors.success}
+                />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  No issues
+                </Text>
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  All recent transactions are successful!
+                </Text>
               </View>
             ) : null
           }

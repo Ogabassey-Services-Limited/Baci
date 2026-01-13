@@ -33,7 +33,13 @@ import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY, SHADOWS } from '@/constants/Colors';
+import Colors, {
+  BRAND,
+  SPACING,
+  RADIUS,
+  TYPOGRAPHY,
+  SHADOWS,
+} from '@/constants/Colors';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useProduct } from '@/hooks/use-products';
@@ -99,15 +105,21 @@ export default function ProductDetailScreen() {
   });
 
   const backButtonAnimatedStyle = useAnimatedStyle(() => {
-    const backgroundColor = scrollY.value > HEADER_HEIGHT * 0.7 
-      ? withTiming('transparent') 
-      : withTiming('rgba(0,0,0,0.3)');
+    const backgroundColor =
+      scrollY.value > HEADER_HEIGHT * 0.7
+        ? withTiming('transparent')
+        : withTiming('rgba(0,0,0,0.3)');
     return { backgroundColor };
   });
 
   if (isLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
           Loading product...
@@ -118,8 +130,14 @@ export default function ProductDetailScreen() {
 
   if (error || !product) {
     return (
-      <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={64} color={colors.textSecondary} />
+      <View
+        style={[styles.errorContainer, { backgroundColor: colors.background }]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={64}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.errorTitle, { color: colors.text }]}>
           Product not found
         </Text>
@@ -137,7 +155,10 @@ export default function ProductDetailScreen() {
   }
 
   const images = product.images?.length ? product.images : [product.image];
-  const discountPercentage = getDiscountPercentage(product.price, product.compare_at_price);
+  const discountPercentage = getDiscountPercentage(
+    product.price,
+    product.compare_at_price
+  );
 
   const handleAddToCart = () => {
     addItem({
@@ -176,9 +197,18 @@ export default function ProductDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Floating Dynamic Header */}
-      <Animated.View style={[styles.header, { height: insets.top + 50 }, headerAnimatedStyle]}>
+      <Animated.View
+        style={[
+          styles.header,
+          { height: insets.top + 50 },
+          headerAnimatedStyle,
+        ]}
+      >
         <View style={[styles.headerContent, { marginTop: insets.top }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.headerTitle, { color: colors.text }]}
+            numberOfLines={1}
+          >
             {product.name}
           </Text>
         </View>
@@ -227,7 +257,7 @@ export default function ProductDetailScreen() {
             colors={['rgba(0,0,0,0.3)', 'transparent', 'transparent']}
             style={StyleSheet.absoluteFill}
           />
-          
+
           {/* Badge */}
           {discountPercentage && (
             <View style={styles.discountBadge}>
@@ -237,21 +267,33 @@ export default function ProductDetailScreen() {
         </View>
 
         {/* Product Details Content */}
-        <Animated.View 
+        <Animated.View
           entering={FadeInDown.delay(200).duration(600)}
-          style={[styles.detailsContainer, { backgroundColor: colors.background }]}
+          style={[
+            styles.detailsContainer,
+            { backgroundColor: colors.background },
+          ]}
         >
           {/* Thumbnails */}
           {images.length > 1 && (
             <View style={styles.thumbnailsWrapper}>
-              <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailsContainer}>
+              <Animated.ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.thumbnailsContainer}
+              >
                 {images.map((img, idx) => (
                   <Pressable
                     key={idx}
                     onPress={() => setSelectedImageIndex(idx)}
                     style={[
                       styles.thumbnail,
-                      { borderColor: selectedImageIndex === idx ? BRAND.primary : colors.border }
+                      {
+                        borderColor:
+                          selectedImageIndex === idx
+                            ? BRAND.primary
+                            : colors.border,
+                      },
                     ]}
                   >
                     <Image
@@ -276,19 +318,36 @@ export default function ProductDetailScreen() {
               </Text>
             )}
             {product.condition && (
-              <View style={[styles.conditionBadge, { backgroundColor: product.condition === 'New' ? colors.success : colors.warning }]}>
+              <View
+                style={[
+                  styles.conditionBadge,
+                  {
+                    backgroundColor:
+                      product.condition === 'New'
+                        ? colors.success
+                        : colors.warning,
+                  },
+                ]}
+              >
                 <Text style={styles.conditionText}>{product.condition}</Text>
               </View>
             )}
           </View>
 
           {/* Title & Rating */}
-          <Text style={[styles.title, { color: colors.text }]}>{product.name}</Text>
-          
+          <Text style={[styles.title, { color: colors.text }]}>
+            {product.name}
+          </Text>
+
           <View style={styles.ratingRow}>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((s) => (
-                <Ionicons key={s} name="star" size={14} color={s <= 4 ? colors.rating : colors.border} />
+                <Ionicons
+                  key={s}
+                  name="star"
+                  size={14}
+                  color={s <= 4 ? colors.rating : colors.border}
+                />
               ))}
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
@@ -302,7 +361,9 @@ export default function ProductDetailScreen() {
               {formatPrice(product.price)}
             </Text>
             {product.compare_at_price && (
-              <Text style={[styles.comparePrice, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.comparePrice, { color: colors.textSecondary }]}
+              >
                 {formatPrice(product.compare_at_price)}
               </Text>
             )}
@@ -313,7 +374,9 @@ export default function ProductDetailScreen() {
           {/* Variants */}
           {product.variants && product.variants.length > 0 && (
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Color/Storage</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Select Color/Storage
+              </Text>
               <View style={styles.variantGrid}>
                 {product.variants.map((v) => (
                   <Pressable
@@ -321,14 +384,28 @@ export default function ProductDetailScreen() {
                     onPress={() => setSelectedVariant(v.id)}
                     style={[
                       styles.variantChip,
-                      { borderColor: selectedVariant === v.id ? BRAND.primary : colors.border },
-                      selectedVariant === v.id && { backgroundColor: BRAND.primary + '10' }
+                      {
+                        borderColor:
+                          selectedVariant === v.id
+                            ? BRAND.primary
+                            : colors.border,
+                      },
+                      selectedVariant === v.id && {
+                        backgroundColor: BRAND.primary + '10',
+                      },
                     ]}
                   >
-                    <Text style={[
-                      styles.variantLabel,
-                      { color: selectedVariant === v.id ? BRAND.primary : colors.text }
-                    ]}>
+                    <Text
+                      style={[
+                        styles.variantLabel,
+                        {
+                          color:
+                            selectedVariant === v.id
+                              ? BRAND.primary
+                              : colors.text,
+                        },
+                      ]}
+                    >
                       {v.name}
                     </Text>
                   </Pressable>
@@ -339,37 +416,84 @@ export default function ProductDetailScreen() {
 
           {/* Description */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Description</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Description
+            </Text>
             <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {product.description || 'No description available for this product.'}
+              {product.description ||
+                'No description available for this product.'}
             </Text>
           </View>
 
           {/* Specs */}
-          {product.specifications && Object.keys(product.specifications).length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Specifications</Text>
-              <View style={[styles.specsTable, { borderColor: colors.border }]}>
-                {Object.entries(product.specifications).map(([key, val], i) => (
-                  <View key={key} style={[styles.specRow, i !== 0 && { borderTopWidth: 1, borderTopColor: colors.border }]}>
-                    <Text style={[styles.specKey, { color: colors.textSecondary }]}>{key}</Text>
-                    <Text style={[styles.specValue, { color: colors.text }]}>{val as string}</Text>
-                  </View>
-                ))}
+          {product.specifications &&
+            Object.keys(product.specifications).length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Specifications
+                </Text>
+                <View
+                  style={[styles.specsTable, { borderColor: colors.border }]}
+                >
+                  {Object.entries(product.specifications).map(
+                    ([key, val], i) => (
+                      <View
+                        key={key}
+                        style={[
+                          styles.specRow,
+                          i !== 0 && {
+                            borderTopWidth: 1,
+                            borderTopColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.specKey,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {key}
+                        </Text>
+                        <Text
+                          style={[styles.specValue, { color: colors.text }]}
+                        >
+                          {val as string}
+                        </Text>
+                      </View>
+                    )
+                  )}
+                </View>
               </View>
-            </View>
-          )}
+            )}
         </Animated.View>
       </Animated.ScrollView>
 
       {/* Sticky Bottom Actions */}
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + SPACING.md, backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            paddingBottom: insets.bottom + SPACING.md,
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+          },
+        ]}
+      >
         <View style={styles.quantityContainer}>
-          <Pressable onPress={() => setQuantity(q => Math.max(1, q - 1))} style={[styles.qtyBtn, { borderColor: colors.border }]}>
+          <Pressable
+            onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+            style={[styles.qtyBtn, { borderColor: colors.border }]}
+          >
             <Ionicons name="remove" size={20} color={colors.text} />
           </Pressable>
-          <Text style={[styles.qtyText, { color: colors.text }]}>{quantity}</Text>
-          <Pressable onPress={() => setQuantity(q => q + 1)} style={[styles.qtyBtn, { borderColor: colors.border }]}>
+          <Text style={[styles.qtyText, { color: colors.text }]}>
+            {quantity}
+          </Text>
+          <Pressable
+            onPress={() => setQuantity((q) => q + 1)}
+            style={[styles.qtyBtn, { borderColor: colors.border }]}
+          >
             <Ionicons name="add" size={20} color={colors.text} />
           </Pressable>
         </View>
@@ -383,7 +507,10 @@ export default function ProductDetailScreen() {
 
       {/* Elite Toast */}
       {showAddedToast && (
-        <Animated.View entering={FadeIn.duration(300)} style={[styles.toast, { backgroundColor: colors.text }]}>
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={[styles.toast, { backgroundColor: colors.text }]}
+        >
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           <Text style={styles.toastText}>Added to your cart!</Text>
         </Animated.View>

@@ -34,7 +34,10 @@ export const PAYMENT_STATUS_CONFIG: Record<
 };
 
 // Allowed status transitions (from -> to[])
-export const SHIPPING_STATUS_TRANSITIONS: Record<ShippingStatus, ShippingStatus[]> = {
+export const SHIPPING_STATUS_TRANSITIONS: Record<
+  ShippingStatus,
+  ShippingStatus[]
+> = {
   pending: ['processing', 'cancelled'],
   processing: ['shipped', 'cancelled'],
   shipped: ['delivered'],
@@ -49,18 +52,38 @@ export const SHIPPING_STATUS_ACTIONS: Record<
   { nextStatus: ShippingStatus; label: string; icon: string }[]
 > = {
   pending: [
-    { nextStatus: 'processing', label: 'Confirm Order', icon: 'checkmark-circle-outline' },
-    { nextStatus: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline' },
+    {
+      nextStatus: 'processing',
+      label: 'Confirm Order',
+      icon: 'checkmark-circle-outline',
+    },
+    {
+      nextStatus: 'cancelled',
+      label: 'Cancel Order',
+      icon: 'close-circle-outline',
+    },
   ],
   processing: [
     { nextStatus: 'shipped', label: 'Ship Order', icon: 'airplane-outline' },
-    { nextStatus: 'cancelled', label: 'Cancel Order', icon: 'close-circle-outline' },
+    {
+      nextStatus: 'cancelled',
+      label: 'Cancel Order',
+      icon: 'close-circle-outline',
+    },
   ],
   shipped: [
-    { nextStatus: 'delivered', label: 'Mark as Delivered', icon: 'checkmark-done-outline' },
+    {
+      nextStatus: 'delivered',
+      label: 'Mark as Delivered',
+      icon: 'checkmark-done-outline',
+    },
   ],
   delivered: [
-    { nextStatus: 'returned', label: 'Process Return', icon: 'return-down-back-outline' },
+    {
+      nextStatus: 'returned',
+      label: 'Process Return',
+      icon: 'return-down-back-outline',
+    },
   ],
   cancelled: [],
   returned: [],
@@ -71,19 +94,35 @@ export const ORDER_SOURCE_CONFIG: Record<
   string,
   { label: string; icon: string; colorKey: string }
 > = {
-  online_store: { label: 'Store', icon: 'storefront-outline', colorKey: 'gold' },
+  online_store: {
+    label: 'Store',
+    icon: 'storefront-outline',
+    colorKey: 'gold',
+  },
   storefront: { label: 'Store', icon: 'storefront-outline', colorKey: 'gold' },
   whatsapp: { label: 'WhatsApp', icon: 'logo-whatsapp', colorKey: 'whatsapp' },
-  instagram: { label: 'Instagram', icon: 'logo-instagram', colorKey: 'instagram' },
+  instagram: {
+    label: 'Instagram',
+    icon: 'logo-instagram',
+    colorKey: 'instagram',
+  },
   web: { label: 'Website', icon: 'globe-outline', colorKey: 'primary' },
   manual: { label: 'Manual', icon: 'create-outline', colorKey: 'textMuted' },
-  staff_entry: { label: 'Staff Entry', icon: 'person-circle-outline', colorKey: 'info' },
+  staff_entry: {
+    label: 'Staff Entry',
+    icon: 'person-circle-outline',
+    colorKey: 'info',
+  },
   facebook: { label: 'Facebook', icon: 'logo-facebook', colorKey: 'facebook' },
   tiktok: { label: 'TikTok', icon: 'logo-tiktok', colorKey: 'tiktok' },
   jumia: { label: 'Jumia', icon: 'cart-outline', colorKey: 'warning' },
   jiji: { label: 'Jiji', icon: 'pricetag-outline', colorKey: 'success' },
   konga: { label: 'Konga', icon: 'bag-handle-outline', colorKey: 'secondary' },
-  physical: { label: 'Physical Sales', icon: 'storefront', colorKey: 'primary' },
+  physical: {
+    label: 'Physical Sales',
+    icon: 'storefront',
+    colorKey: 'primary',
+  },
 };
 
 // Brand colors (hex values)

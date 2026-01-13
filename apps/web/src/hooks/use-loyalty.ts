@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface LoyaltyReward {
   id: string;
@@ -77,7 +77,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLoyaltyData = async () => {
+  const fetchLoyaltyData = useCallback(async () => {
     if (!merchantId || !customerId) {
       setLoading(false);
       return;
@@ -141,7 +141,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [merchantId, customerId]);
 
   useEffect(() => {
     fetchLoyaltyData();

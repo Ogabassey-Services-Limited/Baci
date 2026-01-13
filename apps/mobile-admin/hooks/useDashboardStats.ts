@@ -35,13 +35,20 @@ export interface TopProduct {
   totalRevenue: number;
 }
 
-function getDateRange(period: TimePeriod): { start: string | null; end: string } {
+function getDateRange(period: TimePeriod): {
+  start: string | null;
+  end: string;
+} {
   const now = new Date();
   const end = now.toISOString();
 
   switch (period) {
     case 'today':
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
       return { start: startOfDay.toISOString(), end };
     case 'week':
       const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -54,35 +61,62 @@ function getDateRange(period: TimePeriod): { start: string | null; end: string }
   }
 }
 
-function getPreviousPeriodDateRange(period: TimePeriod): { start: string | null; end: string } | null {
+function getPreviousPeriodDateRange(
+  period: TimePeriod
+): { start: string | null; end: string } | null {
   const now = new Date();
 
   switch (period) {
     case 'today': {
       // Yesterday
-      const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      return { start: yesterdayStart.toISOString(), end: yesterdayEnd.toISOString() };
+      const yesterdayStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() - 1
+      );
+      const yesterdayEnd = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+      return {
+        start: yesterdayStart.toISOString(),
+        end: yesterdayEnd.toISOString(),
+      };
     }
     case 'week': {
       // Previous 7 days (8-14 days ago)
       const prevWeekEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const prevWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-      return { start: prevWeekStart.toISOString(), end: prevWeekEnd.toISOString() };
+      return {
+        start: prevWeekStart.toISOString(),
+        end: prevWeekEnd.toISOString(),
+      };
     }
     case 'month': {
       // Previous month
       const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { start: prevMonthStart.toISOString(), end: prevMonthEnd.toISOString() };
+      return {
+        start: prevMonthStart.toISOString(),
+        end: prevMonthEnd.toISOString(),
+      };
     }
     case 'all':
       return null; // No comparison for all time
   }
 }
 
-async function fetchDashboardStats(merchantId: string, period: TimePeriod): Promise<DashboardStats> {
-  console.log('[DashboardStats] Fetching for merchant:', merchantId, 'period:', period);
+async function fetchDashboardStats(
+  merchantId: string,
+  period: TimePeriod
+): Promise<DashboardStats> {
+  console.log(
+    '[DashboardStats] Fetching for merchant:',
+    merchantId,
+    'period:',
+    period
+  );
 
   const { start } = getDateRange(period);
 
@@ -117,7 +151,8 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
   }
 
   const { data: itemsData } = await itemsQuery;
-  const totalItems = itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
+  const totalItems =
+    itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
 
   // Fetch customers for period
   let customersQuery = supabase
@@ -150,7 +185,8 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
   }
 
   const { data: revenueData } = await revenueQuery;
-  const revenue = revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
+  const revenue =
+    revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
 
   // Fetch previous period revenue for comparison
@@ -163,7 +199,8 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
       .eq('merchant_id', merchantId)
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
-    previousPeriodRevenue = prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
+    previousPeriodRevenue =
+      prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   }
 
   // Fetch visits for period
@@ -192,7 +229,10 @@ async function fetchDashboardStats(merchantId: string, period: TimePeriod): Prom
   };
 }
 
-async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promise<RevenueDataPoint[]> {
+async function fetchRevenueChart(
+  merchantId: string,
+  period: TimePeriod
+): Promise<RevenueDataPoint[]> {
   const result: RevenueDataPoint[] = [];
 
   if (period === 'today') {
@@ -208,8 +248,18 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
     ];
 
     for (const slot of slots) {
-      const startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), slot.start).toISOString();
-      const endTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), slot.end).toISOString();
+      const startTime = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        slot.start
+      ).toISOString();
+      const endTime = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        slot.end
+      ).toISOString();
 
       const { data } = await supabase
         .from('orders')
@@ -229,8 +279,16 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
     for (let i = 6; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).toISOString();
+      const startOfDay = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+      ).toISOString();
+      const endOfDay = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate() + 1
+      ).toISOString();
 
       const { data } = await supabase
         .from('orders')
@@ -273,12 +331,33 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
     }
   } else {
     // 'all' - Show monthly data for last 6 months
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     for (let i = 5; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
-      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString();
-      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1).toISOString();
+      const startOfMonth = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        1
+      ).toISOString();
+      const endOfMonth = new Date(
+        date.getFullYear(),
+        date.getMonth() + 1,
+        1
+      ).toISOString();
 
       const { data } = await supabase
         .from('orders')
@@ -297,10 +376,15 @@ async function fetchRevenueChart(merchantId: string, period: TimePeriod): Promis
   return result;
 }
 
-async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<TopProduct[]> {
+async function fetchTopProducts(
+  merchantId: string,
+  limit: number = 5
+): Promise<TopProduct[]> {
   // Get top selling products by quantity sold
-  const { data, error } = await supabase
-    .rpc('get_top_products', { p_merchant_id: merchantId, p_limit: limit });
+  const { data, error } = await supabase.rpc('get_top_products', {
+    p_merchant_id: merchantId,
+    p_limit: limit,
+  });
 
   if (error) {
     // Fallback: manual query if RPC doesn't exist
@@ -320,21 +404,26 @@ async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<
     if (!orderItems) return [];
 
     // Aggregate by product
-    const productMap = new Map<string, {
-      id: string;
-      name: string;
-      price: number;
-      images: string[];
-      totalSold: number;
-      totalRevenue: number
-    }>();
+    const productMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        price: number;
+        images: string[];
+        totalSold: number;
+        totalRevenue: number;
+      }
+    >();
 
     for (const item of orderItems) {
       // Handle potential array or single object from join
       const productRaw = item.products;
       if (!productRaw) continue;
 
-      const product = (Array.isArray(productRaw) ? productRaw[0] : productRaw) as { id: string; name: string; price: number; images: string[] };
+      const product = (
+        Array.isArray(productRaw) ? productRaw[0] : productRaw
+      ) as { id: string; name: string; price: number; images: string[] };
       if (!product?.id) continue;
 
       const existing = productMap.get(product.id);
@@ -358,7 +447,7 @@ async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<
       .sort((a, b) => b.totalSold - a.totalSold)
       .slice(0, limit);
 
-    return sorted.map(p => ({
+    return sorted.map((p) => ({
       id: p.id,
       name: p.name,
       price: p.price,
@@ -368,14 +457,23 @@ async function fetchTopProducts(merchantId: string, limit: number = 5): Promise<
     }));
   }
 
-  return (data || []).map((p: { id: string; name: string; price: number; image_url: string; total_sold: number; total_revenue: number }) => ({
-    id: p.id,
-    name: p.name,
-    price: p.price,
-    imageUrl: p.image_url,
-    totalSold: p.total_sold,
-    totalRevenue: p.total_revenue,
-  }));
+  return (data || []).map(
+    (p: {
+      id: string;
+      name: string;
+      price: number;
+      image_url: string;
+      total_sold: number;
+      total_revenue: number;
+    }) => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      imageUrl: p.image_url,
+      totalSold: p.total_sold,
+      totalRevenue: p.total_revenue,
+    })
+  );
 }
 
 export function useDashboardStats(period: TimePeriod = 'week') {
@@ -416,4 +514,3 @@ export function useDashboardStats(period: TimePeriod = 'week') {
     },
   };
 }
-

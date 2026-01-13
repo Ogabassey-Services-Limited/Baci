@@ -112,7 +112,9 @@ export const ProfileSchema = z.object({
 export function validateWithSchema<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): { success: true; data: T } | { success: false; errors: Record<string, string> } {
+):
+  | { success: true; data: T }
+  | { success: false; errors: Record<string, string> } {
   const result = schema.safeParse(data);
 
   if (result.success) {
@@ -134,7 +136,9 @@ export function validateWithSchema<T>(
 /**
  * Get first error message from Zod result
  */
-export function getFirstError<T>(result: z.ZodSafeParseResult<T>): string | null {
+export function getFirstError<T>(
+  result: z.ZodSafeParseResult<T>
+): string | null {
   if (result.success) return null;
   return result.error.issues[0]?.message || 'Validation failed';
 }

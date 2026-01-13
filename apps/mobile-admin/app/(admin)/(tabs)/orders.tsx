@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import OrderReportModal from '@/components/ui/OrderReportModal';
 import { exportOrdersRPC } from '@/utils/export-orders';
 import DateRangePicker from '@/components/ui/DateRangePicker';
@@ -18,7 +18,6 @@ import {
   StatusBar,
   ActivityIndicator,
   TextInput,
-  Modal,
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -33,7 +32,7 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useOrders, useUpdateOrderStatus, type Order } from '@/hooks/useOrders';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { BaciLogo } from '@/components/BaciLogo';
+
 // Shared types and constants from monorepo
 import {
   type ShippingStatus,
@@ -41,19 +40,22 @@ import {
   SHIPPING_STATUS_CONFIG,
   PAYMENT_STATUS_CONFIG,
   SHIPPING_STATUS_ACTIONS,
-  ORDER_SOURCE_CONFIG,
   BRAND_COLORS,
 } from '@baci/shared';
 
 export default function OrdersScreen() {
-  const { colors, shadows, isDark } = useTheme();
+  const { colors, shadows } = useTheme();
   const { storeUrl, merchant } = useMerchant();
-  const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(
+    undefined
+  );
   const [showInsight, setShowInsight] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [dateRange, setDateRange] = useState<string | { start: Date; end: Date } | null>(null);
+  const [dateRange, setDateRange] = useState<
+    string | { start: Date; end: Date } | null
+  >(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
@@ -66,33 +68,36 @@ export default function OrdersScreen() {
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const currentScrollY = event.nativeEvent.contentOffset.y;
-    const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const currentScrollY = event.nativeEvent.contentOffset.y;
+      const diff = currentScrollY - lastScrollY.current;
 
-    // Only trigger animation if scrolled more than 10px and not at top
-    if (Math.abs(diff) > 10) {
-      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-        // Scrolling down - hide search bar
-        isSearchVisible.current = false;
-        Animated.timing(searchBarHeight, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
-      } else if (diff < 0 && !isSearchVisible.current) {
-        // Scrolling up - show search bar
-        isSearchVisible.current = true;
-        Animated.timing(searchBarHeight, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: false,
-        }).start();
+      // Only trigger animation if scrolled more than 10px and not at top
+      if (Math.abs(diff) > 10) {
+        if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+          // Scrolling down - hide search bar
+          isSearchVisible.current = false;
+          Animated.timing(searchBarHeight, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
+        } else if (diff < 0 && !isSearchVisible.current) {
+          // Scrolling up - show search bar
+          isSearchVisible.current = true;
+          Animated.timing(searchBarHeight, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: false,
+          }).start();
+        }
       }
-    }
 
-    lastScrollY.current = currentScrollY;
-  }, [searchBarHeight]);
+      lastScrollY.current = currentScrollY;
+    },
+    [searchBarHeight]
+  );
 
   // Fetch orders with filter
   const {
@@ -108,8 +113,6 @@ export default function OrdersScreen() {
   const allOrders = useMemo(() => {
     return data?.pages.flatMap((page) => page.orders) ?? [];
   }, [data]);
-
-  const orders = allOrders;
 
   // Fetch order counts
   const { data: counts } = useOrderCounts();
@@ -157,14 +160,25 @@ export default function OrdersScreen() {
   };
 
   // Get available status actions based on current status (from shared config)
-  const getStatusActions = (currentStatus: ShippingStatus): { status: ShippingStatus; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] => {
-    const targetStatus = (currentStatus as string === 'fulfilled' ? 'pending' : currentStatus) as ShippingStatus;
+  const getStatusActions = (
+    currentStatus: ShippingStatus
+  ): {
+    status: ShippingStatus;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+  }[] => {
+    const targetStatus = (
+      (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
+    ) as ShippingStatus;
     const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
     return actions.map((action) => ({
       status: action.nextStatus,
       label: action.label,
       icon: action.icon as keyof typeof Ionicons.glyphMap,
-      color: getColorFromKey(SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'),
+      color: getColorFromKey(
+        SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
+      ),
     }));
   };
 
@@ -174,7 +188,11 @@ export default function OrdersScreen() {
 
     // CRITICAL: Check payment status before allowing transition to processing
     // Unpaid orders must either be paid or explicitly shipped on credit
-    if (newStatus === 'processing' && selectedOrder.payment_status !== 'paid' && !selectedOrder.is_credit_order) {
+    if (
+      newStatus === 'processing' &&
+      selectedOrder.payment_status !== 'paid' &&
+      !selectedOrder.is_credit_order
+    ) {
       setShowStatusDropdown(false);
       Alert.alert(
         'Payment Required',
@@ -204,7 +222,10 @@ export default function OrdersScreen() {
     }
 
     try {
-      await updateStatus.mutateAsync({ orderId: selectedOrder.id, status: newStatus });
+      await updateStatus.mutateAsync({
+        orderId: selectedOrder.id,
+        status: newStatus,
+      });
       setShowStatusDropdown(false);
       setSelectedOrder(null);
     } catch (error) {
@@ -212,14 +233,25 @@ export default function OrdersScreen() {
     }
   };
 
-  // Open status dropdown for an order
-  const openStatusDropdown = (order: Order, event: any) => {
+  const openStatusDropdown = (
+    order: Order,
+    event: { target: { measure: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => void } }
+  ) => {
     // Get the position of the pressed element
-    event.target.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
-      setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
-      setSelectedOrder(order);
-      setShowStatusDropdown(true);
-    });
+    event.target.measure(
+      (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        pageX: number,
+        pageY: number
+      ) => {
+        setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
+        setSelectedOrder(order);
+        setShowStatusDropdown(true);
+      }
+    );
   };
 
   // Close dropdown
@@ -230,7 +262,8 @@ export default function OrdersScreen() {
 
   // Get shipping status display config (using shared config + theme colors)
   const getShippingStatusConfig = (status: ShippingStatus) => {
-    const config = SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
+    const config =
+      SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
     return {
       color: getColorFromKey(config.colorKey),
       label: config.label,
@@ -239,7 +272,8 @@ export default function OrdersScreen() {
 
   // Get payment status display config (using shared config + theme colors)
   const getPaymentStatusConfig = (status: PaymentStatus) => {
-    const config = PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
+    const config =
+      PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
     return {
       color: getColorFromKey(config.colorKey),
       label: config.label,
@@ -248,38 +282,87 @@ export default function OrdersScreen() {
 
   // Source icon config (using shared config + theme colors)
   const getSourceConfig = (source: string | null) => {
-    if (!source) return { icon: 'globe-outline' as const, color: colors.textSecondary, label: 'Website' };
+    if (!source)
+      return {
+        icon: 'globe-outline' as const,
+        color: colors.textSecondary,
+        label: 'Website',
+      };
 
     const normalizedSource = source.toLowerCase().trim();
 
     switch (normalizedSource) {
       // --- Social Media ---
       case 'instagram':
-        return { icon: 'logo-instagram' as const, color: '#C13584', label: 'Instagram' };
+        return {
+          icon: 'logo-instagram' as const,
+          color: '#C13584',
+          label: 'Instagram',
+        };
       case 'whatsapp':
-        return { icon: 'logo-whatsapp' as const, color: '#25D366', label: 'WhatsApp' };
+        return {
+          icon: 'logo-whatsapp' as const,
+          color: '#25D366',
+          label: 'WhatsApp',
+        };
       case 'facebook':
-        return { icon: 'logo-facebook' as const, color: '#1877F2', label: 'Facebook' };
+        return {
+          icon: 'logo-facebook' as const,
+          color: '#1877F2',
+          label: 'Facebook',
+        };
       case 'twitter':
       case 'x':
-        return { icon: 'logo-twitter' as const, color: '#1DA1F2', label: 'Twitter' };
+        return {
+          icon: 'logo-twitter' as const,
+          color: '#1DA1F2',
+          label: 'Twitter',
+        };
       case 'tiktok':
-        return { icon: 'logo-tiktok' as const, color: '#000000', label: 'TikTok' };
+        return {
+          icon: 'logo-tiktok' as const,
+          color: '#000000',
+          label: 'TikTok',
+        };
       case 'snapchat':
-        return { icon: 'logo-snapchat' as const, color: '#FFFC00', label: 'Snapchat' };
+        return {
+          icon: 'logo-snapchat' as const,
+          color: '#FFFC00',
+          label: 'Snapchat',
+        };
       case 'youtube':
-        return { icon: 'logo-youtube' as const, color: '#FF0000', label: 'YouTube' };
+        return {
+          icon: 'logo-youtube' as const,
+          color: '#FF0000',
+          label: 'YouTube',
+        };
       case 'pinterest':
-        return { icon: 'logo-pinterest' as const, color: '#BD081C', label: 'Pinterest' };
+        return {
+          icon: 'logo-pinterest' as const,
+          color: '#BD081C',
+          label: 'Pinterest',
+        };
       case 'linkedin':
-        return { icon: 'logo-linkedin' as const, color: '#0A66C2', label: 'LinkedIn' };
+        return {
+          icon: 'logo-linkedin' as const,
+          color: '#0A66C2',
+          label: 'LinkedIn',
+        };
       case 'telegram':
         // 'logo-telegram' exists in newer Ionicons, fallback to 'send' if issue
-        return { icon: 'paper-plane' as const, color: '#0088CC', label: 'Telegram' };
+        return {
+          icon: 'paper-plane' as const,
+          color: '#0088CC',
+          label: 'Telegram',
+        };
 
       // --- Marketplaces ---
       case 'amazon':
-        return { icon: 'logo-amazon' as const, color: '#FF9900', label: 'Amazon' };
+        return {
+          icon: 'logo-amazon' as const,
+          color: '#FF9900',
+          label: 'Amazon',
+        };
       case 'jumia':
         return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
       case 'konga':
@@ -289,20 +372,40 @@ export default function OrdersScreen() {
 
       // --- System ---
       case 'mobile_app':
-        return { icon: 'phone-portrait-outline' as const, color: colors.primary, label: 'Mobile App' };
+        return {
+          icon: 'phone-portrait-outline' as const,
+          color: colors.primary,
+          label: 'Mobile App',
+        };
       case 'online_store':
       case 'website':
       case 'storefront':
-        return { icon: 'globe-outline' as const, color: colors.info || colors.textSecondary, label: 'Website' };
+        return {
+          icon: 'globe-outline' as const,
+          color: colors.info || colors.textSecondary,
+          label: 'Website',
+        };
       case 'pos':
-        return { icon: 'calculator-outline' as const, color: colors.success, label: 'POS' };
+        return {
+          icon: 'calculator-outline' as const,
+          color: colors.success,
+          label: 'POS',
+        };
       case 'physical':
-        return { icon: 'storefront-outline' as const, color: colors.gold, label: 'Store' };
+        return {
+          icon: 'storefront-outline' as const,
+          color: colors.gold,
+          label: 'Store',
+        };
       case 'staff_entry':
-        return { icon: 'person-outline' as const, color: colors.textSecondary, label: 'Staff' };
+        return {
+          icon: 'person-outline' as const,
+          color: colors.textSecondary,
+          label: 'Staff',
+        };
 
       // --- Custom/Fallback ---
-      default:
+      default: {
         // Capitalize first letter for display
         const label = source.charAt(0).toUpperCase() + source.slice(1);
         return {
@@ -310,6 +413,7 @@ export default function OrdersScreen() {
           color: colors.textSecondary,
           label: label,
         };
+      }
     }
   };
 
@@ -329,12 +433,19 @@ export default function OrdersScreen() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-NG', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const renderOrder = ({ item }: { item: Order }) => {
-    const shippingConfig = getShippingStatusConfig(item.shipping_status as ShippingStatus);
-    const paymentConfig = getPaymentStatusConfig(item.payment_status as PaymentStatus);
+    const shippingConfig = getShippingStatusConfig(
+      item.shipping_status as ShippingStatus
+    );
+    const paymentConfig = getPaymentStatusConfig(
+      item.payment_status as PaymentStatus
+    );
     const sourceConfig = getSourceConfig(item.source);
 
     return (
@@ -350,45 +461,86 @@ export default function OrdersScreen() {
         <View style={styles.orderHeader}>
           <View style={styles.orderNumberRow}>
             {/* Source Icon */}
-            <View style={[styles.sourceIcon, { backgroundColor: sourceConfig.color + '15' }]}>
-              <Ionicons name={sourceConfig.icon} size={16} color={sourceConfig.color} />
+            <View
+              style={[
+                styles.sourceIcon,
+                { backgroundColor: sourceConfig.color + '15' },
+              ]}
+            >
+              <Ionicons
+                name={sourceConfig.icon}
+                size={16}
+                color={sourceConfig.color}
+              />
             </View>
-            <Text style={[styles.customerName, { color: colors.text }]}>{item.customer_name}</Text>
+            <Text style={[styles.customerName, { color: colors.text }]}>
+              {item.customer_name}
+            </Text>
           </View>
           <View style={styles.statusBadges}>
             {/* Payment Status Badge */}
-            <View style={[styles.paymentBadge, { backgroundColor: paymentConfig.color + '20' }]}>
-              <Text style={[styles.paymentText, { color: paymentConfig.color }]}>
+            <View
+              style={[
+                styles.paymentBadge,
+                { backgroundColor: paymentConfig.color + '20' },
+              ]}
+            >
+              <Text
+                style={[styles.paymentText, { color: paymentConfig.color }]}
+              >
                 {paymentConfig.label}
               </Text>
             </View>
             {/* Shipping Status Badge - Tappable */}
             <Pressable
-              style={[styles.statusBadge, { backgroundColor: shippingConfig.color + '20' }]}
+              style={[
+                styles.statusBadge,
+                { backgroundColor: shippingConfig.color + '20' },
+              ]}
               onPress={(e) => {
                 e.stopPropagation();
                 openStatusDropdown(item, e);
               }}
               hitSlop={8}
             >
-              <View style={[styles.statusDot, { backgroundColor: shippingConfig.color }]} />
-              <Text style={[styles.statusText, { color: shippingConfig.color }]}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: shippingConfig.color },
+                ]}
+              />
+              <Text
+                style={[styles.statusText, { color: shippingConfig.color }]}
+              >
                 {shippingConfig.label}
               </Text>
-              <Ionicons name="chevron-down" size={12} color={shippingConfig.color} />
+              <Ionicons
+                name="chevron-down"
+                size={12}
+                color={shippingConfig.color}
+              />
             </Pressable>
           </View>
         </View>
 
-        <Text style={[styles.orderNumber, { color: colors.textSecondary }]}>{item.order_number}</Text>
+        <Text style={[styles.orderNumber, { color: colors.textSecondary }]}>
+          {item.order_number}
+        </Text>
 
         <View style={styles.orderFooter}>
-          <Text style={[styles.orderTotal, { color: colors.text }]}>{formatPrice(item.total)}</Text>
+          <Text style={[styles.orderTotal, { color: colors.text }]}>
+            {formatPrice(item.total)}
+          </Text>
           <View style={styles.orderMetaRow}>
-            <Text style={[styles.orderMetaBold, { color: colors.textSecondary }]}>
-              {item.item_count ?? 0} {(item.item_count ?? 0) === 1 ? 'item' : 'items'}
+            <Text
+              style={[styles.orderMetaBold, { color: colors.textSecondary }]}
+            >
+              {item.item_count ?? 0}{' '}
+              {(item.item_count ?? 0) === 1 ? 'item' : 'items'}
             </Text>
-            <Text style={[styles.orderMetaDot, { color: colors.textMuted }]}>•</Text>
+            <Text style={[styles.orderMetaDot, { color: colors.textMuted }]}>
+              •
+            </Text>
             <Text style={[styles.orderMeta, { color: colors.textMuted }]}>
               {formatTime(item.created_at)}
             </Text>
@@ -398,9 +550,20 @@ export default function OrdersScreen() {
     );
   };
 
-  const FilterTab = ({ status, label }: { status: ShippingStatus | 'all'; label: string }) => {
-    const isActive = (status === 'all' && !statusFilter) || statusFilter === status;
-    const count = counts ? (status === 'all' ? counts.all : counts[status] ?? 0) : 0;
+  const FilterTab = ({
+    status,
+    label,
+  }: {
+    status: ShippingStatus | 'all';
+    label: string;
+  }) => {
+    const isActive =
+      (status === 'all' && !statusFilter) || statusFilter === status;
+    const count = counts
+      ? status === 'all'
+        ? counts.all
+        : (counts[status] ?? 0)
+      : 0;
 
     return (
       <Pressable
@@ -408,12 +571,18 @@ export default function OrdersScreen() {
           styles.filterTab,
           { backgroundColor: isActive ? colors.gold : colors.card },
         ]}
-        onPress={() => setStatusFilter(status === 'all' ? undefined : status as ShippingStatus)}
+        onPress={() =>
+          setStatusFilter(
+            status === 'all' ? undefined : (status as ShippingStatus)
+          )
+        }
       >
-        <Text style={[
-          styles.filterText,
-          { color: isActive ? '#000000' : colors.textSecondary },
-        ]}>
+        <Text
+          style={[
+            styles.filterText,
+            { color: isActive ? '#000000' : colors.textSecondary },
+          ]}
+        >
           {label} ({count})
         </Text>
       </Pressable>
@@ -421,8 +590,14 @@ export default function OrdersScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['top']}
+    >
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -478,7 +653,11 @@ export default function OrdersScreen() {
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={colors.textMuted}
+              />
             </Pressable>
           )}
         </View>
@@ -487,7 +666,9 @@ export default function OrdersScreen() {
       {/* Date Range Chip */}
       {dateRange && (
         <View style={styles.dateChipContainer}>
-          <View style={[styles.dateChip, { backgroundColor: colors.goldLight }]}>
+          <View
+            style={[styles.dateChip, { backgroundColor: colors.goldLight }]}
+          >
             <Ionicons name="calendar" size={14} color={colors.gold} />
             <Text style={[styles.dateChipText, { color: colors.gold }]}>
               {typeof dateRange === 'string'
@@ -503,23 +684,50 @@ export default function OrdersScreen() {
 
       {/* Insight Card */}
       {showInsight && pendingCount > 0 && (
-        <View style={[styles.insightCard, { backgroundColor: colors.card }, shadows.sm]}>
+        <View
+          style={[
+            styles.insightCard,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+        >
           <View style={styles.insightHeader}>
-            <BaciLogo size={32} borderRadius={RADIUS.sm} />
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: RADIUS.sm,
+                backgroundColor: colors.goldLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="sparkles" size={20} color={colors.gold} />
+            </View>
             <View style={styles.storeInfo}>
-              <Text style={[styles.storeName, { color: colors.gold }]}>{storeUrl}</Text>
+              <Text style={[styles.storeName, { color: colors.gold }]}>
+                {storeUrl}
+              </Text>
             </View>
             <Pressable
               onPress={() => setShowInsight(false)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View style={[styles.dismissButton, { backgroundColor: colors.backgroundLight }]}>
+              <View
+                style={[
+                  styles.dismissButton,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
                 <Ionicons name="close" size={16} color={colors.textMuted} />
               </View>
             </Pressable>
           </View>
-          <Text style={[styles.insightMessage, { color: colors.textSecondary }]}>
-            You have {pendingCount} pending orders awaiting confirmation. Process them to keep customers happy!
+          <Text
+            style={[styles.insightMessage, { color: colors.textSecondary }]}
+          >
+            You have {pendingCount} pending orders awaiting confirmation.
+            Process them to keep customers happy!
           </Text>
           <Pressable
             style={styles.insightLink}
@@ -528,7 +736,9 @@ export default function OrdersScreen() {
               setShowInsight(false);
             }}
           >
-            <Text style={[styles.insightLinkText, { color: colors.gold }]}>View pending</Text>
+            <Text style={[styles.insightLinkText, { color: colors.gold }]}>
+              View pending
+            </Text>
             <Ionicons name="arrow-forward" size={14} color={colors.gold} />
           </Pressable>
         </View>
@@ -552,9 +762,8 @@ export default function OrdersScreen() {
         </ScrollView>
       </View>
 
-      {/* Orders List */}
       <FlatList
-        data={orders}
+        data={allOrders}
         renderItem={renderOrder}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -580,9 +789,17 @@ export default function OrdersScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="receipt-outline" size={56} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No orders found</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Orders will appear here when customers place them</Text>
+              <Ionicons
+                name="receipt-outline"
+                size={56}
+                color={colors.textMuted}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                No orders found
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Orders will appear here when customers place them
+              </Text>
             </View>
           ) : null
         }
@@ -606,7 +823,6 @@ export default function OrdersScreen() {
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onSelect={(filter) => {
-          // @ts-ignore - aligning types
           setDateRange(filter);
         }}
         currentFilter={dateRange}
@@ -634,12 +850,13 @@ export default function OrdersScreen() {
               start = now;
               end = now;
               break;
-            case 'Yesterday':
+            case 'Yesterday': {
               const yester = new Date();
               yester.setDate(yester.getDate() - 1);
               start = yester;
               end = yester;
               break;
+            }
             case 'Last 7 Days':
               start = new Date();
               start.setDate(now.getDate() - 6);
@@ -671,24 +888,36 @@ export default function OrdersScreen() {
           <View
             style={[
               styles.statusDropdown,
-              { backgroundColor: colors.card, top: dropdownPosition.y, left: dropdownPosition.x },
+              {
+                backgroundColor: colors.card,
+                top: dropdownPosition.y,
+                left: dropdownPosition.x,
+              },
               shadows.lg,
             ]}
           >
-            {getStatusActions(selectedOrder.shipping_status as ShippingStatus).length > 0 ? (
-              getStatusActions(selectedOrder.shipping_status as ShippingStatus).map((action, index) => (
+            {getStatusActions(selectedOrder.shipping_status as ShippingStatus)
+              .length > 0 ? (
+              getStatusActions(
+                selectedOrder.shipping_status as ShippingStatus
+              ).map((action, index) => (
                 <Pressable
                   key={action.status}
                   style={({ pressed }) => [
                     styles.dropdownItem,
-                    index > 0 && { borderTopWidth: 1, borderTopColor: colors.border },
+                    index > 0 && {
+                      borderTopWidth: 1,
+                      borderTopColor: colors.border,
+                    },
                     pressed && { backgroundColor: colors.backgroundLight },
                   ]}
                   onPress={() => handleStatusUpdate(action.status)}
                   disabled={updateStatus.isPending}
                 >
                   <Ionicons name={action.icon} size={18} color={action.color} />
-                  <Text style={[styles.dropdownItemText, { color: action.color }]}>
+                  <Text
+                    style={[styles.dropdownItemText, { color: action.color }]}
+                  >
                     {action.label}
                   </Text>
                   {updateStatus.isPending && (
@@ -698,7 +927,9 @@ export default function OrdersScreen() {
               ))
             ) : (
               <View style={styles.dropdownItem}>
-                <Text style={[styles.dropdownItemText, { color: colors.textMuted }]}>
+                <Text
+                  style={[styles.dropdownItemText, { color: colors.textMuted }]}
+                >
                   No actions
                 </Text>
               </View>

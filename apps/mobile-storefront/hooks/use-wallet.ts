@@ -45,8 +45,10 @@ interface WalletQueryData {
 
 export const walletKeys = {
   all: ['wallet'] as const,
-  data: (customerId: string) => [...walletKeys.all, 'data', customerId] as const,
-  transactions: (customerId: string) => [...walletKeys.all, 'transactions', customerId] as const,
+  data: (customerId: string) =>
+    [...walletKeys.all, 'data', customerId] as const,
+  transactions: (customerId: string) =>
+    [...walletKeys.all, 'transactions', customerId] as const,
 };
 
 // ============================================
@@ -127,7 +129,9 @@ export function useWallet() {
         },
         () => {
           // Invalidate to refetch
-          queryClient.invalidateQueries({ queryKey: walletKeys.data(customer.id) });
+          queryClient.invalidateQueries({
+            queryKey: walletKeys.data(customer.id),
+          });
         }
       )
       .on(
@@ -139,7 +143,9 @@ export function useWallet() {
           filter: `id=eq.${customer.id}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: walletKeys.data(customer.id) });
+          queryClient.invalidateQueries({
+            queryKey: walletKeys.data(customer.id),
+          });
         }
       )
       .subscribe();
@@ -194,7 +200,9 @@ export function useRedeemPoints() {
     // 2025 Best Practice: Optimistic updates
     onMutate: async (points) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: walletKeys.data(customer?.id || '') });
+      await queryClient.cancelQueries({
+        queryKey: walletKeys.data(customer?.id || ''),
+      });
 
       // Snapshot previous value
       const previousData = queryClient.getQueryData<WalletQueryData>(
@@ -231,7 +239,9 @@ export function useRedeemPoints() {
 
     // Refetch after success or error
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: walletKeys.data(customer?.id || '') });
+      queryClient.invalidateQueries({
+        queryKey: walletKeys.data(customer?.id || ''),
+      });
     },
   });
 }

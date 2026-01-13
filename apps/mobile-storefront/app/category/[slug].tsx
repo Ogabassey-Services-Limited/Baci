@@ -27,14 +27,8 @@ export default function CategoryScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const {
-    products,
-    isLoading,
-    error,
-    hasMore,
-    refetch,
-    loadMore,
-  } = useProducts({ category: slug, limit: 20 });
+  const { products, isLoading, error, hasMore, refetch, loadMore } =
+    useProducts({ category: slug, limit: 20 });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -56,23 +50,28 @@ export default function CategoryScreen() {
 
   const getCategoryTitle = (slug: string): string => {
     const titles: Record<string, string> = {
-      'all': 'All Products',
-      'iphones': 'iPhones',
-      'samsung': 'Samsung',
-      'laptops': 'Laptops',
-      'accessories': 'Accessories',
-      'tablets': 'Tablets',
-      'smartwatches': 'Smart Watches',
+      all: 'All Products',
+      iphones: 'iPhones',
+      samsung: 'Samsung',
+      laptops: 'Laptops',
+      accessories: 'Accessories',
+      tablets: 'Tablets',
+      smartwatches: 'Smart Watches',
     };
-    return titles[slug] || slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
+    return (
+      titles[slug] ||
+      slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ')
+    );
   };
 
   const renderProduct = ({ item, index }: { item: Product; index: number }) => (
-    <View style={[styles.productWrapper, index % 2 === 0 ? styles.productLeft : styles.productRight]}>
-      <ProductCard
-        product={item}
-        onPress={() => handleProductPress(item)}
-      />
+    <View
+      style={[
+        styles.productWrapper,
+        index % 2 === 0 ? styles.productLeft : styles.productRight,
+      ]}
+    >
+      <ProductCard product={item} onPress={() => handleProductPress(item)} />
     </View>
   );
 
@@ -100,7 +99,11 @@ export default function CategoryScreen() {
     if (error) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             Something went wrong
           </Text>
@@ -125,7 +128,10 @@ export default function CategoryScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
           title: getCategoryTitle(slug || ''),

@@ -36,14 +36,37 @@ interface Order {
   }>;
 }
 
-const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+const ORDER_STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; icon: string }
+> = {
   pending: { label: 'Pending', color: '#F59E0B', icon: 'time-outline' },
-  confirmed: { label: 'Confirmed', color: '#3B82F6', icon: 'checkmark-circle-outline' },
-  processing: { label: 'Processing', color: '#8B5CF6', icon: 'construct-outline' },
+  confirmed: {
+    label: 'Confirmed',
+    color: '#3B82F6',
+    icon: 'checkmark-circle-outline',
+  },
+  processing: {
+    label: 'Processing',
+    color: '#8B5CF6',
+    icon: 'construct-outline',
+  },
   shipped: { label: 'Shipped', color: '#6366F1', icon: 'car-outline' },
-  out_for_delivery: { label: 'Out for Delivery', color: '#10B981', icon: 'bicycle-outline' },
-  delivered: { label: 'Delivered', color: '#059669', icon: 'checkmark-done-outline' },
-  cancelled: { label: 'Cancelled', color: '#EF4444', icon: 'close-circle-outline' },
+  out_for_delivery: {
+    label: 'Out for Delivery',
+    color: '#10B981',
+    icon: 'bicycle-outline',
+  },
+  delivered: {
+    label: 'Delivered',
+    color: '#059669',
+    icon: 'checkmark-done-outline',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    color: '#EF4444',
+    icon: 'close-circle-outline',
+  },
   refunded: { label: 'Refunded', color: '#6B7280', icon: 'refresh-outline' },
 };
 
@@ -150,7 +173,12 @@ export default function OrdersScreen() {
               {formatDate(item.created_at)}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: `${statusConfig.color}20` }]}>
+          <View
+            style={[
+              styles.statusBadge,
+              { backgroundColor: `${statusConfig.color}20` },
+            ]}
+          >
             <Ionicons
               name={statusConfig.icon as any}
               size={14}
@@ -183,7 +211,9 @@ export default function OrdersScreen() {
         </View>
 
         <View style={styles.orderFooter}>
-          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Total</Text>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
+            Total
+          </Text>
           <Text style={[styles.totalAmount, { color: colors.text }]}>
             {formatPrice(item.total)}
           </Text>
@@ -202,7 +232,9 @@ export default function OrdersScreen() {
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>No orders yet</Text>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No orders yet
+      </Text>
       <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
         When you place orders, they'll appear here
       </Text>
@@ -219,8 +251,14 @@ export default function OrdersScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.emptyState}>
-          <Ionicons name="person-outline" size={64} color={colors.textSecondary} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign in to view orders</Text>
+          <Ionicons
+            name="person-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Sign in to view orders
+          </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
             You need to be signed in to see your order history
           </Text>
@@ -237,7 +275,13 @@ export default function OrdersScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
@@ -245,11 +289,23 @@ export default function OrdersScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
         <TouchableOpacity onPress={fetchOrders}>
-          <Text style={[styles.retryText, { color: BRAND.primary }]}>Tap to retry</Text>
+          <Text style={[styles.retryText, { color: BRAND.primary }]}>
+            Tap to retry
+          </Text>
         </TouchableOpacity>
       </View>
     );

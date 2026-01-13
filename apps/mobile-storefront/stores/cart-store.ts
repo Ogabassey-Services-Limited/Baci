@@ -55,7 +55,10 @@ export const useCartStore = create<CartState>()(
       },
 
       subtotal: () => {
-        return get().items.reduce((total, item) => total + item.price * item.quantity, 0);
+        return get().items.reduce(
+          (total, item) => total + item.price * item.quantity,
+          0
+        );
       },
 
       totalSavings: () => {
@@ -72,7 +75,9 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           // Check if item already exists (same product + variant)
           const existingIndex = state.items.findIndex(
-            (i) => i.product_id === item.product_id && i.variant_id === item.variant_id
+            (i) =>
+              i.product_id === item.product_id &&
+              i.variant_id === item.variant_id
           );
 
           if (existingIndex >= 0) {
@@ -139,7 +144,8 @@ export const useCartStore = create<CartState>()(
       // Get specific item
       getItem: (productId, variantId) => {
         return get().items.find(
-          (item) => item.product_id === productId && item.variant_id === variantId
+          (item) =>
+            item.product_id === productId && item.variant_id === variantId
         );
       },
     }),

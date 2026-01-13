@@ -310,7 +310,7 @@ async function checkDomainAvailabilityFallback(
     const results = (await Promise.race([
       whois(domain),
       timeoutPromise,
-    ])) as any;
+    ])) as unknown;
     console.log('WHOIS Fallback for', domain);
 
     const responseString = JSON.stringify(results).toLowerCase();

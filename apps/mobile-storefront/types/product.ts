@@ -14,7 +14,13 @@ export interface Product {
   images?: string[];
   brand?: string;
   category?: string;
-  condition?: 'New' | 'UK Used' | 'Refurbished' | 'Open Box' | 'Used' | 'New & Used';
+  condition?:
+    | 'New'
+    | 'UK Used'
+    | 'Refurbished'
+    | 'Open Box'
+    | 'Used'
+    | 'New & Used';
   rating?: number;
   review_count?: number;
   in_stock?: boolean;
@@ -74,7 +80,10 @@ export function formatPrice(amount: number): string {
 /**
  * Calculate discount percentage
  */
-export function getDiscountPercentage(price: number, compareAtPrice?: number): number | null {
+export function getDiscountPercentage(
+  price: number,
+  compareAtPrice?: number
+): number | null {
   if (!compareAtPrice || compareAtPrice <= price) return null;
   return Math.round(((compareAtPrice - price) / compareAtPrice) * 100);
 }

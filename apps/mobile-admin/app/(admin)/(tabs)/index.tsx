@@ -10,13 +10,10 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  StatusBar,
   Pressable,
   Alert,
   Share,
 } from 'react-native';
-import { Image } from 'expo-image';
-
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Lazy import to avoid crash if native module not built
 let ImagePicker: typeof import('expo-image-picker') | null = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   ImagePicker = require('expo-image-picker');
 } catch {
   console.log('ImagePicker not available - rebuild required');
@@ -55,27 +53,34 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
 
 export default function HomeScreen() {
   console.log('[HomeScreen] Rendering');
-  const { colors, isDark, shadows } = useTheme();
+  const { colors, shadows } = useTheme();
   const { merchant, storeUrl, isLive, primaryDomain } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
-  const { stats, revenueData, topProducts, isLoading, refetch } = useDashboardStats(period);
+  const { stats, revenueData, isLoading, refetch } = useDashboardStats(period);
   const queryClient = useQueryClient();
   const { readiness, isLoading: isReadinessLoading } = useStoreReadiness();
   const { data: recentOrders, isLoading: isOrdersLoading } = useOrders();
 
-  const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
+  const [_, setIsUploadingFavicon] = useState(false);
 
   const handleAvatarPress = async () => {
     if (!ImagePicker) {
-      Alert.alert('Rebuild Required', 'Please rebuild the app to enable image picking:\n\nnpx expo run:android');
+      Alert.alert(
+        'Rebuild Required',
+        'Please rebuild the app to enable image picking:\n\nnpx expo run:android'
+      );
       return;
     }
 
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Please allow access to your photo library to change your favicon.');
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photo library to change your favicon.'
+        );
         return;
       }
 
@@ -98,8 +103,8 @@ export default function HomeScreen() {
       fileData.append('file', {
         uri: asset.uri,
         name: fileName.split('/').pop(),
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`
-      } as any);
+        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+      } as unknown as { uri: string; name: string; type: string });
 
       // Upload to Supabase storage
       const { error: uploadError } = await supabase.storage
@@ -139,7 +144,8 @@ export default function HomeScreen() {
     }
   };
 
-  const currentPeriodLabel = PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'This Week';
+  const currentPeriodLabel =
+    PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'This Week';
 
   // Get the first name for greeting
   const firstName = merchant?.business_name?.split(' ')[0] ?? 'there';
@@ -214,12 +220,6 @@ export default function HomeScreen() {
   };
 
   // Dashboard UI
-  const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refetch();
-    setRefreshing(false);
-  };
 
   // Insight Card Logic
   const [showInsight, setShowInsight] = useState(true);
@@ -230,7 +230,9 @@ export default function HomeScreen() {
 
   const checkInsightVisibility = async () => {
     try {
-      const lastDismissedDate = await AsyncStorage.getItem('insight_dismissed_date');
+      const lastDismissedDate = await AsyncStorage.getItem(
+        'insight_dismissed_date'
+      );
       const today = new Date().toDateString();
 
       if (lastDismissedDate === today) {
@@ -270,10 +272,11 @@ export default function HomeScreen() {
     router.push('/domains');
   };
 
-  const data = stats;
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top']}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -289,7 +292,9 @@ export default function HomeScreen() {
       >
         <WelcomeHeader
           storeUrl={storeUrl}
-          avatarUrl={merchant?.favicon_png_192_url ?? merchant?.logo_url ?? undefined}
+          avatarUrl={
+            merchant?.favicon_png_192_url ?? merchant?.logo_url ?? undefined
+          }
           isLive={isLive}
           notificationCount={0}
           onNotificationPress={() => router.push('/notifications')}
@@ -297,26 +302,34 @@ export default function HomeScreen() {
         />
 
         <View style={styles.actionButtonsRow}>
-          {(!primaryDomain || true) && ( // Always show for now based on "use this buttons", or revert to !primaryDomain if preferred
-            <Pressable
-              style={[styles.actionCard, { backgroundColor: colors.card }, shadows.sm]}
-              onPress={handleBuyDomain}
-            >
-              <Ionicons name="globe-outline" size={20} color={colors.primary} />
-              <Text style={[styles.actionCardText, { color: colors.text }]}>
-                {!primaryDomain || primaryDomain.domain_type === 'subdomain'
-                  ? 'Get Domain'
-                  : 'Manage Domain'}
-              </Text>
-            </Pressable>
-          )}
+          <Pressable
+            style={[
+              styles.actionCard,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
+            onPress={handleBuyDomain}
+          >
+            <Ionicons name="globe-outline" size={20} color={colors.primary} />
+            <Text style={[styles.actionCardText, { color: colors.text }]}>
+              {!primaryDomain || primaryDomain.domain_type === 'subdomain'
+                ? 'Get Domain'
+                : 'Manage Domain'}
+            </Text>
+          </Pressable>
 
           <Pressable
-            style={[styles.actionCard, { backgroundColor: colors.card }, shadows.sm]}
+            style={[
+              styles.actionCard,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
             onPress={handleShareStore}
           >
             <Ionicons name="share-outline" size={20} color={colors.gold} />
-            <Text style={[styles.actionCardText, { color: colors.text }]}>Share link</Text>
+            <Text style={[styles.actionCardText, { color: colors.text }]}>
+              Share link
+            </Text>
           </Pressable>
         </View>
 
@@ -396,13 +409,21 @@ export default function HomeScreen() {
 
             {showPeriodPicker && (
               <View style={styles.periodDropdownWrapper}>
-                <View style={[styles.periodDropdown, { backgroundColor: colors.card }, shadows.md]}>
+                <View
+                  style={[
+                    styles.periodDropdown,
+                    { backgroundColor: colors.card },
+                    shadows.md,
+                  ]}
+                >
                   {PERIOD_OPTIONS.map((option) => (
                     <Pressable
                       key={option.value}
                       style={[
                         styles.periodOption,
-                        period === option.value && { backgroundColor: colors.goldLight },
+                        period === option.value && {
+                          backgroundColor: colors.goldLight,
+                        },
                       ]}
                       onPress={() => {
                         setPeriod(option.value);
@@ -412,13 +433,22 @@ export default function HomeScreen() {
                       <Text
                         style={[
                           styles.periodOptionText,
-                          { color: period === option.value ? colors.gold : colors.text },
+                          {
+                            color:
+                              period === option.value
+                                ? colors.gold
+                                : colors.text,
+                          },
                         ]}
                       >
                         {option.label}
                       </Text>
                       {period === option.value && (
-                        <Ionicons name="checkmark" size={16} color={colors.gold} />
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color={colors.gold}
+                        />
                       )}
                     </Pressable>
                   ))}
@@ -429,7 +459,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Actions</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Quick Actions
+          </Text>
           <View style={styles.actionsGrid}>
             <QuickActionButton
               icon="add-circle-outline"
@@ -462,82 +494,149 @@ export default function HomeScreen() {
           </View>
         </View>
 
-
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Transactions</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Recent Transactions
+            </Text>
             <Pressable onPress={() => router.push('/(tabs)/orders')}>
-              <Text style={{ color: colors.primary, fontFamily: TYPOGRAPHY.fontFamily.semiBold }}>View All</Text>
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+                }}
+              >
+                View All
+              </Text>
             </Pressable>
           </View>
 
-          <View style={[styles.topProductsCard, { backgroundColor: colors.card }, shadows.sm]}>
+          <View
+            style={[
+              styles.topProductsCard,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
+          >
             {isOrdersLoading ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.textSecondary }}>Loading transactions...</Text>
+                <Text style={{ color: colors.textSecondary }}>
+                  Loading transactions...
+                </Text>
               </View>
-            ) : recentOrders?.pages[0]?.orders.slice(0, 5).map((order, index) => {
-              const getStatusConfig = (status: string) => {
-                switch (status) {
-                  case 'delivered':
-                    return { icon: 'checkmark-circle' as const, color: colors.success, bg: colors.success + '15' };
-                  case 'shipped':
-                    return { icon: 'bicycle' as const, color: colors.info, bg: colors.info + '15' };
-                  case 'cancelled':
-                    return { icon: 'close-circle' as const, color: colors.notification, bg: colors.notification + '15' };
-                  case 'processing':
-                    return { icon: 'cube' as const, color: colors.primary, bg: colors.primary + '15' };
-                  default: // pending
-                    return { icon: 'time' as const, color: colors.gold, bg: colors.gold + '15' };
-                }
-              };
+            ) : (
+              recentOrders?.pages[0]?.orders.slice(0, 5).map((order, index) => {
+                const getStatusConfig = (status: string) => {
+                  switch (status) {
+                    case 'delivered':
+                      return {
+                        icon: 'checkmark-circle' as const,
+                        color: colors.success,
+                        bg: colors.success + '15',
+                      };
+                    case 'shipped':
+                      return {
+                        icon: 'bicycle' as const,
+                        color: colors.info,
+                        bg: colors.info + '15',
+                      };
+                    case 'cancelled':
+                      return {
+                        icon: 'close-circle' as const,
+                        color: colors.notification,
+                        bg: colors.notification + '15',
+                      };
+                    case 'processing':
+                      return {
+                        icon: 'cube' as const,
+                        color: colors.primary,
+                        bg: colors.primary + '15',
+                      };
+                    default: // pending
+                      return {
+                        icon: 'time' as const,
+                        color: colors.gold,
+                        bg: colors.gold + '15',
+                      };
+                  }
+                };
 
-              const statusConfig = getStatusConfig(order.shipping_status);
+                const statusConfig = getStatusConfig(order.shipping_status);
 
-              return (
-                <View key={order.id}>
-                  {index > 0 && <View style={[styles.productDivider, { backgroundColor: colors.border }]} />}
-                  <Pressable
-                    style={styles.productRow}
-                    onPress={() => router.push(`/order/${order.id}`)}
-                  >
-                    <View style={[styles.orderIcon, { backgroundColor: statusConfig.bg }]}>
-                      <Ionicons
-                        name={statusConfig.icon}
-                        size={20}
-                        color={statusConfig.color}
+                return (
+                  <View key={order.id}>
+                    {index > 0 && (
+                      <View
+                        style={[
+                          styles.productDivider,
+                          { backgroundColor: colors.border },
+                        ]}
                       />
-                    </View>
-                    <View style={styles.productInfo}>
-                      <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>
-                        {order.items?.[0]?.name || `Order #${order.order_number}`}
-                        {order.items && order.items.length > 1 ? ` + ${order.items.length - 1} more` : ''}
+                    )}
+                    <Pressable
+                      style={styles.productRow}
+                      onPress={() => router.push(`/order/${order.id}`)}
+                    >
+                      <View
+                        style={[
+                          styles.orderIcon,
+                          { backgroundColor: statusConfig.bg },
+                        ]}
+                      >
+                        <Ionicons
+                          name={statusConfig.icon}
+                          size={20}
+                          color={statusConfig.color}
+                        />
+                      </View>
+                      <View style={styles.productInfo}>
+                        <Text
+                          style={[styles.productName, { color: colors.text }]}
+                          numberOfLines={1}
+                        >
+                          {order.items?.[0]?.name ||
+                            `Order #${order.order_number}`}
+                          {order.items && order.items.length > 1
+                            ? ` + ${order.items.length - 1} more`
+                            : ''}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.productStats,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          {new Date(order.created_at).toLocaleDateString()} •{' '}
+                          {order.customer_name}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.productRevenue, { color: colors.text }]}
+                      >
+                        {formatCurrency(order.total)}
                       </Text>
-                      <Text style={[styles.productStats, { color: colors.textSecondary }]}>
-                        {new Date(order.created_at).toLocaleDateString()} • {order.customer_name}
-                      </Text>
-                    </View>
-                    <Text style={[styles.productRevenue, { color: colors.text }]}>
-                      {formatCurrency(order.total)}
-                    </Text>
-                  </Pressable>
-                </View>
-              );
-            })}
-
-            {(!recentOrders?.pages[0]?.orders || recentOrders.pages[0].orders.length === 0) && !isOrdersLoading && (
-              <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.textSecondary }}>No recent transactions</Text>
-              </View>
+                    </Pressable>
+                  </View>
+                );
+              })
             )}
+
+            {(!recentOrders?.pages[0]?.orders ||
+              recentOrders.pages[0].orders.length === 0) &&
+              !isOrdersLoading && (
+                <View style={{ padding: 20, alignItems: 'center' }}>
+                  <Text style={{ color: colors.textSecondary }}>
+                    No recent transactions
+                  </Text>
+                </View>
+              )}
           </View>
         </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView >
+    </SafeAreaView>
   );
-
 }
 
 const styles = StyleSheet.create({

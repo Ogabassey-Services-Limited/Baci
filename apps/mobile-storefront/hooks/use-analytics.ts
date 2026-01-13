@@ -80,11 +80,12 @@ export function useAnalytics() {
   useEffect(() => {
     if (pathname) {
       // Convert pathname to readable screen name
-      const screenName = pathname
-        .replace(/^\/(tabs\/)?/, '') // Remove leading slash and tabs
-        .replace(/\[.*?\]/g, '') // Remove dynamic segments
-        .replace(/\//g, ' > ') // Replace slashes with arrows
-        .trim() || 'Home';
+      const screenName =
+        pathname
+          .replace(/^\/(tabs\/)?/, '') // Remove leading slash and tabs
+          .replace(/\[.*?\]/g, '') // Remove dynamic segments
+          .replace(/\//g, ' > ') // Replace slashes with arrows
+          .trim() || 'Home';
 
       trackScreenView(screenName);
     }
@@ -136,16 +137,19 @@ export function useAnalytics() {
   );
 
   // Purchase completed - includes user data for server-side tracking
-  const onPurchase = useCallback((order: Order) => {
-    // Include user data from auth store if not provided
-    const enrichedOrder = {
-      ...order,
-      email: order.email || customer?.email,
-      phone: order.phone || customer?.phone,
-      userId: order.userId || user?.id,
-    };
-    trackPurchase(enrichedOrder);
-  }, [customer, user]);
+  const onPurchase = useCallback(
+    (order: Order) => {
+      // Include user data from auth store if not provided
+      const enrichedOrder = {
+        ...order,
+        email: order.email || customer?.email,
+        phone: order.phone || customer?.phone,
+        userId: order.userId || user?.id,
+      };
+      trackPurchase(enrichedOrder);
+    },
+    [customer, user]
+  );
 
   // Search
   const onSearch = useCallback((query: string, resultCount: number) => {

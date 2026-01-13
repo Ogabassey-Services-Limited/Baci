@@ -6,7 +6,11 @@
 
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import '../global.css';
 import {
@@ -29,12 +33,22 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { QueryProvider } from '@/lib/QueryProvider';
 import Colors, { BRAND } from '@/constants/Colors';
 import { initAnalytics } from '@/services/analytics';
-import { initAdTracking, trackAppOpen, requestTrackingPermission } from '@/services/ad-tracking';
+import {
+  initAdTracking,
+  trackAppOpen,
+  requestTrackingPermission,
+} from '@/services/ad-tracking';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 
 // Custom error boundary with network error handling
-export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+export function ErrorBoundary({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry: () => void;
+}) {
   return <ErrorFallback error={error} retry={retry} />;
 }
 
@@ -146,7 +160,11 @@ function RootLayoutNav() {
   return (
     <QueryProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme}>
+        <ThemeProvider
+          value={
+            colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme
+          }
+        >
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <Stack
             screenOptions={{
@@ -220,7 +238,10 @@ function RootLayoutNav() {
             <Stack.Screen
               name="addresses/[id]"
               options={({ route }) => ({
-                title: (route.params as { id?: string })?.id === 'new' ? 'Add Address' : 'Edit Address',
+                title:
+                  (route.params as { id?: string })?.id === 'new'
+                    ? 'Add Address'
+                    : 'Edit Address',
               })}
             />
             <Stack.Screen

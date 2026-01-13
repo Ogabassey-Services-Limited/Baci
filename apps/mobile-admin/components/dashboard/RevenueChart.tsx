@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
@@ -31,41 +31,59 @@ export function RevenueChart({
   period = 'Last 7 days',
   totalRevenue,
   onPeriodPress,
-  showPeriodSelector = false,
+  _showPeriodSelector = false,
   insightText,
   insightTrend = 'neutral',
 }: RevenueChartProps) {
   const { colors, shadows, chartColors } = useTheme();
-  const { width } = Dimensions.get('window');
-  const chartWidth = width - SPACING.lg * 4;
+  // const { width } = Dimensions.get('window');
+  // const chartWidth = width - SPACING.lg * 4;
   const chartHeight = 120;
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card }, shadows.sm]}>
+    <View
+      style={[styles.container, { backgroundColor: colors.card }, shadows.sm]}
+    >
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           {onPeriodPress ? (
             <Pressable style={styles.periodButton} onPress={onPeriodPress}>
-              <Text style={[styles.period, { color: colors.primary }]}>{period}</Text>
+              <Text style={[styles.period, { color: colors.primary }]}>
+                {period}
+              </Text>
               <Ionicons name="chevron-down" size={14} color={colors.primary} />
             </Pressable>
           ) : (
-            <Text style={[styles.period, { color: colors.textSecondary }]}>{period}</Text>
+            <Text style={[styles.period, { color: colors.textSecondary }]}>
+              {period}
+            </Text>
           )}
         </View>
-        {totalRevenue && <Text style={[styles.totalRevenue, { color: colors.text }]}>{totalRevenue}</Text>}
+        {totalRevenue && (
+          <Text style={[styles.totalRevenue, { color: colors.text }]}>
+            {totalRevenue}
+          </Text>
+        )}
       </View>
 
       {/* Bar Chart */}
       <View style={[styles.chartContainer, { height: chartHeight }]}>
         {/* Grid lines */}
-        <View style={[styles.gridLine, { top: 0, borderColor: colors.border }]} />
-        <View style={[styles.gridLine, { top: '33%', borderColor: colors.border }]} />
-        <View style={[styles.gridLine, { top: '66%', borderColor: colors.border }]} />
-        <View style={[styles.gridLine, { top: '100%', borderColor: colors.border }]} />
+        <View
+          style={[styles.gridLine, { top: 0, borderColor: colors.border }]}
+        />
+        <View
+          style={[styles.gridLine, { top: '33%', borderColor: colors.border }]}
+        />
+        <View
+          style={[styles.gridLine, { top: '66%', borderColor: colors.border }]}
+        />
+        <View
+          style={[styles.gridLine, { top: '100%', borderColor: colors.border }]}
+        />
 
         {/* Bars */}
         <View style={styles.barsContainer}>
@@ -84,7 +102,9 @@ export function RevenueChart({
                     ]}
                   />
                 </View>
-                <Text style={[styles.barLabel, { color: colors.textMuted }]}>{point.label}</Text>
+                <Text style={[styles.barLabel, { color: colors.textMuted }]}>
+                  {point.label}
+                </Text>
               </View>
             );
           })}
@@ -95,7 +115,13 @@ export function RevenueChart({
       {insightText && (
         <View style={styles.insightContainer}>
           <Ionicons
-            name={insightTrend === 'up' ? 'trending-up' : insightTrend === 'down' ? 'trending-down' : 'remove'}
+            name={
+              insightTrend === 'up'
+                ? 'trending-up'
+                : insightTrend === 'down'
+                  ? 'trending-down'
+                  : 'remove'
+            }
             size={16}
             color={
               insightTrend === 'up'

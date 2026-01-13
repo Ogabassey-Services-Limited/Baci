@@ -15,8 +15,11 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const { data: pageConfig, isLoading: isConfigLoading } = usePageConfig('home');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null
+  );
+  const { data: pageConfig, isLoading: isConfigLoading } =
+    usePageConfig('home');
   const [refreshing, setRefreshing] = React.useState(false);
 
   const handleSearch = useCallback(() => {
@@ -28,11 +31,24 @@ export default function HomeScreen() {
   };
 
   // Default "Elite" layout if no config exists
-  const defaultBlocks = useMemo(() => [
-    { type: 'HeroCarousel', props: { id: 'default-hero' } },
-    { type: 'CategoryRail', props: { id: 'default-categories', title: 'Shop by Category' } },
-    { type: 'ProductGrid', props: { id: 'default-products', title: 'Featured Products', limit: 12 } }
-  ], []);
+  const defaultBlocks = useMemo(
+    () => [
+      { type: 'HeroCarousel', props: { id: 'default-hero' } },
+      {
+        type: 'CategoryRail',
+        props: { id: 'default-categories', title: 'Shop by Category' },
+      },
+      {
+        type: 'ProductGrid',
+        props: {
+          id: 'default-products',
+          title: 'Featured Products',
+          limit: 12,
+        },
+      },
+    ],
+    []
+  );
 
   const blocks = (pageConfig?.content || defaultBlocks) as any[];
 

@@ -95,12 +95,15 @@ export const CATEGORY_TEMPLATES: Record<string, MobileTemplateConfig> = {
 /**
  * Get template configuration for a merchant based on their business type
  */
-export function getTemplateConfig(businessType?: string, manualTemplateId?: string): MobileTemplateConfig {
+export function getTemplateConfig(
+  businessType?: string,
+  manualTemplateId?: string
+): MobileTemplateConfig {
   // Manual override (e.g. for Ogabassey)
   if (manualTemplateId === 'ogabassey') return CATEGORY_TEMPLATES.electronics;
-  
+
   if (!businessType) return CATEGORY_TEMPLATES.default;
-  
+
   const normalized = businessType.toLowerCase().replace('_', '-');
   return CATEGORY_TEMPLATES[normalized] || CATEGORY_TEMPLATES.default;
 }

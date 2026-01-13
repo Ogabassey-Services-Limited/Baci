@@ -35,11 +35,43 @@ interface AddressForm {
 }
 
 const NIGERIA_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
-  'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu',
-  'FCT', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
-  'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun',
-  'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara',
+  'Abia',
+  'Adamawa',
+  'Akwa Ibom',
+  'Anambra',
+  'Bauchi',
+  'Bayelsa',
+  'Benue',
+  'Borno',
+  'Cross River',
+  'Delta',
+  'Ebonyi',
+  'Edo',
+  'Ekiti',
+  'Enugu',
+  'FCT',
+  'Gombe',
+  'Imo',
+  'Jigawa',
+  'Kaduna',
+  'Kano',
+  'Katsina',
+  'Kebbi',
+  'Kogi',
+  'Kwara',
+  'Lagos',
+  'Nasarawa',
+  'Niger',
+  'Ogun',
+  'Ondo',
+  'Osun',
+  'Oyo',
+  'Plateau',
+  'Rivers',
+  'Sokoto',
+  'Taraba',
+  'Yobe',
+  'Zamfara',
 ];
 
 const ADDRESS_LABELS = ['Home', 'Office', 'Other'];
@@ -166,7 +198,13 @@ export default function AddressFormScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
@@ -185,7 +223,9 @@ export default function AddressFormScreen() {
       >
         {/* Address Label */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Address Label</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Address Label
+          </Text>
           <View style={styles.labelOptions}>
             {ADDRESS_LABELS.map((label) => (
               <TouchableOpacity
@@ -193,7 +233,10 @@ export default function AddressFormScreen() {
                 style={[
                   styles.labelOption,
                   { borderColor: colors.border },
-                  form.label === label && { borderColor: BRAND.primary, backgroundColor: `${BRAND.primary}10` },
+                  form.label === label && {
+                    borderColor: BRAND.primary,
+                    backgroundColor: `${BRAND.primary}10`,
+                  },
                 ]}
                 onPress={() => updateField('label', label)}
               >
@@ -206,12 +249,16 @@ export default function AddressFormScreen() {
                         : 'location-outline'
                   }
                   size={18}
-                  color={form.label === label ? BRAND.primary : colors.textSecondary}
+                  color={
+                    form.label === label ? BRAND.primary : colors.textSecondary
+                  }
                 />
                 <Text
                   style={[
                     styles.labelOptionText,
-                    { color: form.label === label ? BRAND.primary : colors.text },
+                    {
+                      color: form.label === label ? BRAND.primary : colors.text,
+                    },
                   ]}
                 >
                   {label}
@@ -223,11 +270,17 @@ export default function AddressFormScreen() {
 
         {/* Name */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Full Name *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Full Name *
+          </Text>
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: colors.card, color: colors.text, borderColor: errors.name ? '#EF4444' : colors.border },
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: errors.name ? '#EF4444' : colors.border,
+              },
             ]}
             value={form.name}
             onChangeText={(value) => updateField('name', value)}
@@ -239,11 +292,17 @@ export default function AddressFormScreen() {
 
         {/* Phone */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Phone Number *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Phone Number *
+          </Text>
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: colors.card, color: colors.text, borderColor: errors.phone ? '#EF4444' : colors.border },
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: errors.phone ? '#EF4444' : colors.border,
+              },
             ]}
             value={form.phone}
             onChangeText={(value) => updateField('phone', value)}
@@ -256,12 +315,18 @@ export default function AddressFormScreen() {
 
         {/* Address */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Street Address *</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Street Address *
+          </Text>
           <TextInput
             style={[
               styles.input,
               styles.textArea,
-              { backgroundColor: colors.card, color: colors.text, borderColor: errors.address ? '#EF4444' : colors.border },
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: errors.address ? '#EF4444' : colors.border,
+              },
             ]}
             value={form.address}
             onChangeText={(value) => updateField('address', value)}
@@ -270,7 +335,9 @@ export default function AddressFormScreen() {
             multiline
             numberOfLines={3}
           />
-          {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
+          {errors.address && (
+            <Text style={styles.errorText}>{errors.address}</Text>
+          )}
         </View>
 
         {/* City */}
@@ -279,7 +346,11 @@ export default function AddressFormScreen() {
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: colors.card, color: colors.text, borderColor: errors.city ? '#EF4444' : colors.border },
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: errors.city ? '#EF4444' : colors.border,
+              },
             ]}
             value={form.city}
             onChangeText={(value) => updateField('city', value)}
@@ -303,14 +374,19 @@ export default function AddressFormScreen() {
                 style={[
                   styles.stateChip,
                   { borderColor: colors.border },
-                  form.state === state && { borderColor: BRAND.primary, backgroundColor: `${BRAND.primary}10` },
+                  form.state === state && {
+                    borderColor: BRAND.primary,
+                    backgroundColor: `${BRAND.primary}10`,
+                  },
                 ]}
                 onPress={() => updateField('state', state)}
               >
                 <Text
                   style={[
                     styles.stateChipText,
-                    { color: form.state === state ? BRAND.primary : colors.text },
+                    {
+                      color: form.state === state ? BRAND.primary : colors.text,
+                    },
                   ]}
                 >
                   {state}
@@ -322,11 +398,17 @@ export default function AddressFormScreen() {
 
         {/* Postal Code */}
         <View style={styles.section}>
-          <Text style={[styles.label, { color: colors.text }]}>Postal Code (Optional)</Text>
+          <Text style={[styles.label, { color: colors.text }]}>
+            Postal Code (Optional)
+          </Text>
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: colors.card, color: colors.text, borderColor: colors.border },
+              {
+                backgroundColor: colors.card,
+                color: colors.text,
+                borderColor: colors.border,
+              },
             ]}
             value={form.postal_code}
             onChangeText={(value) => updateField('postal_code', value)}
@@ -351,7 +433,12 @@ export default function AddressFormScreen() {
               <Text style={[styles.defaultToggleText, { color: colors.text }]}>
                 Set as default address
               </Text>
-              <Text style={[styles.defaultToggleHint, { color: colors.textSecondary }]}>
+              <Text
+                style={[
+                  styles.defaultToggleHint,
+                  { color: colors.textSecondary },
+                ]}
+              >
                 Use this address for all orders
               </Text>
             </View>
@@ -360,7 +447,12 @@ export default function AddressFormScreen() {
       </ScrollView>
 
       {/* Save Button */}
-      <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.footer,
+          { backgroundColor: colors.background, borderTopColor: colors.border },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.saveButton, { backgroundColor: BRAND.primary }]}
           onPress={handleSave}

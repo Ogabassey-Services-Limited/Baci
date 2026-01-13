@@ -18,7 +18,12 @@ export interface Merchant {
   favicon_png_192_url: string | null;
   is_published: boolean;
   phone: string | null;
-  vat_registration_status: 'not_registered' | 'registered' | 'exempt' | 'pending' | null;
+  vat_registration_status:
+    | 'not_registered'
+    | 'registered'
+    | 'exempt'
+    | 'pending'
+    | null;
   vat_rate: number | null;
   payout_currency: string | null;
   country: string | null;
@@ -66,7 +71,9 @@ export interface MerchantData {
   error: Error | null;
 }
 
-async function fetchMerchantData(userId: string): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
+async function fetchMerchantData(
+  userId: string
+): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
   console.log('[Merchant] Fetching merchant for user:', userId);
 
   // Fetch merchant by authenticated user ID
@@ -143,5 +150,3 @@ export function useMerchant(): MerchantData {
     error: error as Error | null,
   };
 }
-
-
