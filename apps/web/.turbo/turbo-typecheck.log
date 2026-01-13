@@ -2,5 +2,8 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/app/dashboard/blog/page.tsx(51,26): error TS2739: Type 'MerchantData' is missing the following properties from type 'CachedMerchant': site_title, site_tagline, site_description, payout_currency
+src/app/dashboard/blog/page.tsx(51,26): error TS2322: Type 'MerchantData' is not assignable to type '{ id: string; slug: string; }'.
+  Types of property 'slug' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
  ELIFECYCLE  Command failed with exit code 2.

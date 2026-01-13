@@ -80,7 +80,7 @@ interface BlogPost {
 interface BlogClientPageProps {
   merchant: {
     id: string;
-    slug: string;
+    slug?: string | null;
   };
 }
 
