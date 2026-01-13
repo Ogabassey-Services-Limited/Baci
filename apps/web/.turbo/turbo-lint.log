@@ -97,5 +97,5 @@ src/components/storefront/checkout-identity-modal.tsx:210:72 lint/suspicious/noE
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 797 files in 726ms. No fixes applied.
+Checked 797 files in 527ms. No fixes applied.
 Found 7 warnings.

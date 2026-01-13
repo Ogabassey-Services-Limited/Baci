@@ -30,19 +30,39 @@ export const revalidate = 300;
  * Generate static params for category pages at build time.
  * This pre-renders category pages for faster initial loads and better SEO.
  * Koray's framework: Zero server round-trips for crawlers = optimal Cost of Retrieval.
+ *
+ * Note: If SUPABASE_SERVICE_ROLE_KEY is unavailable at build time (e.g., in CI),
+ * we gracefully fallback to an empty array, deferring to runtime SSR with ISR.
  */
 export async function generateStaticParams() {
-  // For now, generate params for OgaBassey store (primary storefront)
-  const merchant = await getCachedMerchant('ogabassey');
-  if (!merchant) return [];
+  try {
+    // Check if service role key is available before attempting database queries
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.log(
+        '[generateStaticParams] SUPABASE_SERVICE_ROLE_KEY unavailable at build time, skipping static generation'
+      );
+      return [];
+    }
 
-  const categories = await getCachedCategories(merchant.id);
+    // For now, generate params for OgaBassey store (primary storefront)
+    const merchant = await getCachedMerchant('ogabassey');
+    if (!merchant) return [];
 
-  // Generate params for each category
-  return categories.map((category) => ({
-    slug: 'ogabassey',
-    category: category.slug,
-  }));
+    const categories = await getCachedCategories(merchant.id);
+
+    // Generate params for each category
+    return categories.map((category) => ({
+      slug: 'ogabassey',
+      category: category.slug,
+    }));
+  } catch (error) {
+    // Gracefully handle errors during static generation (e.g., missing env vars)
+    console.warn(
+      '[generateStaticParams] Error during static generation, falling back to runtime SSR:',
+      error instanceof Error ? error.message : error
+    );
+    return [];
+  }
 }
 
 interface PageProps {
@@ -169,8 +189,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
+        normalizedSlug.includes(key)
+      )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -316,13 +336,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-          images: [
-            {
-              url: products[0].images[0] as unknown as string,
-              alt: categoryData.name,
-            },
-          ],
-        }),
+        images: [
+          {
+            url: products[0].images[0] as unknown as string,
+            alt: categoryData.name,
+          },
+        ],
+      }),
     },
     twitter: {
       card: 'summary_large_image',

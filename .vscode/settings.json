@@ -1,3 +1,4 @@
 {
-  "coderabbit.autoReviewMode": "auto"
+  "coderabbit.autoReviewMode": "auto",
+  "java.compile.nullAnalysis.mode": "automatic"
 }
