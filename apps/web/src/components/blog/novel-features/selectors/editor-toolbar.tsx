@@ -41,7 +41,8 @@ export const EditorToolbar = ({
   onOpenLink,
   onOpenProducts,
 }: EditorToolbarProps) => {
-  const { editor } = useEditor();
+  const { editor: _editor } = useEditor();
+  const editor = _editor as any;
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,39 +91,21 @@ export const EditorToolbar = ({
     {
       name: 'left',
       isActive: () => editor.isActive({ textAlign: 'left' }),
-      command: () =>
-        // @ts-expect-error: TextAlign extension types not merging correctly
-        editor
-          .chain()
-          .focus()
-          .setTextAlign('left')
-          .run(),
+      command: () => editor.chain().focus().setTextAlign('left').run(),
       icon: AlignLeft,
       title: 'Align Left',
     },
     {
       name: 'center',
       isActive: () => editor.isActive({ textAlign: 'center' }),
-      command: () =>
-        // @ts-expect-error: TextAlign extension types not merging correctly
-        editor
-          .chain()
-          .focus()
-          .setTextAlign('center')
-          .run(),
+      command: () => editor.chain().focus().setTextAlign('center').run(),
       icon: AlignCenter,
       title: 'Align Center',
     },
     {
       name: 'right',
       isActive: () => editor.isActive({ textAlign: 'right' }),
-      command: () =>
-        // @ts-expect-error: TextAlign extension types not merging correctly
-        editor
-          .chain()
-          .focus()
-          .setTextAlign('right')
-          .run(),
+      command: () => editor.chain().focus().setTextAlign('right').run(),
       icon: AlignRight,
       title: 'Align Right',
     },
@@ -152,9 +135,7 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          // @ts-expect-error undo command is missing from Tiptap types
           onClick={() => editor.chain().focus().undo().run()}
-          // @ts-expect-error can().undo() is missing from Tiptap types
           disabled={!editor.can().undo()}
           className="h-8 w-8 p-0"
           title="Undo"
@@ -164,9 +145,7 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          // @ts-expect-error redo command is missing from Tiptap types
           onClick={() => editor.chain().focus().redo().run()}
-          // @ts-expect-error can().redo() is missing from Tiptap types
           disabled={!editor.can().redo()}
           className="h-8 w-8 p-0"
           title="Redo"
@@ -298,7 +277,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          // @ts-expect-error insertTable command is missing from Tiptap types due to type merging issues
           onClick={() =>
             editor
               .chain()
@@ -331,7 +309,6 @@ export const EditorToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            // @ts-expect-error toggleSuperscript command is missing from Tiptap types due to type merging issues
             onClick={() => editor.chain().focus().toggleSuperscript().run()}
             className={cn(
               'h-8 w-8 p-0',
@@ -344,7 +321,6 @@ export const EditorToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            // @ts-expect-error toggleSubscript command is missing from Tiptap types due to type merging issues
             onClick={() => editor.chain().focus().toggleSubscript().run()}
             className={cn(
               'h-8 w-8 p-0',
