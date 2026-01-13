@@ -54,7 +54,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
-      router.push(checkoutUrl as string);
+      router.push(checkoutUrl as any);
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -63,7 +63,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
-    router.push(checkoutUrl as string);
+    router.push(checkoutUrl as any);
     onOpenChange(false);
   };
 
@@ -152,7 +152,7 @@ export function CheckoutIdentityModal({
                   <Button
                     variant="outline"
                     onClick={() =>
-                      router.push('/signup?redirect=/checkout' as string)
+                      router.push('/signup?redirect=/checkout' as any)
                     }
                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
                   >
@@ -207,7 +207,7 @@ export function CheckoutIdentityModal({
                     </Label>
                     <button
                       type="button"
-                      onClick={() => router.push('/forgot-password' as string)}
+                      onClick={() => router.push('/forgot-password' as any)}
                       className="text-[10px] font-bold text-[var(--store-primary)] hover:underline uppercase"
                     >
                       Forgot?

@@ -123,7 +123,8 @@ export interface CachedMerchant {
   favicon_svg_url?: string;
   favicon_png_32_url?: string;
   favicon_apple_touch_url?: string;
-  feature_settings?: Record<string, unknown>;
+  // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic JSON types
+  feature_settings?: any;
 }
 
 /**

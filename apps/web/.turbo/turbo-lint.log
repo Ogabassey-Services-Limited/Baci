@@ -2,4 +2,100 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 797 files in 593ms. No fixes applied.
+src/app/api/admin/generate-product-images/route.ts:98:32 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+     97 │           const parts =
+   > 98 │             ((response.body as any)?.candidates?.[0]?.content
+        │                                ^^^
+     99 │               ?.parts as any[]) || [];
+    100 │           const imagePart = (
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/api/admin/generate-product-images/route.ts:99:26 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+     97 │           const parts =
+     98 │             ((response.body as any)?.candidates?.[0]?.content
+   > 99 │               ?.parts as any[]) || [];
+        │                          ^^^
+    100 │           const imagePart = (
+    101 │             parts as { inlineData: { data: string; mimeType: string } }[]
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/checkout/page.tsx:1413:61 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    1411 │                 <div className="flex items-center justify-between mb-8">
+    1412 │                   <div className="flex items-center gap-3">
+  > 1413 │                     <Link href={`${basePath || ''}/cart` as any}>
+         │                                                             ^^^
+    1414 │                       <Button
+    1415 │                         variant="ghost"
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/storefront/checkout-identity-modal.tsx:57:34 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    56 │       // Successful login - proceed to checkout
+  > 57 │       router.push(checkoutUrl as any);
+       │                                  ^^^
+    58 │       onOpenChange(false);
+    59 │     } catch (err) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/storefront/checkout-identity-modal.tsx:66:32 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    65 │   const handleGuestCheckout = () => {
+  > 66 │     router.push(checkoutUrl as any);
+       │                                ^^^
+    67 │     onOpenChange(false);
+    68 │   };
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/storefront/checkout-identity-modal.tsx:155:67 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    153 │                     variant="outline"
+    154 │                     onClick={() =>
+  > 155 │                       router.push('/signup?redirect=/checkout' as any)
+        │                                                                   ^^^
+    156 │                     }
+    157 │                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/storefront/checkout-identity-modal.tsx:210:72 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    208 │                     <button
+    209 │                       type="button"
+  > 210 │                       onClick={() => router.push('/forgot-password' as any)}
+        │                                                                        ^^^
+    211 │                       className="text-[10px] font-bold text-[var(--store-primary)] hover:underline uppercase"
+    212 │                     >
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+Checked 797 files in 726ms. No fixes applied.
+Found 7 warnings.

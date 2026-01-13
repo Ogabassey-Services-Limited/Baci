@@ -95,8 +95,8 @@ export async function POST(req: NextRequest) {
           });
 
           const parts =
-            (response.body as Record<string, unknown>)?.candidates?.[0]?.content
-              ?.parts || [];
+            ((response.body as any)?.candidates?.[0]?.content
+              ?.parts as any[]) || [];
           const imagePart = (
             parts as { inlineData: { data: string; mimeType: string } }[]
           ).find((p) => p.inlineData);

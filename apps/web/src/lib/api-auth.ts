@@ -23,7 +23,7 @@ export interface AuthResult {
  * @returns AuthResult with user or error
  */
 export async function authenticateApiRequest(
-  request: NextRequest
+  request: Request | NextRequest
 ): Promise<AuthResult> {
   // Check for Bearer token first (mobile app)
   const authHeader = request.headers.get('Authorization');

@@ -41,6 +41,7 @@ export default function VerifyForm() {
   const [resendTimer, setResendTimer] = useState(30);
 
   const form = useForm<z.infer<typeof verifySchema>>({
+    // @ts-expect-error: zodResolver type mismatch
     resolver: zodResolver(verifySchema),
     defaultValues: {
       code: '',

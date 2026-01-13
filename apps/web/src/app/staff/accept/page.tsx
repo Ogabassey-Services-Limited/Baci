@@ -141,8 +141,6 @@ function InvitePage({
 }: {
   merchantName: string;
   role: string;
-  merchantName: string;
-  role: string;
   inviteEmail: string;
   token: string;
 }) {
