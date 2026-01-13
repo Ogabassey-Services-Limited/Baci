@@ -9,7 +9,7 @@ npm warn Unknown env config "npm-globalconfig". This will stop working in the ne
 npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm.
 npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm.
 npm warn Unknown env config "node-linker". This will stop working in the next major version of npm.
-(node:14877) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mac/Baci-app/eslint.config.js?mtime=1766399751680 is not specified and it doesn't parse as CommonJS.
+(node:19881) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mac/Baci-app/eslint.config.js?mtime=1766399751680 is not specified and it doesn't parse as CommonJS.
 Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
 To eliminate this warning, add "type": "module" to /Users/mac/Baci-app/package.json.
 (Use `node --trace-warnings ...` to show where the warning was created)

@@ -85,6 +85,56 @@ src/components/blog/novel-editor.tsx:80:43 lint/suspicious/noExplicitAny ━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
+src/components/blog/novel-features/selectors/color-selector.tsx:140:20 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    138 │           {TEXT_COLORS.map((color, index) => (
+    139 │             <EditorBubbleItem
+  > 140 │               key={index}
+        │                    ^^^^^
+    141 │               onSelect={() => {
+    142 │                 editor.commands.unsetColor();
+  
+  i This is the source of the key value.
+  
+    136 │             Color
+    137 │           </div>
+  > 138 │           {TEXT_COLORS.map((color, index) => (
+        │                                    ^^^^^
+    139 │             <EditorBubbleItem
+    140 │               key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src/components/blog/novel-features/selectors/color-selector.tsx:175:20 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    173 │           {HIGHLIGHT_COLORS.map((color, index) => (
+    174 │             <EditorBubbleItem
+  > 175 │               key={index}
+        │                    ^^^^^
+    176 │               onSelect={() => {
+    177 │                 editor.commands.unsetHighlight();
+  
+  i This is the source of the key value.
+  
+    171 │             Background
+    172 │           </div>
+  > 173 │           {HIGHLIGHT_COLORS.map((color, index) => (
+        │                                         ^^^^^
+    174 │             <EditorBubbleItem
+    175 │               key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
 src/components/blog/novel-features/selectors/editor-toolbar.tsx:45:29 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
@@ -95,6 +145,62 @@ src/components/blog/novel-features/selectors/editor-toolbar.tsx:45:29 lint/suspi
        │                             ^^^
     46 │   const [openNode, setOpenNode] = useState(false);
     47 │   const [openColor, setOpenColor] = useState(false);
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:224:24 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    222 │           size="sm"
+    223 │           onClick={() =>
+  > 224 │             (editor as any).chain().focus().toggleBlockquote().run()
+        │                        ^^^
+    225 │           }
+    226 │           className={cn('h-8 w-8 p-0', {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:227:60 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    225 │           }
+    226 │           className={cn('h-8 w-8 p-0', {
+  > 227 │             'bg-accent text-accent-foreground': (editor as any).isActive(
+        │                                                            ^^^
+    228 │               'blockquote'
+    229 │             ),
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:239:24 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    237 │           size="sm"
+    238 │           onClick={() =>
+  > 239 │             (editor as any).chain().focus().setHorizontalRule().run()
+        │                        ^^^
+    240 │           }
+    241 │           className="h-8 w-8 p-0"
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:298:26 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    296 │             const url = prompt('Enter YouTube URL');
+    297 │             if (url) {
+  > 298 │               (editor as any).commands.setYoutubeVideo({
+        │                          ^^^
+    299 │                 src: url,
+    300 │               });
   
   i any disables many type checking rules. Its use should be avoided.
   
@@ -125,101 +231,6 @@ src/components/blog/novel-features/selectors/node-selector.tsx:66:18 lint/suspic
     68 │   },
   
   i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:67:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    65 │     command: (editor) =>
-    66 │       (editor as any)?.chain().focus().toggleTaskList().run(),
-  > 67 │     isActive: (editor) => (editor as any)?.isActive('taskItem') ?? false,
-       │                                      ^^^
-    68 │   },
-    69 │   {
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:73:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    71 │     icon: ListOrdered,
-    72 │     command: (editor) =>
-  > 73 │       (editor as any)?.chain().focus().toggleBulletList().run(),
-       │                  ^^^
-    74 │     isActive: (editor) => (editor as any)?.isActive('bulletList') ?? false,
-    75 │   },
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:74:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    72 │     command: (editor) =>
-    73 │       (editor as any)?.chain().focus().toggleBulletList().run(),
-  > 74 │     isActive: (editor) => (editor as any)?.isActive('bulletList') ?? false,
-       │                                      ^^^
-    75 │   },
-    76 │   {
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:80:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    78 │     icon: ListOrdered,
-    79 │     command: (editor) =>
-  > 80 │       (editor as any)?.chain().focus().toggleOrderedList().run(),
-       │                  ^^^
-    81 │     isActive: (editor) => (editor as any)?.isActive('orderedList') ?? false,
-    82 │   },
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:81:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
-
-  ! Unexpected any. Specify a different type.
-  
-    79 │     command: (editor) =>
-    80 │       (editor as any)?.chain().focus().toggleOrderedList().run(),
-  > 81 │     isActive: (editor) => (editor as any)?.isActive('orderedList') ?? false,
-       │                                      ^^^
-    82 │   },
-    83 │   {
-  
-  i any disables many type checking rules. Its use should be avoided.
-  
-
-src/components/blog/novel-features/selectors/node-selector.tsx:130:18 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
-
-  ! Avoid using the index of an array as key property in an element.
-  
-    128 │         {items.map((item, index) => (
-    129 │           <EditorBubbleItem
-  > 130 │             key={index}
-        │                  ^^^^^
-    131 │             onSelect={(editor) => {
-    132 │               item.command(editor);
-  
-  i This is the source of the key value.
-  
-    126 │       </PopoverTrigger>
-    127 │       <PopoverContent sideOffset={5} align="start" className="w-48 p-1">
-  > 128 │         {items.map((item, index) => (
-        │                           ^^^^^
-    129 │           <EditorBubbleItem
-    130 │             key={index}
-  
-  i The order of the items may change, and this also affects performances and component state.
-  
-  i Check the React documentation. 
   
 
 src/components/blog/novel-features/selectors/text-buttons.tsx:54:16 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
@@ -297,13 +308,13 @@ src/components/blog/novel-features/slash-command.tsx:160:18 lint/suspicious/noEx
     159 │     command: ({ editor, range }) => {
   > 160 │       (editor as any)
         │                  ^^^
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 10.
-Checked 808 files in 4s. No fixes applied.
     161 │         .chain()
-Found 30 warnings.
     162 │         .focus()
   
   i any disables many type checking rules. Its use should be avoided.
   
 
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 10.
+Checked 808 files in 738ms. No fixes applied.
+Found 30 warnings.
