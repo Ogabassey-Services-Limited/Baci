@@ -11,7 +11,6 @@ import {
   FileText,
   Loader2,
   MoreHorizontal,
-  PenTool,
   Plus,
   Rss,
   Search,
@@ -59,9 +58,9 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
+import type { CachedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
-import type { CachedMerchant } from '@/lib/cached-data';
 
 interface BlogPost {
   id: string;
@@ -241,13 +240,13 @@ export function BlogClientPage({ merchant }: BlogClientPageProps) {
   );
 
   // Show loading state while checking features
-  // Show loading state while checking features. 
-  // actually, since server already gated us, we might not strictly need this, 
-  // but keeping it for autoBlogEnabled loading if needed for that button. 
-  // However, user wants the page to show. 
-  // The 'isFeaturesLoading' blocks the whole page. 
+  // Show loading state while checking features.
+  // actually, since server already gated us, we might not strictly need this,
+  // but keeping it for autoBlogEnabled loading if needed for that button.
+  // However, user wants the page to show.
+  // The 'isFeaturesLoading' blocks the whole page.
   // Let's remove this blocking loader too if we trust server.
-  // But 'autoBlogEnabled' might be needed. 
+  // But 'autoBlogEnabled' might be needed.
   // Let's just render. The 'autoBlogEnabled' button will just pop in when ready.
 
   // REMOVED: isFeaturesLoading block

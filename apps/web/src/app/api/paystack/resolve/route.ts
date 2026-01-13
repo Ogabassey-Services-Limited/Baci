@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Auth Check (Support both Cookie and Bearer Token)
     const authHeader = request.headers.get('Authorization');
-    let user;
+    let user: any;
 
     if (authHeader) {
       const { createClient: createSupabaseClient } = await import(
