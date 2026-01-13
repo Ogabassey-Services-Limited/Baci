@@ -48,7 +48,7 @@ export const repairBookingSchema = z
       return true;
     },
     {
-      message: 'Please enter a valid pickup address',
+      error: 'Please enter a valid pickup address',
       path: ['pickupAddress'],
     }
   );

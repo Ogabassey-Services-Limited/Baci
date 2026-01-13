@@ -69,7 +69,7 @@ const shippingSchema = z.object({
     .min(2, { error: 'Last name must be at least 2 characters.' }),
   email: z.string().email({ error: 'Please enter a valid email address.' }),
   phone: z.string().refine(isValidPhoneNumber, {
-    message: 'Please enter a valid phone number.',
+    error: 'Please enter a valid phone number.',
   }),
   address: z.string().min(5, { error: 'Please enter a valid address.' }),
   city: z.string().min(2, { error: 'Please enter a city.' }),

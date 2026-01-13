@@ -20,9 +20,10 @@ import { createClient } from '@/lib/supabase/server';
 
 const BookingRequestSchema = z.object({
   // Order ID (required)
-  orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
+  orderId: z.string().refine(isValidUuid, { error: 'Invalid order ID' }),
+  carrierId: z.string().min(1, 'Carrier ID is required'),
   // Selected quote ID (required)
-  quoteId: z.string().refine(isValidUuid, { message: 'Invalid quote ID' }),
+  quoteId: z.string().refine(isValidUuid, { error: 'Invalid quote ID' }),
   // Receiver info (required)
   receiver: z.object({
     name: z.string().min(1),
