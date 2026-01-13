@@ -1,49 +1,4 @@
 
-
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m94[0m:[93m9[0m - [91merror[0m[90m TS2578: [0mUnused '@ts-expect-error' directive.
-
-[7m94[0m         // @ts-expect-error: TextAlign extension types not merging correctly
-[7m  [0m [91m        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m98[0m:[93m12[0m - [91merror[0m[90m TS2339: [0mProperty 'setTextAlign' does not exist on type 'ChainedCommands'.
-
-[7m98[0m           .setTextAlign('left')
-[7m  [0m [91m           ~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m107[0m:[93m9[0m - [91merror[0m[90m TS2578: [0mUnused '@ts-expect-error' directive.
-
-[7m107[0m         // @ts-expect-error: TextAlign extension types not merging correctly
-[7m   [0m [91m        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m111[0m:[93m12[0m - [91merror[0m[90m TS2339: [0mProperty 'setTextAlign' does not exist on type 'ChainedCommands'.
-
-[7m111[0m           .setTextAlign('center')
-[7m   [0m [91m           ~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m120[0m:[93m9[0m - [91merror[0m[90m TS2578: [0mUnused '@ts-expect-error' directive.
-
-[7m120[0m         // @ts-expect-error: TextAlign extension types not merging correctly
-[7m   [0m [91m        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m124[0m:[93m12[0m - [91merror[0m[90m TS2339: [0mProperty 'setTextAlign' does not exist on type 'ChainedCommands'.
-
-[7m124[0m           .setTextAlign('right')
-[7m   [0m [91m           ~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m301[0m:[93m11[0m - [91merror[0m[90m TS2578: [0mUnused '@ts-expect-error' directive.
-
-[7m301[0m           // @ts-expect-error insertTable command is missing from Tiptap types due to type merging issues
-[7m   [0m [91m          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-
-[96msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m:[93m306[0m:[93m16[0m - [91merror[0m[90m TS2339: [0mProperty 'insertTable' does not exist on type 'ChainedCommands'.
-
-[7m306[0m               .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-[7m   [0m [91m               ~~~~~~~~~~~[0m
-
-
-Found 8 errors in the same file, starting at: src/components/blog/novel-features/selectors/editor-toolbar.tsx[90m:94[0m
-
-[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 1.[39m
