@@ -58,7 +58,6 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
-import type { CachedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 
@@ -79,7 +78,10 @@ interface BlogPost {
 }
 
 interface BlogClientPageProps {
-  merchant: CachedMerchant;
+  merchant: {
+    id: string;
+    slug: string;
+  };
 }
 
 export function BlogClientPage({ merchant }: BlogClientPageProps) {

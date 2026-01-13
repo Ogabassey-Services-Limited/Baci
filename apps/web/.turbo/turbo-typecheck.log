@@ -2,3 +2,5 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/app/dashboard/blog/page.tsx(51,26): error TS2739: Type 'MerchantData' is missing the following properties from type 'CachedMerchant': site_title, site_tagline, site_description, payout_currency
+ ELIFECYCLE  Command failed with exit code 2.
