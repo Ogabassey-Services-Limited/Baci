@@ -70,7 +70,7 @@ export default function NewDiscountScreen() {
     setValue,
     formState: { errors },
   } = useForm<DiscountFormData>({
-    resolver: zodResolver(discountSchema) as any,
+    resolver: zodResolver(discountSchema),
     defaultValues: {
       code: '',
       discount_type: 'percentage',

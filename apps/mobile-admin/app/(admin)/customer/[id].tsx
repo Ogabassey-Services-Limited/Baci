@@ -9,7 +9,7 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
@@ -106,7 +106,7 @@ export default function CustomerDetailsScreen() {
                 [
                   {
                     text: 'OK',
-                    onPress: () => router.replace('/(tabs)/customers' as any),
+                    onPress: () => router.replace('/(tabs)/customers' as Href<string>),
                   },
                 ]
               );

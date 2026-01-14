@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { generateReport, ReportType } from './ReportsGenerator';
+import { generateReport, ReportType, Transaction } from './ReportsGenerator';
 import { AnalyticsData } from '../../app/(admin)/analytics';
 
 const COLORS = {
@@ -72,7 +72,7 @@ export default function ReportSelectionModal({
         endDate,
         merchantName,
         data: analyticsData,
-        transactions: transactions as any,
+        transactions: transactions as Transaction[],
       });
       onClose();
     } catch (error) {

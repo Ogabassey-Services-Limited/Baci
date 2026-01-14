@@ -17,8 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { DARK_COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 
 export default function VerifyScreen() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeInterval = React.useRef<any>();
+  const activeInterval = React.useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
@@ -29,9 +28,7 @@ export default function VerifyScreen() {
   // const { refreshSession } = useAuth(); // Not needed as useAuth listens to state changes
 
   useEffect(() => {
-    if (activeInterval.current) {
-      clearInterval(activeInterval.current);
-    }
+    if (activeInterval.current) clearInterval(activeInterval.current);
 
     if (timer > 0) {
       activeInterval.current = setInterval(() => setTimer((t) => t - 1), 1000);

@@ -363,7 +363,7 @@ export default function AnalyticsScreen() {
         {};
 
       topProductData?.forEach((item) => {
-        const productData = item.products as any;
+        const productData = item.products as { name: string; brand: string; cost_price: number }[];
         const product = Array.isArray(productData) ? productData[0] : productData;
         const name = product.name as string;
         const brand = (product.brand as string) || 'Unknown';
@@ -456,7 +456,6 @@ export default function AnalyticsScreen() {
     value,
     subtitle,
     sparklineData,
-    isPercentage = false,
     showCircle = false,
     circlePercentage = 0,
     onPress,

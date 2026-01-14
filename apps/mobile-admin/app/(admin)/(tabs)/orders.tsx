@@ -823,7 +823,7 @@ export default function OrdersScreen() {
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onSelect={(filter) => {
-          setDateRange(filter as any);
+          setDateRange(filter);
         }}
         currentFilter={dateRange}
       />

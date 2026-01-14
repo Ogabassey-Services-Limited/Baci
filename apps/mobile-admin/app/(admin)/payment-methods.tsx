@@ -129,7 +129,7 @@ export default function PaymentMethodsScreen() {
           context.previousSettings
         );
       }
-      const msg = (error as any)?.message || 'Failed to update setting';
+      const msg = (error as Error)?.message || 'Failed to update setting';
       Alert.alert('Error', msg);
     },
     onSettled: () => {

@@ -18,9 +18,6 @@ import {
   Alert,
   ActivityIndicator,
   FlatList,
-  ViewStyle,
-  TextStyle,
-  ImageStyle,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,14 +52,12 @@ const PriceInput = ({
   onChange,
   placeholder,
   colors,
-  styles,
   currencySymbol,
 }: {
   value: number;
   onChange: (val: number) => void;
   placeholder: string;
   colors: Record<string, string>;
-  styles: Record<string, ViewStyle | TextStyle | ImageStyle>;
   currencySymbol: string;
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -1529,7 +1524,6 @@ export default function ProductEditScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scrollContent: {
     padding: 16,
     gap: 16,

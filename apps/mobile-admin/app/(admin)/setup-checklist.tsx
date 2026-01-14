@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter, Stack, Href } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
@@ -96,7 +96,7 @@ export default function SetupChecklistScreen() {
       <Pressable
         key={item.id}
         onPress={() =>
-          item.href.startsWith('/') ? router.push(item.href as any) : undefined
+          item.href.startsWith('/') ? router.push(item.href as Href<string>) : undefined
         }
         style={[
           styles.itemCard,

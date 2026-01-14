@@ -8,6 +8,7 @@ import {
   Animated,
   Pressable,
   Platform,
+  ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -97,9 +98,9 @@ export default function OnboardingScreen() {
     return () => clearInterval(timer);
   }, [currentIndex]);
 
-  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
+  const viewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     if (viewableItems && viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
+      setCurrentIndex(viewableItems[0].index || 0);
     }
   }).current;
 

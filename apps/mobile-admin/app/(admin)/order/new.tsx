@@ -321,10 +321,10 @@ export default function NewOrderScreen() {
     );
   };
 
-  const handleSelectCustomer = (c: CustomerRecord) => {
+  const handleSelectCustomer = (item: CustomerRecord) => {
     const displayName =
-      [c.first_name, c.last_name].filter(Boolean).join(' ') ||
-      c.email.split('@')[0];
+      [item.first_name, item.last_name].filter(Boolean).join(' ') ||
+      item.email.split('@')[0];
     setCustomer({
       name: displayName,
       email: c.email || '',
@@ -1501,7 +1501,7 @@ export default function NewOrderScreen() {
                   styles.productItem,
                   { borderBottomColor: colors.border },
                 ]}
-                onPress={() => handleAddProduct(item as any)}
+                onPress={() => handleAddProduct(item)}
               >
                 <View>
                   <Text style={{ color: colors.text, fontSize: 16 }}>
@@ -1979,7 +1979,7 @@ export default function NewOrderScreen() {
                         paddingVertical: 12,
                       },
                     ]}
-                    onPress={() => handleSelectCustomer(item as any)}
+                    onPress={() => handleSelectCustomer(item)}
                   >
                     <View
                       style={[

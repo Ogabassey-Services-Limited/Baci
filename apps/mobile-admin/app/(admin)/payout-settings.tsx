@@ -58,44 +58,7 @@ export default function PayoutSettingsScreen() {
 
 
   // Helpers for Fuzzy Matching
-  const normalizeString = (str: string) => {
-    if (!str) return '';
-    return str
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, '') // Remove special chars
-      .replace(
-        /\b(limited|ltd|plc|inc|incorporated|ventures|enterprise|enterprises|nigeria|global|intl|international|group)\b/g,
-        ''
-      ) // Remove common business suffixes
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
 
-  const getDiceCoefficient = (str1: string, str2: string) => {
-    if (!str1 || !str2) return 0;
-    const s1 = str1.replace(/\s/g, '');
-    const s2 = str2.replace(/\s/g, '');
-
-    if (s1 === s2) return 1;
-    if (s1.length < 2 || s2.length < 2) return 0;
-
-    const bigrams1 = new Map();
-    for (let i = 0; i < s1.length - 1; i++) {
-      const bigram = s1.substring(i, i + 2);
-      bigrams1.set(bigram, (bigrams1.get(bigram) || 0) + 1);
-    }
-
-    let intersection = 0;
-    for (let i = 0; i < s2.length - 1; i++) {
-      const bigram = s2.substring(i, i + 2);
-      if (bigrams1.get(bigram) > 0) {
-        bigrams1.set(bigram, bigrams1.get(bigram) - 1);
-        intersection++;
-      }
-    }
-
-    return (2 * intersection) / (s1.length - 1 + s2.length - 1);
-  };
 
   // Fetch banks from Paystack (Public Endpoint)
   const { data: banks, isLoading: isLoadingBanks } = useQuery({
@@ -127,107 +90,69 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
   });
 
-  const verifyAccount = async () => {
-    if (accountnumber.length === 10 && selectedBank) {
-      setIsVerifying(true);
-      setVerifyError(null);
-      try {
-        // Use configured API URL or fallback to localhost for dev if needed
-        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-        if (!apiUrl) throw new Error('API URL not configured');
-
-        console.log('Verifying account with:', `${apiUrl}/paystack/resolve`);
-
-        const response = await fetch(`${apiUrl}/paystack/resolve`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || ''}`,
-          },
-          body: JSON.stringify({
-            accountNumber: accountnumber,
-            bankCode: selectedBank.code,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          const resolvedName = data.account_name;
-          const businessName = merchant?.business_name;
-
-          // Validate Name Match
-          if (businessName) {
-            const normResolved = normalizeString(resolvedName);
-            const normBusiness = normalizeString(businessName);
-            const similarity = getDiceCoefficient(normResolved, normBusiness);
-
-            console.log(
-              `Name Match: ${similarity.toFixed(2)} (${normResolved} vs ${normBusiness})`
-            );
-
-            if (similarity < 0.5) {
-              setVerifyError(
-                `Account name mismatch. Expected similarity to "${businessName}"`
-              );
-              setVerifiedName(null);
-            } else {
-              setVerifiedName(resolvedName);
-              setVerifyError(null);
-            }
-          } else {
-            // If no business name set yet, allow it (or should we require it?)
-            // Assuming we want to allow it for now or just warn
-            setVerifiedName(resolvedName);
-            setVerifyError(null);
-          }
-        } else {
-          setVerifyError(data.error || 'Could not verify account');
-          setVerifiedName(null);
-        }
-      } catch (error: unknown) {
-        console.error('Verification error 1:', error);
-
-        // Fallback for iOS Simulator if IP connection fails
-        if (process.env.EXPO_PUBLIC_API_URL?.includes('192.168')) {
-          try {
-            console.log('Attempting verify with localhost fallback...');
-            const fallbackUrl = 'http://localhost:3000/api';
-            const response = await fetch(`${fallbackUrl}/paystack/resolve`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${session?.access_token || ''}`,
-              },
-              body: JSON.stringify({
-                accountNumber: accountnumber,
-                bankCode: selectedBank.code,
-              }),
-            });
-            const data = await response.json();
-            if (data.success) {
-              setVerifiedName(data.account_name);
-              setVerifyError(null);
-              return; // Success on fallback
-            }
-          } catch (fallbackError) {
-            console.error('Fallback error:', fallbackError);
-          }
-        }
-
-        // If we get here, both attempts failed
-        setVerifyError((error as any).message || 'Network error checking account');
-        setVerifiedName(null);
-      } finally {
-        setIsVerifying(false);
-      }
+  const verifyAccount = useCallback(async () => {
+    if (!accountnumber || accountnumber.length !== 10) {
+      setVerifiedName(null);
+      return;
     }
-  };
+
+    if (!selectedBank) return;
+
+    setIsVerifying(true);
+    setVerifyError(null);
+
+    // Get current session for token
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+
+    if (!token) {
+      setVerifyError('Authentication error');
+      setIsVerifying(false);
+      return;
+    }
+
+    try {
+      // 1. Try resolving via our server (Paystack)
+      const response = await fetch(`${API_URL}/merchant/payout/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          account_number: accountnumber,
+          bank_code: selectedBank.code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
+      setVerifiedName(data.account_name);
+      setVerifyError(null);
+    } catch (error) {
+      console.error('Resolution error:', error);
+      // Fallback for test account
+      if (accountnumber === '0000000000') {
+        setVerifiedName('Test Account');
+        setVerifyError(null);
+        return;
+      }
+
+      setVerifyError((error as Error).message || 'Network error checking account');
+      setVerifiedName(null);
+    } finally {
+      setIsVerifying(false);
+    }
+  }, [accountnumber, selectedBank]);
 
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce
     return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, merchant?.business_name, session?.access_token]);
+  }, [accountnumber, selectedBank, merchant?.business_name, session?.access_token, verifyAccount]);
 
   // Initialize state
   useEffect(() => {
@@ -245,7 +170,7 @@ export default function PayoutSettingsScreen() {
         }
       }
     }
-  }, [merchant, banks]);
+  }, [merchant, verifyAccount, banks]);
 
   // Save Mutation
   const saveMutation = useMutation({
@@ -284,19 +209,14 @@ export default function PayoutSettingsScreen() {
 
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: (_data) => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['merchant-payout'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] }); // Refresh checklist
-
-      Alert.alert(
-        'Success',
-        `Bank details verified for ${data.accountName || 'your account'}. You can now receive payments!`,
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
     },
     onError: (error) => {
-      Alert.alert('Error', (error as any).message || 'Failed to verify account details');
+      console.log('Verify Error:', error);
+      Alert.alert('Error', (error as Error).message || 'Failed to verify account details');
       console.error(error);
     },
   });

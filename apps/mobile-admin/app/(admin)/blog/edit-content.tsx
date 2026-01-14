@@ -14,7 +14,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { asUploadFile } from '@/types/upload';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/hooks/useTheme';
@@ -32,7 +32,7 @@ export default function EditContentScreen() {
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const webViewRef = useRef<any>(null);
+  const webViewRef = useRef<WebView>(null);
 
   // AI State
   const [isAIProcessing, setIsAIProcessing] = useState(false);
@@ -236,11 +236,14 @@ export default function EditContentScreen() {
 
           // Prepare FormData for API upload
           const formData = new FormData();
-          formData.append('file', {
-            uri: asset.uri,
-            type: asset.mimeType || 'image/jpeg',
-            name: asset.fileName || 'upload.jpg',
-          } as any);
+          formData.append(
+            'file',
+            asUploadFile({
+              uri: asset.uri,
+              name: asset.fileName || `image-${Date.now()}.png`,
+              type: asset.mimeType || 'image/png',
+            })
+          );
 
           // Determine API URL
           const baseUrl = process.env.EXPO_PUBLIC_API_URL || '';

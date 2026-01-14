@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, Camera } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -34,7 +34,7 @@ export default function ScanScreen() {
   const { merchant } = useMerchant();
 
   const handleBarcodeScanned = async ({
-    type,
+    type: _type,
     data,
   }: {
     type: string;
@@ -66,7 +66,7 @@ export default function ScanScreen() {
                 router.push({
                   pathname: '/product/new',
                   params: { sku: data },
-                } as any),
+                } as Href<string | object>),
             },
           ]
         );
@@ -80,7 +80,7 @@ export default function ScanScreen() {
           {
             text: 'View Product',
             onPress: () => {
-              router.push(`/product/${product.id}`);
+              router.push(`/product/${product.id}` as Href<string>);
             },
           },
           {

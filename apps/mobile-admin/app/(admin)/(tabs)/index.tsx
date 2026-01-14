@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { asUploadFile } from '@/types/upload';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // Lazy import to avoid crash if native module not built
@@ -100,11 +100,14 @@ export default function HomeScreen() {
 
       // Use FormData for reliable file upload in React Native
       const fileData = new FormData();
-      fileData.append('file', {
-        uri: asset.uri,
-        name: fileName.split('/').pop(),
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-      } as any);
+      fileData.append(
+        'file',
+        asUploadFile({
+          uri: asset.uri,
+          name: fileName.split('/').pop() || 'image.png',
+          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        })
+      );
 
       // Upload to Supabase storage
       const { error: uploadError } = await supabase.storage
@@ -312,7 +315,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="globe-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionCardText, { color: colors.text }]}>
-              {!primaryDomain || (primaryDomain as any).domain_type === 'subdomain'
+              {!primaryDomain || (primaryDomain as { domain_type: string }).domain_type === 'subdomain'
                 ? 'Get Domain'
                 : 'Manage Domain'}
             </Text>
@@ -499,7 +502,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Transactions
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/orders' as any)}>
+            <Pressable onPress={() => router.push('/(tabs)/orders' as Href<string>)}>
               <Text
                 style={{
                   color: colors.primary,

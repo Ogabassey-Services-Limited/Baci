@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import {
   useCustomers,
@@ -280,7 +280,7 @@ export default function CustomersScreen() {
           shadows.sm,
           pressed && { backgroundColor: colors.cardHover },
         ]}
-        onPress={() => router.push(`/customer/${item.id}` as any)}
+        onPress={() => router.push(`/customer/${item.id}` as Href<string>)}
       >
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
           <Text style={[styles.avatarText, { color: colors.primary }]}>

@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { asUploadFile } from '@/types/upload';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useTheme } from '@/hooks/useTheme';
@@ -91,12 +91,14 @@ export default function BlogPostDetailScreen() {
 
       // Use FormData for reliable file upload in React Native
       const fileData = new FormData();
-      fileData.append('file', {
-        uri,
-        name: fileName.split('/').pop(),
-
-        type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-      } as any);
+      fileData.append(
+        'file',
+        asUploadFile({
+          uri: uri,
+          name: fileName.split('/').pop(),
+          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+        })
+      );
 
       const { error: uploadError } = await supabase.storage
         .from('merchant-assets')

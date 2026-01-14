@@ -5,7 +5,7 @@ import { AnalyticsData } from '../../app/(admin)/analytics';
 
 export type ReportType = 'executive' | 'tax_ledger';
 
-interface Transaction {
+export interface Transaction {
     id: string;
     created_at: string;
     total_amount: number;
