@@ -44,7 +44,7 @@ import {
 } from '@baci/shared';
 
 export default function OrdersScreen() {
-  const { colors, shadows } = useTheme();
+  const { colors, shadows, isDark } = useTheme();
   const { storeUrl, merchant } = useMerchant();
   const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(
     undefined
@@ -823,7 +823,7 @@ export default function OrdersScreen() {
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onSelect={(filter) => {
-          setDateRange(filter);
+          setDateRange(filter as any);
         }}
         currentFilter={dateRange}
       />

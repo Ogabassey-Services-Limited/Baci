@@ -11,6 +11,7 @@ import {
   ScrollView,
   TextInput,
   Pressable,
+  Platform,
   useColorScheme,
   Switch,
   Modal,
@@ -108,7 +109,6 @@ const PriceInput = ({
   return (
     <View
       style={[
-        styles.input,
         {
           backgroundColor: colors.inputBg,
           borderColor: colors.border,
@@ -808,13 +808,7 @@ export default function ProductEditScreen() {
               attributes on the individual variants below.
             </Text>
 
-            {product.variants.map((variant: {
-              id: string;
-              name: string;
-              variant_attributes?: Record<string, string>;
-              sku?: string;
-              stock_quantity?: number;
-            }) => (
+            {product.variants.map((variant) => (
               <Pressable
                 key={variant.id}
                 style={{

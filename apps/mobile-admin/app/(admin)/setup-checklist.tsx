@@ -96,7 +96,7 @@ export default function SetupChecklistScreen() {
       <Pressable
         key={item.id}
         onPress={() =>
-          item.href.startsWith('/') ? router.push(item.href as `/(admin)/${string}`) : undefined
+          item.href.startsWith('/') ? router.push(item.href as any) : undefined
         }
         style={[
           styles.itemCard,

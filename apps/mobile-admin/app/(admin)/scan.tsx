@@ -34,7 +34,7 @@ export default function ScanScreen() {
   const { merchant } = useMerchant();
 
   const handleBarcodeScanned = async ({
-    _type,
+    type,
     data,
   }: {
     type: string;
@@ -66,7 +66,7 @@ export default function ScanScreen() {
                 router.push({
                   pathname: '/product/new',
                   params: { sku: data },
-                }),
+                } as any),
             },
           ]
         );

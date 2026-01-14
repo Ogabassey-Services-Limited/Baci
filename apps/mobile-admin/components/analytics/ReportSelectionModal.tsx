@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { generateReport, ReportType } from './ReportsGenerator';
-import { AnalyticsData } from '../../app/analytics';
+import { AnalyticsData } from '../../app/(admin)/analytics';
 
 const COLORS = {
   primary: '#000000',
@@ -72,7 +72,7 @@ export default function ReportSelectionModal({
         endDate,
         merchantName,
         data: analyticsData,
-        transactions,
+        transactions: transactions as any,
       });
       onClose();
     } catch (error) {

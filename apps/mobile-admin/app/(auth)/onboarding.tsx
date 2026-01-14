@@ -82,7 +82,7 @@ export default function OnboardingScreen() {
   const { completeOnboarding } = useOnboarding();
   const { width } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
-  const slidesRef = useRef<FlatList>(null);
+  const slidesRef = useRef<FlatList<OnboardingSlide>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Auto-swipe interval (3.5 seconds)
@@ -97,7 +97,7 @@ export default function OnboardingScreen() {
     return () => clearInterval(timer);
   }, [currentIndex]);
 
-  const viewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number }> }) => {
+  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
       setCurrentIndex(viewableItems[0].index);
     }

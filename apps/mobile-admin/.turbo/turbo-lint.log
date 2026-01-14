@@ -1,12 +1,84 @@
 
-
 > baci-mobile-admin@1.0.0 lint /Users/mac/Baci-app/apps/mobile-admin
 > expo lint
 
-[90menv: load .env[39m
-[90menv: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "shamefully-hoist". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "npm-globalconfig". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "verify-deps-before-run". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "_jsr-registry". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "node-linker". This will stop working in the next major version of npm.[39m
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL
+npm warn Unknown env config "shamefully-hoist". This will stop working in the next major version of npm.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm.
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm.
+(node:48581) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mac/Baci-app/eslint.config.js?mtime=1766399751680 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/mac/Baci-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/(tabs)/customers.tsx
+  283:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/(tabs)/index.tsx
+  107:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  315:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  502:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/(tabs)/orders.tsx
+  826:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/analytics/index.tsx
+  366:46  error  Unexpected any. Specify a different type                                                 @typescript-eslint/no-explicit-any
+  459:5   error  'isPercentage' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/blog/[id].tsx
+  99:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/blog/edit-content.tsx
+   35:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  243:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/customer/[id].tsx
+  109:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/discounts/new.tsx
+  73:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/expenses/new.tsx
+  78:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/order/new.tsx
+  1504:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  1982:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/payment-methods.tsx
+  132:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/payout-settings.tsx
+  219:34  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+  230:6   warning  React Hook useEffect has a missing dependency: 'verifyAccount'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  299:38  error    Unexpected any. Specify a different type                                                                          @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/product/[id].tsx
+  58:3  error  'styles' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/scan.tsx
+  37:5   error  'type' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  69:22  error  Unexpected any. Specify a different type                                @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/setup-checklist.tsx
+  99:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(auth)/onboarding.tsx
+  100:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(auth)/verify.tsx
+  30:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/components/analytics/ReportSelectionModal.tsx
+  75:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/components/dashboard/RevenueChart.tsx
+  34:3  error  'showPeriodSelector' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 27 problems (26 errors, 1 warning)
+
+ ELIFECYCLE  Command failed with exit code 1.

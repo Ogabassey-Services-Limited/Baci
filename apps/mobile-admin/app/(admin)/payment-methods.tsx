@@ -129,8 +129,7 @@ export default function PaymentMethodsScreen() {
           context.previousSettings
         );
       }
-      // @ts-expect-error - Expected untyped Supabase error object
-      const msg = error?.message || 'Failed to update setting';
+      const msg = (error as any)?.message || 'Failed to update setting';
       Alert.alert('Error', msg);
     },
     onSettled: () => {

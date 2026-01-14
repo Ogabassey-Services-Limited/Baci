@@ -32,7 +32,7 @@ export default function EditContentScreen() {
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
 
   // AI State
   const [isAIProcessing, setIsAIProcessing] = useState(false);
@@ -42,9 +42,7 @@ export default function EditContentScreen() {
   const [aiInstruction, setAiInstruction] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  useEffect(() => {
-    if (id) fetchContent();
-  }, [id, fetchContent]);
+
 
   const fetchContent = useCallback(async () => {
     try {
@@ -64,6 +62,10 @@ export default function EditContentScreen() {
       setIsLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id) fetchContent();
+  }, [id, fetchContent]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -238,7 +240,7 @@ export default function EditContentScreen() {
             uri: asset.uri,
             type: asset.mimeType || 'image/jpeg',
             name: asset.fileName || 'upload.jpg',
-          } as unknown as { uri: string; type: string; name: string });
+          } as any);
 
           // Determine API URL
           const baseUrl = process.env.EXPO_PUBLIC_API_URL || '';
@@ -467,7 +469,7 @@ export default function EditContentScreen() {
                   backgroundColor: colors.background,
                 },
               ]}
-              autoFocus
+
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -682,22 +684,21 @@ export default function EditContentScreen() {
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
-            style={styles.toolbarButton}
             onPress={() => formatAction('justifyLeft')}
           >
-            <Ionicons name="align-left" size={20} color={colors.text} />
+            <Ionicons name="reorder-two-outline" size={20} color={colors.text} />
           </Pressable>
           <Pressable
             style={styles.toolbarButton}
             onPress={() => formatAction('justifyCenter')}
           >
-            <Ionicons name="align-center" size={20} color={colors.text} />
+            <Ionicons name="reorder-three-outline" size={20} color={colors.text} />
           </Pressable>
           <Pressable
             style={styles.toolbarButton}
             onPress={() => formatAction('justifyRight')}
           >
-            <Ionicons name="align-right" size={20} color={colors.text} />
+            <Ionicons name="reorder-four-outline" size={20} color={colors.text} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
@@ -758,7 +759,7 @@ export default function EditContentScreen() {
                   { text: 'Cancel', style: 'cancel' },
                   {
                     text: 'Insert',
-                    onPress: (url) => {
+                    onPress: (url?: string) => {
                       if (!url) return;
                       // Simple regex to extract ID if full URL is provided
                       const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=|\/sandaylm\?v=))([\w-]{11})/)?.[1] || url;
@@ -803,7 +804,7 @@ export default function EditContentScreen() {
           <Ionicons name="sparkles" size={26} color="#FFF" />
         )}
       </Pressable>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 

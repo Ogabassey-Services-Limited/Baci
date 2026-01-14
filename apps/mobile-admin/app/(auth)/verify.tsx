@@ -17,6 +17,8 @@ import { supabase } from '@/lib/supabase';
 import { DARK_COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 
 export default function VerifyScreen() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeInterval = React.useRef<any>();
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
@@ -27,11 +29,20 @@ export default function VerifyScreen() {
   // const { refreshSession } = useAuth(); // Not needed as useAuth listens to state changes
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timer > 0) {
-      interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    if (activeInterval.current) {
+      clearInterval(activeInterval.current);
     }
-    return () => clearInterval(interval);
+
+    if (timer > 0) {
+      activeInterval.current = setInterval(() => setTimer((t) => t - 1), 1000);
+    }
+
+    return () => {
+      if (activeInterval.current) {
+        clearInterval(activeInterval.current);
+        activeInterval.current = null;
+      }
+    };
   }, [timer]);
 
   const handleCodeChange = (text: string, index: number) => {
@@ -149,7 +160,7 @@ export default function VerifyScreen() {
           {code.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => (inputs.current[index] = ref)}
+              ref={(ref) => { inputs.current[index] = ref; }}
               style={styles.otpInput}
               keyboardType="number-pad"
               maxLength={1}

@@ -14,6 +14,7 @@ export interface FailedOrder {
   payment_method: string;
   created_at: string;
   gateway_response?: any;
+  gateway?: string;
   attempt_count: number;
 }
 

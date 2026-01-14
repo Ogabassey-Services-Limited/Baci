@@ -1,350 +1,320 @@
 
-
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-[0msrc/app/api/admin/generate-product-images/route.ts[0m[0m:[0m[0m98[0m[0m:[0m[0m32[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/app/api/admin/generate-product-images/route.ts:98:32 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m [0m[0m  [0m[0m[1m97 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0m=[0m[0m
-[0m[0m  [0m[0m [0m[0m[1m[31m>[0m[0m [0m[0m[1m98 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0m([0m[0mr[0m[0me[0m[0ms[0m[0mp[0m[0mo[0m[0mn[0m[0ms[0m[0me[0m[0m.[0m[0mb[0m[0mo[0m[0md[0m[0my[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0ma[0m[0mn[0m[0md[0m[0mi[0m[0md[0m[0ma[0m[0mt[0m[0me[0m[0ms[0m[0m?[0m[0m.[0m[0m[[0m[0m0[0m[0m][0m[0m?[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m [0m[0m  [0m[0m[1m99 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m.[0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m[[0m[0m][0m[0m)[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m[[0m[0m][0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m100 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mi[0m[0mm[0m[0ma[0m[0mg[0m[0me[0m[0mP[0m[0ma[0m[0mr[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/app/api/admin/generate-product-images/route.ts[0m[0m:[0m[0m99[0m[0m:[0m[0m26[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+     97 │           const parts =
+   > 98 │             ((response.body as any)?.candidates?.[0]?.content
+        │                                ^^^
+     99 │               ?.parts as any[]) || [];
+    100 │           const imagePart = (
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m [0m[0m  [0m[0m[1m97 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0m=[0m[0m
-[0m[0m  [0m[0m [0m[0m  [0m[0m[1m98 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0m([0m[0mr[0m[0me[0m[0ms[0m[0mp[0m[0mo[0m[0mn[0m[0ms[0m[0me[0m[0m.[0m[0mb[0m[0mo[0m[0md[0m[0my[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m?[0m[0m.[0m[0mc[0m[0ma[0m[0mn[0m[0md[0m[0mi[0m[0md[0m[0ma[0m[0mt[0m[0me[0m[0ms[0m[0m?[0m[0m.[0m[0m[[0m[0m0[0m[0m][0m[0m?[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
-[0m[0m  [0m[0m [0m[0m[1m[31m>[0m[0m [0m[0m[1m99 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m.[0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m[[0m[0m][0m[0m)[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m[[0m[0m][0m[0m;[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m100 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mi[0m[0mm[0m[0ma[0m[0mg[0m[0me[0m[0mP[0m[0ma[0m[0mr[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m101 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mp[0m[0ma[0m[0mr[0m[0mt[0m[0ms[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0m{[0m[0m [0m[0mi[0m[0mn[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0mD[0m[0ma[0m[0mt[0m[0ma[0m[0m:[0m[0m [0m[0m{[0m[0m [0m[0md[0m[0ma[0m[0mt[0m[0ma[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m;[0m[0m [0m[0mm[0m[0mi[0m[0mm[0m[0me[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m [0m[0m}[0m[0m [0m[0m}[0m[0m[[0m[0m][0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/app/checkout/page.tsx[0m[0m:[0m[0m1410[0m[0m:[0m[0m61[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/app/api/admin/generate-product-images/route.ts:99:26 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1408 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m-[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mj[0m[0mu[0m[0ms[0m[0mt[0m[0mi[0m[0mf[0m[0my[0m[0m-[0m[0mb[0m[0me[0m[0mt[0m[0mw[0m[0me[0m[0me[0m[0mn[0m[0m [0m[0mm[0m[0mb[0m[0m-[0m[0m8[0m[0m"[0m[0m>[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1409 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m-[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mg[0m[0ma[0m[0mp[0m[0m-[0m[0m3[0m[0m"[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m1410 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0mn[0m[0mk[0m[0m [0m[0mh[0m[0mr[0m[0me[0m[0mf[0m[0m=[0m[0m{[0m[0m`[0m[0m$[0m[0m{[0m[0mb[0m[0ma[0m[0ms[0m[0me[0m[0mP[0m[0ma[0m[0mt[0m[0mh[0m[0m [0m[0m|[0m[0m|[0m[0m [0m[0m'[0m[0m'[0m[0m}[0m[0m/[0m[0mc[0m[0ma[0m[0mr[0m[0mt[0m[0m`[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m}[0m[0m>[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1411 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mB[0m[0mu[0m[0mt[0m[0mt[0m[0mo[0m[0mn[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1412 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mv[0m[0ma[0m[0mr[0m[0mi[0m[0ma[0m[0mn[0m[0mt[0m[0m=[0m[0m"[0m[0mg[0m[0mh[0m[0mo[0m[0ms[0m[0mt[0m[0m"[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/app/dashboard/blog/[id]/edit/page.tsx[0m[0m:[0m[0m310[0m[0m:[0m[0m31[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+     97 │           const parts =
+     98 │             ((response.body as any)?.candidates?.[0]?.content
+   > 99 │               ?.parts as any[]) || [];
+        │                          ^^^
+    100 │           const imagePart = (
+    101 │             parts as { inlineData: { data: string; mimeType: string } }[]
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m308 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ml[0m[0me[0m[0mt[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m'[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m309 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m-[0m[0md[0m[0mi[0m[0ms[0m[0ma[0m[0mb[0m[0ml[0m[0me[0m[0m-[0m[0mn[0m[0me[0m[0mx[0m[0mt[0m[0m-[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0m [0m[0m@[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0ms[0m[0mc[0m[0mr[0m[0mi[0m[0mp[0m[0mt[0m[0m-[0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m/[0m[0mn[0m[0mo[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0ml[0m[0mi[0m[0mc[0m[0mi[0m[0mt[0m[0m-[0m[0ma[0m[0mn[0m[0my[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m310 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mt[0m[0mr[0m[0ma[0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0me[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m:[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m311 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m)[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m+[0m[0m=[0m[0m [0m[0m`[0m[0m$[0m[0m{[0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m}[0m[0m [0m[0m`[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m312 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0m&[0m[0m&[0m[0m [0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m)[0m[0m)[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/app/dashboard/blog/new/page.tsx[0m[0m:[0m[0m218[0m[0m:[0m[0m31[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/app/checkout/page.tsx:1411:61 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m216 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ml[0m[0me[0m[0mt[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m=[0m[0m [0m[0m'[0m[0m'[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m217 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m-[0m[0md[0m[0mi[0m[0ms[0m[0ma[0m[0mb[0m[0ml[0m[0me[0m[0m-[0m[0mn[0m[0me[0m[0mx[0m[0mt[0m[0m-[0m[0ml[0m[0mi[0m[0mn[0m[0me[0m[0m [0m[0m@[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0ms[0m[0mc[0m[0mr[0m[0mi[0m[0mp[0m[0mt[0m[0m-[0m[0me[0m[0ms[0m[0ml[0m[0mi[0m[0mn[0m[0mt[0m[0m/[0m[0mn[0m[0mo[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0ml[0m[0mi[0m[0mc[0m[0mi[0m[0mt[0m[0m-[0m[0ma[0m[0mn[0m[0my[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m218 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mt[0m[0mr[0m[0ma[0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0me[0m[0m [0m[0m=[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m:[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m219 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m)[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m [0m[0m+[0m[0m=[0m[0m [0m[0m`[0m[0m$[0m[0m{[0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m}[0m[0m [0m[0m`[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m220 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0m&[0m[0m&[0m[0m [0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mr[0m[0mr[0m[0ma[0m[0my[0m[0m([0m[0mn[0m[0mo[0m[0md[0m[0me[0m[0m.[0m[0mc[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m)[0m[0m)[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-editor.tsx[0m[0m:[0m[0m80[0m[0m:[0m[0m43[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    1409 │                 <div className="flex items-center justify-between mb-8">
+    1410 │                   <div className="flex items-center gap-3">
+  > 1411 │                     <Link href={`${basePath || ''}/cart` as any}>
+         │                                                             ^^^
+    1412 │                       <Button
+    1413 │                         variant="ghost"
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m78 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mR[0m[0mo[0m[0mo[0m[0mt[0m[0m>[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m79 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mC[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m80 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mn[0m[0mi[0m[0mt[0m[0mi[0m[0ma[0m[0ml[0m[0mC[0m[0mo[0m[0mn[0m[0mt[0m[0me[0m[0mn[0m[0mt[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0mi[0m[0mt[0m[0mi[0m[0ma[0m[0ml[0m[0mV[0m[0ma[0m[0ml[0m[0mu[0m[0me[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m}[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m81 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m/[0m[0m/[0m[0m [0m[0m@[0m[0mt[0m[0ms[0m[0m-[0m[0me[0m[0mx[0m[0mp[0m[0me[0m[0mc[0m[0mt[0m[0m-[0m[0me[0m[0mr[0m[0mr[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mT[0m[0mi[0m[0mp[0m[0mt[0m[0ma[0m[0mp[0m[0m [0m[0mv[0m[0me[0m[0mr[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0m [0m[0mm[0m[0mi[0m[0ms[0m[0mm[0m[0ma[0m[0mt[0m[0mc[0m[0mh[0m[0m [0m[0mb[0m[0me[0m[0mt[0m[0mw[0m[0me[0m[0me[0m[0mn[0m[0m [0m[0mn[0m[0mo[0m[0mv[0m[0me[0m[0ml[0m[0m [0m[0ma[0m[0mn[0m[0md[0m[0m [0m[0mr[0m[0mo[0m[0mo[0m[0mt[0m[0m [0m[0md[0m[0me[0m[0mp[0m[0me[0m[0mn[0m[0md[0m[0me[0m[0mn[0m[0mc[0m[0mi[0m[0me[0m[0ms[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m82 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0mx[0m[0mt[0m[0me[0m[0mn[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0ms[0m[0m=[0m[0m{[0m[0me[0m[0mx[0m[0mt[0m[0me[0m[0mn[0m[0ms[0m[0mi[0m[0mo[0m[0mn[0m[0ms[0m[0m}[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/color-selector.tsx[0m[0m:[0m[0m140[0m[0m:[0m[0m20[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━[0m[0m
+src/app/dashboard/blog/[id]/edit/page.tsx:310:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m138 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mT[0m[0mE[0m[0mX[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m139 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m140 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m141 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m142 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0ms[0m[0m.[0m[0mu[0m[0mn[0m[0ms[0m[0me[0m[0mt[0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m([0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m136 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m137 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0md[0m[0mi[0m[0mv[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m138 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mT[0m[0mE[0m[0mX[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m139 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m140 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/color-selector.tsx[0m[0m:[0m[0m175[0m[0m:[0m[0m20[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    308 │       let text = '';
+    309 │       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  > 310 │       const traverse = (node: any) => {
+        │                               ^^^
+    311 │         if (node.text) text += `${node.text} `;
+    312 │         if (node.content && Array.isArray(node.content)) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m173 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mH[0m[0mI[0m[0mG[0m[0mH[0m[0mL[0m[0mI[0m[0mG[0m[0mH[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m174 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m175 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m176 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m177 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0ms[0m[0m.[0m[0mu[0m[0mn[0m[0ms[0m[0me[0m[0mt[0m[0mH[0m[0mi[0m[0mg[0m[0mh[0m[0ml[0m[0mi[0m[0mg[0m[0mh[0m[0mt[0m[0m([0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m171 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mB[0m[0ma[0m[0mc[0m[0mk[0m[0mg[0m[0mr[0m[0mo[0m[0mu[0m[0mn[0m[0md[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m172 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0md[0m[0mi[0m[0mv[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m173 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mH[0m[0mI[0m[0mG[0m[0mH[0m[0mL[0m[0mI[0m[0mG[0m[0mH[0m[0mT[0m[0m_[0m[0mC[0m[0mO[0m[0mL[0m[0mO[0m[0mR[0m[0mS[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mc[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m174 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m175 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m[0m:[0m[0m45[0m[0m:[0m[0m29[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━[0m[0m
+src/app/dashboard/blog/new/page.tsx:218:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m43 │ [0m[0m}[0m[0m:[0m[0m [0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mT[0m[0mo[0m[0mo[0m[0ml[0m[0mb[0m[0ma[0m[0mr[0m[0mP[0m[0mr[0m[0mo[0m[0mp[0m[0ms[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m44 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0m_[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0m}[0m[0m [0m[0m=[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m([0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m45 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0m=[0m[0m [0m[0m_[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m;[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m46 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0m[[0m[0mo[0m[0mp[0m[0me[0m[0mn[0m[0mN[0m[0mo[0m[0md[0m[0me[0m[0m,[0m[0m [0m[0ms[0m[0me[0m[0mt[0m[0mO[0m[0mp[0m[0me[0m[0mn[0m[0mN[0m[0mo[0m[0md[0m[0me[0m[0m][0m[0m [0m[0m=[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mS[0m[0mt[0m[0ma[0m[0mt[0m[0me[0m[0m([0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m47 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0m[[0m[0mo[0m[0mp[0m[0me[0m[0mn[0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0ms[0m[0me[0m[0mt[0m[0mO[0m[0mp[0m[0me[0m[0mn[0m[0mC[0m[0mo[0m[0ml[0m[0mo[0m[0mr[0m[0m][0m[0m [0m[0m=[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mS[0m[0mt[0m[0ma[0m[0mt[0m[0me[0m[0m([0m[0mf[0m[0ma[0m[0ml[0m[0ms[0m[0me[0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m[0m:[0m[0m224[0m[0m:[0m[0m24[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    216 │       let text = '';
+    217 │       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  > 218 │       const traverse = (node: any) => {
+        │                               ^^^
+    219 │         if (node.text) text += `${node.text} `;
+    220 │         if (node.content && Array.isArray(node.content)) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m222 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m"[0m[0ms[0m[0mm[0m[0m"[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m223 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mC[0m[0ml[0m[0mi[0m[0mc[0m[0mk[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m224 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mB[0m[0ml[0m[0mo[0m[0mc[0m[0mk[0m[0mq[0m[0mu[0m[0mo[0m[0mt[0m[0me[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m225 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m226 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m{[0m[0mc[0m[0mn[0m[0m([0m[0m'[0m[0mh[0m[0m-[0m[0m8[0m[0m [0m[0mw[0m[0m-[0m[0m8[0m[0m [0m[0mp[0m[0m-[0m[0m0[0m[0m'[0m[0m,[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m[0m:[0m[0m227[0m[0m:[0m[0m60[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-editor.tsx:80:43 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m225 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m226 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m{[0m[0mc[0m[0mn[0m[0m([0m[0m'[0m[0mh[0m[0m-[0m[0m8[0m[0m [0m[0mw[0m[0m-[0m[0m8[0m[0m [0m[0mp[0m[0m-[0m[0m0[0m[0m'[0m[0m,[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m227 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m'[0m[0mb[0m[0mg[0m[0m-[0m[0ma[0m[0mc[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0m [0m[0mt[0m[0me[0m[0mx[0m[0mt[0m[0m-[0m[0ma[0m[0mc[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0m-[0m[0mf[0m[0mo[0m[0mr[0m[0me[0m[0mg[0m[0mr[0m[0mo[0m[0mu[0m[0mn[0m[0md[0m[0m'[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m([0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m228 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m'[0m[0mb[0m[0ml[0m[0mo[0m[0mc[0m[0mk[0m[0mq[0m[0mu[0m[0mo[0m[0mt[0m[0me[0m[0m'[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m229 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m)[0m[0m,[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m[0m:[0m[0m239[0m[0m:[0m[0m24[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    78 │       <EditorRoot>
+    79 │         <EditorContent
+  > 80 │           initialContent={initialValue as any}
+       │                                           ^^^
+    81 │           // @ts-expect-error: Tiptap version mismatch between novel and root dependencies
+    82 │           extensions={extensions}
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m237 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m"[0m[0ms[0m[0mm[0m[0m"[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m238 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mC[0m[0ml[0m[0mi[0m[0mc[0m[0mk[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m239 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0ms[0m[0me[0m[0mt[0m[0mH[0m[0mo[0m[0mr[0m[0mi[0m[0mz[0m[0mo[0m[0mn[0m[0mt[0m[0ma[0m[0ml[0m[0mR[0m[0mu[0m[0ml[0m[0me[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m240 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m241 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mh[0m[0m-[0m[0m8[0m[0m [0m[0mw[0m[0m-[0m[0m8[0m[0m [0m[0mp[0m[0m-[0m[0m0[0m[0m"[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/editor-toolbar.tsx[0m[0m:[0m[0m298[0m[0m:[0m[0m26[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-features/selectors/color-selector.tsx:140:20 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m296 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mn[0m[0ms[0m[0mt[0m[0m [0m[0mu[0m[0mr[0m[0ml[0m[0m [0m[0m=[0m[0m [0m[0mp[0m[0mr[0m[0mo[0m[0mm[0m[0mp[0m[0mt[0m[0m([0m[0m'[0m[0mE[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mY[0m[0mo[0m[0mu[0m[0mT[0m[0mu[0m[0mb[0m[0me[0m[0m [0m[0mU[0m[0mR[0m[0mL[0m[0m'[0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m297 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mf[0m[0m [0m[0m([0m[0mu[0m[0mr[0m[0ml[0m[0m)[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m298 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0ms[0m[0m.[0m[0ms[0m[0me[0m[0mt[0m[0mY[0m[0mo[0m[0mu[0m[0mt[0m[0mu[0m[0mb[0m[0me[0m[0mV[0m[0mi[0m[0md[0m[0me[0m[0mo[0m[0m([0m[0m{[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m299 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0ms[0m[0mr[0m[0mc[0m[0m:[0m[0m [0m[0mu[0m[0mr[0m[0ml[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m300 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/node-selector.tsx[0m[0m:[0m[0m24[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━[0m[0m
+  ! Avoid using the index of an array as key property in an element.
+  
+    138 │           {TEXT_COLORS.map((color, index) => (
+    139 │             <EditorBubbleItem
+  > 140 │               key={index}
+        │                    ^^^^^
+    141 │               onSelect={() => {
+    142 │                 editor.commands.unsetColor();
+  
+  i This is the source of the key value.
+  
+    136 │             Color
+    137 │           </div>
+  > 138 │           {TEXT_COLORS.map((color, index) => (
+        │                                    ^^^^^
+    139 │             <EditorBubbleItem
+    140 │               key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m22 │ [0m[0me[0m[0mx[0m[0mp[0m[0mo[0m[0mr[0m[0mt[0m[0m [0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0m [0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0mo[0m[0mr[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m [0m[0m=[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m23 │ [0m[0m [0m[0m [0m[0mn[0m[0ma[0m[0mm[0m[0me[0m[0m:[0m[0m [0m[0ms[0m[0mt[0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m;[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m24 │ [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0ma[0m[0mc[0m[0mt[0m[0m.[0m[0mF[0m[0mC[0m[0m<[0m[0ma[0m[0mn[0m[0my[0m[0m>[0m[0m;[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m25 │ [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m<[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0mo[0m[0mf[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m>[0m[0m[[0m[0m'[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m'[0m[0m][0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0mv[0m[0mo[0m[0mi[0m[0md[0m[0m;[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m26 │ [0m[0m [0m[0m [0m[0mi[0m[0ms[0m[0mA[0m[0mc[0m[0mt[0m[0mi[0m[0mv[0m[0me[0m[0m:[0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m:[0m[0m [0m[0mR[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0mT[0m[0my[0m[0mp[0m[0me[0m[0m<[0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0mo[0m[0mf[0m[0m [0m[0mu[0m[0ms[0m[0me[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m>[0m[0m[[0m[0m'[0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m'[0m[0m][0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0mb[0m[0mo[0m[0mo[0m[0ml[0m[0me[0m[0ma[0m[0mn[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/selectors/text-buttons.tsx[0m[0m:[0m[0m54[0m[0m:[0m[0m16[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-array-index-key\lint/suspicious/noArrayIndexKey]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-features/selectors/color-selector.tsx:175:20 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mAvoid using the index of an array as key property in an element.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m52 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m53 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m54 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m55 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m=[0m[0m{[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m56 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m.[0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThis is the source of the key value.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m50 │ [0m[0m [0m[0m [0m[0mr[0m[0me[0m[0mt[0m[0mu[0m[0mr[0m[0mn[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m51 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m"[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m52 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m{[0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m.[0m[0mm[0m[0ma[0m[0mp[0m[0m([0m[0m([0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0m,[0m[0m [0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m([0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m53 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0mE[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0mB[0m[0mu[0m[0mb[0m[0mb[0m[0ml[0m[0me[0m[0mI[0m[0mt[0m[0me[0m[0mm[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m54 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mk[0m[0me[0m[0my[0m[0m=[0m[0m{[0m[0mi[0m[0mn[0m[0md[0m[0me[0m[0mx[0m[0m}[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mThe order of the items may change, and this also affects performances and component state.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[34mCheck the [0m[0m[34m]8;;https://reactjs.org/docs/lists-and-keys.html#keys\React documentation]8;;\[0m[0m[34m. [0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m38[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Avoid using the index of an array as key property in an element.
+  
+    173 │           {HIGHLIGHT_COLORS.map((color, index) => (
+    174 │             <EditorBubbleItem
+  > 175 │               key={index}
+        │                    ^^^^^
+    176 │               onSelect={() => {
+    177 │                 editor.commands.unsetHighlight();
+  
+  i This is the source of the key value.
+  
+    171 │             Background
+    172 │           </div>
+  > 173 │           {HIGHLIGHT_COLORS.map((color, index) => (
+        │                                         ^^^^^
+    174 │             <EditorBubbleItem
+    175 │               key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m36 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mC[0m[0mh[0m[0me[0m[0mc[0m[0mk[0m[0mS[0m[0mq[0m[0mu[0m[0ma[0m[0mr[0m[0me[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m37 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m38 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m.[0m[0md[0m[0me[0m[0ml[0m[0me[0m[0mt[0m[0me[0m[0mR[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m([0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m)[0m[0m.[0m[0mt[0m[0mo[0m[0mg[0m[0mg[0m[0ml[0m[0me[0m[0mT[0m[0ma[0m[0ms[0m[0mk[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m([0m[0m)[0m[0m.[0m[0mr[0m[0mu[0m[0mn[0m[0m([0m[0m)[0m[0m;[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m39 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m40 │ [0m[0m [0m[0m [0m[0m}[0m[0m,[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m89[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:45:29 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m87 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m88 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m89 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m90 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m91 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m103[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    43 │ }: EditorToolbarProps) => {
+    44 │   const { editor: _editor } = useEditor();
+  > 45 │   const editor = _editor as any;
+       │                             ^^^
+    46 │   const [openNode, setOpenNode] = useState(false);
+    47 │   const [openColor, setOpenColor] = useState(false);
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m101 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mL[0m[0mi[0m[0ms[0m[0mt[0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0me[0m[0md[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m102 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m103 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m104 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m105 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/components/blog/novel-features/slash-command.tsx[0m[0m:[0m[0m160[0m[0m:[0m[0m18[0m[0m [0m[0m]8;;https://biomejs.dev/linter/rules/no-explicit-any\lint/suspicious/noExplicitAny]8;;\[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:224:24 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[33m⚠[0m[0m [0m[0m[33mUnexpected [0m[0m[1m[33many[0m[0m[33m. Specify a different type.[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m158 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mi[0m[0mc[0m[0mo[0m[0mn[0m[0m:[0m[0m [0m[0m<[0m[0mS[0m[0mh[0m[0mo[0m[0mp[0m[0mp[0m[0mi[0m[0mn[0m[0mg[0m[0mB[0m[0ma[0m[0mg[0m[0m [0m[0ms[0m[0mi[0m[0mz[0m[0me[0m[0m=[0m[0m{[0m[0m1[0m[0m8[0m[0m}[0m[0m [0m[0m/[0m[0m>[0m[0m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m159 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mc[0m[0mo[0m[0mm[0m[0mm[0m[0ma[0m[0mn[0m[0md[0m[0m:[0m[0m [0m[0m([0m[0m{[0m[0m [0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m,[0m[0m [0m[0mr[0m[0ma[0m[0mn[0m[0mg[0m[0me[0m[0m [0m[0m}[0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m[1m[31m>[0m[0m [0m[0m[1m160 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m([0m[0me[0m[0md[0m[0mi[0m[0mt[0m[0mo[0m[0mr[0m[0m [0m[0ma[0m[0ms[0m[0m [0m[0ma[0m[0mn[0m[0my[0m[0m)[0m[0m
-[0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m[1m   │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m[1m[31m^[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m161 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mc[0m[0mh[0m[0ma[0m[0mi[0m[0mn[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m162 │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m.[0m[0mf[0m[0mo[0m[0mc[0m[0mu[0m[0ms[0m[0m([0m[0m)[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m[1m[34mℹ[0m[0m [0m[0m[1m[34many[0m[0m[34m disables many type checking rules. Its use should be avoided.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0msrc/app/checkout/page.tsx[0m[0m [0m[0mformat[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+  ! Unexpected any. Specify a different type.
+  
+    222 │           size="sm"
+    223 │           onClick={() =>
+  > 224 │             (editor as any).chain().focus().toggleBlockquote().run()
+        │                        ^^^
+    225 │           }
+    226 │           className={cn('h-8 w-8 p-0', {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
 
-[0m[0m  [0m[0m[1m[31m✖[0m[0m [0m[0m[31mFormatter would have printed the following content:[0m[0m
-[0m[0m  [0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 726[0m[0m [0m[0m[1m 726[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mt[0m[0my[0m[0mp[0m[0me[0m[0m=[0m[0m"[0m[0mb[0m[0mu[0m[0mt[0m[0mt[0m[0mo[0m[0mn[0m[0m"[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 727[0m[0m [0m[0m[1m 727[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0mo[0m[0mn[0m[0mC[0m[0ml[0m[0mi[0m[0mc[0m[0mk[0m[0m=[0m[0m{[0m[0m([0m[0m)[0m[0m [0m[0m=[0m[0m>[0m[0m [0m[0mo[0m[0mn[0m[0mG[0m[0ma[0m[0mt[0m[0me[0m[0mw[0m[0ma[0m[0my[0m[0mS[0m[0me[0m[0ml[0m[0me[0m[0mc[0m[0mt[0m[0m([0m[0mg[0m[0ma[0m[0mt[0m[0me[0m[0mw[0m[0ma[0m[0my[0m[0m.[0m[0mi[0m[0md[0m[0m)[0m[0m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 728[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[2m[31m·[0m[0m[31mc[0m[0m[31ml[0m[0m[31ma[0m[0m[31ms[0m[0m[31ms[0m[0m[31mN[0m[0m[31ma[0m[0m[31mm[0m[0m[31me[0m[0m[31m=[0m[0m[31m{[0m[0m[31m`[0m[0m[31mw[0m[0m[31m-[0m[0m[31mf[0m[0m[31mu[0m[0m[31ml[0m[0m[31ml[0m[0m[2m[31m·[0m[0m[31mr[0m[0m[31mo[0m[0m[31mu[0m[0m[31mn[0m[0m[31md[0m[0m[31me[0m[0m[31md[0m[0m[31m-[0m[0m[31ml[0m[0m[31mg[0m[0m[2m[31m·[0m[0m[31mb[0m[0m[31mo[0m[0m[31mr[0m[0m[31md[0m[0m[31me[0m[0m[31mr[0m[0m[2m[31m·[0m[0m[31mp[0m[0m[31m-[0m[0m[31m4[0m[0m[2m[31m·[0m[0m[31mt[0m[0m[31me[0m[0m[31mx[0m[0m[31mt[0m[0m[31m-[0m[0m[31ml[0m[0m[31me[0m[0m[31mf[0m[0m[31mt[0m[0m[2m[31m·[0m[0m[31mt[0m[0m[31mr[0m[0m[31ma[0m[0m[31mn[0m[0m[31ms[0m[0m[31mi[0m[0m[31mt[0m[0m[31mi[0m[0m[31mo[0m[0m[31mn[0m[0m[31m-[0m[0m[31ma[0m[0m[31ml[0m[0m[31ml[0m[0m[2m[31m·[0m[0m[31m$[0m[0m[31m{[0m[0m[31ms[0m[0m[31me[0m[0m[31ml[0m[0m[31me[0m[0m[31mc[0m[0m[31mt[0m[0m[31me[0m[0m[31md[0m[0m[31mG[0m[0m[31ma[0m[0m[31mt[0m[0m[31me[0m[0m[31mw[0m[0m[31ma[0m[0m[31my[0m[0m[2m[31m·[0m[0m[31m=[0m[0m[31m=[0m[0m[31m=[0m[0m[2m[31m·[0m[0m[31mg[0m[0m[31ma[0m[0m[31mt[0m[0m[31me[0m[0m[31mw[0m[0m[31ma[0m[0m[31my[0m[0m[31m.[0m[0m[31mi[0m[0m[31md[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m 728[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[2m[32m·[0m[0m[32mc[0m[0m[32ml[0m[0m[32ma[0m[0m[32ms[0m[0m[32ms[0m[0m[32mN[0m[0m[32ma[0m[0m[32mm[0m[0m[32me[0m[0m[32m=[0m[0m[32m{[0m[0m[32m`[0m[0m[32mw[0m[0m[32m-[0m[0m[32mf[0m[0m[32mu[0m[0m[32ml[0m[0m[32ml[0m[0m[2m[32m·[0m[0m[32mr[0m[0m[32mo[0m[0m[32mu[0m[0m[32mn[0m[0m[32md[0m[0m[32me[0m[0m[32md[0m[0m[32m-[0m[0m[32ml[0m[0m[32mg[0m[0m[2m[32m·[0m[0m[32mb[0m[0m[32mo[0m[0m[32mr[0m[0m[32md[0m[0m[32me[0m[0m[32mr[0m[0m[2m[32m·[0m[0m[32mp[0m[0m[32m-[0m[0m[32m4[0m[0m[2m[32m·[0m[0m[32mt[0m[0m[32me[0m[0m[32mx[0m[0m[32mt[0m[0m[32m-[0m[0m[32ml[0m[0m[32me[0m[0m[32mf[0m[0m[32mt[0m[0m[2m[32m·[0m[0m[32mt[0m[0m[32mr[0m[0m[32ma[0m[0m[32mn[0m[0m[32ms[0m[0m[32mi[0m[0m[32mt[0m[0m[32mi[0m[0m[32mo[0m[0m[32mn[0m[0m[32m-[0m[0m[32ma[0m[0m[32ml[0m[0m[32ml[0m[0m[2m[32m·[0m[0m[32m$[0m[0m[32m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m 729[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32ms[0m[0m[32me[0m[0m[32ml[0m[0m[32me[0m[0m[32mc[0m[0m[32mt[0m[0m[32me[0m[0m[32md[0m[0m[32mG[0m[0m[32ma[0m[0m[32mt[0m[0m[32me[0m[0m[32mw[0m[0m[32ma[0m[0m[32my[0m[0m[2m[32m·[0m[0m[32m=[0m[0m[32m=[0m[0m[32m=[0m[0m[2m[32m·[0m[0m[32mg[0m[0m[32ma[0m[0m[32mt[0m[0m[32me[0m[0m[32mw[0m[0m[32ma[0m[0m[32my[0m[0m[32m.[0m[0m[32mi[0m[0m[32md[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 729[0m[0m [0m[0m[1m 730[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m [0m[0m'[0m[0mb[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0m-[0m[0mp[0m[0mr[0m[0mi[0m[0mm[0m[0ma[0m[0mr[0m[0my[0m[0m [0m[0mb[0m[0mg[0m[0m-[0m[0mp[0m[0mr[0m[0mi[0m[0mm[0m[0ma[0m[0mr[0m[0my[0m[0m/[0m[0m5[0m[0m [0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m-[0m[0m2[0m[0m [0m[0mr[0m[0mi[0m[0mn[0m[0mg[0m[0m-[0m[0mp[0m[0mr[0m[0mi[0m[0mm[0m[0ma[0m[0mr[0m[0my[0m[0m/[0m[0m2[0m[0m0[0m[0m'[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 730[0m[0m [0m[0m[1m 731[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m:[0m[0m [0m[0m'[0m[0mb[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0m-[0m[0mb[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0m [0m[0mb[0m[0mg[0m[0m-[0m[0mc[0m[0ma[0m[0mr[0m[0md[0m[0m [0m[0mh[0m[0mo[0m[0mv[0m[0me[0m[0mr[0m[0m:[0m[0mb[0m[0mo[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0m-[0m[0mp[0m[0mr[0m[0mi[0m[0mm[0m[0ma[0m[0mr[0m[0my[0m[0m/[0m[0m5[0m[0m0[0m[0m'[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 731[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31m}[0m[0m[31m`[0m[0m[31m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m 732[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32m}[0m[0m[32m`[0m[0m[32m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 732[0m[0m [0m[0m[1m 733[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m>[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m 733[0m[0m [0m[0m[1m 734[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0md[0m[0mi[0m[0mv[0m[0m [0m[0mc[0m[0ml[0m[0ma[0m[0ms[0m[0ms[0m[0mN[0m[0ma[0m[0mm[0m[0me[0m[0m=[0m[0m"[0m[0mf[0m[0ml[0m[0me[0m[0mx[0m[0m [0m[0mi[0m[0mt[0m[0me[0m[0mm[0m[0ms[0m[0m-[0m[0mc[0m[0me[0m[0mn[0m[0mt[0m[0me[0m[0mr[0m[0m [0m[0mg[0m[0ma[0m[0mp[0m[0m-[0m[0m4[0m[0m"[0m[0m>[0m[0m
-[0m[0m  [0m[0m[1m  [0m[0m[1m·········[0m[0m[1m │ 
-[0m[0m  [0m[0m  [0m[0m[1m1520[0m[0m [0m[0m[1m1521[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m?[0m[0m [0m[0m'[0m[0mP[0m[0ml[0m[0ma[0m[0mc[0m[0me[0m[0m [0m[0mO[0m[0mr[0m[0md[0m[0me[0m[0mr[0m[0m'[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1521[0m[0m [0m[0m[1m1522[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m:[0m[0m [0m[0m`[0m[0mP[0m[0ma[0m[0my[0m[0m [0m[0m$[0m[0m{[0m[0mn[0m[0me[0m[0mw[0m[0m [0m[0mI[0m[0mn[0m[0mt[0m[0ml[0m[0m.[0m[0mN[0m[0mu[0m[0mm[0m[0mb[0m[0me[0m[0mr[0m[0mF[0m[0mo[0m[0mr[0m[0mm[0m[0ma[0m[0mt[0m[0m([0m[0m'[0m[0me[0m[0mn[0m[0m-[0m[0mN[0m[0mG[0m[0m'[0m[0m,[0m[0m [0m[0m{[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1522[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31ms[0m[0m[31mt[0m[0m[31my[0m[0m[31ml[0m[0m[31me[0m[0m[31m:[0m[0m[2m[31m·[0m[0m[31m'[0m[0m[31mc[0m[0m[31mu[0m[0m[31mr[0m[0m[31mr[0m[0m[31me[0m[0m[31mn[0m[0m[31mc[0m[0m[31my[0m[0m[31m'[0m[0m[31m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1523[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31mc[0m[0m[31mu[0m[0m[31mr[0m[0m[31mr[0m[0m[31me[0m[0m[31mn[0m[0m[31mc[0m[0m[31my[0m[0m[31m:[0m[0m[2m[31m·[0m[0m[31m'[0m[0m[31mN[0m[0m[31mG[0m[0m[31mN[0m[0m[31m'[0m[0m[31m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1524[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31m}[0m[0m[31m)[0m[0m[31m.[0m[0m[31mf[0m[0m[31mo[0m[0m[31mr[0m[0m[31mm[0m[0m[31ma[0m[0m[31mt[0m[0m[31m([0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1525[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31mc[0m[0m[31ma[0m[0m[31mr[0m[0m[31mt[0m[0m[31mT[0m[0m[31mo[0m[0m[31mt[0m[0m[31ma[0m[0m[31ml[0m[0m[2m[31m·[0m[0m[31m+[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1526[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31m([0m[0m[31ms[0m[0m[31mh[0m[0m[31mi[0m[0m[31mp[0m[0m[31mp[0m[0m[31mi[0m[0m[31mn[0m[0m[31mg[0m[0m[31mF[0m[0m[31me[0m[0m[31me[0m[0m[2m[31m·[0m[0m[31m|[0m[0m[31m|[0m[0m[2m[31m·[0m[0m[31m0[0m[0m[31m)[0m[0m[2m[31m·[0m[0m[31m-[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1527[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31md[0m[0m[31mi[0m[0m[31ms[0m[0m[31mc[0m[0m[31mo[0m[0m[31mu[0m[0m[31mn[0m[0m[31mt[0m[0m[31mA[0m[0m[31mm[0m[0m[31mo[0m[0m[31mu[0m[0m[31mn[0m[0m[31mt[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1528[0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m │ [0m[0m[31m-[0m[0m [0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[1m[2m[31m·[0m[0m[31m)[0m[0m[31m}[0m[0m[31m`[0m[0m[31m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1523[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32ms[0m[0m[32mt[0m[0m[32my[0m[0m[32ml[0m[0m[32me[0m[0m[32m:[0m[0m[2m[32m·[0m[0m[32m'[0m[0m[32mc[0m[0m[32mu[0m[0m[32mr[0m[0m[32mr[0m[0m[32me[0m[0m[32mn[0m[0m[32mc[0m[0m[32my[0m[0m[32m'[0m[0m[32m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1524[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32mc[0m[0m[32mu[0m[0m[32mr[0m[0m[32mr[0m[0m[32me[0m[0m[32mn[0m[0m[32mc[0m[0m[32my[0m[0m[32m:[0m[0m[2m[32m·[0m[0m[32m'[0m[0m[32mN[0m[0m[32mG[0m[0m[32mN[0m[0m[32m'[0m[0m[32m,[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1525[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32m}[0m[0m[32m)[0m[0m[32m.[0m[0m[32mf[0m[0m[32mo[0m[0m[32mr[0m[0m[32mm[0m[0m[32ma[0m[0m[32mt[0m[0m[32m([0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1526[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32mc[0m[0m[32ma[0m[0m[32mr[0m[0m[32mt[0m[0m[32mT[0m[0m[32mo[0m[0m[32mt[0m[0m[32ma[0m[0m[32ml[0m[0m[2m[32m·[0m[0m[32m+[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1527[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32m([0m[0m[32ms[0m[0m[32mh[0m[0m[32mi[0m[0m[32mp[0m[0m[32mp[0m[0m[32mi[0m[0m[32mn[0m[0m[32mg[0m[0m[32mF[0m[0m[32me[0m[0m[32me[0m[0m[2m[32m·[0m[0m[32m|[0m[0m[32m|[0m[0m[2m[32m·[0m[0m[32m0[0m[0m[32m)[0m[0m[2m[32m·[0m[0m[32m-[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1528[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32md[0m[0m[32mi[0m[0m[32ms[0m[0m[32mc[0m[0m[32mo[0m[0m[32mu[0m[0m[32mn[0m[0m[32mt[0m[0m[32mA[0m[0m[32mm[0m[0m[32mo[0m[0m[32mu[0m[0m[32mn[0m[0m[32mt[0m[0m
-[0m[0m  [0m[0m  [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m[1m1529[0m[0m[1m │ [0m[0m[32m+[0m[0m [0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[1m[2m[32m·[0m[0m[32m)[0m[0m[32m}[0m[0m[32m`[0m[0m[32m}[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1529[0m[0m [0m[0m[1m1530[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0mT[0m[0mh[0m[0me[0m[0mm[0m[0me[0m[0md[0m[0mB[0m[0mu[0m[0mt[0m[0mt[0m[0mo[0m[0mn[0m[0m>[0m[0m
-[0m[0m  [0m[0m  [0m[0m[1m1530[0m[0m [0m[0m[1m1531[0m[0m[1m │ [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m [0m[0m<[0m[0m/[0m[0md[0m[0mi[0m[0mv[0m[0m>[0m[0m
-[0m[0m  [0m[0m
-[0m
-[0m[33mThe number of diagnostics exceeds the limit allowed. Use [0m[0m[1m[33m--max-diagnostics[0m[0m[33m to increase it.
-[0m[0m[34mDiagnostics not shown: [0m[0m[1m11[0m[0m[34m.[0m
-[0m[34mChecked [0m[0m[34m808[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m536[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m[0m
-[0m[0m[31mFound [0m[0m[31m1[0m[0m[31m error.[0m[0m
-[0m[0m[33mFound [0m[0m[33m30[0m[0m[33m warnings.[0m
-[0mcheck[0m[0m [0m[0m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m[0m
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:227:60 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
-[0m[0m  [0m[0m[1m[31m✖[0m[0m [0m[0m[31mSome [0m[0m[1m[31merrors[0m[0m[31m were emitted while [0m[0m[1m[31mrunning checks[0m[0m[31m.[0m[0m
-[0m[0m  [0m[0m
-[0m
-[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 1.[39m
+  ! Unexpected any. Specify a different type.
+  
+    225 │           }
+    226 │           className={cn('h-8 w-8 p-0', {
+  > 227 │             'bg-accent text-accent-foreground': (editor as any).isActive(
+        │                                                            ^^^
+    228 │               'blockquote'
+    229 │             ),
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/editor-toolbar.tsx:239:24 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    237 │           size="sm"
+    238 │           onClick={() =>
+  > 239 │             (editor as any).chain().focus().setHorizontalRule().run()
+        │                        ^^^
+    240 │           }
+    241 │           className="h-8 w-8 p-0"
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:24:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    22 │ export type SelectorItem = {
+    23 │   name: string;
+  > 24 │   icon: React.FC<any>;
+       │                  ^^^
+    25 │   command: (editor: ReturnType<typeof useEditor>['editor']) => void;
+    26 │   isActive: (editor: ReturnType<typeof useEditor>['editor']) => boolean;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:66:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    64 │     icon: CheckSquare,
+    65 │     command: (editor) =>
+  > 66 │       (editor as any)?.chain().focus().toggleTaskList().run(),
+       │                  ^^^
+    67 │     isActive: (editor) => (editor as any)?.isActive('taskItem') ?? false,
+    68 │   },
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:67:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    65 │     command: (editor) =>
+    66 │       (editor as any)?.chain().focus().toggleTaskList().run(),
+  > 67 │     isActive: (editor) => (editor as any)?.isActive('taskItem') ?? false,
+       │                                      ^^^
+    68 │   },
+    69 │   {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:73:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    71 │     icon: ListOrdered,
+    72 │     command: (editor) =>
+  > 73 │       (editor as any)?.chain().focus().toggleBulletList().run(),
+       │                  ^^^
+    74 │     isActive: (editor) => (editor as any)?.isActive('bulletList') ?? false,
+    75 │   },
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:74:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    72 │     command: (editor) =>
+    73 │       (editor as any)?.chain().focus().toggleBulletList().run(),
+  > 74 │     isActive: (editor) => (editor as any)?.isActive('bulletList') ?? false,
+       │                                      ^^^
+    75 │   },
+    76 │   {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:80:18 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    78 │     icon: ListOrdered,
+    79 │     command: (editor) =>
+  > 80 │       (editor as any)?.chain().focus().toggleOrderedList().run(),
+       │                  ^^^
+    81 │     isActive: (editor) => (editor as any)?.isActive('orderedList') ?? false,
+    82 │   },
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:81:38 lint/suspicious/noExplicitAny ━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    79 │     command: (editor) =>
+    80 │       (editor as any)?.chain().focus().toggleOrderedList().run(),
+  > 81 │     isActive: (editor) => (editor as any)?.isActive('orderedList') ?? false,
+       │                                      ^^^
+    82 │   },
+    83 │   {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/novel-features/selectors/node-selector.tsx:130:18 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    128 │         {items.map((item, index) => (
+    129 │           <EditorBubbleItem
+  > 130 │             key={index}
+        │                  ^^^^^
+    131 │             onSelect={(editor) => {
+    132 │               item.command(editor);
+  
+  i This is the source of the key value.
+  
+    126 │       </PopoverTrigger>
+    127 │       <PopoverContent sideOffset={5} align="start" className="w-48 p-1">
+  > 128 │         {items.map((item, index) => (
+        │                           ^^^^^
+    129 │           <EditorBubbleItem
+    130 │             key={index}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 11.
+Checked 808 files in 586ms. No fixes applied.
+Found 31 warnings.

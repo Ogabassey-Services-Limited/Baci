@@ -1,0 +1,67 @@
+app/(admin)/(tabs)/customers.tsx(374,19): error TS2304: Cannot find name 'isDark'.
+app/(admin)/(tabs)/index.tsx(103,31): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'string | Blob'.
+      Type '{ uri: string; name: string; type: string; }' is missing the following properties from type 'Blob': size, arrayBuffer, bytes, slice, and 2 more.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'Blob'.
+      Type '{ uri: string; name: string; type: string; }' is missing the following properties from type 'Blob': size, arrayBuffer, bytes, slice, and 2 more.
+app/(admin)/analytics/[metric].tsx(488,34): error TS2352: Conversion of type 'TimeSeriesDataPoint' to type 'Record<string, unknown>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Index signature for type 'string' is missing in type 'TimeSeriesDataPoint'.
+app/(admin)/blog/edit-content.tsx(690,23): error TS2322: Type '"align-left"' is not assignable to type '"push" | "map" | "filter" | "at" | "link" | "search" | "image" | "text" | "alert" | "checkbox" | "menu" | "radio" | "timer" | "scale" | "arrow-down" | "arrow-up" | "bar-chart" | ... 1340 more ... | undefined'.
+app/(admin)/blog/edit-content.tsx(696,23): error TS2322: Type '"align-center"' is not assignable to type '"push" | "map" | "filter" | "at" | "link" | "search" | "image" | "text" | "alert" | "checkbox" | "menu" | "radio" | "timer" | "scale" | "arrow-down" | "arrow-up" | "bar-chart" | ... 1340 more ... | undefined'.
+app/(admin)/blog/edit-content.tsx(702,23): error TS2322: Type '"align-right"' is not assignable to type '"push" | "map" | "filter" | "at" | "link" | "search" | "image" | "text" | "alert" | "checkbox" | "menu" | "radio" | "timer" | "scale" | "arrow-down" | "arrow-up" | "bar-chart" | ... 1340 more ... | undefined'.
+app/(admin)/discounts/new.tsx(73,5): error TS2322: Type 'Resolver<{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: unknown; minimum_purchase_amount?: unknown; usage_limit?: unknown; usage_limit_per_customer?: unknown; is_active?: boolean | undefined; ... 4 more ...; expires_at?: Date | undefined; }, any, { ...; }>' is not assignable to type 'Resolver<{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: number; is_active: boolean; applies_to: "all" | "specific_products" | "specific_categories"; minimum_purchase_amount?: number | undefined; ... 5 more ...; expires_at?: Date | undefined; }, any, { ...; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: number; is_active: boolean; applies_to: "all" | "specific_products" | "specific_categories"; minimum_purchase_amount?: number | undefined; ... 5 more ...; expires_at?: Date | undefined; }>' is not assignable to type 'ResolverOptions<{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: unknown; minimum_purchase_amount?: unknown; usage_limit?: unknown; usage_limit_per_customer?: unknown; is_active?: boolean | undefined; ... 4 more ...; expires_at?: Date | undefined; }>'.
+      Types of property 'names' are incompatible.
+        Type 'string[] | undefined' is not assignable to type '("code" | "discount_type" | "discount_value" | "minimum_purchase_amount" | "starts_at" | "expires_at" | "usage_limit" | "usage_limit_per_customer" | "is_active" | "applies_to" | "product_ids" | "category_ids")[] | undefined'.
+          Type 'string[]' is not assignable to type '("code" | "discount_type" | "discount_value" | "minimum_purchase_amount" | "starts_at" | "expires_at" | "usage_limit" | "usage_limit_per_customer" | "is_active" | "applies_to" | "product_ids" | "category_ids")[]'.
+            Type 'string' is not assignable to type '"code" | "discount_type" | "discount_value" | "minimum_purchase_amount" | "starts_at" | "expires_at" | "usage_limit" | "usage_limit_per_customer" | "is_active" | "applies_to" | "product_ids" | "category_ids"'.
+app/(admin)/discounts/new.tsx(521,35): error TS2345: Argument of type '(data: DiscountFormData) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: number; is_active: boolean; applies_to: "all" | "specific_products" | "specific_categories"; minimum_purchase_amount?: number | undefined; ... 5 more ...; expires_at?: Date | undefined; }'.
+      Type 'FieldValues' is missing the following properties from type '{ code: string; discount_type: "percentage" | "fixed_amount"; discount_value: number; is_active: boolean; applies_to: "all" | "specific_products" | "specific_categories"; minimum_purchase_amount?: number | undefined; ... 5 more ...; expires_at?: Date | undefined; }': code, discount_type, discount_value, is_active, applies_to
+app/(admin)/expenses/new.tsx(74,35): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'string | Blob'.
+      Type '{ uri: string; name: string; type: string; }' is missing the following properties from type 'Blob': size, arrayBuffer, bytes, slice, and 2 more.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type '{ uri: string; name: string; type: string; }' is not assignable to parameter of type 'Blob'.
+      Type '{ uri: string; name: string; type: string; }' is missing the following properties from type 'Blob': size, arrayBuffer, bytes, slice, and 2 more.
+app/(admin)/order/new.tsx(1504,49): error TS2345: Argument of type 'Product' is not assignable to parameter of type 'ProductRecord'.
+  Types of property 'sku' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+app/(admin)/order/new.tsx(1982,57): error TS2345: Argument of type 'Customer' is not assignable to parameter of type 'CustomerRecord'.
+  Types of property 'first_name' are incompatible.
+    Type 'string | null' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+app/(admin)/payment-methods.tsx(132,7): error TS2578: Unused '@ts-expect-error' directive.
+app/(admin)/payout-settings.tsx(158,36): error TS2448: Block-scoped variable 'merchant' used before its declaration.
+app/(admin)/payout-settings.tsx(255,15): error TS2339: Property 'session' does not exist on type '{ data: { session: Session; }; error: null; } | { data: { session: null; }; error: AuthError; } | { data: { session: null; }; error: null; }'.
+app/(admin)/payout-settings.tsx(268,42): error TS2339: Property 'access_token' does not exist on type 'User'.
+app/(admin)/store-settings.tsx(518,28): error TS2339: Property 'sublabel' does not exist on type '{ container: { flex: number; }; loadingContainer: { flex: number; justifyContent: "center"; alignItems: "center"; }; backButton: { padding: number; marginLeft: number; }; saveButton: { padding: number; }; ... 38 more ...; navRowText: { ...; }; }'.
+app/(admin)/store-settings.tsx(556,28): error TS2339: Property 'sublabel' does not exist on type '{ container: { flex: number; }; loadingContainer: { flex: number; justifyContent: "center"; alignItems: "center"; }; backButton: { padding: number; marginLeft: number; }; saveButton: { padding: number; }; ... 38 more ...; navRowText: { ...; }; }'.
+app/(auth)/verify.tsx(32,7): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+app/(auth)/verify.tsx(152,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: TextInputProps): TextInput', gave the following error.
+    Type '(ref: TextInput | null) => TextInput | null' is not assignable to type 'Ref<TextInput> | undefined'.
+      Type '(ref: TextInput | null) => TextInput | null' is not assignable to type '(instance: TextInput | null) => void | (() => VoidOrUndefinedOnly)'.
+        Type 'TextInput | null' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'.
+          Type 'null' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'.
+  Overload 2 of 2, '(props: TextInputProps, context: any): TextInput', gave the following error.
+    Type '(ref: TextInput | null) => TextInput | null' is not assignable to type 'Ref<TextInput> | undefined'.
+      Type '(ref: TextInput | null) => TextInput | null' is not assignable to type '(instance: TextInput | null) => void | (() => VoidOrUndefinedOnly)'.
+        Type 'TextInput | null' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'.
+          Type 'null' is not assignable to type 'void | (() => VoidOrUndefinedOnly)'.
+components/analytics/ReportSelectionModal.tsx(13,31): error TS2307: Cannot find module '../../app/analytics' or its corresponding type declarations.
+components/analytics/ReportSelectionModal.tsx(75,9): error TS2322: Type 'Record<string, unknown>[]' is not assignable to type 'Transaction[]'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Transaction': id, created_at, total_amount
+components/analytics/ReportsGenerator.ts(4,31): error TS2307: Cannot find module '../../app/analytics' or its corresponding type declarations.
+components/dashboard/RevenueChart.tsx(34,3): error TS2339: Property '_showPeriodSelector' does not exist on type 'RevenueChartProps'.
+hooks/useFailedOrders.ts(75,13): error TS2353: Object literal may only specify known properties, and 'gateway' does not exist in type 'FailedOrder & { attempt_count: number; }'.

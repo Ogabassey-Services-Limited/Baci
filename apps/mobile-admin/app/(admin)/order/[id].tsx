@@ -1068,7 +1068,7 @@ Thank you for choosing Ogabassey!
           </View>
 
           {/* Rider Actions - Full Width */}
-          {order.shipping_status === 'processing' && !pendingShipConfirm && (
+          {order.shipping_status === 'processing' && (
             <TouchableOpacity
               style={[
                 styles.actionBtn,
@@ -1118,7 +1118,7 @@ Thank you for choosing Ogabassey!
               Items ({order.items?.length || 0})
             </Text>
           </View>
-          {order.items?.map((item: { id: string; name: string; quantity: number; price: number; image_url?: string; color?: string; size?: string }, index: number) => (
+          {order.items?.map((item: { id: string; name: string; quantity: number; price: number; image_url?: string; color?: string; size?: string; product_id?: string }, index: number) => (
             <Pressable
               key={item.id}
               style={[

@@ -127,7 +127,7 @@ export default function AnalyticsConfigScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerTintColor: colors.text,
-          headerBackTitleVisible: false,
+          // headerBackTitleVisible: false,
         }}
       />
       <SafeAreaView

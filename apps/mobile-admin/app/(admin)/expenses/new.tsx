@@ -75,7 +75,7 @@ export default function AddExpenseScreen() {
             uri: receiptUri,
             name: fileName.split('/').pop()!,
             type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-          } as unknown as { uri: string; name: string; type: string });
+          } as any);
 
           const { error: uploadError } = await supabase.storage
             .from('media') // Reusing media bucket

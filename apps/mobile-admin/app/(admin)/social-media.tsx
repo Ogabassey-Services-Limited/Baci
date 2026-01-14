@@ -131,7 +131,7 @@ export default function SocialMediaScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
           headerTintColor: colors.text,
-          headerBackTitleVisible: false,
+          // headerBackTitleVisible: false,
         }}
       />
       <SafeAreaView

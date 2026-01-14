@@ -40,6 +40,9 @@ interface ProductRecord {
   id: string;
   name: string;
   price: number;
+  images?: string[];
+  sku?: string;
+  stock_quantity?: number;
 }
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/hooks/useTheme';
@@ -1498,7 +1501,7 @@ export default function NewOrderScreen() {
                   styles.productItem,
                   { borderBottomColor: colors.border },
                 ]}
-                onPress={() => handleAddProduct(item)}
+                onPress={() => handleAddProduct(item as any)}
               >
                 <View>
                   <Text style={{ color: colors.text, fontSize: 16 }}>
@@ -1976,7 +1979,7 @@ export default function NewOrderScreen() {
                         paddingVertical: 12,
                       },
                     ]}
-                    onPress={() => handleSelectCustomer(item)}
+                    onPress={() => handleSelectCustomer(item as any)}
                   >
                     <View
                       style={[

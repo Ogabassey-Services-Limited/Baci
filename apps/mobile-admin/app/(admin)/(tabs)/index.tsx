@@ -104,7 +104,7 @@ export default function HomeScreen() {
         uri: asset.uri,
         name: fileName.split('/').pop(),
         type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-      } as unknown as { uri: string; name: string; type: string });
+      } as any);
 
       // Upload to Supabase storage
       const { error: uploadError } = await supabase.storage
@@ -312,7 +312,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="globe-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionCardText, { color: colors.text }]}>
-              {!primaryDomain || primaryDomain.domain_type === 'subdomain'
+              {!primaryDomain || (primaryDomain as any).domain_type === 'subdomain'
                 ? 'Get Domain'
                 : 'Manage Domain'}
             </Text>
@@ -499,7 +499,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Transactions
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/orders')}>
+            <Pressable onPress={() => router.push('/(tabs)/orders' as any)}>
               <Text
                 style={{
                   color: colors.primary,

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import {
   useAnalyticsDetail,
@@ -485,7 +485,7 @@ export default function AnalyticsDetailScreen() {
                   {row.label}
                 </Text>
                 {config.columns.map((col) => {
-                  const value = (row as Record<string, unknown>)[col.key] as number ?? 0;
+                  const value = (row as unknown as Record<string, unknown>)[col.key] as number ?? 0;
                   let formatted: string;
                   if (col.format === 'currency') {
                     formatted = formatCurrency(value);

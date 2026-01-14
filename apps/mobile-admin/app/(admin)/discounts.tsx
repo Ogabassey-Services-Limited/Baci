@@ -27,7 +27,7 @@ export default function DiscountsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const { discounts, isLoading, deleteDiscount } = useDiscounts();
-  const { discounts, isLoading, deleteDiscount } = useDiscounts();
+
   // const [refreshing, setRefreshing] = useState(false);
 
   const handleCreateDiscount = () => {

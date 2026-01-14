@@ -752,7 +752,7 @@ export default function StoreSettingsScreen() {
             <View
               style={[
                 styles.statusModalCard,
-                { backgroundColor: colors.surface },
+                { backgroundColor: colors.card },
               ]}
             >
               <View
@@ -826,6 +826,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.sm,
   },
+
   input: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
@@ -1009,5 +1010,10 @@ const styles = StyleSheet.create({
   navRowText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  sublabel: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginBottom: SPACING.xs,
   },
 });

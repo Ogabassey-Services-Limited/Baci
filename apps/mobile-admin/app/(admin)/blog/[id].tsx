@@ -7,6 +7,7 @@ import {
   TextInput,
   Alert,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,13 +37,7 @@ export default function BlogPostDetailScreen() {
     'draft'
   );
 
-  useEffect(() => {
-    if (id && id !== 'new') {
-      fetchPost();
-    } else {
-      setIsLoading(false);
-    }
-  }, [id, fetchPost]);
+
 
   const fetchPost = useCallback(async () => {
     try {
@@ -66,6 +61,14 @@ export default function BlogPostDetailScreen() {
       setIsLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (id && id !== 'new') {
+      fetchPost();
+    } else {
+      setIsLoading(false);
+    }
+  }, [id, fetchPost]);
 
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -91,8 +94,9 @@ export default function BlogPostDetailScreen() {
       fileData.append('file', {
         uri,
         name: fileName.split('/').pop(),
+
         type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-      } as unknown as { uri: string; name: string; type: string });
+      } as any);
 
       const { error: uploadError } = await supabase.storage
         .from('merchant-assets')

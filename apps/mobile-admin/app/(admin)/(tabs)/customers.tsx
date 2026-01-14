@@ -32,7 +32,7 @@ import { useFailedOrders, type FailedOrder } from '@/hooks/useFailedOrders';
 import * as Linking from 'expo-linking';
 
 export default function CustomersScreen() {
-  const { colors, shadows } = useTheme();
+  const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -280,7 +280,7 @@ export default function CustomersScreen() {
           shadows.sm,
           pressed && { backgroundColor: colors.cardHover },
         ]}
-        onPress={() => router.push(`/customer/${item.id}`)}
+        onPress={() => router.push(`/customer/${item.id}` as any)}
       >
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
           <Text style={[styles.avatarText, { color: colors.primary }]}>

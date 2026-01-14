@@ -54,108 +54,8 @@ export default function PayoutSettingsScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  // Auto-verify when 10 digits entered
-  useEffect(() => {
-    const verifyAccount = async () => {
-      if (accountnumber.length === 10 && selectedBank) {
-        setIsVerifying(true);
-        setVerifyError(null);
-        try {
-          // Use configured API URL or fallback to localhost for dev if needed
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-          if (!apiUrl) throw new Error('API URL not configured');
 
-          console.log('Verifying account with:', `${apiUrl}/paystack/resolve`);
 
-          const response = await fetch(`${apiUrl}/paystack/resolve`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.access_token || ''}`,
-            },
-            body: JSON.stringify({
-              accountNumber: accountnumber,
-              bankCode: selectedBank.code,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (data.success) {
-            const resolvedName = data.account_name;
-            const businessName = merchant?.business_name;
-
-            // Validate Name Match
-            if (businessName) {
-              const normResolved = normalizeString(resolvedName);
-              const normBusiness = normalizeString(businessName);
-              const similarity = getDiceCoefficient(normResolved, normBusiness);
-
-              console.log(
-                `Name Match: ${similarity.toFixed(2)} (${normResolved} vs ${normBusiness})`
-              );
-
-              if (similarity < 0.5) {
-                setVerifyError(
-                  `Account name mismatch. Expected similarity to "${businessName}"`
-                );
-                setVerifiedName(null);
-              } else {
-                setVerifiedName(resolvedName);
-                setVerifyError(null);
-              }
-            } else {
-              // If no business name set yet, allow it (or should we require it?)
-              // Assuming we want to allow it for now or just warn
-              setVerifiedName(resolvedName);
-              setVerifyError(null);
-            }
-          } else {
-            setVerifyError(data.error || 'Could not verify account');
-            setVerifiedName(null);
-          }
-        } catch (error: unknown) {
-          console.error('Verification error 1:', error);
-
-          // Fallback for iOS Simulator if IP connection fails
-          if (process.env.EXPO_PUBLIC_API_URL?.includes('192.168')) {
-            try {
-              console.log('Attempting verify with localhost fallback...');
-              const fallbackUrl = 'http://localhost:3000/api';
-              const response = await fetch(`${fallbackUrl}/paystack/resolve`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session?.access_token || ''}`,
-                },
-                body: JSON.stringify({
-                  accountNumber: accountnumber,
-                  bankCode: selectedBank.code,
-                }),
-              });
-              const data = await response.json();
-              if (data.success) {
-                setVerifiedName(data.account_name);
-                setVerifyError(null);
-                return; // Success on fallback
-              }
-            } catch (fallbackError) {
-              console.error('Fallback error:', fallbackError);
-            }
-          }
-
-          // If we get here, both attempts failed
-          setVerifyError(error.message || 'Network error checking account');
-          setVerifiedName(null);
-        } finally {
-          setIsVerifying(false);
-        }
-      }
-    };
-
-    const timeout = setTimeout(verifyAccount, 500); // Debounce
-    return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, merchant?.business_name, session?.access_token]);
 
   // Helpers for Fuzzy Matching
   const normalizeString = (str: string) => {
@@ -227,6 +127,108 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
   });
 
+  const verifyAccount = async () => {
+    if (accountnumber.length === 10 && selectedBank) {
+      setIsVerifying(true);
+      setVerifyError(null);
+      try {
+        // Use configured API URL or fallback to localhost for dev if needed
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+        if (!apiUrl) throw new Error('API URL not configured');
+
+        console.log('Verifying account with:', `${apiUrl}/paystack/resolve`);
+
+        const response = await fetch(`${apiUrl}/paystack/resolve`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token || ''}`,
+          },
+          body: JSON.stringify({
+            accountNumber: accountnumber,
+            bankCode: selectedBank.code,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          const resolvedName = data.account_name;
+          const businessName = merchant?.business_name;
+
+          // Validate Name Match
+          if (businessName) {
+            const normResolved = normalizeString(resolvedName);
+            const normBusiness = normalizeString(businessName);
+            const similarity = getDiceCoefficient(normResolved, normBusiness);
+
+            console.log(
+              `Name Match: ${similarity.toFixed(2)} (${normResolved} vs ${normBusiness})`
+            );
+
+            if (similarity < 0.5) {
+              setVerifyError(
+                `Account name mismatch. Expected similarity to "${businessName}"`
+              );
+              setVerifiedName(null);
+            } else {
+              setVerifiedName(resolvedName);
+              setVerifyError(null);
+            }
+          } else {
+            // If no business name set yet, allow it (or should we require it?)
+            // Assuming we want to allow it for now or just warn
+            setVerifiedName(resolvedName);
+            setVerifyError(null);
+          }
+        } else {
+          setVerifyError(data.error || 'Could not verify account');
+          setVerifiedName(null);
+        }
+      } catch (error: unknown) {
+        console.error('Verification error 1:', error);
+
+        // Fallback for iOS Simulator if IP connection fails
+        if (process.env.EXPO_PUBLIC_API_URL?.includes('192.168')) {
+          try {
+            console.log('Attempting verify with localhost fallback...');
+            const fallbackUrl = 'http://localhost:3000/api';
+            const response = await fetch(`${fallbackUrl}/paystack/resolve`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session?.access_token || ''}`,
+              },
+              body: JSON.stringify({
+                accountNumber: accountnumber,
+                bankCode: selectedBank.code,
+              }),
+            });
+            const data = await response.json();
+            if (data.success) {
+              setVerifiedName(data.account_name);
+              setVerifyError(null);
+              return; // Success on fallback
+            }
+          } catch (fallbackError) {
+            console.error('Fallback error:', fallbackError);
+          }
+        }
+
+        // If we get here, both attempts failed
+        setVerifyError((error as any).message || 'Network error checking account');
+        setVerifiedName(null);
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const timeout = setTimeout(verifyAccount, 500); // Debounce
+    return () => clearTimeout(timeout);
+  }, [accountnumber, selectedBank, merchant?.business_name, session?.access_token]);
+
   // Initialize state
   useEffect(() => {
     if (merchant) {
@@ -252,7 +254,7 @@ export default function PayoutSettingsScreen() {
       if (!selectedBank || !accountnumber)
         throw new Error('Please fill all fields');
 
-      const { session } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       if (!token) throw new Error('Authentication required');
@@ -265,7 +267,7 @@ export default function PayoutSettingsScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user?.access_token || ''}`,
+          Authorization: `Bearer ${token || ''}`,
         },
         body: JSON.stringify({
           bankCode: selectedBank.code,
@@ -294,7 +296,7 @@ export default function PayoutSettingsScreen() {
       );
     },
     onError: (error) => {
-      Alert.alert('Error', error.message || 'Failed to verify account details');
+      Alert.alert('Error', (error as any).message || 'Failed to verify account details');
       console.error(error);
     },
   });

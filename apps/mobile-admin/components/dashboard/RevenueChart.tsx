@@ -31,7 +31,7 @@ export function RevenueChart({
   period = 'Last 7 days',
   totalRevenue,
   onPeriodPress,
-  _showPeriodSelector = false,
+  showPeriodSelector: _showPeriodSelector = false,
   insightText,
   insightTrend = 'neutral',
 }: RevenueChartProps) {

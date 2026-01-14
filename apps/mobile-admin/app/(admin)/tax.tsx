@@ -110,7 +110,7 @@ export default function TaxScreen() {
       <Stack.Screen
         options={{
           title: 'Tax Settings',
-          headerBackTitleVisible: false,
+          // headerBackTitleVisible: false,
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,

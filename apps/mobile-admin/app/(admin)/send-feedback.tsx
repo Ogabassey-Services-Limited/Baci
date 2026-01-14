@@ -14,6 +14,7 @@ import {
   Alert,
   StatusBar,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 const RATING_EMOJIS = ['😞', '😕', '😐', '🙂', '😍'];
