@@ -44,7 +44,7 @@ export function OgabasseyLayout({
   const isCheckout = pathname?.includes('/checkout');
   const isAuthPage =
     pathname?.includes('/account/login') ||
-    pathname?.includes('/orders/track') ||
+    pathname?.includes('/track-order') ||
     pathname?.includes('/auth/');
 
   const shouldHideNavigation = initialHideNavigation || isCheckout || isAuthPage;

@@ -129,7 +129,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Support
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${storeSlug}/orders/track`)} className="hover:text-red-500">Track Order</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/track-order`)} className="hover:text-red-500">Track Order</Link></li>
                 <li><Link href={asRoute(`${storeSlug}/faq`)} className="hover:text-red-500">Help Center</Link></li>
                 <li><Link href={asRoute(`${storeSlug}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
                 <li><Link href={asRoute(`${storeSlug}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>

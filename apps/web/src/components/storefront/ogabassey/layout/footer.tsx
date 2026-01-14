@@ -165,7 +165,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/orders/track') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/track-order') as any} className="hover:text-red-500">
                     Track Order
                   </Link>
                 </li>
