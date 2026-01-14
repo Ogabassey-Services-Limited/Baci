@@ -42,8 +42,6 @@ export default function EditContentScreen() {
   const [aiInstruction, setAiInstruction] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-
-
   const fetchContent = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -472,7 +470,6 @@ export default function EditContentScreen() {
                   backgroundColor: colors.background,
                 },
               ]}
-
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -493,7 +490,10 @@ export default function EditContentScreen() {
                 </Text>
               </Pressable>
               <Pressable
-                style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={handleInsertLink}
               >
                 <Text style={[styles.buttonText, { color: '#FFF' }]}>
@@ -686,22 +686,32 @@ export default function EditContentScreen() {
             <Text style={[styles.toolbarLabel, { color: colors.text }]}>¶</Text>
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <Pressable
-            onPress={() => formatAction('justifyLeft')}
-          >
-            <Ionicons name="reorder-two-outline" size={20} color={colors.text} />
+          <Pressable onPress={() => formatAction('justifyLeft')}>
+            <Ionicons
+              name="reorder-two-outline"
+              size={20}
+              color={colors.text}
+            />
           </Pressable>
           <Pressable
             style={styles.toolbarButton}
             onPress={() => formatAction('justifyCenter')}
           >
-            <Ionicons name="reorder-three-outline" size={20} color={colors.text} />
+            <Ionicons
+              name="reorder-three-outline"
+              size={20}
+              color={colors.text}
+            />
           </Pressable>
           <Pressable
             style={styles.toolbarButton}
             onPress={() => formatAction('justifyRight')}
           >
-            <Ionicons name="reorder-four-outline" size={20} color={colors.text} />
+            <Ionicons
+              name="reorder-four-outline"
+              size={20}
+              color={colors.text}
+            />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Pressable
@@ -765,15 +775,18 @@ export default function EditContentScreen() {
                     onPress: (url?: string) => {
                       if (!url) return;
                       // Simple regex to extract ID if full URL is provided
-                      const videoId = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=|\/sandaylm\?v=))([\w-]{11})/)?.[1] || url;
+                      const videoId =
+                        url.match(
+                          /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=|\/sandaylm\?v=))([\w-]{11})/
+                        )?.[1] || url;
 
                       const embedHtml = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div><p></p>`;
                       webViewRef.current?.injectJavaScript(`
                         document.execCommand('insertHTML', false, '${embedHtml}');
                         true;
                       `);
-                    }
-                  }
+                    },
+                  },
                 ]
               );
             }}
@@ -807,7 +820,7 @@ export default function EditContentScreen() {
           <Ionicons name="sparkles" size={26} color="#FFF" />
         )}
       </Pressable>
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 

@@ -188,10 +188,11 @@ export default function AnalyticsDetailScreen() {
   const handleShare = async () => {
     if (!analyticsData) return;
 
-    const summary = `${config.title} for ${year}: ${formatCurrency(analyticsData.total)}${analyticsData.percentChange !== undefined
-      ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs ${year - 1})`
-      : ''
-      }`;
+    const summary = `${config.title} for ${year}: ${formatCurrency(analyticsData.total)}${
+      analyticsData.percentChange !== undefined
+        ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs ${year - 1})`
+        : ''
+    }`;
 
     try {
       await Share.share({
@@ -485,7 +486,10 @@ export default function AnalyticsDetailScreen() {
                   {row.label}
                 </Text>
                 {config.columns.map((col) => {
-                  const value = (row as unknown as Record<string, unknown>)[col.key] as number ?? 0;
+                  const value =
+                    ((row as unknown as Record<string, unknown>)[
+                      col.key
+                    ] as number) ?? 0;
                   let formatted: string;
                   if (col.format === 'currency') {
                     formatted = formatCurrency(value);

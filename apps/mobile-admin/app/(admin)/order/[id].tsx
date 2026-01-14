@@ -46,7 +46,10 @@ import { supabase } from '@/lib/supabase';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 
 // Helper to get consistent theme colors for statuses
-const getStatusColor = (key: string | undefined, colors: Record<string, string>) => {
+const getStatusColor = (
+  key: string | undefined,
+  colors: Record<string, string>
+) => {
   const colorMap: Record<string, string> = {
     pending: colors.pending,
     processing: colors.processing,
@@ -227,8 +230,12 @@ const generateReceiptHtml = (order: {
 
             <div class="section-label">Product Details</div>
             ${order.items
-      .map(
-        (item: { product_name: string; quantity: number; price: number }) => `
+              .map(
+                (item: {
+                  product_name: string;
+                  quantity: number;
+                  price: number;
+                }) => `
               <div class="product-card">
                 <div class="product-row">
                   <div>
@@ -239,8 +246,8 @@ const generateReceiptHtml = (order: {
                 </div>
               </div>
             `
-      )
-      .join('')}
+              )
+              .join('')}
 
             <div class="footer">
               <div class="footer-help">Questions regarding this ${documentTitle.toLowerCase()}?</div>
@@ -379,7 +386,10 @@ export default function OrderDetailsScreen() {
     await handleSaveRider(riderPhone);
 
     const itemsList = order?.items
-      ?.map((item: { quantity: number; name: string }) => `- ${item.quantity}x ${item.name}`)
+      ?.map(
+        (item: { quantity: number; name: string }) =>
+          `- ${item.quantity}x ${item.name}`
+      )
       .join('\n');
 
     const message = `
@@ -487,7 +497,10 @@ Thank you for choosing Ogabassey!
         Alert.alert('Success', 'Payment recorded. Order is now fully paid.');
       }
     } catch (err: unknown) {
-      Alert.alert('Error', (err as Error).message || 'Failed to record payment');
+      Alert.alert(
+        'Error',
+        (err as Error).message || 'Failed to record payment'
+      );
     }
   };
 
@@ -575,7 +588,7 @@ Thank you for choosing Ogabassey!
                 },
                 body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
               }
-            ).catch(() => { }); // Silently ignore email errors
+            ).catch(() => {}); // Silently ignore email errors
           }
         } catch {
           // Ignore email errors - status update already succeeded
@@ -696,7 +709,10 @@ Thank you for choosing Ogabassey!
         'Order shipped on credit. A virtual account has been created for payment.'
       );
     } catch (err: unknown) {
-      Alert.alert('Error', (err as Error).message || 'Failed to ship on credit');
+      Alert.alert(
+        'Error',
+        (err as Error).message || 'Failed to ship on credit'
+      );
     }
   };
 
@@ -745,7 +761,10 @@ Thank you for choosing Ogabassey!
       queryClient.invalidateQueries({ queryKey: ['order', order.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     } catch (err: unknown) {
-      Alert.alert('Error', (err as Error).message || 'Failed to save fulfillment details');
+      Alert.alert(
+        'Error',
+        (err as Error).message || 'Failed to save fulfillment details'
+      );
     }
   };
 
@@ -836,11 +855,13 @@ Thank you for choosing Ogabassey!
   };
   const sourceInfo = getSourceIcon(order.source);
 
-  const formatAddress = (addr: {
-    address: string;
-    city: string;
-    state: string;
-  } | null) => {
+  const formatAddress = (
+    addr: {
+      address: string;
+      city: string;
+      state: string;
+    } | null
+  ) => {
     if (!addr) return 'No shipping address provided';
     if (typeof addr === 'string') return addr;
     if (typeof addr === 'object') {
@@ -1118,65 +1139,79 @@ Thank you for choosing Ogabassey!
               Items ({order.items?.length || 0})
             </Text>
           </View>
-          {order.items?.map((item: { id: string; name: string; quantity: number; price: number; image_url?: string; color?: string; size?: string; product_id?: string }, index: number) => (
-            <Pressable
-              key={item.id}
-              style={[
-                styles.itemRow,
-                index !== (order.items?.length || 0) - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
-              ]}
-              onPress={() => router.push(`/product/${item.product_id}`)}
-            >
-              <View
+          {order.items?.map(
+            (
+              item: {
+                id: string;
+                name: string;
+                quantity: number;
+                price: number;
+                image_url?: string;
+                color?: string;
+                size?: string;
+                product_id?: string;
+              },
+              index: number
+            ) => (
+              <Pressable
+                key={item.id}
                 style={[
-                  styles.itemImagePlaceholder,
-                  { backgroundColor: colors.backgroundLight },
+                  styles.itemRow,
+                  index !== (order.items?.length || 0) - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                  },
                 ]}
+                onPress={() => router.push(`/product/${item.product_id}`)}
               >
-                {item.image_url ? (
-                  <Image
-                    source={{ uri: item.image_url }}
-                    style={styles.itemImage}
-                  />
-                ) : (
-                  <Ionicons
-                    name="image-outline"
-                    size={24}
-                    color={colors.textMuted}
-                  />
-                )}
-              </View>
-              <View style={styles.itemDetails}>
-                <Text
-                  style={[styles.itemName, { color: colors.text }]}
-                  numberOfLines={2}
+                <View
+                  style={[
+                    styles.itemImagePlaceholder,
+                    { backgroundColor: colors.backgroundLight },
+                  ]}
                 >
-                  {item.name}
-                </Text>
-                <Text style={[styles.itemRef, { color: colors.textMuted }]}>
-                  SKU: {item.product_id?.slice(0, 8)}...
-                </Text>
-                <View style={styles.itemPriceRow}>
-                  <Text
-                    style={[styles.itemQty, { color: colors.textSecondary }]}
-                  >
-                    x{item.quantity}
-                  </Text>
-                  <Text style={[styles.itemPrice, { color: colors.text }]}>
-                    {formatPrice(item.price)}
-                  </Text>
+                  {item.image_url ? (
+                    <Image
+                      source={{ uri: item.image_url }}
+                      style={styles.itemImage}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="image-outline"
+                      size={24}
+                      color={colors.textMuted}
+                    />
+                  )}
                 </View>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textMuted}
-              />
-            </Pressable>
-          ))}
+                <View style={styles.itemDetails}>
+                  <Text
+                    style={[styles.itemName, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.itemRef, { color: colors.textMuted }]}>
+                    SKU: {item.product_id?.slice(0, 8)}...
+                  </Text>
+                  <View style={styles.itemPriceRow}>
+                    <Text
+                      style={[styles.itemQty, { color: colors.textSecondary }]}
+                    >
+                      x{item.quantity}
+                    </Text>
+                    <Text style={[styles.itemPrice, { color: colors.text }]}>
+                      {formatPrice(item.price)}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            )
+          )}
         </View>
 
         {/* Order Summary */}

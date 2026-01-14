@@ -24,8 +24,6 @@ export default function AuthLayout() {
     );
   }
 
-
-
   // If user is authenticated, redirect to admin home
   // EXCEPTION: If we are on the 'verify' screen, let the screen handle the redirect
   // This prevents race conditions where AuthLayout redirects while VerifyScreen is showing success modal

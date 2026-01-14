@@ -75,9 +75,9 @@ function ChatBubble({ message, colors }: ChatBubbleProps) {
           ? [styles.userBubble, { backgroundColor: colors.primary }]
           : isSystem
             ? [
-              styles.systemBubble,
-              { backgroundColor: colors.errorLight || '#FEE2E2' },
-            ]
+                styles.systemBubble,
+                { backgroundColor: colors.errorLight || '#FEE2E2' },
+              ]
             : [styles.assistantBubble, { backgroundColor: colors.card }],
       ]}
     >

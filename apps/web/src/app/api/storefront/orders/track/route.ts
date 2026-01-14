@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 interface TimelineEvent {
   status: string;
@@ -8,12 +7,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-    | 'order'
-    | 'payment'
-    | 'processing'
-    | 'shipped'
-    | 'delivered'
-    | 'cancelled';
+  | 'order'
+  | 'payment'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 }
 
 // GET - Track order by order number or ID
@@ -31,8 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createAdminClient();
 
     // Build query
     let query = supabase.from('orders').select(`
@@ -40,12 +38,12 @@ export async function GET(request: NextRequest) {
         order_items (
           id,
           product_id,
-          product_name,
-          variant_name,
+          name,
           quantity,
-          unit_price,
-          total_price,
-          product_image
+          price,
+          products (
+            images
+          )
         ),
         merchants (
           id,
@@ -53,7 +51,8 @@ export async function GET(request: NextRequest) {
           slug,
           logo_url,
           support_email,
-          support_phone
+          support_phone,
+          phone
         )
       `);
 
@@ -71,6 +70,7 @@ export async function GET(request: NextRequest) {
     const { data: order, error } = await query.single();
 
     if (error || !order) {
+      console.error('Track error:', error);
       return NextResponse.json(
         { error: 'Order not found. Please check your order number and email.' },
         { status: 404 }
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
       order: {
         id: order.id,
         order_number: order.order_number,
-        status: order.status,
+        status: order.shipping_status,
         payment_status: order.payment_status,
         created_at: order.created_at,
         updated_at: order.updated_at,
@@ -116,12 +116,20 @@ export async function GET(request: NextRequest) {
         phone: maskPhone(order.customer_phone),
       },
       shipping_address: {
-        address: order.shipping_address,
-        city: order.shipping_city,
-        state: order.shipping_state,
-        country: order.shipping_country || 'Nigeria',
+        address: typeof order.shipping_address === 'object' ? (order.shipping_address as any).address : order.shipping_address,
+        city: typeof order.shipping_address === 'object' ? (order.shipping_address as any).city : '',
+        state: typeof order.shipping_address === 'object' ? (order.shipping_address as any).state : '',
+        country: 'Nigeria', // Simplified as it's typically Nigeria for this platform
       },
-      items: order.order_items,
+      items: order.order_items?.map((item: any) => ({
+        id: item.id,
+        product_id: item.product_id,
+        product_name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        product_image: Array.isArray(item.products?.images) ? item.products.images[0] : null
+      })),
       timeline,
       shipping_tracking: shippingTracking,
       estimated_delivery: estimatedDelivery,
@@ -129,7 +137,7 @@ export async function GET(request: NextRequest) {
         name: order.merchants?.business_name,
         logo: order.merchants?.logo_url,
         support_email: order.merchants?.support_email,
-        support_phone: order.merchants?.support_phone,
+        support_phone: order.merchants?.support_phone || order.merchants?.phone,
       },
     });
   } catch (error) {
@@ -142,7 +150,7 @@ export async function GET(request: NextRequest) {
 }
 
 function generateTimeline(order: {
-  status: string;
+  shipping_status: string;
   payment_status: string;
   created_at: string;
   paid_at?: string;
@@ -151,6 +159,7 @@ function generateTimeline(order: {
   cancelled_at?: string;
 }): TimelineEvent[] {
   const timeline: TimelineEvent[] = [];
+  const status = order.shipping_status;
 
   // Order placed
   timeline.push({
@@ -189,15 +198,15 @@ function generateTimeline(order: {
   }
 
   // Processing
-  if (['processing', 'shipped', 'delivered'].includes(order.status)) {
+  if (['processing', 'shipped', 'delivered'].includes(status)) {
     timeline.push({
-      status: order.status === 'processing' ? 'current' : 'completed',
+      status: status === 'processing' ? 'current' : 'completed',
       title: 'Processing',
       description: 'Your order is being prepared',
       timestamp: order.paid_at || order.created_at,
       icon: 'processing',
     });
-  } else if (order.payment_status === 'paid' && order.status === 'pending') {
+  } else if (order.payment_status === 'paid' && status === 'pending') {
     timeline.push({
       status: 'pending',
       title: 'Processing',
@@ -208,15 +217,15 @@ function generateTimeline(order: {
   }
 
   // Shipped
-  if (['shipped', 'delivered'].includes(order.status)) {
+  if (['shipped', 'delivered'].includes(status)) {
     timeline.push({
-      status: order.status === 'shipped' ? 'current' : 'completed',
+      status: status === 'shipped' ? 'current' : 'completed',
       title: 'Shipped',
       description: 'Your order is on its way',
       timestamp: order.shipped_at || '',
       icon: 'shipped',
     });
-  } else if (['processing'].includes(order.status)) {
+  } else if (['processing'].includes(status)) {
     timeline.push({
       status: 'pending',
       title: 'Shipped',
@@ -227,7 +236,7 @@ function generateTimeline(order: {
   }
 
   // Delivered
-  if (order.status === 'delivered') {
+  if (status === 'delivered') {
     timeline.push({
       status: 'completed',
       title: 'Delivered',
@@ -235,7 +244,7 @@ function generateTimeline(order: {
       timestamp: order.delivered_at || '',
       icon: 'delivered',
     });
-  } else if (['processing', 'shipped'].includes(order.status)) {
+  } else if (['processing', 'shipped'].includes(status)) {
     timeline.push({
       status: 'pending',
       title: 'Delivered',
@@ -246,7 +255,7 @@ function generateTimeline(order: {
   }
 
   // Cancelled
-  if (order.status === 'cancelled') {
+  if (status === 'cancelled') {
     timeline.push({
       status: 'failed',
       title: 'Cancelled',
@@ -273,11 +282,11 @@ function getTrackingUrl(provider: string, trackingNumber: string): string {
 }
 
 function calculateEstimatedDelivery(order: {
-  status: string;
+  shipping_status: string;
   created_at: string;
   shipping_state?: string;
 }): { min: string; max: string } | null {
-  if (['delivered', 'cancelled'].includes(order.status)) {
+  if (['delivered', 'cancelled'].includes(order.shipping_status)) {
     return null;
   }
 

@@ -23,6 +23,9 @@
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EAS_BUILD_NPM_CLIENT": "pnpm"
+      },
       "ios": {
         "buildConfiguration": "Release"
       },

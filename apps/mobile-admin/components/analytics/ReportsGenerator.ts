@@ -6,23 +6,23 @@ import { AnalyticsData } from '../../app/(admin)/analytics';
 export type ReportType = 'executive' | 'tax_ledger';
 
 export interface Transaction {
-    id: string;
-    created_at: string;
-    total_amount: number;
-    tax_amount?: number;
-    customer?: {
-        first_name?: string;
-        last_name?: string;
-    };
+  id: string;
+  created_at: string;
+  total_amount: number;
+  tax_amount?: number;
+  customer?: {
+    first_name?: string;
+    last_name?: string;
+  };
 }
 
 interface ReportOptions {
-    title: string;
-    startDate: Date;
-    endDate: Date;
-    merchantName: string;
-    data: AnalyticsData;
-    transactions?: Transaction[]; // Full transaction list for Tax Ledger
+  title: string;
+  startDate: Date;
+  endDate: Date;
+  merchantName: string;
+  data: AnalyticsData;
+  transactions?: Transaction[]; // Full transaction list for Tax Ledger
 }
 
 const GLOBAL_STYLES = `
@@ -44,25 +44,25 @@ const GLOBAL_STYLES = `
 `;
 
 export async function generateReport(type: ReportType, options: ReportOptions) {
-    const html =
-        type === 'executive'
-            ? getExecutiveSummaryHTML(options)
-            : getTaxLedgerHTML(options);
+  const html =
+    type === 'executive'
+      ? getExecutiveSummaryHTML(options)
+      : getTaxLedgerHTML(options);
 
-    try {
-        const { uri } = await Print.printToFileAsync({ html });
-        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (error) {
-        console.error('Failed to generate report:', error);
-        throw error;
-    }
+  try {
+    const { uri } = await Print.printToFileAsync({ html });
+    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+  } catch (error) {
+    console.error('Failed to generate report:', error);
+    throw error;
+  }
 }
 
 function getExecutiveSummaryHTML(options: ReportOptions) {
-    const { title, startDate, endDate, merchantName, data } = options;
-    const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const { title, startDate, endDate, merchantName, data } = options;
+  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
 
-    return `
+  return `
         <html>
             <head>
                 <style>${GLOBAL_STYLES}</style>
@@ -132,19 +132,19 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
 }
 
 function getTaxLedgerHTML(options: ReportOptions) {
-    const {
-        title,
-        startDate,
-        endDate,
-        merchantName,
-        data,
-        transactions = [],
-    } = options;
-    const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const {
+    title,
+    startDate,
+    endDate,
+    merchantName,
+    data,
+    transactions = [],
+  } = options;
+  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
 
-    const rows = transactions
-        .map(
-            (tx) => `
+  const rows = transactions
+    .map(
+      (tx) => `
         <tr>
             <td>${new Date(tx.created_at).toLocaleDateString()}</td>
             <td>#${tx.id.slice(0, 8)}</td>
@@ -154,10 +154,10 @@ function getTaxLedgerHTML(options: ReportOptions) {
             <td class="right bold">${formatCurrency(tx.total_amount)}</td>
         </tr>
     `
-        )
-        .join('');
+    )
+    .join('');
 
-    return `
+  return `
         <html>
             <head>
                 <style>${GLOBAL_STYLES}</style>

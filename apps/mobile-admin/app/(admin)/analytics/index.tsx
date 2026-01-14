@@ -337,9 +337,9 @@ export default function AnalyticsScreen() {
       )[0];
       const topPaymentMethod = topMethod
         ? {
-          method: topMethod[0],
-          percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
-        }
+            method: topMethod[0],
+            percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
+          }
         : { method: 'N/A', percentage: 0 };
 
       // Top product, Top Brand & Profit Calculation
@@ -363,8 +363,14 @@ export default function AnalyticsScreen() {
         {};
 
       topProductData?.forEach((item) => {
-        const productData = item.products as { name: string; brand: string; cost_price: number }[];
-        const product = Array.isArray(productData) ? productData[0] : productData;
+        const productData = item.products as {
+          name: string;
+          brand: string;
+          cost_price: number;
+        }[];
+        const product = Array.isArray(productData)
+          ? productData[0]
+          : productData;
         const name = product.name as string;
         const brand = (product.brand as string) || 'Unknown';
         const cost = (product.cost_price as number) || 0;
@@ -646,7 +652,7 @@ export default function AnalyticsScreen() {
               size={24}
               color={
                 dateFilter === 'this_year' &&
-                  selectedYear < new Date().getFullYear()
+                selectedYear < new Date().getFullYear()
                   ? colors.text
                   : colors.textMuted
               }

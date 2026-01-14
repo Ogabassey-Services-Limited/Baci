@@ -14,28 +14,25 @@ export const TEMPLATES: Template[] = [
     name: 'Modern Minimal',
     description: 'Clean and simple design for modern brands.',
     isPremium: false,
-    previewImage: '/placeholder.png',
+    // previewImage will be generated when templates support screenshots
   },
   {
     id: 'bold-vibrant',
     name: 'Bold & Vibrant',
     description: 'Stand out with bold colors and large typography.',
     isPremium: true,
-    previewImage: '/placeholder.png',
   },
   {
     id: 'classic-elegant',
     name: 'Classic Elegant',
     description: 'Timeless design with serif fonts and subtle details.',
     isPremium: true,
-    previewImage: '/placeholder.png',
   },
   {
     id: 'ogabassey',
     name: 'Ogabassey',
     description: 'Custom template for Ogabassey Gadgets.',
     isPremium: true,
-    previewImage: '/placeholder.png',
   },
 ];
 

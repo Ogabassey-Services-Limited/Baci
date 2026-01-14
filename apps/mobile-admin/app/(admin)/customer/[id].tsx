@@ -106,7 +106,8 @@ export default function CustomerDetailsScreen() {
                 [
                   {
                     text: 'OK',
-                    onPress: () => router.replace('/(tabs)/customers' as Href<string>),
+                    onPress: () =>
+                      router.replace('/(tabs)/customers' as Href<string>),
                   },
                 ]
               );

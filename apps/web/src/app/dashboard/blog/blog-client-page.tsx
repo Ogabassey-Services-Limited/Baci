@@ -112,11 +112,11 @@ export function BlogClientPage({
 
   const [statsData, setStatsData] = useState<
     | {
-        total: number;
-        published: number;
-        draft: number;
-        archived: number;
-      }
+      total: number;
+      published: number;
+      draft: number;
+      archived: number;
+    }
     | null
     | undefined
   >(initialCounts);
@@ -331,13 +331,27 @@ export function BlogClientPage({
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''
+            }`}
+          onClick={() => {
+            setStatusFilter('all');
+            setPage(1);
+          }}
+        >
           <CardHeader className="pb-2">
             <CardDescription>Total Posts</CardDescription>
             <CardTitle className="text-2xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'published' ? 'ring-2 ring-green-600' : ''
+            }`}
+          onClick={() => {
+            setStatusFilter('published');
+            setPage(1);
+          }}
+        >
           <CardHeader className="pb-2">
             <CardDescription>Published</CardDescription>
             <CardTitle className="text-2xl text-green-600">
@@ -345,7 +359,14 @@ export function BlogClientPage({
             </CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'draft' ? 'ring-2 ring-yellow-600' : ''
+            }`}
+          onClick={() => {
+            setStatusFilter('draft');
+            setPage(1);
+          }}
+        >
           <CardHeader className="pb-2">
             <CardDescription>Drafts</CardDescription>
             <CardTitle className="text-2xl text-yellow-600">

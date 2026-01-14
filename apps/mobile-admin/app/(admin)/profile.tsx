@@ -73,7 +73,10 @@ export default function ProfileScreen() {
       Alert.alert('Success', 'Profile updated successfully');
     },
     onError: (error: unknown) => {
-      Alert.alert('Error', (error as Error).message || 'Failed to update profile');
+      Alert.alert(
+        'Error',
+        (error as Error).message || 'Failed to update profile'
+      );
     },
   });
 

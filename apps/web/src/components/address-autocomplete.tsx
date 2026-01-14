@@ -261,9 +261,9 @@ export function AddressAutocomplete({
                   key={prediction.placeId}
                   type="button"
                   className={cn(
-                    'w-full px-3 py-2.5 text-left text-sm rounded-lg transition-colors flex items-start gap-3 group/item',
+                    'w-full px-3 py-2.5 text-left text-sm rounded-lg transition-colors flex items-start gap-3 group/item text-gray-700',
                     highlightedIndex === index
-                      ? 'bg-red-50 text-gray-900'
+                      ? 'bg-[var(--store-primary)]/5 text-gray-900'
                       : 'hover:bg-gray-50 hover:text-gray-900'
                   )}
                   onClick={() => handlePredictionSelect(prediction)}
@@ -272,8 +272,8 @@ export function AddressAutocomplete({
                     className={cn(
                       'mt-0.5 p-1.5 rounded-full transition-colors',
                       highlightedIndex === index
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-red-50 text-red-500 group-hover/item:bg-red-100 group-hover/item:text-red-600'
+                        ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]'
+                        : 'bg-gray-100 text-gray-500 group-hover/item:bg-[var(--store-primary)]/10 group-hover/item:text-[var(--store-primary)]'
                     )}
                   >
                     <MapPin className="h-3.5 w-3.5" />
@@ -282,12 +282,12 @@ export function AddressAutocomplete({
                     <p
                       className={cn(
                         'font-medium truncate transition-colors',
-                        highlightedIndex === index ? 'text-red-600' : ''
+                        highlightedIndex === index ? 'text-[var(--store-primary)]' : 'text-gray-900'
                       )}
                     >
                       {prediction.mainText}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-gray-600 truncate">
                       {prediction.secondaryText}
                     </p>
                   </div>

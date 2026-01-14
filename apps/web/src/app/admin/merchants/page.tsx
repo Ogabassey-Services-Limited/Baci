@@ -13,6 +13,7 @@ import {
   Search,
   XCircle,
 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -135,10 +136,13 @@ function getHealthBadge(status: string) {
 }
 
 export default function MerchantsPage() {
+  const searchParams = useSearchParams();
+  const initialHealthFilter = searchParams.get('health') || 'all';
+
   const [merchants, setMerchants] = useState<MerchantHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [healthFilter, setHealthFilter] = useState<string>('all');
+  const [healthFilter, setHealthFilter] = useState<string>(initialHealthFilter);
   const [sortBy, setSortBy] = useState<'gmv' | 'orders' | 'joined'>('gmv');
   const { toast } = useToast();
 
@@ -241,7 +245,10 @@ export default function MerchantsPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-5">
-        <Card>
+        <Card
+          className={`cursor-pointer hover:bg-muted/50 transition-colors ${healthFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => setHealthFilter('all')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Building2 className="h-8 w-8 text-primary" />
@@ -252,7 +259,10 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-emerald-500/20">
+        <Card
+          className={`border-emerald-500/20 cursor-pointer hover:bg-emerald-500/10 transition-colors ${healthFilter === 'healthy' ? 'ring-2 ring-emerald-500' : ''}`}
+          onClick={() => setHealthFilter('healthy')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <CheckCircle className="h-8 w-8 text-emerald-500" />
@@ -263,7 +273,10 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-amber-500/20">
+        <Card
+          className={`border-amber-500/20 cursor-pointer hover:bg-amber-500/10 transition-colors ${healthFilter === 'at_risk' ? 'ring-2 ring-amber-500' : ''}`}
+          onClick={() => setHealthFilter('at_risk')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-8 w-8 text-amber-500" />
@@ -274,7 +287,10 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-red-500/20">
+        <Card
+          className={`border-red-500/20 cursor-pointer hover:bg-red-500/10 transition-colors ${healthFilter === 'churned' ? 'ring-2 ring-red-500' : ''}`}
+          onClick={() => setHealthFilter('churned')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <XCircle className="h-8 w-8 text-red-500" />
@@ -285,7 +301,10 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-indigo-500/20">
+        <Card
+          className={`border-indigo-500/20 cursor-pointer hover:bg-indigo-500/10 transition-colors ${healthFilter === 'new' ? 'ring-2 ring-indigo-500' : ''}`}
+          onClick={() => setHealthFilter('new')}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-indigo-500" />

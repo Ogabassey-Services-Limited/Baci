@@ -80,7 +80,10 @@ export default function NotificationsScreen() {
       queryClient.invalidateQueries({ queryKey: ['notification-preferences'] });
     },
     onError: (error: unknown) => {
-      Alert.alert('Error', (error as Error).message || 'Failed to update preferences');
+      Alert.alert(
+        'Error',
+        (error as Error).message || 'Failed to update preferences'
+      );
     },
   });
 

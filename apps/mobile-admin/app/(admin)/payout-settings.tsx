@@ -54,11 +54,7 @@ export default function PayoutSettingsScreen() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
-
-
-
   // Helpers for Fuzzy Matching
-
 
   // Fetch banks from Paystack (Public Endpoint)
   const { data: banks, isLoading: isLoadingBanks } = useQuery({
@@ -102,7 +98,9 @@ export default function PayoutSettingsScreen() {
     setVerifyError(null);
 
     // Get current session for token
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const token = session?.access_token;
 
     if (!token) {
@@ -142,7 +140,9 @@ export default function PayoutSettingsScreen() {
         return;
       }
 
-      setVerifyError((error as Error).message || 'Network error checking account');
+      setVerifyError(
+        (error as Error).message || 'Network error checking account'
+      );
       setVerifiedName(null);
     } finally {
       setIsVerifying(false);
@@ -152,7 +152,13 @@ export default function PayoutSettingsScreen() {
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce
     return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, merchant?.business_name, session?.access_token, verifyAccount]);
+  }, [
+    accountnumber,
+    selectedBank,
+    merchant?.business_name,
+    session?.access_token,
+    verifyAccount,
+  ]);
 
   // Initialize state
   useEffect(() => {
@@ -179,7 +185,9 @@ export default function PayoutSettingsScreen() {
       if (!selectedBank || !accountnumber)
         throw new Error('Please fill all fields');
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token;
 
       if (!token) throw new Error('Authentication required');
@@ -216,7 +224,10 @@ export default function PayoutSettingsScreen() {
     },
     onError: (error) => {
       console.log('Verify Error:', error);
-      Alert.alert('Error', (error as Error).message || 'Failed to verify account details');
+      Alert.alert(
+        'Error',
+        (error as Error).message || 'Failed to verify account details'
+      );
       console.error(error);
     },
   });

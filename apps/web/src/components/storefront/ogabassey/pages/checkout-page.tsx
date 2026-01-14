@@ -18,8 +18,10 @@ import {
   Copy,
   Clock,
   ExternalLink,
-  X,
   User,
+  X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, PaymentTrustBadges } from '../components/PaymentLogos';
@@ -149,6 +151,7 @@ export const CheckoutPage: React.FC = () => {
   const [accountPassword, setAccountPassword] = useState('');
   const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
 
@@ -1124,38 +1127,28 @@ export const CheckoutPage: React.FC = () => {
       const orderData = await orderResponse.json();
       const { order, wallet: walletResult, amountDueToGateway } = orderData;
 
-      // 1b. Silently create account if requested (Fire-and-forget for speed)
+      // 1b. Create account if requested (Awaited to ensure session is set before moving to next page)
       if (createAccount && !user && accountPassword.length >= 6) {
-        // We use the client-side supabase to sign up so it handles session automatically
-        // But since we are mid-checkout, we might just want to create the user and NOT sign them in yet to avoid state loss
-        // OR we just send a request to an API to create the user.
-        // Better approach for retention: Create user -> If successful, they are effectively "signed up".
-        // The most robust way is to do this via a server action or API route to avoid disrupting the client session state recklessly.
-
-        // For now, let's call a dedicated API endpoint or reusing the signup logic would be safer.
-        // Simpler V1: Just rely on the "Order Success" page to show "Check your email for account setup" if we did this server side.
-        // BUT user expects to be able to login.
-
-        // Let's rely on our provider to do this safely.
-        const supabase = createClient();
-        supabase.auth.signUp({
-          email: customerEmail,
-          password: accountPassword,
-          options: {
-            data: {
-              first_name: firstName,
-              last_name: lastName,
-              phone: customerPhone,
+        try {
+          const supabase = createClient();
+          await supabase.auth.signUp({
+            email: customerEmail,
+            password: accountPassword,
+            options: {
+              data: {
+                first_name: firstName,
+                last_name: lastName,
+                phone: customerPhone,
+                source: 'checkout',
+                signup_type: 'customer'  // Prevents merchant record creation
+              }
             }
-          }
-        }).then(({ data, error }) => {
-          if (!error && data?.user) {
-            console.log('Silent account creation successful');
-            // We consciously DO NOT await this to prevent slowing down checkout
-          } else {
-            console.error('Silent account creation failed', error);
-          }
-        });
+          });
+          console.log('Account created and session initialized');
+        } catch (authError) {
+          // Log but don't block the order if signup fails (e.g. email exists)
+          console.error('Silent signup background error:', authError);
+        }
       }
 
       // Use gateway amount (accounts for wallet credit) or full total as fallback
@@ -1171,8 +1164,9 @@ export const CheckoutPage: React.FC = () => {
       // Order API already marks it as paid, just redirect to success
       if (paymentAmount <= 0) {
         clearCheckoutSession();
-        clearCart();
+        // Defer clearCart to avoid flashing empty state before redirect
         router.push(asRoute(getHref(`/order-success?orderId=${order.id}&wallet=true`)));
+        setTimeout(clearCart, 500);
         return;
       }
 
@@ -1341,22 +1335,22 @@ export const CheckoutPage: React.FC = () => {
       } else if (paymentMethod === 'invoice') {
         // Invoice/Pay Later - order created, redirect to success
         clearCheckoutSession();
-        clearCart();
         router.push(asRoute(getHref(`/order-success?type=invoice&orderId=${order.id}`)));
+        setTimeout(clearCart, 500);
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
         clearCheckoutSession();
-        clearCart();
         router.push(
           asRoute(getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
             payForMeDetails.name
           )}`))
         );
+        setTimeout(clearCart, 500);
       } else {
         // Default: POD or other
         clearCheckoutSession();
-        clearCart();
         router.push(asRoute(getHref(`/order-success?type=standard&orderId=${order.id}`)));
+        setTimeout(clearCart, 500);
       }
     } catch (error) {
       console.error('Checkout error:', error);
@@ -2055,16 +2049,25 @@ export const CheckoutPage: React.FC = () => {
                             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
                               Create a Password
                             </label>
-                            <input
-                              type="password"
-                              value={accountPassword}
-                              onChange={(e) => setAccountPassword(e.target.value)}
-                              placeholder="Min. 6 characters"
-                              className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${contactValidationAttempted && createAccount && accountPassword.length < 6
-                                ? 'border-red-500 focus:border-red-500'
-                                : 'border-gray-200 focus:border-[var(--store-primary)]'
-                                }`}
-                            />
+                            <div className="relative">
+                              <input
+                                type={isPasswordVisible ? "text" : "password"}
+                                value={accountPassword}
+                                onChange={(e) => setAccountPassword(e.target.value)}
+                                placeholder="Min. 6 characters"
+                                className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 pr-12 ${contactValidationAttempted && createAccount && accountPassword.length < 6
+                                  ? 'border-red-500 focus:border-red-500'
+                                  : 'border-gray-200 focus:border-[var(--store-primary)]'
+                                  }`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                {isPasswordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                              </button>
+                            </div>
                             {contactValidationAttempted && createAccount && accountPassword.length < 6 && (
                               <p className="text-red-500 text-xs mt-1">Password must be at least 6 characters</p>
                             )}

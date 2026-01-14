@@ -98,11 +98,13 @@ export default function OnboardingScreen() {
     return () => clearInterval(timer);
   }, [currentIndex]);
 
-  const viewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
+  const viewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems && viewableItems.length > 0) {
+        setCurrentIndex(viewableItems[0].index || 0);
+      }
     }
-  }).current;
+  ).current;
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
@@ -114,8 +116,6 @@ export default function OnboardingScreen() {
       console.error('Error completing onboarding:', error);
     }
   };
-
-
 
   const renderItem = ({ item }: { item: OnboardingSlide }) => {
     return (

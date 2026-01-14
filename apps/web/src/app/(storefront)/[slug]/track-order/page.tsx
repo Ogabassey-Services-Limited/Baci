@@ -12,33 +12,39 @@ import {
   Search,
   Truck,
   XCircle,
+  Globe,
+  Check,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import {
-  Card,
+  ThemedBadge,
+  ThemedButton,
+  ThemedCard,
+  ThemedInput,
+} from '@/components/themed';
+import {
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
-  status: 'completed' | 'current' | 'pending' | 'failed';
+  status: string;
   title: string;
   description: string;
   timestamp: string;
   icon:
-    | 'order'
-    | 'payment'
-    | 'processing'
-    | 'shipped'
-    | 'delivered'
-    | 'cancelled';
+  | 'order'
+  | 'payment'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 }
 
 interface OrderItem {
@@ -58,6 +64,7 @@ interface OrderData {
     status: string;
     payment_status: string;
     created_at: string;
+    updated_at: string;
     subtotal: number;
     shipping_cost: number;
     discount_amount: number;
@@ -104,24 +111,50 @@ const iconMap = {
 };
 
 export default function OrderTrackPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <OrderTrackContent />
+    </Suspense>
+  );
+}
+
+function OrderTrackContent() {
   const [orderNumber, setOrderNumber] = useState('');
   const [email, setEmail] = useState('');
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
-  const handleTrackOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Automatic tracking from URL params
+  useEffect(() => {
+    const qOrderId = searchParams.get('order_id') || searchParams.get('orderId');
+    const qOrderNumber =
+      searchParams.get('order_number') || searchParams.get('orderNumber');
+    const qEmail = searchParams.get('email');
+
+    if (qOrderId || qOrderNumber) {
+      if (qOrderId) {
+        handleFetchTracking({ order_id: qOrderId, email: qEmail });
+      } else if (qOrderNumber) {
+        setOrderNumber(qOrderNumber);
+        if (qEmail) setEmail(qEmail);
+        handleFetchTracking({ order_number: qOrderNumber, email: qEmail });
+      }
+    }
+  }, [searchParams]);
+
+  const handleFetchTracking = async (params: { order_id?: string | null, order_number?: string | null, email?: string | null }) => {
     setLoading(true);
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        order_number: orderNumber,
-        email: email,
-      });
+      const queryParams = new URLSearchParams();
+      if (params.order_id) queryParams.set('order_id', params.order_id);
+      if (params.order_number) queryParams.set('order_number', params.order_number);
+      if (params.email) queryParams.set('email', params.email);
 
-      const response = await fetch(`/api/storefront/orders/track?${params}`);
+      const response = await fetch(`/api/storefront/orders/track?${queryParams}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -135,6 +168,11 @@ export default function OrderTrackPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTrackOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    handleFetchTracking({ order_number: orderNumber, email: email });
   };
 
   const formatDate = (dateString: string) => {
@@ -156,18 +194,100 @@ export default function OrderTrackPage() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'completed':
-        return 'bg-green-500';
+      case 'delivered':
+        return 'var(--store-primary)';
       case 'current':
-        return 'bg-blue-500 animate-pulse';
+      case 'processing':
+      case 'shipped':
+        return 'var(--store-accent)';
       case 'pending':
-        return 'bg-gray-300';
+        return 'var(--muted)';
       case 'failed':
-        return 'bg-red-500';
+      case 'cancelled':
+        return 'var(--destructive)';
       default:
-        return 'bg-gray-300';
+        return 'var(--muted)';
     }
+  };
+
+  const getStepProgress = (status: string) => {
+    const stages = ['pending', 'processing', 'shipped', 'delivered'];
+    const currentIdx = stages.indexOf(status.toLowerCase());
+    return currentIdx;
+  };
+
+  const HorizontalProgressBar = ({ status }: { status: string }) => {
+    const stages = [
+      { id: 'placed', label: 'Placed' },
+      { id: 'processing', label: 'Processing' },
+      { id: 'shipped', label: 'Shipped' },
+      { id: 'delivered', label: 'Delivered' },
+    ];
+
+    // Normalize status for comparison
+    const normalizedStatus = status.toLowerCase();
+
+    // Determine active index
+    let activeIndex = 0;
+    if (normalizedStatus === 'delivered' || normalizedStatus === 'completed') activeIndex = 3;
+    else if (normalizedStatus === 'shipped') activeIndex = 2;
+    else if (normalizedStatus === 'processing' || normalizedStatus === 'current') activeIndex = 1;
+    else activeIndex = 0; // pending/placed
+
+    return (
+      <div className="py-8 w-full max-w-2xl mx-auto px-4">
+        <div className="relative flex justify-between items-center">
+          {/* Progress Line Background */}
+          <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 rounded-full z-0" />
+
+          {/* Active Progress Line */}
+          <div
+            className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
+            style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
+          />
+
+          {stages.map((stage, index) => {
+            const isCompleted = index <= activeIndex;
+
+            return (
+              <div key={stage.id} className="relative z-10 flex flex-col items-center">
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4",
+                    isCompleted
+                      ? "bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg"
+                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300"
+                  )}
+                >
+                  {isCompleted ? (
+                    <Check className="w-5 h-5 font-bold" strokeWidth={3} />
+                  ) : (
+                    <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  )}
+                </div>
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
+                  <p
+                    className={cn(
+                      "text-sm font-medium transition-colors duration-300",
+                      isCompleted ? "text-[var(--store-accent)] font-bold" : "text-muted-foreground"
+                    )}
+                  >
+                    {stage.label}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-16 text-center">
+          <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
+            Latest update: {formatDate(orderData?.order?.updated_at || orderData?.order?.created_at || '')}
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -179,7 +299,7 @@ export default function OrderTrackPage() {
         </p>
       </div>
 
-      <Card className="mb-8">
+      <ThemedCard className="mb-8">
         <CardContent className="pt-6">
           <form onSubmit={handleTrackOrder} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -190,12 +310,11 @@ export default function OrderTrackPage() {
                 >
                   Order Number
                 </label>
-                <Input
+                <ThemedInput
                   id="orderNumber"
                   placeholder="ORD-123456"
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
-                  required
                 />
               </div>
               <div>
@@ -205,17 +324,16 @@ export default function OrderTrackPage() {
                 >
                   Email Address
                 </label>
-                <Input
+                <ThemedInput
                   id="email"
                   type="email"
                   placeholder="your@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <ThemedButton type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Clock className="mr-2 h-4 w-4 animate-spin" />
@@ -227,7 +345,7 @@ export default function OrderTrackPage() {
                   Track Order
                 </>
               )}
-            </Button>
+            </ThemedButton>
           </form>
 
           {error && (
@@ -236,33 +354,56 @@ export default function OrderTrackPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </ThemedCard>
 
       {orderData && (
         <div className="space-y-6">
           {/* Order Header */}
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-4">
+          <ThemedCard>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Placed on {formatDate(orderData.order.created_at)}
+                  </p>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Globe className="h-4 w-4" />
+                    <span className="text-sm">via Website</span>
+                  </div>
+                </div>
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    Order {orderData.order.order_number}
-                    <Badge
-                      variant={
-                        orderData.order.status === 'delivered'
-                          ? 'default'
-                          : orderData.order.status === 'cancelled'
-                            ? 'destructive'
-                            : 'secondary'
-                      }
-                    >
+                  <ThemedBadge
+                    variant={orderData.order.status === 'cancelled' ? 'destructive' : 'default'}
+                    colorRole={
+                      orderData.order.status === 'delivered'
+                        ? 'primary'
+                        : 'accent'
+                    }
+                    className="px-4 py-1.5 rounded-full text-base font-medium"
+                    style={orderData.order.status !== 'cancelled' ? {
+                      backgroundColor: 'var(--store-accent)',
+                      color: 'var(--store-accent-text)',
+                      opacity: 0.1,
+                      border: 'none'
+                    } : undefined}
+                  >
+                    <span style={orderData.order.status !== 'cancelled' ? { opacity: 1, color: 'var(--store-accent)' } : undefined}>
                       {orderData.order.status.charAt(0).toUpperCase() +
                         orderData.order.status.slice(1)}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    Placed on {formatDate(orderData.order.created_at)}
-                  </CardDescription>
+                    </span>
+                  </ThemedBadge>
+                </div>
+              </div>
+
+              <HorizontalProgressBar status={orderData.order.status} />
+
+              <Separator className="my-6" />
+
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-lg">
+                    Order {orderData.order.order_number}
+                  </h3>
                 </div>
                 {orderData.estimated_delivery && (
                   <div className="text-right">
@@ -287,11 +428,11 @@ export default function OrderTrackPage() {
                   </div>
                 )}
               </div>
-            </CardHeader>
-          </Card>
+            </CardContent>
+          </ThemedCard>
 
           {/* Timeline */}
-          <Card>
+          <ThemedCard>
             <CardHeader>
               <CardTitle>Order Status</CardTitle>
             </CardHeader>
@@ -299,6 +440,10 @@ export default function OrderTrackPage() {
               <div className="relative">
                 {orderData.timeline.map((event, index) => {
                   const Icon = iconMap[event.icon];
+                  const color = getStatusColor(event.status);
+                  const isPending = event.status === 'pending';
+                  const isCurrent = event.status === 'current' || event.status === 'processing' || event.status === 'shipped';
+
                   // Use composite key: timestamp+title is stable and unique
                   const stableKey = event.timestamp
                     ? `${event.timestamp}-${event.title}`
@@ -307,19 +452,20 @@ export default function OrderTrackPage() {
                     <div key={stableKey} className="flex gap-4 pb-8 last:pb-0">
                       <div className="relative flex flex-col items-center">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${getStatusColor(
-                            event.status
-                          )} ${event.status === 'pending' ? 'bg-gray-200' : 'text-white'}`}
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${isCurrent ? 'animate-pulse' : ''}`}
+                          style={{
+                            backgroundColor: color,
+                            color: isPending ? 'var(--muted-foreground)' : 'white'
+                          }}
                         >
                           <Icon className="w-5 h-5" />
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
-                            className={`absolute top-10 w-0.5 h-full ${
-                              event.status === 'completed'
-                                ? 'bg-green-500'
-                                : 'bg-gray-200'
-                            }`}
+                            className="absolute top-10 w-0.5 h-full"
+                            style={{
+                              backgroundColor: event.status === 'completed' ? 'var(--store-primary)' : 'var(--muted)'
+                            }}
                           />
                         )}
                       </div>
@@ -340,17 +486,21 @@ export default function OrderTrackPage() {
               </div>
 
               {orderData.shipping_tracking && (
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <p className="font-medium text-blue-900">
+                <div
+                  className="mt-6 p-4 rounded-lg"
+                  style={{ backgroundColor: 'var(--store-primary)', opacity: 0.1 }}
+                >
+                  <p className="font-medium" style={{ color: 'var(--store-primary)' }}>
                     Tracking Information
                   </p>
-                  <p className="text-sm text-blue-700 mt-1">
+                  <p className="text-sm mt-1" style={{ color: 'var(--store-primary)' }}>
                     {orderData.shipping_tracking.provider}:{' '}
                     {orderData.shipping_tracking.tracking_number}
                   </p>
-                  <Button
+                  <ThemedButton
                     variant="link"
-                    className="p-0 h-auto mt-2 text-blue-600"
+                    className="p-0 h-auto mt-2"
+                    style={{ color: 'var(--store-primary)' }}
                     asChild
                   >
                     <a
@@ -361,14 +511,14 @@ export default function OrderTrackPage() {
                       Track with carrier{' '}
                       <ExternalLink className="ml-1 h-3 w-3" />
                     </a>
-                  </Button>
+                  </ThemedButton>
                 </div>
               )}
             </CardContent>
-          </Card>
+          </ThemedCard>
 
           {/* Order Items */}
-          <Card>
+          <ThemedCard>
             <CardHeader>
               <CardTitle>Order Items</CardTitle>
             </CardHeader>
@@ -454,11 +604,11 @@ export default function OrderTrackPage() {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </ThemedCard>
 
           {/* Shipping & Contact */}
           <div className="grid gap-6 sm:grid-cols-2">
-            <Card>
+            <ThemedCard>
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
@@ -478,9 +628,9 @@ export default function OrderTrackPage() {
                   {orderData.shipping_address.country}
                 </p>
               </CardContent>
-            </Card>
+            </ThemedCard>
 
-            <Card>
+            <ThemedCard>
               <CardHeader>
                 <CardTitle className="text-lg">Need Help?</CardTitle>
               </CardHeader>
@@ -488,7 +638,8 @@ export default function OrderTrackPage() {
                 {orderData.merchant.support_email && (
                   <a
                     href={`mailto:${orderData.merchant.support_email}`}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    style={{ color: 'var(--store-primary)' }}
                   >
                     <Mail className="h-4 w-4" />
                     {orderData.merchant.support_email}
@@ -497,7 +648,8 @@ export default function OrderTrackPage() {
                 {orderData.merchant.support_phone && (
                   <a
                     href={`tel:${orderData.merchant.support_phone}`}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    style={{ color: 'var(--store-primary)' }}
                   >
                     <Phone className="h-4 w-4" />
                     {orderData.merchant.support_phone}
@@ -510,7 +662,7 @@ export default function OrderTrackPage() {
                     </p>
                   )}
               </CardContent>
-            </Card>
+            </ThemedCard>
           </div>
         </div>
       )}

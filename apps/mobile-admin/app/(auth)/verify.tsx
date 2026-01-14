@@ -59,7 +59,10 @@ export default function VerifyScreen() {
     }
   };
 
-  const handleKeyPress = (e: { nativeEvent: { key: string } }, index: number) => {
+  const handleKeyPress = (
+    e: { nativeEvent: { key: string } },
+    index: number
+  ) => {
     if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
       inputs.current[index - 1]?.focus();
     }
@@ -157,7 +160,9 @@ export default function VerifyScreen() {
           {code.map((digit, index) => (
             <TextInput
               key={index}
-              ref={(ref) => { inputs.current[index] = ref; }}
+              ref={(ref) => {
+                inputs.current[index] = ref;
+              }}
               style={styles.otpInput}
               keyboardType="number-pad"
               maxLength={1}

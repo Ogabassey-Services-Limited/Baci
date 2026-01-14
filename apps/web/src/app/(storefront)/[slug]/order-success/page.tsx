@@ -160,12 +160,19 @@ function OrderSuccessContent() {
               <ArrowRight size={18} />
             </Link>
 
-            {user && (
+            {user ? (
               <Link
                 href={asRoute(getHref('/account/orders'))}
                 className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
               >
                 View My Orders
+              </Link>
+            ) : (
+              <Link
+                href={asRoute(getHref(`/track-order?orderId=${orderId}`))}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
+              >
+                Track My Order
               </Link>
             )}
           </div>

@@ -90,13 +90,17 @@ export default function SetupChecklistScreen() {
 
   const renderItem = (item: SetupItem, isNext: boolean) => {
     const priorityColor = PRIORITY_COLORS[item.priority];
-    const _iconName = (CATEGORY_ICONS[item.category] as keyof typeof Ionicons.glyphMap) || 'list-outline';
+    const _iconName =
+      (CATEGORY_ICONS[item.category] as keyof typeof Ionicons.glyphMap) ||
+      'list-outline';
 
     return (
       <Pressable
         key={item.id}
         onPress={() =>
-          item.href.startsWith('/') ? router.push(item.href as Href<string>) : undefined
+          item.href.startsWith('/')
+            ? router.push(item.href as Href<string>)
+            : undefined
         }
         style={[
           styles.itemCard,

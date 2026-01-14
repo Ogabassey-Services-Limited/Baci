@@ -106,11 +106,12 @@ export async function GET(request: NextRequest) {
         .order('total_gmv', { ascending: false })
         .limit(10),
 
-      // Total merchants count
+      // Total merchants count (exclude incomplete/customer merchants)
       supabase
         .from('merchants')
         .select('id', { count: 'exact', head: true })
-        .or('is_platform_admin.eq.false,is_platform_admin.is.null'),
+        .not('business_name', 'is', null)
+        .not('slug', 'is', null),
 
       // Platform revenue from fees
       supabase
@@ -167,8 +168,8 @@ export async function GET(request: NextRequest) {
     const newMerchantsThisMonth = currentMonth?.new_merchants || 0;
     const merchantGrowthRate = previousMonth?.new_merchants
       ? ((newMerchantsThisMonth - previousMonth.new_merchants) /
-          previousMonth.new_merchants) *
-        100
+        previousMonth.new_merchants) *
+      100
       : newMerchantsThisMonth > 0
         ? 100
         : 0;

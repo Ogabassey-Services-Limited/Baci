@@ -37,8 +37,6 @@ export default function BlogPostDetailScreen() {
     'draft'
   );
 
-
-
   const fetchPost = useCallback(async () => {
     try {
       const { data, error } = await supabase
@@ -137,14 +135,12 @@ export default function BlogPostDetailScreen() {
       if (id === 'new') {
         // Create
         // Minimal required fields
-        const { error } = await supabase
-          .from('blog_posts')
-          .insert([
-            {
-              ...payload,
-              slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            },
-          ]);
+        const { error } = await supabase.from('blog_posts').insert([
+          {
+            ...payload,
+            slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          },
+        ]);
         if (error) throw error;
       } else {
         // Update

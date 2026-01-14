@@ -1,15 +1,17 @@
 {
   "expo": {
     "name": "Baci Admin",
-    "slug": "baci-mobile-admin",
-    "owner": "ogabassey",
+    "slug": "baci",
+    "owner": "ogabassey-services-limited",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "baciadmin",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -78,7 +80,7 @@
       "supabaseUrl": "https://aivqthbxdshhltbwipbr.supabase.co",
       "supabaseAnonKey": "",
       "eas": {
-        "projectId": "41ef8439-5d47-4c61-8cc2-9a178b6a4adc"
+        "projectId": "4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9"
       },
       "router": {}
     }

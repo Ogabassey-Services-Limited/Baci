@@ -380,7 +380,13 @@ export const MerchantProvider = ({
         const { data: ownedMerchant, error: ownerError } = ownerResult;
         const { data: staffMember, error: staffError } = staffResult;
 
-        if (ownedMerchant && !ownerError) {
+        // Check if user owns a VALID merchant (not an incomplete/customer merchant)
+        // Incomplete merchants have NULL business_name AND NULL slug - these are customers
+        // who got a merchant record created by the trigger (legacy behavior)
+        const isValidMerchant = ownedMerchant &&
+          (ownedMerchant.business_name !== null || ownedMerchant.slug !== null);
+
+        if (isValidMerchant && !ownerError) {
           // Normalize feature_settings from array to object
           const settings = ownedMerchant.feature_settings;
           ownedMerchant.feature_settings = Array.isArray(settings)
@@ -395,10 +401,12 @@ export const MerchantProvider = ({
             permissions: { full_access: { all: true } },
           };
         } else if (
+          !isValidMerchant ||  // No valid merchant (includes incomplete merchants/customers)
           (!ownedMerchant && !ownerError) ||
           (ownerError && ownerError.code === 'PGRST116')
         ) {
-          // User is not a merchant owner, check if they're staff
+          // User is not a valid merchant owner (or is a customer with incomplete merchant)
+          // Check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member
             // Correctly handle the join which might return an array or single object

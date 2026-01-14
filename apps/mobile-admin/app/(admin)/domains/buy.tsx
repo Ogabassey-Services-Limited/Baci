@@ -89,13 +89,20 @@ export default function BuyDomainScreen() {
 
       const data = await response.json();
       // Map API results to local interface just in case
-      const mappedResults = (data.results || []).map((r: { domain: string; available: boolean; price: number; popular?: boolean }) => ({
-        domain: r.domain,
-        available: r.available,
-        price: r.price, // API returns 'price' which is resale price
-        currency: 'NGN',
-        popular: r.popular,
-      }));
+      const mappedResults = (data.results || []).map(
+        (r: {
+          domain: string;
+          available: boolean;
+          price: number;
+          popular?: boolean;
+        }) => ({
+          domain: r.domain,
+          available: r.available,
+          price: r.price, // API returns 'price' which is resale price
+          currency: 'NGN',
+          popular: r.popular,
+        })
+      );
 
       setResults(mappedResults);
     } catch (error: unknown) {

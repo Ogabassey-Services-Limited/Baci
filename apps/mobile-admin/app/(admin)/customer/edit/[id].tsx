@@ -42,7 +42,9 @@ export default function CustomerEditScreen() {
 
       // Fallback for legacy data
       if (!fName && !lName && (customer as Record<string, unknown>).full_name) {
-        const parts = ((customer as Record<string, unknown>).full_name as string).split(' ');
+        const parts = (
+          (customer as Record<string, unknown>).full_name as string
+        ).split(' ');
         fName = parts[0];
         lName = parts.slice(1).join(' ');
       }

@@ -91,8 +91,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -750,10 +750,7 @@ export default function StoreSettingsScreen() {
         >
           <View style={styles.statusModalOverlay}>
             <View
-              style={[
-                styles.statusModalCard,
-                { backgroundColor: colors.card },
-              ]}
+              style={[styles.statusModalCard, { backgroundColor: colors.card }]}
             >
               <View
                 style={[
@@ -795,7 +792,7 @@ export default function StoreSettingsScreen() {
             </View>
           </View>
         </Modal>
-      </SafeAreaView >
+      </SafeAreaView>
     </>
   );
 }

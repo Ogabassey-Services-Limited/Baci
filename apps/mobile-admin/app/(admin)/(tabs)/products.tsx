@@ -391,12 +391,12 @@ export default function ProductsScreen() {
     label,
   }: {
     id:
-    | 'all'
-    | 'in_stock'
-    | 'low_stock'
-    | 'out_of_stock'
-    | 'categories'
-    | 'top_selling';
+      | 'all'
+      | 'in_stock'
+      | 'low_stock'
+      | 'out_of_stock'
+      | 'categories'
+      | 'top_selling';
     label: string;
   }) => {
     const isActive = activeTab === id;

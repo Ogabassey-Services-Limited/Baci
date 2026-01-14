@@ -14,19 +14,13 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { asUploadFile } from '@/types/upload';
-import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-// Lazy import to avoid crash if native module not built
-let ImagePicker: typeof import('expo-image-picker') | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  ImagePicker = require('expo-image-picker');
-} catch {
-  console.log('ImagePicker not available - rebuild required');
-}
+import { router, Href } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { useSettingsStore } from '@/hooks/useSettingsStore';
 import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -65,14 +59,6 @@ export default function HomeScreen() {
   const [_, setIsUploadingFavicon] = useState(false);
 
   const handleAvatarPress = async () => {
-    if (!ImagePicker) {
-      Alert.alert(
-        'Rebuild Required',
-        'Please rebuild the app to enable image picking:\n\nnpx expo run:android'
-      );
-      return;
-    }
-
     try {
       const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -224,36 +210,11 @@ export default function HomeScreen() {
 
   // Dashboard UI
 
-  // Insight Card Logic
-  const [showInsight, setShowInsight] = useState(true);
+  const { setInsightDismissed, shouldShowInsight } = useSettingsStore();
+  const showInsight = shouldShowInsight();
 
-  React.useEffect(() => {
-    checkInsightVisibility();
-  }, []);
-
-  const checkInsightVisibility = async () => {
-    try {
-      const lastDismissedDate = await AsyncStorage.getItem(
-        'insight_dismissed_date'
-      );
-      const today = new Date().toDateString();
-
-      if (lastDismissedDate === today) {
-        setShowInsight(false);
-      }
-    } catch (e) {
-      console.error('Failed to load insight visibility', e);
-    }
-  };
-
-  const handleDismissInsight = async () => {
-    try {
-      const today = new Date().toDateString();
-      await AsyncStorage.setItem('insight_dismissed_date', today);
-      setShowInsight(false);
-    } catch (e) {
-      console.error('Failed to save insight visibility', e);
-    }
+  const handleDismissInsight = () => {
+    setInsightDismissed(true);
   };
 
   const handleShareStore = async () => {
@@ -315,7 +276,8 @@ export default function HomeScreen() {
           >
             <Ionicons name="globe-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionCardText, { color: colors.text }]}>
-              {!primaryDomain || (primaryDomain as { domain_type: string }).domain_type === 'subdomain'
+              {!primaryDomain ||
+                primaryDomain.domain_type === 'subdomain'
                 ? 'Get Domain'
                 : 'Manage Domain'}
             </Text>
@@ -502,7 +464,9 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Transactions
             </Text>
-            <Pressable onPress={() => router.push('/(tabs)/orders' as Href<string>)}>
+            <Pressable
+              onPress={() => router.push('/(admin)/(tabs)/orders')}
+            >
               <Text
                 style={{
                   color: colors.primary,

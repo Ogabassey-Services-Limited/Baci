@@ -235,7 +235,20 @@ export default function OrdersScreen() {
 
   const openStatusDropdown = (
     order: Order,
-    event: { target: { measure: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => void } }
+    event: {
+      target: {
+        measure: (
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+            pageX: number,
+            pageY: number
+          ) => void
+        ) => void;
+      };
+    }
   ) => {
     // Get the position of the pressed element
     event.target.measure(

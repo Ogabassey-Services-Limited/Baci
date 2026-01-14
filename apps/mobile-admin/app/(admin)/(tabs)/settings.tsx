@@ -70,7 +70,7 @@ export default function SettingsScreen() {
       {toggle !== undefined ? (
         <Switch
           value={toggle}
-          onValueChange={() => { }}
+          onValueChange={() => {}}
           trackColor={{ true: '#3B82F6' }}
         />
       ) : showArrow ? (

@@ -168,27 +168,27 @@ export default function AdminDashboardPage() {
 
   const healthData = analytics
     ? [
-        {
-          name: 'Healthy',
-          value: analytics.merchantHealth.healthy,
-          color: HEALTH_COLORS.healthy,
-        },
-        {
-          name: 'At Risk',
-          value: analytics.merchantHealth.atRisk,
-          color: HEALTH_COLORS.atRisk,
-        },
-        {
-          name: 'Churned',
-          value: analytics.merchantHealth.churned,
-          color: HEALTH_COLORS.churned,
-        },
-        {
-          name: 'New',
-          value: analytics.merchantHealth.new,
-          color: HEALTH_COLORS.new,
-        },
-      ].filter((d) => d.value > 0)
+      {
+        name: 'Healthy',
+        value: analytics.merchantHealth.healthy,
+        color: HEALTH_COLORS.healthy,
+      },
+      {
+        name: 'At Risk',
+        value: analytics.merchantHealth.atRisk,
+        color: HEALTH_COLORS.atRisk,
+      },
+      {
+        name: 'Churned',
+        value: analytics.merchantHealth.churned,
+        color: HEALTH_COLORS.churned,
+      },
+      {
+        name: 'New',
+        value: analytics.merchantHealth.new,
+        color: HEALTH_COLORS.new,
+      },
+    ].filter((d) => d.value > 0)
     : [];
 
   const chartData =
@@ -512,60 +512,68 @@ export default function AdminDashboardPage() {
 
       {/* Merchant Health Quick Actions */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-emerald-500/20 bg-emerald-500/5">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="p-2 rounded-full bg-emerald-500/10">
-              <CheckCircle className="h-5 w-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {analytics?.merchantHealth.healthy || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Healthy Merchants</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-amber-500/20 bg-amber-500/5">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="p-2 rounded-full bg-amber-500/10">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {analytics?.merchantHealth.atRisk || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">At Risk</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-red-500/20 bg-red-500/5">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="p-2 rounded-full bg-red-500/10">
-              <XCircle className="h-5 w-5 text-red-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {analytics?.merchantHealth.churned || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Churned</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-indigo-500/20 bg-indigo-500/5">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="p-2 rounded-full bg-indigo-500/10">
-              <Users className="h-5 w-5 text-indigo-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                {analytics?.merchantHealth.new || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                New (No Sales Yet)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/admin/merchants?health=healthy">
+          <Card className="border-emerald-500/20 bg-emerald-500/5 cursor-pointer hover:bg-emerald-500/10 transition-colors">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-2 rounded-full bg-emerald-500/10">
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {analytics?.merchantHealth.healthy || 0}
+                </p>
+                <p className="text-sm text-muted-foreground">Healthy Merchants</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/admin/merchants?health=at_risk">
+          <Card className="border-amber-500/20 bg-amber-500/5 cursor-pointer hover:bg-amber-500/10 transition-colors">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-2 rounded-full bg-amber-500/10">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {analytics?.merchantHealth.atRisk || 0}
+                </p>
+                <p className="text-sm text-muted-foreground">At Risk</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/admin/merchants?health=churned">
+          <Card className="border-red-500/20 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition-colors">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-2 rounded-full bg-red-500/10">
+                <XCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {analytics?.merchantHealth.churned || 0}
+                </p>
+                <p className="text-sm text-muted-foreground">Churned</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/admin/merchants?health=new">
+          <Card className="border-indigo-500/20 bg-indigo-500/5 cursor-pointer hover:bg-indigo-500/10 transition-colors">
+            <CardContent className="flex items-center gap-4 p-4">
+              <div className="p-2 rounded-full bg-indigo-500/10">
+                <Users className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">
+                  {analytics?.merchantHealth.new || 0}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  New (No Sales Yet)
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Top Merchants */}
