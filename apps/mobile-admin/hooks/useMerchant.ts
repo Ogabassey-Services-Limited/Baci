@@ -19,11 +19,11 @@ export interface Merchant {
   is_published: boolean;
   phone: string | null;
   vat_registration_status:
-    | 'not_registered'
-    | 'registered'
-    | 'exempt'
-    | 'pending'
-    | null;
+  | 'not_registered'
+  | 'registered'
+  | 'exempt'
+  | 'pending'
+  | null;
   vat_rate: number | null;
   payout_currency: string | null;
   country: string | null;
@@ -74,49 +74,29 @@ export interface MerchantData {
 async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
-  console.log('[Merchant] Fetching merchant for user:', userId);
+  console.log('[Merchant] Fetching merchant context for user:', userId);
 
-  // Fetch merchant by authenticated user ID
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select(`
-      id, user_id, email, business_name, slug, logo_url, favicon_png_192_url, is_published, phone, 
-      vat_registration_status, vat_rate, payout_currency, brand_colors,
-      country, bank_code, bank_account_number, paystack_subaccount_code,
-      nin, bvn, cac_rc_number, support_email, support_phone, business_address,
-      social_media, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, 
-      snapchat_pixel_id, twitter_pixel_id, hero_slides
-    `)
-    .eq('user_id', userId)
-    .single();
+  // Call the RPC function to get context in a single round-trip
+  // This handles both Owner and Staff logic on the server
+  const { data, error } = await supabase.rpc('get_user_merchant_context');
 
-  console.log('[Merchant] Result:', merchant, 'Error:', merchantError);
-
-  if (merchantError) {
-    // No merchant found for this user
-    if (merchantError.code === 'PGRST116') {
-      console.log('[Merchant] No merchant found for user');
-      return { merchant: null, primaryDomain: null };
-    }
-    throw new Error(merchantError.message);
+  if (error) {
+    console.error('[Merchant] RPC Error:', error);
+    throw new Error(error.message);
   }
 
-  // Fetch primary domain if merchant exists
-  let primaryDomain: Domain | null = null;
-  if (merchant) {
-    const { data: domain, error: domainError } = await supabase
-      .from('domains')
-      .select('id, domain, is_primary, status, domain_type')
-      .eq('merchant_id', merchant.id)
-      .eq('is_primary', true)
-      .eq('status', 'active')
-      .single();
-
-    console.log('[Merchant] Domain:', domain, 'Error:', domainError);
-    primaryDomain = domain;
+  if (!data) {
+    console.log('[Merchant] No merchant context found for user');
+    return { merchant: null, primaryDomain: null };
   }
 
-  return { merchant, primaryDomain };
+  // data is typed as any from RPC, so we cast it
+  const result = data as { merchant: Merchant; primaryDomain: Domain | null };
+
+  return {
+    merchant: result.merchant,
+    primaryDomain: result.primaryDomain
+  };
 }
 
 export function useMerchant(): MerchantData {
