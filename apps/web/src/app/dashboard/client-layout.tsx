@@ -85,9 +85,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-        isCollapsed && 'justify-center'
-      );
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+      isCollapsed && 'justify-center'
+    );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -330,100 +330,134 @@ export default function DashboardClientLayout({
     badge?: number;
     badgeVariant?: 'default' | 'destructive';
   }[] = [
-    {
-      href: '/dashboard' as Route,
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-    },
-    {
-      href: '/dashboard/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/dashboard/orders' as Route,
-      icon: ShoppingCart,
-      label: 'Orders',
-      badge: ordersCount > 0 ? ordersCount : undefined,
-    },
-    {
-      href: '/dashboard/products' as Route,
-      icon: Package,
-      label: 'Products',
-    },
-    {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
-    },
-    {
-      href: '/dashboard/staff' as Route,
-      icon: UserCog,
-      label: 'Staff',
-    },
-    {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/santa' as Route,
-      icon: MessageCircle,
-      label: 'Santa Campaign',
-    },
-    {
-      href: '/dashboard/wallet' as Route,
-      icon: Wallet,
-      label: 'Wallet',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/domains' as Route,
-      icon: Globe,
-      label: 'Domains',
-    },
-    {
-      href: '/dashboard/pages' as Route,
-      icon: FileText,
-      label: 'Pages',
-      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-      badgeVariant: 'destructive',
-    },
-    {
-      href: '/dashboard/blog' as Route,
-      icon: Newspaper,
-      label: 'Blog',
-    },
-    {
-      href: '/dashboard/templates' as Route,
-      icon: LayoutTemplate,
-      label: 'Templates',
-    },
-    {
-      icon: Paintbrush,
-      label: 'Customize Website',
-      href: '/builder' as Route,
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
-      href: '/dashboard/settings' as Route,
-      icon: Settings,
-      label: 'Settings',
-    },
-  ];
+      {
+        href: '/dashboard' as Route,
+        icon: LayoutDashboard,
+        label: 'Dashboard',
+      },
+      {
+        href: '/dashboard/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/dashboard/orders' as Route,
+        icon: ShoppingCart,
+        label: 'Orders',
+        badge: ordersCount > 0 ? ordersCount : undefined,
+      },
+      {
+        href: '/dashboard/products' as Route,
+        icon: Package,
+        label: 'Products',
+      },
+      {
+        href: '/dashboard/customers' as Route,
+        icon: Users,
+        label: 'Customers',
+      },
+      {
+        href: '/dashboard/staff' as Route,
+        icon: UserCog,
+        label: 'Staff',
+      },
+      {
+        href: '/dashboard/loyalty' as Route,
+        icon: Gift,
+        label: 'Loyalty',
+      },
+      {
+        href: '/dashboard/santa' as Route,
+        icon: MessageCircle,
+        label: 'Santa Campaign',
+      },
+      {
+        href: '/dashboard/wallet' as Route,
+        icon: Wallet,
+        label: 'Wallet',
+      },
+      {
+        href: '/dashboard/seo' as Route,
+        icon: Search,
+        label: 'SEO',
+      },
+      {
+        href: '/dashboard/domains' as Route,
+        icon: Globe,
+        label: 'Domains',
+      },
+      {
+        href: '/dashboard/pages' as Route,
+        icon: FileText,
+        label: 'Pages',
+        badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+        badgeVariant: 'destructive',
+      },
+      {
+        href: '/dashboard/blog' as Route,
+        icon: Newspaper,
+        label: 'Blog',
+      },
+      {
+        href: '/dashboard/templates' as Route,
+        icon: LayoutTemplate,
+        label: 'Templates',
+      },
+      {
+        icon: Paintbrush,
+        label: 'Customize Website',
+        href: '/builder' as Route,
+      },
+      {
+        href: '/dashboard/integrations' as Route,
+        icon: Plug,
+        label: 'Integrations',
+      },
+      {
+        href: '/dashboard/settings' as Route,
+        icon: Settings,
+        label: 'Settings',
+      },
+    ];
+
+  const { hasPermission, staffAccess } = useMerchant();
 
   const filteredNavItems = navItems.filter((item) => {
-    if (item.label === 'Santa Campaign') {
-      return merchant?.slug === 'ogabassey';
+    // Owners always see everything
+    if (staffAccess.isOwner) return true;
+
+    // Santa Campaign is special (only for ogabassey)
+    if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
+      return false;
     }
+
+    // Map labels/paths to resources in role_permissions table
+    const resourceMap: Record<string, string> = {
+      Dashboard: 'dashboard',
+      Analytics: 'analytics',
+      Orders: 'orders',
+      Products: 'products',
+      Customers: 'customers',
+      Staff: 'staff',
+      Loyalty: 'marketing', // Loyalty is part of marketing permissions
+      'Santa Campaign': 'marketing',
+      Wallet: 'wallet', // Assuming wallet exists, check role_permissions
+      SEO: 'marketing',
+      Domains: 'settings',
+      Pages: 'pages',
+      Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'
+      Templates: 'builder',
+      'Customize Website': 'builder',
+      Integrations: 'integrations',
+      Settings: 'settings',
+    };
+
+    const resource = resourceMap[item.label];
+    if (resource) {
+      // For menu visibility, we generally check for 'view' permission
+      return hasPermission(resource, 'view');
+    }
+
     return true;
   });
 

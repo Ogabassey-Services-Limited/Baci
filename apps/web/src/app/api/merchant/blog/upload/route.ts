@@ -2,6 +2,12 @@ import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -15,9 +21,6 @@ const ALLOWED_TYPES = [
   'image/avif',
 ];
 
-import { createAdminClient } from '@/lib/supabase/admin';
-
-// ... existing imports ...
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,9 +32,8 @@ export async function POST(request: NextRequest) {
     let merchant: { id: string; slug: string } | null = null;
 
     // Check authentication
-    const {
-      data: { user },
-    } = await userSupabase.auth.getUser();
+    const auth = await authenticateApiRequest(request);
+    const user = auth.user;
 
     // Check for Dev Mode Override
     const devMerchantId = request.headers.get('x-dev-merchant-id');
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
     const isDevOverride = !user && devMerchantId === DEV_MERCHANT_ID;
 
     if (!user && !isDevOverride) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
     if (isDevOverride) {
@@ -53,14 +55,25 @@ export async function POST(request: NextRequest) {
       merchant = data;
       supabaseClient = adminSupabase;
     } else {
-      // Authenticated User Flow
-      const { data } = await userSupabase
-        .from('merchants')
-        .select('id, slug')
-        // biome-ignore lint/style/noNonNullAssertion: Checked by authentication logic
-        .eq('user_id', user!.id)
-        .single();
-      merchant = data;
+      // Authenticated User Flow (supports both owners and staff members)
+      const access = await getUserAccess(user!.id);
+      if (access) {
+        if (!hasPermission(access, 'marketing', 'edit')) {
+          return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+        }
+
+        // Fetch merchant slug if needed
+        const { data: merchantData } = await userSupabase
+          .from('merchants')
+          .select('slug')
+          .eq('id', access.merchantId)
+          .single();
+
+        merchant = {
+          id: access.merchantId,
+          slug: merchantData?.slug || '',
+        };
+      }
     }
 
     if (!merchant) {
@@ -158,27 +171,22 @@ export async function DELETE(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+    // Get access (supports both owners and staff members)
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
     }
+
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const merchant = { id: access.merchantId };
 
     const { path } = await request.json();
 

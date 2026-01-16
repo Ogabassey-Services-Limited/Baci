@@ -7,6 +7,16 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
@@ -84,6 +95,37 @@ export default function NewBlogPostPage() {
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+
+  // Auto-save to localStorage (protects against Chrome Memory Saver)
+  const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
+    storageKey: 'blog-draft-new',
+    data: formData,
+  });
+
+  // Check for recovered draft on mount
+  useEffect(() => {
+    if (hasSavedData()) {
+      setShowRecoveryDialog(true);
+    }
+  }, [hasSavedData]);
+
+  const recoverDraft = () => {
+    const saved = getSavedData();
+    if (saved) {
+      setFormData(saved.data);
+      toast({
+        title: 'Draft Recovered',
+        description: 'Your previous work has been restored.',
+      });
+    }
+    setShowRecoveryDialog(false);
+  };
+
+  const discardRecoveredDraft = () => {
+    clearSavedData();
+    setShowRecoveryDialog(false);
+  };
 
   // Auto-generate slug from title
   const handleTitleChange = (title: string) => {
@@ -155,9 +197,9 @@ export default function NewBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -186,6 +228,9 @@ export default function NewBlogPostPage() {
             ? 'Your blog post is now live.'
             : 'Your draft has been saved.',
       });
+
+      // Clear auto-saved draft on successful server save
+      clearSavedData();
 
       router.push(asRoute('/dashboard/blog'));
     } catch (error) {
@@ -603,6 +648,27 @@ export default function NewBlogPostPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Draft Recovery Dialog */}
+      <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recover Draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We found an unsaved draft from a previous session. Would you like
+              to restore it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardRecoveredDraft}>
+              Discard
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={recoverDraft}>
+              Recover Draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

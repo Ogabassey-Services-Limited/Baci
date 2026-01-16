@@ -1,0 +1,111 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { StaffAccess, StaffRole } from '@/hooks/use-merchant';
+
+/**
+ * Resolves merchant context for API requests, supporting both merchant owners and staff members.
+ *
+ * This follows the same pattern as getMerchantForUser in merchant-server.ts, but without
+ * React cache() since API routes don't benefit from request-level caching the same way.
+ *
+ * @param supabase - The Supabase client (already authenticated)
+ * @param userId - The authenticated user's ID
+ * @returns Merchant ID and staff access info, or null if no merchant found
+ */
+export async function getMerchantForApiRequest(
+    supabase: SupabaseClient,
+    userId: string
+): Promise<{
+    merchantId: string;
+    merchantSlug?: string;
+    businessName?: string;
+    staffAccess: StaffAccess;
+} | null> {
+    // First, try to find merchant where user is owner
+    const { data: ownedMerchant, error: ownerError } = await supabase
+        .from('merchants')
+        .select('id, slug, business_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (ownedMerchant && !ownerError) {
+        return {
+            merchantId: ownedMerchant.id,
+            merchantSlug: ownedMerchant.slug,
+            businessName: ownedMerchant.business_name,
+            staffAccess: {
+                isStaff: false,
+                isOwner: true,
+                role: null,
+                permissions: { full_access: { all: true } },
+            },
+        };
+    }
+
+    // User is not a merchant owner (or has an incomplete merchant), check if they're staff
+    const { data: staffMember, error: staffError } = await supabase
+        .from('staff_members')
+        .select(
+            `
+      id,
+      role,
+      permissions,
+      status,
+      merchant_id,
+      merchants (id, slug, business_name)
+    `
+        )
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+    if (staffMember && !staffError && staffMember.merchants) {
+        // Handle join result (could be array or object depending on Supabase version)
+        const merchantInfo = Array.isArray(staffMember.merchants)
+            ? staffMember.merchants[0]
+            : staffMember.merchants;
+
+        if (merchantInfo) {
+            // Get role-based permissions
+            const { data: rolePerms } = await supabase
+                .from('role_permissions')
+                .select('permissions')
+                .eq('role', staffMember.role)
+                .single();
+
+            const defaultPerms = (rolePerms?.permissions || {}) as Record<
+                string,
+                Record<string, boolean>
+            >;
+            const customPerms = (staffMember.permissions || {}) as Record<
+                string,
+                Record<string, boolean>
+            >;
+
+            // Merge permissions: custom overrides defaults
+            const mergedPermissions: Record<string, Record<string, boolean>> = {
+                ...defaultPerms,
+            };
+            for (const [resource, actions] of Object.entries(customPerms)) {
+                mergedPermissions[resource] = {
+                    ...mergedPermissions[resource],
+                    ...actions,
+                };
+            }
+
+            return {
+                merchantId: merchantInfo.id,
+                merchantSlug: merchantInfo.slug,
+                businessName: merchantInfo.business_name,
+                staffAccess: {
+                    isStaff: true,
+                    isOwner: false,
+                    role: staffMember.role as StaffRole,
+                    permissions: mergedPermissions,
+                },
+            };
+        }
+    }
+
+    // No merchant found for this user
+    return null;
+}

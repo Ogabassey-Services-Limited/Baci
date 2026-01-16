@@ -3,6 +3,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { createClient } from '@/lib/supabase/server';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 
 /**
  * Blog Posts API - List and Create
@@ -196,31 +201,22 @@ function extractKeywords(title: string, content: string): string[] {
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'marketing', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant for user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     // Parse query params
     const { searchParams } = new URL(request.url);
@@ -236,7 +232,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('blog_posts')
       .select('*', { count: 'exact' })
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', access.merchantId);
 
     // Apply filters
     if (status) {
@@ -275,24 +271,24 @@ export async function GET(request: NextRequest) {
       supabase
         .from('blog_posts')
         .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', merchant.id),
+        .eq('merchant_id', access.merchantId),
       // 3. Fetch published count
       supabase
         .from('blog_posts')
         .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', access.merchantId)
         .eq('status', 'published'),
       // 4. Fetch draft count
       supabase
         .from('blog_posts')
         .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', access.merchantId)
         .eq('status', 'draft'),
       // 5. Fetch archived count
       supabase
         .from('blog_posts')
         .select('*', { count: 'exact', head: true })
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', access.merchantId)
         .eq('status', 'archived'),
     ]);
 
@@ -325,31 +321,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant for user
-    const { data: merchant, error: merchantError } = await supabase
+    // Get merchant business name if needed (optional, or we can use metadata)
+    const { data: merchantData } = await supabase
       .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
+      .select('business_name')
+      .eq('id', access.merchantId)
       .single();
 
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
+    const merchant = {
+      id: access.merchantId,
+      business_name: merchantData?.business_name || 'Store Owner',
+    };
 
     // Check if blog feature is enabled
     const { data: features } = await supabase

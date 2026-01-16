@@ -52,11 +52,24 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const AppleIcon = () => (
+  <svg
+    role="img"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5 fill-current"
+  >
+    <title>Apple</title>
+    <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.671-1.48 3.671-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.609 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701z" />
+  </svg>
+);
+
 const initialState: AuthActionState = { error: null, success: false };
 
 export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
@@ -117,6 +130,7 @@ export default function LoginForm() {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+
     if (error) {
       toast({
         variant: 'destructive',
@@ -124,6 +138,26 @@ export default function LoginForm() {
         description: error.message,
       });
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Apple Sign-in Failed',
+        description: error.message,
+      });
+      setIsAppleLoading(false);
     }
   };
 
@@ -250,19 +284,35 @@ export default function LoginForm() {
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
-                  onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading}
-                >
-                  {isGoogleLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <GoogleIcon />
-                  )}
-                  <span className="ml-2">Continue with Google</span>
-                </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    variant="outline"
+                    className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
+                    onClick={handleGoogleSignIn}
+                    disabled={isGoogleLoading || isAppleLoading}
+                  >
+                    {isGoogleLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    <span className="ml-2">Google</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
+                    onClick={handleAppleSignIn}
+                    disabled={isGoogleLoading || isAppleLoading}
+                  >
+                    {isAppleLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <AppleIcon />
+                    )}
+                    <span className="ml-2">Apple</span>
+                  </Button>
+                </div>
 
                 <div className="mt-6 text-center text-sm">
                   <span className="text-muted-foreground">

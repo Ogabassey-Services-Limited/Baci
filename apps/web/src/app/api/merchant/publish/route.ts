@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 
 /**
  * Store Publish API
@@ -9,18 +14,24 @@ import { createClient } from '@/lib/supabase/server';
  * DELETE - Unpublish the store (take it offline)
  */
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Get merchant with required fields for validation
     const { data: merchant, error: merchantError } = await supabase
@@ -35,14 +46,11 @@ export async function POST() {
         bank_code,
         bank_account_number
       `)
-      .eq('user_id', user.id)
+      .eq('id', access.merchantId)
       .single();
 
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+    if (!merchant) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
     }
 
     // Check for required setup items
@@ -137,31 +145,34 @@ export async function POST() {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('id', access.merchantId)
       .single();
 
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+    if (!merchant) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
     }
 
     // Unpublish the store

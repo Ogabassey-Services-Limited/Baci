@@ -16,6 +16,16 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
@@ -30,6 +40,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
@@ -104,6 +115,31 @@ export default function EditBlogPostPage() {
     focus_keyword: '',
     status: 'draft',
   });
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+
+  // Auto-save to localStorage (protects against Chrome Memory Saver)
+  const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
+    storageKey: `blog-draft-edit-${postId}`,
+    data: formData,
+    enabled: !isLoading, // Don't auto-save during initial load
+  });
+
+  const recoverDraft = () => {
+    const saved = getSavedData();
+    if (saved) {
+      setFormData(saved.data);
+      toast({
+        title: 'Draft Recovered',
+        description: 'Your unsaved changes have been restored.',
+      });
+    }
+    setShowRecoveryDialog(false);
+  };
+
+  const discardRecoveredDraft = () => {
+    clearSavedData();
+    setShowRecoveryDialog(false);
+  };
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -172,6 +208,13 @@ export default function EditBlogPostPage() {
     }
   }, [postId, router, toast]);
 
+  // Check for recovered draft after initial load
+  useEffect(() => {
+    if (!isLoading && hasSavedData()) {
+      setShowRecoveryDialog(true);
+    }
+  }, [isLoading, hasSavedData]);
+
   // Image upload handler
   const handleImageUpload = useCallback(async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
@@ -228,15 +271,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -275,6 +318,9 @@ export default function EditBlogPostPage() {
           statusMessages[newStatus || formData.status] ||
           'Your changes have been saved.',
       });
+
+      // Clear auto-saved draft on successful server save
+      clearSavedData();
     } catch (error) {
       console.error('Error saving post:', error);
       toast({
@@ -778,6 +824,27 @@ export default function EditBlogPostPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Draft Recovery Dialog */}
+      <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recover Unsaved Changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              We found unsaved changes from a previous session. Would you like
+              to restore them?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardRecoveredDraft}>
+              Discard
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={recoverDraft}>
+              Recover Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

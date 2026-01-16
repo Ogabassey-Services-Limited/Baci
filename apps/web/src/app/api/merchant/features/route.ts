@@ -2,6 +2,11 @@ import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 
 /**
  * Merchant Feature Settings API
@@ -152,35 +157,29 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
 
 export async function GET() {
   try {
+    const auth = await authenticateApiRequest(new Request('http://localhost/api/merchant/features', { method: 'GET' }));
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'settings', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     // Get or create settings
     // eslint-disable-next-line prefer-const
     let { data: settings, error } = await supabase
       .from('merchant_feature_settings')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     if (error && error.code === 'PGRST116') {
@@ -188,7 +187,7 @@ export async function GET() {
       const { data: newSettings, error: createError } = await supabase
         .from('merchant_feature_settings')
         .insert({
-          merchant_id: merchant.id,
+          merchant_id: access.merchantId,
           ...DEFAULT_SETTINGS,
         })
         .select()
@@ -223,28 +222,22 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     const updates = await request.json();
 
@@ -328,7 +321,7 @@ export async function PATCH(request: NextRequest) {
       .from('merchant_feature_settings')
       .upsert(
         {
-          merchant_id: merchant.id,
+          merchant_id: access.merchantId,
           ...sanitizedUpdates,
           updated_at: new Date().toISOString(),
         },
@@ -348,7 +341,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Invalidate cache
-    revalidateTag(`features-${merchant.id}`, 'default');
+    revalidateTag(`features-${access.merchantId}`, 'default');
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -362,28 +355,22 @@ export async function PATCH(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     const newSettings = await request.json();
 
@@ -391,7 +378,7 @@ export async function PUT(request: NextRequest) {
     const completeSettings = {
       ...DEFAULT_SETTINGS,
       ...newSettings,
-      merchant_id: merchant.id,
+      merchant_id: access.merchantId,
       updated_at: new Date().toISOString(),
     };
 
@@ -415,7 +402,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Invalidate cache
-    revalidateTag(`features-${merchant.id}`, 'default');
+    revalidateTag(`features-${access.merchantId}`, 'default');
 
     return NextResponse.json(settings);
   } catch (error) {

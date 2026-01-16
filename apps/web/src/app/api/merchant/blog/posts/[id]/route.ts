@@ -3,6 +3,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { createClient } from '@/lib/supabase/server';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 
 /**
  * Blog Post API - Single Post Operations
@@ -57,38 +62,29 @@ function calculateWordCount(content: string): number {
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const auth = await authenticateApiRequest(_request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'marketing', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant for user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     // Get blog post
     const { data: post, error } = await supabase
       .from('blog_posts')
       .select('*')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     if (error) {
@@ -112,38 +108,29 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant for user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     // Get existing post
     const { data: existingPost, error: fetchError } = await supabase
       .from('blog_posts')
       .select('*')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     if (fetchError || !existingPost) {
@@ -168,7 +155,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const { data: slugExists } = await supabase
         .from('blog_posts')
         .select('id')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', access.merchantId)
         .eq('slug', updateData.slug)
         .neq('id', id)
         .maybeSingle();
@@ -202,7 +189,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('blog_posts')
       .update(updateData)
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', access.merchantId)
       .select()
       .single();
 
@@ -256,38 +243,29 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const auth = await authenticateApiRequest(_request);
+    if (auth.error || !auth.user) {
+      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.user.id);
+    if (!access) {
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant for user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
 
     // Delete post
     const { error: deleteError } = await supabase
       .from('blog_posts')
       .delete()
       .eq('id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', access.merchantId);
 
     if (deleteError) {
       console.error('Error deleting blog post:', deleteError);
