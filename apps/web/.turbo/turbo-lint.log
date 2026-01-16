@@ -1,5 +1,5 @@
 
-> @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
+> @baci/web@0.1.0 lint /app/apps/web
 > biome check .
 
 src/app/api/marketplace/jumia/actions/route.ts:74:17 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━
@@ -146,6 +146,19 @@ src/app/dashboard/integrations/page.tsx:233:18 suppressions/unused ━━━━�
     235 │                   href={
   
 
+src/components/storefront/product-grid.test.tsx:63:37 lint/performance/noImgElement ━━━━━━━━━━━━━━━━
+
+  ! Don't use <img> element.
+
+    62 │ vi.mock('@/components/optimized-image', () => ({
+  > 63 │   ProductCardImage: (props: any) => <img {...props} alt={props.alt || ''} />,
+       │                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    64 │ }));
+    65 │
+
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider using <Image /> from next/image to automatically optimize images.
+
+
 src/lib/jumia/client.ts:135:22 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
@@ -187,5 +200,30 @@ src/lib/jumia/client.ts:350:49 lint/suspicious/noExplicitAny ━━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 821 files in 638ms. No fixes applied.
-Found 14 warnings.
+src/components/storefront/product-grid.test.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+
+  > 1 │ import { render, screen } from '@testing-library/react';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { describe, it, vi, expect } from 'vitest';
+    3 │ import { StorefrontProductGrid } from './product-grid';
+
+  i Safe fix: Organize Imports (Biome)
+
+      1   1 │   import { render, screen } from '@testing-library/react';
+      2     │ - import·{·describe,·it,·vi,·expect·}·from·'vitest';
+          2 │ + import·{·describe,·expect,·it,·vi·}·from·'vitest';
+      3   3 │   import { StorefrontProductGrid } from './product-grid';
+      4   4 │
+
+
+Checked 822 files in 1863ms. No fixes applied.
+Found 1 error.
+Found 15 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+
+
+ ELIFECYCLE  Command failed with exit code 1.
