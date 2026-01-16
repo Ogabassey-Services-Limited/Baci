@@ -158,3 +158,9 @@ samsung_jumia_images/
 full_migration_backup.zip
 ogabassey-agents-backup.zip
 *.zip
+google-play-service-account.json
+
+*.aab
+*_log.txt
+apps/mobile-admin/metadata/
+apps/mobile-admin/screenshots.yaml

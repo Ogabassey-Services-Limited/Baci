@@ -37,7 +37,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold">Email Us</h3>
-                      <p className="text-muted-foreground">support@baci.app</p>
+                      <p className="text-muted-foreground">support@usebaci.com</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -46,7 +46,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold">Call Us</h3>
-                      <p className="text-muted-foreground">+234 123 456 7890</p>
+                      <p className="text-muted-foreground">+234 916 944 9282</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

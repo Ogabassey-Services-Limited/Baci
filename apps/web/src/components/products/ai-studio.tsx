@@ -71,7 +71,7 @@ export function AIStudio({
     try {
       setLoadingText('Removing background...');
       const blob = await removeBackground(imageUrl, {
-        progress: (key: string, current: number, total: number) => {
+        progress: (_key: string, current: number, total: number) => {
           setLoadingText(
             `AI Processing: ${Math.round((current / total) * 100)}%`
           );

@@ -5,7 +5,7 @@ import type React from 'react';
 
 import { useV2Theme } from '../providers/v2-theme-context';
 
-export const Logo: React.FC<{ className?: string }> = ({ className }) => {
+export const Logo: React.FC<React.SVGProps<SVGSVGElement>> = ({ className, ...props }) => {
   const { theme } = useV2Theme();
 
   const isSanta = theme === 'santa';
@@ -14,8 +14,9 @@ export const Logo: React.FC<{ className?: string }> = ({ className }) => {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 879.31 155.39"
-      className={`${className} overflow-visible`}
+      className={`${className || ''} overflow-visible`}
       aria-label="Ogabassey Logo"
+      {...props}
     >
       {/* ... */}
       {/* --- Original Logo Paths --- */}
@@ -80,7 +81,7 @@ export const Logo: React.FC<{ className?: string }> = ({ className }) => {
   );
 };
 
-export const LogoIcon: React.FC<{ className?: string }> = ({ className }) => {
+export const LogoIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({ className, ...props }) => {
   const { theme } = useV2Theme();
 
   const isSanta = theme === 'santa';
@@ -89,8 +90,9 @@ export const LogoIcon: React.FC<{ className?: string }> = ({ className }) => {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 127 127"
-      className={`${className} overflow-visible`}
+      className={`${className || ''} overflow-visible`}
       aria-label="Ogabassey Icon"
+      {...props}
     >
       <path
         fill="currentColor"

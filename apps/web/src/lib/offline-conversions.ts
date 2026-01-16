@@ -44,6 +44,10 @@ export interface OrderConversionData {
   customerPhone?: string | null;
   customerName?: string | null;
   customerId?: string | null;
+  customerCity?: string | null;
+  customerState?: string | null;
+  customerZip?: string | null;
+  customerCountry?: string | null;
   items: Array<{
     id: string;
     name: string;
@@ -172,6 +176,10 @@ async function sendFacebookConversion(
       email: orderData.customerEmail || undefined,
       phone: orderData.customerPhone || undefined,
       externalId: orderData.customerId || undefined,
+      city: orderData.customerCity || undefined,
+      state: orderData.customerState || undefined,
+      zipCode: orderData.customerZip || undefined,
+      country: orderData.customerCountry || undefined,
       fbc: fbc, // Generated from fbclid for better attribution
       fbp: orderData.fbp, // Browser ID from _fbp cookie
       // Enhanced matching data for better Event Match Quality (EMQ)

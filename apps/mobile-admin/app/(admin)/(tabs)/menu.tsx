@@ -78,6 +78,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/store-settings'),
         },
         {
+          id: 'social-media',
+          icon: 'share-social-outline',
+          label: 'Social Media',
+          description: 'Instagram, TikTok, WhatsApp',
+          onPress: () => router.push('/social-media'),
+        },
+        {
           id: 'payments',
           icon: 'card-outline',
           label: 'Payment Methods',
@@ -117,6 +124,13 @@ export default function MenuScreen() {
           label: 'Analytics',
           description: 'Sales and traffic insights',
           onPress: () => router.push('/analytics'),
+        },
+        {
+          id: 'growth-marketing',
+          icon: 'rocket-outline',
+          label: 'Growth & Marketing',
+          description: 'Pixels, CAPI, Setup',
+          onPress: () => router.push('/analytics-config'),
         },
         {
           id: 'expenses',

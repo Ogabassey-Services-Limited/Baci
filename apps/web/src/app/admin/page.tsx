@@ -168,27 +168,27 @@ export default function AdminDashboardPage() {
 
   const healthData = analytics
     ? [
-      {
-        name: 'Healthy',
-        value: analytics.merchantHealth.healthy,
-        color: HEALTH_COLORS.healthy,
-      },
-      {
-        name: 'At Risk',
-        value: analytics.merchantHealth.atRisk,
-        color: HEALTH_COLORS.atRisk,
-      },
-      {
-        name: 'Churned',
-        value: analytics.merchantHealth.churned,
-        color: HEALTH_COLORS.churned,
-      },
-      {
-        name: 'New',
-        value: analytics.merchantHealth.new,
-        color: HEALTH_COLORS.new,
-      },
-    ].filter((d) => d.value > 0)
+        {
+          name: 'Healthy',
+          value: analytics.merchantHealth.healthy,
+          color: HEALTH_COLORS.healthy,
+        },
+        {
+          name: 'At Risk',
+          value: analytics.merchantHealth.atRisk,
+          color: HEALTH_COLORS.atRisk,
+        },
+        {
+          name: 'Churned',
+          value: analytics.merchantHealth.churned,
+          color: HEALTH_COLORS.churned,
+        },
+        {
+          name: 'New',
+          value: analytics.merchantHealth.new,
+          color: HEALTH_COLORS.new,
+        },
+      ].filter((d) => d.value > 0)
     : [];
 
   const chartData =
@@ -522,7 +522,9 @@ export default function AdminDashboardPage() {
                 <p className="text-2xl font-bold">
                   {analytics?.merchantHealth.healthy || 0}
                 </p>
-                <p className="text-sm text-muted-foreground">Healthy Merchants</p>
+                <p className="text-sm text-muted-foreground">
+                  Healthy Merchants
+                </p>
               </div>
             </CardContent>
           </Card>

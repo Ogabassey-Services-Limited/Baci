@@ -282,7 +282,9 @@ export function AddressAutocomplete({
                     <p
                       className={cn(
                         'font-medium truncate transition-colors',
-                        highlightedIndex === index ? 'text-[var(--store-primary)]' : 'text-gray-900'
+                        highlightedIndex === index
+                          ? 'text-[var(--store-primary)]'
+                          : 'text-gray-900'
                       )}
                     >
                       {prediction.mainText}

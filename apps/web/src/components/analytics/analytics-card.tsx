@@ -84,7 +84,10 @@ export function AnalyticsCard({
                       )}
                     >
                       {getTrendIcon(trend)}
-                      {Math.abs(change) > 999 ? '999+' : Math.abs(change).toFixed(1)}%
+                      {Math.abs(change) > 999
+                        ? '999+'
+                        : Math.abs(change).toFixed(1)}
+                      %
                     </span>
                   )}
                   {description && (

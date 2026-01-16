@@ -1,11 +1,21 @@
 import { Redirect, Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { View, ActivityIndicator } from 'react-native';
 import { DARK_COLORS } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { registerPush, isRegistered } = usePushNotifications();
+
+  // Auto-register for push notifications when authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isRegistered) {
+      registerPush();
+    }
+  }, [isAuthenticated, isRegistered, registerPush]);
 
   if (isLoading) {
     return (

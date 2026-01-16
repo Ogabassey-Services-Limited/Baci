@@ -3,7 +3,7 @@
  * Manage bank account details for settlements
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,7 @@ export default function PayoutSettingsScreen() {
   const { user, session } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com/api';
 
   const [accountnumber, setAccountNumber] = useState('');
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
@@ -194,8 +195,7 @@ export default function PayoutSettingsScreen() {
 
       // Call API to create subaccount on Paystack
       // This handles validation + subaccount creation + saving to DB
-      const apiUrl =
-        process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com/api';
+      const apiUrl = API_URL;
       const response = await fetch(`${apiUrl}/paystack/subaccount`, {
         method: 'POST',
         headers: {

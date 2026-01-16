@@ -94,9 +94,10 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          const parts =
-            ((response.body as any)?.candidates?.[0]?.content
-              ?.parts as any[]) || [];
+          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
+          const content = (response.body as any)?.candidates?.[0]?.content;
+          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
+          const parts = (content?.parts as any[]) || [];
           const imagePart = (
             parts as { inlineData: { data: string; mimeType: string } }[]
           ).find((p) => p.inlineData);

@@ -70,7 +70,7 @@ export default function SettingsScreen() {
       {toggle !== undefined ? (
         <Switch
           value={toggle}
-          onValueChange={() => {}}
+          onValueChange={() => { }}
           trackColor={{ true: '#3B82F6' }}
         />
       ) : showArrow ? (
@@ -113,6 +113,24 @@ export default function SettingsScreen() {
             icon="location-outline"
             title="Store Locations"
             subtitle="Manage pickup points"
+          />
+        </View>
+
+        {/* Growth & Marketing */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            GROWTH & MARKETING
+          </Text>
+          <SettingItem
+            icon="bar-chart-outline"
+            title="Analytics & Tracking"
+            subtitle="Pixels, CAPI, Setup"
+            onPress={() => _router.push('/(admin)/analytics-config')}
           />
         </View>
 

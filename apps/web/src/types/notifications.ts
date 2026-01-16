@@ -13,7 +13,7 @@
 export type NotificationType = 'info' | 'success' | 'warning' | 'error';
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type TargetType = 'all' | 'specific' | 'segment';
-export type NotificationChannel = 'in_app' | 'banner';
+export type NotificationChannel = 'in_app' | 'banner' | 'push';
 export type TargetSegment = 'new' | 'active' | 'at_risk';
 
 export const NOTIFICATION_TYPES: NotificationType[] = [
@@ -32,6 +32,7 @@ export const TARGET_TYPES: TargetType[] = ['all', 'specific', 'segment'];
 export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
   'in_app',
   'banner',
+  'push',
 ];
 export const TARGET_SEGMENTS: TargetSegment[] = ['new', 'active', 'at_risk'];
 

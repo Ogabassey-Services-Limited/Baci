@@ -41,8 +41,8 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 import * as AppleAuthentication from 'expo-apple-authentication';
-// Google Sign-In disabled temporarily due to native module mismatch
-// import { GoogleSignin, statusCodes, isSuccessResponse } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
+import { GoogleSignin, statusCodes, isSuccessResponse } from '@react-native-google-signin/google-signin';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -56,11 +56,27 @@ const BRAND = {
   navy: '#23255d',
 };
 
+// Get Google Client IDs from Expo Constants (baked in at build time)
+// This is the 2026 best practice - guaranteed to work on native builds
+const googleConfig = {
+  iosClientId: Constants.expoConfig?.extra?.googleIosClientId ?? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+};
+
+// DEBUG: Log the client IDs to verify they're being loaded
+console.log('[GoogleSignIn] Configuring with:', {
+  iosClientId: googleConfig.iosClientId?.slice(0, 20) + '...',
+  webClientId: googleConfig.webClientId?.slice(0, 20) + '...',
+  source: Constants.expoConfig?.extra?.googleWebClientId ? 'Constants.extra' : 'process.env',
+});
+
 // Configure Google Sign-In once
-// GoogleSignin.configure({
-//     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-//     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-// });
+GoogleSignin.configure({
+  iosClientId: googleConfig.iosClientId,
+  webClientId: googleConfig.webClientId,
+  offlineAccess: true, // Required for ID token on Android
+  scopes: ['profile', 'email'], // Explicit scopes for 2026 best practice
+});
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -71,45 +87,49 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleGoogleSignIn = async () => {
-    // setIsGoogleLoading(true);
-    // setError(null);
+    setIsGoogleLoading(true);
+    setError(null);
 
-    // try {
-    //     await GoogleSignin.hasPlayServices();
-    //     const response = await GoogleSignin.signIn();
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
 
-    //     if (isSuccessResponse(response) && response.data?.idToken) {
-    //         const { error: signInError } = await supabase.auth.signInWithIdToken({
-    //             provider: 'google',
-    //             token: response.data.idToken,
-    //         });
-    //         if (signInError) {
-    //             setError(signInError.message);
-    //         }
-    //     } else {
-    //         setError('Google sign-in failed: No ID token received');
-    //     }
-    // } catch (err: unknown) {
-    //     const errorWithCode = err as { code?: string };
-    //     if (errorWithCode?.code === statusCodes.SIGN_IN_CANCELLED) {
-    //         // User cancelled, no error to show
-    //     } else if (errorWithCode?.code === statusCodes.IN_PROGRESS) {
-    //         setError('Sign-in already in progress');
-    //     } else if (errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-    //         setError('Google Play Services not available');
-    //     } else {
-    //         setError('Google sign-in failed');
-    //     }
-    // } finally {
-    //     setIsGoogleLoading(false);
-    // }
-    setError('Google Sign-In is temporarily unavailable on simulator.');
+      console.log('[GoogleSignIn] Response:', JSON.stringify(response, null, 2));
+
+      if (isSuccessResponse(response) && response.data?.idToken) {
+        const { error: signInError } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.data.idToken,
+        });
+        if (signInError) {
+          setError(signInError.message);
+        }
+      } else {
+        // More detailed error message
+        console.error('[GoogleSignIn] No ID token. Full response:', response);
+        setError(`Google sign-in failed: No ID token received. Check webClientId configuration.`);
+      }
+    } catch (err: unknown) {
+      console.error('[GoogleSignIn] Error:', err);
+      const errorWithCode = err as { code?: string; message?: string };
+      if (errorWithCode?.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled, no error to show
+      } else if (errorWithCode?.code === statusCodes.IN_PROGRESS) {
+        setError('Sign-in already in progress');
+      } else if (errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError('Google Play Services not available');
+      } else {
+        setError(`Google sign-in failed: ${errorWithCode?.message || 'Unknown error'}`);
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleAppleSignIn = async () => {

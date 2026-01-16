@@ -181,9 +181,9 @@ function DefaultLoginPage() {
 
   if (merchantLoading || authLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-white">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <p className="text-sm text-gray-500">
           {merchantLoading
             ? 'Loading store data...'
             : 'Checking authentication...'}
@@ -192,14 +192,20 @@ function DefaultLoginPage() {
     );
   }
 
+  // Use merchant's primary color if available, fallback to default blue
+  const primaryColor = merchant?.brand_colors?.primary || '#3F51B5';
+
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Subtle accent line at top using merchant's primary color */}
+      <div className="h-1 w-full" style={{ backgroundColor: primaryColor }} />
+
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b border-gray-100 bg-white">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
             href={asRoute('/')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to store</span>
@@ -245,7 +251,7 @@ function DefaultLoginPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="email"
                       type="email"
@@ -264,7 +270,8 @@ function DefaultLoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full text-white"
+                  style={{ backgroundColor: primaryColor }}
                   disabled={isSending || isGoogleLoading || !email}
                 >
                   {isSending ? (
@@ -283,7 +290,7 @@ function DefaultLoginPage() {
                     <span className="w-full border-t" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">
+                    <span className="bg-white px-2 text-gray-400">
                       Or continue with
                     </span>
                   </div>
@@ -341,15 +348,15 @@ function DefaultLoginPage() {
                   )}
                 </Button>
 
-                <p className="text-xs text-center text-muted-foreground">
+                <p className="text-xs text-center text-gray-400">
                   By continuing, you agree to the store's terms of service and
                   privacy policy.
                 </p>
 
                 {/* Account Creation Notice */}
-                <p className="text-center text-muted-foreground text-sm">
+                <p className="text-center text-gray-500 text-sm">
                   New here?{' '}
-                  <span className="text-foreground font-medium">
+                  <span className="text-gray-900 font-medium">
                     Just enter your email above to create an account
                   </span>
                 </p>
@@ -434,8 +441,8 @@ function DefaultLoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-4">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+      <footer className="border-t border-gray-100 py-4 bg-white">
+        <div className="container mx-auto px-4 text-center text-sm text-gray-400">
           Secure passwordless login powered by{' '}
           {merchant?.business_name || 'Baci'}
         </div>

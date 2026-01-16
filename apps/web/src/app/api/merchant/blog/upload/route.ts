@@ -1,13 +1,13 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -20,7 +20,6 @@ const ALLOWED_TYPES = [
   'image/webp',
   'image/avif',
 ];
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +40,10 @@ export async function POST(request: NextRequest) {
     const isDevOverride = !user && devMerchantId === DEV_MERCHANT_ID;
 
     if (!user && !isDevOverride) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     if (isDevOverride) {
@@ -56,10 +58,16 @@ export async function POST(request: NextRequest) {
       supabaseClient = adminSupabase;
     } else {
       // Authenticated User Flow (supports both owners and staff members)
-      const access = await getUserAccess(user!.id);
+      if (!user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const access = await getUserAccess(user.id);
       if (access) {
         if (!hasPermission(access, 'marketing', 'edit')) {
-          return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+          return NextResponse.json(
+            { error: 'Permission denied' },
+            { status: 403 }
+          );
         }
 
         // Fetch merchant slug if needed
@@ -173,13 +181,19 @@ export async function DELETE(request: NextRequest) {
     // Check authentication
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     // Get access (supports both owners and staff members)
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'marketing', 'edit')) {

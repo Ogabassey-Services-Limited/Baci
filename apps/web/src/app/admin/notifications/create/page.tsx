@@ -52,21 +52,21 @@ const typeOptions: {
   icon: typeof Info;
   color: string;
 }[] = [
-  { value: 'info', label: 'Information', icon: Info, color: 'text-blue-500' },
-  {
-    value: 'success',
-    label: 'Success',
-    icon: CheckCircle,
-    color: 'text-green-500',
-  },
-  {
-    value: 'warning',
-    label: 'Warning',
-    icon: AlertTriangle,
-    color: 'text-yellow-500',
-  },
-  { value: 'error', label: 'Error', icon: AlertCircle, color: 'text-red-500' },
-];
+    { value: 'info', label: 'Information', icon: Info, color: 'text-blue-500' },
+    {
+      value: 'success',
+      label: 'Success',
+      icon: CheckCircle,
+      color: 'text-green-500',
+    },
+    {
+      value: 'warning',
+      label: 'Warning',
+      icon: AlertTriangle,
+      color: 'text-yellow-500',
+    },
+    { value: 'error', label: 'Error', icon: AlertCircle, color: 'text-red-500' },
+  ];
 
 const priorityOptions: { value: NotificationPriority; label: string }[] = [
   { value: 'low', label: 'Low' },
@@ -80,22 +80,22 @@ const segmentOptions: {
   label: string;
   description: string;
 }[] = [
-  {
-    value: 'new',
-    label: 'New Merchants',
-    description: 'Merchants who joined in the last 30 days',
-  },
-  {
-    value: 'active',
-    label: 'Active Merchants',
-    description: 'Merchants with recent activity',
-  },
-  {
-    value: 'at_risk',
-    label: 'At Risk Merchants',
-    description: 'Merchants showing signs of churn',
-  },
-];
+    {
+      value: 'new',
+      label: 'New Merchants',
+      description: 'Merchants who joined in the last 30 days',
+    },
+    {
+      value: 'active',
+      label: 'Active Merchants',
+      description: 'Merchants with recent activity',
+    },
+    {
+      value: 'at_risk',
+      label: 'At Risk Merchants',
+      description: 'Merchants showing signs of churn',
+    },
+  ];
 
 export default function CreateNotificationPage() {
   const router = useRouter();
@@ -432,7 +432,7 @@ export default function CreateNotificationPage() {
             {/* Channels */}
             <div className="space-y-3">
               <Label>Channels</Label>
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <Label className="flex items-center gap-2 cursor-pointer font-normal">
                   <Checkbox
                     checked={formData.channels?.includes('in_app')}
@@ -447,7 +447,19 @@ export default function CreateNotificationPage() {
                   />
                   <span className="text-sm">Site Banner</span>
                 </Label>
+                <Label className="flex items-center gap-2 cursor-pointer font-normal">
+                  <Checkbox
+                    checked={formData.channels?.includes('push')}
+                    onCheckedChange={() => toggleChannel('push')}
+                  />
+                  <span className="text-sm">📱 Push Notification</span>
+                </Label>
               </div>
+              {formData.channels?.includes('push') && (
+                <p className="text-xs text-muted-foreground">
+                  Push notifications will be sent to merchants who have the mobile admin app installed.
+                </p>
+              )}
             </div>
 
             {/* Schedule */}

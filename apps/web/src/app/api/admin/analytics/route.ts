@@ -168,8 +168,8 @@ export async function GET(request: NextRequest) {
     const newMerchantsThisMonth = currentMonth?.new_merchants || 0;
     const merchantGrowthRate = previousMonth?.new_merchants
       ? ((newMerchantsThisMonth - previousMonth.new_merchants) /
-        previousMonth.new_merchants) *
-      100
+          previousMonth.new_merchants) *
+        100
       : newMerchantsThisMonth > 0
         ? 100
         : 0;

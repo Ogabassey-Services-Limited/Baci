@@ -17,6 +17,7 @@ import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { asUploadFile } from '@/types/upload';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 // import { useMerchant } from '@/hooks/useMerchant';

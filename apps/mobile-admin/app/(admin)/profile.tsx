@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface UserProfile {
   id: string;
@@ -29,6 +30,7 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { unregisterPush } = usePushNotifications();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -87,6 +89,8 @@ export default function ProfileScreen() {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
+          // Unregister push notifications first
+          await unregisterPush();
           await signOut();
           router.replace('/(auth)/login');
         },

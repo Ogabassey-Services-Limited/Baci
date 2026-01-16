@@ -23,8 +23,10 @@
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow the app to scan barcodes for inventory management and product lookup.",
-        "NSPhotoLibraryUsageDescription": "Allow the app to access photos for product images."
-      }
+        "NSPhotoLibraryUsageDescription": "Allow the app to access photos for product images.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.ogabassey.baci",
@@ -39,7 +41,8 @@
         "WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
@@ -62,7 +65,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.8711119572-u3gv1vnns1i2i0h8ph5jhgkpnqpvc164"
+          "iosUrlScheme": "com.googleusercontent.apps.319018494610-qao63i6hrhsqupk7cbtd80ovfamrm4lm"
         }
       ],
       "expo-build-properties",

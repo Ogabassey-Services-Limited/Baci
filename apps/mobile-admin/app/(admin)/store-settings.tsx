@@ -91,8 +91,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -451,56 +451,6 @@ export default function StoreSettingsScreen() {
               multiline
               numberOfLines={3}
             />
-          </View>
-
-          {/* Navigation Rows for dedicated screens */}
-          <View
-            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-          >
-            <Pressable
-              style={[
-                styles.navRow,
-                { borderBottomColor: colors.border, borderBottomWidth: 1 },
-              ]}
-              onPress={() => router.push('/social-media')}
-            >
-              <View style={styles.navRowLeft}>
-                <Ionicons
-                  name="share-social-outline"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.navRowText, { color: colors.text }]}>
-                  Social Media Connections
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-
-            <Pressable
-              style={styles.navRow}
-              onPress={() => router.push('/analytics-config')}
-            >
-              <View style={styles.navRowLeft}>
-                <Ionicons
-                  name="bar-chart-outline"
-                  size={20}
-                  color={colors.primary}
-                />
-                <Text style={[styles.navRowText, { color: colors.text }]}>
-                  Analytics & Tracking
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
           </View>
 
           {/* Region Settings */}

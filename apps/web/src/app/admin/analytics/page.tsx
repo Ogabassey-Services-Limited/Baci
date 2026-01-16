@@ -1,409 +1,509 @@
 'use client';
 
 import {
-    ArrowDownRight,
-    ArrowUpRight,
-    BarChart3,
-    DollarSign,
-    RefreshCw,
-    ShoppingCart,
-    TrendingUp,
-    Users,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  DollarSign,
+  RefreshCw,
+  ShoppingCart,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Area,
-    AreaChart,
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Legend,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from '@/components/ui/card';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
 interface AnalyticsData {
-    summary: {
-        totalGmv: number;
-        gmvChange: number;
-        totalOrders: number;
-        orderChange: number;
-        avgOrderValue: number;
-        aovChange: number;
-        conversionRate: number;
-        conversionChange: number;
-    };
-    dailyData: Array<{
-        date: string;
-        gmv: number;
-        orders: number;
-        merchants: number;
-    }>;
-    merchantBreakdown: Array<{
-        name: string;
-        gmv: number;
-        orders: number;
-        percentage: number;
-    }>;
-    paymentMethods: Array<{
-        method: string;
-        count: number;
-        amount: number;
-    }>;
+  summary: {
+    totalGmv: number;
+    gmvChange: number;
+    totalOrders: number;
+    orderChange: number;
+    avgOrderValue: number;
+    aovChange: number;
+    conversionRate: number;
+    conversionChange: number;
+  };
+  dailyData: Array<{
+    date: string;
+    gmv: number;
+    orders: number;
+    merchants: number;
+  }>;
+  merchantBreakdown: Array<{
+    name: string;
+    gmv: number;
+    orders: number;
+    percentage: number;
+  }>;
+  paymentMethods: Array<{
+    method: string;
+    count: number;
+    amount: number;
+  }>;
 }
 
 function formatCurrency(value: number): string {
-    if (value >= 1000000) {
-        return `₦${(value / 1000000).toFixed(2)}M`;
-    } else if (value >= 1000) {
-        return `₦${(value / 1000).toFixed(1)}K`;
-    }
-    return `₦${value.toFixed(0)}`;
+  if (value >= 1000000) {
+    return `₦${(value / 1000000).toFixed(2)}M`;
+  } else if (value >= 1000) {
+    return `₦${(value / 1000).toFixed(1)}K`;
+  }
+  return `₦${value.toFixed(0)}`;
 }
 
 function formatNumber(value: number): string {
-    if (value >= 1000000) {
-        return `${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-        return `${(value / 1000).toFixed(1)}K`;
-    }
-    return value.toString();
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K`;
+  }
+  return value.toString();
 }
 
 function formatPercentage(value: number): string {
-    const formatted = Math.abs(value).toFixed(1);
-    return `${formatted}%`;
+  const formatted = Math.abs(value).toFixed(1);
+  return `${formatted}%`;
 }
 
 export default function AnalyticsPage() {
-    const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
-    const { toast } = useToast();
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const { toast } = useToast();
 
-    const fetchAnalytics = useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(`/api/admin/analytics?period=${period}`);
-            if (!response.ok) throw new Error('Failed to fetch analytics');
-            const data = await response.json();
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/analytics?period=${period}`);
+      if (!response.ok) throw new Error('Failed to fetch analytics');
+      const data = await response.json();
 
-            // Transform the data for this page
-            setAnalytics({
-                summary: {
-                    totalGmv: data.summary?.totalGmv || 0,
-                    gmvChange: data.summary?.gmvChange || 0,
-                    totalOrders: data.summary?.totalOrders || 0,
-                    orderChange: 0, // Not in API yet
-                    avgOrderValue: data.summary?.totalOrders > 0
-                        ? data.summary.totalGmv / data.summary.totalOrders
-                        : 0,
-                    aovChange: 0,
-                    conversionRate: 0,
-                    conversionChange: 0,
-                },
-                dailyData: data.dailyGmv || [],
-                merchantBreakdown: data.topMerchants?.map((m: { name: string; gmv: number; orders: number }) => ({
-                    name: m.name,
-                    gmv: m.gmv,
-                    orders: m.orders,
-                    percentage: data.summary?.totalGmv > 0 ? (m.gmv / data.summary.totalGmv) * 100 : 0,
-                })) || [],
-                paymentMethods: [], // Not in API yet
-            });
-        } catch (error) {
-            console.error('Failed to fetch analytics:', error);
-            toast({
-                title: 'Error',
-                description: 'Failed to load analytics data.',
-                variant: 'destructive',
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [period, toast]);
+      // Transform the data for this page
+      setAnalytics({
+        summary: {
+          totalGmv: data.summary?.totalGmv || 0,
+          gmvChange: data.summary?.gmvChange || 0,
+          totalOrders: data.summary?.totalOrders || 0,
+          orderChange: 0, // Not in API yet
+          avgOrderValue:
+            data.summary?.totalOrders > 0
+              ? data.summary.totalGmv / data.summary.totalOrders
+              : 0,
+          aovChange: 0,
+          conversionRate: 0,
+          conversionChange: 0,
+        },
+        dailyData: data.dailyGmv || [],
+        merchantBreakdown:
+          data.topMerchants?.map(
+            (m: { name: string; gmv: number; orders: number }) => ({
+              name: m.name,
+              gmv: m.gmv,
+              orders: m.orders,
+              percentage:
+                data.summary?.totalGmv > 0
+                  ? (m.gmv / data.summary.totalGmv) * 100
+                  : 0,
+            })
+          ) || [],
+        paymentMethods: [], // Not in API yet
+      });
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load analytics data.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [period, toast]);
 
-    useEffect(() => {
-        fetchAnalytics();
-    }, [fetchAnalytics]);
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
 
-    const chartData = analytics?.dailyData.map((d) => ({
-        date: new Date(d.date).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-        }),
-        gmv: d.gmv,
-        orders: d.orders,
+  const chartData =
+    analytics?.dailyData.map((d) => ({
+      date: new Date(d.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      gmv: d.gmv,
+      orders: d.orders,
     })) || [];
 
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 className="text-page-title">Analytics</h1>
-                    <p className="text-muted-foreground">
-                        Deep dive into platform performance metrics.
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Select value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
-                        <SelectTrigger className="w-[130px]">
-                            <SelectValue placeholder="Period" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="7d">Last 7 Days</SelectItem>
-                            <SelectItem value="30d">Last 30 Days</SelectItem>
-                            <SelectItem value="90d">Last 90 Days</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fetchAnalytics()}
-                        disabled={loading}
-                    >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`} />
-                        Refresh
-                    </Button>
-                </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {loading ? (
-                    [...Array(4)].map((_, i) => (
-                        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
-                        <Card key={i}>
-                            <CardContent className="p-6">
-                                <Skeleton className="h-4 w-24 mb-2" />
-                                <Skeleton className="h-8 w-32 mb-1" />
-                                <Skeleton className="h-4 w-16" />
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : (
-                    <>
-                        <Card>
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-muted-foreground">Total GMV</p>
-                                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <p className="text-2xl font-bold mt-2">
-                                    {formatCurrency(analytics?.summary.totalGmv || 0)}
-                                </p>
-                                <div className="flex items-center mt-1">
-                                    {(analytics?.summary.gmvChange || 0) >= 0 ? (
-                                        <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-                                    ) : (
-                                        <ArrowDownRight className="h-4 w-4 text-red-500" />
-                                    )}
-                                    <span className={`text-sm ${(analytics?.summary.gmvChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                        {formatPercentage(analytics?.summary.gmvChange || 0)}
-                                    </span>
-                                    <span className="text-sm text-muted-foreground ml-1">vs last period</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
-                                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <p className="text-2xl font-bold mt-2">
-                                    {formatNumber(analytics?.summary.totalOrders || 0)}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                    in the last {period === '7d' ? '7' : period === '30d' ? '30' : '90'} days
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-muted-foreground">Avg Order Value</p>
-                                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <p className="text-2xl font-bold mt-2">
-                                    {formatCurrency(analytics?.summary.avgOrderValue || 0)}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">per transaction</p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent className="p-6">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium text-muted-foreground">Active Merchants</p>
-                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                <p className="text-2xl font-bold mt-2">
-                                    {analytics?.merchantBreakdown?.length || 0}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">with sales this period</p>
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
-            </div>
-
-            {/* Charts */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                {/* GMV Over Time */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5" />
-                            GMV Over Time
-                        </CardTitle>
-                        <CardDescription>Daily gross merchandise value</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <Skeleton className="h-[300px] w-full" />
-                        ) : (
-                            <div className="h-[300px]">
-                                <ResponsiveContainer width="100%" height="100%" debounce={100}>
-                                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorGmv" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
-                                        <XAxis dataKey="date" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => formatCurrency(v)} />
-                                        <Tooltip
-                                            content={({ active, payload, label }) => {
-                                                if (active && payload && payload.length) {
-                                                    return (
-                                                        <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
-                                                            <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-                                                            <p className="text-lg font-bold">{formatCurrency(payload[0].value as number)}</p>
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}
-                                        />
-                                        <Area type="monotone" dataKey="gmv" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorGmv)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Orders Over Time */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Orders by Day</CardTitle>
-                        <CardDescription>Daily order volume</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <Skeleton className="h-[250px] w-full" />
-                        ) : (
-                            <div className="h-[250px]">
-                                <ResponsiveContainer width="100%" height="100%" debounce={100}>
-                                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
-                                        <XAxis dataKey="date" stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="currentColor" fontSize={12} tickLine={false} axisLine={false} />
-                                        <Tooltip
-                                            content={({ active, payload, label }) => {
-                                                if (active && payload && payload.length) {
-                                                    return (
-                                                        <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
-                                                            <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-                                                            <p className="text-lg font-bold">{payload[0].value} orders</p>
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}
-                                        />
-                                        <Bar dataKey="orders" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Merchant Breakdown */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Merchant Performance</CardTitle>
-                        <CardDescription>GMV contribution by merchant</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <div className="space-y-4">
-                                {[...Array(3)].map((_, i) => (
-                                    // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
-                                    <div key={i} className="flex items-center gap-4">
-                                        <Skeleton className="h-4 w-32" />
-                                        <Skeleton className="h-4 flex-1" />
-                                        <Skeleton className="h-4 w-16" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : analytics?.merchantBreakdown && analytics.merchantBreakdown.length > 0 ? (
-                            <div className="space-y-4">
-                                {analytics.merchantBreakdown.map((merchant, index) => (
-                                    <div key={merchant.name} className="flex items-center gap-4">
-                                        <div className="flex items-center gap-2 w-32 min-w-0">
-                                            <Badge variant="outline" className="shrink-0">
-                                                #{index + 1}
-                                            </Badge>
-                                            <span className="text-sm font-medium truncate">{merchant.name}</span>
-                                        </div>
-                                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-primary rounded-full transition-all"
-                                                style={{ width: `${Math.min(merchant.percentage, 100)}%` }}
-                                            />
-                                        </div>
-                                        <span className="text-sm font-medium w-20 text-right">
-                                            {formatCurrency(merchant.gmv)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-muted-foreground">
-                                No merchant data available
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-page-title">Analytics</h1>
+          <p className="text-muted-foreground">
+            Deep dive into platform performance metrics.
+          </p>
         </div>
-    );
+        <div className="flex items-center gap-2">
+          <Select
+            value={period}
+            onValueChange={(v) => setPeriod(v as typeof period)}
+          >
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7d">Last 7 Days</SelectItem>
+              <SelectItem value="30d">Last 30 Days</SelectItem>
+              <SelectItem value="90d">Last 90 Days</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchAnalytics()}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {loading ? (
+          [...Array(4)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-8 w-32 mb-1" />
+                <Skeleton className="h-4 w-16" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total GMV
+                  </p>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">
+                  {formatCurrency(analytics?.summary.totalGmv || 0)}
+                </p>
+                <div className="flex items-center mt-1">
+                  {(analytics?.summary.gmvChange || 0) >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                  )}
+                  <span
+                    className={`text-sm ${(analytics?.summary.gmvChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
+                  >
+                    {formatPercentage(analytics?.summary.gmvChange || 0)}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1">
+                    vs last period
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Orders
+                  </p>
+                  <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">
+                  {formatNumber(analytics?.summary.totalOrders || 0)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  in the last{' '}
+                  {period === '7d' ? '7' : period === '30d' ? '30' : '90'} days
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Avg Order Value
+                  </p>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">
+                  {formatCurrency(analytics?.summary.avgOrderValue || 0)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  per transaction
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Active Merchants
+                  </p>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="text-2xl font-bold mt-2">
+                  {analytics?.merchantBreakdown?.length || 0}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  with sales this period
+                </p>
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
+
+      {/* Charts */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* GMV Over Time */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              GMV Over Time
+            </CardTitle>
+            <CardDescription>Daily gross merchandise value</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : (
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorGmv" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="5%"
+                          stopColor="#6366f1"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#6366f1"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="currentColor"
+                      className="text-muted/20"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="currentColor"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="currentColor"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => formatCurrency(v)}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                              <p className="text-xs font-medium text-muted-foreground mb-1">
+                                {label}
+                              </p>
+                              <p className="text-lg font-bold">
+                                {formatCurrency(payload[0].value as number)}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="gmv"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorGmv)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Orders Over Time */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Orders by Day</CardTitle>
+            <CardDescription>Daily order volume</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-[250px] w-full" />
+            ) : (
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="currentColor"
+                      className="text-muted/20"
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="currentColor"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      stroke="currentColor"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                              <p className="text-xs font-medium text-muted-foreground mb-1">
+                                {label}
+                              </p>
+                              <p className="text-lg font-bold">
+                                {payload[0].value} orders
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar
+                      dataKey="orders"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Merchant Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Merchant Performance</CardTitle>
+            <CardDescription>GMV contribution by merchant</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: skeleton
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : analytics?.merchantBreakdown &&
+              analytics.merchantBreakdown.length > 0 ? (
+              <div className="space-y-4">
+                {analytics.merchantBreakdown.map((merchant, index) => (
+                  <div key={merchant.name} className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 w-32 min-w-0">
+                      <Badge variant="outline" className="shrink-0">
+                        #{index + 1}
+                      </Badge>
+                      <span className="text-sm font-medium truncate">
+                        {merchant.name}
+                      </span>
+                    </div>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(merchant.percentage, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium w-20 text-right">
+                      {formatCurrency(merchant.gmv)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No merchant data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }

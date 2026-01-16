@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getAdminClient,
@@ -11,6 +11,7 @@ import {
   generatePaymentReceiptText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -217,6 +218,20 @@ export async function POST(
           error: emailErr,
         });
       }
+
+      // --------------------------------------------------------
+      // TRIGGER OFFLINE CONVERSION EVENT (Server-Side)
+      // --------------------------------------------------------
+      // Schedule background task using Next.js `after()` for proper lifecycle management
+      // This runs AFTER the response is sent, ensuring the user gets a fast response
+      after(async () => {
+        try {
+          await triggerPurchaseConversion(supabase, merchant.id, order);
+        } catch (_err) {
+          // Errors are already logged inside triggerPurchaseConversion
+          // This catch prevents unhandled rejections in the background task
+        }
+      });
     } else {
       console.log(`[RecordPayment] Order partially paid`);
       updates.payment_status = 'partially_paid';

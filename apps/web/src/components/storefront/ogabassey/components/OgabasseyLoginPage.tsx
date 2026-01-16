@@ -11,8 +11,11 @@ import { Label } from '@/components/ui/label';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import { GadgetPattern } from './GadgetPattern';
 import { Logo as OgabasseyLogo } from './Logo';
+
+// Ogabassey brand colors
+const OGABASSEY_RED = '#d62027';
+const OGABASSEY_RED_HOVER = '#b91c22';
 
 // Validate redirect URL to prevent open redirect vulnerabilities
 function sanitizeRedirect(redirect: string | null): string {
@@ -32,7 +35,7 @@ function sanitizeRedirect(redirect: string | null): string {
 
 /**
  * Ogabassey Premium Login Page
- * Features: Black background, GadgetPattern, glassmorphism card
+ * Features: Clean white background with red/white Ogabassey branding
  */
 export function OgabasseyLoginPage() {
     const router = useRouter();
@@ -155,10 +158,10 @@ export function OgabasseyLoginPage() {
         return (
             <div
                 className="min-h-screen flex flex-col items-center justify-center gap-4"
-                style={{ backgroundColor: '#000000' }}
+                style={{ backgroundColor: '#FFFFFF' }}
             >
-                <Loader2 className="h-8 w-8 animate-spin text-white/60" />
-                <p className="text-sm text-white/60">
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: OGABASSEY_RED }} />
+                <p className="text-sm text-gray-500">
                     {merchantLoading
                         ? 'Loading store data...'
                         : 'Checking authentication...'}
@@ -170,17 +173,20 @@ export function OgabasseyLoginPage() {
     return (
         <div
             className="min-h-screen flex flex-col relative overflow-hidden"
-            style={{ backgroundColor: '#000000' }}
+            style={{ backgroundColor: '#FFFFFF' }}
         >
-            {/* Background Pattern - Subtle gadget pattern */}
-            <GadgetPattern />
+            {/* Subtle red accent gradient at top */}
+            <div
+                className="absolute top-0 left-0 right-0 h-1"
+                style={{ backgroundColor: OGABASSEY_RED }}
+            />
 
             {/* Header */}
-            <header className="relative z-10 border-b border-white/10">
+            <header className="relative z-10 border-b border-gray-100 bg-white">
                 <div className="container mx-auto px-4 h-16 flex items-center">
                     <Link
                         href={asRoute('/')}
-                        className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+                        className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
                     >
                         <ArrowLeft className="h-4 w-4" />
                         <span>Back to store</span>
@@ -190,17 +196,17 @@ export function OgabasseyLoginPage() {
 
             {/* Main content */}
             <main className="flex-1 flex items-center justify-center p-4 relative z-10">
-                {/* Glassmorphism Card */}
-                <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+                {/* Clean Card with subtle shadow */}
+                <div className="w-full max-w-md bg-white border border-gray-100 rounded-2xl p-8 shadow-xl">
                     {/* Logo */}
                     <div className="text-center mb-8">
-                        <OgabasseyLogo className="h-10 mx-auto mb-6 text-white" />
-                        <h1 className="text-2xl font-bold text-white mb-2">
+                        <OgabasseyLogo className="h-10 mx-auto mb-6" style={{ color: OGABASSEY_RED }} />
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">
                             {otpState?.codeSent
                                 ? 'Enter verification code'
                                 : 'Sign in or Create account'}
                         </h1>
-                        <p className="text-white/60 text-sm">
+                        <p className="text-gray-500 text-sm">
                             {otpState?.codeSent
                                 ? `We sent a 6-digit code to ${otpState.email}`
                                 : 'Enter your email to sign in or sign up instantly'}
@@ -211,18 +217,19 @@ export function OgabasseyLoginPage() {
                         // Email input form
                         <form onSubmit={handleSendCode} className="space-y-5">
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-white/80">
+                                <Label htmlFor="email" className="text-gray-700">
                                     Email address
                                 </Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <Input
                                         id="email"
                                         type="email"
                                         placeholder="you@example.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="pl-11 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30 rounded-xl"
+                                        className="pl-11 h-12 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-gray-300 focus:ring-2 rounded-xl"
+                                        style={{ '--tw-ring-color': `${OGABASSEY_RED}40` } as React.CSSProperties}
                                         required
                                         autoFocus
                                         disabled={isSending || isGoogleLoading}
@@ -230,11 +237,16 @@ export function OgabasseyLoginPage() {
                                 </div>
                             </div>
 
-                            {error && <p className="text-sm text-red-400">{error}</p>}
+                            {error && <p className="text-sm" style={{ color: OGABASSEY_RED }}>{error}</p>}
 
                             <Button
                                 type="submit"
-                                className="w-full h-12 bg-white text-black hover:bg-white/90 rounded-xl font-semibold"
+                                className="w-full h-12 text-white rounded-xl font-semibold transition-colors"
+                                style={{
+                                    backgroundColor: OGABASSEY_RED,
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = OGABASSEY_RED_HOVER}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = OGABASSEY_RED}
                                 disabled={isSending || isGoogleLoading || !email}
                             >
                                 {isSending ? (
@@ -250,10 +262,10 @@ export function OgabasseyLoginPage() {
                             {/* Divider */}
                             <div className="relative my-6">
                                 <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t border-white/10" />
+                                    <span className="w-full border-t border-gray-200" />
                                 </div>
                                 <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="px-3 text-white/40 bg-[#0F0F0F]">
+                                    <span className="px-3 text-gray-400 bg-white">
                                         Or continue with
                                     </span>
                                 </div>
@@ -263,7 +275,7 @@ export function OgabasseyLoginPage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full h-12 bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl"
+                                className="w-full h-12 bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl"
                                 disabled={isSending || isGoogleLoading}
                                 onClick={async () => {
                                     setError('');
@@ -310,15 +322,15 @@ export function OgabasseyLoginPage() {
                                 )}
                             </Button>
 
-                            <p className="text-xs text-center text-white/40">
+                            <p className="text-xs text-center text-gray-400">
                                 By continuing, you agree to the store's terms of service and
                                 privacy policy.
                             </p>
 
-                            {/* Account Creation Notice - Keeping this as a helpful reinforcement */}
-                            <p className="text-center text-white/60 text-sm">
+                            {/* Account Creation Notice */}
+                            <p className="text-center text-gray-500 text-sm">
                                 New to Ogabassey?{' '}
-                                <span className="text-white font-medium">
+                                <span className="text-gray-900 font-medium">
                                     Just enter your email above to create an account
                                 </span>
                             </p>
@@ -327,7 +339,7 @@ export function OgabasseyLoginPage() {
                         // OTP verification form
                         <div className="space-y-6">
                             <div className="space-y-3">
-                                <Label className="text-white/80">Verification code</Label>
+                                <Label className="text-gray-700">Verification code</Label>
                                 <div
                                     className="flex gap-2 justify-center"
                                     onPaste={handlePaste}
@@ -347,7 +359,8 @@ export function OgabasseyLoginPage() {
                                                     handleCodeChange(index, e.target.value)
                                                 }
                                                 onKeyDown={(e) => handleKeyDown(index, e)}
-                                                className="w-12 h-14 text-center text-2xl font-mono bg-white/5 border-white/10 text-white focus:border-white/30 rounded-xl"
+                                                className="w-12 h-14 text-center text-2xl font-mono bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-300 rounded-xl"
+                                                style={{ '--tw-ring-color': `${OGABASSEY_RED}40` } as React.CSSProperties}
                                                 disabled={isVerifying}
                                                 autoFocus={index === 0}
                                                 aria-label={`Digit ${index + 1} of 6`}
@@ -358,27 +371,28 @@ export function OgabasseyLoginPage() {
                             </div>
 
                             {error && (
-                                <p className="text-sm text-red-400 text-center">
+                                <p className="text-sm text-center" style={{ color: OGABASSEY_RED }}>
                                     {error}
                                 </p>
                             )}
 
                             {isVerifying && (
-                                <div className="flex items-center justify-center gap-2 text-white/60">
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                <div className="flex items-center justify-center gap-2 text-gray-500">
+                                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: OGABASSEY_RED }} />
                                     <span>Verifying...</span>
                                 </div>
                             )}
 
                             <div className="text-center space-y-2">
-                                <p className="text-sm text-white/60">
+                                <p className="text-sm text-gray-500">
                                     Didn't receive the code?
                                 </p>
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="text-white hover:text-white hover:bg-white/10"
+                                    className="hover:bg-gray-100"
+                                    style={{ color: OGABASSEY_RED }}
                                     onClick={handleResendCode}
                                     disabled={isSending}
                                 >
@@ -389,7 +403,7 @@ export function OgabasseyLoginPage() {
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full h-12 bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white rounded-xl"
+                                className="w-full h-12 bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 rounded-xl"
                                 onClick={() => {
                                     setCode(['', '', '', '', '', '']);
                                     setError('');
@@ -403,8 +417,8 @@ export function OgabasseyLoginPage() {
             </main>
 
             {/* Footer */}
-            <footer className="relative z-10 border-t border-white/10 py-4">
-                <div className="container mx-auto px-4 text-center text-sm text-white/40">
+            <footer className="relative z-10 border-t border-gray-100 py-4 bg-white">
+                <div className="container mx-auto px-4 text-center text-sm text-gray-400">
                     Secure passwordless login powered by Baci
                 </div>
             </footer>

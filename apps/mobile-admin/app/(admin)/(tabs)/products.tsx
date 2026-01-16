@@ -391,12 +391,12 @@ export default function ProductsScreen() {
     label,
   }: {
     id:
-      | 'all'
-      | 'in_stock'
-      | 'low_stock'
-      | 'out_of_stock'
-      | 'categories'
-      | 'top_selling';
+    | 'all'
+    | 'in_stock'
+    | 'low_stock'
+    | 'out_of_stock'
+    | 'categories'
+    | 'top_selling';
     label: string;
   }) => {
     const isActive = activeTab === id;
@@ -1075,14 +1075,14 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: SPACING.xl,
+    bottom: 100, // Move above InventorySummaryBar (which is at bottom: 20 + ~60 height)
     right: SPACING.lg,
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
+    zIndex: 300, // Above summaryWrapper (zIndex: 200)
   },
   summaryWrapper: {
     position: 'absolute',

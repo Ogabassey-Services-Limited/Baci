@@ -1,10 +1,12 @@
 'use client';
 
 import {
+  Check,
   CheckCircle2,
   Clock,
   CreditCard,
   ExternalLink,
+  Globe,
   Mail,
   MapPin,
   Package,
@@ -12,24 +14,17 @@ import {
   Search,
   Truck,
   XCircle,
-  Globe,
-  Check,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   ThemedBadge,
   ThemedButton,
   ThemedCard,
   ThemedInput,
 } from '@/components/themed';
-import {
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
@@ -39,12 +34,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-  | 'order'
-  | 'payment'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+    | 'order'
+    | 'payment'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
 }
 
 interface OrderItem {
@@ -126,9 +121,46 @@ function OrderTrackContent() {
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
 
+  const handleFetchTracking = useCallback(
+    async (params: {
+      order_id?: string | null;
+      order_number?: string | null;
+      email?: string | null;
+    }) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const queryParams = new URLSearchParams();
+        if (params.order_id) queryParams.set('order_id', params.order_id);
+        if (params.order_number)
+          queryParams.set('order_number', params.order_number);
+        if (params.email) queryParams.set('email', params.email);
+
+        const response = await fetch(
+          `/api/storefront/orders/track-order?${queryParams}`
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to find order');
+        }
+
+        setOrderData(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        setOrderData(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   // Automatic tracking from URL params
   useEffect(() => {
-    const qOrderId = searchParams.get('order_id') || searchParams.get('orderId');
+    const qOrderId =
+      searchParams.get('order_id') || searchParams.get('orderId');
     const qOrderNumber =
       searchParams.get('order_number') || searchParams.get('orderNumber');
     const qEmail = searchParams.get('email');
@@ -142,37 +174,11 @@ function OrderTrackContent() {
         handleFetchTracking({ order_number: qOrderNumber, email: qEmail });
       }
     }
-  }, [searchParams]);
-
-  const handleFetchTracking = async (params: { order_id?: string | null, order_number?: string | null, email?: string | null }) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const queryParams = new URLSearchParams();
-      if (params.order_id) queryParams.set('order_id', params.order_id);
-      if (params.order_number) queryParams.set('order_number', params.order_number);
-      if (params.email) queryParams.set('email', params.email);
-
-      const response = await fetch(`/api/storefront/orders/track?${queryParams}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to find order');
-      }
-
-      setOrderData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      setOrderData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [searchParams, handleFetchTracking]);
 
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    handleFetchTracking({ order_number: orderNumber, email: email });
+    await handleFetchTracking({ order_number: orderNumber, email: email });
   };
 
   const formatDate = (dateString: string) => {
@@ -212,12 +218,6 @@ function OrderTrackContent() {
     }
   };
 
-  const getStepProgress = (status: string) => {
-    const stages = ['pending', 'processing', 'shipped', 'delivered'];
-    const currentIdx = stages.indexOf(status.toLowerCase());
-    return currentIdx;
-  };
-
   const HorizontalProgressBar = ({ status }: { status: string }) => {
     const stages = [
       { id: 'placed', label: 'Placed' },
@@ -231,9 +231,14 @@ function OrderTrackContent() {
 
     // Determine active index
     let activeIndex = 0;
-    if (normalizedStatus === 'delivered' || normalizedStatus === 'completed') activeIndex = 3;
+    if (normalizedStatus === 'delivered' || normalizedStatus === 'completed')
+      activeIndex = 3;
     else if (normalizedStatus === 'shipped') activeIndex = 2;
-    else if (normalizedStatus === 'processing' || normalizedStatus === 'current') activeIndex = 1;
+    else if (
+      normalizedStatus === 'processing' ||
+      normalizedStatus === 'current'
+    )
+      activeIndex = 1;
     else activeIndex = 0; // pending/placed
 
     return (
@@ -252,13 +257,16 @@ function OrderTrackContent() {
             const isCompleted = index <= activeIndex;
 
             return (
-              <div key={stage.id} className="relative z-10 flex flex-col items-center">
+              <div
+                key={stage.id}
+                className="relative z-10 flex flex-col items-center"
+              >
                 <div
                   className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4",
+                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
                     isCompleted
-                      ? "bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg"
-                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300"
+                      ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
                   )}
                 >
                   {isCompleted ? (
@@ -270,8 +278,10 @@ function OrderTrackContent() {
                 <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
                   <p
                     className={cn(
-                      "text-sm font-medium transition-colors duration-300",
-                      isCompleted ? "text-[var(--store-accent)] font-bold" : "text-muted-foreground"
+                      'text-sm font-medium transition-colors duration-300',
+                      isCompleted
+                        ? 'text-[var(--store-accent)] font-bold'
+                        : 'text-muted-foreground'
                     )}
                   >
                     {stage.label}
@@ -283,7 +293,10 @@ function OrderTrackContent() {
         </div>
         <div className="mt-16 text-center">
           <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
-            Latest update: {formatDate(orderData?.order?.updated_at || orderData?.order?.created_at || '')}
+            Latest update:{' '}
+            {formatDate(
+              orderData?.order?.updated_at || orderData?.order?.created_at || ''
+            )}
           </p>
         </div>
       </div>
@@ -373,21 +386,35 @@ function OrderTrackContent() {
                 </div>
                 <div>
                   <ThemedBadge
-                    variant={orderData.order.status === 'cancelled' ? 'destructive' : 'default'}
+                    variant={
+                      orderData.order.status === 'cancelled'
+                        ? 'destructive'
+                        : 'default'
+                    }
                     colorRole={
                       orderData.order.status === 'delivered'
                         ? 'primary'
                         : 'accent'
                     }
                     className="px-4 py-1.5 rounded-full text-base font-medium"
-                    style={orderData.order.status !== 'cancelled' ? {
-                      backgroundColor: 'var(--store-accent)',
-                      color: 'var(--store-accent-text)',
-                      opacity: 0.1,
-                      border: 'none'
-                    } : undefined}
+                    style={
+                      orderData.order.status !== 'cancelled'
+                        ? {
+                            backgroundColor: 'var(--store-accent)',
+                            color: 'var(--store-accent-text)',
+                            opacity: 0.1,
+                            border: 'none',
+                          }
+                        : undefined
+                    }
                   >
-                    <span style={orderData.order.status !== 'cancelled' ? { opacity: 1, color: 'var(--store-accent)' } : undefined}>
+                    <span
+                      style={
+                        orderData.order.status !== 'cancelled'
+                          ? { opacity: 1, color: 'var(--store-accent)' }
+                          : undefined
+                      }
+                    >
                       {orderData.order.status.charAt(0).toUpperCase() +
                         orderData.order.status.slice(1)}
                     </span>
@@ -442,7 +469,10 @@ function OrderTrackContent() {
                   const Icon = iconMap[event.icon];
                   const color = getStatusColor(event.status);
                   const isPending = event.status === 'pending';
-                  const isCurrent = event.status === 'current' || event.status === 'processing' || event.status === 'shipped';
+                  const isCurrent =
+                    event.status === 'current' ||
+                    event.status === 'processing' ||
+                    event.status === 'shipped';
 
                   // Use composite key: timestamp+title is stable and unique
                   const stableKey = event.timestamp
@@ -455,7 +485,9 @@ function OrderTrackContent() {
                           className={`w-10 h-10 rounded-full flex items-center justify-center ${isCurrent ? 'animate-pulse' : ''}`}
                           style={{
                             backgroundColor: color,
-                            color: isPending ? 'var(--muted-foreground)' : 'white'
+                            color: isPending
+                              ? 'var(--muted-foreground)'
+                              : 'white',
                           }}
                         >
                           <Icon className="w-5 h-5" />
@@ -464,7 +496,10 @@ function OrderTrackContent() {
                           <div
                             className="absolute top-10 w-0.5 h-full"
                             style={{
-                              backgroundColor: event.status === 'completed' ? 'var(--store-primary)' : 'var(--muted)'
+                              backgroundColor:
+                                event.status === 'completed'
+                                  ? 'var(--store-primary)'
+                                  : 'var(--muted)',
                             }}
                           />
                         )}
@@ -488,12 +523,21 @@ function OrderTrackContent() {
               {orderData.shipping_tracking && (
                 <div
                   className="mt-6 p-4 rounded-lg"
-                  style={{ backgroundColor: 'var(--store-primary)', opacity: 0.1 }}
+                  style={{
+                    backgroundColor: 'var(--store-primary)',
+                    opacity: 0.1,
+                  }}
                 >
-                  <p className="font-medium" style={{ color: 'var(--store-primary)' }}>
+                  <p
+                    className="font-medium"
+                    style={{ color: 'var(--store-primary)' }}
+                  >
                     Tracking Information
                   </p>
-                  <p className="text-sm mt-1" style={{ color: 'var(--store-primary)' }}>
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: 'var(--store-primary)' }}
+                  >
                     {orderData.shipping_tracking.provider}:{' '}
                     {orderData.shipping_tracking.tracking_number}
                   </p>

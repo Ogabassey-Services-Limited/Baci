@@ -1,0 +1,30 @@
+{
+    "configVersion": 0,
+    "apple": {
+        "info": {
+            "en-US": {
+                "title": "Baci - The Ecommerce Builder",
+                "subtitle": "Sell Online & Manage Orders",
+                "keywords": [
+                    "ecommerce",
+                    "store builder",
+                    "sell online",
+                    "inventory",
+                    "order management",
+                    "pos",
+                    "sales",
+                    "business"
+                ],
+                "description": "Baci is the ultimate mobile-first ecommerce builder for African entrepreneurs. Create your professional online store in minutes, manage products, track orders, and grow your business from anywhere.\n\nINSTANT STORE CREATION\n- Launch your online store in under 5 minutes\n- Beautiful, professional templates\n- Custom domain support (e.g., yourname.com)\n- Mobile-optimized storefronts\n\nPRODUCT & INVENTORY MANAGEMENT\n- Add unlimited products with photos\n- Track stock levels in real-time\n- Barcode scanning support\n- Variant management (sizes, colors)\n\nORDER TRACKING & FULFILLMENT\n- Real-time order notifications\n- Easy order status updates\n- Customer communication tools\n- Delivery tracking integration\n\nMARKETING & AD TRACKING\n- Sync offline conversions to Facebook (Meta), TikTok & Snapchat\n- Track ad performance with Pixel integration\n- Retarget customers effectively\n- Measure true ROI on your campaigns\n\nBUSINESS ANALYTICS\n- Daily sales reports\n- Revenue dashboards\n- Customer insights\n- Performance tracking\n\nSCALE YOUR TEAM\n- Multi-user staff accounts\n- Role-based permissions\n- Collaborative order management\n\nGROW YOUR BUSINESS\n- Accept online payments\n- Customer management (CRM)\n- Marketing tools\n- Multi-platform selling\n\nPerfect for:\n- Small business owners\n- Online sellers\n- Retail shops going digital\n- Side hustle entrepreneurs\n- Fashion & lifestyle brands\n\nStart selling online today with Baci!",
+                "marketingUrl": "https://baci.ng",
+                "supportUrl": "https://baci.ng/support",
+                "privacyPolicyUrl": "https://baci.ng/privacy",
+                "privacyChoicesUrl": "https://baci.ng/privacy"
+            }
+        },
+        "categories": [
+            "BUSINESS",
+            "SHOPPING"
+        ]
+    }
+}

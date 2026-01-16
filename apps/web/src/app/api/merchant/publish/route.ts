@@ -1,11 +1,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Store Publish API
@@ -18,12 +18,18 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get merchant with required fields for validation
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant } = await supabase
       .from('merchants')
       .select(`
         id,
@@ -50,7 +56,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Check for required setup items
@@ -149,12 +158,18 @@ export async function DELETE(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {
@@ -165,14 +180,17 @@ export async function DELETE(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant } = await supabase
       .from('merchants')
       .select('id')
       .eq('id', access.merchantId)
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Unpublish the store
