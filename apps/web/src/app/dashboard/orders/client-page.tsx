@@ -29,6 +29,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -197,6 +198,13 @@ export const SourceIcon = ({ source }: { source: string }) => {
       </svg>
     );
   }
+  if (source === 'jumia') {
+    return (
+      <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
+        J
+      </div>
+    );
+  }
   return <div className="h-6 w-6 rounded-full bg-gray-200" />;
 };
 
@@ -205,12 +213,14 @@ const OrderCard = ({
   isSelected,
   onSelect,
   onStatusUpdate,
+  onManageJumia,
   formatCurrency,
 }: {
   order: Order;
   isSelected: boolean;
   onSelect: (orderNumber: string, isSelected: boolean) => void;
   onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
+  onManageJumia?: (order: Order) => void;
   formatCurrency: (amount: number) => string;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -281,8 +291,8 @@ const OrderCard = ({
           <div
             className="flex-1 min-w-0"
             /* Removed generic onClick to prevent conflict with Name Link.
-         Only expanding on row click if not clicking interactive elements.
-         But simpler to let user click Chevron or non-interactive areas. */
+       Only expanding on row click if not clicking interactive elements.
+       But simpler to let user click Chevron or non-interactive areas. */
           >
             {/* Header: Customer & Date & Urgency */}
             <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">
@@ -301,6 +311,10 @@ const OrderCard = ({
               >
                 {order.orderNumber}
               </button>
+              {/* Source Icon next to ID */}
+              <div className="ml-1 scale-75 origin-left">
+                <SourceIcon source={order.source} />
+              </div>
               <span className="text-muted-foreground">•</span>
               <span className="text-muted-foreground text-xs">
                 {order.date}
@@ -401,7 +415,23 @@ const OrderCard = ({
             <div className="hidden md:block">
               <StatusBadge status={order.paymentStatus} type="payment" />
             </div>
-            <StatusDropdown order={order} onStatusUpdate={onStatusUpdate} />
+
+            {order.source === 'jumia' ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="hover:bg-orange-50 hover:text-orange-600 border-orange-200"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onManageJumia) onManageJumia(order);
+                }}
+              >
+                Manage Jumia Order
+              </Button>
+            ) : (
+              <StatusDropdown order={order} onStatusUpdate={onStatusUpdate} />
+            )}
+
             <Button
               variant="ghost"
               size="icon"
@@ -529,6 +559,11 @@ export default function OrdersClientPage({
   const [statsLoading, _setStatsLoading] = useState(false);
   const [ordersError, _setOrdersError] = useState<string | null>(null);
 
+  // State for Jumia Modal
+  const [selectedJumiaOrder, setSelectedJumiaOrder] = useState<Order | null>(
+    null
+  );
+
   // Track first render/hydration
   const isHydrated = useRef(false);
 
@@ -628,7 +663,6 @@ export default function OrdersClientPage({
         shipping_status: formatStatusForDB(newStatus),
       });
 
-      // Update local state on success
       setOrders((currentOrders) =>
         currentOrders.map((o) =>
           o.orderNumber === orderNumber
@@ -649,6 +683,10 @@ export default function OrdersClientPage({
         description: 'Failed to update order status. Please try again.',
       });
     }
+  };
+
+  const handleJumiaManage = (order: Order) => {
+    setSelectedJumiaOrder(order);
   };
 
   const formatCurrency = (amount: number) => {
@@ -1021,6 +1059,7 @@ export default function OrdersClientPage({
                     isSelected={selectedOrders.has(order.orderNumber)}
                     onSelect={handleSelectOrder}
                     onStatusUpdate={handleUpdateStatus}
+                    onManageJumia={handleJumiaManage}
                     formatCurrency={formatCurrency}
                   />
                 ))}
@@ -1029,6 +1068,15 @@ export default function OrdersClientPage({
           </div>
         </CardContent>
       </Card>
+
+      {selectedJumiaOrder && (
+        <OrderManagerModal
+          isOpen={!!selectedJumiaOrder}
+          onClose={() => setSelectedJumiaOrder(null)}
+          orderId={selectedJumiaOrder.id}
+          orderNumber={selectedJumiaOrder.orderNumber}
+        />
+      )}
     </div>
   );
 }

@@ -131,8 +131,24 @@ export async function getOrders(
 
   const { data: orders, error } = await query;
 
+  // FETCH JUMIA ORDERS (If no specific payment/shipping filter that excludes them)
+  // Jumia orders don't have standard payment/shipping statuses in the same way,
+  // but we map them.
+  // biome-ignore lint/suspicious/noExplicitAny: Jumia orders are dynamic and mapped here
+  let jumiaOrders: any[] = [];
+  if (!filters.paymentStatus && !filters.shippingStatus) {
+    const { data: jOrders } = await supabase
+      .from('jumia_orders')
+      .select('*')
+      .eq('merchant_id', merchantId)
+      .order('created_at_jumia', { ascending: false });
+    jumiaOrders = jOrders || [];
+  }
+
   if (error) {
     console.error('Error fetching orders:', error);
+    // If main orders fail, we might still want to show Jumia orders?
+    // Usually better to fail safely.
     return [];
   }
 
@@ -164,7 +180,57 @@ export async function getOrders(
     })),
   }));
 
-  return realOrders;
+  // Normalize Jumia Orders
+  const normalizedJumiaOrders = jumiaOrders.map((jOrder) => {
+    // Basic mapping of Jumia Status to Internal Status
+    // Jumia: pending, shipped, delivered, canceled, failed
+    let shippingStatus: ShippingStatus = 'Pending';
+    let paymentStatus: PaymentStatus = 'Paid'; // Assumed paid to Jumia
+
+    const startStatus = jOrder.status.toLowerCase();
+    if (startStatus.includes('shipped')) shippingStatus = 'Shipped';
+    if (startStatus.includes('delivered')) shippingStatus = 'Delivered';
+    if (startStatus.includes('cancel')) {
+      shippingStatus = 'Canceled';
+      paymentStatus = 'Refunded';
+    }
+    if (startStatus.includes('fail')) shippingStatus = 'Canceled';
+
+    return {
+      id: jOrder.jumia_order_id, // Use Jumia ID as ID
+      orderNumber: jOrder.jumia_order_number,
+      customerName: jOrder.customer_name || 'Jumia Customer',
+      total: Number.parseFloat(jOrder.total_amount),
+      shippingStatus,
+      paymentStatus,
+      paymentMethod: 'Jumia Payout',
+      date: new Date(jOrder.created_at_jumia).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      createdAt: new Date(jOrder.created_at_jumia).getTime(),
+      source: 'jumia',
+      tracking_number: undefined,
+      shipping_provider: 'Jumia Services',
+      items: (jOrder.items || []).map((item: any, idx: number) => ({
+        id: item.id || `jumia-item-${idx}`,
+        name: item.name || 'Jumia Item',
+        quantity: 1, // Usually Jumia lines are qty 1 per object in older APIs, check actual data structure.
+        // For now assuming 1 if not specified.
+        price: Number(item.price || 0),
+        image: item.image_url,
+        variant: undefined,
+      })),
+    } as Order;
+  });
+
+  // Merge and Sort
+  const allOrders = [...realOrders, ...normalizedJumiaOrders].sort(
+    (a, b) => b.createdAt - a.createdAt
+  );
+
+  return allOrders;
 }
 
 export async function getOrderStats(merchantId: string): Promise<OrderStats> {

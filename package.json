@@ -33,7 +33,10 @@
       "@modelcontextprotocol/sdk": ">=1.25.2",
       "react-native-worklets": "0.8.0-nightly-20260109-6efa4b2a4",
       "hono": "^4.11.4",
-      "zod": "4.4.0-canary.20251231T230035"
+      "zod": "4.4.0-canary.20251231T230035",
+      "h3": ">=1.15.5",
+      "tar": ">=7.5.3",
+      "diff": ">=8.0.3"
     },
     "patchedDependencies": {
       "react-native-worklets": "patches/react-native-worklets.patch"

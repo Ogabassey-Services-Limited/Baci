@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { type Metric, onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
 
 /**
  * Web Vitals Reporter Component
  *
  * Reports Core Web Vitals to Google Analytics 4 and console (in development).
  * These metrics are crucial for SEO and Google Search ranking.
+ *
+ * Uses dynamic imports for web-vitals to ensure proper bundling with Turbopack.
  *
  * Metrics tracked:
  * - CLS (Cumulative Layout Shift) - Visual stability
@@ -30,10 +31,6 @@ interface WebVitalsReporterProps {
    * If not provided, metrics are sent to GA4 via gtag
    */
   endpoint?: string;
-  /**
-   * Callback for custom metric handling
-   */
-  onMetric?: (metric: Metric) => void;
 }
 
 // Thresholds for metric quality (good/needs improvement/poor)
@@ -57,112 +54,95 @@ function getMetricRating(
   return 'needs-improvement';
 }
 
-function sendToGoogleAnalytics(metric: Metric) {
-  // Check if gtag is available
-  if (
-    typeof window === 'undefined' ||
-    !(window as unknown as { gtag?: unknown }).gtag
-  ) {
-    return;
-  }
-
-  const gtag = (window as unknown as { gtag: (...args: unknown[]) => void })
-    .gtag;
-
-  // Send to GA4 using the recommended event structure
-  gtag('event', metric.name, {
-    // Value must be an integer for event_value
-    value: Math.round(
-      metric.name === 'CLS' ? metric.value * 1000 : metric.value
-    ),
-    // Use the metric ID as the event label
-    event_label: metric.id,
-    // Use metric rating for segmentation
-    metric_rating: metric.rating,
-    // Navigation type (reload, navigate, back_forward, etc.)
-    navigation_type: metric.navigationType,
-    // Don't affect bounce rate
-    non_interaction: true,
-  });
-}
-
-function sendToEndpoint(metric: Metric, endpoint: string) {
-  // Use sendBeacon for reliable delivery even on page unload
-  const body = JSON.stringify({
-    name: metric.name,
-    value: metric.value,
-    rating: metric.rating,
-    id: metric.id,
-    navigationType: metric.navigationType,
-    timestamp: Date.now(),
-  });
-
-  if (navigator.sendBeacon) {
-    navigator.sendBeacon(endpoint, body);
-  } else {
-    // Fallback to fetch
-    fetch(endpoint, {
-      method: 'POST',
-      body,
-      headers: { 'Content-Type': 'application/json' },
-      keepalive: true,
-    }).catch(() => {
-      // Silently fail - metrics are non-critical
-    });
-  }
-}
-
-function logToConsole(metric: Metric) {
-  const rating = getMetricRating(metric.name, metric.value);
-  const color =
-    rating === 'good'
-      ? 'color: green'
-      : rating === 'poor'
-        ? 'color: red'
-        : 'color: orange';
-
-  console.log(
-    `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(metric.name === 'CLS' ? 3 : 0)}ms (${rating})`,
-    color
-  );
-}
-
 export function WebVitalsReporter({
   debug = process.env.NODE_ENV === 'development',
   endpoint,
-  onMetric,
 }: WebVitalsReporterProps = {}) {
   useEffect(() => {
-    const handleMetric = (metric: Metric) => {
-      // Debug logging
-      if (debug) {
-        logToConsole(metric);
-      }
+    // Dynamic import to avoid Turbopack bundling issues
+    import('web-vitals')
+      .then(({ onCLS, onFCP, onINP, onLCP, onTTFB }) => {
+        const handleMetric = (metric: {
+          name: string;
+          value: number;
+          id: string;
+          rating: string;
+          navigationType: string;
+        }) => {
+          // Debug logging
+          if (debug) {
+            const rating = getMetricRating(metric.name, metric.value);
+            const color =
+              rating === 'good'
+                ? 'color: green'
+                : rating === 'poor'
+                  ? 'color: red'
+                  : 'color: orange';
 
-      // Send to GA4
-      sendToGoogleAnalytics(metric);
+            console.log(
+              `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(metric.name === 'CLS' ? 3 : 0)}ms (${rating})`,
+              color
+            );
+          }
 
-      // Send to custom endpoint if provided
-      if (endpoint) {
-        sendToEndpoint(metric, endpoint);
-      }
+          // Send to GA4 if available
+          if (
+            typeof window !== 'undefined' &&
+            (window as unknown as { gtag?: unknown }).gtag
+          ) {
+            const gtag = (
+              window as unknown as { gtag: (...args: unknown[]) => void }
+            ).gtag;
+            gtag('event', metric.name, {
+              value: Math.round(
+                metric.name === 'CLS' ? metric.value * 1000 : metric.value
+              ),
+              event_label: metric.id,
+              metric_rating: metric.rating,
+              navigation_type: metric.navigationType,
+              non_interaction: true,
+            });
+          }
 
-      // Call custom handler if provided
-      if (onMetric) {
-        onMetric(metric);
-      }
-    };
+          // Send to custom endpoint if provided
+          if (endpoint) {
+            const body = JSON.stringify({
+              name: metric.name,
+              value: metric.value,
+              rating: metric.rating,
+              id: metric.id,
+              navigationType: metric.navigationType,
+              timestamp: Date.now(),
+            });
 
-    // Register all web vitals observers
-    // These return cleanup functions but we keep them active for the page lifetime
-    onCLS(handleMetric);
-    onINP(handleMetric);
-    onLCP(handleMetric);
-    onFCP(handleMetric);
-    onTTFB(handleMetric);
+            if (navigator.sendBeacon) {
+              navigator.sendBeacon(endpoint, body);
+            } else {
+              fetch(endpoint, {
+                method: 'POST',
+                body,
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+              }).catch(() => {
+                // Ignore errors during beacon send
+              });
+            }
+          }
+        };
 
-    // No cleanup needed - metrics should be reported even after component unmount
-  }, [debug, endpoint, onMetric]);
+        // Register all web vitals observers
+        onCLS(handleMetric);
+        onINP(handleMetric);
+        onLCP(handleMetric);
+        onFCP(handleMetric);
+        onTTFB(handleMetric);
+      })
+      .catch((err) => {
+        if (debug) {
+          console.warn('[Web Vitals] Failed to load:', err);
+        }
+      });
+  }, [debug, endpoint]);
 
   // This component doesn't render anything
   return null;
