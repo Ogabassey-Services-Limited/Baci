@@ -4,25 +4,24 @@
  * Includes real-time loyalty points sync
  */
 
-import React, { useEffect, useState, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Image,
   Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-import Colors, { BRAND } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useAuthStore } from '@/stores/auth-store';
+import Colors, { BRAND } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface MenuItem {
   id: string;
@@ -38,7 +37,7 @@ export default function AccountScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const customer = useAuthStore((state) => state.customer);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const _isLoading = useAuthStore((state) => state.isLoading);
   const signOut = useAuthStore((state) => state.signOut);
 
   // Real-time loyalty points (syncs when wallet screen updates)

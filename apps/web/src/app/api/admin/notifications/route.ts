@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { sendPushNotifications, type ExpoPushMessage } from '@/lib/expo-push';
+import { createClient } from '@/lib/supabase/server';
 import type {
   AdminNotificationFilters,
   CreateNotificationInput,
@@ -554,7 +554,10 @@ async function sendPushNotificationsToMerchants(
       },
       sound: 'default',
       channelId: 'admin', // Android notification channel
-      priority: notification.priority === 'urgent' || notification.priority === 'high' ? 'high' : 'default',
+      priority:
+        notification.priority === 'urgent' || notification.priority === 'high'
+          ? 'high'
+          : 'default',
     }));
 
     // Send push notifications (batched automatically by expo-push)
@@ -563,12 +566,16 @@ async function sendPushNotificationsToMerchants(
     // Log results
     const successCount = tickets.filter((t) => t.status === 'ok').length;
     const failCount = tickets.filter((t) => t.status === 'error').length;
-    console.log(`[Push] Sent ${successCount} push notifications (${failCount} failed)`);
+    console.log(
+      `[Push] Sent ${successCount} push notifications (${failCount} failed)`
+    );
 
     // Deactivate tokens that are no longer registered
     const tokensToDeactivate = tickets
       .map((ticket, index) =>
-        ticket.details?.error === 'DeviceNotRegistered' ? tokens[index].token : null
+        ticket.details?.error === 'DeviceNotRegistered'
+          ? tokens[index].token
+          : null
       )
       .filter((token): token is string => token !== null);
 
@@ -577,7 +584,9 @@ async function sendPushNotificationsToMerchants(
         .from('push_tokens')
         .update({ is_active: false })
         .in('token', tokensToDeactivate);
-      console.log(`[Push] Deactivated ${tokensToDeactivate.length} invalid tokens`);
+      console.log(
+        `[Push] Deactivated ${tokensToDeactivate.length} invalid tokens`
+      );
     }
   } catch (error) {
     console.error('[Push] Error sending push notifications:', error);

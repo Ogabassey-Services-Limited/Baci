@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
   ActivityIndicator,
   Alert,
+  Pressable,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
 
 interface UserProfile {
   id: string;
@@ -42,7 +42,7 @@ export default function ProfileScreen() {
       const { data, error } = await supabase
         .from('staff_members')
         .select('id, email, name, role, phone')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -82,7 +82,7 @@ export default function ProfileScreen() {
     },
   });
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -156,7 +156,7 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: colors.primary + '20' },
+                { backgroundColor: `${colors.primary}20` },
               ]}
             >
               <Text style={[styles.avatarText, { color: colors.primary }]}>

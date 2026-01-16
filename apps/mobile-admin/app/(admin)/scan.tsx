@@ -3,15 +3,15 @@
  * Quick inventory lookup and updates
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, Camera } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { Href, router } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useMerchant } from '@/hooks/useMerchant';
+import { Camera, CameraView } from 'expo-camera';
+import { type Href, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { supabase } from '@/lib/supabase';
 
 export default function ScanScreen() {
   const colorScheme = useColorScheme();

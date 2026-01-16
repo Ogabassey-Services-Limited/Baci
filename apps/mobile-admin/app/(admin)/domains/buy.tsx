@@ -2,25 +2,26 @@
  * Domain Search & Buy Screen
  * Real-time availability checks and native purchase flow
  */
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-// import { useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 // import { useMerchant } from '@/hooks/useMerchant';
 import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+// import { useRouter } from 'expo-router';
+import { useTheme } from '@/hooks/useTheme';
 // import {
 //   DOMAIN_PRICING,
 //   calculateDomainPrice,

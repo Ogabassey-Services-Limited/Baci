@@ -6,9 +6,9 @@
 import { useColorScheme } from 'react-native';
 import {
   DARK_COLORS,
-  LIGHT_COLORS,
-  getShadows,
   getChartColors,
+  getShadows,
+  LIGHT_COLORS,
   type ThemeColors,
 } from '@/constants/theme';
 

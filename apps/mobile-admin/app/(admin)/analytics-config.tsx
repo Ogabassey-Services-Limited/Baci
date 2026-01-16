@@ -4,26 +4,27 @@
  * 2026 Best Practice: Complete server-side tracking setup
  */
 
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
   ActivityIndicator,
   Alert,
   Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface AnalyticsState {
   // Google Analytics 4
@@ -88,7 +89,7 @@ export default function AnalyticsConfigScreen() {
           snapchat_capi_token,
           offline_conversions_enabled
         `)
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
       if (error) throw error;
       return data;
@@ -108,7 +109,8 @@ export default function AnalyticsConfigScreen() {
         tiktok_access_token: merchant.tiktok_access_token || '',
         snapchat_pixel_id: merchant.snapchat_pixel_id || '',
         snapchat_capi_token: merchant.snapchat_capi_token || '',
-        offline_conversions_enabled: merchant.offline_conversions_enabled !== false,
+        offline_conversions_enabled:
+          merchant.offline_conversions_enabled !== false,
       });
     }
   }, [merchant]);
@@ -129,7 +131,7 @@ export default function AnalyticsConfigScreen() {
           snapchat_capi_token: analytics.snapchat_capi_token || null,
           offline_conversions_enabled: analytics.offline_conversions_enabled,
         })
-        .eq('user_id', user!.id);
+        .eq('user_id', user?.id);
 
       if (error) throw error;
       return true;
@@ -151,7 +153,10 @@ export default function AnalyticsConfigScreen() {
     saveMutation.mutate();
   };
 
-  const updateField = (field: keyof AnalyticsState, value: string | boolean) => {
+  const updateField = (
+    field: keyof AnalyticsState,
+    value: string | boolean
+  ) => {
     setAnalytics((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -240,7 +245,9 @@ export default function AnalyticsConfigScreen() {
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <Pressable style={styles.cardHeader} onPress={onToggle}>
         <View style={styles.cardTitleRow}>
-          <View style={[styles.iconBadge, { backgroundColor: iconColor + '15' }]}>
+          <View
+            style={[styles.iconBadge, { backgroundColor: `${iconColor}15` }]}
+          >
             <Ionicons name={icon} size={22} color={iconColor} />
           </View>
           <View style={styles.titleContainer}>
@@ -251,10 +258,16 @@ export default function AnalyticsConfigScreen() {
               <View
                 style={[
                   styles.statusDot,
-                  { backgroundColor: isConfigured ? '#22c55e' : colors.textMuted },
+                  {
+                    backgroundColor: isConfigured
+                      ? '#22c55e'
+                      : colors.textMuted,
+                  },
                 ]}
               />
-              <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.statusText, { color: colors.textSecondary }]}
+              >
                 {isConfigured ? 'Configured' : 'Not configured'}
               </Text>
             </View>
@@ -273,7 +286,11 @@ export default function AnalyticsConfigScreen() {
             style={styles.helpLink}
             onPress={() => openHelpLink(helpKey)}
           >
-            <Ionicons name="help-circle-outline" size={16} color={colors.primary} />
+            <Ionicons
+              name="help-circle-outline"
+              size={16}
+              color={colors.primary}
+            />
             <Text style={[styles.helpText, { color: colors.primary }]}>
               How to get your {title} credentials
             </Text>
@@ -285,10 +302,18 @@ export default function AnalyticsConfigScreen() {
   );
 
   // Check if platforms are configured
-  const isFacebookConfigured = !!(analytics.facebook_pixel_id && analytics.facebook_capi_token);
-  const isTikTokConfigured = !!(analytics.tiktok_pixel_id && analytics.tiktok_access_token);
-  const isGoogleConfigured = !!(analytics.google_analytics_id && analytics.ga4_api_secret);
-  const isSnapchatConfigured = !!(analytics.snapchat_pixel_id && analytics.snapchat_capi_token);
+  const isFacebookConfigured = !!(
+    analytics.facebook_pixel_id && analytics.facebook_capi_token
+  );
+  const isTikTokConfigured = !!(
+    analytics.tiktok_pixel_id && analytics.tiktok_access_token
+  );
+  const isGoogleConfigured = !!(
+    analytics.google_analytics_id && analytics.ga4_api_secret
+  );
+  const isSnapchatConfigured = !!(
+    analytics.snapchat_pixel_id && analytics.snapchat_capi_token
+  );
 
   return (
     <>
@@ -325,15 +350,21 @@ export default function AnalyticsConfigScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Info Banner */}
-          <View style={[styles.infoBanner, { backgroundColor: colors.primary + '10' }]}>
+          <View
+            style={[
+              styles.infoBanner,
+              { backgroundColor: `${colors.primary}10` },
+            ]}
+          >
             <Ionicons name="rocket-outline" size={24} color={colors.primary} />
             <View style={styles.infoContent}>
               <Text style={[styles.infoTitle, { color: colors.text }]}>
                 Server-Side Tracking
               </Text>
               <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                Configure CAPI tokens to track conversions even when customers use ad blockers.
-                Your orders will be automatically reported to ad platforms.
+                Configure CAPI tokens to track conversions even when customers
+                use ad blockers. Your orders will be automatically reported to
+                ad platforms.
               </Text>
             </View>
           </View>
@@ -364,7 +395,8 @@ export default function AnalyticsConfigScreen() {
               secureTextEntry
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from Events Manager → Settings → Generate Access Token
+              Get your token from Events Manager → Settings → Generate Access
+              Token
             </Text>
           </PlatformCard>
 
@@ -394,7 +426,8 @@ export default function AnalyticsConfigScreen() {
               secureTextEntry
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from TikTok Ads Manager → Assets → Events → Web Events → Settings
+              Get your token from TikTok Ads Manager → Assets → Events → Web
+              Events → Settings
             </Text>
           </PlatformCard>
 
@@ -424,8 +457,8 @@ export default function AnalyticsConfigScreen() {
               secureTextEntry
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Data sent here syncs to Google Ads if accounts are linked.
-              Get API secret from GA4 → Admin → Data Streams.
+              Data sent here syncs to Google Ads if accounts are linked. Get API
+              secret from GA4 → Admin → Data Streams.
             </Text>
           </PlatformCard>
 
@@ -455,19 +488,32 @@ export default function AnalyticsConfigScreen() {
               secureTextEntry
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              Get your token from Snapchat Ads Manager → Events Manager → Conversions API
+              Get your token from Snapchat Ads Manager → Events Manager →
+              Conversions API
             </Text>
           </PlatformCard>
 
           {/* Toggle for offline conversions */}
-          <View style={[styles.toggleCard, { backgroundColor: colors.card }, shadows.sm]}>
+          <View
+            style={[
+              styles.toggleCard,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
+          >
             <View style={styles.toggleContent}>
               <View style={styles.toggleInfo}>
                 <Text style={[styles.toggleTitle, { color: colors.text }]}>
                   Auto-Upload Conversions
                 </Text>
-                <Text style={[styles.toggleSubtitle, { color: colors.textSecondary }]}>
-                  Automatically send orders to ad platforms when payments are confirmed
+                <Text
+                  style={[
+                    styles.toggleSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Automatically send orders to ad platforms when payments are
+                  confirmed
                 </Text>
               </View>
               <Pressable
@@ -480,7 +526,10 @@ export default function AnalyticsConfigScreen() {
                   },
                 ]}
                 onPress={() =>
-                  updateField('offline_conversions_enabled', !analytics.offline_conversions_enabled)
+                  updateField(
+                    'offline_conversions_enabled',
+                    !analytics.offline_conversions_enabled
+                  )
                 }
               >
                 <View
@@ -489,7 +538,11 @@ export default function AnalyticsConfigScreen() {
                     {
                       backgroundColor: '#fff',
                       transform: [
-                        { translateX: analytics.offline_conversions_enabled ? 20 : 2 },
+                        {
+                          translateX: analytics.offline_conversions_enabled
+                            ? 20
+                            : 2,
+                        },
                       ],
                     },
                   ]}

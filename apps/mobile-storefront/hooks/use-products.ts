@@ -3,9 +3,9 @@
  * Fetches products from Supabase for the mobile storefront
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import type { Product } from '@/types/product';
 
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
@@ -142,7 +142,6 @@ export function useProducts(
           case 'popular':
             query = query.order('view_count', { ascending: false });
             break;
-          case 'newest':
           default:
             query = query.order('created_at', { ascending: false });
         }
@@ -210,7 +209,7 @@ export function useProducts(
 
   useEffect(() => {
     fetchProducts();
-  }, [category, sortBy, search, condition, minPrice, maxPrice]);
+  }, [fetchProducts]);
 
   const refetch = useCallback(async () => {
     await fetchProducts(false);

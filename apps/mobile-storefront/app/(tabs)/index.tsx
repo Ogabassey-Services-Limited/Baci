@@ -1,15 +1,14 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, RefreshControl, StatusBar } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
-
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { Header } from '@/components/storefront/Header';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
-import { usePageConfig } from '@/hooks/use-products-query';
-import { ProductGridSkeleton, HeroSkeleton } from '@/components/ui/Skeleton';
+import { Header } from '@/components/storefront/Header';
+import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
+import { usePageConfig } from '@/hooks/use-products-query';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();

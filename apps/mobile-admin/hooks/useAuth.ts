@@ -4,8 +4,8 @@
  * Minimal wrapper, no heavy context needed
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { Session, User, AuthError } from '@supabase/supabase-js';
+import type { AuthError, Session, User } from '@supabase/supabase-js';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface AuthState {

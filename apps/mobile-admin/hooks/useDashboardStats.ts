@@ -43,19 +43,22 @@ function getDateRange(period: TimePeriod): {
   const end = now.toISOString();
 
   switch (period) {
-    case 'today':
+    case 'today': {
       const startOfDay = new Date(
         now.getFullYear(),
         now.getMonth(),
         now.getDate()
       );
       return { start: startOfDay.toISOString(), end };
-    case 'week':
+    }
+    case 'week': {
       const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       return { start: startOfWeek.toISOString(), end };
-    case 'month':
+    }
+    case 'month': {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       return { start: startOfMonth.toISOString(), end };
+    }
     case 'all':
       return { start: null, end };
   }

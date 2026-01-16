@@ -5,8 +5,8 @@
  * @see https://posthog.com/docs/libraries/react-native
  */
 
-import PostHog from 'posthog-react-native';
 import Constants from 'expo-constants';
+import PostHog from 'posthog-react-native';
 
 // PostHog configuration
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';

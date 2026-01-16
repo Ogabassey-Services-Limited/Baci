@@ -3,12 +3,11 @@
  * Circular progress indicator for setup completion tracking
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface ProgressCardProps {
   title: string;

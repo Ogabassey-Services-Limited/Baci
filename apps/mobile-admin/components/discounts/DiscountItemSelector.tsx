@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
-  FlatList,
-  TextInput,
-  ActivityIndicator,
   SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useMerchant } from '@/hooks/useMerchant';
 
 interface Item {
   id: string;
@@ -56,14 +56,14 @@ export function DiscountItemSelector({
         query = supabase
           .from('products')
           .select('id, name, description, images')
-          .eq('merchant_id', merchant!.id)
+          .eq('merchant_id', merchant?.id)
           .ilike('name', `%${search}%`)
           .limit(50);
       } else {
         query = supabase
           .from('categories')
           .select('id, name, description')
-          .eq('merchant_id', merchant!.id)
+          .eq('merchant_id', merchant?.id)
           .ilike('name', `%${search}%`)
           .limit(50);
       }

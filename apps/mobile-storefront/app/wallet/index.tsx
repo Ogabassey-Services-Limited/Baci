@@ -6,29 +6,28 @@
  * - Real-time sync via custom hook
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-  RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, router } from 'expo-router';
+import { router, Stack } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
-
-import Colors, { BRAND } from '@/constants/Colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useAuthStore } from '@/stores/auth-store';
-import { useWallet, useRedeemPoints } from '@/hooks/use-wallet';
+import Colors, { BRAND } from '@/constants/Colors';
+import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
+import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
-import { trackEvent, trackError } from '@/services/analytics';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function WalletScreen() {
   const colorScheme = useColorScheme();
@@ -44,9 +43,9 @@ export default function WalletScreen() {
   const [showRedeemModal, setShowRedeemModal] = useState(false);
 
   const handleRedeemPoints = async () => {
-    const points = parseInt(redeemPoints, 10);
+    const points = Number.parseInt(redeemPoints, 10);
 
-    if (isNaN(points) || points <= 0) {
+    if (Number.isNaN(points) || points <= 0) {
       Alert.alert('Invalid Input', 'Please enter a valid number of points');
       return;
     }

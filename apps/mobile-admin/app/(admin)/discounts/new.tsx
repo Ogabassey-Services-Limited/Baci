@@ -1,26 +1,26 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { zodResolver } from '@hookform/resolvers/zod';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  ScrollView,
   // Switch,
   ActivityIndicator,
   Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useTheme } from '@/hooks/useTheme';
-import { useDiscounts } from '@/hooks/useDiscounts';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { Ionicons } from '@expo/vector-icons';
-import { CreateDiscountDTO } from '@/lib/types/discounts';
 import { DiscountItemSelector } from '@/components/discounts/DiscountItemSelector';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useDiscounts } from '@/hooks/useDiscounts';
+import { useTheme } from '@/hooks/useTheme';
+import type { CreateDiscountDTO } from '@/lib/types/discounts';
 
 const discountSchema = z
   .object({
@@ -384,7 +384,7 @@ export default function NewDiscountScreen() {
                 value={startsAt || new Date()}
                 mode="date"
                 display="default"
-                onChange={(event, date) => {
+                onChange={(_event, date) => {
                   setShowStartDate(false);
                   if (date) setValue('starts_at', date);
                 }}
@@ -395,7 +395,7 @@ export default function NewDiscountScreen() {
                 value={expiresAt || new Date()}
                 mode="date"
                 display="default"
-                onChange={(event, date) => {
+                onChange={(_event, date) => {
                   setShowEndDate(false);
                   if (date) setValue('expires_at', date);
                 }}

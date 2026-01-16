@@ -3,27 +3,27 @@
  * Manage bank account details for settlements
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
   ActivityIndicator,
-  Modal,
+  Alert,
   FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface Bank {
   id: number;
@@ -79,7 +79,7 @@ export default function PayoutSettingsScreen() {
       const { data, error } = await supabase
         .from('merchants')
         .select('id, business_name, bank_name, bank_account_number, bank_code')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
       if (error) throw error;
       return data as MerchantBankSettings & { id: string };
@@ -148,18 +148,12 @@ export default function PayoutSettingsScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [accountnumber, selectedBank]);
+  }, [accountnumber, selectedBank, API_URL]);
 
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce
     return () => clearTimeout(timeout);
-  }, [
-    accountnumber,
-    selectedBank,
-    merchant?.business_name,
-    session?.access_token,
-    verifyAccount,
-  ]);
+  }, [verifyAccount]);
 
   // Initialize state
   useEffect(() => {
@@ -177,7 +171,7 @@ export default function PayoutSettingsScreen() {
         }
       }
     }
-  }, [merchant, verifyAccount, banks]);
+  }, [merchant, banks]);
 
   // Save Mutation
   const saveMutation = useMutation({
@@ -248,7 +242,7 @@ export default function PayoutSettingsScreen() {
       return;
     }
     if (verifyError) {
-      Alert.alert('Error', 'Cannot save: ' + verifyError);
+      Alert.alert('Error', `Cannot save: ${verifyError}`);
       return;
     }
     if (!verifiedName && !isVerifying) {

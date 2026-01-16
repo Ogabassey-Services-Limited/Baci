@@ -8,11 +8,11 @@
  * - Syncs with Zustand cart store
  */
 
-import { useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCartStore, type CartItem } from '@/stores/cart-store';
-import { supabase } from '@/lib/supabase';
+import { useCallback, useRef } from 'react';
 import { Alert, Platform, ToastAndroid } from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { type CartItem, useCartStore } from '@/stores/cart-store';
 
 // Types for cart operations
 type AddToCartInput = Omit<CartItem, 'id'>;

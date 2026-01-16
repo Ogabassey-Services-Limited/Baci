@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
   ActivityIndicator,
   Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { DARK_COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function ForgotPasswordScreen() {
 
       Alert.alert(
         'Check your email',
-        'We have sent a password reset link to ' + email,
+        `We have sent a password reset link to ${email}`,
         [{ text: 'Back to Login', onPress: () => router.back() }]
       );
     } catch (error: unknown) {

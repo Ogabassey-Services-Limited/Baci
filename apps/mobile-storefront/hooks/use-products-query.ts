@@ -4,14 +4,14 @@
  */
 
 import {
-  useQuery,
   useInfiniteQuery,
+  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { CONFIG } from '@/lib/config';
-import type { Product } from '@/types/product';
+import { supabase } from '@/lib/supabase';
 import type { PageConfig } from '@/types/blocks';
+import type { Product } from '@/types/product';
 
 const MERCHANT_ID = CONFIG.MERCHANT_ID;
 

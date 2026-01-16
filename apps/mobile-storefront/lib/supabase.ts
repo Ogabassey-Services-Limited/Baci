@@ -4,9 +4,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 
 // Get Supabase credentials from app.json extra config
 const supabaseUrl =

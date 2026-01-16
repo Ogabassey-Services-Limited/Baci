@@ -494,7 +494,11 @@ export class JumiaClient {
   }
 
   async getFeedStatus(feedId: string): Promise<JumiaFeed> {
-    return await this.request<JumiaFeed>('GET', `/feeds/${feedId}`, JumiaFeedSchema);
+    return await this.request<JumiaFeed>(
+      'GET',
+      `/feeds/${feedId}`,
+      JumiaFeedSchema
+    );
   }
 }
 

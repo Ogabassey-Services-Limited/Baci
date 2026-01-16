@@ -21,7 +21,7 @@ import {
 
 export type SelectorItem = {
   name: string;
-  icon: React.FC<any>;
+  icon: React.ComponentType<{ className?: string }>;
   command: (editor: ReturnType<typeof useEditor>['editor']) => void;
   isActive: (editor: ReturnType<typeof useEditor>['editor']) => boolean;
 };
@@ -63,22 +63,43 @@ const items: SelectorItem[] = [
     name: 'To-do List',
     icon: CheckSquare,
     command: (editor) =>
-      (editor as any)?.chain().focus().toggleTaskList().run(),
-    isActive: (editor) => (editor as any)?.isActive('taskItem') ?? false,
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)
+        ?.chain()
+        .focus()
+        .toggleTaskList()
+        .run(),
+    isActive: (editor) =>
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)?.isActive('taskItem') ?? false,
   },
   {
     name: 'Bullet List',
     icon: ListOrdered,
     command: (editor) =>
-      (editor as any)?.chain().focus().toggleBulletList().run(),
-    isActive: (editor) => (editor as any)?.isActive('bulletList') ?? false,
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)
+        ?.chain()
+        .focus()
+        .toggleBulletList()
+        .run(),
+    isActive: (editor) =>
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)?.isActive('bulletList') ?? false,
   },
   {
     name: 'Numbered List',
     icon: ListOrdered,
     command: (editor) =>
-      (editor as any)?.chain().focus().toggleOrderedList().run(),
-    isActive: (editor) => (editor as any)?.isActive('orderedList') ?? false,
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)
+        ?.chain()
+        .focus()
+        .toggleOrderedList()
+        .run(),
+    isActive: (editor) =>
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+      (editor as any)?.isActive('orderedList') ?? false,
   },
   {
     name: 'Quote',
@@ -125,9 +146,9 @@ export const NodeSelector = ({ open, onOpenChange }: NodeSelectorProps) => {
         </Button>
       </PopoverTrigger>
       <PopoverContent sideOffset={5} align="start" className="w-48 p-1">
-        {items.map((item, index) => (
+        {items.map((item) => (
           <EditorBubbleItem
-            key={index}
+            key={item.name}
             onSelect={(editor) => {
               item.command(editor);
               onOpenChange(false);

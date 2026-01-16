@@ -3,30 +3,23 @@
  * Supports 'card', 'circle', and 'pill' styles with Reanimated motion
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
   Pressable,
   ScrollView,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import Animated, {
-  useSharedValue,
   useAnimatedStyle,
+  useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { BRAND, RADIUS, SPACING, SPRING_CONFIG } from '@/constants/Colors';
 import { useCategories } from '@/hooks/use-products-query';
 import { getCategoryIcon } from '@/lib/icon-bridge';
-import {
-  BRAND,
-  SPACING,
-  RADIUS,
-  TYPOGRAPHY,
-  SPRING_CONFIG,
-} from '@/constants/Colors';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';

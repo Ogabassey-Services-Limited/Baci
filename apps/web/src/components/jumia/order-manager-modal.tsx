@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, Loader2, Package, Printer, Truck } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -117,6 +118,7 @@ export function OrderManagerModal({
         toast({ title: 'Success', description: data.message });
         fetchItems(); // Refresh status
       }
+      // biome-ignore lint/suspicious/noExplicitAny: error handling
     } catch (err: any) {
       toast({
         title: 'Action Failed',
@@ -132,10 +134,22 @@ export function OrderManagerModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Manage Jumia Order #{orderNumber}</DialogTitle>
-          <DialogDescription>
-            Fulfill items, print labels, and manage shipping status.
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 relative flex-shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
+              <Image
+                src="/images/jumia-logo.png"
+                alt="Jumia Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+            <div>
+              <DialogTitle>Manage Jumia Order #{orderNumber}</DialogTitle>
+              <DialogDescription>
+                Fulfill items, print labels, and manage shipping status.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {loading ? (
@@ -159,8 +173,7 @@ export function OrderManagerModal({
                 >
                   <div className="h-12 w-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
                     {item.product.imageUrl && (
-                      // biome-ignore lint/a11y/useAltText: Image is from Jumia API
-                      // biome-ignore lint/suspicious/noImgElement: External Jumia image
+                      // biome-ignore lint/performance/noImgElement: External Jumia image
                       <img
                         src={item.product.imageUrl}
                         alt=""

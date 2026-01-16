@@ -2,11 +2,12 @@
  * Domain Stack Layout
  * Handles navigation for domain management
  */
-import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { Pressable } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { Pressable } from 'react-native';
 import { SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function DomainLayout() {
   const { colors } = useTheme();

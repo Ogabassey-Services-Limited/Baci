@@ -111,6 +111,8 @@ jobs:
             --exclude 'ep2\.adtrafficquality\.google'
             --exclude 'cdn\.ampproject\.org'
             --exclude 'tr\.snapchat\.com/v2/conversion'
+            --exclude 'vendor-api(-staging)?\.jumia\.com'
+            --exclude 'vendorcenter\.jumia\.com\.ng'
           # Fail action if broken links are found
           fail: true
         env:

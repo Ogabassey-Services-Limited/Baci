@@ -4,6 +4,6 @@ declare module '*.css' {
   export default content;
 }
 
-declare module '@measured/puck/puck.css';
+declare module '@puckeditor/core/puck.css';
 declare module 'react-grid-layout/css/styles.css';
 declare module 'react-resizable/css/styles.css';

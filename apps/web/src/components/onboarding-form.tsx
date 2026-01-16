@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { Data } from '@measured/puck';
+import type { Data } from '@puckeditor/core';
 import type { User } from '@supabase/supabase-js';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';

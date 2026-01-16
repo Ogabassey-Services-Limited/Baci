@@ -3,25 +3,25 @@
  * Configure VAT settings for the merchant
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -61,7 +61,7 @@ export default function TaxScreen() {
           : 'VAT has been disabled.'
       );
     },
-    onError: (error, enabled) => {
+    onError: (_error, enabled) => {
       // Revert on error
       setVatEnabled(!enabled);
       Alert.alert('Error', 'Failed to update VAT settings. Please try again.');

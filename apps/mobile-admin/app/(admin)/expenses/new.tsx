@@ -3,31 +3,31 @@
  * Record a new business expense
  */
 
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  ScrollView,
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   Modal,
-  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { asUploadFile } from '@/types/upload';
-import { useRouter, Stack } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
-
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { asUploadFile } from '@/types/upload';
 
 const CATEGORIES = [
   'Inventory',
@@ -75,7 +75,7 @@ export default function AddExpenseScreen() {
             'file',
             asUploadFile({
               uri: receiptUri,
-              name: fileName.split('/').pop()!,
+              name: fileName.split('/').pop() || 'receipt.jpg',
               type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
             })
           );
@@ -104,7 +104,7 @@ export default function AddExpenseScreen() {
       // 2. Insert expense record
       const { error } = await supabase.from('expenses').insert({
         merchant_id: merchant.id,
-        amount: parseFloat(amount),
+        amount: Number.parseFloat(amount),
         category: selectedCategory,
         description: description || null,
         date: new Date().toISOString(), // Default to now
@@ -353,7 +353,7 @@ export default function AddExpenseScreen() {
                       styles.categoryOption,
                       { borderBottomColor: colors.border },
                       selectedCategory === cat && {
-                        backgroundColor: colors.primary + '10',
+                        backgroundColor: `${colors.primary}10`,
                       },
                     ]}
                     onPress={() => {

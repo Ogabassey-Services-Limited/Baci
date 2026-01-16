@@ -2,936 +2,190 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/(storefront)/[slug]/account/login/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/actions/route.ts:74:17 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-    199 199 │       <div className="min-h-screen flex flex-col bg-white">
-    200 200 │         {/* Subtle accent line at top using merchant's primary color */}
-    201     │ - ······<div
-    202     │ - ········className="h-1·w-full"
-    203     │ - ········style={{·backgroundColor:·primaryColor·}}
-    204     │ - ······/>
-        201 │ + ······<div·className="h-1·w-full"·style={{·backgroundColor:·primaryColor·}}·/>
-    205 202 │   
-    206 203 │         {/* Header */}
+    73 │     // 5. Execute Action
+  > 74 │     let result: any = { success: true };
+       │                 ^^^
+    75 │ 
+    76 │     switch (action) {
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/admin/notifications/create/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/actions/route.ts:125:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-     53  53 │     color: string;
-     54  54 │   }[] = [
-     55     │ - ····{·value:·'info',·label:·'Information',·icon:·Info,·color:·'text-blue-500'·},
-     56     │ - ····{
-     57     │ - ······value:·'success',
-     58     │ - ······label:·'Success',
-     59     │ - ······icon:·CheckCircle,
-     60     │ - ······color:·'text-green-500',
-     61     │ - ····},
-     62     │ - ····{
-     63     │ - ······value:·'warning',
-     64     │ - ······label:·'Warning',
-     65     │ - ······icon:·AlertTriangle,
-     66     │ - ······color:·'text-yellow-500',
-     67     │ - ····},
-     68     │ - ····{·value:·'error',·label:·'Error',·icon:·AlertCircle,·color:·'text-red-500'·},
-     69     │ - ··];
-         55 │ + ··{·value:·'info',·label:·'Information',·icon:·Info,·color:·'text-blue-500'·},
-         56 │ + ··{
-         57 │ + ····value:·'success',
-         58 │ + ····label:·'Success',
-         59 │ + ····icon:·CheckCircle,
-         60 │ + ····color:·'text-green-500',
-         61 │ + ··},
-         62 │ + ··{
-         63 │ + ····value:·'warning',
-         64 │ + ····label:·'Warning',
-         65 │ + ····icon:·AlertTriangle,
-         66 │ + ····color:·'text-yellow-500',
-         67 │ + ··},
-         68 │ + ··{·value:·'error',·label:·'Error',·icon:·AlertCircle,·color:·'text-red-500'·},
-         69 │ + ];
-     70  70 │   
-     71  71 │   const priorityOptions: { value: NotificationPriority; label: string }[] = [
-    ······· │ 
-     81  81 │     description: string;
-     82  82 │   }[] = [
-     83     │ - ····{
-     84     │ - ······value:·'new',
-     85     │ - ······label:·'New·Merchants',
-     86     │ - ······description:·'Merchants·who·joined·in·the·last·30·days',
-     87     │ - ····},
-     88     │ - ····{
-     89     │ - ······value:·'active',
-     90     │ - ······label:·'Active·Merchants',
-     91     │ - ······description:·'Merchants·with·recent·activity',
-     92     │ - ····},
-     93     │ - ····{
-     94     │ - ······value:·'at_risk',
-     95     │ - ······label:·'At·Risk·Merchants',
-     96     │ - ······description:·'Merchants·showing·signs·of·churn',
-     97     │ - ····},
-     98     │ - ··];
-         83 │ + ··{
-         84 │ + ····value:·'new',
-         85 │ + ····label:·'New·Merchants',
-         86 │ + ····description:·'Merchants·who·joined·in·the·last·30·days',
-         87 │ + ··},
-         88 │ + ··{
-         89 │ + ····value:·'active',
-         90 │ + ····label:·'Active·Merchants',
-         91 │ + ····description:·'Merchants·with·recent·activity',
-         92 │ + ··},
-         93 │ + ··{
-         94 │ + ····value:·'at_risk',
-         95 │ + ····label:·'At·Risk·Merchants',
-         96 │ + ····description:·'Merchants·showing·signs·of·churn',
-         97 │ + ··},
-         98 │ + ];
-     99  99 │   
-    100 100 │   export default function CreateNotificationPage() {
-    ······· │ 
-    458 458 │                 {formData.channels?.includes('push') && (
-    459 459 │                   <p className="text-xs text-muted-foreground">
-    460     │ - ··················Push·notifications·will·be·sent·to·merchants·who·have·the·mobile·admin·app·installed.
-        460 │ + ··················Push·notifications·will·be·sent·to·merchants·who·have·the
-        461 │ + ··················mobile·admin·app·installed.
-    461 462 │                   </p>
-    462 463 │                 )}
+    124 │     return NextResponse.json(result);
+  > 125 │   } catch (error: any) {
+        │                   ^^^
+    126 │     console.error('[Jumia Action Error]', error);
+    127 │     return NextResponse.json(
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/admin/notifications/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/callback/route.ts:10:25 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Forbidden non-null assertion.
   
-  > 1 │ import { cookies } from 'next/headers';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { type NextRequest, NextResponse } from 'next/server';
-    3 │ import { createClient } from '@/lib/supabase/server';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      1   1 │   import { cookies } from 'next/headers';
-      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
-      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-          3 │ + import·{·type·ExpoPushMessage,·sendPushNotifications·}·from·'@/lib/expo-push';
-      4   4 │   import { createAdminClient } from '@/lib/supabase/admin';
-      5     │ - import·{·sendPushNotifications,·type·ExpoPushMessage·}·from·'@/lib/expo-push';
-          5 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-      6   6 │   import type {
-      7   7 │     AdminNotificationFilters,
+     8 │ import { createAdminClient } from '@/lib/supabase/admin';
+     9 │ 
+  > 10 │ const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
+       │                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    11 │ const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
+    12 │ const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
   
 
-src/app/api/admin/notifications/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/callback/route.ts:11:29 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Forbidden non-null assertion.
   
-    555 555 │         sound: 'default',
-    556 556 │         channelId: 'admin', // Android notification channel
-    557     │ - ······priority:·notification.priority·===·'urgent'·||·notification.priority·===·'high'·?·'high'·:·'default',
-        557 │ + ······priority:
-        558 │ + ········notification.priority·===·'urgent'·||·notification.priority·===·'high'
-        559 │ + ··········?·'high'
-        560 │ + ··········:·'default',
-    558 561 │       }));
-    559 562 │   
-    ······· │ 
-    564 567 │       const successCount = tickets.filter((t) => t.status === 'ok').length;
-    565 568 │       const failCount = tickets.filter((t) => t.status === 'error').length;
-    566     │ - ····console.log(`[Push]·Sent·${successCount}·push·notifications·(${failCount}·failed)`);
-        569 │ + ····console.log(
-        570 │ + ······`[Push]·Sent·${successCount}·push·notifications·(${failCount}·failed)`
-        571 │ + ····);
-    567 572 │   
-    568 573 │       // Deactivate tokens that are no longer registered
-    569 574 │       const tokensToDeactivate = tickets
-    570 575 │         .map((ticket, index) =>
-    571     │ - ········ticket.details?.error·===·'DeviceNotRegistered'·?·tokens[index].token·:·null
-        576 │ + ········ticket.details?.error·===·'DeviceNotRegistered'
-        577 │ + ··········?·tokens[index].token
-        578 │ + ··········:·null
-    572 579 │         )
-    573 580 │         .filter((token): token is string => token !== null);
-    ······· │ 
-    578 585 │           .update({ is_active: false })
-    579 586 │           .in('token', tokensToDeactivate);
-    580     │ - ······console.log(`[Push]·Deactivated·${tokensToDeactivate.length}·invalid·tokens`);
-        587 │ + ······console.log(
-        588 │ + ········`[Push]·Deactivated·${tokensToDeactivate.length}·invalid·tokens`
-        589 │ + ······);
-    581 590 │       }
-    582 591 │     } catch (error) {
+    10 │ const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
+  > 11 │ const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
+       │                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    12 │ const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
+    13 │ 
   
 
-src/app/api/inventory/push-alerts/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/orders/[id]/items/route.ts:45:19 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Unexpected any. Specify a different type.
   
-  > 1 │ import { NextResponse } from 'next/server';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { createAdminClient } from '@/lib/supabase/admin';
-    3 │ import { notifyLowStock } from '@/lib/expo-push';
+    44 │     return NextResponse.json({ items });
+  > 45 │   } catch (error: any) {
+       │                   ^^^
+    46 │     console.error('[Jumia Items API]', error);
+    47 │     return NextResponse.json(
   
-  i Safe fix: Organize Imports (Biome)
-  
-      1   1 │   import { NextResponse } from 'next/server';
-      2     │ - import·{·createAdminClient·}·from·'@/lib/supabase/admin';
-      3     │ - import·{·notifyLowStock·}·from·'@/lib/expo-push';
-          2 │ + import·{·notifyLowStock·}·from·'@/lib/expo-push';
-          3 │ + import·{·createAdminClient·}·from·'@/lib/supabase/admin';
-      4   4 │   
-      5   5 │   /**
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/inventory/push-alerts/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/marketplace/jumia/orders/route.ts:255:36 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-      5   5 │   /**
-      6   6 │    * POST /api/inventory/push-alerts
-      7     │ - ·*·
-          7 │ + ·*
-      8   8 │    * Sends push notifications for new low stock alerts that haven't been notified yet.
-      9   9 │    * Designed to be called by a cron job or after inventory snapshots are generated.
-     10  10 │    */
-     11  11 │   export async function POST() {
-     12     │ - ····try·{
-     13     │ - ········const·supabase·=·createAdminClient();
-         12 │ + ··try·{
-         13 │ + ····const·supabase·=·createAdminClient();
-     14  14 │   
-     15     │ - ········//·Get·all·active,·unnotified·inventory·alerts
-     16     │ - ········const·{·data:·alerts,·error·}·=·await·supabase
-     17     │ - ············.from('inventory_alerts')
-     18     │ - ············.select(`
-         15 │ + ····//·Get·all·active,·unnotified·inventory·alerts
-         16 │ + ····const·{·data:·alerts,·error·}·=·await·supabase
-         17 │ + ······.from('inventory_alerts')
-         18 │ + ······.select(`
-     19  19 │           id,
-     20  20 │           merchant_id,
-    ······· │ 
-     28  28 │           )
-     29  29 │         `)
-     30     │ - ············.eq('status',·'active')
-     31     │ - ············.eq('notification_sent',·false)
-     32     │ - ············.order('created_at',·{·ascending:·false·})
-     33     │ - ············.limit(100);
-         30 │ + ······.eq('status',·'active')
-         31 │ + ······.eq('notification_sent',·false)
-         32 │ + ······.order('created_at',·{·ascending:·false·})
-         33 │ + ······.limit(100);
-     34  34 │   
-     35     │ - ········if·(error)·{
-     36     │ - ············console.error('[Inventory·Alerts]·Error·fetching·alerts:',·error);
-     37     │ - ············return·NextResponse.json(
-     38     │ - ················{·error:·'Failed·to·fetch·alerts'·},
-     39     │ - ················{·status:·500·}
-     40     │ - ············);
-     41     │ - ········}
-         35 │ + ····if·(error)·{
-         36 │ + ······console.error('[Inventory·Alerts]·Error·fetching·alerts:',·error);
-         37 │ + ······return·NextResponse.json(
-         38 │ + ········{·error:·'Failed·to·fetch·alerts'·},
-         39 │ + ········{·status:·500·}
-         40 │ + ······);
-         41 │ + ····}
-     42  42 │   
-     43     │ - ········if·(!alerts·||·alerts.length·===·0)·{
-     44     │ - ············return·NextResponse.json({
-     45     │ - ················success:·true,
-     46     │ - ················message:·'No·new·alerts·to·notify',
-     47     │ - ················sent:·0,
-     48     │ - ············});
-     49     │ - ········}
-         43 │ + ····if·(!alerts·||·alerts.length·===·0)·{
-         44 │ + ······return·NextResponse.json({
-         45 │ + ········success:·true,
-         46 │ + ········message:·'No·new·alerts·to·notify',
-         47 │ + ········sent:·0,
-         48 │ + ······});
-         49 │ + ····}
-     50  50 │   
-     51     │ - ········let·sentCount·=·0;
-     52     │ - ········let·failedCount·=·0;
-         51 │ + ····let·sentCount·=·0;
-         52 │ + ····let·failedCount·=·0;
-     53  53 │   
-     54     │ - ········//·Process·each·alert·and·send·push·notification
-     55     │ - ········for·(const·alert·of·alerts)·{
-     56     │ - ············try·{
-     57     │ - ················//·Products·join·can·return·array·or·single·object·depending·on·relationship
-     58     │ - ················const·products·=·alert.products·as·unknown·as·{·id:·string;·name:·string·}·|·{·id:·string;·name:·string·}[]·|·null;
-     59     │ - ················const·product·=·Array.isArray(products)·?·products[0]·:·products;
-     60     │ - ················const·productName·=·product?.name·||·'Unknown·Product';
-     61     │ - ················const·threshold·=·alert.threshold·||·5;
-         54 │ + ····//·Process·each·alert·and·send·push·notification
-         55 │ + ····for·(const·alert·of·alerts)·{
-         56 │ + ······try·{
-         57 │ + ········//·Products·join·can·return·array·or·single·object·depending·on·relationship
-         58 │ + ········const·products·=·alert.products·as·unknown·as
-         59 │ + ··········|·{·id:·string;·name:·string·}
-         60 │ + ··········|·{·id:·string;·name:·string·}[]
-         61 │ + ··········|·null;
-         62 │ + ········const·product·=·Array.isArray(products)·?·products[0]·:·products;
-         63 │ + ········const·productName·=·product?.name·||·'Unknown·Product';
-         64 │ + ········const·threshold·=·alert.threshold·||·5;
-     62  65 │   
-     63     │ - ················//·Send·push·notification·to·merchant
-     64     │ - ················await·notifyLowStock(
-     65     │ - ····················alert.merchant_id,
-     66     │ - ····················productName,
-     67     │ - ····················alert.current_stock,
-     68     │ - ····················threshold
-     69     │ - ················);
-         66 │ + ········//·Send·push·notification·to·merchant
-         67 │ + ········await·notifyLowStock(
-         68 │ + ··········alert.merchant_id,
-         69 │ + ··········productName,
-         70 │ + ··········alert.current_stock,
-         71 │ + ··········threshold
-         72 │ + ········);
-     70  73 │   
-     71     │ - ················//·Mark·alert·as·notified
-     72     │ - ················await·supabase
-     73     │ - ····················.from('inventory_alerts')
-     74     │ - ····················.update({
-     75     │ - ························notification_sent:·true,
-     76     │ - ························notification_sent_at:·new·Date().toISOString(),
-     77     │ - ····················})
-     78     │ - ····················.eq('id',·alert.id);
-         74 │ + ········//·Mark·alert·as·notified
-         75 │ + ········await·supabase
-         76 │ + ··········.from('inventory_alerts')
-         77 │ + ··········.update({
-         78 │ + ············notification_sent:·true,
-         79 │ + ············notification_sent_at:·new·Date().toISOString(),
-         80 │ + ··········})
-         81 │ + ··········.eq('id',·alert.id);
-     79  82 │   
-     80     │ - ················sentCount++;
-     81     │ - ············}·catch·(pushError)·{
-     82     │ - ················console.error(`[Inventory·Alerts]·Failed·to·notify·for·alert·${alert.id}:`,·pushError);
-     83     │ - ················failedCount++;
-     84     │ - ············}
-     85     │ - ········}
-         83 │ + ········sentCount++;
-         84 │ + ······}·catch·(pushError)·{
-         85 │ + ········console.error(
-         86 │ + ··········`[Inventory·Alerts]·Failed·to·notify·for·alert·${alert.id}:`,
-         87 │ + ··········pushError
-         88 │ + ········);
-         89 │ + ········failedCount++;
-         90 │ + ······}
-         91 │ + ····}
-     86  92 │   
-     87     │ - ········console.log(`[Inventory·Alerts]·Sent·${sentCount}·push·notifications,·${failedCount}·failed`);
-         93 │ + ····console.log(
-         94 │ + ······`[Inventory·Alerts]·Sent·${sentCount}·push·notifications,·${failedCount}·failed`
-         95 │ + ····);
-     88  96 │   
-     89     │ - ········return·NextResponse.json({
-     90     │ - ············success:·true,
-     91     │ - ············sent:·sentCount,
-     92     │ - ············failed:·failedCount,
-     93     │ - ············total:·alerts.length,
-     94     │ - ········});
-     95     │ - ····}·catch·(error)·{
-     96     │ - ········console.error('[Inventory·Alerts]·Push·notification·error:',·error);
-  20 more lines truncated
+    253 │     const errorDetails =
+    254 │       error && typeof error === 'object' && 'issues' in error
+  > 255 │         ? JSON.stringify((error as any).issues)
+        │                                    ^^^
+    256 │         : undefined;
+    257 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/blog/posts/[id]/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+src/app/checkout/page.tsx:1411:61 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Unexpected any. Specify a different type.
   
-  > 1 │ import { cookies } from 'next/headers';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { type NextRequest, NextResponse } from 'next/server';
-    3 │ import { z } from 'zod';
+    1409 │                 <div className="flex items-center justify-between mb-8">
+    1410 │                   <div className="flex items-center gap-3">
+  > 1411 │                     <Link href={`${basePath || ''}/cart` as any}>
+         │                                                             ^^^
+    1412 │                       <Button
+    1413 │                         variant="ghost"
   
-  i Safe fix: Organize Imports (Biome)
-  
-      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
-      3   3 │   import { z } from 'zod';
-      4     │ - import·{·getBlogEmbeddingText·}·from·'@/lib/embeddings';
-      5     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-      6     │ - import·{
-      7     │ - ··authenticateApiRequest,
-      8     │ - ··getUserAccess,
-      9     │ - ··hasPermission,
-     10     │ - }·from·'@/lib/api-auth';
-          4 │ + import·{
-          5 │ + ··authenticateApiRequest,
-          6 │ + ··getUserAccess,
-          7 │ + ··hasPermission,
-          8 │ + }·from·'@/lib/api-auth';
-          9 │ + import·{·getBlogEmbeddingText·}·from·'@/lib/embeddings';
-         10 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-     11  11 │   
-     12  12 │   /**
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/blog/posts/[id]/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/dashboard/blog/[id]/edit/page.tsx:356:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-     65  65 │       const auth = await authenticateApiRequest(_request);
-     66  66 │       if (auth.error || !auth.user) {
-     67     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-         67 │ + ······return·NextResponse.json(
-         68 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-         69 │ + ········{·status:·401·}
-         70 │ + ······);
-     68  71 │       }
-     69  72 │   
-     70  73 │       const access = await getUserAccess(auth.user.id);
-     71  74 │       if (!access) {
-     72     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-         75 │ + ······return·NextResponse.json(
-         76 │ + ········{·error:·'Merchant·not·found'·},
-         77 │ + ········{·status:·404·}
-         78 │ + ······);
-     73  79 │       }
-     74  80 │   
-    ······· │ 
-    111 117 │       const auth = await authenticateApiRequest(request);
-    112 118 │       if (auth.error || !auth.user) {
-    113     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        119 │ + ······return·NextResponse.json(
-        120 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        121 │ + ········{·status:·401·}
-        122 │ + ······);
-    114 123 │       }
-    115 124 │   
-    116 125 │       const access = await getUserAccess(auth.user.id);
-    117 126 │       if (!access) {
-    118     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        127 │ + ······return·NextResponse.json(
-        128 │ + ········{·error:·'Merchant·not·found'·},
-        129 │ + ········{·status:·404·}
-        130 │ + ······);
-    119 131 │       }
-    120 132 │   
-    ······· │ 
-    246 258 │       const auth = await authenticateApiRequest(_request);
-    247 259 │       if (auth.error || !auth.user) {
-    248     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        260 │ + ······return·NextResponse.json(
-        261 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        262 │ + ········{·status:·401·}
-        263 │ + ······);
-    249 264 │       }
-    250 265 │   
-    251 266 │       const access = await getUserAccess(auth.user.id);
-    252 267 │       if (!access) {
-    253     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        268 │ + ······return·NextResponse.json(
-        269 │ + ········{·error:·'Merchant·not·found'·},
-        270 │ + ········{·status:·404·}
-        271 │ + ······);
-    254 272 │       }
-    255 273 │   
+    354 │       let text = '';
+    355 │       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  > 356 │       const traverse = (node: any) => {
+        │                               ^^^
+    357 │         if (node.text) text += `${node.text} `;
+    358 │         if (node.content && Array.isArray(node.content)) {
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/features/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━
+src/app/dashboard/blog/new/page.tsx:263:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Unexpected any. Specify a different type.
   
-  > 1 │ import { revalidateTag } from 'next/cache';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { cookies } from 'next/headers';
-    3 │ import { type NextRequest, NextResponse } from 'next/server';
+    261 │       let text = '';
+    262 │       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  > 263 │       const traverse = (node: any) => {
+        │                               ^^^
+    264 │         if (node.text) text += `${node.text} `;
+    265 │         if (node.content && Array.isArray(node.content)) {
   
-  i Safe fix: Organize Imports (Biome)
-  
-      2   2 │   import { cookies } from 'next/headers';
-      3   3 │   import { type NextRequest, NextResponse } from 'next/server';
-      4     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-      5     │ - import·{
-      6     │ - ··authenticateApiRequest,
-      7     │ - ··getUserAccess,
-      8     │ - ··hasPermission,
-      9     │ - }·from·'@/lib/api-auth';
-          4 │ + import·{
-          5 │ + ··authenticateApiRequest,
-          6 │ + ··getUserAccess,
-          7 │ + ··hasPermission,
-          8 │ + }·from·'@/lib/api-auth';
-          9 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-     10  10 │   
-     11  11 │   /**
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/features/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/dashboard/integrations/page.tsx:238:55 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-    158 158 │   export async function GET() {
-    159 159 │     try {
-    160     │ - ····const·auth·=·await·authenticateApiRequest(new·Request('http://localhost/api/merchant/features',·{·method:·'GET'·}));
-        160 │ + ····const·auth·=·await·authenticateApiRequest(
-        161 │ + ······new·Request('http://localhost/api/merchant/features',·{·method:·'GET'·})
-        162 │ + ····);
-    161 163 │       if (auth.error || !auth.user) {
-    162     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        164 │ + ······return·NextResponse.json(
-        165 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        166 │ + ········{·status:·401·}
-        167 │ + ······);
-    163 168 │       }
-    164 169 │   
-    165 170 │       const access = await getUserAccess(auth.user.id);
-    166 171 │       if (!access) {
-    167     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        172 │ + ······return·NextResponse.json(
-        173 │ + ········{·error:·'Merchant·not·found'·},
-        174 │ + ········{·status:·404·}
-        175 │ + ······);
-    168 176 │       }
-    169 177 │   
-    ······· │ 
-    225 233 │       const auth = await authenticateApiRequest(request);
-    226 234 │       if (auth.error || !auth.user) {
-    227     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        235 │ + ······return·NextResponse.json(
-        236 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        237 │ + ········{·status:·401·}
-        238 │ + ······);
-    228 239 │       }
-    229 240 │   
-    230 241 │       const access = await getUserAccess(auth.user.id);
-    231 242 │       if (!access) {
-    232     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        243 │ + ······return·NextResponse.json(
-        244 │ + ········{·error:·'Merchant·not·found'·},
-        245 │ + ········{·status:·404·}
-        246 │ + ······);
-    233 247 │       }
-    234 248 │   
-    ······· │ 
-    358 372 │       const auth = await authenticateApiRequest(request);
-    359 373 │       if (auth.error || !auth.user) {
-    360     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        374 │ + ······return·NextResponse.json(
-        375 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        376 │ + ········{·status:·401·}
-        377 │ + ······);
-    361 378 │       }
-    362 379 │   
-    363 380 │       const access = await getUserAccess(auth.user.id);
-    364 381 │       if (!access) {
-    365     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        382 │ + ······return·NextResponse.json(
-        383 │ + ········{·error:·'Merchant·not·found'·},
-        384 │ + ········{·status:·404·}
-        385 │ + ······);
-    366 386 │       }
-    367 387 │   
+    236 │                     ('rawHref' in integration && integration.rawHref
+    237 │                       ? integration.href
+  > 238 │                       : asRoute(integration.href)) as any
+        │                                                       ^^^
+    239 │                   }
+    240 │                 >
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/publish/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━
+src/app/dashboard/integrations/page.tsx:233:18 suppressions/unused ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Suppression comment has no effect. Remove the suppression or make sure you are suppressing the correct rule.
   
-  > 1 │ import { cookies } from 'next/headers';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { type NextRequest, NextResponse } from 'next/server';
-    3 │ import { createClient } from '@/lib/supabase/server';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      1   1 │   import { cookies } from 'next/headers';
-      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
-      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-      4     │ - import·{
-      5     │ - ··authenticateApiRequest,
-      6     │ - ··getUserAccess,
-      7     │ - ··hasPermission,
-      8     │ - }·from·'@/lib/api-auth';
-          3 │ + import·{
-          4 │ + ··authenticateApiRequest,
-          5 │ + ··getUserAccess,
-          6 │ + ··hasPermission,
-          7 │ + }·from·'@/lib/api-auth';
-          8 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-      9   9 │   
-     10  10 │   /**
+    231 │             <CardContent>
+    232 │               <Button asChild className="w-full group-hover:bg-primary/90">
+  > 233 │                 {/* biome-ignore lint/suspicious/noExplicitAny: Complex Typed Route logic */}
+        │                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    234 │                 <Link
+    235 │                   href={
   
 
-src/app/api/merchant/publish/route.ts:37:36 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━━
+src/lib/jumia/client.ts:135:22 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × This variable merchantError is unused.
+  ! Unexpected any. Specify a different type.
   
-    36 │     // Get merchant with required fields for validation
-  > 37 │     const { data: merchant, error: merchantError } = await supabase
-       │                                    ^^^^^^^^^^^^^
-    38 │       .from('merchants')
-    39 │       .select(`
+    133 │     public status: number,
+    134 │     public message: string,
+  > 135 │     public details?: any
+        │                      ^^^
+    136 │   ) {
+    137 │     super(`Jumia API Error (${status}): ${message}`);
   
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
-  
-
-src/app/api/merchant/publish/route.ts:168:36 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━━━━━━
-
-  × This variable merchantError is unused.
-  
-    167 │     // Get merchant
-  > 168 │     const { data: merchant, error: merchantError } = await supabase
-        │                                    ^^^^^^^^^^^^^
-    169 │       .from('merchants')
-    170 │       .select('id')
-  
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/merchant/publish/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/lib/jumia/client.ts:338:43 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × Formatter would have printed the following content:
+  ! Unexpected any. Specify a different type.
   
-     19  19 │       const auth = await authenticateApiRequest(request);
-     20  20 │       if (auth.error || !auth.user) {
-     21     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-         21 │ + ······return·NextResponse.json(
-         22 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-         23 │ + ········{·status:·401·}
-         24 │ + ······);
-     22  25 │       }
-     23  26 │   
-     24  27 │       const access = await getUserAccess(auth.user.id);
-     25  28 │       if (!access) {
-     26     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-         29 │ + ······return·NextResponse.json(
-         30 │ + ········{·error:·'Merchant·not·found'·},
-         31 │ + ········{·status:·404·}
-         32 │ + ······);
-     27  33 │       }
-     28  34 │   
-    ······· │ 
-     51  57 │   
-     52  58 │       if (!merchant) {
-     53     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-         59 │ + ······return·NextResponse.json(
-         60 │ + ········{·error:·'Merchant·not·found'·},
-         61 │ + ········{·status:·404·}
-         62 │ + ······);
-     54  63 │       }
-     55  64 │   
-    ······· │ 
-    150 159 │       const auth = await authenticateApiRequest(request);
-    151 160 │       if (auth.error || !auth.user) {
-    152     │ - ······return·NextResponse.json({·error:·auth.error·||·'Unauthorized'·},·{·status:·401·});
-        161 │ + ······return·NextResponse.json(
-        162 │ + ········{·error:·auth.error·||·'Unauthorized'·},
-        163 │ + ········{·status:·401·}
-        164 │ + ······);
-    153 165 │       }
-    154 166 │   
-    155 167 │       const access = await getUserAccess(auth.user.id);
-    156 168 │       if (!access) {
-    157     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        169 │ + ······return·NextResponse.json(
-        170 │ + ········{·error:·'Merchant·not·found'·},
-        171 │ + ········{·status:·404·}
-        172 │ + ······);
-    158 173 │       }
-    159 174 │   
-    ······· │ 
-    173 188 │   
-    174 189 │       if (!merchant) {
-    175     │ - ······return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
-        190 │ + ······return·NextResponse.json(
-        191 │ + ········{·error:·'Merchant·not·found'·},
-        192 │ + ········{·status:·404·}
-        193 │ + ······);
-    176 194 │       }
-    177 195 │   
+    336 │     try {
+    337 │       // 1. Try standard /shops
+  > 338 │       const response = await this.request<any>(
+        │                                           ^^^
+    339 │         'GET',
+    340 │         '/shops',
+  
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/orders/[id]/record-payment/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+src/lib/jumia/client.ts:350:49 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  × The imports and exports are not sorted.
+  ! Unexpected any. Specify a different type.
   
-  > 1 │ import { type NextRequest, NextResponse, after } from 'next/server';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import {
-    3 │   authenticateApiRequest,
+    349 │       // 2. Try Master Shop level if empty
+  > 350 │       const masterResponse = await this.request<any>(
+        │                                                 ^^^
+    351 │         'GET',
+    352 │         '/shops-of-master-shop',
   
-  i Safe fix: Organize Imports (Biome)
-  
-     12  12 │   } from '@/lib/email-templates';
-     13  13 │   import { logger } from '@/lib/logger';
-     14     │ - import·{·sendEmail·}·from·'@/lib/zeptomail';
-     15     │ - import·{·triggerPurchaseConversion·}·from·'@/lib/trigger-purchase-conversion';
-         14 │ + import·{·triggerPurchaseConversion·}·from·'@/lib/trigger-purchase-conversion';
-         15 │ + import·{·sendEmail·}·from·'@/lib/zeptomail';
-     16  16 │   
-     17  17 │   /** Order item interface for email templates (2026 best practice) */
+  i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/orders/[id]/record-payment/route.ts:230:18 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
-
-  × This variable err is unused.
-  
-    228 │         try {
-    229 │           await triggerPurchaseConversion(supabase, merchant.id, order);
-  > 230 │         } catch (err) {
-        │                  ^^^
-    231 │           // Errors are already logged inside triggerPurchaseConversion
-    232 │           // This catch prevents unhandled rejections in the background task
-  
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
-  
-  i Unsafe fix: If this is intentional, prepend err with an underscore.
-  
-    228 228 │           try {
-    229 229 │             await triggerPurchaseConversion(supabase, merchant.id, order);
-    230     │ - ········}·catch·(err)·{
-        230 │ + ········}·catch·(_err)·{
-    231 231 │             // Errors are already logged inside triggerPurchaseConversion
-    232 232 │             // This catch prevents unhandled rejections in the background task
-  
-
-src/app/api/payments/webhook/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-  > 1 │ import { createHmac, timingSafeEqual } from 'node:crypto';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { cookies } from 'next/headers';
-    3 │ import { type NextRequest, NextResponse, after } from 'next/server';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-     10  10 │   import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
-     11  11 │   import { logger } from '@/lib/logger';
-     12     │ - import·{·triggerPurchaseConversion·}·from·'@/lib/trigger-purchase-conversion';
-     13     │ - import·{·verifyTransaction·as·verifyPaystackPayment·}·from·'@/lib/paystack';
-     14     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-         12 │ + import·{·verifyTransaction·as·verifyPaystackPayment·}·from·'@/lib/paystack';
-         13 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-         14 │ + import·{·triggerPurchaseConversion·}·from·'@/lib/trigger-purchase-conversion';
-     15  15 │   import { sendEmail } from '@/lib/zeptomail';
-     16  16 │   
-  
-
-src/app/api/payments/webhook/route.ts:581:20 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
-
-  × This variable err is unused.
-  
-    579 │           try {
-    580 │             await triggerPurchaseConversion(supabase, transaction.merchant_id, order);
-  > 581 │           } catch (err) {
-        │                    ^^^
-    582 │             // Errors are already logged inside triggerPurchaseConversion
-    583 │             // This catch prevents unhandled rejections in the background task
-  
-  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
-  
-  i Unsafe fix: If this is intentional, prepend err with an underscore.
-  
-    579 579 │             try {
-    580 580 │               await triggerPurchaseConversion(supabase, transaction.merchant_id, order);
-    581     │ - ··········}·catch·(err)·{
-        581 │ + ··········}·catch·(_err)·{
-    582 582 │               // Errors are already logged inside triggerPurchaseConversion
-    583 583 │               // This catch prevents unhandled rejections in the background task
-  
-
-src/app/api/payments/webhook/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    463 463 │           try {
-    464 464 │             const orderAmount = Number.parseFloat(order.total || '0');
-    465     │ - ··········const·orderNumber·=·order.order_number·||·order.id.slice(0,·8).toUpperCase();
-        465 │ + ··········const·orderNumber·=
-        466 │ + ············order.order_number·||·order.id.slice(0,·8).toUpperCase();
-    466 467 │   
-    467 468 │             // Notify merchant of new paid order
-    ······· │ 
-    578 579 │           after(async () => {
-    579 580 │             try {
-    580     │ - ············await·triggerPurchaseConversion(supabase,·transaction.merchant_id,·order);
-        581 │ + ············await·triggerPurchaseConversion(
-        582 │ + ··············supabase,
-        583 │ + ··············transaction.merchant_id,
-        584 │ + ··············order
-        585 │ + ············);
-    581 586 │             } catch (err) {
-    582 587 │               // Errors are already logged inside triggerPurchaseConversion
-  
-
-src/lib/trigger-purchase-conversion.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-      7   7 │   import { logger } from '@/lib/logger';
-      8   8 │   import {
-      9     │ - ····logConversionResults,
-     10     │ - ····type·MerchantAnalyticsConfig,
-     11     │ - ····type·OrderConversionData,
-     12     │ - ····sendPurchaseConversion,
-          9 │ + ··logConversionResults,
-         10 │ + ··type·MerchantAnalyticsConfig,
-         11 │ + ··type·OrderConversionData,
-         12 │ + ··sendPurchaseConversion,
-     13  13 │   } from '@/lib/offline-conversions';
-     14  14 │   
-    ······· │ 
-     18  18 │    */
-     19  19 │   export interface OrderForConversion {
-     20     │ - ····id:·string;
-     21     │ - ····order_number?:·string·|·null;
-     22     │ - ····total:·string·|·number;
-     23     │ - ····currency?:·string·|·null;
-     24     │ - ····customer_email?:·string·|·null;
-     25     │ - ····customer_phone?:·string·|·null;
-     26     │ - ····customer_name?:·string·|·null;
-     27     │ - ····customer_id?:·string·|·null;
-     28     │ - ····ad_tracking?:·Record<string,·unknown>·|·null;
-     29     │ - ····order_items?:·Array<{
-     30     │ - ········id?:·string;
-     31     │ - ········product_id?:·string;
-     32     │ - ········name?:·string;
-     33     │ - ········price?:·number·|·string;
-     34     │ - ········quantity?:·number;
-     35     │ - ····}>·|·null;
-     36     │ - ····shipping_address?:·{
-     37     │ - ········city?:·string;
-     38     │ - ········state?:·string;
-     39     │ - ········country?:·string;
-     40     │ - ········zip?:·string;
-     41     │ - ········postal_code?:·string;
-     42     │ - ····}·|·null;
-         20 │ + ··id:·string;
-         21 │ + ··order_number?:·string·|·null;
-         22 │ + ··total:·string·|·number;
-         23 │ + ··currency?:·string·|·null;
-         24 │ + ··customer_email?:·string·|·null;
-         25 │ + ··customer_phone?:·string·|·null;
-         26 │ + ··customer_name?:·string·|·null;
-         27 │ + ··customer_id?:·string·|·null;
-         28 │ + ··ad_tracking?:·Record<string,·unknown>·|·null;
-         29 │ + ··order_items?:·Array<{
-         30 │ + ····id?:·string;
-         31 │ + ····product_id?:·string;
-         32 │ + ····name?:·string;
-         33 │ + ····price?:·number·|·string;
-         34 │ + ····quantity?:·number;
-         35 │ + ··}>·|·null;
-         36 │ + ··shipping_address?:·{
-         37 │ + ····city?:·string;
-         38 │ + ····state?:·string;
-         39 │ + ····country?:·string;
-         40 │ + ····zip?:·string;
-         41 │ + ····postal_code?:·string;
-         42 │ + ··}·|·null;
-     43  43 │   }
-     44  44 │   
-    ······· │ 
-     58  58 │    */
-     59  59 │   export async function triggerPurchaseConversion(
-     60     │ - ····supabase:·SupabaseClient,
-     61     │ - ····merchantId:·string,
-     62     │ - ····order:·OrderForConversion
-         60 │ + ··supabase:·SupabaseClient,
-         61 │ + ··merchantId:·string,
-         62 │ + ··order:·OrderForConversion
-     63  63 │   ): Promise<void> {
-     64     │ - ····const·orderNumber·=·order.order_number·||·order.id.slice(0,·8).toUpperCase();
-         64 │ + ··const·orderNumber·=·order.order_number·||·order.id.slice(0,·8).toUpperCase();
-     65  65 │   
-     66     │ - ····try·{
-     67     │ - ········//·Fetch·merchant's·analytics·configuration·and·feature·toggle
-     68     │ - ········const·{·data:·merchantAnalytics,·error:·analyticsError·}·=·await·supabase
-     69     │ - ············.from('merchants')
-     70     │ - ············.select(`
-         66 │ + ··try·{
-         67 │ + ····//·Fetch·merchant's·analytics·configuration·and·feature·toggle
-         68 │ + ····const·{·data:·merchantAnalytics,·error:·analyticsError·}·=·await·supabase
-         69 │ + ······.from('merchants')
-         70 │ + ······.select(`
-     71  71 │           offline_conversions_enabled,
-     72  72 │           facebook_pixel_id,
-    ······· │ 
-     79  79 │           snapchat_capi_token
-     80  80 │         `)
-     81     │ - ············.eq('id',·merchantId)
-     82     │ - ············.single();
-         81 │ + ······.eq('id',·merchantId)
-         82 │ + ······.single();
-     83  83 │   
-     84     │ - ········if·(analyticsError)·{
-     85     │ - ············logger.warn({
-     86     │ - ················message:·'Failed·to·fetch·analytics·config·for·conversion·tracking',
-     87     │ - ················merchantId,
-     88     │ - ················error:·analyticsError,
-     89     │ - ············});
-     90     │ - ············return;
-     91     │ - ········}
-         84 │ + ····if·(analyticsError)·{
-         85 │ + ······logger.warn({
-         86 │ + ········message:·'Failed·to·fetch·analytics·config·for·conversion·tracking',
-         87 │ + ········merchantId,
-         88 │ + ········error:·analyticsError,
-         89 │ + ······});
-         90 │ + ······return;
-         91 │ + ····}
-     92  92 │   
-     93     │ - ········//·Check·if·merchant·has·explicitly·disabled·offline·conversions
-     94     │ - ········if·(merchantAnalytics?.offline_conversions_enabled·===·false)·{
-     95     │ - ············logger.info({
-     96     │ - ················message:·'Offline·conversions·disabled·by·merchant',
-     97     │ - ················merchantId,
-     98     │ - ················orderId:·order.id,
-     99     │ - ············});
-    100     │ - ············return;
-    101     │ - ········}
-         93 │ + ····//·Check·if·merchant·has·explicitly·disabled·offline·conversions
-         94 │ + ····if·(merchantAnalytics?.offline_conversions_enabled·===·false)·{
-         95 │ + ······logger.info({
-         96 │ + ········message:·'Offline·conversions·disabled·by·merchant',
-         97 │ + ········merchantId,
-         98 │ + ········orderId:·order.id,
-         99 │ + ······});
-        100 │ + ······return;
-        101 │ + ····}
-    102 102 │   
-    103     │ - ········if·(!merchantAnalytics)·{
-    104     │ - ············logger.warn({
-    105     │ - ················message:·'No·analytics·config·found·for·merchant',
-    106     │ - ················merchantId,
-    107     │ - ············});
-    108     │ - ············return;
-    109     │ - ········}
-        103 │ + ····if·(!merchantAnalytics)·{
-        104 │ + ······logger.warn({
-        105 │ + ········message:·'No·analytics·config·found·for·merchant',
-        106 │ + ········merchantId,
-        107 │ + ······});
-        108 │ + ······return;
-        109 │ + ····}
-    110 110 │   
-    111     │ - ········const·analyticsConfig:·MerchantAnalyticsConfig·=·{
-    112     │ - ············facebook_pixel_id:·merchantAnalytics.facebook_pixel_id,
-    113     │ - ············facebook_capi_token:·merchantAnalytics.facebook_capi_token,
-    114     │ - ············tiktok_pixel_id:·merchantAnalytics.tiktok_pixel_id,
-    115     │ - ············tiktok_access_token:·merchantAnalytics.tiktok_access_token,
-    116     │ - ············google_analytics_id:·merchantAnalytics.google_analytics_id,
-  180 more lines truncated
-  
-
-The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
-Diagnostics not shown: 45.
-Checked 813 files in 3s. No fixes applied.
-Found 30 errors.
-Found 35 warnings.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.
+Checked 821 files in 638ms. No fixes applied.
+Found 14 warnings.

@@ -10,41 +10,41 @@
  * - DeviceNotRegistered handling
  */
 
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 // Configure notification behavior for foreground notifications
 Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
 });
 
 export interface PushNotificationState {
-    token: string | null;
-    isRegistered: boolean;
-    permissionStatus: Notifications.PermissionStatus | null;
+  token: string | null;
+  isRegistered: boolean;
+  permissionStatus: Notifications.PermissionStatus | null;
 }
 
 /**
  * Request push notification permissions
  */
 export async function requestPermissions(): Promise<Notifications.PermissionStatus> {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        return status;
-    }
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    return status;
+  }
 
-    return existingStatus;
+  return existingStatus;
 }
 
 /**
@@ -52,45 +52,45 @@ export async function requestPermissions(): Promise<Notifications.PermissionStat
  * Returns null if registration fails or device doesn't support push
  */
 export async function registerForPushNotifications(): Promise<string | null> {
-    // Push notifications require a physical device
-    if (!Device.isDevice) {
-        console.warn('[Push] Push notifications require a physical device');
-        return null;
+  // Push notifications require a physical device
+  if (!Device.isDevice) {
+    console.warn('[Push] Push notifications require a physical device');
+    return null;
+  }
+
+  // Check and request permissions
+  const permissionStatus = await requestPermissions();
+
+  if (permissionStatus !== 'granted') {
+    console.warn('[Push] Push notification permission not granted');
+    return null;
+  }
+
+  try {
+    // Get the Expo Push Token
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+    if (!projectId) {
+      console.warn('[Push] EAS project ID not configured in app.json');
     }
 
-    // Check and request permissions
-    const permissionStatus = await requestPermissions();
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({
+      projectId: projectId || undefined,
+    });
 
-    if (permissionStatus !== 'granted') {
-        console.warn('[Push] Push notification permission not granted');
-        return null;
+    const token = tokenResponse.data;
+    console.log('[Push] Expo Push Token:', token);
+
+    // Configure Android notification channels
+    if (Platform.OS === 'android') {
+      await setupAndroidChannels();
     }
 
-    try {
-        // Get the Expo Push Token
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-
-        if (!projectId) {
-            console.warn('[Push] EAS project ID not configured in app.json');
-        }
-
-        const tokenResponse = await Notifications.getExpoPushTokenAsync({
-            projectId: projectId || undefined,
-        });
-
-        const token = tokenResponse.data;
-        console.log('[Push] Expo Push Token:', token);
-
-        // Configure Android notification channels
-        if (Platform.OS === 'android') {
-            await setupAndroidChannels();
-        }
-
-        return token;
-    } catch (error) {
-        console.error('[Push] Failed to get push token:', error);
-        return null;
-    }
+    return token;
+  } catch (error) {
+    console.error('[Push] Failed to get push token:', error);
+    return null;
+  }
 }
 
 /**
@@ -98,49 +98,49 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * Different channels allow users to customize notification behavior per type
  */
 async function setupAndroidChannels(): Promise<void> {
-    // Orders channel - HIGH priority for new order alerts
-    await Notifications.setNotificationChannelAsync('orders', {
-        name: 'New Orders',
-        description: 'Notifications when you receive new orders',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#10B981', // Green for positive
-        sound: 'default',
-    });
+  // Orders channel - HIGH priority for new order alerts
+  await Notifications.setNotificationChannelAsync('orders', {
+    name: 'New Orders',
+    description: 'Notifications when you receive new orders',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#10B981', // Green for positive
+    sound: 'default',
+  });
 
-    // Payments channel - HIGH priority for payment confirmations
-    await Notifications.setNotificationChannelAsync('payments', {
-        name: 'Payments',
-        description: 'Payment received notifications',
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#10B981',
-        sound: 'default',
-    });
+  // Payments channel - HIGH priority for payment confirmations
+  await Notifications.setNotificationChannelAsync('payments', {
+    name: 'Payments',
+    description: 'Payment received notifications',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#10B981',
+    sound: 'default',
+  });
 
-    // Stock channel - DEFAULT priority for inventory alerts
-    await Notifications.setNotificationChannelAsync('stock', {
-        name: 'Stock Alerts',
-        description: 'Low stock and inventory notifications',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 200],
-        lightColor: '#F59E0B', // Amber for warning
-    });
+  // Stock channel - DEFAULT priority for inventory alerts
+  await Notifications.setNotificationChannelAsync('stock', {
+    name: 'Stock Alerts',
+    description: 'Low stock and inventory notifications',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 200],
+    lightColor: '#F59E0B', // Amber for warning
+  });
 
-    // Admin channel - DEFAULT priority for platform announcements
-    await Notifications.setNotificationChannelAsync('admin', {
-        name: 'Platform Updates',
-        description: 'Messages from Baci platform',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        sound: 'default',
-    });
+  // Admin channel - DEFAULT priority for platform announcements
+  await Notifications.setNotificationChannelAsync('admin', {
+    name: 'Platform Updates',
+    description: 'Messages from Baci platform',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    sound: 'default',
+  });
 
-    // General channel - LOW priority for misc notifications
-    await Notifications.setNotificationChannelAsync('general', {
-        name: 'General',
-        description: 'Other notifications',
-        importance: Notifications.AndroidImportance.LOW,
-    });
+  // General channel - LOW priority for misc notifications
+  await Notifications.setNotificationChannelAsync('general', {
+    name: 'General',
+    description: 'Other notifications',
+    importance: Notifications.AndroidImportance.LOW,
+  });
 }
 
 /**
@@ -148,38 +148,38 @@ async function setupAndroidChannels(): Promise<void> {
  * Uses upsert to handle token refresh (same token = update last_used_at)
  */
 export async function savePushTokenToServer(
-    token: string,
-    userId: string,
-    merchantId: string
+  token: string,
+  userId: string,
+  merchantId: string
 ): Promise<boolean> {
-    try {
-        const { error } = await supabase.from('push_tokens').upsert(
-            {
-                user_id: userId,
-                merchant_id: merchantId,
-                token: token,
-                platform: Platform.OS,
-                device_name: Device.modelName || 'Unknown Device',
-                app_type: 'admin',
-                is_active: true,
-                last_used_at: new Date().toISOString(),
-            },
-            {
-                onConflict: 'token',
-            }
-        );
+  try {
+    const { error } = await supabase.from('push_tokens').upsert(
+      {
+        user_id: userId,
+        merchant_id: merchantId,
+        token: token,
+        platform: Platform.OS,
+        device_name: Device.modelName || 'Unknown Device',
+        app_type: 'admin',
+        is_active: true,
+        last_used_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'token',
+      }
+    );
 
-        if (error) {
-            console.error('[Push] Failed to save push token:', error);
-            return false;
-        }
-
-        console.log('[Push] Token saved to server');
-        return true;
-    } catch (error) {
-        console.error('[Push] Error saving push token:', error);
-        return false;
+    if (error) {
+      console.error('[Push] Failed to save push token:', error);
+      return false;
     }
+
+    console.log('[Push] Token saved to server');
+    return true;
+  } catch (error) {
+    console.error('[Push] Error saving push token:', error);
+    return false;
+  }
 }
 
 /**
@@ -187,113 +187,117 @@ export async function savePushTokenToServer(
  * This prevents notifications being sent to a signed-out device
  */
 export async function removePushTokenFromServer(
-    token: string
+  token: string
 ): Promise<boolean> {
-    try {
-        const { error } = await supabase
-            .from('push_tokens')
-            .update({ is_active: false })
-            .eq('token', token);
+  try {
+    const { error } = await supabase
+      .from('push_tokens')
+      .update({ is_active: false })
+      .eq('token', token);
 
-        if (error) {
-            console.error('[Push] Failed to deactivate push token:', error);
-            return false;
-        }
-
-        console.log('[Push] Token deactivated');
-        return true;
-    } catch (error) {
-        console.error('[Push] Error deactivating push token:', error);
-        return false;
+    if (error) {
+      console.error('[Push] Failed to deactivate push token:', error);
+      return false;
     }
+
+    console.log('[Push] Token deactivated');
+    return true;
+  } catch (error) {
+    console.error('[Push] Error deactivating push token:', error);
+    return false;
+  }
 }
 
 /**
  * Handle notification tap - returns navigation params
  */
 export function getNotificationNavigationParams(
-    response: Notifications.NotificationResponse
+  response: Notifications.NotificationResponse
 ): { screen: string; params?: Record<string, string> } | null {
-    const data = response.notification.request.content.data;
+  const data = response.notification.request.content.data;
 
-    if (!data || !data.type) {
-        return null;
-    }
+  if (!data || !data.type) {
+    return null;
+  }
 
-    // Route based on notification type
-    switch (data.type) {
-        case 'new_order':
-            return data.order_id
-                ? { screen: 'order', params: { id: data.order_id as string } }
-                : { screen: 'orders' };
+  // Route based on notification type
+  switch (data.type) {
+    case 'new_order':
+      return data.order_id
+        ? { screen: 'order', params: { id: data.order_id as string } }
+        : { screen: 'orders' };
 
-        case 'payment_received':
-            return data.order_id
-                ? { screen: 'order', params: { id: data.order_id as string } }
-                : { screen: 'index' };
+    case 'payment_received':
+      return data.order_id
+        ? { screen: 'order', params: { id: data.order_id as string } }
+        : { screen: 'index' };
 
-        case 'low_stock':
-            return data.product_id
-                ? { screen: 'product', params: { id: data.product_id as string } }
-                : { screen: 'products' };
+    case 'low_stock':
+      return data.product_id
+        ? { screen: 'product', params: { id: data.product_id as string } }
+        : { screen: 'products' };
 
-        case 'admin_broadcast':
-            return { screen: 'notifications' };
+    case 'admin_broadcast':
+      return { screen: 'notifications' };
 
-        default:
-            return { screen: 'index' };
-    }
+    case 'jumia_order':
+      // Navigate to orders screen (Jumia orders will be shown with badge)
+      return { screen: 'orders' };
+
+    default:
+      return { screen: 'index' };
+  }
 }
 
 /**
  * Schedule a local notification (for testing)
  */
 export async function scheduleLocalNotification(
-    title: string,
-    body: string,
-    data?: Record<string, unknown>,
-    triggerSeconds: number = 1
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+  triggerSeconds: number = 1
 ): Promise<string> {
-    const id = await Notifications.scheduleNotificationAsync({
-        content: {
-            title,
-            body,
-            data,
-            sound: 'default',
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: triggerSeconds,
-        },
-    });
+  const id = await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data,
+      sound: 'default',
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: triggerSeconds,
+    },
+  });
 
-    return id;
+  return id;
 }
 
 /**
  * Get the current badge count
  */
 export async function getBadgeCount(): Promise<number> {
-    return await Notifications.getBadgeCountAsync();
+  return await Notifications.getBadgeCountAsync();
 }
 
 /**
  * Set the badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
-    await Notifications.setBadgeCountAsync(count);
+  await Notifications.setBadgeCountAsync(count);
 }
 
 /**
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
-    await Notifications.setBadgeCountAsync(0);
+  await Notifications.setBadgeCountAsync(0);
 }
 
 /**
  * Cancel all pending notifications
  */
 export async function cancelAllNotifications(): Promise<void> {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.cancelAllScheduledNotificationsAsync();
 }

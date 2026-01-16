@@ -3,27 +3,27 @@
  * Allow users to rate and provide feedback on the app
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
-  StatusBar,
-  ActivityIndicator,
-  Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 const RATING_EMOJIS = ['😞', '😕', '😐', '🙂', '😍'];
 const RATING_LABELS = ['Very Poor', 'Poor', 'Okay', 'Good', 'Excellent'];
@@ -139,7 +139,7 @@ export default function SendFeedbackScreen() {
                     {
                       backgroundColor:
                         rating === index + 1
-                          ? colors.primary + '20'
+                          ? `${colors.primary}20`
                           : colors.cardHover,
                       borderColor:
                         rating === index + 1 ? colors.primary : 'transparent',

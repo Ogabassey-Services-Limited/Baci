@@ -1,8 +1,8 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
-import { useAuth } from '@/hooks/useAuth';
-import { useOnboarding } from '@/context/OnboardingContext';
-import { View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { DARK_COLORS } from '@/constants/theme';
+import { useOnboarding } from '@/context/OnboardingContext';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();

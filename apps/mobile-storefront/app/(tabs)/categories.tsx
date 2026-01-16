@@ -3,21 +3,19 @@
  * Browse products by category
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
   FlatList,
   Pressable,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useCategories } from '@/hooks/use-products-query';
 
 export default function CategoriesScreen() {

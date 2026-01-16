@@ -1,13 +1,13 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { useEffect } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
-  useSharedValue,
+  cancelAnimation,
+  Easing,
   useAnimatedStyle,
+  useSharedValue,
+  withDelay,
   withRepeat,
   withTiming,
-  withDelay,
-  Easing,
-  cancelAnimation,
 } from 'react-native-reanimated';
 import { useThemeStore } from '@/stores/theme-store';
 
@@ -47,7 +47,12 @@ const Snowflake = ({ index }: { index: number }) => {
       cancelAnimation(translateY);
       cancelAnimation(opacity);
     };
-  }, []);
+  }, [
+    delay,
+    duration, // Optional: Twinkle/Fade effect
+    opacity,
+    translateY,
+  ]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

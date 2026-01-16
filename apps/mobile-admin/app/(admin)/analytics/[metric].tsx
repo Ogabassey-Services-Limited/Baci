@@ -3,30 +3,30 @@
  * Drill-down view for a specific metric with charts and data table
  */
 
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  Share,
   ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Share,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+import Svg, { G, Rect, Text as SvgText } from 'react-native-svg';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
-  useAnalyticsDetail,
-  MetricType,
-  Granularity,
+  type Granularity,
   METRIC_CONFIG,
-  TimeSeriesDataPoint,
+  type MetricType,
+  type TimeSeriesDataPoint,
+  useAnalyticsDetail,
 } from '@/hooks/useAnalyticsDetail';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import Svg, { Rect, Text as SvgText, G } from 'react-native-svg';
+import { useTheme } from '@/hooks/useTheme';
 
 const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
   { value: 'hourly', label: 'HOURLY' },
@@ -119,7 +119,7 @@ function BarChart({
         return (
           <G key={i}>
             {/* Comparison bar (lighter, behind) */}
-            {comparisonData && comparisonData[i] && (
+            {comparisonData?.[i] && (
               <Rect
                 x={x - 2}
                 y={
@@ -471,7 +471,7 @@ export default function AnalyticsDetailScreen() {
                   styles.tableRow,
                   { borderBottomColor: colors.border },
                   highlightedLabel === row.label && {
-                    backgroundColor: colors.primary + '15',
+                    backgroundColor: `${colors.primary}15`,
                   },
                 ]}
                 onPress={() => setSelectedBarIndex(index)}

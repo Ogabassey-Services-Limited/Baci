@@ -197,9 +197,9 @@ export default function NewBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -650,7 +650,10 @@ export default function NewBlogPostPage() {
       </Tabs>
 
       {/* Draft Recovery Dialog */}
-      <AlertDialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+      <AlertDialog
+        open={showRecoveryDialog}
+        onOpenChange={setShowRecoveryDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Recover Draft?</AlertDialogTitle>

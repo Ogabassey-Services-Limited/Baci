@@ -1,4 +1,5 @@
 import { ArrowRight, ShoppingBag } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -175,22 +176,16 @@ const integrations = [
       'Manage Jumia orders, sync products, and receive real-time push notifications.',
     href: '/dashboard/channels',
     rawHref: true, // Use raw href instead of asRoute
-    // Official Jumia Star Logo
+    // Official Jumia Logo
     icon: (
-      <svg
-        className="h-10 w-10"
-        viewBox="0 0 48 48"
-        fill="none"
-        role="img"
-        aria-label="Jumia logo"
-      >
-        <title>Jumia logo</title>
-        <path
-          d="M24 4L28.944 18.056L44 24L28.944 29.944L24 44L19.056 29.944L4 24L19.056 18.056L24 4Z"
-          fill="#f68b1e"
+      <div className="h-10 w-10 relative">
+        <Image
+          src="/images/jumia-logo.png"
+          alt="Jumia Logo"
+          fill
+          className="object-contain"
         />
-        <circle cx="24" cy="24" r="6" fill="#fff" />
-      </svg>
+      </div>
     ),
     color: 'bg-[#f68b1e]/10 border-[#f68b1e]/20',
   },
@@ -236,7 +231,13 @@ export default async function IntegrationsPage() {
             <CardContent>
               <Button asChild className="w-full group-hover:bg-primary/90">
                 {/* biome-ignore lint/suspicious/noExplicitAny: Complex Typed Route logic */}
-                <Link href={('rawHref' in integration && integration.rawHref ? integration.href : asRoute(integration.href)) as any}>
+                <Link
+                  href={
+                    ('rawHref' in integration && integration.rawHref
+                      ? integration.href
+                      : asRoute(integration.href)) as any
+                  }
+                >
                   Configure
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>

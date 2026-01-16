@@ -3,33 +3,33 @@
  * View customer list and details with real-time data
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
+import { type Href, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Animated,
   FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   StatusBar,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
   TextInput,
-  Animated,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Href } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
-  useCustomers,
-  useCustomerStats,
   type Customer,
+  useCustomerStats,
+  useCustomers,
 } from '@/hooks/useCustomers';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useFailedOrders, type FailedOrder } from '@/hooks/useFailedOrders';
-import * as Linking from 'expo-linking';
+import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();

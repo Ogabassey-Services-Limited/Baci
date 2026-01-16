@@ -4,16 +4,16 @@
  * Supports: default, secondary, outline, ghost, destructive
  */
 
-import React from 'react';
-import {
-  Pressable,
-  Text,
-  ActivityIndicator,
-  type PressableProps,
-  type ViewStyle,
-  type TextStyle,
-} from 'react-native';
 import { cssInterop } from 'nativewind';
+import type React from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  type PressableProps,
+  Text,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
 type ButtonVariant =
   | 'default'

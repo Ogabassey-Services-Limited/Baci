@@ -200,8 +200,13 @@ export const SourceIcon = ({ source }: { source: string }) => {
   }
   if (source === 'jumia') {
     return (
-      <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold">
-        J
+      <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-white border border-gray-100 shadow-sm relative">
+        <Image
+          src="/images/jumia-logo.png"
+          alt="Jumia"
+          fill
+          className="object-contain p-0.5"
+        />
       </div>
     );
   }
@@ -291,8 +296,8 @@ const OrderCard = ({
           <div
             className="flex-1 min-w-0"
             /* Removed generic onClick to prevent conflict with Name Link.
-       Only expanding on row click if not clicking interactive elements.
-       But simpler to let user click Chevron or non-interactive areas. */
+     Only expanding on row click if not clicking interactive elements.
+     But simpler to let user click Chevron or non-interactive areas. */
           >
             {/* Header: Customer & Date & Urgency */}
             <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">

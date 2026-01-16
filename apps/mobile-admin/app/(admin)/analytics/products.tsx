@@ -3,20 +3,22 @@
  * List of top selling products with revenue and units sold
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
   FlatList,
   Pressable,
   StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { useTopSellingProducts, TopSellingProduct } from '@/hooks/useProducts';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  type TopSellingProduct,
+  useTopSellingProducts,
+} from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();

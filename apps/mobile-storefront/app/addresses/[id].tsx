@@ -3,21 +3,21 @@
  * Form for creating or updating delivery addresses
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
@@ -101,7 +101,7 @@ export default function AddressFormScreen() {
     if (!isNewAddress && id) {
       fetchAddress();
     }
-  }, [id, isNewAddress]);
+  }, [id, isNewAddress, fetchAddress]);
 
   const fetchAddress = async () => {
     try {

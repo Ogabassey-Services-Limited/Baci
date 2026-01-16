@@ -4,7 +4,8 @@ import { headers } from 'next/headers';
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
   const host = headersList.get('host') || 'localhost:3000';
-  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+  const protocol =
+    host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
   const storeUrl = `${protocol}://${host}`;
 
   // Protected paths that should not be crawled

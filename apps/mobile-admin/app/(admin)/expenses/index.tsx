@@ -3,26 +3,25 @@
  * View and manage business expenses
  */
 
-import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  ActivityIndicator,
-  StatusBar,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { format, isSameMonth, parseISO } from 'date-fns';
-
+import { Stack, useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useMerchant } from '@/hooks/useMerchant';
 
 // Format currency helper
 const formatCurrency = (amount: number, currency = 'NGN') => {
@@ -82,7 +81,7 @@ export default function ExpensesScreen() {
       <View
         style={[
           styles.categoryIcon,
-          { backgroundColor: colors.primary + '15' },
+          { backgroundColor: `${colors.primary}15` },
         ]}
       >
         <Ionicons name="pricetag-outline" size={20} color={colors.primary} />

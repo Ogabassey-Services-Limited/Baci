@@ -2,12 +2,12 @@
  * Add Domain Screen
  * Choose between Buying or Connecting
  */
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+
 import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function AddDomainScreen() {
   const { colors, shadows } = useTheme();
@@ -32,7 +32,7 @@ export default function AddDomainScreen() {
         onPress={() => router.push('/domains/buy')}
       >
         <View
-          style={[styles.iconBadge, { backgroundColor: colors.primary + '15' }]}
+          style={[styles.iconBadge, { backgroundColor: `${colors.primary}15` }]}
         >
           <Ionicons name="cart" size={24} color={colors.primary} />
         </View>
@@ -47,7 +47,7 @@ export default function AddDomainScreen() {
           <View
             style={[
               styles.noteContainer,
-              { backgroundColor: colors.warning + '15' },
+              { backgroundColor: `${colors.warning}15` },
             ]}
           >
             <Ionicons
@@ -75,7 +75,7 @@ export default function AddDomainScreen() {
         <View
           style={[
             styles.iconBadge,
-            { backgroundColor: colors.textSecondary + '15' },
+            { backgroundColor: `${colors.textSecondary}15` },
           ]}
         >
           <Ionicons name="link" size={24} color={colors.text} />

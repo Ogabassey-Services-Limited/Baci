@@ -6,8 +6,8 @@
 import {
   useInfiniteQuery,
   useMutation,
-  useQueryClient,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
@@ -402,7 +402,7 @@ export function useTopSellingProducts(limit: number = 20) {
       const productMap = new Map<string, TopSellingProduct>();
 
       for (const item of orderItems) {
-        // @ts-ignore - Supabase types join
+        // @ts-expect-error - Supabase types join
         const product = item.products as Product;
         const existing = productMap.get(product.id);
         const qty = item.quantity || 1;

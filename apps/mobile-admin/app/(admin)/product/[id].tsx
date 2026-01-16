@@ -3,37 +3,37 @@
  * Manage product details and inventory
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
-  Platform,
-  useColorScheme,
-  Switch,
-  Modal,
-  Alert,
-  ActivityIndicator,
-  FlatList,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
   useCategories,
-  useProduct,
   useCreateCategory,
-  useUpdateProduct,
   useCreateProduct,
+  useProduct,
+  useUpdateProduct,
 } from '@/hooks/useProducts';
-import { useMerchant } from '@/hooks/useMerchant';
-import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/lib/supabase';
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -89,16 +89,16 @@ const PriceInput = ({
     // Prevent multiple decimals
     const parts = cleaned.split('.');
     const sanitaryText =
-      parts[0] + (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
+      parts[0] + (parts.length > 1 ? `.${parts.slice(1).join('')}` : '');
 
     // Format with commas for the display
     const formatted =
       parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') +
-      (parts.length > 1 ? '.' + parts.slice(1).join('') : '');
+      (parts.length > 1 ? `.${parts.slice(1).join('')}` : '');
 
     setDisplayValue(formatted);
-    const num = parseFloat(sanitaryText);
-    onChange(isNaN(num) ? 0 : num);
+    const num = Number.parseFloat(sanitaryText);
+    onChange(Number.isNaN(num) ? 0 : num);
   };
 
   return (
@@ -262,7 +262,7 @@ export default function ProductEditScreen() {
       });
       setIsInitialized(true);
     }
-  }, [product, isInitialized]);
+  }, [product, isInitialized, stripHtml]);
 
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();
@@ -462,7 +462,7 @@ export default function ProductEditScreen() {
     }
     const profit = price - costPrice;
     const percentage =
-      price > 0 ? ((profit / price) * 100).toFixed(1) + '%' : '0.0%';
+      price > 0 ? `${((profit / price) * 100).toFixed(1)}%` : '0.0%';
     const color =
       profit > 0 ? '#10B981' : profit < 0 ? '#EF4444' : colors.textSecondary;
     return { profit, percentage, color, active: true };
@@ -1201,8 +1201,11 @@ export default function ProductEditScreen() {
                               )
                         }
                         onChangeText={(text) => {
-                          const num = parseInt(text.replace(/,/g, ''));
-                          adjustStock(isNaN(num) ? 0 : num);
+                          const num = Number.parseInt(
+                            text.replace(/,/g, ''),
+                            10
+                          );
+                          adjustStock(Number.isNaN(num) ? 0 : num);
                         }}
                         keyboardType="numeric"
                       />
@@ -1296,7 +1299,7 @@ export default function ProductEditScreen() {
                   style={{
                     backgroundColor: isCreatingCategory
                       ? '#EF4444' + '15'
-                      : colors.primary + '15',
+                      : `${colors.primary}15`,
                     paddingHorizontal: 12,
                     paddingVertical: 8,
                     borderRadius: 20,

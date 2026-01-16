@@ -10,9 +10,9 @@
  * For production builds, consider switching to MMKV for better performance.
  */
 
-import { QueryClient } from '@tanstack/react-query';
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { QueryClient } from '@tanstack/react-query';
 
 // Create the persister with AsyncStorage (Expo Go compatible)
 export const queryPersister = createAsyncStoragePersister({

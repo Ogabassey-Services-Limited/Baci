@@ -3,27 +3,26 @@
  * Configure shipping providers and delivery settings
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  Linking,
   ActivityIndicator,
-  Switch,
   Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface ShippingSettings {
   merchant_id: string;
@@ -72,7 +71,7 @@ export default function ShippingScreen() {
       const { data: merchant } = await supabase
         .from('merchants')
         .select('id')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
 
       if (!merchant) throw new Error('No merchant found');

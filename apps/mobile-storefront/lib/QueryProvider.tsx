@@ -7,8 +7,8 @@
  * - Network requests happen in background after cached data is shown
  */
 
-import React from 'react';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import type React from 'react';
 import { queryClient, queryPersister } from './query-client';
 
 interface QueryProviderProps {

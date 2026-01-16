@@ -17,24 +17,24 @@
  * - Snapchat CAPI
  */
 
-import { useEffect, useCallback } from 'react';
 import { usePathname } from 'expo-router';
-import { useAuthStore } from '@/stores/auth-store';
+import { useCallback, useEffect } from 'react';
 import {
-  trackScreenView,
-  trackProductViewed,
+  identifyUser,
+  isTrackingEnabled,
+  requestTrackingPermission,
+  resetUserIdentity,
   trackAddToCart,
   trackCheckoutStarted,
-  trackPurchase,
-  trackSearch,
   trackCustomEvent,
-  trackSignup,
   trackPaymentInfoAdded,
-  identifyUser,
-  resetUserIdentity,
-  requestTrackingPermission,
-  isTrackingEnabled,
+  trackProductViewed,
+  trackPurchase,
+  trackScreenView,
+  trackSearch,
+  trackSignup,
 } from '@/services/ad-tracking';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface Product {
   id: string;

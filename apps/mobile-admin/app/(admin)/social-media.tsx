@@ -3,25 +3,25 @@
  * Manage social media links for the store
  */
 
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
   ActivityIndicator,
   Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
@@ -45,7 +45,7 @@ export default function SocialMediaScreen() {
       const { data, error } = await supabase
         .from('merchants')
         .select('social_media')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
       if (error) throw error;
       return data;
@@ -76,7 +76,7 @@ export default function SocialMediaScreen() {
         .update({
           social_media: socialMedia,
         })
-        .eq('user_id', user!.id);
+        .eq('user_id', user?.id);
 
       if (error) throw error;
       return true;

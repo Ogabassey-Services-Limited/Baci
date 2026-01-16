@@ -3,11 +3,10 @@
  * Grid button for quick access to common merchant actions
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface QuickActionButtonProps {
   icon: keyof typeof Ionicons.glyphMap;

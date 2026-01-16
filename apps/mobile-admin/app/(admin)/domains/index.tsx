@@ -3,27 +3,27 @@
  * 2026 Refactor: Full native management
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  TouchableOpacity,
-  Linking,
-  Alert,
-} from 'react-native';
-import DomainOptionsSheet from '@/components/domains/DomainOptionsSheet';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { supabase } from '@/lib/supabase'; // Access direct if possible, or use API
 // import { useAuth } from '@/hooks/useAuth';
 import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Linking,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import DomainOptionsSheet from '@/components/domains/DomainOptionsSheet';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase'; // Access direct if possible, or use API
 
 interface Domain {
   id: string;
@@ -119,7 +119,7 @@ export default function DomainsDashboard() {
     }
   };
 
-  const handleDelete = async (domain: Domain) => {
+  const handleDelete = (domain: Domain) => {
     Alert.alert(
       'Delete Domain?',
       `Are you sure you want to delete ${domain.domain}? This cannot be undone.`,
@@ -414,7 +414,7 @@ export default function DomainsDashboard() {
                 <View
                   style={[
                     styles.promoIconCircle,
-                    { backgroundColor: colors.primary + '15' },
+                    { backgroundColor: `${colors.primary}15` },
                   ]}
                 >
                   <Ionicons name="rocket" size={32} color={colors.primary} />

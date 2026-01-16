@@ -3,14 +3,13 @@
  * Dashboard header with merchant name, avatar, and live status
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
-import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 import { BaciLogo } from '@/components/BaciLogo';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface WelcomeHeaderProps {
   storeUrl: string;
@@ -94,7 +93,7 @@ export function WelcomeHeader({
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: colors.live + '20' },
+                  { backgroundColor: `${colors.live}20` },
                 ]}
               >
                 <Text style={[styles.statusText, { color: colors.live }]}>
@@ -105,7 +104,7 @@ export function WelcomeHeader({
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: colors.textMuted + '20' },
+                  { backgroundColor: `${colors.textMuted}20` },
                 ]}
               >
                 <Text style={[styles.statusText, { color: colors.textMuted }]}>

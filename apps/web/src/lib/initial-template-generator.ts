@@ -1,4 +1,4 @@
-import type { Data } from '@measured/puck';
+import type { Data } from '@puckeditor/core';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { activeTextModel } from '@/ai/provider';

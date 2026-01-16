@@ -3,22 +3,21 @@
  * Displays products filtered by category slug
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-
-import Colors, { BRAND } from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
 import { useProducts } from '@/hooks/use-products';
 import type { Product } from '@/types/product';
 

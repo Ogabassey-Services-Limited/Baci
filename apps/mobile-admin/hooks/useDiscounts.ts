@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useMerchant } from './useMerchant';
-import {
-  DiscountCode,
+import type {
   CreateDiscountDTO,
+  DiscountCode,
   UpdateDiscountDTO,
 } from '@/lib/types/discounts';
+import { useMerchant } from './useMerchant';
 
 export function useDiscounts() {
   const { merchant } = useMerchant();

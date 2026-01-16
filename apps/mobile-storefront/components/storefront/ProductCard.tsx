@@ -8,35 +8,26 @@
  * - 300ms smooth transitions from placeholder to image
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  FadeIn,
-  FadeOut,
-} from 'react-native-reanimated';
-import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import Colors, {
-  BRAND,
-  SPACING,
-  RADIUS,
-  TYPOGRAPHY,
-  SHADOWS,
-  SPRING_CONFIG,
-} from '@/constants/Colors';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, RADIUS, SPRING_CONFIG } from '@/constants/Colors';
+import { supabase } from '@/lib/supabase';
+import { useCartStore } from '@/stores/cart-store';
 import {
   formatPrice,
   getDiscountPercentage,
   type Product,
 } from '@/types/product';
-import { useCartStore } from '@/stores/cart-store';
-import { supabase } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_WIDTH = (SCREEN_WIDTH - 48) / 2;
@@ -175,7 +166,7 @@ export function ProductCard({
     });
   };
 
-  const discount = getDiscountPercentage(
+  const _discount = getDiscountPercentage(
     product.price,
     product.compare_at_price
   );

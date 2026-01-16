@@ -1,24 +1,23 @@
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Switch,
   ActivityIndicator,
   Alert,
+  Pressable,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface NotificationPreferences {
   merchant_id: string;
@@ -42,7 +41,7 @@ export default function NotificationsScreen() {
       const { data, error } = await supabase
         .from('notification_preferences')
         .select('*')
-        .eq('merchant_id', merchant!.id)
+        .eq('merchant_id', merchant?.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -50,7 +49,7 @@ export default function NotificationsScreen() {
       // If no preferences found, return defaults
       if (!data) {
         return {
-          merchant_id: merchant!.id,
+          merchant_id: merchant?.id,
           in_app_enabled: true,
           banner_enabled: true,
           quiet_hours_start: null,
@@ -164,7 +163,7 @@ export default function NotificationsScreen() {
                 onValueChange={toggleInApp}
                 trackColor={{
                   false: colors.border,
-                  true: colors.primary + '50',
+                  true: `${colors.primary}50`,
                 }}
                 thumbColor={
                   (preferences?.in_app_enabled ?? true)
@@ -194,7 +193,7 @@ export default function NotificationsScreen() {
                 onValueChange={toggleBanner}
                 trackColor={{
                   false: colors.border,
-                  true: colors.primary + '50',
+                  true: `${colors.primary}50`,
                 }}
                 thumbColor={
                   (preferences?.banner_enabled ?? true)

@@ -3,18 +3,18 @@
  * Manages push notification registration and listeners
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import type { EventSubscription } from 'expo-modules-core';
 import * as Notifications from 'expo-notifications';
-import { type EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
-import { useAuthStore } from '@/stores/auth-store';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  registerForPushNotifications,
-  savePushTokenToServer,
-  removePushTokenFromServer,
-  handleNotificationResponse,
   clearBadge,
+  handleNotificationResponse,
+  registerForPushNotifications,
+  removePushTokenFromServer,
+  savePushTokenToServer,
 } from '@/services/push-notifications';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface UsePushNotificationsReturn {
   pushToken: string | null;

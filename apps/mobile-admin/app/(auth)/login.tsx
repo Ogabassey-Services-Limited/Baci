@@ -3,21 +3,21 @@
  * Clean, minimal design with Google and Apple sign-in support
  */
 
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
-import { useRouter } from 'expo-router';
 
 // Multi-colored Google Logo Component
 const GoogleLogo = ({ size = 20 }: { size?: number }) => (
@@ -40,14 +40,19 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
     />
   </Svg>
 );
+
+import {
+  GoogleSignin,
+  isSuccessResponse,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
-import { GoogleSignin, statusCodes, isSuccessResponse } from '@react-native-google-signin/google-signin';
+import { BaciLogo } from '@/components/BaciLogo';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { BaciLogo } from '@/components/BaciLogo';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { useOnboarding } from '@/context/OnboardingContext';
 import { supabase } from '@/lib/supabase';
 
 // Baci Brand Colors
@@ -59,15 +64,21 @@ const BRAND = {
 // Get Google Client IDs from Expo Constants (baked in at build time)
 // This is the 2026 best practice - guaranteed to work on native builds
 const googleConfig = {
-  iosClientId: Constants.expoConfig?.extra?.googleIosClientId ?? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  webClientId: Constants.expoConfig?.extra?.googleWebClientId ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  iosClientId:
+    Constants.expoConfig?.extra?.googleIosClientId ??
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  webClientId:
+    Constants.expoConfig?.extra?.googleWebClientId ??
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
 };
 
 // DEBUG: Log the client IDs to verify they're being loaded
 console.log('[GoogleSignIn] Configuring with:', {
-  iosClientId: googleConfig.iosClientId?.slice(0, 20) + '...',
-  webClientId: googleConfig.webClientId?.slice(0, 20) + '...',
-  source: Constants.expoConfig?.extra?.googleWebClientId ? 'Constants.extra' : 'process.env',
+  iosClientId: `${googleConfig.iosClientId?.slice(0, 20)}...`,
+  webClientId: `${googleConfig.webClientId?.slice(0, 20)}...`,
+  source: Constants.expoConfig?.extra?.googleWebClientId
+    ? 'Constants.extra'
+    : 'process.env',
 });
 
 // Configure Google Sign-In once
@@ -100,7 +111,10 @@ export default function LoginScreen() {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
 
-      console.log('[GoogleSignIn] Response:', JSON.stringify(response, null, 2));
+      console.log(
+        '[GoogleSignIn] Response:',
+        JSON.stringify(response, null, 2)
+      );
 
       if (isSuccessResponse(response) && response.data?.idToken) {
         const { error: signInError } = await supabase.auth.signInWithIdToken({
@@ -113,7 +127,9 @@ export default function LoginScreen() {
       } else {
         // More detailed error message
         console.error('[GoogleSignIn] No ID token. Full response:', response);
-        setError(`Google sign-in failed: No ID token received. Check webClientId configuration.`);
+        setError(
+          `Google sign-in failed: No ID token received. Check webClientId configuration.`
+        );
       }
     } catch (err: unknown) {
       console.error('[GoogleSignIn] Error:', err);
@@ -122,10 +138,14 @@ export default function LoginScreen() {
         // User cancelled, no error to show
       } else if (errorWithCode?.code === statusCodes.IN_PROGRESS) {
         setError('Sign-in already in progress');
-      } else if (errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      } else if (
+        errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
+      ) {
         setError('Google Play Services not available');
       } else {
-        setError(`Google sign-in failed: ${errorWithCode?.message || 'Unknown error'}`);
+        setError(
+          `Google sign-in failed: ${errorWithCode?.message || 'Unknown error'}`
+        );
       }
     } finally {
       setIsGoogleLoading(false);

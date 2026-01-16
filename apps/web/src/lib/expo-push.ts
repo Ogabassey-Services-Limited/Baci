@@ -412,6 +412,36 @@ export async function notifyWithdrawalProcessed(
   );
 }
 
+/**
+ * Notify merchant of a new Jumia order
+ */
+export async function notifyJumiaOrder(
+  merchantId: string,
+  jumiaOrderNumber: string,
+  customerName: string,
+  amount: number,
+  currency = 'NGN'
+): Promise<void> {
+  const formattedAmount = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+  }).format(amount);
+
+  await notifyMerchant(
+    merchantId,
+    '🟠 Jumia Order',
+    `Order #${jumiaOrderNumber} from ${customerName} - ${formattedAmount}`,
+    {
+      type: 'jumia_order',
+      jumia_order_number: jumiaOrderNumber,
+      amount,
+      currency,
+    },
+    'orders' // Uses orders channel (HIGH priority)
+  );
+}
+
 // =============================================================================
 // CUSTOMER NOTIFICATION EVENT HELPERS (for storefront mobile apps)
 // =============================================================================

@@ -1,23 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
+import { type Href, Stack, useRouter } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
   ActivityIndicator,
   Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, Stack, Href } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/useTheme';
-import { useStoreReadiness } from '@/hooks/useStoreReadiness';
-import { SetupItem } from '@/types/readiness';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useQueryClient } from '@tanstack/react-query';
+import { useStoreReadiness } from '@/hooks/useStoreReadiness';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
+import type { SetupItem } from '@/types/readiness';
 
 const CATEGORY_ICONS: Record<string, string> = {
   payments: 'card-outline',

@@ -4,21 +4,21 @@
  * 2025 best practices: React Query v5, proper typing, optimistic updates
  */
 
+// Import shared types from monorepo
+import type {
+  Order,
+  OrderItem,
+  PaymentStatus,
+  ShippingStatus,
+} from '@baci/shared';
 import {
   useInfiniteQuery,
   useMutation,
-  useQueryClient,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
-// Import shared types from monorepo
-import type {
-  ShippingStatus,
-  PaymentStatus,
-  Order,
-  OrderItem,
-} from '@baci/shared';
 
 // Re-export for backward compatibility
 export type { ShippingStatus, PaymentStatus, Order, OrderItem };

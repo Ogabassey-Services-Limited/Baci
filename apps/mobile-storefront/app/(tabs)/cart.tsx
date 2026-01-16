@@ -3,23 +3,21 @@
  * Shopping cart with items, quantities, and checkout
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   FlatList,
   Image,
   Pressable,
-  Alert,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-
-import Colors, { BRAND } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useCartStore, formatPrice, type CartItem } from '@/stores/cart-store';
+import Colors, { BRAND } from '@/constants/Colors';
+import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
 export default function CartScreen() {
   const colorScheme = useColorScheme();

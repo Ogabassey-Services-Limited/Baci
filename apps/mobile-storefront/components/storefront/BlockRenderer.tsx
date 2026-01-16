@@ -1,19 +1,20 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Hero } from './Hero';
-import { UtilityPanel } from './UtilityPanel';
-import { ProductCard } from './ProductCard';
-import { FilterBar } from './FilterBar';
-import { useProducts, useCategories } from '@/hooks/use-products-query';
+import type React from 'react';
+import { useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useCategories, useProducts } from '@/hooks/use-products-query';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import type {
   Block,
-  ProductGridBlock,
   HeroCarouselBlock,
+  ProductGridBlock,
 } from '@/types/blocks';
+import { FilterBar } from './FilterBar';
+import { Hero } from './Hero';
+import { ProductCard } from './ProductCard';
+import { UtilityPanel } from './UtilityPanel';
 
 interface BlockRendererProps {
   blocks: Block[];

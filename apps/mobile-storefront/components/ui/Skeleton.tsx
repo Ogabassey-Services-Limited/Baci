@@ -3,8 +3,8 @@
  * 2025 Best Practice: Show content shapes while loading for perceived instant loading
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, ViewStyle } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 

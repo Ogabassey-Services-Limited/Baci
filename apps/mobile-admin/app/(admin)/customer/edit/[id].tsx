@@ -1,31 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
 import PhoneInput from 'react-native-phone-number-input';
-import { useTheme } from '@/hooks/useTheme';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCustomer, useUpdateCustomer } from '@/hooks/useCustomers';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function CustomerEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
 
-  const { data: customer, isLoading } = useCustomer(id!);
+  const { data: customer, isLoading } = useCustomer(id || '');
   const updateCustomer = useUpdateCustomer();
 
   const [firstName, setFirstName] = useState('');
@@ -77,7 +77,7 @@ export default function CustomerEditScreen() {
 
     try {
       await updateCustomer.mutateAsync({
-        id: id!,
+        id: id || '',
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
         email: email.trim(),

@@ -3,15 +3,13 @@
  * Shown after successful order placement
  */
 
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
-import { Stack, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-import { BRAND } from '@/constants/Colors';
+import { router, Stack } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
@@ -25,7 +23,7 @@ export default function OrderSuccessScreen() {
       friction: 7,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scaleAnim]);
 
   const handleContinueShopping = () => {
     router.replace('/(tabs)');

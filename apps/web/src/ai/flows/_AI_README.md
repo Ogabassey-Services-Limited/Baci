@@ -73,7 +73,7 @@ You are working on **Baci**, an AI-native e-commerce platform that enables Niger
   - `gemini-2.5-flash`
   - `gemini-2.5-pro` 
 - **Payment:** Paystack (Nigerian market) , Korapay (Multi country)
-- **CMS:** @measured/puck (visual page builder)
+- **CMS:** @puckeditor/core (visual page builder)
 ---
 ## Code Architecture & Patterns
 ### Directory Structure

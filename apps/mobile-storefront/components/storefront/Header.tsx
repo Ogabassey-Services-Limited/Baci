@@ -3,20 +3,18 @@
  * Supports 'elite', 'standard', and 'minimal' styles
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
-
-import { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Logo } from '@/components/ui/Logo';
+import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { useCartStore } from '@/stores/cart-store';
 import { useThemeStore } from '@/stores/theme-store';
-import { Logo } from '@/components/ui/Logo';
 
 interface HeaderProps {
   showSearch?: boolean;

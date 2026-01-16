@@ -1,17 +1,16 @@
-import React, { useState } from 'react';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
-  View,
-  Text,
+  Dimensions,
+  Pressable,
   ScrollView,
   StyleSheet,
-  Pressable,
-  Dimensions,
+  Text,
   TextInput,
-  Modal,
+  View,
 } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

@@ -1,6 +1,5 @@
 
+
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-.next/types/validator.ts(296,39): error TS2307: Cannot find module '../../src/app/(storefront)/[slug]/orders/track/page.js' or its corresponding type declarations.
- ELIFECYCLE  Command failed with exit code 2.

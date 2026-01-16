@@ -1,6 +1,5 @@
-import React from 'react';
-import Svg, { Path, G } from 'react-native-svg';
-import { ViewStyle, StyleProp } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import Svg, { G, Path } from 'react-native-svg';
 
 interface LogoProps {
   width?: number;

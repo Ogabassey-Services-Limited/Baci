@@ -9,10 +9,10 @@ async function getBlue() {
       .raw()
       .toBuffer({ resolveWithObject: true });
 
-    let rSum = 0,
-      gSum = 0,
-      bSum = 0,
-      count = 0;
+    let rSum = 0;
+    let gSum = 0;
+    let bSum = 0;
+    let count = 0;
 
     for (let i = 0; i < data.length; i += info.channels) {
       const r = data[i];
@@ -38,7 +38,7 @@ async function getBlue() {
         [rAvg, gAvg, bAvg]
           .map((x) => {
             const hex = x.toString(16);
-            return hex.length === 1 ? '0' + hex : hex;
+            return hex.length === 1 ? `0${hex}` : hex;
           })
           .join('');
       console.log('Average Blue Color:', hex);

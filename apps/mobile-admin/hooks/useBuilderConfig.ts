@@ -4,8 +4,8 @@
  * Communicates with the Web API to fetch, modify via AI, save, and publish configs.
  */
 
-import { useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // Web API base URL - uses the same Supabase project

@@ -4,8 +4,8 @@
  * Design aligned with Baci web app
  */
 
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import {
   DarkTheme,
   DefaultTheme,
@@ -24,22 +24,16 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ConnectivityBanner } from '@/components/ConnectivityBanner';
+import { ErrorFallback } from '@/components/ErrorBoundary';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useAuthStore } from '@/stores/auth-store';
+import Colors, { BRAND } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { QueryProvider } from '@/lib/QueryProvider';
-import Colors, { BRAND } from '@/constants/Colors';
 import { initAnalytics } from '@/services/analytics';
-import {
-  initAdTracking,
-  trackAppOpen,
-  requestTrackingPermission,
-} from '@/services/ad-tracking';
-import { ErrorFallback } from '@/components/ErrorBoundary';
-import { ConnectivityBanner } from '@/components/ConnectivityBanner';
+import { useAuthStore } from '@/stores/auth-store';
 
 // Custom error boundary with network error handling
 export function ErrorBoundary({

@@ -3,11 +3,10 @@
  * Simple bar chart showing revenue over time (no SVG paths for Android compatibility)
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface DataPoint {
   label: string;

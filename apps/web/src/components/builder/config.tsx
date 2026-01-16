@@ -1,4 +1,4 @@
-import type { Config } from '@measured/puck';
+import type { Config } from '@puckeditor/core';
 import Autoplay from 'embla-carousel-autoplay';
 import {
   Facebook,

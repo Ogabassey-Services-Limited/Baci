@@ -3,7 +3,6 @@
  * Uses the actual Baci app icon (navy bag with white cloud)
  */
 
-import React from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 
 interface BaciLogoProps {

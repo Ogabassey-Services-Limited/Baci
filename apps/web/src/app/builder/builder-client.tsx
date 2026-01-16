@@ -5,8 +5,8 @@ import {
   type DefaultComponentProps,
   Drawer,
   Puck,
-} from '@measured/puck';
-import '@measured/puck/puck.css';
+} from '@puckeditor/core';
+import '@puckeditor/core/puck.css';
 import {
   ArrowLeft,
   Box,

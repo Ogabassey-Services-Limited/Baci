@@ -3,24 +3,23 @@
  * Manage coupons and promotions
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   StatusBar,
-  ActivityIndicator,
-  Alert,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDiscounts } from '@/hooks/useDiscounts';
-import { DiscountCode } from '@/lib/types/discounts';
+import { useTheme } from '@/hooks/useTheme';
+import type { DiscountCode } from '@/lib/types/discounts';
 import { formatCurrency } from '@/utils/format';
 
 export default function DiscountsScreen() {

@@ -4,3 +4,28 @@
 
 env: load .env
 env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL
+(node:69120) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mac/Baci-app/eslint.config.js?mtime=1766399751680 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/mac/Baci-app/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/order/[id].tsx
+  362:9  warning  The 'loadSavedRiders' function makes the dependencies of useEffect Hook (at line 360) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'loadSavedRiders' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/payout-settings.tsx
+  45:17  error  'session' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/product/[id].tsx
+  220:9  warning  The 'stripHtml' function makes the dependencies of useEffect Hook (at line 265) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'stripHtml' in its own useCallback() Hook  react-hooks/exhaustive-deps
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/store-settings.tsx
+  34:63  error    Unexpected any. Specify a different type                                                                                                                                                                                                                     @typescript-eslint/no-explicit-any
+  35:22  error    React Hook "useTheme" is called in function "_JumiaIntegrationRow" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"   react-hooks/rules-of-hooks
+  36:41  error    React Hook "useState" is called in function "_JumiaIntegrationRow" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"   react-hooks/rules-of-hooks
+  37:36  error    React Hook "useState" is called in function "_JumiaIntegrationRow" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"   react-hooks/rules-of-hooks
+  42:3   error    React Hook "useEffect" is called in function "_JumiaIntegrationRow" that is neither a React function component nor a custom React Hook function. React component names must start with an uppercase letter. React Hook names must start with the word "use"  react-hooks/rules-of-hooks
+  46:9   warning  The 'checkStatus' function makes the dependencies of useEffect Hook (at line 44) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'checkStatus' in its own useCallback() Hook                            react-hooks/exhaustive-deps
+
+✖ 9 problems (6 errors, 3 warnings)
+
+ ELIFECYCLE  Command failed with exit code 1.

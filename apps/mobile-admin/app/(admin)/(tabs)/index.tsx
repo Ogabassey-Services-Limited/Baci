@@ -3,40 +3,39 @@
  * Main dashboard with stats, quick actions, and revenue overview
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  Pressable,
-  Alert,
-  Share,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { asUploadFile } from '@/types/upload';
-import { router, Href } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { useSettingsStore } from '@/hooks/useSettingsStore';
-import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import { useState } from 'react';
 import {
-  WelcomeHeader,
-  StatCard,
-  QuickActionButton,
-  ProgressCard,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
   InsightCard,
+  ProgressCard,
+  QuickActionButton,
   RevenueChart,
+  StatCard,
+  WelcomeHeader,
 } from '@/components/dashboard';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { type TimePeriod, useDashboardStats } from '@/hooks/useDashboardStats';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useDashboardStats, type TimePeriod } from '@/hooks/useDashboardStats';
-import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useOrders } from '@/hooks/useOrders';
-import { SPACING, TYPOGRAPHY, RADIUS } from '@/constants/theme';
+import { useSettingsStore } from '@/hooks/useSettingsStore';
+import { useStoreReadiness } from '@/hooks/useStoreReadiness';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
+import { asUploadFile } from '@/types/upload';
 
 const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -276,8 +275,7 @@ export default function HomeScreen() {
           >
             <Ionicons name="globe-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionCardText, { color: colors.text }]}>
-              {!primaryDomain ||
-                primaryDomain.domain_type === 'subdomain'
+              {!primaryDomain || primaryDomain.domain_type === 'subdomain'
                 ? 'Get Domain'
                 : 'Manage Domain'}
             </Text>
@@ -464,9 +462,7 @@ export default function HomeScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Transactions
             </Text>
-            <Pressable
-              onPress={() => router.push('/(admin)/(tabs)/orders')}
-            >
+            <Pressable onPress={() => router.push('/(admin)/(tabs)/orders')}>
               <Text
                 style={{
                   color: colors.primary,
@@ -499,31 +495,31 @@ export default function HomeScreen() {
                       return {
                         icon: 'checkmark-circle' as const,
                         color: colors.success,
-                        bg: colors.success + '15',
+                        bg: `${colors.success}15`,
                       };
                     case 'shipped':
                       return {
                         icon: 'bicycle' as const,
                         color: colors.info,
-                        bg: colors.info + '15',
+                        bg: `${colors.info}15`,
                       };
                     case 'cancelled':
                       return {
                         icon: 'close-circle' as const,
                         color: colors.notification,
-                        bg: colors.notification + '15',
+                        bg: `${colors.notification}15`,
                       };
                     case 'processing':
                       return {
                         icon: 'cube' as const,
                         color: colors.primary,
-                        bg: colors.primary + '15',
+                        bg: `${colors.primary}15`,
                       };
                     default: // pending
                       return {
                         icon: 'time' as const,
                         color: colors.gold,
-                        bg: colors.gold + '15',
+                        bg: `${colors.gold}15`,
                       };
                   }
                 };

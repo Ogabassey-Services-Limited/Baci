@@ -2,24 +2,25 @@
  * Connect Domain Screen
  * Manual DNS configuration flow
  */
-import React, { useState } from 'react';
+
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  ScrollView,
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 
 // Use Environment Variable or Fallback
@@ -103,7 +104,7 @@ export default function ConnectDomainScreen() {
         <View
           style={[
             styles.successHeader,
-            { backgroundColor: colors.success + '15' },
+            { backgroundColor: `${colors.success}15` },
           ]}
         >
           <Ionicons name="checkmark-circle" size={48} color={colors.success} />
@@ -167,7 +168,7 @@ export default function ConnectDomainScreen() {
         <View
           style={[
             styles.noteContainer,
-            { backgroundColor: colors.primary + '10' },
+            { backgroundColor: `${colors.primary}10` },
           ]}
         >
           <Ionicons name="time-outline" size={20} color={colors.primary} />

@@ -3,26 +3,26 @@
  * Identity verification for merchants (NIN, BVN, CAC)
  */
 
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
   ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 export default function KYCScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -42,7 +42,7 @@ export default function KYCScreen() {
       const { data, error } = await supabase
         .from('merchants')
         .select('id, nin, bvn, cac_rc_number')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
       if (error) throw error;
       return data;
@@ -124,7 +124,7 @@ export default function KYCScreen() {
             <View
               style={[
                 styles.iconCircle,
-                { backgroundColor: colors.primary + '15' },
+                { backgroundColor: `${colors.primary}15` },
               ]}
             >
               <Ionicons

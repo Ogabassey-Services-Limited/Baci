@@ -4,28 +4,28 @@
  * Replaces the basic color picker with Copilot functionality matching the web builder.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  FlatList,
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
   // Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useBuilderConfig } from '@/hooks/useBuilderConfig';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 
 // const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -383,7 +383,7 @@ export default function CustomizeScreen() {
               <View
                 style={[
                   styles.welcomeIcon,
-                  { backgroundColor: colors.primary + '20' },
+                  { backgroundColor: `${colors.primary}20` },
                 ]}
               >
                 <Ionicons name="sparkles" size={40} color={colors.primary} />

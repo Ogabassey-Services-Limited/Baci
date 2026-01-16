@@ -1,8 +1,8 @@
 'use client';
 
-import { type Data, Puck, usePuck } from '@measured/puck';
+import { type Data, Puck, usePuck } from '@puckeditor/core';
 import { Button } from '@/components/ui/button';
-import '@measured/puck/puck.css';
+import '@puckeditor/core/puck.css';
 import { ArrowLeft, Check, LayoutTemplate, Loader2, Lock } from 'lucide-react';
 import { Component, type ReactNode, useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';

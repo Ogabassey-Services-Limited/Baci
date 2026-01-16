@@ -1,10 +1,10 @@
 import { Redirect, Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { DARK_COLORS } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { View, ActivityIndicator } from 'react-native';
-import { DARK_COLORS } from '@/constants/theme';
-import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -90,7 +90,10 @@ export default function AdminLayout() {
         */}
         <Stack.Screen name="help" options={{ title: 'Help & Support' }} />
         <Stack.Screen name="kyc" options={{ title: 'Identity Verification' }} />
-        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+        <Stack.Screen
+          name="notifications"
+          options={{ title: 'Notifications' }}
+        />
         <Stack.Screen
           name="payment-methods"
           options={{ title: 'Payment Methods' }}
@@ -100,12 +103,18 @@ export default function AdminLayout() {
           options={{ title: 'Payout Settings' }}
         />
         <Stack.Screen name="profile" options={{ title: 'Profile' }} />
-        <Stack.Screen name="send-feedback" options={{ title: 'Send Feedback' }} />
+        <Stack.Screen
+          name="send-feedback"
+          options={{ title: 'Send Feedback' }}
+        />
         <Stack.Screen
           name="setup-checklist"
           options={{ title: 'Setup Checklist' }}
         />
-        <Stack.Screen name="shipping" options={{ title: 'Shipping Settings' }} />
+        <Stack.Screen
+          name="shipping"
+          options={{ title: 'Shipping Settings' }}
+        />
         <Stack.Screen name="staff" options={{ title: 'Staff Management' }} />
         <Stack.Screen
           name="store-settings"
@@ -116,4 +125,3 @@ export default function AdminLayout() {
     </ErrorBoundary>
   );
 }
-

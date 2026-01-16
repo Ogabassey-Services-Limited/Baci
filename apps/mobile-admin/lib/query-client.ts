@@ -3,8 +3,8 @@
  * Flash-Load pattern for instant data hydration
  */
 
-import { QueryClient } from '@tanstack/react-query';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { QueryClient } from '@tanstack/react-query';
 import { createMMKV } from 'react-native-mmkv';
 
 // Dedicated MMKV instance for admin query cache

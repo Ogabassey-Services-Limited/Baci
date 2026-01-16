@@ -3,7 +3,7 @@
  * Maps Baci Web icons (Lucide/Iconoir) to Mobile equivalents (Ionicons)
  */
 
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 
 export type WebIconName =
   | 'Shirt'
@@ -35,5 +35,5 @@ export function getCategoryIcon(
   identifier: string
 ): keyof typeof Ionicons.glyphMap {
   const normalized = identifier.toLowerCase();
-  return ICON_MAP[normalized] || ICON_MAP['general'];
+  return ICON_MAP[normalized] || ICON_MAP.general;
 }

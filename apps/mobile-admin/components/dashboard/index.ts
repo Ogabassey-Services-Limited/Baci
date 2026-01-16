@@ -3,9 +3,9 @@
  * Export all dashboard components from a single entry point
  */
 
-export { StatCard } from './StatCard';
-export { QuickActionButton } from './QuickActionButton';
-export { ProgressCard } from './ProgressCard';
-export { WelcomeHeader } from './WelcomeHeader';
 export { InsightCard } from './InsightCard';
+export { ProgressCard } from './ProgressCard';
+export { QuickActionButton } from './QuickActionButton';
 export { RevenueChart } from './RevenueChart';
+export { StatCard } from './StatCard';
+export { WelcomeHeader } from './WelcomeHeader';

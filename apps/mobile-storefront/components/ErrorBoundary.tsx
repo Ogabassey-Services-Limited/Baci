@@ -4,9 +4,9 @@
  * Handles network errors, Supabase failures, and unexpected crashes
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
 
 interface Props {
@@ -153,7 +153,7 @@ export function ErrorFallback({
   retry: () => void;
 }) {
   // Determine error type
-  let errorType: 'network' | 'supabase' | 'general' = 'general';
+  const _errorType: 'network' | 'supabase' | 'general' = 'general';
   let content = {
     icon: 'alert-circle-outline' as const,
     title: 'Something Went Wrong',

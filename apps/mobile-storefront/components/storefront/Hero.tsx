@@ -3,19 +3,16 @@
  * Supports 'parallax', 'carousel', and 'standard' variants
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-} from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { BRAND, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/Colors';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
+import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 

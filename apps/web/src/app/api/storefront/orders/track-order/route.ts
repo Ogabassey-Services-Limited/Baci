@@ -15,6 +15,23 @@ interface TimelineEvent {
     | 'cancelled';
 }
 
+interface ShippingAddress {
+  address?: string;
+  city?: string;
+  state?: string;
+}
+
+interface OrderItemWithProduct {
+  id: string;
+  product_id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  products: {
+    images: string[] | null;
+  } | null;
+}
+
 // GET - Track order by order number or ID
 export async function GET(request: NextRequest) {
   try {
@@ -96,6 +113,10 @@ export async function GET(request: NextRequest) {
     // Calculate estimated delivery
     const estimatedDelivery = calculateEstimatedDelivery(order);
 
+    const shippingAddress = order.shipping_address as unknown as
+      | ShippingAddress
+      | string;
+
     return NextResponse.json({
       order: {
         id: order.id,
@@ -116,35 +137,27 @@ export async function GET(request: NextRequest) {
         phone: maskPhone(order.customer_phone),
       },
       shipping_address: {
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase Json type
         address:
-          typeof order.shipping_address === 'object'
-            ? (order.shipping_address as any).address
-            : order.shipping_address,
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase Json type
-        city:
-          typeof order.shipping_address === 'object'
-            ? (order.shipping_address as any).city
-            : '',
-        // biome-ignore lint/suspicious/noExplicitAny: Supabase Json type
-        state:
-          typeof order.shipping_address === 'object'
-            ? (order.shipping_address as any).state
-            : '',
+          typeof shippingAddress === 'object'
+            ? shippingAddress.address
+            : shippingAddress,
+        city: typeof shippingAddress === 'object' ? shippingAddress.city : '',
+        state: typeof shippingAddress === 'object' ? shippingAddress.state : '',
         country: 'Nigeria', // Simplified as it's typically Nigeria for this platform
       },
-      // biome-ignore lint/suspicious/noExplicitAny: Complex nested types
-      items: order.order_items?.map((item: any) => ({
-        id: item.id,
-        product_id: item.product_id,
-        product_name: item.name,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
-        product_image: Array.isArray(item.products?.images)
-          ? item.products.images[0]
-          : null,
-      })),
+      items: (order.order_items as unknown as OrderItemWithProduct[])?.map(
+        (item) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
+          product_image: Array.isArray(item.products?.images)
+            ? item.products?.images[0]
+            : null,
+        })
+      ),
       timeline,
       shipping_tracking: shippingTracking,
       estimated_delivery: estimatedDelivery,

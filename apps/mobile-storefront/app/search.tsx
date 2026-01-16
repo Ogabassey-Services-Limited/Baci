@@ -3,25 +3,24 @@
  * Product search with filters and results
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  FlatList,
-  Pressable,
-  ActivityIndicator,
-  Keyboard,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
+import { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  type TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
-import { useProducts, useCategories } from '@/hooks/use-products-query';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
+import { useCategories, useProducts } from '@/hooks/use-products-query';
 import type { Product } from '@/types/product';
 
 const RECENT_SEARCHES = [
@@ -77,7 +76,7 @@ export default function SearchScreen() {
     new Set(products.map((p) => p.brand).filter(Boolean) as string[])
   ).slice(0, 10);
 
-  const handleSearch = useCallback((text: string) => {
+  const _handleSearch = useCallback((text: string) => {
     setQuery(text);
     if (text.length >= 2) {
       setIsSearching(true);
@@ -86,7 +85,7 @@ export default function SearchScreen() {
     }
   }, []);
 
-  const handleClear = () => {
+  const _handleClear = () => {
     setQuery('');
     setIsSearching(false);
     inputRef.current?.focus();

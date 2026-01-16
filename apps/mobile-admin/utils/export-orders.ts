@@ -1,11 +1,12 @@
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import * as Print from 'expo-print';
+import type { Order } from '@baci/shared';
 import { format } from 'date-fns';
-import { Order } from '@baci/shared';
+import * as FileSystem from 'expo-file-system';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { supabase } from '@/lib/supabase';
 
 // Helper to escape CSV fields
+// biome-ignore lint/suspicious/noExplicitAny: CSV output needs to handle mixed types
 const escapeCtx = (text: any) => {
   if (text === null || text === undefined) return '';
   const str = String(text);
@@ -57,9 +58,11 @@ export const exportOrdersRPC = async (orders: Order[]) => {
   try {
     const csvData = generateOrdersCSV(orders);
     const filename = `orders_report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
+    // biome-ignore lint/suspicious/noExplicitAny: Expo file system types
     const fileUri = `${(FileSystem as any).documentDirectory || ''}${filename}`;
 
     await FileSystem.writeAsStringAsync(fileUri, csvData, {
+      // biome-ignore lint/suspicious/noExplicitAny: Expo file system types
       encoding: (FileSystem as any).EncodingType?.UTF8 || 'utf8',
     });
 
@@ -106,6 +109,7 @@ export const exportOrderReportPDF = async (
     );
     // Note: tax_amount is in DB but might not be in shared type yet - calculating as difference or 0
     const totalTax = orders.reduce(
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
       (sum, o) => sum + (Number((o as any).tax_amount) || 0),
       0
     );
@@ -128,6 +132,7 @@ export const exportOrderReportPDF = async (
         const current = map.get(key) || { count: 0, total: 0 };
         map.set(key, {
           count: current.count + 1,
+          // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
           total: current.total + (Number((item as any).total) || 0),
         });
       });
@@ -164,6 +169,7 @@ export const exportOrderReportPDF = async (
           { name: string; qty: number; revenue: number }
         > = {};
         itemData?.forEach((item) => {
+          // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
           const name = (item.products as any)?.name || 'Unknown Product';
           if (!productStats[name])
             productStats[name] = { name, qty: 0, revenue: 0 };

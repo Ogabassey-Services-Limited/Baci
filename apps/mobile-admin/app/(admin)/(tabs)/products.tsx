@@ -3,37 +3,39 @@
  * View and manage product catalog with real-time data
  */
 
-import React, { useCallback, useMemo, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  Image,
-  StatusBar,
-  ActivityIndicator,
-  TextInput,
-  Animated,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  useProducts,
-  useCategories,
-  useTopSellingProducts,
-  useInventoryStats,
-  useCreateCategory,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Image,
+  Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
   type Product,
   type TopSellingProduct,
+  useCategories,
+  useCreateCategory,
+  useInventoryStats,
+  useProducts,
+  useTopSellingProducts,
 } from '@/hooks/useProducts';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { ScrollView, Modal, Alert } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -148,7 +150,6 @@ export default function ProductsScreen() {
         );
       case 'out_of_stock':
         return filtered.filter((p) => p.stock === 0 && p.manage_stock);
-      case 'all':
       default:
         return filtered;
     }
@@ -391,12 +392,12 @@ export default function ProductsScreen() {
     label,
   }: {
     id:
-    | 'all'
-    | 'in_stock'
-    | 'low_stock'
-    | 'out_of_stock'
-    | 'categories'
-    | 'top_selling';
+      | 'all'
+      | 'in_stock'
+      | 'low_stock'
+      | 'out_of_stock'
+      | 'categories'
+      | 'top_selling';
     label: string;
   }) => {
     const isActive = activeTab === id;

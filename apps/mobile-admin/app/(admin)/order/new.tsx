@@ -3,29 +3,29 @@
  * Redesigned to match "Record a sale" UI inspiration
  */
 
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  KeyboardAvoidingView,
-  Image,
-  Platform,
-  Switch,
-} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import PhoneInput from 'react-native-phone-number-input';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, Stack } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import PhoneInput from 'react-native-phone-number-input';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface CustomerRecord {
   id: string;
@@ -44,22 +44,23 @@ interface ProductRecord {
   sku?: string;
   stock_quantity?: number;
 }
-import { useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
-import { useProducts } from '@/hooks/useProducts';
-import { useCustomers, useCreateCustomer } from '@/hooks/useCustomers';
-import { useDebounce } from '@/hooks/useDebounce';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { format } from 'date-fns';
+
 import {
-  ORDER_SOURCE_CONFIG,
   BRAND_COLORS,
+  ORDER_SOURCE_CONFIG,
   type OrderSource,
   type PaymentStatus,
 } from '@baci/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useAuth } from '@/hooks/useAuth';
+import { useCreateCustomer, useCustomers } from '@/hooks/useCustomers';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useProducts } from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
 
 // Type definitions
 interface OrderItem {
@@ -303,7 +304,7 @@ export default function NewOrderScreen() {
         product_id: `custom-${Date.now()}`,
         name: customItem.name,
         quantity: 1,
-        price: parseFloat(customItem.price) || 0,
+        price: Number.parseFloat(customItem.price) || 0,
         is_custom: true,
       },
     ]);
@@ -429,7 +430,7 @@ export default function NewOrderScreen() {
           payment_status: paymentStatus,
           amount_paid:
             paymentStatus === 'partially_paid'
-              ? parseFloat(partialAmount) || 0
+              ? Number.parseFloat(partialAmount) || 0
               : paymentStatus === 'paid'
                 ? total
                 : 0,
@@ -567,7 +568,7 @@ export default function NewOrderScreen() {
                 mode="date"
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 maximumDate={new Date()}
-                onChange={(event, selectedDate) => {
+                onChange={(_event, selectedDate) => {
                   if (Platform.OS === 'android') {
                     setShowDatePicker(false);
                   }
@@ -883,8 +884,8 @@ export default function NewOrderScreen() {
                   styles.actionBtn,
                   {
                     flex: 1,
-                    backgroundColor: colors.primary + '10',
-                    borderColor: colors.primary + '20',
+                    backgroundColor: `${colors.primary}10`,
+                    borderColor: `${colors.primary}20`,
                   },
                 ]}
                 onPress={() => setShowCustomItemModal(true)}
@@ -1473,7 +1474,7 @@ export default function NewOrderScreen() {
             <View
               style={[
                 styles.iconBox,
-                { backgroundColor: colors.primary + '20' },
+                { backgroundColor: `${colors.primary}20` },
               ]}
             >
               <Ionicons name="add" size={20} color={colors.primary} />
@@ -1561,7 +1562,7 @@ export default function NewOrderScreen() {
                 const parts = customItem.price.split('.');
                 const rawInt = parts[0].replace(/,/g, '');
                 const formattedInt =
-                  !isNaN(Number(rawInt)) && rawInt !== ''
+                  !Number.isNaN(Number(rawInt)) && rawInt !== ''
                     ? Number(rawInt).toLocaleString('en-US')
                     : parts[0];
                 return parts.length > 1
@@ -1947,7 +1948,7 @@ export default function NewOrderScreen() {
                 <View
                   style={[
                     styles.iconBox,
-                    { backgroundColor: colors.primary + '20' },
+                    { backgroundColor: `${colors.primary}20` },
                   ]}
                 >
                   <Ionicons
@@ -2017,7 +2018,7 @@ export default function NewOrderScreen() {
                       <View
                         style={[
                           styles.qtyBadge,
-                          { backgroundColor: colors.success + '20' },
+                          { backgroundColor: `${colors.success}20` },
                         ]}
                       >
                         <Text style={{ color: colors.success, fontSize: 12 }}>
@@ -2070,12 +2071,12 @@ export default function NewOrderScreen() {
                 width: 100,
                 height: 100,
                 borderRadius: 50,
-                backgroundColor: colors.success + '15',
+                backgroundColor: `${colors.success}15`,
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginBottom: 24,
                 borderWidth: 2,
-                borderColor: colors.success + '20',
+                borderColor: `${colors.success}20`,
               }}
             >
               <Ionicons
@@ -2222,7 +2223,7 @@ export default function NewOrderScreen() {
               merchant?.vat_registration_status === 'registered' && (
                 <View
                   style={{
-                    backgroundColor: colors.primary + '08',
+                    backgroundColor: `${colors.primary}08`,
                     padding: 16,
                     borderRadius: 16,
                     marginBottom: 20,
@@ -2230,7 +2231,7 @@ export default function NewOrderScreen() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     borderWidth: 1,
-                    borderColor: colors.primary + '20',
+                    borderColor: `${colors.primary}20`,
                   }}
                 >
                   <View style={{ flex: 1, marginRight: 12 }}>
@@ -2286,7 +2287,7 @@ export default function NewOrderScreen() {
                     router.push('/tax');
                   }}
                   style={{
-                    backgroundColor: colors.info + '10',
+                    backgroundColor: `${colors.info}10`,
                     padding: 16,
                     borderRadius: 16,
                     marginBottom: 20,
@@ -2294,7 +2295,7 @@ export default function NewOrderScreen() {
                     alignItems: 'center',
                     gap: 12,
                     borderWidth: 1,
-                    borderColor: colors.info + '20',
+                    borderColor: `${colors.info}20`,
                   }}
                 >
                   <Ionicons
@@ -2362,7 +2363,7 @@ export default function NewOrderScreen() {
                       const parts = financialValue.split('.');
                       const rawInt = parts[0].replace(/,/g, '');
                       const formattedInt =
-                        !isNaN(Number(rawInt)) && rawInt !== ''
+                        !Number.isNaN(Number(rawInt)) && rawInt !== ''
                           ? Number(rawInt).toLocaleString('en-US')
                           : parts[0];
                       return parts.length > 1
@@ -2412,7 +2413,7 @@ export default function NewOrderScreen() {
                   alignItems: 'center',
                 }}
                 onPress={() => {
-                  const val = parseFloat(financialValue) || 0;
+                  const val = Number.parseFloat(financialValue) || 0;
                   if (showFinancialModal.type === 'discount') setDiscount(val);
                   if (showFinancialModal.type === 'shipping')
                     setShippingFee(val);
@@ -2474,12 +2475,12 @@ export default function NewOrderScreen() {
             {/* Info Alert Box */}
             <View
               style={{
-                backgroundColor: colors.primary + '10',
+                backgroundColor: `${colors.primary}10`,
                 padding: 16,
                 borderRadius: 12,
                 marginBottom: 24,
                 borderWidth: 1,
-                borderColor: colors.primary + '20',
+                borderColor: `${colors.primary}20`,
               }}
             >
               <Text
@@ -2544,7 +2545,7 @@ export default function NewOrderScreen() {
                         const parts = editPriceValue.split('.');
                         const rawInt = parts[0].replace(/,/g, '');
                         const formattedInt =
-                          !isNaN(Number(rawInt)) && rawInt !== ''
+                          !Number.isNaN(Number(rawInt)) && rawInt !== ''
                             ? Number(rawInt).toLocaleString('en-US')
                             : parts[0];
                         return parts.length > 1
@@ -2657,8 +2658,8 @@ export default function NewOrderScreen() {
                 onPress={() => {
                   if (editingItem) {
                     const finalPrice =
-                      parseFloat(editPriceValue.replace(/,/g, '')) || 0;
-                    const finalQty = parseInt(editQtyValue) || 1;
+                      Number.parseFloat(editPriceValue.replace(/,/g, '')) || 0;
+                    const finalQty = Number.parseInt(editQtyValue, 10) || 1;
                     setOrderItems((prev) =>
                       prev.map((item) =>
                         item.product_id === editingItem.product_id

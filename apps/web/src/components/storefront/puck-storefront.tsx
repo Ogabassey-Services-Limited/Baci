@@ -1,6 +1,6 @@
 'use client';
 
-import { type Data, Render } from '@measured/puck';
+import { type Data, Render } from '@puckeditor/core';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';

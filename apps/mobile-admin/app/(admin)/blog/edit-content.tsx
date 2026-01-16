@@ -1,27 +1,27 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
-  Modal,
-  TextInput,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
+  SafeAreaView,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { asUploadFile } from '@/types/upload';
 import { WebView } from 'react-native-webview';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
 // import { useMerchant } from '@/hooks/useMerchant';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
+import { asUploadFile } from '@/types/upload';
 
 /**
  * WebView-based Rich Text Editor
@@ -66,7 +66,7 @@ export default function EditContentScreen() {
     if (id) fetchContent();
   }, [id, fetchContent]);
 
-  const handleSave = async () => {
+  const handleSave = () => {
     setIsSaving(true);
     try {
       // Request content from WebView
@@ -106,7 +106,7 @@ export default function EditContentScreen() {
     setIsAIModalVisible(true);
   };
 
-  const performAIEdit = async () => {
+  const performAIEdit = () => {
     setIsAIModalVisible(false);
     setIsAIProcessing(true);
 
@@ -188,7 +188,7 @@ export default function EditContentScreen() {
 
     let url = linkUrl;
     if (!url.startsWith('http')) {
-      url = 'https://' + url;
+      url = `https://${url}`;
     }
 
     webViewRef.current?.injectJavaScript(`

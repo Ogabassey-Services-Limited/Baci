@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
-import type { ShippingStatus } from '@baci/shared';
 
 export interface OrderCounts {
   all: number;

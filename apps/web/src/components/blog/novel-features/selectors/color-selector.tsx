@@ -135,9 +135,9 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
           <div className="my-1 px-2 text-sm font-semibold text-muted-foreground">
             Color
           </div>
-          {TEXT_COLORS.map((color, index) => (
+          {TEXT_COLORS.map((color) => (
             <EditorBubbleItem
-              key={index}
+              key={color.name}
               onSelect={() => {
                 editor.commands.unsetColor();
                 if (color.name !== 'Default') {
@@ -170,9 +170,9 @@ export const ColorSelector = ({ open, onOpenChange }: ColorSelectorProps) => {
           <div className="my-1 px-2 text-sm font-semibold text-muted-foreground">
             Background
           </div>
-          {HIGHLIGHT_COLORS.map((color, index) => (
+          {HIGHLIGHT_COLORS.map((color) => (
             <EditorBubbleItem
-              key={index}
+              key={color.name}
               onSelect={() => {
                 editor.commands.unsetHighlight();
                 if (color.name !== 'Default') {

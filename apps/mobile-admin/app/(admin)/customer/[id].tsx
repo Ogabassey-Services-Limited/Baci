@@ -1,20 +1,19 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  Pressable,
-  Linking,
-  Alert,
-} from 'react-native';
-import { Stack, useLocalSearchParams, useRouter, Href } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks/useTheme';
+import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface OrderSummary {
   id: string;
@@ -29,7 +28,7 @@ export default function CustomerDetailsScreen() {
   const { colors, shadows } = useTheme();
   const router = useRouter();
 
-  const { data: customer, isLoading, error } = useCustomer(id!);
+  const { data: customer, isLoading, error } = useCustomer(id || '');
 
   const getInitials = (name: string | null) => {
     if (!name) return '?';
@@ -97,7 +96,7 @@ export default function CustomerDetailsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const result = await deleteCustomer.mutateAsync(id!);
+              const result = await deleteCustomer.mutateAsync(id || '');
               Alert.alert(
                 'Customer Deleted',
                 result.hadOrders

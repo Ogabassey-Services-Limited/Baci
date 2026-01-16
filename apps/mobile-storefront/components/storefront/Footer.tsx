@@ -4,11 +4,10 @@
  * Dark background (#1a1a1a) with white text
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
+import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
 interface SocialLink {
   name: string;

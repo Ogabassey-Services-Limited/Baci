@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import type { AnalyticsData } from '../../app/(admin)/analytics';
 import { formatCurrency } from '../../lib/utils';
-import { AnalyticsData } from '../../app/(admin)/analytics';
 
 export type ReportType = 'executive' | 'tax_ledger';
 

@@ -4,11 +4,11 @@
  * Following the useCustomers pattern with React Query
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { useMerchant } from './useMerchant';
 import type { StaffMember, StaffRole, StaffStatus } from '@/lib/types/staff';
 import { generateUUID } from '@/utils/uuid';
+import { useMerchant } from './useMerchant';
 
 // ============================================================
 // Fetch Staff Members

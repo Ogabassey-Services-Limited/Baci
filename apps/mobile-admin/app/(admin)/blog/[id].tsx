@@ -1,25 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
+  ActivityIndicator,
   Alert,
   Pressable,
-  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { asUploadFile } from '@/types/upload';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
-
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, TYPOGRAPHY, RADIUS } from '@/constants/theme';
+import { asUploadFile } from '@/types/upload';
 
 export default function BlogPostDetailScreen() {
   const { id } = useLocalSearchParams();

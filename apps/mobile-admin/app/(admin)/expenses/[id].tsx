@@ -3,25 +3,24 @@
  * View details of a specific expense
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
   Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { format, parseISO } from 'date-fns';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
 
 export default function ExpenseDetailScreen() {
   const { colors, isDark, shadows } = useTheme();
@@ -105,7 +104,7 @@ export default function ExpenseDetailScreen() {
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: colors.primary + '15' },
+              { backgroundColor: `${colors.primary}15` },
             ]}
           >
             <Ionicons name="receipt-outline" size={32} color={colors.primary} />

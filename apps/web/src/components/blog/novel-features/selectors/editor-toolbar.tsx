@@ -42,6 +42,7 @@ export const EditorToolbar = ({
   onOpenProducts,
 }: EditorToolbarProps) => {
   const { editor: _editor } = useEditor();
+  // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex in novel
   const editor = _editor as any;
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
@@ -221,12 +222,17 @@ export const EditorToolbar = ({
           variant="ghost"
           size="sm"
           onClick={() =>
-            (editor as any).chain().focus().toggleBlockquote().run()
+            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+            (editor as any)
+              .chain()
+              .focus()
+              .toggleBlockquote()
+              .run()
           }
           className={cn('h-8 w-8 p-0', {
-            'bg-accent text-accent-foreground': (editor as any).isActive(
-              'blockquote'
-            ),
+            'bg-accent text-accent-foreground':
+              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+              (editor as any).isActive('blockquote'),
           })}
           title="Blockquote"
         >
@@ -236,7 +242,12 @@ export const EditorToolbar = ({
           variant="ghost"
           size="sm"
           onClick={() =>
-            (editor as any).chain().focus().setHorizontalRule().run()
+            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+            (editor as any)
+              .chain()
+              .focus()
+              .setHorizontalRule()
+              .run()
           }
           className="h-8 w-8 p-0"
           title="Horizontal Rule"
@@ -295,6 +306,7 @@ export const EditorToolbar = ({
           onClick={() => {
             const url = prompt('Enter YouTube URL');
             if (url) {
+              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
               (editor as any).commands.setYoutubeVideo({
                 src: url,
               });

@@ -5,10 +5,9 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/hooks/useAuth';
-
 import { z } from 'zod';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 export const MerchantSchema = z.object({
   id: z.string(),
@@ -125,7 +124,7 @@ export function useMerchant(): MerchantData {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['merchant', user?.id],
-    queryFn: () => fetchMerchantData(user!.id),
+    queryFn: () => fetchMerchantData(user?.id),
     enabled: !!user?.id, // Only fetch when user is authenticated
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,

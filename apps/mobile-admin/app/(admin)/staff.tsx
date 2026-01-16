@@ -3,43 +3,43 @@
  * Invite and manage staff members with role-based permissions
  */
 
-import React, { useState, useCallback } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
-  StatusBar,
-  Alert,
-  TextInput,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Share,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
-  useStaff,
-  useStaffStats,
   useInviteStaff,
-  useUpdateStaff,
   useRemoveStaff,
   useResendInvitation,
+  useStaff,
+  useStaffStats,
+  useUpdateStaff,
 } from '@/hooks/useStaff';
+import { useTheme } from '@/hooks/useTheme';
 import {
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
   type StaffMember,
   type StaffRole,
-  ROLE_LABELS,
-  ROLE_DESCRIPTIONS,
   VALID_ROLES,
 } from '@/lib/types/staff';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 export default function StaffScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -322,7 +322,7 @@ export default function StaffScreen() {
         onPress={() => showStaffActions(item)}
       >
         <View
-          style={[styles.avatar, { backgroundColor: colors.primary + '20' }]}
+          style={[styles.avatar, { backgroundColor: `${colors.primary}20` }]}
         >
           <Text style={[styles.avatarText, { color: colors.primary }]}>
             {(item.name || item.email).charAt(0).toUpperCase()}
@@ -591,7 +591,7 @@ export default function StaffScreen() {
                               : colors.border,
                         },
                         selectedRole === role && {
-                          backgroundColor: colors.primary + '10',
+                          backgroundColor: `${colors.primary}10`,
                         },
                       ]}
                       onPress={() => setSelectedRole(role)}
@@ -658,7 +658,7 @@ export default function StaffScreen() {
                     style={[
                       styles.roleListItem,
                       selectedRole === role && {
-                        backgroundColor: colors.primary + '10',
+                        backgroundColor: `${colors.primary}10`,
                       },
                     ]}
                     onPress={() => setSelectedRole(role)}

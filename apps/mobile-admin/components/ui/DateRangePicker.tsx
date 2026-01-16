@@ -1,30 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  View,
-  Text,
-  StyleSheet,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isBefore,
+  isSameDay,
+  isSameMonth,
+  isWithinInterval,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from 'date-fns';
+import { useEffect, useState } from 'react';
+import {
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
-  Dimensions,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import {
-  format,
-  addMonths,
-  subMonths,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  isWithinInterval,
-  isBefore,
-} from 'date-fns';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface DateRange {
   start: Date | null;

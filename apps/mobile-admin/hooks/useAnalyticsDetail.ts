@@ -167,7 +167,7 @@ export function useAnalyticsDetail({
       if (metric === 'aov') {
         data.forEach((bucket) => {
           if (bucket.count && bucket.count > 0) {
-            bucket.value = bucket.value / bucket.count;
+            bucket.value /= bucket.count;
           }
         });
       }
@@ -225,20 +225,20 @@ export function useAnalyticsDetail({
         prevOrders?.forEach((order) => {
           const date = new Date(order.created_at);
           const bucketIndex = getBucketIndex(date, granularity);
-          if (bucketIndex >= 0 && bucketIndex < comparisonData!.length) {
-            comparisonData![bucketIndex].count =
-              (comparisonData![bucketIndex].count || 0) + 1;
+          if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
+            comparisonData?.[bucketIndex].count =
+              (comparisonData?.[bucketIndex].count || 0) + 1;
 
             switch (metric) {
               case 'revenue':
               case 'aov':
-                comparisonData![bucketIndex].value += order.total || 0;
+                comparisonData?.[bucketIndex].value += order.total || 0;
                 break;
               case 'sales':
-                comparisonData![bucketIndex].value += 1;
+                comparisonData?.[bucketIndex].value += 1;
                 break;
               case 'vat':
-                comparisonData![bucketIndex].value += order.tax_amount || 0;
+                comparisonData?.[bucketIndex].value += order.tax_amount || 0;
                 break;
             }
           }
@@ -247,7 +247,7 @@ export function useAnalyticsDetail({
         if (metric === 'aov') {
           comparisonData.forEach((bucket) => {
             if (bucket.count && bucket.count > 0) {
-              bucket.value = bucket.value / bucket.count;
+              bucket.value /= bucket.count;
             }
           });
           const prevTotalRevenue = comparisonData.reduce(

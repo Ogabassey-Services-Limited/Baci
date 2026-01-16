@@ -3,7 +3,7 @@
  * Single source of truth for status labels, colors, and transitions
  */
 
-import type { ShippingStatus, PaymentStatus } from '../types/order';
+import type { PaymentStatus, ShippingStatus } from '../types/order';
 
 // Shipping Status Configuration
 export const SHIPPING_STATUS_CONFIG: Record<

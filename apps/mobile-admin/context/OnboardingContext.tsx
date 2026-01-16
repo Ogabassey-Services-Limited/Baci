@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type React from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const ONBOARDING_KEY = 'baci_has_seen_onboarding';
 
@@ -26,7 +27,7 @@ export function OnboardingProvider({
 
   useEffect(() => {
     checkOnboarding();
-  }, []);
+  }, [checkOnboarding]);
 
   const checkOnboarding = async () => {
     try {

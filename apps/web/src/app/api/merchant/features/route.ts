@@ -1,12 +1,12 @@
 import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Merchant Feature Settings API
@@ -157,14 +157,22 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
 
 export async function GET() {
   try {
-    const auth = await authenticateApiRequest(new Request('http://localhost/api/merchant/features', { method: 'GET' }));
+    const auth = await authenticateApiRequest(
+      new Request('http://localhost/api/merchant/features', { method: 'GET' })
+    );
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'settings', 'view')) {
@@ -224,12 +232,18 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {
@@ -357,12 +371,18 @@ export async function PUT(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
-      return NextResponse.json({ error: auth.error || 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const access = await getUserAccess(auth.user.id);
     if (!access) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     if (!hasPermission(access, 'settings', 'edit')) {

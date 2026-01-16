@@ -1,4 +1,4 @@
-import type { Data } from '@measured/puck';
+import type { Data } from '@puckeditor/core';
 
 export interface Template {
   id: string;

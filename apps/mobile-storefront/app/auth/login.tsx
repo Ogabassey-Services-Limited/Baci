@@ -3,27 +3,26 @@
  * OTP-based passwordless authentication
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-
-import Colors, { BRAND } from '@/constants/Colors';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
+import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
-import { EmailSchema, OtpSchema, getFirstError } from '@/lib/validation';
 
 type AuthStep = 'email' | 'otp';
 

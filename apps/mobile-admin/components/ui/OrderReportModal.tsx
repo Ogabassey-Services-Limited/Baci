@@ -1,18 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import type { Order } from '@baci/shared';
+import { Ionicons } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { exportOrderReportPDF } from '@/utils/export-orders';
-import { Ionicons } from '@expo/vector-icons';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import { Order } from '@baci/shared';
+import { exportOrderReportPDF } from '@/utils/export-orders';
 import { formatCurrency } from '@/utils/format';
 
 const PRESETS = [
@@ -225,7 +225,7 @@ export default function OrderReportModal({
                         key={preset}
                         style={[
                           styles.dropdownItem,
-                          { borderBottomColor: colors.border + '40' },
+                          { borderBottomColor: `${colors.border}40` },
                         ]}
                         onPress={() => {
                           setShowDropdown(false);

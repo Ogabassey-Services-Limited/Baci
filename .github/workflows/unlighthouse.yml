@@ -57,7 +57,7 @@ jobs:
 
       - name: Run Unlighthouse Audit
         # Run audit against local server
-        run: npx @unlighthouse/cli --site http://localhost:3000 --ci --reporter jsonHtml
+        run: npx @unlighthouse/cli --site http://localhost:3000 --ci --reporter json
         
       - name: Upload Lighthouse Report
         uses: actions/upload-artifact@v4

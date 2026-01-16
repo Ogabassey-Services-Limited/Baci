@@ -3,25 +3,25 @@
  * Form for contacting customer support
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
-  Linking,
-  StatusBar,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 const SUBJECT_OPTIONS = [
   { id: 'order', label: 'Order Issue', icon: 'cube-outline' as const },
@@ -84,7 +84,7 @@ export default function ContactSupportScreen() {
     } catch {
       Alert.alert(
         'Error',
-        'Could not open email app. Please email us directly at ' + SUPPORT_EMAIL
+        `Could not open email app. Please email us directly at ${SUPPORT_EMAIL}`
       );
     } finally {
       setIsSending(false);

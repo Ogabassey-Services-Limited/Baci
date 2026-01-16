@@ -8,19 +8,18 @@
  * - Smooth slide animations for non-intrusive UX
  */
 
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withSequence,
-  runOnJS,
   Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
-import { Ionicons } from '@expo/vector-icons';
 
 type BannerState = 'hidden' | 'offline' | 'online';
 
@@ -99,7 +98,7 @@ export function ConnectivityBanner() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [hideBanner, showBanner]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

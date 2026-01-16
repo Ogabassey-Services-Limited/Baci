@@ -3,10 +3,10 @@
  * Manages customer authentication state for the storefront mobile app
  */
 
-import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 import Constants from 'expo-constants';
+import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 // Get merchant slug from app config
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';

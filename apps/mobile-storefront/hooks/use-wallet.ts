@@ -9,12 +9,11 @@
  * - Type-safe with Zod inference
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
-import { supabase, calculateCommerce } from '@/lib/supabase';
-import { useAuthStore } from '@/stores/auth-store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import type { RedeemLoyaltyInputType } from '@/lib/validation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
+import { calculateCommerce, supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
 // TYPES
@@ -107,7 +106,7 @@ export function useWallet() {
 
   const query = useQuery({
     queryKey: walletKeys.data(customer?.id || ''),
-    queryFn: () => fetchWalletData(customer!.id, merchantId!),
+    queryFn: () => fetchWalletData(customer?.id, merchantId!),
     enabled: !!customer?.id && !!merchantId,
     staleTime: 30_000, // Consider fresh for 30 seconds
     gcTime: 5 * 60_000, // Keep in cache for 5 minutes

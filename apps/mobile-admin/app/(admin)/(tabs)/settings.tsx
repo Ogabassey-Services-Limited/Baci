@@ -2,20 +2,19 @@
  * Settings Screen - Store Configuration
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   Pressable,
+  ScrollView,
+  StyleSheet,
   Switch,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { useRouter } from 'expo-router';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function SettingsScreen() {
   const { resetOnboarding } = useOnboarding();
@@ -70,7 +69,9 @@ export default function SettingsScreen() {
       {toggle !== undefined ? (
         <Switch
           value={toggle}
-          onValueChange={() => { }}
+          onValueChange={() => {
+            // Toggle logic handled by parent
+          }}
           trackColor={{ true: '#3B82F6' }}
         />
       ) : showArrow ? (
@@ -229,8 +230,8 @@ export default function SettingsScreen() {
               styles.devButton,
               { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' },
             ]}
-            onPress={async () => {
-              await resetOnboarding();
+            onPress={() => {
+              resetOnboarding();
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />

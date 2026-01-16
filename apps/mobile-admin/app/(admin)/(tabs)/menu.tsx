@@ -3,24 +3,24 @@
  * Access to settings, support, and additional features
  */
 
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface MenuItem {
   id: string;
@@ -45,7 +45,7 @@ export default function MenuScreen() {
   const { resetOnboarding } = useOnboarding();
   const router = useRouter();
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -219,7 +219,7 @@ export default function MenuScreen() {
       <View
         style={[
           styles.menuIcon,
-          { backgroundColor: (item.iconColor || colors.primary) + '20' },
+          { backgroundColor: `${item.iconColor || colors.primary}20` },
         ]}
       >
         <Ionicons

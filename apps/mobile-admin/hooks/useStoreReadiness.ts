@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import type { SetupItem, StoreReadiness } from '@/types/readiness';
 import { useMerchant } from './useMerchant';
-import { SetupItem, StoreReadiness } from '@/types/readiness';
 
 export function useStoreReadiness() {
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
@@ -90,7 +90,7 @@ export function useStoreReadiness() {
           id: 'hero_carousel',
           label: 'Set up hero carousel',
           description: 'Add eye-catching banners to your homepage',
-          // @ts-ignore - hero_slides might be explicitly typed or strictly array
+          // @ts-expect-error - hero_slides might be explicitly typed or strictly array
           completed:
             Array.isArray(merchant.hero_slides) &&
             merchant.hero_slides.length > 0,

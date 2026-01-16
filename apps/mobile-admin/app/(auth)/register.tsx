@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
   ActivityIndicator,
   Alert,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { DARK_COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme'; // Adjust import path if needed
+import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 
 // Simplified Business Types from Web Config
 const BUSINESS_TYPES = [

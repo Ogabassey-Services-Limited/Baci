@@ -4,18 +4,18 @@
  * Matching the web version's design with custom SVG
  */
 
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Svg, { G, Path } from 'react-native-svg';
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withDelay,
   Easing,
   interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
 } from 'react-native-reanimated';
+import Svg, { G, Path } from 'react-native-svg';
 
 interface BagLoaderProps {
   size?: number;

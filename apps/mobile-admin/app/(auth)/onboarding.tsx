@@ -1,28 +1,28 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  useWindowDimensions,
   Animated,
-  Pressable,
+  FlatList,
   Platform,
-  ViewToken,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useOnboarding } from '@/context/OnboardingContext';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
 import {
   DARK_COLORS,
-  TYPOGRAPHY,
-  SPACING,
   RADIUS,
   SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
 } from '@/constants/theme';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 // Define types for slides
 interface OnboardingSlide {

@@ -3,11 +3,10 @@
  * Displays a key metric with label and optional trend indicator
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface StatCardProps {
   label: string;
@@ -47,7 +46,7 @@ export function StatCard({
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: finalIconColor + '20' },
+              { backgroundColor: `${finalIconColor}20` },
             ]}
           >
             <Ionicons name={icon} size={16} color={finalIconColor} />

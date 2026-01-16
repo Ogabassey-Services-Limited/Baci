@@ -3,32 +3,145 @@
  * Configure store name, logo, and details
  */
 
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
+import { Stack, useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  TextInput,
   ActivityIndicator,
   Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
-import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-
-import * as ImagePicker from 'expo-image-picker';
-
 // Supported Countries Configuration
 import { COUNTRIES } from '@/constants/countries';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
+
+// Jumia Integration Component
+function _JumiaIntegrationRow({ statusModal }: { statusModal: any }) {
+  const { colors } = useTheme();
+  const [isConnected, setIsConnected] = useState(false);
+  const [_checking, setChecking] = useState(true);
+
+  // TODO: Move to config
+  const WEB_APP_URL = 'https://usebaci.com';
+
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  const checkStatus = async () => {
+    try {
+      // We can't easily check status without auth cookies on the API route from mobile
+      // So for now we rely on user action or maybe we assume disconnected until explicit check
+      // However, if we want to show "Connected", we need a way.
+      // For this MVP, we will let them "Connect" always, or we could implement a secure check via Supabase RPC.
+      // Let's skip auto-check for MVP to avoid complexity with cookies vs JWT.
+      // The user will know if they connected.
+      // actually, let's just default to false and let them connect.
+      setChecking(false);
+    } catch (_e) {
+      setChecking(false);
+    }
+  };
+
+  const handleConnectJumia = async () => {
+    try {
+      const _callbackUrl = Linking.createURL('jumia-callback'); // baciadmin://jumia-callback
+      // We use the scheme directly in the backend: baciadmin://
+
+      const authUrl = `${WEB_APP_URL}/api/marketplace/jumia/connect?connectionType=oauth&platform=mobile`;
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        'baciadmin://'
+      );
+
+      if (result.type === 'success' && result.url) {
+        const { queryParams } = Linking.parse(result.url);
+        if (queryParams?.success === 'jumia_connected') {
+          setIsConnected(true);
+          statusModal({
+            visble: true,
+            type: 'success',
+            title: 'Connected',
+            message: 'Jumia account connected successfully!',
+          });
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: '#FF9900',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: 'bold' }}>J</Text>
+        </View>
+        <View>
+          <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
+            Jumia
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+            Africa's no.1 marketplace
+          </Text>
+        </View>
+      </View>
+
+      <Pressable
+        onPress={handleConnectJumia}
+        style={{
+          backgroundColor: isConnected ? '#E8F5E9' : colors.primary,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderRadius: 20,
+        }}
+      >
+        <Text
+          style={{
+            color: isConnected ? '#2E7D32' : '#FFF',
+            fontWeight: '600',
+            fontSize: 12,
+          }}
+        >
+          {isConnected ? 'Connected' : 'Connect'}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -91,8 +204,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');

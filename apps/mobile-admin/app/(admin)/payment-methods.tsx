@@ -3,27 +3,26 @@
  * Displays actual payment settings from database
  */
 
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
-  Linking,
   ActivityIndicator,
-  Switch,
   Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface PaymentSettings {
   id: string;
@@ -59,7 +58,7 @@ export default function PaymentMethodsScreen() {
       const { data: merchant } = await supabase
         .from('merchants')
         .select('id')
-        .eq('user_id', user!.id)
+        .eq('user_id', user?.id)
         .single();
 
       if (!merchant) throw new Error('No merchant found');
@@ -121,7 +120,7 @@ export default function PaymentMethodsScreen() {
       // Return a context object with the snapshotted value
       return { previousSettings };
     },
-    onError: (error, variables, context) => {
+    onError: (error, _variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSettings) {
         queryClient.setQueryData(

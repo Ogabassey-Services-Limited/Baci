@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
   ActivityIndicator,
   Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { generateReport, ReportType, Transaction } from './ReportsGenerator';
-import { AnalyticsData } from '../../app/(admin)/analytics';
+import type { AnalyticsData } from '../../app/(admin)/analytics';
+import {
+  generateReport,
+  type ReportType,
+  type Transaction,
+} from './ReportsGenerator';
 
 const COLORS = {
   primary: '#000000',

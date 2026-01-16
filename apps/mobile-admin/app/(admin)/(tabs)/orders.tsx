@@ -3,45 +3,44 @@
  * Real-time order management with status updates
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { format } from 'date-fns';
-import OrderReportModal from '@/components/ui/OrderReportModal';
-import { exportOrdersRPC } from '@/utils/export-orders';
-import DateRangePicker from '@/components/ui/DateRangePicker';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StatusBar,
-  ActivityIndicator,
-  TextInput,
-  Animated,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useTheme } from '@/hooks/useTheme';
-import { useMerchant } from '@/hooks/useMerchant';
-import { useOrders, useUpdateOrderStatus, type Order } from '@/hooks/useOrders';
-import { useOrderCounts } from '@/hooks/useOrderCounts';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-
 // Shared types and constants from monorepo
 import {
-  type ShippingStatus,
-  type PaymentStatus,
-  SHIPPING_STATUS_CONFIG,
-  PAYMENT_STATUS_CONFIG,
-  SHIPPING_STATUS_ACTIONS,
   BRAND_COLORS,
+  PAYMENT_STATUS_CONFIG,
+  type PaymentStatus,
+  SHIPPING_STATUS_ACTIONS,
+  SHIPPING_STATUS_CONFIG,
+  type ShippingStatus,
 } from '@baci/shared';
+import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import { router } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import DateRangePicker from '@/components/ui/DateRangePicker';
+import OrderReportModal from '@/components/ui/OrderReportModal';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
+import { useOrderCounts } from '@/hooks/useOrderCounts';
+import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
+import { useTheme } from '@/hooks/useTheme';
+import { exportOrdersRPC } from '@/utils/export-orders';
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -253,9 +252,9 @@ export default function OrdersScreen() {
     // Get the position of the pressed element
     event.target.measure(
       (
-        x: number,
-        y: number,
-        width: number,
+        _x: number,
+        _y: number,
+        _width: number,
         height: number,
         pageX: number,
         pageY: number
@@ -477,7 +476,7 @@ export default function OrdersScreen() {
             <View
               style={[
                 styles.sourceIcon,
-                { backgroundColor: sourceConfig.color + '15' },
+                { backgroundColor: `${sourceConfig.color}15` },
               ]}
             >
               <Ionicons
@@ -495,7 +494,7 @@ export default function OrdersScreen() {
             <View
               style={[
                 styles.paymentBadge,
-                { backgroundColor: paymentConfig.color + '20' },
+                { backgroundColor: `${paymentConfig.color}20` },
               ]}
             >
               <Text
@@ -508,7 +507,7 @@ export default function OrdersScreen() {
             <Pressable
               style={[
                 styles.statusBadge,
-                { backgroundColor: shippingConfig.color + '20' },
+                { backgroundColor: `${shippingConfig.color}20` },
               ]}
               onPress={(e) => {
                 e.stopPropagation();

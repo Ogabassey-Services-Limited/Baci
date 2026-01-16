@@ -8,39 +8,38 @@
  * - Analytics tracking and push notifications
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { router, Stack } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TextInput,
-  Pressable,
-  Alert,
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-
-import Colors, { BRAND } from '@/constants/Colors';
+import type { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
-import { useCartStore, formatPrice } from '@/stores/cart-store';
-import { useAuthStore } from '@/stores/auth-store';
+import Colors, { BRAND } from '@/constants/Colors';
 import { calculateCommerce } from '@/lib/supabase';
 import { ShippingAddressSchema } from '@/lib/validation';
-import { scheduleLocalNotification } from '@/services/push-notifications';
 import {
   trackCheckoutStarted,
   trackCheckoutStep,
-  trackOrderCompleted,
   trackError,
+  trackOrderCompleted,
 } from '@/services/analytics';
+import { scheduleLocalNotification } from '@/services/push-notifications';
+import { useAuthStore } from '@/stores/auth-store';
+import { formatPrice, useCartStore } from '@/stores/cart-store';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 

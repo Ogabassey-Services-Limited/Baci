@@ -3,28 +3,28 @@
  * Comprehensive analytics dashboard inspired by modern e-commerce analytics
  */
 
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useQuery } from '@tanstack/react-query';
+import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  StatusBar,
   Modal,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter, Stack } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
+import Svg, { Path } from 'react-native-svg';
+import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { formatCompactCurrency } from '@/lib/utils';
-import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import Svg, { Path } from 'react-native-svg';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 type DateFilter =
   | 'today'
@@ -183,7 +183,7 @@ export default function AnalyticsScreen() {
   const getEndDate = (
     filter: DateFilter,
     year: number,
-    customStart: Date,
+    _customStart: Date,
     customEnd: Date
   ): Date => {
     const now = new Date();
@@ -952,7 +952,7 @@ export default function AnalyticsScreen() {
                   display="spinner"
                   themeVariant={isDark ? 'dark' : 'light'}
                   maximumDate={new Date()}
-                  onChange={(event, selectedDate) => {
+                  onChange={(_event, selectedDate) => {
                     if (selectedDate) {
                       if (showDatePicker === 'start') {
                         setCustomStartDate(selectedDate);

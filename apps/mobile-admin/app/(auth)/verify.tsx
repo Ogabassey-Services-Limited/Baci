@@ -1,20 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  Pressable,
   ActivityIndicator,
   Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { DARK_COLORS, TYPOGRAPHY, SPACING, RADIUS } from '@/constants/theme';
 
 export default function VerifyScreen() {
   const activeInterval = React.useRef<NodeJS.Timeout | null>(null);

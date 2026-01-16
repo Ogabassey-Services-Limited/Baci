@@ -3,47 +3,47 @@
  * Premium design with real-time data and actionable controls
  */
 
-import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Linking,
-  ActivityIndicator,
-  Share,
-  Image,
-  Alert,
-  TouchableOpacity,
-  TextInput,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { useQueryClient } from '@tanstack/react-query';
-import { useTheme } from '@/hooks/useTheme';
-import {
-  useOrder,
-  useUpdateOrderStatus,
-  useShipOnCredit,
-  useSendReminder,
-  useRecordPayment,
-  type ShippingStatus,
-  type PaymentStatus,
-} from '@/hooks/useOrders';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
-import {
-  SHIPPING_STATUS_CONFIG,
-  SHIPPING_STATUS_ACTIONS,
-  PAYMENT_STATUS_CONFIG,
   BRAND_COLORS,
+  PAYMENT_STATUS_CONFIG,
+  SHIPPING_STATUS_ACTIONS,
+  SHIPPING_STATUS_CONFIG,
 } from '@baci/shared';
-import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
+import * as Print from 'expo-print';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SuccessModal } from '@/components/ui/SuccessModal';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  type PaymentStatus,
+  type ShippingStatus,
+  useOrder,
+  useRecordPayment,
+  useSendReminder,
+  useShipOnCredit,
+  useUpdateOrderStatus,
+} from '@/hooks/useOrders';
+import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -316,8 +316,8 @@ export default function OrderDetailsScreen() {
   const formatCurrencyInput = (value: string): string => {
     const numericValue = value.replace(/[^0-9]/g, '');
     if (!numericValue) return '';
-    const num = parseInt(numericValue, 10);
-    return '₦' + num.toLocaleString('en-NG');
+    const num = Number.parseInt(numericValue, 10);
+    return `₦${num.toLocaleString('en-NG')}`;
   };
 
   const parseCurrencyInput = (formattedValue: string): string => {
@@ -357,7 +357,7 @@ export default function OrderDetailsScreen() {
   // Load saved riders
   useEffect(() => {
     loadSavedRiders();
-  }, []);
+  }, [loadSavedRiders]);
 
   const loadSavedRiders = async () => {
     try {
@@ -457,7 +457,7 @@ Thank you for choosing Ogabassey!
   const handleRecordPayment = async () => {
     if (
       !paymentAmount ||
-      isNaN(Number(paymentAmount)) ||
+      Number.isNaN(Number(paymentAmount)) ||
       Number(paymentAmount) <= 0
     ) {
       Alert.alert('Error', 'Please enter a valid amount');
@@ -918,7 +918,7 @@ Thank you for choosing Ogabassey!
             <View
               style={[
                 styles.statusBadgeBig,
-                { backgroundColor: shippingColor + '15' },
+                { backgroundColor: `${shippingColor}15` },
               ]}
             >
               <Text style={[styles.statusTextBig, { color: shippingColor }]}>
@@ -1005,7 +1005,7 @@ Thank you for choosing Ogabassey!
             <View
               style={[
                 styles.avatarPlaceholder,
-                { backgroundColor: colors.primary + '15' },
+                { backgroundColor: `${colors.primary}15` },
               ]}
             >
               <Text style={[styles.avatarText, { color: colors.primary }]}>
@@ -1094,7 +1094,7 @@ Thank you for choosing Ogabassey!
               style={[
                 styles.actionBtn,
                 {
-                  backgroundColor: colors.warning + '20',
+                  backgroundColor: `${colors.warning}20`,
                   marginTop: 12,
                   width: '100%',
                 },
@@ -1114,7 +1114,7 @@ Thank you for choosing Ogabassey!
               style={[
                 styles.actionBtn,
                 {
-                  backgroundColor: colors.success + '20',
+                  backgroundColor: `${colors.success}20`,
                   marginTop: 12,
                   width: '100%',
                 },
@@ -1364,7 +1364,7 @@ Thank you for choosing Ogabassey!
             <View
               style={[
                 styles.statusBadgeSmall,
-                { backgroundColor: paymentColor + '15' },
+                { backgroundColor: `${paymentColor}15` },
               ]}
             >
               <Text style={[styles.statusTextSmall, { color: paymentColor }]}>
@@ -1491,7 +1491,7 @@ Thank you for choosing Ogabassey!
                     styles.modalOption,
                     {
                       backgroundColor: isCurrent
-                        ? colors.primary + '10'
+                        ? `${colors.primary}10`
                         : 'transparent',
                       opacity: isAllowed ? 1 : 0.4,
                     },

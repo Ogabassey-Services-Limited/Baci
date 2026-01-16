@@ -1,9 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
-import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
 interface Domain {
   id: string;

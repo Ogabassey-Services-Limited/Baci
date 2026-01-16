@@ -54,6 +54,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
+      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
       router.push(checkoutUrl as any);
       onOpenChange(false);
     } catch (err) {
@@ -63,6 +64,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
+    // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
     router.push(checkoutUrl as any);
     onOpenChange(false);
   };
@@ -152,6 +154,7 @@ export function CheckoutIdentityModal({
                   <Button
                     variant="outline"
                     onClick={() =>
+                      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
                       router.push('/signup?redirect=/checkout' as any)
                     }
                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
@@ -207,6 +210,7 @@ export function CheckoutIdentityModal({
                     </Label>
                     <button
                       type="button"
+                      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
                       onClick={() => router.push('/forgot-password' as any)}
                       className="text-[10px] font-bold text-[var(--store-primary)] hover:underline uppercase"
                     >

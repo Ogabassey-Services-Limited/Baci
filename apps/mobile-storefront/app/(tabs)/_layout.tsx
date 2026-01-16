@@ -3,13 +3,12 @@
  * Design aligned with Baci web app navigation
  */
 
-import React from 'react';
-import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet } from 'react-native';
-
-import Colors, { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
+import { Tabs } from 'expo-router';
+import type React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 
 function TabBarIcon(props: {
@@ -43,7 +42,7 @@ function CartIcon({ color, focused }: { color: string; focused: boolean }) {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const _colors = Colors[colorScheme ?? 'light'];
 
   return (
     <Tabs

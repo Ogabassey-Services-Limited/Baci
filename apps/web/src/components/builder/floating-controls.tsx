@@ -1,6 +1,6 @@
 'use client';
 
-import { usePuck } from '@measured/puck';
+import { usePuck } from '@puckeditor/core';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

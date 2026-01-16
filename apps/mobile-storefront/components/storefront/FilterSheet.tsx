@@ -3,27 +3,20 @@
  * Bottom sheet with price range filter matching web platform
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  Modal,
-  TouchableWithoutFeedback,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  FadeIn,
-  SlideInDown,
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BRAND, SPACING, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
+import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
 interface FilterSheetProps {
   visible: boolean;

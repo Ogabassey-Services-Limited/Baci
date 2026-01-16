@@ -9,10 +9,10 @@ async function getLogoColor() {
       .raw()
       .toBuffer({ resolveWithObject: true });
 
-    let rBucket = {},
-      gBucket = {},
-      bBucket = {};
-    let colorCounts = {};
+    const _rBucket = {};
+    const _gBucket = {};
+    const _bBucket = {};
+    const colorCounts = {};
 
     for (let i = 0; i < data.length; i += info.channels) {
       const r = data[i];
@@ -50,7 +50,7 @@ async function getLogoColor() {
         [r, g, b]
           .map((x) => {
             const hex = x.toString(16);
-            return hex.length === 1 ? '0' + hex : hex;
+            return hex.length === 1 ? `0${hex}` : hex;
           })
           .join('');
       console.log('Dominant Logo Color:', hex);

@@ -6,42 +6,40 @@
  * - High-performance image handling via expo-image
  */
 
-import React, { useState, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-  ActivityIndicator,
-  Share,
-  Platform,
-} from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-  withTiming,
-  FadeIn,
-  FadeInDown,
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-
-import Colors, {
-  BRAND,
-  SPACING,
-  RADIUS,
-  TYPOGRAPHY,
-  SHADOWS,
-} from '@/constants/Colors';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Animated, {
+  Extrapolate,
+  FadeIn,
+  FadeInDown,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
 import { useProduct } from '@/hooks/use-products';
 import { useCartStore } from '@/stores/cart-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
@@ -176,7 +174,7 @@ export default function ProductDetailScreen() {
     setTimeout(() => setShowAddedToast(false), 2000);
   };
 
-  const handleBuyNow = () => {
+  const _handleBuyNow = () => {
     handleAddToCart();
     router.push('/checkout');
   };
@@ -391,7 +389,7 @@ export default function ProductDetailScreen() {
                             : colors.border,
                       },
                       selectedVariant === v.id && {
-                        backgroundColor: BRAND.primary + '10',
+                        backgroundColor: `${BRAND.primary}10`,
                       },
                     ]}
                   >

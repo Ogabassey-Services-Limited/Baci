@@ -1,7 +1,7 @@
 'use client';
 
 import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
-import type { Data } from '@measured/puck';
+import type { Data } from '@puckeditor/core';
 import { COMPONENT_SCHEMA } from './component-schema';
 
 interface UseCopilotBuilderActionsProps {

@@ -3,14 +3,12 @@
  * Displays user notifications (order updates, promotions, etc.)
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
-import Colors, { BRAND } from '@/constants/Colors';
+import { router, Stack } from 'expo-router';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface Notification {
@@ -36,7 +34,6 @@ export default function NotificationsScreen() {
         return 'cube-outline';
       case 'promo':
         return 'pricetag-outline';
-      case 'system':
       default:
         return 'notifications-outline';
     }

@@ -77,6 +77,7 @@ export default function NovelEditor({
     <div className="relative w-full max-w-screen-lg">
       <EditorRoot>
         <EditorContent
+          // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
           initialContent={initialValue as any}
           // @ts-expect-error: Tiptap version mismatch between novel and root dependencies
           extensions={extensions}

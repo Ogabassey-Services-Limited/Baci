@@ -22,31 +22,31 @@
  * @see https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events
  */
 
-import { Platform } from 'react-native';
-import {
-  AppEventsLogger,
-  AEMReporterIOS,
-  Settings as FBSettings,
-} from 'react-native-fbsdk-next';
 import analytics from '@react-native-firebase/analytics';
-import TikTokBusiness from 'react-native-tiktok-business';
-import {
-  requestTrackingPermissionsAsync,
-  getTrackingPermissionsAsync,
-  type PermissionStatus,
-} from 'expo-tracking-transparency';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
+import {
+  getTrackingPermissionsAsync,
+  type PermissionStatus,
+  requestTrackingPermissionsAsync,
+} from 'expo-tracking-transparency';
+import { Platform } from 'react-native';
+import {
+  AEMReporterIOS,
+  AppEventsLogger,
+  Settings as FBSettings,
+} from 'react-native-fbsdk-next';
+import TikTokBusiness from 'react-native-tiktok-business';
 
 // Import PostHog analytics (product analytics, not ad tracking)
 import {
-  trackEvent as posthogTrack,
-  trackProductViewed as posthogProductViewed,
   trackAddToCart as posthogAddToCart,
-  trackOrderCompleted as posthogOrderCompleted,
-  trackSearch as posthogSearch,
   identifyUser as posthogIdentify,
+  trackOrderCompleted as posthogOrderCompleted,
+  trackProductViewed as posthogProductViewed,
   resetUser as posthogReset,
+  trackSearch as posthogSearch,
+  trackEvent as posthogTrack,
 } from './analytics';
 
 // =============================================================================
@@ -319,7 +319,7 @@ async function sendServerConversion(
  * Platforms will deduplicate based on event_id
  */
 function sendClientBackup(
-  eventName: string,
+  _eventName: string,
   eventId: string,
   fbEvent: string,
   ttEvent: string | null,
