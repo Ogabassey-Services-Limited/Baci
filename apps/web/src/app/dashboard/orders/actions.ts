@@ -213,6 +213,7 @@ export async function getOrders(
       source: 'jumia',
       tracking_number: undefined,
       shipping_provider: 'Jumia Services',
+      // biome-ignore lint/suspicious/noExplicitAny: Jumia items are dynamic
       items: (jOrder.items || []).map((item: any, idx: number) => ({
         id: item.id || `jumia-item-${idx}`,
         name: item.name || 'Jumia Item',
