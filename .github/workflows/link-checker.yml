@@ -110,6 +110,7 @@ jobs:
             --exclude 'doubleclick\.net'
             --exclude 'ep2\.adtrafficquality\.google'
             --exclude 'cdn\.ampproject\.org'
+            --exclude 'tr\.snapchat\.com/v2/conversion'
           # Fail action if broken links are found
           fail: true
         env:
