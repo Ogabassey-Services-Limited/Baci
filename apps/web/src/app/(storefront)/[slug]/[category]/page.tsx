@@ -25,16 +25,6 @@ import { isDomainIdentifier } from '@/lib/validation';
 // Enable ISR with 5 minute revalidation
 // Removed explicit revalidate export to support Dynamic IO
 
-/**
- * Generate static params for category pages at build time.
- * This pre-renders category pages for faster initial loads and better SEO.
- */
-export function generateStaticParams() {
-  // Skipping static params generation for now to simplify migration.
-  // Can be re-enabled if needed.
-  return [];
-}
-
 interface PageProps {
   params: Promise<{
     slug: string; // Store slug (merchant)

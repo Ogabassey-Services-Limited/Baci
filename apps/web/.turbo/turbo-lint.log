@@ -68,121 +68,56 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
     327 │         ? new Date(data.token_expires_at)
   
 
-src/app/(storefront)/[slug]/[category]/[productSlug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/[category]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-      6   6 │   import { createAdminClient } from '@/lib/supabase/admin';
-      7   7 │   
-      8     │ - 
-      9   8 │   export const alt = 'Product Preview';
-     10   9 │   export const size = {
-  
-
-src/app/(storefront)/[slug]/layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    118 118 │       faviconSvg || faviconPng32 || faviconAppleTouch
-    119 119 │         ? {
-    120     │ - ········icon:·[
-    121     │ - ··········...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
-    122     │ - ··········...(faviconPng32
-    123     │ - ············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
-    124     │ - ············:·[]),
-    125     │ - ········].filter(Boolean),
-    126     │ - ········apple:·faviconAppleTouch
-    127     │ - ··········?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
-    128     │ - ··········:·undefined,
-    129     │ - ······}
-        120 │ + ··········icon:·[
-        121 │ + ············...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
-        122 │ + ············...(faviconPng32
-        123 │ + ··············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
-        124 │ + ··············:·[]),
-        125 │ + ··········].filter(Boolean),
-        126 │ + ··········apple:·faviconAppleTouch
-        127 │ + ············?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
-        128 │ + ············:·undefined,
-        129 │ + ········}
-    130 130 │         : merchant.logo_url
-    131 131 │           ? {
-    132     │ - ··········icon:·[{·url:·merchant.logo_url·}],
-    133     │ - ··········apple:·[{·url:·merchant.logo_url·}],
-    134     │ - ········}
-        132 │ + ············icon:·[{·url:·merchant.logo_url·}],
-        133 │ + ············apple:·[{·url:·merchant.logo_url·}],
-        134 │ + ··········}
-    135 135 │           : undefined;
-    136 136 │   
+     26  26 │   // Removed explicit revalidate export to support Dynamic IO
+     27  27 │   
+     28     │ - 
+     29  28 │   interface PageProps {
+     30  29 │     params: Promise<{
     ······· │ 
-    149 149 │       verification: verificationCode
-    150 150 │         ? {
-    151     │ - ········google:·verificationCode,
-    152     │ - ······}
-        151 │ + ··········google:·verificationCode,
-        152 │ + ········}
-    153 153 │         : undefined,
-    154 154 │       openGraph: {
+     67  66 │       const fallbackConfig = !defaultConfig
+     68  67 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
+     69     │ - ········normalizedSlug.includes(key)
+     70     │ - ······)?.[1]
+         68 │ + ··········normalizedSlug.includes(key)
+         69 │ + ········)?.[1]
+     71  70 │         : null;
+     72  71 │       const effectiveConfig = defaultConfig || fallbackConfig;
+    ······· │ 
+    115 114 │         ...(products.length > 0 &&
+    116 115 │           products[0].images?.[0] && {
+    117     │ - ········images:·[
+    118     │ - ··········{
+    119     │ - ············url:·products[0].images[0]·as·unknown·as·string,
+    120     │ - ············alt:·categoryName,
+    121     │ - ··········},
+    122     │ - ········],
+    123     │ - ······}),
+        116 │ + ··········images:·[
+        117 │ + ············{
+        118 │ + ··············url:·products[0].images[0]·as·unknown·as·string,
+        119 │ + ··············alt:·categoryName,
+        120 │ + ············},
+        121 │ + ··········],
+        122 │ + ········}),
+    124 123 │       },
+    125 124 │       twitter: {
+    ······· │ 
+    160 159 │       const fallbackConfig = !defaultConfig
+    161 160 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
+    162     │ - ········normalizedSlug.includes(key)
+    163     │ - ······)?.[1]
+        161 │ + ··········normalizedSlug.includes(key)
+        162 │ + ········)?.[1]
+    164 163 │         : null;
+    165 164 │       const effectiveConfig = defaultConfig || fallbackConfig;
   
 
-src/app/(storefront)/[slug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-      6   6 │   import { isDomainIdentifier } from '@/lib/validation';
-      7   7 │   
-      8     │ - 
-      9   8 │   export const alt = 'Store Preview';
-     10   9 │   export const size = {
-  
-
-src/app/(storefront)/[slug]/products/[productSlug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-      6   6 │   import { createAdminClient } from '@/lib/supabase/admin';
-      7   7 │   
-      8     │ - 
-      9   8 │   export const alt = 'Product Preview';
-     10   9 │   export const size = {
-  
-
-src/app/api/chat/santa/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     67  67 │     clientIp: string;
-     68  68 │     interactionType:
-     69     │ - ··|·'chat'
-     70     │ - ··|·'wish_granted'
-     71     │ - ··|·'wish_denied'
-     72     │ - ··|·'add_to_cart'
-     73     │ - ··|·'checkout_started'
-     74     │ - ··|·'checkout_completed';
-         69 │ + ····|·'chat'
-         70 │ + ····|·'wish_granted'
-         71 │ + ····|·'wish_denied'
-         72 │ + ····|·'add_to_cart'
-         73 │ + ····|·'checkout_started'
-         74 │ + ····|·'checkout_completed';
-     75  75 │     userMessage?: string;
-     76  76 │     santaResponse?: string;
-  
-
-src/app/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-      1   1 │   import { ImageResponse } from 'next/og';
-      2   2 │   
-      3     │ - 
-      4   3 │   export const alt = 'Baci - Create your e-commerce store in seconds with AI';
-      5   4 │   export const size = {
-  
-
-Checked 838 files in 1137ms. No fixes applied.
-Found 6 errors.
+Checked 838 files in 758ms. No fixes applied.
+Found 1 error.
 Found 5 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
