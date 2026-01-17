@@ -30,8 +30,15 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+interface ConnectivityStatusModal {
+  visible: boolean;
+  type: 'success' | 'error';
+  title: string;
+  message: string;
+}
+
 // Jumia Integration Component
-function JumiaIntegrationRow({ statusModal }: { statusModal: (data: any) => void }) {
+function JumiaIntegrationRow({ statusModal }: { statusModal: (data: ConnectivityStatusModal) => void }) {
   const { colors } = useTheme();
   const [isConnected, setIsConnected] = useState(false);
   const [_checking, setChecking] = useState(true);
@@ -75,7 +82,7 @@ function JumiaIntegrationRow({ statusModal }: { statusModal: (data: any) => void
         if (queryParams?.success === 'jumia_connected') {
           setIsConnected(true);
           statusModal({
-            visble: true,
+            visible: true,
             type: 'success',
             title: 'Connected',
             message: 'Jumia account connected successfully!',

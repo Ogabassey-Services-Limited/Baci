@@ -187,5 +187,5 @@ src/lib/jumia/client.ts:350:49 lint/suspicious/noExplicitAny ━━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 821 files in 638ms. No fixes applied.
+Checked 821 files in 636ms. No fixes applied.
 Found 14 warnings.

@@ -144,7 +144,7 @@ export default function PayoutSettingsScreen() {
     } finally {
       setIsVerifying(false);
     }
-  }, [accountnumber, selectedBank, API_URL]);
+  }, [accountnumber, selectedBank, API_URL, session]);
 
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce
