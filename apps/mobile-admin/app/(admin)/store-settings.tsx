@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -31,7 +31,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 // Jumia Integration Component
-function _JumiaIntegrationRow({ statusModal }: { statusModal: any }) {
+function JumiaIntegrationRow({ statusModal }: { statusModal: (data: any) => void }) {
   const { colors } = useTheme();
   const [isConnected, setIsConnected] = useState(false);
   const [_checking, setChecking] = useState(true);
@@ -39,11 +39,7 @@ function _JumiaIntegrationRow({ statusModal }: { statusModal: any }) {
   // TODO: Move to config
   const WEB_APP_URL = 'https://usebaci.com';
 
-  useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
-
-  const checkStatus = async () => {
+  const checkStatus = useCallback(async () => {
     try {
       // We can't easily check status without auth cookies on the API route from mobile
       // So for now we rely on user action or maybe we assume disconnected until explicit check
@@ -56,7 +52,11 @@ function _JumiaIntegrationRow({ statusModal }: { statusModal: any }) {
     } catch (_e) {
       setChecking(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
 
   const handleConnectJumia = async () => {
     try {
@@ -204,8 +204,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -434,6 +434,7 @@ export default function StoreSettingsScreen() {
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               Store Logo
             </Text>
+            <JumiaIntegrationRow statusModal={setStatusModal} />
             <View style={styles.logoContainer}>
               {merchant?.logo_url ? (
                 <Image

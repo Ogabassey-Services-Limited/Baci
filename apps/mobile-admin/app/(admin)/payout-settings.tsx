@@ -98,17 +98,13 @@ export default function PayoutSettingsScreen() {
     setIsVerifying(true);
     setVerifyError(null);
 
-    // Get current session for token
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const token = session?.access_token;
-
-    if (!token) {
+    if (!session?.access_token) {
       setVerifyError('Authentication error');
       setIsVerifying(false);
       return;
     }
+
+    const token = session.access_token;
 
     try {
       // 1. Try resolving via our server (Paystack)
@@ -180,12 +176,8 @@ export default function PayoutSettingsScreen() {
       if (!selectedBank || !accountnumber)
         throw new Error('Please fill all fields');
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) throw new Error('Authentication required');
+      if (!session?.access_token) throw new Error('Authentication required');
+      const token = session.access_token;
 
       // Call API to create subaccount on Paystack
       // This handles validation + subaccount creation + saving to DB
