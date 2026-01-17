@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { nanoid } from 'nanoid';
 import { FacebookPixel } from './facebook-pixel';
 import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
@@ -148,6 +149,7 @@ export function trackMerchantSignupCompleted(
     window.gtag('event', 'sign_up', {
       method: 'email',
       event_category: 'platform',
+      event_label: 'merchant_signup',
     });
   }
   if (window.fbq) {
@@ -293,17 +295,34 @@ export function trackPricingPageView() {
   }).catch((err) => console.warn('Platform event tracking error:', err));
 }
 
-// Session ID management
+/**
+ * Session ID management
+ * Using nanoid for robust ID generation and safe storage access
+ */
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return '';
 
   const key = 'platform_session_id';
-  let sessionId = sessionStorage.getItem(key);
+  let sessionId: string | null = null;
+
+  try {
+    sessionId = sessionStorage.getItem(key);
+  } catch (e) {
+    // SecurityError: The operation is insecure. (Cookies blocked, private browsing)
+    // Return an ephemeral ID without persisting
+    console.debug('Session storage access blocked, using ephemeral session ID', e);
+    return `ps_${Date.now()}_${nanoid()}`;
+  }
 
   if (!sessionId) {
-    // Use crypto.randomUUID() for cryptographically secure session IDs
-    sessionId = `ps_${Date.now()}_${crypto.randomUUID()}`;
-    sessionStorage.setItem(key, sessionId);
+    // Robust UUID generation using nanoid (standard, fast, safe)
+    sessionId = `ps_${Date.now()}_${nanoid()}`;
+
+    try {
+      sessionStorage.setItem(key, sessionId);
+    } catch (e) {
+      console.debug('Failed to save session ID to storage', e);
+    }
   }
 
   return sessionId;
