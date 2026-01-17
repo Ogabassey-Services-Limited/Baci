@@ -571,7 +571,18 @@ const getProduct = async (
   }
 
   // 2. Get Product using the new cached function with full joins
-  const product = await getCachedProductWithDetails(merchant.id, productSlug);
+  let product = await getCachedProductWithDetails(merchant.id, productSlug);
+
+  // 2b. Case-insensitive fallback: If not found, try lowercasing the productSlug
+  // This handles Google index errors like google-pixel-6-8GB-256GB vs google-pixel-6-8gb-256gb
+  let needsValuesRedirect = false;
+  if (!product && productSlug !== productSlug.toLowerCase()) {
+    const lowercaseSlug = productSlug.toLowerCase();
+    product = await getCachedProductWithDetails(merchant.id, lowercaseSlug);
+    if (product) {
+      needsValuesRedirect = true;
+    }
+  }
 
   if (!product) {
     console.error('Product not found:', productSlug);
@@ -614,7 +625,12 @@ const getProduct = async (
   const categoryMismatch =
     productCategorySlug && productCategorySlug !== categorySlug;
 
-  return { product: productWithCategorySlug, categoryMismatch, merchant };
+  return {
+    product: productWithCategorySlug,
+    categoryMismatch,
+    merchant,
+    needsValuesRedirect,
+  };
 };
 
 export async function generateMetadata({
@@ -629,6 +645,10 @@ export async function generateMetadata({
     return {
       title: 'Product Not Found',
       description: 'The product you are looking for does not exist.',
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
@@ -725,22 +745,21 @@ export default async function CategoryProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const { product, merchant, categoryMismatch } = result;
+  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
   // Strict Canonical URL Enforcement:
-  // If the URL category doesn't match the product's actual category,
-  // redirect to the correct URL to avoid duplicate content.
-  if (categoryMismatch) {
+  // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
+  // 2. If the URL category doesn't match the product's actual category -> Redirect
+  if (categoryMismatch || needsValuesRedirect) {
     const correctCategorySlug =
       product.category_slug ||
       (product.category ? generateSlug(product.category) : undefined);
 
     if (correctCategorySlug) {
-      const isLocalhost =
-        host.includes('localhost') || host.includes('127.0.0.1');
       const cleanSlug = product.slug || product.id;
 
       const targetPath = isLocalhost
@@ -752,7 +771,6 @@ export default async function CategoryProductPage({ params }: PageProps) {
   }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   let baseUrl = `${protocol}://${host}`;
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
   // FIX: Ensure schema URL always points to the production custom domain if it exists
   if (!isLocalhost && merchant?.custom_domain) {

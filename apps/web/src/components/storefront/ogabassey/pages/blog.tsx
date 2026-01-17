@@ -4,6 +4,8 @@ import { ArrowRight, Battery, Calendar, User, Search } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import type { TemplateBlogPageProps, BlogPostData } from '@/templates/registry';
 import { AdUnit } from './ad-unit';
 
@@ -35,7 +37,8 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
   categories: propCategories,
   searchQuery,
 }) => {
-  const slug = merchantSlug || storeSlug || 'ogabassey';
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath ?? (storeSlug || '');
   const [activeCategory, setActiveCategory] = useState('All');
   const isSearching = !!searchQuery;
 
@@ -80,7 +83,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
               Check back soon for expert reviews, tips, and guides!
             </p>
             <Link
-              href={`/${slug}`}
+              href={asRoute(basePath || '/')}
               className="inline-flex items-center gap-2 bg-red-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-red-700 transition-colors"
             >
               Back to Store <ArrowRight size={20} />
@@ -97,7 +100,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
         {/* 1. Featured Post - Moved to Top */}
         {!isSearching && activeCategory === 'All' && featuredPost && (
           <Link
-            href={`/${slug}/blog/${featuredPost.slug}`}
+            href={asRoute(`${basePath}/blog/${featuredPost.slug}`)}
             className="group relative block mb-12 rounded-[2rem] overflow-hidden shadow-2xl h-[400px] md:h-[500px] transform transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
           >
             <div className="absolute inset-0 bg-gray-900">
@@ -153,7 +156,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                 For "{searchQuery}"
               </h1>
               <Link
-                href={`/${slug}/blog`}
+                href={asRoute(`${basePath}/blog`)}
                 className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 border-b border-gray-300 hover:border-gray-900 transition-colors pb-0.5"
               >
                 <ArrowRight size={16} className="rotate-180" />
@@ -201,7 +204,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
             .map((post) => (
               <Link
                 key={post.id}
-                href={`/${slug}/blog/${post.slug}`}
+                href={asRoute(`${basePath}/blog/${post.slug}`)}
                 className="block h-full"
               >
                 <article className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full hover:-translate-y-1">

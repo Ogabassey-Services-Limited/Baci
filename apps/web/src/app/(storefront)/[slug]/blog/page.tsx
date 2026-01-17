@@ -265,7 +265,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
                 }}
               />
               <BlogComponent
-                storeSlug={slug}
+                storeSlug={basePath}
                 posts={blogPosts}
                 categories={categories}
                 searchQuery={searchQuery}

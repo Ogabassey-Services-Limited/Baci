@@ -18,6 +18,13 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/reset-password/',
     '/auth/',
     '/_next/', // Prevent Next.js static assets from being indexed (Soft 404 fix)
+    '/blog/shopdetail/',
+    '/blog/zhHant/',
+    '/blog/product/',
+    '/blog/category/',
+    '/ogabassey.com/', // Invalid nested domain paths
+    '/*?*wc-ajax=*', // Block WooCommerce legacy AJAX endpoints
+    '/*?*add-to-cart=*', // Block legacy add-to-cart URLs
   ];
 
   return {

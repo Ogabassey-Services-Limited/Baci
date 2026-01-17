@@ -13,6 +13,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+export const revalidate = 21600; // Cache sitemap for 6 hours
+
 /**
  * Storefront Sitemap Generator with Image Support
  * Uses x-merchant-slug header set by proxy.ts middleware
@@ -168,7 +170,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           ? new Date(post.published_at)
           : new Date(),
       changeFrequency: 'monthly' as const,
-      priority: 0.6,
+      priority: 0.8,
       ...(images.length > 0 && { images }),
     };
   });

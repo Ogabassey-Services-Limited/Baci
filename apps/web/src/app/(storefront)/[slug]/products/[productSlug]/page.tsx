@@ -142,6 +142,10 @@ export async function generateMetadata(
     return {
       title: 'Product Not Found',
       description: 'The product you are looking for does not exist.',
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
@@ -260,6 +264,16 @@ export async function generateMetadata(
 
 export default async function ProductPage({ params }: PageProps) {
   const { slug, productSlug } = await params;
+
+  // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname');
+
+  if (pathname && pathname !== pathname.toLowerCase()) {
+    // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
+    return permanentRedirect(pathname.toLowerCase() as any);
+  }
+
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
@@ -288,7 +302,6 @@ export default async function ProductPage({ params }: PageProps) {
     }));
   }
 
-  const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;

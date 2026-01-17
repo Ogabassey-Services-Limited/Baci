@@ -26,8 +26,14 @@ export default async function BlogCatchAllPage({
 }) {
   const { slug, catchAll } = await params;
 
-  // Filter out WordPress admin URLs
-  if (catchAll.some((segment) => segment.startsWith('wp-'))) {
+  // Filter out WordPress admin URLs and known spam
+  // Spam patterns: shopdetail, zhHant (Chinese spam), product IDs, etc.
+  const spamKeywords = ['wp-', 'shopdetail', 'zhhant', 'surugaya', '.html'];
+  if (
+    catchAll.some((segment) =>
+      spamKeywords.some((keyword) => segment.toLowerCase().includes(keyword))
+    )
+  ) {
     notFound();
   }
 

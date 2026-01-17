@@ -205,7 +205,12 @@ export default async function StorefrontLayout({
   const headersList = await headers();
   const hasSubdomain = headersList.has('x-merchant-slug');
   const hasCustomDomain = headersList.has('x-custom-domain');
-  const routingMode = hasSubdomain || hasCustomDomain ? 'domain' : 'path';
+
+  // Use headers but fall back to slug format checking if headers are missing (e.g. some SSR scenarios)
+  const routingMode =
+    hasSubdomain || hasCustomDomain || isDomainIdentifier(slug)
+      ? 'domain'
+      : 'path';
 
   // Detect key pages where navigation should be hidden (Checkout, Auth, Account Login)
   const pathname = headersList.get('x-pathname') || '';

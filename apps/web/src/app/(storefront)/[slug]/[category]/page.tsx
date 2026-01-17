@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
@@ -132,6 +132,15 @@ export async function generateMetadata({
 export default async function CategoryPageRoute({ params }: PageProps) {
   const { slug, category } = await params;
 
+  // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname');
+
+  if (pathname && pathname !== pathname.toLowerCase()) {
+    // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
+    return permanentRedirect(pathname.toLowerCase() as any);
+  }
+
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
     ? await getCachedMerchantByDomain(slug)
@@ -189,7 +198,6 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       ? themeCookie
       : undefined;
 
-  const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;

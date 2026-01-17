@@ -107,6 +107,16 @@ const nextConfig: NextConfig = {
         hostname: 'fdn2.gsmarena.com',
       },
       {
+        // XDA Developers images (common in blog posts)
+        protocol: 'https',
+        hostname: 'static0.xdaimages.com',
+      },
+      {
+        // XDA Developers images
+        protocol: 'https',
+        hostname: 'www.xda-developers.com',
+      },
+      {
         // Placeholder images for legacy tests
         protocol: 'https',
         hostname: 'via.placeholder.com',

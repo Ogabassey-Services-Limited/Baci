@@ -314,6 +314,40 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(newUrl, { status: 301 });
   }
 
+  // ==== SECURITY: BLOCK KNOWN SEO SPAM ====
+  // Block common spam patterns under /blog/ prevent "Crawled - currently not indexed"
+  // and "Duplicate without user-selected canonical" errors (Soft 404s).
+  // MOVED TO TOP to avoid redirecting spam.
+  if (pathname.startsWith('/blog/')) {
+    const spamPatterns = [
+      '/blog/shopdetail',
+      '/blog/zhhant',
+      '/blog/product',
+      '/blog/category/product',
+    ];
+    if (
+      spamPatterns.some((pattern) => pathname.toLowerCase().startsWith(pattern))
+    ) {
+      return new NextResponse('Gone', { status: 410 });
+    }
+  }
+
+  // ==== SEO: GLOBAL LOWERCASE REDIRECT ====
+  // Force all paths to be lowercase to prevent duplicate content crawling
+  // Skip: _next (assets), api (backend), static files
+  if (
+    pathname !== pathname.toLowerCase() &&
+    !pathname.startsWith('/_next') &&
+    !pathname.startsWith('/api') &&
+    !pathname.match(
+      /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json)$/
+    )
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.toLowerCase();
+    return NextResponse.redirect(url, 308); // Permanent Redirect for SEO
+  }
+
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
   // For protected routes, verify auth BEFORE rendering
   // Define protected route patterns

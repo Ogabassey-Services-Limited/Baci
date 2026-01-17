@@ -15,6 +15,9 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(PLATFORM_CONFIG.url),
+  alternates: {
+    canonical: './',
+  },
   title: {
     default: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
     template: `%s | ${PLATFORM_CONFIG.name}`,
