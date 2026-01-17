@@ -6,6 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +17,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,6 +65,9 @@ export default function ShippingScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const [isEditingThreshold, setIsEditingThreshold] = useState(false);
+  const [tempThreshold, setTempThreshold] = useState('');
 
   // Fetch shipping settings
   const { data: settings, isLoading } = useQuery({
@@ -120,6 +125,27 @@ export default function ShippingScreen() {
     },
     onError: (_error: unknown) => {
       Alert.alert('Error', 'Failed to update shipping provider');
+    },
+  });
+
+  // Update threshold mutation
+  const updateThresholdMutation = useMutation({
+    mutationFn: async (threshold: number | null) => {
+      if (!settings?.merchant_id) throw new Error('No settings found');
+
+      const { error } = await supabase
+        .from('merchant_feature_settings')
+        .update({ free_shipping_threshold: threshold })
+        .eq('merchant_id', settings.merchant_id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipping-settings'] });
+      setIsEditingThreshold(false);
+    },
+    onError: (_error: unknown) => {
+      Alert.alert('Error', 'Failed to update free shipping threshold');
     },
   });
 
@@ -266,8 +292,14 @@ export default function ShippingScreen() {
           </View>
 
           {/* Free Shipping Card */}
-          <View
+          <Pressable
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+            onPress={() => {
+              if (!isEditingThreshold) {
+                setTempThreshold(settings?.free_shipping_threshold?.toString() || '');
+                setIsEditingThreshold(true);
+              }
+            }}
           >
             <View style={styles.featureRow}>
               <View
@@ -286,42 +318,70 @@ export default function ShippingScreen() {
                 <Text style={[styles.featureTitle, { color: colors.text }]}>
                   Free Shipping
                 </Text>
-                <Text
-                  style={[
-                    styles.featureDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {settings?.free_shipping_threshold
-                    ? `Orders above ₦${settings.free_shipping_threshold.toLocaleString()}`
-                    : 'Not configured'}
-                </Text>
+                {isEditingThreshold ? (
+                  <View style={styles.editRow}>
+                    <TextInput
+                      style={[styles.thresholdInput, { color: colors.text, borderColor: colors.border }]}
+                      value={tempThreshold}
+                      onChangeText={setTempThreshold}
+                      keyboardType="numeric"
+                      placeholder="Min amount"
+                    />
+                    <Pressable
+                      onPress={() => updateThresholdMutation.mutate(tempThreshold ? Number(tempThreshold) : null)}
+                      disabled={updateThresholdMutation.isPending}
+                      style={styles.actionIcon}
+                    >
+                      {updateThresholdMutation.isPending ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+                      )}
+                    </Pressable>
+                    <Pressable onPress={() => setIsEditingThreshold(false)} style={styles.actionIcon}>
+                      <Ionicons name="close-circle" size={28} color={colors.error} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Text
+                    style={[
+                      styles.featureDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {settings?.free_shipping_threshold
+                      ? `Orders above ₦${settings.free_shipping_threshold.toLocaleString()}`
+                      : 'Not configured'}
+                  </Text>
+                )}
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  {
-                    backgroundColor: settings?.free_shipping_threshold
-                      ? colors.successLight
-                      : colors.cardHover,
-                  },
-                ]}
-              >
-                <Text
+              {!isEditingThreshold && (
+                <View
                   style={[
-                    styles.statusText,
+                    styles.statusBadge,
                     {
-                      color: settings?.free_shipping_threshold
-                        ? colors.success
-                        : colors.textMuted,
+                      backgroundColor: settings?.free_shipping_threshold
+                        ? colors.successLight
+                        : colors.cardHover,
                     },
                   ]}
                 >
-                  {settings?.free_shipping_threshold ? 'On' : 'Off'}
-                </Text>
-              </View>
+                  <Text
+                    style={[
+                      styles.statusText,
+                      {
+                        color: settings?.free_shipping_threshold
+                          ? colors.success
+                          : colors.textMuted,
+                      },
+                    ]}
+                  >
+                    {settings?.free_shipping_threshold ? 'On' : 'Off'}
+                  </Text>
+                </View>
+              )}
             </View>
-          </View>
+          </Pressable>
 
           {/* Info Notice */}
           <View
@@ -464,5 +524,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+    gap: SPACING.xs,
+  },
+  thresholdInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.sm,
+    fontSize: TYPOGRAPHY.size.md,
+  },
+  actionIcon: {
+    padding: 4,
   },
 });

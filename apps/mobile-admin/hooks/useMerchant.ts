@@ -22,7 +22,7 @@ export const MerchantSchema = z.object({
   vat_registration_status: z
     .enum(['not_registered', 'registered', 'exempt', 'pending'])
     .nullable(),
-  vat_rate: z.number().nullable(),
+  vat_rate: z.coerce.number().nullable(),
   payout_currency: z.string().nullable(),
   country: z.string().nullable(),
   bank_code: z.string().nullable(),
@@ -86,7 +86,7 @@ export interface MerchantData {
 async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
-  console.log('[Merchant] Fetching merchant context for user:', userId);
+  console.log('[Merchant] Fetching context for user:', userId);
 
   // Call the RPC function to get context in a single round-trip
   // This handles both Owner and Staff logic on the server

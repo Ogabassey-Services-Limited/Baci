@@ -81,8 +81,15 @@ export default function MenuScreen() {
           id: 'social-media',
           icon: 'share-social-outline',
           label: 'Social Media',
-          description: 'Instagram, TikTok, WhatsApp',
+          description: 'Instagram, TikTok, X, Linkedin',
           onPress: () => router.push('/social-media'),
+        },
+        {
+          id: 'marketplaces',
+          icon: 'cart-outline',
+          label: 'Marketplaces',
+          description: 'Connect Jumia, Konga, etc.',
+          onPress: () => router.push('/sales-channels'),
         },
         {
           id: 'payments',

@@ -1,0 +1,131 @@
+diff --git a/lib/commonjs/index.js b/lib/commonjs/index.js
+index 418fe7a699fb98ec81c0817d6382402ec1739be2..1af2399cc0a2ae42afefa5ebb5ff0cfdc78376e2 100644
+--- a/lib/commonjs/index.js
++++ b/lib/commonjs/index.js
+@@ -1,6 +1,19 @@
+ "use strict";
+ 'use client';
+ 
++/* Fabric event registration hack for topSvgLayout */
++try {
++  const { ReactNativeViewConfigRegistry } = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface');
++  if (ReactNativeViewConfigRegistry && ReactNativeViewConfigRegistry.customDirectEventTypes) {
++    if (!ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout) {
++      ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout = {
++        registrationName: 'onSvgLayout',
++      };
++    }
++  }
++} catch (e) { }
++
++
+ Object.defineProperty(exports, "__esModule", {
+   value: true
+ });
+diff --git a/lib/module/index.js b/lib/module/index.js
+index 760e30da705e6dc70caf20b7242ae0a4c525cf45..77085219d4156b7ba57387ff912f1a08e39eec28 100644
+--- a/lib/module/index.js
++++ b/lib/module/index.js
+@@ -1,5 +1,18 @@
+ 'use client';
+ 
++/* Fabric event registration hack for topSvgLayout */
++try {
++    const { ReactNativeViewConfigRegistry } = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface');
++    if (ReactNativeViewConfigRegistry && ReactNativeViewConfigRegistry.customDirectEventTypes) {
++        if (!ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout) {
++            ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout = {
++                registrationName: 'onSvgLayout',
++            };
++        }
++    }
++} catch (e) { }
++
++
+ export * from './ReactNativeSVG';
+ export { default } from './ReactNativeSVG';
+ //# sourceMappingURL=index.js.map
+\ No newline at end of file
+diff --git a/src/fabric/AndroidSvgViewNativeComponent.ts b/src/fabric/AndroidSvgViewNativeComponent.ts
+index 66414e109f8a30fc503197f70a1da776a51c0580..1d1b11a1649bdc6f37f7023b9ba7347c9112253d 100644
+--- a/src/fabric/AndroidSvgViewNativeComponent.ts
++++ b/src/fabric/AndroidSvgViewNativeComponent.ts
+@@ -4,6 +4,7 @@ import type {
+   Double,
+   Float,
+   Int32,
++  DirectEventHandler,
+ } from 'react-native/Libraries/Types/CodegenTypes';
+ import type { ViewProps } from './utils';
+ 
+@@ -75,6 +76,16 @@ interface NativeProps extends ViewProps {
+   borderEndStartRadius?: UnsafeMixed<Double | string>;
+   borderStartEndRadius?: UnsafeMixed<Double | string>;
+   borderStartStartRadius?: UnsafeMixed<Double | string>;
++  onSvgLayout?: DirectEventHandler<
++    Readonly<{
++      layout: Readonly<{
++        x: Float;
++        y: Float;
++        width: Float;
++        height: Float;
++      }>;
++    }>
++  >;
+ }
+ 
+ export default codegenNativeComponent<NativeProps>('RNSVGSvgViewAndroid', {
+diff --git a/src/fabric/IOSSvgViewNativeComponent.ts b/src/fabric/IOSSvgViewNativeComponent.ts
+index 1b5780b14de20baacf9c90fc9613f38d2d331c78..880e308c00d8bf6b2a15e7fd8e947174890902ed 100644
+--- a/src/fabric/IOSSvgViewNativeComponent.ts
++++ b/src/fabric/IOSSvgViewNativeComponent.ts
+@@ -1,6 +1,6 @@
+ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent';
+ import type { ColorValue } from 'react-native';
+-import type { Float, Int32 } from 'react-native/Libraries/Types/CodegenTypes';
++import type { Float, Int32, DirectEventHandler } from 'react-native/Libraries/Types/CodegenTypes';
+ import type { ViewProps } from './utils';
+ 
+ import type { UnsafeMixed } from './codegenUtils';
+@@ -25,6 +25,16 @@ interface NativeProps extends ViewProps {
+   color?: ColorValue;
+   pointerEvents?: string;
+   hitSlop?: UnsafeMixed<HitSlop | null | number | undefined>;
++  onSvgLayout?: DirectEventHandler<
++    Readonly<{
++      layout: Readonly<{
++        x: Float;
++        y: Float;
++        width: Float;
++        height: Float;
++      }>;
++    }>
++  >;
+ }
+ 
+ export default codegenNativeComponent<NativeProps>('RNSVGSvgView', {
+diff --git a/src/index.ts b/src/index.ts
+index 17f71694097f19b3e2d8b51395088d278d88d1b4..f26d3c58509ff8b89d7888a894ef5e9174e261a1 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,5 +1,20 @@
+ 'use client';
+ 
++/* Fabric event registration hack for topSvgLayout */
++try {
++    const { ReactNativeViewConfigRegistry } = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface');
++    if (ReactNativeViewConfigRegistry && ReactNativeViewConfigRegistry.customDirectEventTypes) {
++        if (!ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout) {
++            ReactNativeViewConfigRegistry.customDirectEventTypes.topSvgLayout = {
++                registrationName: 'onSvgLayout',
++            };
++        }
++    }
++} catch (e) {
++    // Ignore errors in non-Fabric or non-mobile environments
++}
++
++
+ export * from './ReactNativeSVG';
+ 
+ export { default } from './ReactNativeSVG';

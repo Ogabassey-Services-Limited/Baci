@@ -52,6 +52,8 @@ export interface AnalyticsData {
   topCustomer: { name: string; purchases: number } | null;
   monthlyRevenue: number[];
   monthlySales: number[];
+  monthlyProfit: number[];
+  monthlyVAT: number[];
 }
 
 const DATE_FILTERS: { value: DateFilter; label: string }[] = [
@@ -309,11 +311,13 @@ export default function AnalyticsScreen() {
       ];
       const monthlyRevenue = new Array(12).fill(0);
       const monthlySales = new Array(12).fill(0);
+      const monthlyVAT = new Array(12).fill(0);
 
       paidOrders.forEach((order) => {
         const month = new Date(order.created_at).getMonth();
         monthlyRevenue[month] += order.total || 0;
         monthlySales[month] += 1;
+        monthlyVAT[month] += order.tax_amount || 0;
       });
 
       // Find best months
@@ -337,9 +341,9 @@ export default function AnalyticsScreen() {
       )[0];
       const topPaymentMethod = topMethod
         ? {
-            method: topMethod[0],
-            percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
-          }
+          method: topMethod[0],
+          percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
+        }
         : { method: 'N/A', percentage: 0 };
 
       // Top product, Top Brand & Profit Calculation
@@ -357,6 +361,7 @@ export default function AnalyticsScreen() {
         .lte('orders.created_at', endDate.toISOString());
 
       let totalProfit = 0;
+      const monthlyProfit = new Array(12).fill(0);
       const productRevenue: Record<string, { name: string; revenue: number }> =
         {};
       const brandRevenue: Record<string, { name: string; revenue: number }> =
@@ -379,7 +384,15 @@ export default function AnalyticsScreen() {
         const itemRevenue = qty * price;
 
         // Calculate Profit: (Price - Cost) * Quantity
-        totalProfit += (price - cost) * qty;
+        const profitValue = (price - cost) * qty;
+        totalProfit += profitValue;
+
+        // Add to monthly profit
+        const orderData = item.orders as unknown as { created_at: string };
+        if (orderData?.created_at) {
+          const month = new Date(orderData.created_at).getMonth();
+          monthlyProfit[month] += profitValue;
+        }
 
         if (productRevenue[name]) {
           productRevenue[name].revenue += itemRevenue;
@@ -446,6 +459,8 @@ export default function AnalyticsScreen() {
         topCustomer,
         monthlyRevenue,
         monthlySales,
+        monthlyProfit,
+        monthlyVAT,
       };
     },
     enabled: !!merchant?.id,
@@ -652,7 +667,7 @@ export default function AnalyticsScreen() {
               size={24}
               color={
                 dateFilter === 'this_year' &&
-                selectedYear < new Date().getFullYear()
+                  selectedYear < new Date().getFullYear()
                   ? colors.text
                   : colors.textMuted
               }
@@ -686,7 +701,7 @@ export default function AnalyticsScreen() {
             label="Average Order Value"
             value={formatCompactCurrency(analytics?.avgTicketSize ?? 0)}
             subtitle={`Best month: ${analytics?.bestMonthAOV ?? 'N/A'}`}
-            sparklineData={analytics?.monthlyRevenue.map((rev, i) =>
+            sparklineData={analytics?.monthlyRevenue.map((rev: number, i: number) =>
               analytics?.monthlySales[i] ? rev / analytics.monthlySales[i] : 0
             )}
             onPress={() => router.push('/analytics/aov')}
@@ -696,15 +711,15 @@ export default function AnalyticsScreen() {
             label="Profits"
             value={formatCompactCurrency(analytics?.profit ?? 0)}
             subtitle="Net profit"
-            sparklineData={analytics?.monthlyRevenue.map((r) => r * 0.2)}
+            sparklineData={analytics?.monthlyProfit}
             onPress={() => router.push('/analytics/profits')}
           />
 
           <MetricRow
             label="VAT Due"
             value={formatCompactCurrency(analytics?.salesTax ?? 0)}
-            subtitle="Best month: January"
-            sparklineData={[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}
+            subtitle="Calculated VAT"
+            sparklineData={analytics?.monthlyVAT}
             onPress={() => router.push('/analytics/vat')}
           />
 

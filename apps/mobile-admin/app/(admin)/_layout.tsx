@@ -2,13 +2,15 @@ import { Redirect, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
-import { DARK_COLORS } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useTheme } from '@/hooks/useTheme';
+
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
   const { registerPush, isRegistered } = usePushNotifications();
+  const { colors } = useTheme();
 
   // Auto-register for push notifications when authenticated
   useEffect(() => {
@@ -22,12 +24,12 @@ export default function AdminLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: DARK_COLORS.background,
+          backgroundColor: colors.background,
           justifyContent: 'center',
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator color={DARK_COLORS.primary} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -40,13 +42,14 @@ export default function AdminLayout() {
     <ErrorBoundary>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: DARK_COLORS.background }, // Use theme context if possible, but hardcode for now or import
-          headerTintColor: '#FFF', // Assuming Dark Mode default for Admin
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: DARK_COLORS.background },
-          headerBackTitle: 'Back', // Replaces "(tabs)" with "Back"
+          contentStyle: { backgroundColor: colors.background },
+          headerBackTitle: 'Back',
         }}
       >
+
         <Stack.Screen
           name="(tabs)"
           options={{ headerShown: false, title: 'Dashboard' }}
@@ -68,12 +71,13 @@ export default function AdminLayout() {
           options={{ headerShown: false, presentation: 'card' }}
         />
 
-        {/* Catch-all for other screens moved here */}
-        <Stack.Screen name="analytics" options={{ headerShown: false }} />
-        <Stack.Screen name="blog" options={{ headerShown: false }} />
-        <Stack.Screen name="customer" options={{ headerShown: false }} />
-        <Stack.Screen name="discounts" options={{ headerShown: false }} />
-        <Stack.Screen name="expenses" options={{ headerShown: false }} />
+        {/* Sub-screens with headers enabled */}
+        <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
+        <Stack.Screen name="blog" options={{ title: 'Blog' }} />
+        <Stack.Screen name="customer" options={{ title: 'Customers' }} />
+        <Stack.Screen name="discounts" options={{ title: 'Discounts' }} />
+        <Stack.Screen name="expenses" options={{ title: 'Expenses' }} />
+
 
         {/* Individual screens */}
         <Stack.Screen
@@ -81,7 +85,7 @@ export default function AdminLayout() {
           options={{ title: 'Contact Support' }}
         />
         <Stack.Screen name="customize" options={{ title: 'Customize Store' }} />
-        <Stack.Screen name="discounts.tsx" options={{ title: 'Discounts' }} />
+
         {/* Wait, discounts is a folder AND a file?  
             Checking file list: 
             {"name":"discounts", "isDir":true} 
