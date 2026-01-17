@@ -61,8 +61,6 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
   ! Forbidden non-null assertion.
   
     323 │       shopId: data.shop_id || 'oauth',
-Checked 838 files in 1584ms. No fixes applied.
-Found 5 warnings.
     324 │       accessToken: data.access_token,
   > 325 │       refreshToken: data.refresh_token!,
         │                     ^^^^^^^^^^^^^^^^^^^
@@ -70,3 +68,5 @@ Found 5 warnings.
     327 │         ? new Date(data.token_expires_at)
   
 
+Checked 838 files in 1016ms. No fixes applied.
+Found 5 warnings.

@@ -36,10 +36,14 @@
       "zod": "4.4.0-canary.20251231T230035",
       "h3": ">=1.15.5",
       "tar": ">=7.5.3",
-      "diff": ">=8.0.3"
+      "diff": ">=8.0.3",
+      "react-native-screens": "4.19.0",
+      "react-native-reanimated": "4.2.1",
+      "react-native-svg": "15.15.1"
     },
     "patchedDependencies": {
-      "react-native-worklets": "patches/react-native-worklets.patch"
+      "react-native-worklets": "patches/react-native-worklets.patch",
+      "react-native-svg": "patches/react-native-svg.patch"
     }
   }
 }
