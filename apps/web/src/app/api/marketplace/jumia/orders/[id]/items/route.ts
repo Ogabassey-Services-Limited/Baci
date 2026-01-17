@@ -42,11 +42,9 @@ export async function GET(
     const items = await jumiaClient.getOrderItems(id);
 
     return NextResponse.json({ items });
-  } catch (error: any) {
-    console.error('[Jumia Items API]', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch items' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to fetch items';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

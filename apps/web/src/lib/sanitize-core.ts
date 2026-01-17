@@ -208,9 +208,7 @@ export const customerSchema = z.object({
     .min(1)
     .max(100)
     .transform((val) => sanitizeText(val)),
-  email: z
-    .string()
-    .transform((val) => sanitizeEmail(val)),
+  email: z.string().transform((val) => sanitizeEmail(val)),
   phone: z
     .string()
     .min(10)
@@ -278,9 +276,7 @@ export const orderSchema = z.object({
     .min(1)
     .max(200)
     .transform((val) => sanitizeText(val)),
-  customer_email: z
-    .string()
-    .transform((val) => sanitizeEmail(val)),
+  customer_email: z.string().transform((val) => sanitizeEmail(val)),
   customer_phone: z
     .string()
     .min(10)

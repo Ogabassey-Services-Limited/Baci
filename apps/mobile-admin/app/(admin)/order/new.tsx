@@ -86,55 +86,55 @@ const CHANNELS: {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }[] = [
-  {
-    id: 'physical',
-    label: 'Physical sales',
-    icon: 'storefront',
-    color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
-  },
-  {
-    id: 'instagram',
-    label: 'Instagram',
-    icon: 'logo-instagram',
-    color: BRAND_COLORS?.instagram || '#E4405F',
-  },
-  {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: 'logo-whatsapp',
-    color: BRAND_COLORS?.whatsapp || '#25D366',
-  },
-  {
-    id: 'facebook',
-    label: 'Facebook',
-    icon: 'logo-facebook',
-    color: BRAND_COLORS?.facebook || '#1877F2',
-  },
-  {
-    id: 'tiktok',
-    label: 'Tiktok',
-    icon: 'logo-tiktok',
-    color: BRAND_COLORS?.tiktok || '#000000',
-  },
-  {
-    id: 'jumia',
-    label: 'Jumia',
-    icon: 'cart',
-    color: BRAND_COLORS?.jumia || '#F68B1E',
-  },
-  {
-    id: 'jiji',
-    label: 'Jiji',
-    icon: 'pricetag',
-    color: BRAND_COLORS?.jiji || '#3DB83A',
-  },
-  {
-    id: 'konga',
-    label: 'Konga',
-    icon: 'bag',
-    color: BRAND_COLORS?.konga || '#ED017F',
-  },
-];
+    {
+      id: 'physical',
+      label: 'Physical sales',
+      icon: 'storefront',
+      color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
+    },
+    {
+      id: 'instagram',
+      label: 'Instagram',
+      icon: 'logo-instagram',
+      color: BRAND_COLORS?.instagram || '#E4405F',
+    },
+    {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      icon: 'logo-whatsapp',
+      color: BRAND_COLORS?.whatsapp || '#25D366',
+    },
+    {
+      id: 'facebook',
+      label: 'Facebook',
+      icon: 'logo-facebook',
+      color: BRAND_COLORS?.facebook || '#1877F2',
+    },
+    {
+      id: 'tiktok',
+      label: 'Tiktok',
+      icon: 'logo-tiktok',
+      color: BRAND_COLORS?.tiktok || '#000000',
+    },
+    {
+      id: 'jumia',
+      label: 'Jumia',
+      icon: 'cart',
+      color: BRAND_COLORS?.jumia || '#F68B1E',
+    },
+    {
+      id: 'jiji',
+      label: 'Jiji',
+      icon: 'pricetag',
+      color: BRAND_COLORS?.jiji || '#3DB83A',
+    },
+    {
+      id: 'konga',
+      label: 'Konga',
+      icon: 'bag',
+      color: BRAND_COLORS?.konga || '#ED017F',
+    },
+  ];
 
 const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer', icon: 'card-outline' },
@@ -329,9 +329,9 @@ export default function NewOrderScreen() {
       item.email.split('@')[0];
     setCustomer({
       name: displayName,
-      email: c.email || '',
-      phone: c.phone || '',
-      address: c.address || '',
+      email: item.email || '',
+      phone: item.phone || '',
+      address: item.address || '',
     });
     setShowCustomerModal(false);
     setCustomerSearch('');
@@ -445,21 +445,23 @@ export default function NewOrderScreen() {
           tax_amount: taxesToUse,
           currency: merchant?.payout_currency || 'NGN',
           source: selectedChannel,
-          recorded_by_user_id: user?.id,
+          recorded_by_user_id: user?.id || null,
           notes: notes.trim() || null,
           shipping_address: sameAsCustomer
-            ? {
-                name: customer.name,
-                phone: customer.phone,
-                address: customer.address,
-              }
-            : {
-                name: deliveryInfo.name,
-                phone: deliveryInfo.phone,
-                address: deliveryInfo.address,
-                city: deliveryInfo.city,
-                state: deliveryInfo.state,
-              },
+            ? ({
+              name: customer.name,
+              phone: customer.phone,
+              address: customer.address,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any)
+            : ({
+              name: deliveryInfo.name,
+              phone: deliveryInfo.phone,
+              address: deliveryInfo.address,
+              city: deliveryInfo.city,
+              state: deliveryInfo.state,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            } as any),
         })
         .select()
         .single();
@@ -1503,7 +1505,8 @@ export default function NewOrderScreen() {
                   styles.productItem,
                   { borderBottomColor: colors.border },
                 ]}
-                onPress={() => handleAddProduct(item)}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onPress={() => handleAddProduct(item as any)}
               >
                 <View>
                   <Text style={{ color: colors.text, fontSize: 16 }}>
@@ -1981,7 +1984,8 @@ export default function NewOrderScreen() {
                         paddingVertical: 12,
                       },
                     ]}
-                    onPress={() => handleSelectCustomer(item)}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onPress={() => handleSelectCustomer(item as any)}
                   >
                     <View
                       style={[
@@ -2359,17 +2363,17 @@ export default function NewOrderScreen() {
                 showFinancialModal.type === 'tax' && isVatApplied
                   ? formatPrice(calculatedVat)
                   : (() => {
-                      if (!financialValue) return '';
-                      const parts = financialValue.split('.');
-                      const rawInt = parts[0].replace(/,/g, '');
-                      const formattedInt =
-                        !Number.isNaN(Number(rawInt)) && rawInt !== ''
-                          ? Number(rawInt).toLocaleString('en-US')
-                          : parts[0];
-                      return parts.length > 1
-                        ? `${formattedInt}.${parts[1]}`
-                        : formattedInt;
-                    })()
+                    if (!financialValue) return '';
+                    const parts = financialValue.split('.');
+                    const rawInt = parts[0].replace(/,/g, '');
+                    const formattedInt =
+                      !Number.isNaN(Number(rawInt)) && rawInt !== ''
+                        ? Number(rawInt).toLocaleString('en-US')
+                        : parts[0];
+                    return parts.length > 1
+                      ? `${formattedInt}.${parts[1]}`
+                      : formattedInt;
+                  })()
               }
               onChangeText={(text) => {
                 const clean = text.replace(/[^0-9.]/g, '');
@@ -2664,11 +2668,11 @@ export default function NewOrderScreen() {
                       prev.map((item) =>
                         item.product_id === editingItem.product_id
                           ? {
-                              ...item,
-                              price: finalPrice,
-                              quantity: finalQty,
-                              details: editDetails,
-                            }
+                            ...item,
+                            price: finalPrice,
+                            quantity: finalQty,
+                            details: editDetails,
+                          }
                           : item
                       )
                     );

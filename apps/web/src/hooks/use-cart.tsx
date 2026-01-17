@@ -138,13 +138,13 @@ const getCartFromStorage = (slug?: string | null): CartItem[] => {
 
     return (
       parsed
-        // biome-ignore lint/suspicious/noExplicitAny: Parsing unknown JSON structure from localStorage
-        .filter((i: any) => {
+        .filter((i: unknown) => {
+          const item = i as Partial<CartItem>;
           // Must have valid ID and Name
-          if (!i.id || !i.name) return false;
+          if (!item.id || !item.name) return false;
           return true;
         })
-        // biome-ignore lint/suspicious/noExplicitAny: Parsing unknown JSON structure from localStorage
+        // biome-ignore lint/suspicious/noExplicitAny: Safely casting unknown to CartItem
         .map((i: any) => ({
           ...i,
           // Ensure price is a number
@@ -153,7 +153,7 @@ const getCartFromStorage = (slug?: string | null): CartItem[] => {
             typeof i.quantity === 'number'
               ? i.quantity
               : Number(i.quantity) || 1,
-        }))
+        })) as CartItem[]
     );
   } catch (error) {
     logger.error({

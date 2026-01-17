@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Camera, CameraView } from 'expo-camera';
-import { type Href, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,10 +63,7 @@ export default function ScanScreen() {
             {
               text: 'Add New Product',
               onPress: () =>
-                router.push({
-                  pathname: '/product/new',
-                  params: { sku: data },
-                } as Href<string | object>),
+                router.push(`/product/new?sku=${data}`),
             },
           ]
         );
@@ -80,7 +77,7 @@ export default function ScanScreen() {
           {
             text: 'View Product',
             onPress: () => {
-              router.push(`/product/${product.id}` as Href<string>);
+              router.push(`/product/${product.id}`);
             },
           },
           {

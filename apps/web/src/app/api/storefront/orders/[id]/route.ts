@@ -3,7 +3,6 @@ import { isValidUuid } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // GET /api/storefront/orders/[id] - Public endpoint to fetch order for checkout resumption
-export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: NextRequest,

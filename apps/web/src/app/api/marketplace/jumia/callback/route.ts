@@ -7,7 +7,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
+// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
 const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
 

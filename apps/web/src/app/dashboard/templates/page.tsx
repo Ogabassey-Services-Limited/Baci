@@ -11,9 +11,6 @@ export const metadata: Metadata = {
   description: 'Browse and preview all available storefront templates',
 };
 
-// Force dynamic usage
-export const dynamic = 'force-dynamic';
-
 // Map business types to template categories
 const BUSINESS_TYPE_TO_CATEGORY: Record<string, string[]> = {
   [BUSINESS_TYPES.FASHION.id]: ['fashion'],

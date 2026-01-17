@@ -298,7 +298,7 @@ PODS:
   - EXUpdatesInterface (2.0.0):
     - ExpoModulesCore
   - FBLazyVector (0.81.5)
-  - GoogleSignIn (9.0.0):
+  - GoogleSignIn (9.1.0):
     - AppAuth (~> 2.0)
     - AppCheckCore (~> 11.0)
     - GTMAppAuth (~> 5.0)
@@ -2271,7 +2271,7 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - RNScreens (4.16.0):
+  - RNScreens (4.19.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2293,9 +2293,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNScreens/common (= 4.16.0)
+    - RNScreens/common (= 4.19.0)
     - Yoga
-  - RNScreens/common (4.16.0):
+  - RNScreens/common (4.19.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2861,7 +2861,7 @@ SPEC CHECKSUMS:
   ExpoWebBrowser: 17b064c621789e41d4816c95c93f429b84971f52
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
-  GoogleSignIn: c7f09cfbc85a1abf69187be091997c317cc33b77
+  GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
@@ -2945,7 +2945,7 @@ SPEC CHECKSUMS:
   RNGestureHandler: 2914750df066d89bf9d8f48a10ad5f0051108ac3
   RNGoogleSignin: 2a2b0d17c0184d886d8e3066060ca5e6fe04249c
   RNReanimated: 5b94ad2512bb0e33c78946c6217f018048c23ed2
-  RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
+  RNScreens: 6f7a6128b0d33ce66e60309b6c998a2235abe1f3
   RNSVG: cf9ae78f2edf2988242c71a6392d15ff7dd62522
   RNWorklets: 6043cfb1d2cb22640c0912bd5f64278088864cbe
   SDWebImage: e9c98383c7572d713c1a0d7dd2783b10599b9838
@@ -2955,6 +2955,6 @@ SPEC CHECKSUMS:
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 7d70c7aa0d342ddada8c198b38ff625df8015763
+PODFILE CHECKSUM: a61e2c5933f172c443457a3486d440d7a09e5a21
 
 COCOAPODS: 1.16.2

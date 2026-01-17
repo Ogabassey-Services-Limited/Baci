@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
       logoUrl,
       slug: providedSlug,
       brandColors: brandColorsString,
+      fullName,
+      phone,
     } = validationResult.data;
 
     // Parse brand colors
@@ -55,43 +57,52 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // --- 2. User Creation / Auth ---
-    // Mobile users are likely new.
-    // We will try to sign up.
 
-    let user: User | null = null;
+    // Check if request is authenticated (Bearer token or Cookie)
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
 
-    // Create user via SignUp
-    // If user already exists, we will catch it below.
-    // Actually, just try to Sign Up.
+    let user: User | null = currentUser;
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-      {
-        email,
-        password: password || '', // Password is required for this flow
-        options: {
-          // No redirect for mobile, but email verification might still be on.
-          // Assuming 'Confirm Email' is disabled or we handle it.
-        },
-      }
-    );
-
-    if (signUpError) {
-      if (signUpError.message.includes('already registered')) {
+    // If no authenticated user, try to Sign Up
+    if (!user) {
+      if (!password) {
         return NextResponse.json(
-          { success: false, message: 'User already exists. Please log in.' },
-          { status: 409 }
+          { success: false, message: 'Password is required for new accounts.' },
+          { status: 400 }
         );
       }
-      throw signUpError;
-    }
 
-    if (signUpData.user) {
-      user = signUpData.user;
-    } else {
-      return NextResponse.json(
-        { success: false, message: 'Signup failed. Please try again.' },
-        { status: 500 }
-      );
+      const { data: signUpData, error: signUpError } =
+        await supabase.auth.signUp({
+          email,
+          password: password || '', // Password is required for this flow
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
+          return NextResponse.json(
+            { success: false, message: 'User already exists. Please log in.' },
+            { status: 409 }
+          );
+        }
+        throw signUpError;
+      }
+
+      if (signUpData.user) {
+        user = signUpData.user;
+      } else {
+        return NextResponse.json(
+          { success: false, message: 'Signup failed. Please try again.' },
+          { status: 500 }
+        );
+      }
     }
 
     // --- 3. Merchant & Domain Creation ---
@@ -175,6 +186,32 @@ export async function POST(req: NextRequest) {
       .then(({ error }) => {
         if (error) console.log('Domain creation error (might exist):', error);
       });
+
+    // Upsert Staff Member (Profile Data)
+    // This ensures the "Profile" screen is populated
+    if (user && merchant) {
+      const { error: staffError } = await adminSupabase
+        .from('staff_members')
+        .upsert(
+          {
+            user_id: user.id,
+            merchant_id: merchant.id,
+            name: fullName || null,
+            phone: phone || null,
+            email: user.email || email,
+            role: 'owner',
+            status: 'active',
+          },
+          { onConflict: 'user_id, merchant_id' }
+        );
+      if (staffError) {
+        console.error(
+          'Failed to create/update staff member profile',
+          staffError
+        );
+        // Don't fail the whole request, but log it
+      }
+    }
 
     // --- 4. Template & Assets ---
 

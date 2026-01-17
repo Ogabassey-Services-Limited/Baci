@@ -252,7 +252,8 @@ export async function POST(_request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Sync failed';
     const errorDetails =
       error && typeof error === 'object' && 'issues' in error
-        ? JSON.stringify((error as any).issues)
+        ? // biome-ignore lint/suspicious/noExplicitAny: Zod validation error
+          JSON.stringify((error as any).issues)
         : undefined;
 
     return NextResponse.json(

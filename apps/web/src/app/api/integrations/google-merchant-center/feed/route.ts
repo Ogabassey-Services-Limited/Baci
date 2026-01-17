@@ -2,9 +2,6 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// PERFORMANCE: Enable caching with revalidation instead of force-dynamic
-export const revalidate = 3600; // Revalidate every hour
-
 export async function GET(_request: Request) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);

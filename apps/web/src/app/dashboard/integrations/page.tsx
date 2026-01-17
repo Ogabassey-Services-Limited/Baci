@@ -210,41 +210,42 @@ export default async function IntegrationsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {integrations.map((integration) => (
-          <Card
-            key={integration.id}
-            className="group hover:shadow-lg transition-shadow bg-card hover:border-primary/50 relative overflow-hidden"
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div
-                  className={`p-3 rounded-xl ${integration.color} flex items-center justify-center border border-transparent group-hover:scale-110 transition-transform duration-300`}
-                >
-                  {integration.icon}
+        {integrations.map((integration) => {
+          // biome-ignore lint/suspicious/noExplicitAny: Complex Typed Route logic
+          const href: any =
+            'rawHref' in integration && integration.rawHref
+              ? integration.href
+              : asRoute(integration.href);
+
+          return (
+            <Card
+              key={integration.id}
+              className="group hover:shadow-lg transition-shadow bg-card hover:border-primary/50 relative overflow-hidden"
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div
+                    className={`p-3 rounded-xl ${integration.color} flex items-center justify-center border border-transparent group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    {integration.icon}
+                  </div>
                 </div>
-              </div>
-              <CardTitle className="mt-4">{integration.name}</CardTitle>
-              <CardDescription className="line-clamp-2 mt-2">
-                {integration.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full group-hover:bg-primary/90">
-                {/* biome-ignore lint/suspicious/noExplicitAny: Complex Typed Route logic */}
-                <Link
-                  href={
-                    ('rawHref' in integration && integration.rawHref
-                      ? integration.href
-                      : asRoute(integration.href)) as any
-                  }
-                >
-                  Configure
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
+                <CardTitle className="mt-4">{integration.name}</CardTitle>
+                <CardDescription className="line-clamp-2 mt-2">
+                  {integration.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild className="w-full group-hover:bg-primary/90">
+                  <Link href={href}>
+                    Configure
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       <Card className="glass border-dashed border-2">

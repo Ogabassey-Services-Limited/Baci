@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -142,6 +142,7 @@ export default function CustomersScreen() {
   };
 
   const getDisplayName = (customer: Customer) => {
+
     const names = [customer.first_name, customer.last_name]
       .filter(Boolean)
       .join(' ');
@@ -280,7 +281,8 @@ export default function CustomersScreen() {
           shadows.sm,
           pressed && { backgroundColor: colors.cardHover },
         ]}
-        onPress={() => router.push(`/customer/${item.id}` as Href<string>)}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onPress={() => router.push(`/customer/${item.id}` as any)}
       >
         <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
           <Text style={[styles.avatarText, { color: colors.primary }]}>

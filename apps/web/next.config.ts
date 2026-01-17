@@ -15,6 +15,9 @@ const nextConfig: NextConfig = {
   // Note: Increases build size slightly but helps with error tracking
   productionBrowserSourceMaps: true,
 
+  // Enable 'use cache' directive for Dynamic IO (Next.js 16)
+  cacheComponents: true,
+
   // Fix Vercel middleware tracing issue with Next.js 16
   // See: https://github.com/vercel/next.js/issues/71818
   outputFileTracingIncludes: {
@@ -139,12 +142,6 @@ const nextConfig: NextConfig = {
 
     // Enable View Transitions API (React 19.2 feature)
     viewTransition: true,
-
-    // Note: 'use cache' directive (cacheComponents) is not enabled because it's
-    // incompatible with existing route segment configs (revalidate, dynamic).
-    // Using unstable_cache from next/cache for granular caching instead.
-    // Enable cacheComponents once all routes are migrated.
-    // cacheComponents: true,
 
     // Bundle optimization - tree-shake large libraries
     optimizePackageImports: [

@@ -16,9 +16,6 @@ export const metadata: Metadata = {
   description: 'Manage your store domains and custom URLs',
 };
 
-// Force dynamic since we depend on request cookies and latest DB state
-export const dynamic = 'force-dynamic';
-
 export default async function DomainsPage({
   searchParams,
 }: {

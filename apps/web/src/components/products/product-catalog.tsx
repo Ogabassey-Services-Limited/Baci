@@ -7,6 +7,7 @@ import {
   Edit,
   Infinity as InfinityIcon,
   Loader2,
+  MoreHorizontal,
   Package,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -19,6 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -35,6 +44,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import { cn } from '@/lib/utils';
+import { ExportToJumiaDialog } from './jumia/export-dialog';
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -60,6 +70,7 @@ export function ProductCatalog({
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(
     new Set()
   );
+  const [exportProduct, setExportProduct] = useState<Product | null>(null);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((prev) => {
@@ -362,15 +373,30 @@ export function ProductCatalog({
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                          onClick={() => onEditProduct?.(product)}
-                          aria-label={`Edit ${product.name}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => onEditProduct?.(product)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Product
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setExportProduct(product)}
+                            >
+                              <Package className="mr-2 h-4 w-4" />
+                              Export to Jumia
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                     {expandedProducts.has(product.id) &&
@@ -526,6 +552,21 @@ export function ProductCatalog({
             </Button>
           </div>
         </div>
+      )}
+      {exportProduct && merchant && (
+        <ExportToJumiaDialog
+          open={!!exportProduct}
+          onOpenChange={(open) => !open && setExportProduct(null)}
+          product={{
+            id: exportProduct.id,
+            sku: exportProduct.sku || '',
+            name: exportProduct.name,
+            description: exportProduct.description || '',
+            price: exportProduct.price,
+            images: exportProduct.image ? [exportProduct.image] : [],
+          }}
+          merchantId={merchant.id}
+        />
       )}
     </Card>
   );

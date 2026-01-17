@@ -62,9 +62,6 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-// Enable ISR - revalidate categories every 5 minutes
-export const revalidate = 300;
-
 export async function generateMetadata({
   params,
 }: {

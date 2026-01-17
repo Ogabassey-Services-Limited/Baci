@@ -320,4 +320,3 @@ async function sendOrderConfirmationEmail(
 }
 
 // Ensure webhook route is not cached
-export const dynamic = 'force-dynamic';

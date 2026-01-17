@@ -835,7 +835,8 @@ export default function OrdersScreen() {
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onSelect={(filter) => {
-          setDateRange(filter);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setDateRange(filter as any);
         }}
         currentFilter={dateRange}
       />

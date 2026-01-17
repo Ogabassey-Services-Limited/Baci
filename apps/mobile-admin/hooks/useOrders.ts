@@ -107,11 +107,11 @@ async function fetchOrders(
   const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
 
   // Map orders with item_count
-  const orders = (data ?? []).map((order: any) => ({
+  const orders = (data ?? []).map((order) => ({
     ...order,
     item_count: order.order_items?.length ?? 0,
     order_items: undefined, // Remove the nested array
-  }));
+  })) as OrderWithCount[];
 
   return {
     orders,
@@ -181,7 +181,7 @@ export function useUpdateOrderStatus() {
       const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
 
       // Optimistically update list
-      queryClient.setQueryData(['orders', merchant?.id], (old: any) => {
+      queryClient.setQueryData(['orders', merchant?.id], (old: { pages: OrdersPage[] } | undefined) => {
         if (!old?.pages) return old;
         return {
           ...old,
@@ -198,7 +198,7 @@ export function useUpdateOrderStatus() {
 
       // KEY FIX: Optimistically update the single order detail view
       const previousOrder = queryClient.getQueryData(['order', orderId]);
-      queryClient.setQueryData(['order', orderId], (old: any) => {
+      queryClient.setQueryData(['order', orderId], (old: Order | undefined) => {
         if (!old) return old;
         return { ...old, shipping_status: status };
       });

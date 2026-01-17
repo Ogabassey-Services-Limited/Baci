@@ -25,10 +25,6 @@ export function OnboardingProvider({
   );
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    checkOnboarding();
-  }, [checkOnboarding]);
-
   const checkOnboarding = async () => {
     try {
       const value = await AsyncStorage.getItem(ONBOARDING_KEY);
@@ -40,6 +36,10 @@ export function OnboardingProvider({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    checkOnboarding();
+  }, []);
 
   const completeOnboarding = async () => {
     try {

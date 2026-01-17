@@ -21,9 +21,6 @@ import {
 } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
 
-// Enable ISR with 1 minute revalidation for storefront homepages
-export const revalidate = 60;
-
 export async function generateMetadata({
   params,
 }: {

@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Execute Action
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic result
     let result: any = { success: true };
 
     switch (action) {
@@ -122,14 +123,17 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('[Jumia Action Error]', error);
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Action failed';
+    const status = (error as { status?: number })?.status || 500;
+
     return NextResponse.json(
       {
-        error: error.message || 'Action failed',
+        error: errorMessage,
         details: error instanceof z.ZodError ? error.issues : undefined,
       },
-      { status: error.status || 500 }
+      { status }
     );
   }
 }

@@ -76,7 +76,7 @@ export default function ReportSelectionModal({
         endDate,
         merchantName,
         data: analyticsData,
-        transactions: transactions as Transaction[],
+        transactions: transactions as unknown as Transaction[],
       });
       onClose();
     } catch (error) {

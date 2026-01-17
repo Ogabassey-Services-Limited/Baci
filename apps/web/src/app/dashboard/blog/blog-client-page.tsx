@@ -20,7 +20,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -264,18 +264,20 @@ export function BlogClientPage({
     }
   };
 
-  const stats = useMemo(
-    () => ({
-      total: statsData?.total ?? posts.length,
-      published:
-        statsData?.published ??
-        posts.filter((p) => p.status === 'published').length,
-      drafts:
-        statsData?.draft ?? posts.filter((p) => p.status === 'draft').length,
-      totalViews: posts.reduce((sum, p) => sum + (p.view_count || 0), 0),
-    }),
-    [posts, statsData]
+  const postsCount = posts.length;
+  const publishedCount = posts.filter((p) => p.status === 'published').length;
+  const draftCount = posts.filter((p) => p.status === 'draft').length;
+  const totalViewsCount = posts.reduce(
+    (sum, p) => sum + (p.view_count || 0),
+    0
   );
+
+  const stats = {
+    total: statsData?.total ?? postsCount,
+    published: statsData?.published ?? publishedCount,
+    drafts: statsData?.draft ?? draftCount,
+    totalViews: totalViewsCount,
+  };
 
   // Show loading state while checking features
   // Show loading state while checking features.
@@ -291,7 +293,7 @@ export function BlogClientPage({
   // REMOVED: (!blogEnabled) block
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 px-1">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Blog</h1>

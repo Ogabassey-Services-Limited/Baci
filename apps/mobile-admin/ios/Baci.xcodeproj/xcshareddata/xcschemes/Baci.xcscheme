@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "BaciAdmin.app"
-               BlueprintName = "BaciAdmin"
-               ReferencedContainer = "container:BaciAdmin.xcodeproj">
+               BuildableName = "Baci.app"
+               BlueprintName = "Baci"
+               ReferencedContainer = "container:Baci.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "BaciAdminTests.xctest"
-               BlueprintName = "BaciAdminTests"
-               ReferencedContainer = "container:BaciAdmin.xcodeproj">
+               BuildableName = "BaciTests.xctest"
+               BlueprintName = "BaciTests"
+               ReferencedContainer = "container:Baci.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "BaciAdmin.app"
-            BlueprintName = "BaciAdmin"
-            ReferencedContainer = "container:BaciAdmin.xcodeproj">
+            BuildableName = "Baci.app"
+            BlueprintName = "Baci"
+            ReferencedContainer = "container:Baci.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "BaciAdmin.app"
-            BlueprintName = "BaciAdmin"
-            ReferencedContainer = "container:BaciAdmin.xcodeproj">
+            BuildableName = "Baci.app"
+            BlueprintName = "Baci"
+            ReferencedContainer = "container:Baci.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

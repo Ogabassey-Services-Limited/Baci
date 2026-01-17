@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { type Href, Stack, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -99,7 +99,8 @@ export default function SetupChecklistScreen() {
         key={item.id}
         onPress={() =>
           item.href.startsWith('/')
-            ? router.push(item.href as Href<string>)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? router.push(item.href as any)
             : undefined
         }
         style={[

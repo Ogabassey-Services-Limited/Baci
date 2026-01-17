@@ -90,7 +90,7 @@ export function useStoreReadiness() {
           id: 'hero_carousel',
           label: 'Set up hero carousel',
           description: 'Add eye-catching banners to your homepage',
-          // @ts-expect-error - hero_slides might be explicitly typed or strictly array
+          // hero_slides might be explicitly typed or strictly array
           completed:
             Array.isArray(merchant.hero_slides) &&
             merchant.hero_slides.length > 0,

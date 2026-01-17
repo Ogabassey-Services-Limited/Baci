@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { nanoid } from 'nanoid';
+import { useEffect, useState } from 'react';
 import { FacebookPixel } from './facebook-pixel';
 import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
@@ -310,7 +310,10 @@ function getOrCreateSessionId(): string {
   } catch (e) {
     // SecurityError: The operation is insecure. (Cookies blocked, private browsing)
     // Return an ephemeral ID without persisting
-    console.debug('Session storage access blocked, using ephemeral session ID', e);
+    console.debug(
+      'Session storage access blocked, using ephemeral session ID',
+      e
+    );
     return `ps_${Date.now()}_${nanoid()}`;
   }
 

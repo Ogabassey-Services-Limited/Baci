@@ -7,11 +7,11 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Baci Admin',
+  name: 'Baci',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
   version: '1.0.0',
-  orientation: 'portrait',
+  orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,

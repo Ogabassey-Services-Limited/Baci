@@ -194,8 +194,8 @@ export function useAnalyticsDetail({
       const worstPeriod =
         nonZeroData.length > 0
           ? nonZeroData.reduce((worst, d) =>
-              d.value < worst.value ? d : worst
-            )
+            d.value < worst.value ? d : worst
+          )
           : null;
 
       // Fetch comparison data if requested
@@ -225,20 +225,21 @@ export function useAnalyticsDetail({
         prevOrders?.forEach((order) => {
           const date = new Date(order.created_at);
           const bucketIndex = getBucketIndex(date, granularity);
-          if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
-            comparisonData?.[bucketIndex].count =
-              (comparisonData?.[bucketIndex].count || 0) + 1;
+
+          if (comparisonData && bucketIndex >= 0 && bucketIndex < comparisonData.length) {
+            comparisonData[bucketIndex].count =
+              (comparisonData[bucketIndex].count || 0) + 1;
 
             switch (metric) {
               case 'revenue':
               case 'aov':
-                comparisonData?.[bucketIndex].value += order.total || 0;
+                comparisonData[bucketIndex].value += order.total || 0;
                 break;
               case 'sales':
-                comparisonData?.[bucketIndex].value += 1;
+                comparisonData[bucketIndex].value += 1;
                 break;
               case 'vat':
-                comparisonData?.[bucketIndex].value += order.tax_amount || 0;
+                comparisonData[bucketIndex].value += order.tax_amount || 0;
                 break;
             }
           }

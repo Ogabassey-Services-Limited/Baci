@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { usePayouts } from '@/hooks/usePayouts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -43,9 +44,8 @@ interface MerchantBankSettings {
 export default function PayoutSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { user, session } = useAuth();
+  const { resolveAccount, savePayoutSettings } = usePayouts();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com/api';
 
   const [accountnumber, setAccountNumber] = useState('');
   const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
@@ -54,8 +54,6 @@ export default function PayoutSettingsScreen() {
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-
-  // Helpers for Fuzzy Matching
 
   // Fetch banks from Paystack (Public Endpoint)
   const { data: banks, isLoading: isLoadingBanks } = useQuery({
@@ -104,47 +102,41 @@ export default function PayoutSettingsScreen() {
       return;
     }
 
-    const token = session.access_token;
+
 
     try {
-      // 1. Try resolving via our server (Paystack)
-      const response = await fetch(`${API_URL}/merchant/payout/resolve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      resolveAccount.mutate({
+        account_number: accountnumber,
+        bank_code: selectedBank.code,
+      }, {
+        onSuccess: (data) => {
+          setVerifiedName(data.account_name);
+          setVerifyError(null);
         },
-        body: JSON.stringify({
-          account_number: accountnumber,
-          bank_code: selectedBank.code,
-        }),
+        onError: (error) => {
+          console.error('Resolution error:', error);
+          // Fallback for test account
+          if (accountnumber === '0000000000') {
+            setVerifiedName('Test Account');
+            setVerifyError(null);
+            return;
+          }
+
+          setVerifyError(
+            (error as Error).message || 'Network error checking account'
+          );
+          setVerifiedName(null);
+        }
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Verification failed');
-      }
-
-      setVerifiedName(data.account_name);
-      setVerifyError(null);
-    } catch (error) {
-      console.error('Resolution error:', error);
-      // Fallback for test account
-      if (accountnumber === '0000000000') {
-        setVerifiedName('Test Account');
-        setVerifyError(null);
-        return;
-      }
-
-      setVerifyError(
-        (error as Error).message || 'Network error checking account'
-      );
-      setVerifiedName(null);
+    } catch (_error) {
+      // Should be handled in onError, but keeping try/catch block structure for safety if needed
+      // Actually, react-query mutation is async but verifyAccount logic was try/catch.
+      // The mutation call itself is synchronous unless we await mutateAsync.
+      // Let's rely on onError callback.
     } finally {
       setIsVerifying(false);
     }
-  }, [accountnumber, selectedBank, API_URL, session]);
+  }, [accountnumber, selectedBank, resolveAccount, session]);
 
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce
@@ -169,54 +161,7 @@ export default function PayoutSettingsScreen() {
     }
   }, [merchant, banks]);
 
-  // Save Mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      if (!selectedBank || !accountnumber)
-        throw new Error('Please fill all fields');
 
-      if (!session?.access_token) throw new Error('Authentication required');
-      const token = session.access_token;
-
-      // Call API to create subaccount on Paystack
-      // This handles validation + subaccount creation + saving to DB
-      const apiUrl = API_URL;
-      const response = await fetch(`${apiUrl}/paystack/subaccount`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token || ''}`,
-        },
-        body: JSON.stringify({
-          bankCode: selectedBank.code,
-          accountNumber: accountnumber,
-          businessName: merchant.business_name || 'My Store',
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update bank details');
-      }
-
-      return result;
-    },
-    onSuccess: (_data) => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-payout'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] }); // Refresh checklist
-    },
-    onError: (error) => {
-      console.log('Verify Error:', error);
-      Alert.alert(
-        'Error',
-        (error as Error).message || 'Failed to verify account details'
-      );
-      console.error(error);
-    },
-  });
 
   // Filter banks
   const filteredBanks =
@@ -241,7 +186,18 @@ export default function PayoutSettingsScreen() {
       Alert.alert('Error', 'Please wait for account verification');
       return;
     }
-    saveMutation.mutate();
+    savePayoutSettings.mutate({
+      bankCode: selectedBank.code,
+      accountNumber: accountnumber,
+      businessName: merchant?.business_name || 'My Store',
+    }, {
+      onSuccess: () => {
+        // Invalidations handled in hook
+      },
+      onError: (error) => {
+        Alert.alert('Error', error.message || 'Failed to update details');
+      }
+    });
   };
 
   if (isLoadingMerchant) {
@@ -277,10 +233,10 @@ export default function PayoutSettingsScreen() {
           headerRight: () => (
             <Pressable
               onPress={handleSave}
-              disabled={saveMutation.isPending}
+              disabled={savePayoutSettings.isPending}
               style={styles.saveButton}
             >
-              {saveMutation.isPending ? (
+              {savePayoutSettings.isPending ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={[styles.saveText, { color: colors.primary }]}>

@@ -484,18 +484,15 @@ export default function DashboardClientLayout({
       <div
         className={cn(
           'grid min-h-screen w-full transition-all',
-          isCollapsed ? 'md:grid-cols-[100px_1fr]' : 'md:grid-cols-[280px_1fr]'
+          isCollapsed ? 'md:grid-cols-[120px_1fr]' : 'md:grid-cols-[300px_1fr]'
         )}
-        style={{
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-        }}
       >
         {/* Sidebar - Glassmorphic & Floating */}
         <div className="hidden md:block relative z-20">
           <div
             className={cn(
-              'fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden',
+              'sticky top-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden ml-4 mb-4',
+              'h-[calc(100vh-2rem)]',
               isCollapsed ? 'w-[100px]' : 'w-[280px]'
             )}
           >
@@ -618,7 +615,7 @@ export default function DashboardClientLayout({
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
               'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 dark:bg-black/40 dark:border-white/10 backdrop-blur-md transition-all duration-300 hover:scale-110',
-              isCollapsed ? 'left-[90px]' : 'left-[270px]'
+              isCollapsed ? 'left-[100px]' : 'left-[280px]'
             )}
           >
             {isCollapsed ? (

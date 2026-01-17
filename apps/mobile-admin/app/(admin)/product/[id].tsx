@@ -240,25 +240,29 @@ export default function ProductEditScreen() {
         category_id: product.category_id || '',
         color: product.color || '',
         variant_attributes: product.variant_attributes
-          ? Object.entries(product.variant_attributes).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
+          ? Object.entries(
+            product.variant_attributes as Record<string, unknown>
+          ).map(([key, value]) => ({
+            key,
+            value: String(value),
+          }))
           : [],
         fulfillment_details:
-          product.fulfillment_details && 'items' in product.fulfillment_details
+          product.fulfillment_details &&
+            typeof product.fulfillment_details === 'object' &&
+            'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-                items: Array<{ imei: string; serial_number: string }>;
-              })
+              items: Array<{ imei: string; serial_number: string }>;
+            })
             : {
-                items: Array(product.stock_quantity || 0).fill({
-                  imei: '',
-                  serial_number: '',
-                }),
-              },
-        images: product.images || [],
+              items: Array(product.stock_quantity || 0).fill({
+                imei: '',
+                serial_number: '',
+              }),
+            },
+        images: (product.images as string[]) || [],
         manage_stock: product.manage_stock ?? true,
-        status: product.status || 'active',
+        status: (product.status as 'active' | 'draft' | 'archived') || 'active',
       });
       setIsInitialized(true);
     }
@@ -280,21 +284,21 @@ export default function ProductEditScreen() {
         color: product.color || '',
         variant_attributes: product.variant_attributes
           ? Object.entries(product.variant_attributes).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
+            key,
+            value: String(value),
+          }))
           : [],
         fulfillment_details:
           product.fulfillment_details && 'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-                items: Array<{ imei: string; serial_number: string }>;
-              })
+              items: Array<{ imei: string; serial_number: string }>;
+            })
             : {
-                items: Array(product.stock_quantity || 0).fill({
-                  imei: '',
-                  serial_number: '',
-                }),
-              },
+              items: Array(product.stock_quantity || 0).fill({
+                imei: '',
+                serial_number: '',
+              }),
+            },
         images: product.images || [],
         manage_stock: product.manage_stock ?? true,
         status: product.status || 'active',
@@ -550,12 +554,12 @@ export default function ProductEditScreen() {
             >
               {(updateProductMutation.isPending ||
                 createProductMutation.isPending) && (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                  style={{ marginRight: 8 }}
-                />
-              )}
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                )}
               <Text
                 style={{
                   color: colors.primary,
@@ -1007,7 +1011,6 @@ export default function ProductEditScreen() {
                     onChange={(val) => setFormData({ ...formData, price: val })}
                     placeholder="0.00"
                     colors={colors}
-                    styles={styles}
                     currencySymbol={currencySymbol}
                   />
                 </View>
@@ -1022,7 +1025,6 @@ export default function ProductEditScreen() {
                     }
                     placeholder="0.00"
                     colors={colors}
-                    styles={styles}
                     currencySymbol={currencySymbol}
                   />
                 </View>
@@ -1236,8 +1238,8 @@ export default function ProductEditScreen() {
                           formData.stock_quantity === 0
                             ? ''
                             : new Intl.NumberFormat().format(
-                                formData.stock_quantity
-                              )
+                              formData.stock_quantity
+                            )
                         }
                         onChangeText={(text) => {
                           const num = Number.parseInt(
@@ -1719,5 +1721,10 @@ const styles = StyleSheet.create({
   },
   categoryItemText: {
     fontSize: 16,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

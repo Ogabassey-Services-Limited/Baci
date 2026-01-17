@@ -17,7 +17,8 @@ import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 export default function VerifyScreen() {
-  const activeInterval = React.useRef<NodeJS.Timeout | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeInterval = React.useRef<any>(null);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits

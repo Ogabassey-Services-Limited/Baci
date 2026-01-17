@@ -529,6 +529,50 @@ function ProductsPageContent() {
                   </span>
                 </Button>
               )}
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 gap-1 text-orange-600 border-orange-200 hover:bg-orange-50"
+                onClick={async () => {
+                  if (!merchant?.id) return;
+                  const _toastId = toast({
+                    title: 'Importing from Jumia...',
+                    description: 'Fetching products...',
+                  });
+                  try {
+                    const res = await fetch(
+                      '/api/marketplace/jumia/products/import',
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({ merchantId: merchant.id }),
+                      }
+                    );
+                    const data = await res.json();
+                    if (res.ok) {
+                      toast({
+                        title: 'Import Successful',
+                        description: `Created: ${data.summary.created}, Linked: ${data.summary.linked}`,
+                      });
+                      window.location.reload();
+                    } else {
+                      throw new Error(data.error);
+                    }
+                  } catch (e) {
+                    toast({
+                      title: 'Import Failed',
+                      description:
+                        e instanceof Error ? e.message : 'Unknown error',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  Jumia Import
+                </span>
+              </Button>
               <Button
                 variant="outline"
                 className="gap-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 text-primary"

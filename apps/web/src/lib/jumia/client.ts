@@ -13,6 +13,7 @@
  */
 
 import { z } from 'zod';
+import { withRetry } from '@/ai/provider';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // =============================================================================
@@ -30,8 +31,8 @@ const JUMIA_AUTH_BASE = {
 } as const;
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 1000;
+const _MAX_RETRIES = 3;
+const _BASE_DELAY_MS = 1000;
 
 // =============================================================================
 // ZOD SCHEMAS (LITERAL MATCH WITH JUMIA DOCS)
@@ -112,6 +113,112 @@ export const JumiaActionResponseSchema = z.object({
   failed: z.number().optional(),
 });
 
+export const JumiaProductSchema = z.object({
+  SellerSku: z.string(),
+  ShopSku: z.string().optional(),
+  Name: z.string(),
+  Brand: z.string().optional(),
+  Description: z.string().optional(),
+  TaxClass: z.string().optional(),
+  Variation: z.string().optional(),
+  Price: z.number().or(z.string()).optional(),
+  SalePrice: z.number().or(z.string()).optional(),
+  SaleStartDate: z.string().optional(),
+  SaleEndDate: z.string().optional(),
+  Status: z.string(),
+  MainImage: z.string().optional(),
+  Images: z.array(z.string()).optional(),
+  PrimaryCategory: z.string().optional(),
+  Categories: z.string().optional(), // Comma separated
+  ProductData: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const JumiaProductsResponseSchema = z.object({
+  SuccessResponse: z.object({
+    Body: z.object({
+      Products: z
+        .object({
+          Product: z
+            .array(JumiaProductSchema)
+            .or(JumiaProductSchema)
+            .optional(),
+        })
+        .optional()
+        .nullable(), // Handle null or missing
+    }),
+  }),
+});
+
+// Categories
+export type JumiaCategory = {
+  id: string | number;
+  name: string;
+  children?: JumiaCategory[];
+};
+
+export const JumiaCategorySchema: z.ZodType<JumiaCategory> = z.lazy(() =>
+  z.object({
+    id: z.string().or(z.number()),
+    name: z.string(),
+    children: z.array(JumiaCategorySchema).optional(),
+  })
+);
+
+export const JumiaCategoryTreeResponseSchema = z.object({
+  SuccessResponse: z.object({
+    Body: z.object({
+      Categories: z
+        .object({
+          Category: z
+            .array(JumiaCategorySchema)
+            .or(JumiaCategorySchema)
+            .optional(),
+        })
+        .optional()
+        .nullable(),
+    }),
+  }),
+});
+
+// Brands
+export const JumiaBrandSchema = z.object({
+  BrandId: z.string().or(z.number()).optional(),
+  Name: z.string(),
+});
+
+export const JumiaBrandsResponseSchema = z.object({
+  SuccessResponse: z.object({
+    Body: z.object({
+      Brands: z
+        .object({
+          Brand: z.array(JumiaBrandSchema).or(JumiaBrandSchema).optional(),
+        })
+        .optional()
+        .nullable(),
+    }),
+  }),
+});
+
+// Create Product Schema (for Type Safety in calls)
+export const JumiaCreateProductSchema = z.object({
+  SellerSku: z.string(),
+  Name: z.string(),
+  Brand: z.string(),
+  Description: z.string(),
+  TaxClass: z.string().default('Default'),
+  Variation: z.string().optional(),
+  Price: z.number(),
+  SalePrice: z.number().optional(),
+  SaleStartDate: z.string().optional(),
+  SaleEndDate: z.string().optional(),
+  Status: z.enum(['Active', 'Inactive']).default('Active'),
+  PrimaryCategory: z.string(), // The numeric/string ID
+  Categories: z.string().optional(),
+  MainImage: z.string(),
+  Images: z.array(z.string()).optional(),
+  ProductData: z.record(z.string(), z.unknown()).optional(), // For extra attributes
+});
+
 // =============================================================================
 // TYPES
 // =============================================================================
@@ -132,7 +239,7 @@ export class JumiaApiError extends Error {
   constructor(
     public status: number,
     public message: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(`Jumia API Error (${status}): ${message}`);
     this.name = 'JumiaApiError';
@@ -186,7 +293,6 @@ export class JumiaClient {
       merchantId: data.merchant_id,
       shopId: data.shop_id || 'oauth',
       accessToken: data.access_token,
-      // biome-ignore lint/style/noNonNullAssertion: Required for oauth flow
       refreshToken: data.refresh_token!,
       tokenExpiresAt: data.token_expires_at
         ? new Date(data.token_expires_at)
@@ -216,7 +322,6 @@ export class JumiaClient {
       merchantId: data.merchant_id,
       shopId: data.shop_id || 'oauth',
       accessToken: data.access_token,
-      // biome-ignore lint/style/noNonNullAssertion: Required for oauth flow
       refreshToken: data.refresh_token!,
       tokenExpiresAt: data.token_expires_at
         ? new Date(data.token_expires_at)
@@ -286,46 +391,56 @@ export class JumiaClient {
     return this.accessToken;
   }
 
-  private async request<T>(
+  private request<T>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     schema?: z.ZodSchema<T>,
-    body?: unknown,
-    retries = 0
+    body?: unknown
   ): Promise<T> {
-    const token = await this.getValidToken();
-    const response = await fetch(`${this.apiBase}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
+    return withRetry(async () => {
+      const token = await this.getValidToken();
+      const response = await fetch(`${this.apiBase}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      if (response.status === 401) {
+        // Force refresh on 401 and retry once via the standard withRetry mechanism
+        await this.refreshAccessToken();
+        const newToken = await this.getValidToken();
+        const retryResponse = await fetch(`${this.apiBase}${path}`, {
+          method,
+          headers: {
+            Authorization: `Bearer ${newToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+
+        if (!retryResponse.ok) {
+          const text = await retryResponse.text();
+          throw new JumiaApiError(retryResponse.status, text, text);
+        }
+
+        const json = await retryResponse.json();
+        return schema ? schema.parse(json) : (json as T);
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new JumiaApiError(response.status, text, text);
+      }
+
+      const json = await response.json();
+      // Literal parse for debug if needed, but schema.parse is the goal
+      return schema ? schema.parse(json) : (json as T);
     });
-
-    if (response.status === 429 && retries < MAX_RETRIES) {
-      const delay = BASE_DELAY_MS * 2 ** retries;
-      await new Promise((r) => setTimeout(r, delay));
-      return this.request<T>(method, path, schema, body, retries + 1);
-    }
-
-    if (response.status === 401 && retries === 0) {
-      await this.refreshAccessToken();
-      return this.request<T>(method, path, schema, body, retries + 1);
-    }
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new JumiaApiError(
-        response.status,
-        `API Request Failed (${response.status}): ${text}`,
-        text
-      );
-    }
-
-    const json = await response.json();
-    return schema ? schema.parse(json) : (json as T);
   }
 
   // ===========================================================================
@@ -334,30 +449,27 @@ export class JumiaClient {
 
   async getShops(): Promise<JumiaShop[]> {
     try {
+      // Define a loose but type-safe wrapper for the initial response
+      const ShopListSchema = z
+        .object({ shops: z.array(JumiaShopSchema) })
+        .or(z.array(JumiaShopSchema));
+
       // 1. Try standard /shops
-      const response = await this.request<any>(
-        'GET',
-        '/shops',
-        z
-          .object({ shops: z.array(JumiaShopSchema) })
-          .or(z.array(JumiaShopSchema))
-      );
+      const response = await this.request('GET', '/shops', ShopListSchema);
 
       const shops = Array.isArray(response) ? response : response.shops || [];
       if (shops.length > 0) return shops;
 
       // 2. Try Master Shop level if empty
-      const masterResponse = await this.request<any>(
+      const masterResponse = await this.request(
         'GET',
         '/shops-of-master-shop',
-        z
-          .object({ shops: z.array(JumiaShopSchema) })
-          .or(z.array(JumiaShopSchema))
+        ShopListSchema
       ).catch(() => ({ shops: [] }));
 
       return Array.isArray(masterResponse)
         ? masterResponse
-        : masterResponse.shops || [];
+        : (masterResponse as { shops: JumiaShop[] }).shops || [];
     } catch (error) {
       console.warn('[Jumia] Error fetching shops:', error);
       return [];
@@ -499,6 +611,152 @@ export class JumiaClient {
       `/feeds/${feedId}`,
       JumiaFeedSchema
     );
+  }
+
+  /**
+   * Update product prices via GPM Feed
+   * @param updates List of price updates
+   */
+  async updatePrice(
+    updates: Array<{
+      sellerSku: string;
+      id: string; // Jumia Product ID (UUID)
+      price: {
+        value: number;
+        currency: string;
+        salePrice?: {
+          value: number | null;
+          startAt: string | null;
+          endAt: string | null;
+        };
+      };
+    }>
+  ): Promise<string> {
+    const response = await this.request<{ feedId: string }>(
+      'POST',
+      '/feeds/products/price',
+      z.object({ feedId: z.string() }),
+      { products: updates }
+    );
+    return response.feedId;
+  }
+
+  // ===========================================================================
+  // PRODUCT IMPORT API
+  // ===========================================================================
+
+  async getProducts(params?: {
+    createdAfter?: string;
+    createBefore?: string;
+    updatedAfter?: string;
+    updatedBefore?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: string;
+    sortDirection?: string;
+  }): Promise<z.infer<typeof JumiaProductSchema>[]> {
+    const query = new URLSearchParams();
+    if (params?.createdAfter) query.set('CreatedAfter', params.createdAfter);
+    if (params?.createBefore) query.set('CreatedBefore', params.createBefore);
+    if (params?.updatedAfter) query.set('UpdatedAfter', params.updatedAfter);
+    if (params?.updatedBefore) query.set('UpdatedBefore', params.updatedBefore);
+    if (params?.status) query.set('Status', params.status);
+    if (params?.limit) query.set('Limit', params.limit.toString());
+    if (params?.offset) query.set('Offset', params.offset.toString());
+    if (params?.sortBy) query.set('SortBy', params.sortBy);
+    if (params?.sortDirection) query.set('SortDirection', params.sortDirection);
+
+    const response = await this.request(
+      'GET',
+      `/products?${query.toString()}`,
+      JumiaProductsResponseSchema
+    );
+
+    const productsData = response.SuccessResponse.Body.Products;
+    if (!productsData?.Product) return [];
+
+    return Array.isArray(productsData.Product)
+      ? productsData.Product
+      : [productsData.Product];
+  }
+
+  // ===========================================================================
+  // METADATA API (Categories, Brands)
+  // ===========================================================================
+
+  async getCategoryTree(): Promise<JumiaCategory[]> {
+    const response = await this.request(
+      'GET',
+      '/categories',
+      JumiaCategoryTreeResponseSchema
+    );
+
+    if (response.SuccessResponse.Body.Categories?.Category) {
+      const cats = response.SuccessResponse.Body.Categories.Category;
+      return Array.isArray(cats) ? cats : [cats];
+    }
+    return [];
+  }
+
+  async getBrands(): Promise<z.infer<typeof JumiaBrandSchema>[]> {
+    const response = await this.request(
+      'GET',
+      '/brands',
+      JumiaBrandsResponseSchema
+    );
+
+    if (response.SuccessResponse.Body.Brands?.Brand) {
+      const brands = response.SuccessResponse.Body.Brands.Brand;
+      return Array.isArray(brands) ? brands : [brands];
+    }
+    return [];
+  }
+
+  // ===========================================================================
+  // EXPORT API
+  // ===========================================================================
+
+  async createProduct(
+    product: z.infer<typeof JumiaCreateProductSchema>
+  ): Promise<string> {
+    // Jumia Create Product uses POST /feeds/products but with full payload
+    // We wrap it in the expected "Product" array properly
+    const response = await this.request<{ feedId: string }>(
+      'POST',
+      '/feeds/products',
+      z.object({ feedId: z.string() }),
+      {
+        Product: [product],
+      }
+    );
+    return response.feedId;
+  }
+
+  /**
+   * Update product status (Active/Inactive) via GPM Feed
+   * @param updates List of status updates
+   */
+  async updateStatus(
+    updates: Array<{
+      sellerSku: string;
+      id: string; // Jumia Product ID (UUID)
+      active: boolean;
+    }>
+  ): Promise<string> {
+    const response = await this.request<{ feedId: string }>(
+      'POST',
+      '/feeds/products/status',
+      z.object({ feedId: z.string() }),
+      {
+        products: updates.map((u) => ({
+          sellerSku: u.sellerSku,
+          id: u.id,
+          status: u.active ? 'Active' : 'INACTIVE',
+        })),
+      }
+    );
+    return response.feedId;
   }
 }
 

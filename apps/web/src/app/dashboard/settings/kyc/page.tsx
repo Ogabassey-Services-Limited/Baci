@@ -2,9 +2,6 @@ import { redirect } from 'next/navigation';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { KycForm } from './kyc-form';
 
-// This page uses cookies via getMerchantForUser, so it must be dynamic
-export const dynamic = 'force-dynamic';
-
 export default async function KycSettingsPage() {
   try {
     const { merchant } = await getMerchantForUser();

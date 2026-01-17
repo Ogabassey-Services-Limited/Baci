@@ -69,8 +69,9 @@ export interface MerchantData {
   // Feature settings
   feature_settings?: {
     pay_on_delivery_enabled?: boolean;
-    // biome-ignore lint/suspicious/noExplicitAny: Feature settings are dynamic and can have any shape
-    [key: string]: any;
+    shipping_insurance_enabled?: boolean;
+    low_stock_threshold?: number;
+    [key: string]: unknown;
   };
   // Template selection
   template_id?: string;
@@ -345,7 +346,7 @@ export const MerchantProvider = ({
             ? settings[0]
             : settings;
         }
-        merchantData = data as unknown as MerchantData;
+        merchantData = data as MerchantData;
       } else {
         // Dashboard mode - check ownership first, then staff membership
         if (!user) {
@@ -394,7 +395,7 @@ export const MerchantProvider = ({
             ? settings[0]
             : settings;
 
-          merchantData = ownedMerchant as unknown as MerchantData;
+          merchantData = ownedMerchant as MerchantData;
           access = {
             isStaff: false,
             isOwner: true,
@@ -411,9 +412,11 @@ export const MerchantProvider = ({
           if (staffMember && !staffError) {
             // User is an active staff member
             // Correctly handle the join which might return an array or single object
-            const merchantInfo = (Array.isArray(staffMember.merchants)
-              ? staffMember.merchants[0]
-              : staffMember.merchants) as unknown as MerchantData;
+            const merchantInfo = (
+              Array.isArray(staffMember.merchants)
+                ? staffMember.merchants[0]
+                : staffMember.merchants
+            ) as MerchantData;
 
             merchantData = merchantInfo;
 

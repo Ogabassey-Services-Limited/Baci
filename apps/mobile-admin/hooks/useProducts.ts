@@ -33,10 +33,10 @@ export interface Product {
   brand_id: string | null;
   fulfillment_details: {
     items?: Array<{ imei: string; serial_number: string }>;
-    [key: string]: any;
+    [key: string]: unknown;
   } | null;
   color: string | null;
-  variant_attributes: Record<string, any> | null;
+  variant_attributes: Record<string, unknown> | null;
   has_variants: boolean;
   manage_stock: boolean;
   low_stock_threshold: number | null;
@@ -278,7 +278,7 @@ export function useUpdateProductStock() {
         merchant?.id,
       ]);
 
-      queryClient.setQueryData(['products', merchant?.id], (old: any) => {
+      queryClient.setQueryData(['products', merchant?.id], (old: { pages: ProductsPage[] } | undefined) => {
         if (!old?.pages) return old;
         return {
           ...old,

@@ -66,6 +66,8 @@ const step3BaseSchema = z.object({
     .email({ error: 'Please enter a valid email address.' }),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
+  fullName: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
 });
 
 /**

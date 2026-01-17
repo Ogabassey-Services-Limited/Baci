@@ -22,9 +22,6 @@ import {
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 
-// Enable ISR with 5 minute revalidation
-export const revalidate = 300;
-
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
   screen_size_inches?: number;

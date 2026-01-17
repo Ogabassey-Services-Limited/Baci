@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
+import { useOnboarding } from '@/hooks/useOnboarding';
 
 // Simplified Business Types from Web Config
 const BUSINESS_TYPES = [
@@ -31,17 +32,13 @@ const BUSINESS_TYPES = [
   { id: 'other', label: 'Other' },
 ];
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  // Use machine's LAN IP for physical devices (Replace '10.104.85.17' if your IP changes)
-  'http://10.104.85.17:3000/api/mobile-onboarding';
-// Fallback for emulators if needed:
-// Platform.OS === 'android' ? 'http://10.0.2.2:3000/api/mobile-onboarding' : 'http://localhost:3000/api/mobile-onboarding';
+// Construct API URL: Ensure we append the path to the base URL
+
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { register, isLoading } = useOnboarding();
   const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   // Form State
@@ -112,59 +109,44 @@ export default function RegisterScreen() {
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email.toLowerCase(),
-          password: formData.password,
-          confirmPassword: formData.confirmPassword, // Required for Zod validation
-          businessName: formData.businessName,
-          businessType: formData.businessType,
-          otherBusinessType: formData.otherBusinessType,
-          slug: formData.slug || undefined, // Send slug if present
-          // Default branding for mobile quick-start
-          brandColors: JSON.stringify({
-            primary: '#000000',
-            background: '#ffffff',
-            accent: '#F59E0B',
-          }),
-          logoUrl: 'https://via.placeholder.com/150', // Placeholder for now, or add logo upload step later
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+    register.mutate({
+      email: formData.email.toLowerCase(),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      fullName: formData.businessName.split(' ')[0],
+      businessName: formData.businessName,
+      businessType: formData.businessType,
+      otherBusinessType: formData.otherBusinessType,
+      slug: formData.slug || undefined,
+      brandColors: JSON.stringify({
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#F59E0B',
+      }),
+      logoUrl: 'https://via.placeholder.com/150',
+    }, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onSuccess: (data: any) => {
+        // Check if verifying
+        if (data.user?.email_confirmed_at) {
+          Alert.alert('Success', 'Account created!', [
+            { text: 'Continue', onPress: () => router.push('/(auth)/login') },
+          ]);
+        } else {
+          router.push({
+            pathname: '/(auth)/verify',
+            params: { email: formData.email },
+          });
+        }
+      },
+      onError: (error) => {
+        console.error('Registration error:', error);
+        Alert.alert(
+          'Registration Failed',
+          error.message || 'Please try again later.'
+        );
       }
-
-      // Check if user is already verified (e.g. if Supabase "Confirm Email" is disabled)
-      if (data.user?.email_confirmed_at) {
-        Alert.alert('Success', 'Account created!', [
-          { text: 'Continue', onPress: () => router.push('/(auth)/login') },
-        ]);
-      } else {
-        // Navigate to verification
-        router.push({
-          pathname: '/(auth)/verify',
-          params: { email: formData.email },
-        });
-      }
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error('Registration error:', err);
-      Alert.alert(
-        'Registration Failed',
-        err.message || 'Please try again later.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (
@@ -318,7 +300,7 @@ export default function RegisterScreen() {
                         style={[
                           styles.typeCard,
                           formData.businessType === type.id &&
-                            styles.typeCardSelected,
+                          styles.typeCardSelected,
                         ]}
                         onPress={() => updateForm('businessType', type.id)}
                       >
@@ -326,7 +308,7 @@ export default function RegisterScreen() {
                           style={[
                             styles.typeText,
                             formData.businessType === type.id &&
-                              styles.typeTextSelected,
+                            styles.typeTextSelected,
                           ]}
                         >
                           {type.label}

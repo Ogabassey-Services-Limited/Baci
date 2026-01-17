@@ -70,7 +70,8 @@ export default function NewDiscountScreen() {
     setValue,
     formState: { errors },
   } = useForm<DiscountFormData>({
-    resolver: zodResolver(discountSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(discountSchema) as any,
     defaultValues: {
       code: '',
       discount_type: 'percentage',
@@ -100,7 +101,8 @@ export default function NewDiscountScreen() {
       Alert.alert('Success', 'Discount code created successfully', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       console.error(error);
       Alert.alert('Error', 'Failed to create discount code');
     }

@@ -124,7 +124,10 @@ export function useMerchant(): MerchantData {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['merchant', user?.id],
-    queryFn: () => fetchMerchantData(user?.id),
+    queryFn: () => {
+      if (!user?.id) throw new Error('No user authenticated');
+      return fetchMerchantData(user.id);
+    },
     enabled: !!user?.id, // Only fetch when user is authenticated
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,

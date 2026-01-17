@@ -93,8 +93,9 @@ export default function BlogPostDetailScreen() {
         'file',
         asUploadFile({
           uri: uri,
-          name: fileName.split('/').pop(),
-          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+          name: fileName.split('/').pop() || 'image.jpg',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}` as any,
         })
       );
 

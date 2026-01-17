@@ -3,8 +3,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CreateOrderForm } from './create-order-form';
 
-export const dynamic = 'force-dynamic';
-
 export default function CreateOrderPage() {
   return (
     <>

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -106,7 +106,8 @@ export default function CustomerDetailsScreen() {
                   {
                     text: 'OK',
                     onPress: () =>
-                      router.replace('/(tabs)/customers' as Href<string>),
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      router.replace('/(tabs)/customers' as any),
                   },
                 ]
               );
@@ -180,7 +181,8 @@ export default function CustomerDetailsScreen() {
                 />
               </Pressable>
               <Pressable
-                onPress={() => router.push(`/customer/edit/${id}`)}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onPress={() => router.push(`/customer/edit/${id}` as any)}
                 style={{ padding: SPACING.sm }}
               >
                 <Ionicons

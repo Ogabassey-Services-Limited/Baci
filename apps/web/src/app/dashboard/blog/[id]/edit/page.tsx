@@ -353,6 +353,7 @@ export default function EditBlogPostPage() {
       const json = JSON.parse(jsonString);
       let text = '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
       const traverse = (node: any) => {
         if (node.text) text += `${node.text} `;
         if (node.content && Array.isArray(node.content)) {

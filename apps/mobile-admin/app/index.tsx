@@ -3,12 +3,18 @@ import { ActivityIndicator, View } from 'react-native';
 import { DARK_COLORS } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 
 export default function Index() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  // Only try to fetch merchant if we are authenticated
+  const { merchant, isLoading: merchantLoading } = useMerchant();
 
-  if (authLoading || onboardingLoading) {
+  // Wait for all necessary checks
+  const isLoading = authLoading || onboardingLoading || (isAuthenticated && merchantLoading && merchant === undefined);
+
+  if (isLoading) {
     return (
       <View
         style={{
@@ -33,6 +39,14 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // 3. Authenticated -> Dashboard
+  // 3. Authenticated but No Merchant -> Complete Profile
+  // We check !merchantLoading to ensure we don't redirect prematurely
+  if (!merchant) {
+    console.log('[Index] Authenticated default redirect to Complete Profile (No Merchant)');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return <Redirect href={"/(auth)/complete-profile" as any} />;
+  }
+
+  // 4. Authenticated & Merchant -> Dashboard
   return <Redirect href="/(admin)/(tabs)" />;
 }

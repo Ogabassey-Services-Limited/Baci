@@ -1,20 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { headers } from 'next/headers';
+import { Suspense } from 'react';
 import './globals.css';
-import { Analytics } from '@vercel/analytics/next';
-import { SpeedInsights } from '@vercel/speed-insights/next';
-import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
-import { Toaster } from '@/components/ui/toaster';
-import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
-import { NonceProvider } from '@/contexts/NonceProvider';
-import { Providers } from '@/contexts/providers';
-import {
-  generateOrganizationSchema,
-  generateSoftwareApplicationSchema,
-  generateWebSiteSchema,
-  type OrganizationData,
-} from '@/lib/seo-utils';
+import { PLATFORM_CONFIG } from '@/config/platform';
+import { RootDynamicBody } from './root-dynamic-body';
+import { RootDynamicHead } from './root-dynamic-head';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -108,41 +98,11 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Get nonce from middleware (will be null for storefront routes)
-  const headersList = await headers();
-  const nonce = headersList.get('x-nonce') || undefined;
-  // const nonce = undefined;
-
-  // Build organization data for schema generator
-  const organizationData: OrganizationData = {
-    name: PLATFORM_CONFIG.name,
-    url: PLATFORM_CONFIG.url,
-    logo: `${PLATFORM_CONFIG.url}/baci-logo.svg`,
-    description: PLATFORM_CONFIG.description,
-    socialMedia: {
-      twitter: 'https://twitter.com/usebaci',
-      linkedin: 'https://linkedin.com/company/usebaci',
-      instagram: 'https://instagram.com/usebaci',
-    },
-  };
-
-  const organizationSchema = generateOrganizationSchema(organizationData);
-
-  // Use the SEO utility for consistent WebSite schema generation
-  const websiteSchema = generateWebSiteSchema(
-    PLATFORM_CONFIG.name,
-    PLATFORM_CONFIG.url,
-    `${PLATFORM_CONFIG.url}/search?q={search_term_string}`
-  );
-
-  const softwareApplicationSchema =
-    generateSoftwareApplicationSchema(PLATFORM_PRICING);
-
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
@@ -158,36 +118,9 @@ export default async function RootLayout({
           Note: Supabase URL is handled via env vars, no hardcoding needed
         */}
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-
-        {/* Schema.org JSON-LD - Safe: These are statically generated schema objects, not user input */}
-        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
-        <script
-          type="application/ld+json"
-          nonce={nonce}
-          suppressHydrationWarning
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(organizationSchema),
-          }}
-        />
-        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
-        <script
-          type="application/ld+json"
-          nonce={nonce}
-          suppressHydrationWarning
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-        />
-        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
-        <script
-          type="application/ld+json"
-          nonce={nonce}
-          suppressHydrationWarning
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(softwareApplicationSchema),
-          }}
-        />
+        <Suspense fallback={null}>
+          <RootDynamicHead />
+        </Suspense>
       </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
@@ -197,15 +130,9 @@ export default async function RootLayout({
         >
           Skip to main content
         </a>
-        <NonceProvider nonce={nonce}>
-          <Providers>
-            {children}
-            <Toaster />
-          </Providers>
-        </NonceProvider>
-        <WebVitalsReporter />
-        <Analytics />
-        <SpeedInsights />
+        <Suspense fallback={null}>
+          <RootDynamicBody>{children}</RootDynamicBody>
+        </Suspense>
       </body>
     </html>
   );
