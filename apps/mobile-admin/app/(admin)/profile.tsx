@@ -98,6 +98,71 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action is permanent and cannot be undone. All your store data will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Final Confirmation',
+              'This is your LAST chance. Delete everything?',
+              [
+                { text: 'No, Keep It', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const { data: session } = await supabase.auth.getSession();
+                      if (!session.session) throw new Error('No active session');
+
+                      const response = await fetch(
+                        `${process.env.EXPO_PUBLIC_API_URL}/api/merchant/auth/account-deletion`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${session.session.access_token}`,
+                          },
+                        }
+                      );
+
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to delete account');
+                      }
+
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been successfully removed. We are sorry to see you go.',
+                        [
+                          {
+                            text: 'OK',
+                            onPress: async () => {
+                              await unregisterPush();
+                              await signOut();
+                              router.replace('/(auth)/login');
+                            },
+                          },
+                        ]
+                      );
+                    } catch (error: unknown) {
+                      Alert.alert('Error', (error as Error).message || 'Failed to delete account');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -252,8 +317,18 @@ export default function ProfileScreen() {
                 Log Out
               </Text>
             </Pressable>
+
+            <Pressable
+              style={[styles.deleteButton, { marginTop: SPACING.sm }]}
+              onPress={handleDeleteAccount}
+            >
+              <Text style={[styles.deleteText, { color: colors.error }]}>
+                Delete Account
+              </Text>
+            </Pressable>
+
             <Text style={[styles.versionText, { color: colors.textMuted }]}>
-              Version 1.0.0
+              Version 1.1.0
             </Text>
           </View>
         </ScrollView>
@@ -324,6 +399,18 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginLeft: SPACING.sm,
+  },
+  deleteButton: {
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.lg,
+  },
+  deleteText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textDecorationLine: 'underline',
   },
   versionText: {
     fontSize: TYPOGRAPHY.size.xs,

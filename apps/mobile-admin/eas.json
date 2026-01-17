@@ -38,7 +38,8 @@
     "production": {
       "ios": {
         "appleId": "basseybjohn@yahoo.co.uk",
-        "appleTeamId": "6QLNK7TXM3"
+        "appleTeamId": "6QLNK7TXM3",
+        "ascAppId": "6757810806"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",
