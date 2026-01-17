@@ -9,7 +9,6 @@ import { getCachedSantaProducts } from '@/ai/santa-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createServiceClient } from '@/lib/supabase/service';
 
-export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 // Ogabassey merchant ID (cached for performance)

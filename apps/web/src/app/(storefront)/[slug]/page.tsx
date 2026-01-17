@@ -162,14 +162,15 @@ export default async function StorefrontPage({
   const currentMonth = new Date().getMonth();
   const isDecember = currentMonth === 11;
 
-  let initialTheme: V2ThemeMode | undefined;
+  let initialTheme: V2ThemeMode;
   if (themeCookie === 'santa' && !isDecember) {
     // Force standard theme outside December
     initialTheme = 'standard';
   } else if (themeCookie === 'standard' || themeCookie === 'santa') {
-    initialTheme = themeCookie;
+    initialTheme = themeCookie as V2ThemeMode;
   } else {
-    initialTheme = undefined;
+    // Default based on month for SSR consistency
+    initialTheme = isDecember ? 'santa' : 'standard';
   }
 
   // Generate schemas (fast, uses cached merchant data)

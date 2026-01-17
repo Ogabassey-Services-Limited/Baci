@@ -41,7 +41,6 @@ import {
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
 import { sanitizeHtml } from '@/lib/sanitize';
 
-export const runtime = 'nodejs';
 export const maxDuration = 60; // Allow longer for multi-step agentic flows
 
 // ============================================

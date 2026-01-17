@@ -5,8 +5,6 @@ import {
 } from '@/lib/currency-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export const runtime = 'edge';
-
 export const alt = 'Product Preview';
 export const size = {
   width: 1200,

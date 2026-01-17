@@ -31,10 +31,15 @@ async function StorefrontLayoutRenderer({
   // CRITICAL: Always provide a theme value to avoid hydration mismatch
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get('storefront-theme-v2')?.value;
+
+  // Dynamic default based on date to match client-side logic in v2-theme-context.tsx
+  const isDecember = new Date().getMonth() === 11;
+  const defaultTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
+
   const initialTheme: V2ThemeMode =
     themeCookie === 'standard' || themeCookie === 'santa'
-      ? themeCookie
-      : 'santa'; // Default to 'santa' for consistent SSR
+      ? (themeCookie as V2ThemeMode)
+      : defaultTheme;
 
   const templateId = merchant.template_id;
 

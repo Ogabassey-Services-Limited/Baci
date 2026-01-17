@@ -5,8 +5,6 @@ import {
 } from '@/lib/cached-data';
 import { isDomainIdentifier } from '@/lib/validation';
 
-export const runtime = 'edge';
-
 export const alt = 'Store Preview';
 export const size = {
   width: 1200,

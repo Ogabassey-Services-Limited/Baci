@@ -2,24 +2,6 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/dashboard/blog/blog-client-page.tsx:23:34 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
-
-  ! Several of these imports are unused.
-  
-    21 │ import Link from 'next/link';
-    22 │ import { useRouter } from 'next/navigation';
-  > 23 │ import { useCallback, useEffect, useMemo, useState } from 'react';
-       │                                  ^^^^^^^
-    24 │ import {
-    25 │   AlertDialog,
-  
-  i Unused imports might be the result of an incomplete refactoring.
-  
-  i Unsafe fix: Remove the unused imports.
-  
-    23 │ import·{·useCallback,·useEffect,·useMemo,·useState·}·from·'react';
-       │                                  ---------                        
-
 src/app/root-dynamic-head.tsx:44:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Avoid passing content using the dangerouslySetInnerHTML prop.
@@ -86,284 +68,122 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
     327 │         ? new Date(data.token_expires_at)
   
 
-src/app/api/marketplace/jumia/actions/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/[category]/[productSlug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    125 125 │       return NextResponse.json(result);
-    126 126 │     } catch (error: unknown) {
-    127     │ - ····const·errorMessage·=·error·instanceof·Error·?·error.message·:·'Action·failed';
-        127 │ + ····const·errorMessage·=
-        128 │ + ······error·instanceof·Error·?·error.message·:·'Action·failed';
-    128 129 │       const status = (error as { status?: number })?.status || 500;
-    129 130 │   
+      6   6 │   import { createAdminClient } from '@/lib/supabase/admin';
+      7   7 │   
+      8     │ - 
+      9   8 │   export const alt = 'Product Preview';
+     10   9 │   export const size = {
   
 
-src/app/api/marketplace/jumia/orders/[id]/items/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    44 44 │       return NextResponse.json({ items });
-    45 45 │     } catch (error: unknown) {
-    46    │ - ····const·errorMessage·=·error·instanceof·Error·?·error.message·:·'Failed·to·fetch·items';
-    47    │ - ····return·NextResponse.json(
-    48    │ - ······{·error:·errorMessage·},
-    49    │ - ······{·status:·500·}
-    50    │ - ····);
-       46 │ + ····const·errorMessage·=
-       47 │ + ······error·instanceof·Error·?·error.message·:·'Failed·to·fetch·items';
-       48 │ + ····return·NextResponse.json({·error:·errorMessage·},·{·status:·500·});
-    51 49 │     }
-    52 50 │   }
-  
-
-src/app/dashboard/blog/blog-client-page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    113 113 │     const [statsData, setStatsData] = useState<
-    114 114 │       | {
-    115     │ - ······total:·number;
-    116     │ - ······published:·number;
-    117     │ - ······draft:·number;
-    118     │ - ······archived:·number;
-    119     │ - ····}
-        115 │ + ········total:·number;
-        116 │ + ········published:·number;
-        117 │ + ········draft:·number;
-        118 │ + ········archived:·number;
-        119 │ + ······}
-    120 120 │       | null
-    121 121 │       | undefined
+    118 118 │       faviconSvg || faviconPng32 || faviconAppleTouch
+    119 119 │         ? {
+    120     │ - ········icon:·[
+    121     │ - ··········...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
+    122     │ - ··········...(faviconPng32
+    123     │ - ············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
+    124     │ - ············:·[]),
+    125     │ - ········].filter(Boolean),
+    126     │ - ········apple:·faviconAppleTouch
+    127     │ - ··········?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
+    128     │ - ··········:·undefined,
+    129     │ - ······}
+        120 │ + ··········icon:·[
+        121 │ + ············...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
+        122 │ + ············...(faviconPng32
+        123 │ + ··············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
+        124 │ + ··············:·[]),
+        125 │ + ··········].filter(Boolean),
+        126 │ + ··········apple:·faviconAppleTouch
+        127 │ + ············?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
+        128 │ + ············:·undefined,
+        129 │ + ········}
+    130 130 │         : merchant.logo_url
+    131 131 │           ? {
+    132     │ - ··········icon:·[{·url:·merchant.logo_url·}],
+    133     │ - ··········apple:·[{·url:·merchant.logo_url·}],
+    134     │ - ········}
+        132 │ + ············icon:·[{·url:·merchant.logo_url·}],
+        133 │ + ············apple:·[{·url:·merchant.logo_url·}],
+        134 │ + ··········}
+    135 135 │           : undefined;
+    136 136 │   
     ······· │ 
-    335 335 │         <div className="grid gap-4 md:grid-cols-4">
-    336 336 │           <Card
-    337     │ - ··········className={`cursor-pointer·transition-all·hover:shadow-md·${statusFilter·===·'all'·?·'ring-2·ring-primary'·:·''
-    338     │ - ············}`}
-        337 │ + ··········className={`cursor-pointer·transition-all·hover:shadow-md·${
-        338 │ + ············statusFilter·===·'all'·?·'ring-2·ring-primary'·:·''
-        339 │ + ··········}`}
-    339 340 │             onClick={() => {
-    340 341 │               setStatusFilter('all');
-    ······· │ 
-    348 349 │           </Card>
-    349 350 │           <Card
-    350     │ - ··········className={`cursor-pointer·transition-all·hover:shadow-md·${statusFilter·===·'published'·?·'ring-2·ring-green-600'·:·''
-    351     │ - ············}`}
-        351 │ + ··········className={`cursor-pointer·transition-all·hover:shadow-md·${
-        352 │ + ············statusFilter·===·'published'·?·'ring-2·ring-green-600'·:·''
-        353 │ + ··········}`}
-    352 354 │             onClick={() => {
-    353 355 │               setStatusFilter('published');
-    ······· │ 
-    363 365 │           </Card>
-    364 366 │           <Card
-    365     │ - ··········className={`cursor-pointer·transition-all·hover:shadow-md·${statusFilter·===·'draft'·?·'ring-2·ring-yellow-600'·:·''
-    366     │ - ············}`}
-        367 │ + ··········className={`cursor-pointer·transition-all·hover:shadow-md·${
-        368 │ + ············statusFilter·===·'draft'·?·'ring-2·ring-yellow-600'·:·''
-        369 │ + ··········}`}
-    367 370 │             onClick={() => {
-    368 371 │               setStatusFilter('draft');
+    149 149 │       verification: verificationCode
+    150 150 │         ? {
+    151     │ - ········google:·verificationCode,
+    152     │ - ······}
+        151 │ + ··········google:·verificationCode,
+        152 │ + ········}
+    153 153 │         : undefined,
+    154 154 │       openGraph: {
   
 
-src/app/dashboard/client-layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-     86  86 │       ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
-     87  87 │       : cn(
-     88     │ - ······'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
-     89     │ - ······isCollapsed·&&·'justify-center'
-     90     │ - ····);
-         88 │ + ········'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
-         89 │ + ········isCollapsed·&&·'justify-center'
-         90 │ + ······);
-     91  91 │   
-     92  92 │     const isReady = !merchantLoading && storeUrl !== '#';
-    ······· │ 
-    331 331 │       badgeVariant?: 'default' | 'destructive';
-    332 332 │     }[] = [
-    333     │ - ······{
-    334     │ - ········href:·'/dashboard'·as·Route,
-    335     │ - ········icon:·LayoutDashboard,
-    336     │ - ········label:·'Dashboard',
-    337     │ - ······},
-    338     │ - ······{
-    339     │ - ········href:·'/dashboard/analytics'·as·Route,
-    340     │ - ········icon:·BarChart3,
-    341     │ - ········label:·'Analytics',
-    342     │ - ······},
-    343     │ - ······{
-    344     │ - ········href:·'/dashboard/orders'·as·Route,
-    345     │ - ········icon:·ShoppingCart,
-    346     │ - ········label:·'Orders',
-    347     │ - ········badge:·ordersCount·>·0·?·ordersCount·:·undefined,
-    348     │ - ······},
-    349     │ - ······{
-    350     │ - ········href:·'/dashboard/products'·as·Route,
-    351     │ - ········icon:·Package,
-    352     │ - ········label:·'Products',
-    353     │ - ······},
-    354     │ - ······{
-    355     │ - ········href:·'/dashboard/customers'·as·Route,
-    356     │ - ········icon:·Users,
-    357     │ - ········label:·'Customers',
-    358     │ - ······},
-    359     │ - ······{
-    360     │ - ········href:·'/dashboard/staff'·as·Route,
-    361     │ - ········icon:·UserCog,
-    362     │ - ········label:·'Staff',
-    363     │ - ······},
-    364     │ - ······{
-    365     │ - ········href:·'/dashboard/loyalty'·as·Route,
-    366     │ - ········icon:·Gift,
-    367     │ - ········label:·'Loyalty',
-    368     │ - ······},
-    369     │ - ······{
-    370     │ - ········href:·'/dashboard/santa'·as·Route,
-    371     │ - ········icon:·MessageCircle,
-    372     │ - ········label:·'Santa·Campaign',
-    373     │ - ······},
-    374     │ - ······{
-    375     │ - ········href:·'/dashboard/wallet'·as·Route,
-    376     │ - ········icon:·Wallet,
-    377     │ - ········label:·'Wallet',
-    378     │ - ······},
-    379     │ - ······{
-    380     │ - ········href:·'/dashboard/seo'·as·Route,
-    381     │ - ········icon:·Search,
-    382     │ - ········label:·'SEO',
-    383     │ - ······},
-    384     │ - ······{
-    385     │ - ········href:·'/dashboard/domains'·as·Route,
-    386     │ - ········icon:·Globe,
-    387     │ - ········label:·'Domains',
-    388     │ - ······},
-    389     │ - ······{
-    390     │ - ········href:·'/dashboard/pages'·as·Route,
-    391     │ - ········icon:·FileText,
-    392     │ - ········label:·'Pages',
-    393     │ - ········badge:·unfilledPagesCount·>·0·?·unfilledPagesCount·:·undefined,
-    394     │ - ········badgeVariant:·'destructive',
-    395     │ - ······},
-    396     │ - ······{
-    397     │ - ········href:·'/dashboard/blog'·as·Route,
-    398     │ - ········icon:·Newspaper,
-    399     │ - ········label:·'Blog',
-    400     │ - ······},
-    401     │ - ······{
-    402     │ - ········href:·'/dashboard/templates'·as·Route,
-    403     │ - ········icon:·LayoutTemplate,
-    404     │ - ········label:·'Templates',
-    405     │ - ······},
-    406     │ - ······{
-    407     │ - ········icon:·Paintbrush,
-    408     │ - ········label:·'Customize·Website',
-    409     │ - ········href:·'/builder'·as·Route,
-    410     │ - ······},
-    411     │ - ······{
-    412     │ - ········href:·'/dashboard/integrations'·as·Route,
-    413     │ - ········icon:·Plug,
-    414     │ - ········label:·'Integrations',
-    415     │ - ······},
-    416     │ - ······{
-    417     │ - ········href:·'/dashboard/settings'·as·Route,
-    418     │ - ········icon:·Settings,
-    419     │ - ········label:·'Settings',
-    420     │ - ······},
-    421     │ - ····];
-        333 │ + ····{
-        334 │ + ······href:·'/dashboard'·as·Route,
-        335 │ + ······icon:·LayoutDashboard,
-        336 │ + ······label:·'Dashboard',
-        337 │ + ····},
-        338 │ + ····{
-        339 │ + ······href:·'/dashboard/analytics'·as·Route,
-        340 │ + ······icon:·BarChart3,
-        341 │ + ······label:·'Analytics',
-        342 │ + ····},
-        343 │ + ····{
-        344 │ + ······href:·'/dashboard/orders'·as·Route,
-        345 │ + ······icon:·ShoppingCart,
-        346 │ + ······label:·'Orders',
-        347 │ + ······badge:·ordersCount·>·0·?·ordersCount·:·undefined,
-        348 │ + ····},
-        349 │ + ····{
-        350 │ + ······href:·'/dashboard/products'·as·Route,
-        351 │ + ······icon:·Package,
-        352 │ + ······label:·'Products',
-        353 │ + ····},
-        354 │ + ····{
-        355 │ + ······href:·'/dashboard/customers'·as·Route,
-        356 │ + ······icon:·Users,
-        357 │ + ······label:·'Customers',
-        358 │ + ····},
-        359 │ + ····{
-        360 │ + ······href:·'/dashboard/staff'·as·Route,
-        361 │ + ······icon:·UserCog,
-        362 │ + ······label:·'Staff',
-        363 │ + ····},
-        364 │ + ····{
-        365 │ + ······href:·'/dashboard/loyalty'·as·Route,
-        366 │ + ······icon:·Gift,
-        367 │ + ······label:·'Loyalty',
-        368 │ + ····},
-        369 │ + ····{
-        370 │ + ······href:·'/dashboard/santa'·as·Route,
-        371 │ + ······icon:·MessageCircle,
-        372 │ + ······label:·'Santa·Campaign',
-        373 │ + ····},
-        374 │ + ····{
-        375 │ + ······href:·'/dashboard/wallet'·as·Route,
-        376 │ + ······icon:·Wallet,
-        377 │ + ······label:·'Wallet',
-        378 │ + ····},
-        379 │ + ····{
-        380 │ + ······href:·'/dashboard/seo'·as·Route,
-        381 │ + ······icon:·Search,
-  42 more lines truncated
+      6   6 │   import { isDomainIdentifier } from '@/lib/validation';
+      7   7 │   
+      8     │ - 
+      9   8 │   export const alt = 'Store Preview';
+     10   9 │   export const size = {
   
 
-src/hooks/use-cart.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/(storefront)/[slug]/products/[productSlug]/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    533 533 │             item.cartItemId === cartItemId
-    534 534 │               ? {
-    535     │ - ··············...item,
-    536     │ - ··············negotiatedPrice:·newPrice,
-    537     │ - ··············negotiationStatus:·'accepted',
-    538     │ - ············}
-        535 │ + ················...item,
-        536 │ + ················negotiatedPrice:·newPrice,
-        537 │ + ················negotiationStatus:·'accepted',
-        538 │ + ··············}
-    539 539 │               : item
-    540 540 │           )
+      6   6 │   import { createAdminClient } from '@/lib/supabase/admin';
+      7   7 │   
+      8     │ - 
+      9   8 │   export const alt = 'Product Preview';
+     10   9 │   export const size = {
   
 
-src/hooks/use-merchant.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/chat/santa/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-    413 413 │               // User is an active staff member
-    414 414 │               // Correctly handle the join which might return an array or single object
-    415     │ - ············const·merchantInfo·=·(Array.isArray(staffMember.merchants)
-    416     │ - ··············?·staffMember.merchants[0]
-    417     │ - ··············:·staffMember.merchants)·as·MerchantData;
-        415 │ + ············const·merchantInfo·=·(
-        416 │ + ··············Array.isArray(staffMember.merchants)
-        417 │ + ················?·staffMember.merchants[0]
-        418 │ + ················:·staffMember.merchants
-        419 │ + ············)·as·MerchantData;
-    418 420 │   
-    419 421 │               merchantData = merchantInfo;
+     67  67 │     clientIp: string;
+     68  68 │     interactionType:
+     69     │ - ··|·'chat'
+     70     │ - ··|·'wish_granted'
+     71     │ - ··|·'wish_denied'
+     72     │ - ··|·'add_to_cart'
+     73     │ - ··|·'checkout_started'
+     74     │ - ··|·'checkout_completed';
+         69 │ + ····|·'chat'
+         70 │ + ····|·'wish_granted'
+         71 │ + ····|·'wish_denied'
+         72 │ + ····|·'add_to_cart'
+         73 │ + ····|·'checkout_started'
+         74 │ + ····|·'checkout_completed';
+     75  75 │     userMessage?: string;
+     76  76 │     santaResponse?: string;
   
 
-Checked 838 files in 939ms. No fixes applied.
+src/app/opengraph-image.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      1   1 │   import { ImageResponse } from 'next/og';
+      2   2 │   
+      3     │ - 
+      4   3 │   export const alt = 'Baci - Create your e-commerce store in seconds with AI';
+      5   4 │   export const size = {
+  
+
+Checked 838 files in 1137ms. No fixes applied.
 Found 6 errors.
-Found 6 warnings.
+Found 5 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Some errors were emitted while running checks.

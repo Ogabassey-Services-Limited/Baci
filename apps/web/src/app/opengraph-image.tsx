@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
-
 export const alt = 'Baci - Create your e-commerce store in seconds with AI';
 export const size = {
   width: 1200,
