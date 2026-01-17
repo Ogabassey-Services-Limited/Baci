@@ -193,7 +193,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
             {title === 'Featured Products' && (
-              <span className="text-red-600 font-bold uppercase tracking-wider text-xs md:text-sm">
+              <span className="text-primary font-bold uppercase tracking-wider text-xs md:text-sm">
                 Best Sellers
               </span>
             )}
@@ -206,7 +206,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             {showViewAll && (
               <Link
                 href={asRoute(getHref('/products'))}
-                className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block"
+                className="text-gray-500 hover:text-primary font-medium transition-colors text-xs md:text-base hidden sm:block"
               >
                 View all products
               </Link>
@@ -221,7 +221,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             </p>
             <button
               onClick={handleResetFilters}
-              className="mt-4 text-red-600 font-semibold hover:underline"
+              className="mt-4 text-primary font-semibold hover:underline"
             >
               Reset Filters
             </button>
@@ -273,7 +273,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
           <div className="mt-8 flex flex-col items-center gap-2">
             <button
               onClick={handleLoadMore}
-              className="px-8 py-3 bg-gray-900 hover:bg-red-600 text-white font-semibold rounded-xl transition-all duration-200 active:scale-95"
+              className="px-8 py-3 bg-gray-900 hover:bg-primary text-white font-semibold rounded-xl transition-all duration-200 active:scale-95"
             >
               Load More Products
             </button>

@@ -22,6 +22,7 @@ import { AdUnit } from './components/AdUnit';
 
 
 import { usePathname } from 'next/navigation';
+import { hexToHslComponents, getContrastingTextColor } from '@/lib/color-utils';
 
 export function OgabasseyLayout({
   children,
@@ -59,7 +60,30 @@ export function OgabasseyLayout({
           <V2ComparisonProvider>
             <V2NotificationProvider>
               <GoogleAdManager />
-              <div className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden">
+              <div
+                className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden"
+                style={{
+                  // Core shadcn/ui variables to prevent "blue flash" and ensure branding
+                  '--primary': merchant?.brand_colors?.primary
+                    ? hexToHslComponents(merchant.brand_colors.primary)
+                    : undefined,
+                  '--primary-foreground': merchant?.brand_colors?.primary
+                    ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.primary))
+                    : undefined,
+                  '--accent': merchant?.brand_colors?.accent
+                    ? hexToHslComponents(merchant.brand_colors.accent)
+                    : undefined,
+                  '--accent-foreground': merchant?.brand_colors?.accent
+                    ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.accent))
+                    : undefined,
+                  '--ring': merchant?.brand_colors?.primary
+                    ? hexToHslComponents(merchant.brand_colors.primary)
+                    : undefined,
+                  // Legacy store variables
+                  '--store-primary': merchant?.brand_colors?.primary || '#d62027',
+                  '--store-accent': merchant?.brand_colors?.accent || '#d62027',
+                } as React.CSSProperties}
+              >
                 <GadgetPattern />
 
                 {!shouldHideNavigation && (

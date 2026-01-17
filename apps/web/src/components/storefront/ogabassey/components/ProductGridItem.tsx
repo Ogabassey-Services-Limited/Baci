@@ -231,8 +231,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           <Heart
             size={18}
             className={`transition-all duration-200 ${isWishlisted
-              ? 'fill-red-500 text-red-500 scale-110'
-              : 'text-gray-400 md:group-hover/heart:text-red-500'
+              ? 'fill-primary text-primary scale-110'
+              : 'text-gray-400 md:group-hover/heart:text-primary'
               }`}
           />
         </button>
@@ -242,8 +242,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           onClick={(e) => onAddToCart(e, product)}
           aria-label={isAdded ? `${product.name} added to cart` : `Add ${product.name} to cart`}
           className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${isAdded
-            ? 'bg-red-600 text-white md:hover:bg-red-700'
-            : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'
+            ? 'bg-primary text-white md:hover:bg-primary/90'
+            : 'bg-white text-gray-900 md:hover:text-primary md:hover:border-primary/10'
             }`}
         >
           {isAdded ? (
@@ -253,7 +253,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           )}
           {/* Quantity Badge */}
           {cartQuantity > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-red-600 text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
               {cartQuantity > 99 ? '99+' : cartQuantity}
             </span>
           )}
@@ -279,7 +279,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         </div>
 
         {/* Title - Dark Gray (Standard) with Red Hover */}
-        <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-red-600 transition-colors">
+        <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-primary transition-colors">
           {product.name}
           {product.spec && (
             <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-200 align-middle leading-none tracking-normal">
@@ -294,15 +294,15 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         >
           {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
           {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
-          <span className="text-red-500 font-medium ml-1">View specs →</span>
+          <span className="text-primary font-medium ml-1">View specs →</span>
         </p>
 
         {/* Price & Details */}
         <div className="mt-auto flex items-end justify-between border-t border-dashed border-gray-100 pt-3">
-          <span className="text-red-600 font-extrabold text-lg tracking-tight">
+          <span className="text-primary font-extrabold text-lg tracking-tight">
             {product.price}
           </span>
-          <span className="text-xs font-semibold text-gray-900 mb-0.5 md:hover:text-red-600 pointer-events-auto cursor-pointer active:text-red-600">
+          <span className="text-xs font-semibold text-gray-900 mb-0.5 md:hover:text-primary pointer-events-auto cursor-pointer active:text-primary">
             Details
           </span>
         </div>
@@ -311,7 +311,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {(cartQuantity > 0 || isAdded) && (
           <Link
             href={asRoute(`${basePath}/cart`)}
-            className="hidden md:flex items-center justify-center gap-2 mt-3 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-all duration-200 pointer-events-auto relative z-20"
+            className="hidden md:flex items-center justify-center gap-2 mt-3 py-2.5 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-xl transition-all duration-200 pointer-events-auto relative z-20"
             onClick={(e) => e.stopPropagation()}
           >
             <ShoppingCart size={16} />

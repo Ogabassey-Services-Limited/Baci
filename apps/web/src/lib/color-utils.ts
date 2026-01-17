@@ -186,3 +186,46 @@ export function adjustColorBrightness(
 
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
+/**
+ * Convert hex color to HSL components (H S% L%) as a string for shadcn/ui variables
+ * @param hex - Hex color string
+ * @returns String in format "H S% L%" (e.g., "239 45% 30%")
+ */
+export function hexToHslComponents(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return '0 0% 0%';
+
+  const r = rgb.r / 255;
+  const g = rgb.g / 255;
+  const b = rgb.b / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  const hDeg = Math.round(h * 360);
+  const sPct = Math.round(s * 100);
+  const lPct = Math.round(l * 100);
+
+  return `${hDeg} ${sPct}% ${lPct}%`;
+}

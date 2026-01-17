@@ -137,11 +137,11 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
                 {badge !== undefined && badge > 0 && (
                   <span
                     className="absolute -top-1 -right-1
-                               bg-red-500 text-white text-[10px] font-bold
+                               bg-primary text-white text-[10px] font-bold
                                min-w-[18px] h-[18px]
                                flex items-center justify-center
                                rounded-full
-                               shadow-lg shadow-red-500/30
+                               shadow-lg shadow-primary/30
                                animate-in zoom-in-50 duration-200"
                     aria-label={`${badge} items in cart`}
                   >

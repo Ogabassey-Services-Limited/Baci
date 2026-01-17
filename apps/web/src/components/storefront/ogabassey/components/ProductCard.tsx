@@ -184,8 +184,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               onClick={toggleCompare}
               className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
-                ? 'bg-red-50 border-red-100 text-red-600'
-                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-blue-600 md:hover:bg-white'
+                ? 'bg-primary/10 border-primary/20 text-primary'
+                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-primary md:hover:bg-white'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
@@ -198,7 +198,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <button
             onClick={handleCartClick}
             aria-label={`Add ${product.name} to cart`}
-            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-red-600 md:hover:text-white md:hover:border-red-600 overflow-visible`}
+            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
           >
             <ShoppingCart
               size={16}
@@ -208,7 +208,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
             {/* +1 Animation */}
             {showPlusOne && (
-              <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-red-600 font-bold text-sm animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none shadow-sm bg-white px-1.5 rounded-full border border-red-50">
+              <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary font-bold text-sm animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none shadow-sm bg-white px-1.5 rounded-full border border-primary/20">
                 +1
               </span>
             )}
@@ -233,7 +233,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Title - Red to match screenshot */}
-          <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-red-600 transition-colors">
+          <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-primary transition-colors">
             {product.name}
           </h3>
 
@@ -244,7 +244,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Price */}
           <div className="mt-auto pt-2">
-            <span className="text-red-600 font-extrabold text-lg tracking-tight">
+            <span className="text-primary font-extrabold text-lg tracking-tight">
               {product.price}
             </span>
           </div>
@@ -315,7 +315,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Content (Right Side) */}
       <div className="flex flex-col flex-1 justify-center pointer-events-none pr-8">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-bold text-lg text-gray-900 md:group-hover:text-red-600 transition-colors line-clamp-1">
+          <h3 className="font-bold text-lg text-gray-900 md:group-hover:text-primary transition-colors line-clamp-1">
             {product.name}
           </h3>
           <div
@@ -340,7 +340,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </p>
 
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-red-600 font-bold text-xl">
+          <span className="text-primary font-bold text-xl">
             {product.price}
           </span>
 
@@ -349,8 +349,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               onClick={toggleCompare}
               className={`p-2 rounded-lg transition-all duration-200 border ${isComparing
-                ? 'bg-red-50 border-red-100 text-red-600'
-                : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
+                ? 'bg-primary/10 border-primary/20 text-primary'
+                : 'bg-white border-gray-200 text-gray-400 md:hover:border-primary/20 md:hover:text-primary'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
@@ -361,10 +361,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <button
               onClick={handleCartClick}
               aria-label={`Add ${product.name} to cart`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-red-600 relative overflow-visible`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-primary relative overflow-visible`}
             >
               {showPlusOne && (
-                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-red-600 font-bold text-lg animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none">
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-primary font-bold text-lg animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none">
                   +1
                 </span>
               )}
@@ -380,8 +380,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
         title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
         className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
-          ? 'bg-red-50 text-red-600'
-          : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
+          ? 'bg-primary/10 text-primary'
+          : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-primary/10 md:hover:text-primary'
           }`}
       >
         <Heart

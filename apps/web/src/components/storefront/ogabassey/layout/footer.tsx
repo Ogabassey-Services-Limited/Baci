@@ -118,32 +118,32 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li>
-                  <Link href={getUrl('/pages/about') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/pages/about') as any} className="hover:text-primary">
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-red-500">
+                  <a href="#" className="hover:text-primary">
                     Careers
                   </a>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/blog') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/pages/blog') as any} className="hover:text-primary">
                     Blog
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/privacy-policy') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/privacy-policy') as any} className="hover:text-primary">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/terms-of-service') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/terms-of-service') as any} className="hover:text-primary">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/about') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/pages/about') as any} className="hover:text-primary">
                     Sustainability
                   </Link>
                 </li>
@@ -155,22 +155,22 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li>
-                  <Link href={getUrl('/repairs') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/repairs') as any} className="hover:text-primary">
                     Repairs
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/swap') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/swap') as any} className="hover:text-primary">
                     Sell Device
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/track-order') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/track-order') as any} className="hover:text-primary">
                     Track Order
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/faq') as any} className="hover:text-red-500">
+                  <Link href={getUrl('/pages/faq') as any} className="hover:text-primary">
                     Support
                   </Link>
                 </li>
@@ -185,15 +185,15 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
             </h3>
             <ul className="space-y-3 text-xs text-gray-400">
               <li className="flex items-start gap-2">
-                <MapPin className="shrink-0 text-red-600 mt-0.5" size={16} />
+                <MapPin className="shrink-0 text-primary mt-0.5" size={16} />
                 <span>1st Floor Taiyelolu Towers,<br />2 Olaide Tomori St, Ikeja, Lagos</span>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="shrink-0 text-red-600" size={16} />
+                <Phone className="shrink-0 text-primary" size={16} />
                 <span>+234 814 697 8921</span>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="shrink-0 text-red-600" size={16} />
+                <Mail className="shrink-0 text-primary" size={16} />
                 <a
                   href="mailto:support@ogabassey.com"
                   className="hover:text-white transition-colors"

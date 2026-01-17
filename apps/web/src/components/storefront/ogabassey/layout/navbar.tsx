@@ -265,7 +265,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                         placeholder="Search blog posts..."
                         maxLength={100}
                         aria-label="Search blog posts"
-                        className="w-full h-11 md:h-12 bg-white rounded-md border-0 text-gray-800 placeholder-gray-500 text-[15px] focus:ring-2 focus:ring-red-500/50 pl-10 pr-4"
+                        className="w-full h-11 md:h-12 bg-white rounded-md border-0 text-gray-800 placeholder-gray-500 text-[15px] focus:ring-2 focus:ring-primary/50 pl-10 pr-4"
                       />
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                     </form>
@@ -277,7 +277,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       onChange={setSearchQuery}
                       onSelectProduct={handleProductSelect}
                       placeholder="Search products, brands and categories"
-                      className="[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-red-500/50"
+                      className="[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-primary/50"
                     />
                   )}
                 </div>
@@ -310,7 +310,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                         {unreadCount > 0 && (
                           <button
                             onClick={markAllAsRead}
-                            className="text-[10px] font-bold text-red-600 hover:underline"
+                            className="text-[10px] font-bold text-primary hover:underline"
                           >
                             Mark all read
                           </button>
@@ -335,7 +335,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                               >
                                 <div className="flex gap-3">
                                   <div
-                                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type === 'order' ? 'bg-blue-50 text-blue-600' : n.type === 'promo' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${n.type === 'order' ? 'bg-blue-50 text-blue-600' : n.type === 'promo' ? 'bg-primary/10 text-primary' : 'bg-amber-50 text-amber-600'}`}
                                   >
                                     {n.type === 'order' ? (
                                       <Package size={14} />
@@ -391,7 +391,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 >
                   <ShoppingCart size={22} />
                   <span
-                    className={`absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-[#1a1a1a] transition-all ${totalItems > 0 ? 'scale-100' : 'scale-0'}`}
+                    className={`absolute -top-1.5 -right-1.5 bg-primary text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-gray-950 transition-all ${totalItems > 0 ? 'scale-100' : 'scale-0'}`}
                   >
                     {totalItems}
                   </span>
@@ -424,7 +424,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               <div className="relative" ref={categoryRef}>
                 <button
                   onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                  className={`flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1 ${showCategoryDropdown ? 'text-red-600' : ''}`}
+                  className={`flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1 ${showCategoryDropdown ? 'text-primary' : ''}`}
                 >
                   <LayoutGrid size={18} />
                   Shop by Category
@@ -444,11 +444,11 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                           key={cat.slug}
                           href={`${storeSlug || ''}/${cat.slug}` as any}
                           onClick={() => setShowCategoryDropdown(false)}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-primary/10 hover:text-primary transition-colors group"
                         >
                           <cat.icon
                             size={18}
-                            className="text-gray-400 group-hover:text-red-600 transition-colors"
+                            className="text-gray-400 group-hover:text-primary transition-colors"
                           />
                           <span className="font-medium text-gray-700 group-hover:text-red-900">
                             {cat.name}
@@ -467,7 +467,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               {/* IMEI Checker */}
               <Link
                 href={`${storeSlug || ''}/imei-check` as any}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <ScanBarcode size={18} />
                 IMEI Checker
@@ -478,7 +478,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               {/* Repairs */}
               <Link
                 href={`${storeSlug || ''}/repairs` as any}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wrench size={18} />
                 Repairs
@@ -489,7 +489,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               {/* Wallet */}
               <Link
                 href={`${storeSlug || ''}/wallet` as any}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wallet size={18} />
                 Wallet
@@ -500,7 +500,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               {/* Blog */}
               <Link
                 href={`${storeSlug || ''}/blog` as any}
-                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
+                className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Newspaper size={18} />
                 Blog

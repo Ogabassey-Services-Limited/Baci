@@ -68,55 +68,66 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
     327 │         ? new Date(data.token_expires_at)
   
 
-src/app/(storefront)/[slug]/[category]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/components/app-body.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   × Formatter would have printed the following content:
   
-     26  26 │   // Removed explicit revalidate export to support Dynamic IO
-     27  27 │   
-     28     │ - 
-     29  28 │   interface PageProps {
-     30  29 │     params: Promise<{
-    ······· │ 
-     67  66 │       const fallbackConfig = !defaultConfig
-     68  67 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-     69     │ - ········normalizedSlug.includes(key)
-     70     │ - ······)?.[1]
-         68 │ + ··········normalizedSlug.includes(key)
-         69 │ + ········)?.[1]
-     71  70 │         : null;
-     72  71 │       const effectiveConfig = defaultConfig || fallbackConfig;
-    ······· │ 
-    115 114 │         ...(products.length > 0 &&
-    116 115 │           products[0].images?.[0] && {
-    117     │ - ········images:·[
-    118     │ - ··········{
-    119     │ - ············url:·products[0].images[0]·as·unknown·as·string,
-    120     │ - ············alt:·categoryName,
-    121     │ - ··········},
-    122     │ - ········],
-    123     │ - ······}),
-        116 │ + ··········images:·[
-        117 │ + ············{
-        118 │ + ··············url:·products[0].images[0]·as·unknown·as·string,
-        119 │ + ··············alt:·categoryName,
-        120 │ + ············},
-        121 │ + ··········],
-        122 │ + ········}),
-    124 123 │       },
-    125 124 │       twitter: {
-    ······· │ 
-    160 159 │       const fallbackConfig = !defaultConfig
-    161 160 │         ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-    162     │ - ········normalizedSlug.includes(key)
-    163     │ - ······)?.[1]
-        161 │ + ··········normalizedSlug.includes(key)
-        162 │ + ········)?.[1]
-    164 163 │         : null;
-    165 164 │       const effectiveConfig = defaultConfig || fallbackConfig;
+     47  47 │     const themeStyle = merchant?.brand_colors
+     48  48 │       ? {
+     49     │ - ······//·Core·shadcn/ui·variables·to·prevent·"blue·flash"
+     50     │ - ······'--primary':·hexToHslComponents(merchant.brand_colors.primary),
+     51     │ - ······'--primary-foreground':·hexToHslComponents(
+     52     │ - ········getContrastingTextColor(merchant.brand_colors.primary)
+     53     │ - ······),
+     54     │ - ······'--accent':·hexToHslComponents(merchant.brand_colors.accent),
+     55     │ - ······'--accent-foreground':·hexToHslComponents(
+     56     │ - ········getContrastingTextColor(merchant.brand_colors.accent)
+     57     │ - ······),
+     58     │ - ······'--ring':·hexToHslComponents(merchant.brand_colors.primary),
+         49 │ + ········//·Core·shadcn/ui·variables·to·prevent·"blue·flash"
+         50 │ + ········'--primary':·hexToHslComponents(merchant.brand_colors.primary),
+         51 │ + ········'--primary-foreground':·hexToHslComponents(
+         52 │ + ··········getContrastingTextColor(merchant.brand_colors.primary)
+         53 │ + ········),
+         54 │ + ········'--accent':·hexToHslComponents(merchant.brand_colors.accent),
+         55 │ + ········'--accent-foreground':·hexToHslComponents(
+         56 │ + ··········getContrastingTextColor(merchant.brand_colors.accent)
+         57 │ + ········),
+         58 │ + ········'--ring':·hexToHslComponents(merchant.brand_colors.primary),
+     59  59 │   
+     60     │ - ······//·Legacy/Custom·Baci·variables
+     61     │ - ······'--store-primary':·merchant.brand_colors.primary,
+     62     │ - ······'--store-background':·merchant.brand_colors.background,
+     63     │ - ······'--store-accent':·merchant.brand_colors.accent,
+     64     │ - ······'--store-primary-text':·getContrastingTextColor(
+     65     │ - ········merchant.brand_colors.primary
+     66     │ - ······),
+     67     │ - ······'--store-background-text':·getContrastingTextColor(
+     68     │ - ········merchant.brand_colors.background
+     69     │ - ······),
+     70     │ - ······'--store-accent-text':·getContrastingTextColor(
+     71     │ - ········merchant.brand_colors.accent
+     72     │ - ······),
+     73     │ - ····}
+         60 │ + ········//·Legacy/Custom·Baci·variables
+         61 │ + ········'--store-primary':·merchant.brand_colors.primary,
+         62 │ + ········'--store-background':·merchant.brand_colors.background,
+         63 │ + ········'--store-accent':·merchant.brand_colors.accent,
+         64 │ + ········'--store-primary-text':·getContrastingTextColor(
+         65 │ + ··········merchant.brand_colors.primary
+         66 │ + ········),
+         67 │ + ········'--store-background-text':·getContrastingTextColor(
+         68 │ + ··········merchant.brand_colors.background
+         69 │ + ········),
+         70 │ + ········'--store-accent-text':·getContrastingTextColor(
+         71 │ + ··········merchant.brand_colors.accent
+         72 │ + ········),
+         73 │ + ······}
+     74  74 │       : {};
+     75  75 │   
   
 
-Checked 838 files in 758ms. No fixes applied.
+Checked 838 files in 874ms. No fixes applied.
 Found 1 error.
 Found 5 warnings.
 check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

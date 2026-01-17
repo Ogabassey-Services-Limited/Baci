@@ -13,9 +13,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { Logo as OgabasseyLogo } from './Logo';
 
-// Ogabassey brand colors
-const OGABASSEY_RED = '#d62027';
-const OGABASSEY_RED_HOVER = '#b91c22';
+// Red colors are now driven by theme variables
 
 // Validate redirect URL to prevent open redirect vulnerabilities
 function sanitizeRedirect(redirect: string | null): string {
@@ -157,10 +155,9 @@ export function OgabasseyLoginPage() {
     if (merchantLoading || authLoading) {
         return (
             <div
-                className="min-h-screen flex flex-col items-center justify-center gap-4"
-                style={{ backgroundColor: '#FFFFFF' }}
+                className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background"
             >
-                <Loader2 className="h-8 w-8 animate-spin" style={{ color: OGABASSEY_RED }} />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-gray-500">
                     {merchantLoading
                         ? 'Loading store data...'
@@ -172,13 +169,11 @@ export function OgabasseyLoginPage() {
 
     return (
         <div
-            className="min-h-screen flex flex-col relative overflow-hidden"
-            style={{ backgroundColor: '#FFFFFF' }}
+            className="min-h-screen flex flex-col relative overflow-hidden bg-background"
         >
-            {/* Subtle red accent gradient at top */}
+            {/* Subtle primary accent gradient at top */}
             <div
-                className="absolute top-0 left-0 right-0 h-1"
-                style={{ backgroundColor: OGABASSEY_RED }}
+                className="absolute top-0 left-0 right-0 h-1 bg-primary"
             />
 
             {/* Header */}
@@ -200,7 +195,7 @@ export function OgabasseyLoginPage() {
                 <div className="w-full max-w-md bg-white border border-gray-100 rounded-2xl p-8 shadow-xl">
                     {/* Logo */}
                     <div className="text-center mb-8">
-                        <OgabasseyLogo className="h-10 mx-auto mb-6" style={{ color: OGABASSEY_RED }} />
+                        <OgabasseyLogo className="h-10 mx-auto mb-6 text-primary" />
                         <h1 className="text-2xl font-bold text-gray-900 mb-2">
                             {otpState?.codeSent
                                 ? 'Enter verification code'
@@ -237,16 +232,11 @@ export function OgabasseyLoginPage() {
                                 </div>
                             </div>
 
-                            {error && <p className="text-sm" style={{ color: OGABASSEY_RED }}>{error}</p>}
+                            {error && <p className="text-sm text-primary">{error}</p>}
 
                             <Button
                                 type="submit"
-                                className="w-full h-12 text-white rounded-xl font-semibold transition-colors"
-                                style={{
-                                    backgroundColor: OGABASSEY_RED,
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = OGABASSEY_RED_HOVER}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = OGABASSEY_RED}
+                                className="w-full h-12 text-white rounded-xl font-semibold transition-colors bg-primary hover:bg-primary/90"
                                 disabled={isSending || isGoogleLoading || !email}
                             >
                                 {isSending ? (
@@ -359,8 +349,7 @@ export function OgabasseyLoginPage() {
                                                     handleCodeChange(index, e.target.value)
                                                 }
                                                 onKeyDown={(e) => handleKeyDown(index, e)}
-                                                className="w-12 h-14 text-center text-2xl font-mono bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-300 rounded-xl"
-                                                style={{ '--tw-ring-color': `${OGABASSEY_RED}40` } as React.CSSProperties}
+                                                className="w-12 h-14 text-center text-2xl font-mono bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-300 rounded-xl focus-visible:ring-primary/40"
                                                 disabled={isVerifying}
                                                 autoFocus={index === 0}
                                                 aria-label={`Digit ${index + 1} of 6`}
@@ -371,14 +360,14 @@ export function OgabasseyLoginPage() {
                             </div>
 
                             {error && (
-                                <p className="text-sm text-center" style={{ color: OGABASSEY_RED }}>
+                                <p className="text-sm text-center text-primary">
                                     {error}
                                 </p>
                             )}
 
                             {isVerifying && (
                                 <div className="flex items-center justify-center gap-2 text-gray-500">
-                                    <Loader2 className="h-4 w-4 animate-spin" style={{ color: OGABASSEY_RED }} />
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                     <span>Verifying...</span>
                                 </div>
                             )}
@@ -391,8 +380,7 @@ export function OgabasseyLoginPage() {
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="hover:bg-gray-100"
-                                    style={{ color: OGABASSEY_RED }}
+                                    className="hover:bg-gray-100 text-primary"
                                     onClick={handleResendCode}
                                     disabled={isSending}
                                 >

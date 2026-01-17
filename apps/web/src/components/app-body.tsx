@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import type { MerchantData } from '@/hooks/use-merchant';
-import { getContrastingTextColor } from '@/lib/color-utils';
+import { getContrastingTextColor, hexToHslComponents } from '@/lib/color-utils';
 import { cn } from '@/lib/utils';
 
 // Dynamically import non-critical components to reduce initial bundle size
@@ -46,6 +46,18 @@ export default function AppBody({
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors
     ? {
+        // Core shadcn/ui variables to prevent "blue flash"
+        '--primary': hexToHslComponents(merchant.brand_colors.primary),
+        '--primary-foreground': hexToHslComponents(
+          getContrastingTextColor(merchant.brand_colors.primary)
+        ),
+        '--accent': hexToHslComponents(merchant.brand_colors.accent),
+        '--accent-foreground': hexToHslComponents(
+          getContrastingTextColor(merchant.brand_colors.accent)
+        ),
+        '--ring': hexToHslComponents(merchant.brand_colors.primary),
+
+        // Legacy/Custom Baci variables
         '--store-primary': merchant.brand_colors.primary,
         '--store-background': merchant.brand_colors.background,
         '--store-accent': merchant.brand_colors.accent,
