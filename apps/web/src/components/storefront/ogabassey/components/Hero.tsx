@@ -23,6 +23,7 @@ interface SlideData {
   poster?: string; // Video poster
   textColor?: string;
   imageFit?: 'contain' | 'cover';
+  captions?: string;
 }
 
 const MOBILE_SLIDES: SlideData[] = [
@@ -224,7 +225,14 @@ export const Hero: React.FC = () => {
                     playsInline
                     aria-label={slide.title || 'Promotional video'}
                   >
-                    <track kind="captions" src="" label="No captions available" default />
+                    {slide.captions && (
+                      <track
+                        kind="captions"
+                        src={slide.captions}
+                        label="English"
+                        default
+                      />
+                    )}
                   </video>
                   <div className="absolute inset-0 bg-black/30 z-[1]" />
                   <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
