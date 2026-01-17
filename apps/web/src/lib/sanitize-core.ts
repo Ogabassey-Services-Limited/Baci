@@ -210,7 +210,6 @@ export const customerSchema = z.object({
     .transform((val) => sanitizeText(val)),
   email: z
     .string()
-    .email()
     .transform((val) => sanitizeEmail(val)),
   phone: z
     .string()
@@ -281,7 +280,6 @@ export const orderSchema = z.object({
     .transform((val) => sanitizeText(val)),
   customer_email: z
     .string()
-    .email()
     .transform((val) => sanitizeEmail(val)),
   customer_phone: z
     .string()
