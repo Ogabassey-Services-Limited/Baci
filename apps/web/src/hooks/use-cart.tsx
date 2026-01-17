@@ -291,12 +291,12 @@ export const CartProvider = ({
           priceChanges: { id: string; oldPrice: number; newPrice: number }[];
         };
 
-        // Remove invalid products (ghost products)
-        if (invalidProductIds?.length > 0) {
+        // OPTIMIZATION: Use Set for O(1) lookup to remove ghost products
+        const invalidIdsSet = new Set(invalidProductIds || []);
+
+        if (invalidIdsSet.size > 0) {
           setCart((prev) => {
-            const filtered = prev.filter(
-              (item) => !invalidProductIds.includes(item.id)
-            );
+            const filtered = prev.filter((item) => !invalidIdsSet.has(item.id));
             if (filtered.length !== prev.length) {
               logger.info({
                 message: 'Removed ghost products from cart',
@@ -308,11 +308,13 @@ export const CartProvider = ({
           });
         }
 
-        // Update stale prices
-        if (priceChanges?.length > 0) {
+        // OPTIMIZATION: Use Map for O(1) lookup to update prices
+        const priceChangesMap = new Map(priceChanges?.map((pc) => [pc.id, pc]));
+
+        if (priceChangesMap.size > 0) {
           setCart((prev) =>
             prev.map((item) => {
-              const priceChange = priceChanges.find((pc) => pc.id === item.id);
+              const priceChange = priceChangesMap.get(item.id);
               if (priceChange) {
                 logger.info({
                   message: 'Updated stale price in cart',
