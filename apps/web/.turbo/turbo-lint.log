@@ -187,5 +187,44 @@ src/lib/jumia/client.ts:350:49 lint/suspicious/noExplicitAny ━━━━━━�
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 821 files in 636ms. No fixes applied.
+src/components/storefront/product-grid.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    386 386 │     const brandColors = merchant?.brand_colors
+    387 387 │       ? [
+    388     │ - ······merchant.brand_colors.primary,
+    389     │ - ······merchant.brand_colors.background,
+    390     │ - ······merchant.brand_colors.accent,
+    391     │ - ····].filter(Boolean)
+        388 │ + ········merchant.brand_colors.primary,
+        389 │ + ········merchant.brand_colors.background,
+        390 │ + ········merchant.brand_colors.accent,
+        391 │ + ······].filter(Boolean)
+    392 392 │       : ['#3F51B5'];
+    393 393 │     const darkestColor = findDarkestColor(brandColors as string[]);
+    ······· │ 
+    449 449 │                             )
+    450 450 │                           }
+    451     │ - ························className={`px-4·py-2·rounded-lg·text-sm·font-medium·transition-all·${selectedCategory·===·option
+    452     │ - ··························?·'bg-[var(--store-primary)]·text-[var(--store-primary-text)]·shadow-md·scale-105'
+    453     │ - ··························:·'bg-muted/50·hover:bg-muted·text-foreground·hover:shadow-sm'
+    454     │ - ··························}`}
+        451 │ + ························className={`px-4·py-2·rounded-lg·text-sm·font-medium·transition-all·${
+        452 │ + ··························selectedCategory·===·option
+        453 │ + ····························?·'bg-[var(--store-primary)]·text-[var(--store-primary-text)]·shadow-md·scale-105'
+        454 │ + ····························:·'bg-muted/50·hover:bg-muted·text-foreground·hover:shadow-sm'
+        455 │ + ························}`}
+    455 456 │                         >
+    456 457 │                           {option}
+  
+
+Checked 821 files in 703ms. No fixes applied.
+Found 1 error.
 Found 14 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

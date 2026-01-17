@@ -59,8 +59,22 @@ export function StorefrontProductGrid({
   const { cart, addToCart, updateQuantity, setMerchantSlug } = useCart();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
-
   const storefrontContext = useStorefrontSafe();
+
+  // Optimization: Memoize cart items map for O(1) lookup in render loop
+  // Preserves existing behavior: if multiple items have same ID (legacy), use the first one found
+  const cartItemsMap = useMemo(() => {
+    const map = new Map();
+    // Loop through cart to populate map. If duplicates exist, we keep the first one
+    // to match .find() behavior which returns the first match.
+    // However, Map.set overwrites, so we need to check if it exists first.
+    for (const item of cart) {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      }
+    }
+    return map;
+  }, [cart]);
 
   // Local state fallbacks for when context is missing (e.g. in builder)
   const [localSelectedCategory, setLocalSelectedCategory] = useState('All');
@@ -505,7 +519,7 @@ export function StorefrontProductGrid({
             className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${GRID_COLUMN_CLASSES[columns] || GRID_COLUMN_CLASSES[4]} gap-6`}
           >
             {searchResults.map((product, index) => {
-              const cartItem = cart.find((item) => item.id === product.id);
+              const cartItem = cartItemsMap.get(product.id);
               // Stagger animation class (1-8, then loops)
               const staggerClass =
                 STAGGER_CLASSES[index % STAGGER_CLASSES.length];

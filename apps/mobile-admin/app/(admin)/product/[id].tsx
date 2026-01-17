@@ -241,21 +241,21 @@ export default function ProductEditScreen() {
         color: product.color || '',
         variant_attributes: product.variant_attributes
           ? Object.entries(product.variant_attributes).map(([key, value]) => ({
-            key,
-            value: String(value),
-          }))
+              key,
+              value: String(value),
+            }))
           : [],
         fulfillment_details:
           product.fulfillment_details && 'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-              items: Array<{ imei: string; serial_number: string }>;
-            })
+                items: Array<{ imei: string; serial_number: string }>;
+              })
             : {
-              items: Array(product.stock_quantity || 0).fill({
-                imei: '',
-                serial_number: '',
-              }),
-            },
+                items: Array(product.stock_quantity || 0).fill({
+                  imei: '',
+                  serial_number: '',
+                }),
+              },
         images: product.images || [],
         manage_stock: product.manage_stock ?? true,
         status: product.status || 'active',
@@ -280,21 +280,21 @@ export default function ProductEditScreen() {
         color: product.color || '',
         variant_attributes: product.variant_attributes
           ? Object.entries(product.variant_attributes).map(([key, value]) => ({
-            key,
-            value: String(value),
-          }))
+              key,
+              value: String(value),
+            }))
           : [],
         fulfillment_details:
           product.fulfillment_details && 'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-              items: Array<{ imei: string; serial_number: string }>;
-            })
+                items: Array<{ imei: string; serial_number: string }>;
+              })
             : {
-              items: Array(product.stock_quantity || 0).fill({
-                imei: '',
-                serial_number: '',
-              }),
-            },
+                items: Array(product.stock_quantity || 0).fill({
+                  imei: '',
+                  serial_number: '',
+                }),
+              },
         images: product.images || [],
         manage_stock: product.manage_stock ?? true,
         status: product.status || 'active',
@@ -550,12 +550,12 @@ export default function ProductEditScreen() {
             >
               {(updateProductMutation.isPending ||
                 createProductMutation.isPending) && (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                )}
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+              )}
               <Text
                 style={{
                   color: colors.primary,
@@ -1236,8 +1236,8 @@ export default function ProductEditScreen() {
                           formData.stock_quantity === 0
                             ? ''
                             : new Intl.NumberFormat().format(
-                              formData.stock_quantity
-                            )
+                                formData.stock_quantity
+                              )
                         }
                         onChangeText={(text) => {
                           const num = Number.parseInt(

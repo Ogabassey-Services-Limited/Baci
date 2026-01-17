@@ -38,7 +38,11 @@ interface ConnectivityStatusModal {
 }
 
 // Jumia Integration Component
-function JumiaIntegrationRow({ statusModal }: { statusModal: (data: ConnectivityStatusModal) => void }) {
+function JumiaIntegrationRow({
+  statusModal,
+}: {
+  statusModal: (data: ConnectivityStatusModal) => void;
+}) {
   const { colors } = useTheme();
   const [isConnected, setIsConnected] = useState(false);
   const [_checking, setChecking] = useState(true);
@@ -211,8 +215,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');

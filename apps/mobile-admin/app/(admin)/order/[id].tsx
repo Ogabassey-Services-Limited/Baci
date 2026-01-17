@@ -230,12 +230,12 @@ const generateReceiptHtml = (order: {
 
             <div class="section-label">Product Details</div>
             ${order.items
-      .map(
-        (item: {
-          product_name: string;
-          quantity: number;
-          price: number;
-        }) => `
+              .map(
+                (item: {
+                  product_name: string;
+                  quantity: number;
+                  price: number;
+                }) => `
               <div class="product-card">
                 <div class="product-row">
                   <div>
@@ -246,8 +246,8 @@ const generateReceiptHtml = (order: {
                 </div>
               </div>
             `
-      )
-      .join('')}
+              )
+              .join('')}
 
             <div class="footer">
               <div class="footer-help">Questions regarding this ${documentTitle.toLowerCase()}?</div>
@@ -588,7 +588,7 @@ Thank you for choosing Ogabassey!
                 },
                 body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
               }
-            ).catch(() => { }); // Silently ignore email errors
+            ).catch(() => {}); // Silently ignore email errors
           }
         } catch {
           // Ignore email errors - status update already succeeded
