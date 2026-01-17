@@ -2,3 +2,5 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/components/storefront/ogabassey/components/OgabasseyLoginPage.tsx(227,72): error TS2304: Cannot find name 'OGABASSEY_RED'.
+ ELIFECYCLE  Command failed with exit code 2.

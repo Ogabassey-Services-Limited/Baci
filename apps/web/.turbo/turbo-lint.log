@@ -61,6 +61,8 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
   ! Forbidden non-null assertion.
   
     323 │       shopId: data.shop_id || 'oauth',
+Checked 838 files in 1584ms. No fixes applied.
+Found 5 warnings.
     324 │       accessToken: data.access_token,
   > 325 │       refreshToken: data.refresh_token!,
         │                     ^^^^^^^^^^^^^^^^^^^
@@ -68,71 +70,3 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
     327 │         ? new Date(data.token_expires_at)
   
 
-src/components/app-body.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-     47  47 │     const themeStyle = merchant?.brand_colors
-     48  48 │       ? {
-     49     │ - ······//·Core·shadcn/ui·variables·to·prevent·"blue·flash"
-     50     │ - ······'--primary':·hexToHslComponents(merchant.brand_colors.primary),
-     51     │ - ······'--primary-foreground':·hexToHslComponents(
-     52     │ - ········getContrastingTextColor(merchant.brand_colors.primary)
-     53     │ - ······),
-     54     │ - ······'--accent':·hexToHslComponents(merchant.brand_colors.accent),
-     55     │ - ······'--accent-foreground':·hexToHslComponents(
-     56     │ - ········getContrastingTextColor(merchant.brand_colors.accent)
-     57     │ - ······),
-     58     │ - ······'--ring':·hexToHslComponents(merchant.brand_colors.primary),
-         49 │ + ········//·Core·shadcn/ui·variables·to·prevent·"blue·flash"
-         50 │ + ········'--primary':·hexToHslComponents(merchant.brand_colors.primary),
-         51 │ + ········'--primary-foreground':·hexToHslComponents(
-         52 │ + ··········getContrastingTextColor(merchant.brand_colors.primary)
-         53 │ + ········),
-         54 │ + ········'--accent':·hexToHslComponents(merchant.brand_colors.accent),
-         55 │ + ········'--accent-foreground':·hexToHslComponents(
-         56 │ + ··········getContrastingTextColor(merchant.brand_colors.accent)
-         57 │ + ········),
-         58 │ + ········'--ring':·hexToHslComponents(merchant.brand_colors.primary),
-     59  59 │   
-     60     │ - ······//·Legacy/Custom·Baci·variables
-     61     │ - ······'--store-primary':·merchant.brand_colors.primary,
-     62     │ - ······'--store-background':·merchant.brand_colors.background,
-     63     │ - ······'--store-accent':·merchant.brand_colors.accent,
-     64     │ - ······'--store-primary-text':·getContrastingTextColor(
-     65     │ - ········merchant.brand_colors.primary
-     66     │ - ······),
-     67     │ - ······'--store-background-text':·getContrastingTextColor(
-     68     │ - ········merchant.brand_colors.background
-     69     │ - ······),
-     70     │ - ······'--store-accent-text':·getContrastingTextColor(
-     71     │ - ········merchant.brand_colors.accent
-     72     │ - ······),
-     73     │ - ····}
-         60 │ + ········//·Legacy/Custom·Baci·variables
-         61 │ + ········'--store-primary':·merchant.brand_colors.primary,
-         62 │ + ········'--store-background':·merchant.brand_colors.background,
-         63 │ + ········'--store-accent':·merchant.brand_colors.accent,
-         64 │ + ········'--store-primary-text':·getContrastingTextColor(
-         65 │ + ··········merchant.brand_colors.primary
-         66 │ + ········),
-         67 │ + ········'--store-background-text':·getContrastingTextColor(
-         68 │ + ··········merchant.brand_colors.background
-         69 │ + ········),
-         70 │ + ········'--store-accent-text':·getContrastingTextColor(
-         71 │ + ··········merchant.brand_colors.accent
-         72 │ + ········),
-         73 │ + ······}
-     74  74 │       : {};
-     75  75 │   
-  
-
-Checked 838 files in 874ms. No fixes applied.
-Found 1 error.
-Found 5 warnings.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.

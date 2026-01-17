@@ -14,6 +14,7 @@ import { asRoute } from '@/lib/routes';
 import { Logo as OgabasseyLogo } from './Logo';
 
 // Red colors are now driven by theme variables
+const OGABASSEY_RED = '#D62027';
 
 // Validate redirect URL to prevent open redirect vulnerabilities
 function sanitizeRedirect(redirect: string | null): string {
