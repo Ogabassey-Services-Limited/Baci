@@ -258,31 +258,31 @@ function generateCSP(
   const directives =
     routeType === 'admin' || routeType === 'auth'
       ? {
-        ...baseDirectives,
-        // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
-        'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
-        'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-        'connect-src':
-          "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
-        'frame-src': "'self' https://checkout.korapay.com",
-        'form-action': "'self'",
-      }
-      : routeType === 'storefront'
-        ? {
           ...baseDirectives,
-          'script-src':
-            "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
+          // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
+          'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
-            "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
-          'frame-src':
-            "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
+            "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
+          'frame-src': "'self' https://checkout.korapay.com",
+          'form-action': "'self'",
         }
+      : routeType === 'storefront'
+        ? {
+            ...baseDirectives,
+            'script-src':
+              "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
+            'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+            'connect-src':
+              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
+            'frame-src':
+              "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
+          }
         : {
-          'default-src': "'self'",
-          'object-src': "'none'",
-          'frame-ancestors': "'none'", // APIs usually don't need to be framed
-        };
+            'default-src': "'self'",
+            'object-src': "'none'",
+            'frame-ancestors': "'none'", // APIs usually don't need to be framed
+          };
 
   return Object.entries(directives)
     .map(([key, value]) => (value ? `${key} ${value}` : key).trim())

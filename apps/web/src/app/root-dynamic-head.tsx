@@ -41,6 +41,7 @@ export async function RootDynamicHead() {
         type="application/ld+json"
         nonce={nonce}
         suppressHydrationWarning
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(organizationSchema),
         }}
@@ -49,12 +50,14 @@ export async function RootDynamicHead() {
         type="application/ld+json"
         nonce={nonce}
         suppressHydrationWarning
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
         dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
       />
       <script
         type="application/ld+json"
         nonce={nonce}
         suppressHydrationWarning
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(softwareApplicationSchema),
         }}

@@ -293,7 +293,7 @@ export class JumiaClient {
       merchantId: data.merchant_id,
       shopId: data.shop_id || 'oauth',
       accessToken: data.access_token,
-      refreshToken: data.refresh_token!,
+      refreshToken: data.refresh_token || '',
       tokenExpiresAt: data.token_expires_at
         ? new Date(data.token_expires_at)
         : null,
@@ -322,7 +322,7 @@ export class JumiaClient {
       merchantId: data.merchant_id,
       shopId: data.shop_id || 'oauth',
       accessToken: data.access_token,
-      refreshToken: data.refresh_token!,
+      refreshToken: data.refresh_token || '',
       tokenExpiresAt: data.token_expires_at
         ? new Date(data.token_expires_at)
         : null,
