@@ -24,14 +24,12 @@ vi.mock('@/env', () => ({
 
 // Mock rate limit
 vi.mock('@/lib/rate-limit', () => ({
-  checkRateLimit: vi
-    .fn()
-    .mockReturnValue({
-      allowed: true,
-      limit: 100,
-      remaining: 99,
-      resetTime: Date.now() + 60000,
-    }),
+  checkRateLimit: vi.fn().mockReturnValue({
+    allowed: true,
+    limit: 100,
+    remaining: 99,
+    resetTime: Date.now() + 60000,
+  }),
   createRateLimitResponse: vi
     .fn()
     .mockReturnValue(new NextResponse('Too Many Requests', { status: 429 })),

@@ -34,6 +34,7 @@ jobs:
             --verbose
             --no-progress
             './apps/web/**/*.md' './apps/web/**/*.html' './apps/web/**/*.tsx' './apps/web/**/*.ts'
+            --exclude '\.test\.(tsx|ts)$'
             --exclude-path 'apps/web/scripts'
             --exclude-path 'apps/web/supabase'
             --exclude-path 'apps/web/mcp-server'

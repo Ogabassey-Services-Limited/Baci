@@ -241,6 +241,7 @@ function getRouteType(
  */
 function generateCSP(
   routeType: 'admin' | 'auth' | 'storefront' | 'api',
+  isLocal: boolean,
   nonce?: string
 ): string {
   const baseDirectives = {
@@ -250,49 +251,41 @@ function generateCSP(
     'media-src': "'self' https:",
     'object-src': "'none'",
     'base-uri': "'self'",
-    'upgrade-insecure-requests': '',
     'frame-ancestors': "'self'",
+    ...(isLocal ? {} : { 'upgrade-insecure-requests': '' }),
   };
 
-  if (routeType === 'admin' || routeType === 'auth') {
-    // Strict nonce-based CSP for admin and authentication routes
-    return Object.entries({
-      ...baseDirectives,
-      // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
-      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
-      'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-      'connect-src':
-        "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
-      'frame-src': "'self' https://checkout.korapay.com",
-      'form-action': "'self'",
-    })
-      .map(([key, value]) => `${key} ${value}`.trim())
-      .join('; ');
-  }
+  const directives =
+    routeType === 'admin' || routeType === 'auth'
+      ? {
+        ...baseDirectives,
+        // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
+        'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
+        'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+        'connect-src':
+          "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
+        'frame-src': "'self' https://checkout.korapay.com",
+        'form-action': "'self'",
+      }
+      : routeType === 'storefront'
+        ? {
+          ...baseDirectives,
+          'script-src':
+            "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
+          'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+          'connect-src':
+            "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
+          'frame-src':
+            "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
+        }
+        : {
+          'default-src': "'self'",
+          'object-src': "'none'",
+          'frame-ancestors': "'none'", // APIs usually don't need to be framed
+        };
 
-  if (routeType === 'storefront') {
-    // Relaxed CSP for merchant storefronts (allows ISR/SSG)
-    // Includes CredPal BNPL SDK, Credit Direct SDK, and Google Ads/Ad Manager domains
-    return Object.entries({
-      ...baseDirectives,
-      'script-src':
-        "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
-      'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-      'connect-src':
-        "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
-      'frame-src':
-        "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
-    })
-      .map(([key, value]) => `${key} ${value}`.trim())
-      .join('; ');
-  }
-
-  return Object.entries({
-    'default-src': "'self'",
-    'object-src': "'none'",
-    'frame-ancestors': "'none'", // APIs usually don't need to be framed
-  })
-    .map(([key, value]) => `${key} ${value}`.trim())
+  return Object.entries(directives)
+    .map(([key, value]) => (value ? `${key} ${value}` : key).trim())
     .join('; ');
 }
 
@@ -406,6 +399,7 @@ export async function proxy(request: NextRequest) {
     // For protected routes, apply security headers to the supabase response
     if (isProtectedRoute) {
       const routeType = getRouteType(pathname);
+      const isLocal = isLocalhost(hostname);
       const nonce =
         routeType === 'admin' || routeType === 'auth'
           ? crypto.randomUUID()
@@ -415,6 +409,7 @@ export async function proxy(request: NextRequest) {
         pathname,
         userAgent,
         routeType,
+        isLocal,
         nonce,
         undefined,
         hostname
@@ -472,11 +467,13 @@ export async function proxy(request: NextRequest) {
         });
 
         const routeType = getRouteType(pathname); // returns 'api'
+        const isLocal = isLocalhost(hostname);
         return applySecurityHeaders(
           response,
           pathname,
           userAgent,
           routeType,
+          isLocal,
           undefined,
           request,
           hostname
@@ -502,6 +499,7 @@ export async function proxy(request: NextRequest) {
         });
 
         const routeType = getRouteType(pathname);
+        const isLocal = isLocalhost(hostname);
         const nonce =
           routeType === 'admin' || routeType === 'auth'
             ? crypto.randomUUID()
@@ -512,6 +510,7 @@ export async function proxy(request: NextRequest) {
           pathname,
           userAgent,
           routeType,
+          isLocal,
           nonce,
           request,
           hostname
@@ -534,6 +533,7 @@ export async function proxy(request: NextRequest) {
 
       // Generate route-specific CSP
       const routeType = getRouteType(pathname);
+      const isLocal = isLocalhost(hostname);
       const nonce =
         routeType === 'admin' || routeType === 'auth'
           ? crypto.randomUUID()
@@ -544,6 +544,7 @@ export async function proxy(request: NextRequest) {
         pathname,
         userAgent,
         routeType,
+        isLocal,
         nonce,
         request, // Pass request for click ID capture on storefront
         hostname
@@ -579,11 +580,13 @@ export async function proxy(request: NextRequest) {
       });
 
       const routeType = getRouteType(pathname); // returns 'api'
+      const isLocal = isLocalhost(hostname);
       return applySecurityHeaders(
         response,
         pathname,
         userAgent,
         routeType,
+        isLocal,
         undefined,
         request,
         hostname
@@ -602,8 +605,8 @@ export async function proxy(request: NextRequest) {
       },
     });
 
-    // Generate route-specific CSP
     const routeType = getRouteType(pathname);
+    const isLocal = isLocalhost(hostname);
     const nonce =
       routeType === 'admin' || routeType === 'auth'
         ? crypto.randomUUID()
@@ -614,6 +617,7 @@ export async function proxy(request: NextRequest) {
       pathname,
       userAgent,
       routeType,
+      isLocal,
       nonce,
       request, // Pass request for click ID capture on storefront
       hostname
@@ -623,6 +627,7 @@ export async function proxy(request: NextRequest) {
   // Standard request - generate route-specific CSP
   const response = NextResponse.next();
   const routeType = getRouteType(pathname);
+  const isLocal = isLocalhost(hostname);
   const nonce =
     routeType === 'admin' || routeType === 'auth'
       ? crypto.randomUUID()
@@ -633,6 +638,7 @@ export async function proxy(request: NextRequest) {
     pathname,
     userAgent,
     routeType,
+    isLocal,
     nonce,
     request, // Pass request for click ID capture on storefront
     hostname
@@ -670,6 +676,7 @@ function applySecurityHeaders(
   pathname: string,
   userAgent: string,
   routeType: 'admin' | 'auth' | 'storefront' | 'api',
+  isLocal: boolean,
   nonce?: string,
   request?: NextRequest,
   hostname?: string
@@ -680,7 +687,7 @@ function applySecurityHeaders(
   }
 
   // Apply Content Security Policy
-  const csp = generateCSP(routeType, nonce);
+  const csp = generateCSP(routeType, isLocal, nonce);
   response.headers.set('Content-Security-Policy', csp);
 
   // Add missing security headers
