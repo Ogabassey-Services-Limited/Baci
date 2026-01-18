@@ -2,6 +2,19 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
+src/app/api/merchant/auth/account-deletion/route.ts:43:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    42 │     return NextResponse.json({ message: 'Account deleted successfully' });
+  > 43 │   } catch (error: any) {
+       │                   ^^^
+    44 │     console.error('Account deletion error:', error);
+    45 │     return NextResponse.json(
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
 src/app/root-dynamic-head.tsx:44:9 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Avoid passing content using the dangerouslySetInnerHTML prop.
@@ -68,5 +81,5 @@ src/lib/jumia/client.ts:325:21 lint/style/noNonNullAssertion ━━━━━━�
     327 │         ? new Date(data.token_expires_at)
   
 
-Checked 838 files in 1016ms. No fixes applied.
-Found 5 warnings.
+Checked 839 files in 868ms. No fixes applied.
+Found 6 warnings.

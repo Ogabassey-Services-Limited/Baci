@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '1.0.0',
+  version: '1.1.0',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -25,7 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '1',
+    buildNumber: '2',
     infoPlist: {
       NSCameraUsageDescription:
         'Allow the app to scan barcodes for inventory management and product lookup.',
@@ -37,7 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ogabassey.baci',
-    versionCode: 1,
+    versionCode: 2,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#f0bf58',

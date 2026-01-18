@@ -20,6 +20,7 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -45,7 +46,7 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
   '/dashboard',
-  '/api',
+  // '/api', // Allow API access on subdomains (controlled by middleware)
   '/auth',
   '/login',
   '/onboarding',
@@ -250,6 +251,7 @@ function generateCSP(
     'object-src': "'none'",
     'base-uri': "'self'",
     'upgrade-insecure-requests': '',
+    'frame-ancestors': "'self'",
   };
 
   if (routeType === 'admin' || routeType === 'auth') {
@@ -263,7 +265,6 @@ function generateCSP(
         "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
       'frame-src': "'self' https://checkout.korapay.com",
       'form-action': "'self'",
-      'frame-ancestors': "'self'",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');
@@ -286,10 +287,10 @@ function generateCSP(
       .join('; ');
   }
 
-  // Basic CSP for API routes
   return Object.entries({
     'default-src': "'self'",
     'object-src': "'none'",
+    'frame-ancestors': "'none'", // APIs usually don't need to be framed
   })
     .map(([key, value]) => `${key} ${value}`.trim())
     .join('; ');
@@ -301,9 +302,21 @@ function generateCSP(
  */
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
-  const pathname = request.nextUrl.pathname;
-  // console.log('[Middleware] Request:', pathname);
   const userAgent = request.headers.get('user-agent') || '';
+  const pathname = request.nextUrl.pathname;
+
+  // ==== RATE LIMITING (API Routes) ====
+  // Protect API endpoints from abuse
+  if (pathname.startsWith('/api')) {
+    const rateLimitResult = checkRateLimit(request);
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(
+        rateLimitResult.limit,
+        rateLimitResult.remaining,
+        rateLimitResult.resetTime
+      );
+    }
+  }
 
   // ==== BLOG MIGRATION REDIRECTS ====
   // 301 redirect old blog subdomain to new blog location
@@ -451,11 +464,23 @@ export async function proxy(request: NextRequest) {
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
-        return NextResponse.next({
+        // API routes shouldn't rewrite, just pass through
+        const response = NextResponse.next({
           request: {
             headers: requestHeaders,
           },
         });
+
+        const routeType = getRouteType(pathname); // returns 'api'
+        return applySecurityHeaders(
+          response,
+          pathname,
+          userAgent,
+          routeType,
+          undefined,
+          request,
+          hostname
+        );
       }
 
       // Prevent redirect loop: if the path already starts with the domain,
@@ -538,7 +563,33 @@ export async function proxy(request: NextRequest) {
 
     // Rewrite subdomain requests to path-based storefront routes
     // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
-    // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
+
+    // ==== FIX: API Routes on Subdomains ====
+    // Do NOT rewrite API routes to /[subdomain]/api/...
+    // Instead, pass them through with headers
+    if (pathname.startsWith('/api')) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-merchant-slug', subdomain as string);
+
+      // Pass through without rewriting path
+      const response = NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+
+      const routeType = getRouteType(pathname); // returns 'api'
+      return applySecurityHeaders(
+        response,
+        pathname,
+        userAgent,
+        routeType,
+        undefined,
+        request,
+        hostname
+      );
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
@@ -631,6 +682,15 @@ function applySecurityHeaders(
   // Apply Content Security Policy
   const csp = generateCSP(routeType, nonce);
   response.headers.set('Content-Security-Policy', csp);
+
+  // Add missing security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), browsing-topics=()'
+  );
 
   // Set nonce in request header for server components (admin/auth routes only)
   if (nonce) {
@@ -754,12 +814,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api (all API routes - they handle their own auth)
-     * - manifest.webmanifest (PWA manifest)
      * - robots.txt (SEO file)
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|api/|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image|_next/static|favicon.ico|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };
