@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { PasswordInput } from '@/components/ui/password-input';
 import { createClient } from '@/lib/supabase/client';
 
 export default function UpdatePasswordPage() {
@@ -113,10 +114,9 @@ export default function UpdatePasswordPage() {
             <label htmlFor="password" className="sr-only">
               New Password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="new-password"
               required
               value={password}
