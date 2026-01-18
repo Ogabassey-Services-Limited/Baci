@@ -126,7 +126,7 @@ describe('useCart - Validation', () => {
     // Mock empty response
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => ({}) // Empty object, fields missing
+      json: async () => ({}), // Empty object, fields missing
     });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -138,8 +138,11 @@ describe('useCart - Validation', () => {
     await waitFor(() => expect(result.current.isHydrated).toBe(true));
 
     // Should not crash and cart should remain
-    await waitFor(() => {
+    await waitFor(
+      () => {
         expect(result.current.cart).toHaveLength(1);
-    }, { timeout: 2000 });
+      },
+      { timeout: 2000 }
+    );
   });
 });
