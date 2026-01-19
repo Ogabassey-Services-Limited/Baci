@@ -12,6 +12,7 @@ import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
@@ -81,6 +82,7 @@ export function StorefrontProductGrid({
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
   const searchQuery = storefrontContext?.searchQuery ?? localSearchQuery;
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const selectedCategory =
     storefrontContext?.selectedCategory ?? localSelectedCategory;
 
@@ -306,7 +308,11 @@ export function StorefrontProductGrid({
 
   const searchResults = useMemo(() => {
     // Use server search results if available and search is active
-    if (useServerSearch && searchQuery && serverSearchResults.length > 0) {
+    if (
+      useServerSearch &&
+      debouncedSearchQuery &&
+      serverSearchResults.length > 0
+    ) {
       let filtered = serverSearchResults;
 
       // Apply category/brand/price filters
@@ -335,8 +341,8 @@ export function StorefrontProductGrid({
     // Fall back to client-side search
     let filtered = products;
 
-    if (searchQuery && fuse) {
-      filtered = fuse.search(searchQuery).map((result) => result.item);
+    if (debouncedSearchQuery && fuse) {
+      filtered = fuse.search(debouncedSearchQuery).map((result) => result.item);
     }
 
     if (selectedCategory !== 'All') {
@@ -360,7 +366,7 @@ export function StorefrontProductGrid({
 
     return filtered.filter((p) => p.status === 'active').slice(0, limit);
   }, [
-    searchQuery,
+    debouncedSearchQuery,
     fuse,
     products,
     selectedCategory,
