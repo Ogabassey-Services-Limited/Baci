@@ -15,6 +15,12 @@ export async function GET(request: Request) {
 
   // Verify secret and required params
   if (secret !== getBlogPreviewSecret()) {
+    console.error('Blog Preview Token Mismatch:', {
+      receivedLength: secret?.length,
+      expectedLength: getBlogPreviewSecret()?.length,
+      receivedSnippet: secret ? `${secret.substring(0, 3)}...` : 'undefined',
+      expectedSnippet: getBlogPreviewSecret() ? `${getBlogPreviewSecret().substring(0, 3)}...` : 'undefined'
+    });
     return new Response('Invalid token', { status: 401 });
   }
 

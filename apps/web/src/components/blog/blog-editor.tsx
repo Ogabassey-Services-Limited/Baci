@@ -32,6 +32,7 @@ interface BlogEditorProps {
 export function BlogEditor({
   content,
   onChange,
+  onImageUpload,
   onProductsChange,
   embeddedProducts = [],
 }: BlogEditorProps) {
@@ -65,6 +66,7 @@ export function BlogEditor({
       <NovelEditor
         initialValue={initialContent}
         onChange={handleContentChange}
+        onImageUpload={onImageUpload}
         onProductsChange={onProductsChange}
         embeddedProducts={embeddedProducts}
       />

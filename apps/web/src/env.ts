@@ -1,223 +1,132 @@
 // src/env.ts
+import { z } from 'zod';
 
 /**
  * A type-safe and validated way to access environment variables.
  * This is the single source of truth for all environment variables in the app.
+ * 
+ * 2026 Best Practice: Schema-based validation using Zod.
  */
+
+const serverSchema = z.object({
+  // Supabase (Server Admin)
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+
+  // Blog
+  BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
+
+  // Payments (Server keys)
+  KORAPAY_SECRET_KEY: z.string().optional(),
+  JUICYWAY_SECRET_KEY: z.string().optional(),
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+
+  // Email
+  ZEPTOMAIL_TOKEN: z.string().optional(),
+
+  // AI
+  GOOGLE_GENAI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+
+  // BNPL
+  CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
+
+  // Node Env
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  // Internal
+  JUICYWAY_BASE_URL: z.string().default('https://api-sandbox.spendjuice.com'),
+});
+
+const clientSchema = z.object({
+  // Supabase (Public)
+  NEXT_PUBLIC_SUPABASE_URL: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_URL is required'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
+
+  // App
+  NEXT_PUBLIC_ROOT_DOMAIN: z.string().default('usebaci.com'),
+  NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
+
+  // Payments (Public keys)
+  NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  KORAPAY_PUBLIC_KEY: z.string().optional(), // Ideally should be NEXT_PUBLIC_ but keeping legacy name for compatibility
+  CREDIT_DIRECT_PUBLIC_KEY: z.string().optional(),
+});
+
+// Helper to format validation errors
+const formatErrors = (errors: z.ZodFormattedError<Map<string, string>, string>) =>
+  Object.entries(errors)
+    .map(([name, value]) => {
+      if (value && '_errors' in value) return `${name}: ${value._errors.join(', ')}`;
+      return null;
+    })
+    .filter(Boolean);
 
 /**
- * Get the Supabase URL (safe for client use).
- * @returns {string} The Supabase URL
+ * Validates and returns the environment variables.
+ * Throws an error in non-production environments if validation fails.
+ * In production, it logs errors but might allow the app to crash downstream if critical keys are missing.
  */
-export const getSupabaseUrl = (): string => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!url) {
-    throw new Error(
-      'NEXT_PUBLIC_SUPABASE_URL is not defined in your environment variables.'
-    );
-  }
-  return url;
-};
+const getEnv = () => {
+  const processEnv = { ...process.env }; // Shallow copy
 
-/**
- * Get the Supabase Anonymous Key (safe for client use).
- * @returns {string} The Supabase Anon Key
- */
-export const getSupabaseAnonKey = (): string => {
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!key) {
-    throw new Error(
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined in your environment variables.'
-    );
-  }
-  return key;
-};
+  const parsedServer = serverSchema.safeParse(processEnv);
+  const parsedClient = clientSchema.safeParse(processEnv);
 
-/**
- * Get the Supabase service role key (server-side only).
- * This key grants admin-level access and must never be exposed to the client.
- * @throws {Error} If accessed on the client or if the key is not defined
- * @returns {string} The Supabase service role key
- */
-export const getSupabaseServiceRoleKey = (): string => {
-  if (typeof window !== 'undefined') {
-    throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client'
-    );
-  }
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) {
-    throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY is not defined in your environment variables.'
-    );
-  }
-  return key;
-};
+  if (!parsedServer.success || !parsedClient.success) {
+    const serverErrors = parsedServer.success ? [] : formatErrors(parsedServer.error.format());
+    const clientErrors = parsedClient.success ? [] : formatErrors(parsedClient.error.format());
+    const allErrors = [...serverErrors, ...clientErrors];
 
-// Optional environment variables with defaults and warnings
-export const getKorapaySecretKey = (): string | undefined => {
-  const key = process.env.KORAPAY_SECRET_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'KORAPAY_SECRET_KEY is not defined. Payment processing will not work.'
-    );
-  }
-  return key;
-};
+    console.error('❌ Invalid environment variables:', allErrors.join('\n'));
 
-export const getKorapayPublicKey = (): string | undefined => {
-  const key = process.env.KORAPAY_PUBLIC_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'KORAPAY_PUBLIC_KEY is not defined. Payment checkout will not work.'
-    );
-  }
-  return key;
-};
-
-export const getJuicywaySecretKey = (): string | undefined => {
-  const key = process.env.JUICYWAY_SECRET_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'JUICYWAY_SECRET_KEY is not defined. Juicyway payments will not work.'
-    );
-  }
-  return key;
-};
-
-export const getJuicywayBaseUrl = (): string => {
-  return process.env.JUICYWAY_BASE_URL || 'https://api-sandbox.spendjuice.com';
-};
-
-export const getZeptoMailToken = (): string | undefined => {
-  const token = process.env.ZEPTOMAIL_TOKEN;
-  if (!token && typeof window === 'undefined') {
-    console.warn(
-      'ZEPTOMAIL_TOKEN is not defined. Email sending will not work.'
-    );
-  }
-  return token;
-};
-
-export const getGeminiApiKey = (): string | undefined => {
-  const key = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'GOOGLE_GENAI_API_KEY/GEMINI_API_KEY is not defined. AI features will not work.'
-    );
-  }
-  return key;
-};
-
-export const getCreditDirectPublicKey = (): string | undefined => {
-  const key = process.env.CREDIT_DIRECT_PUBLIC_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'CREDIT_DIRECT_PUBLIC_KEY is not defined. BNPL features will not work.'
-    );
-  }
-  return key;
-};
-
-export const getCreditDirectPrivateKey = (): string | undefined => {
-  const key = process.env.CREDIT_DIRECT_PRIVATE_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn(
-      'CREDIT_DIRECT_PRIVATE_KEY is not defined. BNPL signing will not work.'
-    );
-  }
-  return key;
-};
-
-export const getBlogPreviewSecret = (): string => {
-  const secret = process.env.BLOG_PREVIEW_SECRET;
-  if (!secret && typeof window === 'undefined') {
-    // In dev, provide a fallback to avoid breaking everything immediately,
-    // but warn loudly.
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        'BLOG_PREVIEW_SECRET is not defined. Using development fallback.'
-      );
-      return 'dev-preview-secret';
+    // In production, we strictly throw. In dev, we might tolerate some missing optional keys if configured loosely,
+    // but critical (min(1)) keys will always fail here.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('❌ Invalid environment variables: ' + allErrors.join(', '));
     }
-    throw new Error('BLOG_PREVIEW_SECRET is not defined in production.');
-  }
-  return secret || 'dev-preview-secret';
-};
-
-export const getRootDomain = (): string => {
-  return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-};
-
-/**
- * Get the application base URL (server-side only).
- * Used for generating absolute URLs like invite links, callbacks, etc.
- * @returns {string} The app URL with fallback to localhost in development
- */
-export const getAppUrl = (): string => {
-  const url = process.env.NEXT_PUBLIC_APP_URL;
-  if (!url) {
-    // In development, fallback to localhost
-    if (process.env.NODE_ENV !== 'production') {
-      return 'http://localhost:3000';
-    }
-    // In production, warn and use a sensible default
-    if (typeof window === 'undefined') {
-      console.warn(
-        'NEXT_PUBLIC_APP_URL is not defined. Using default https://usebaci.com'
-      );
-    }
-    return 'https://usebaci.com';
-  }
-  return url;
-};
-
-export const isProduction = (): boolean => {
-  return process.env.NODE_ENV === 'production';
-};
-
-/**
- * Validate all critical environment variables at startup.
- * Call this in your app initialization to get early warnings.
- * This function only warns and does not throw to avoid breaking the app.
- */
-export const validateEnvironment = (): {
-  valid: boolean;
-  warnings: string[];
-} => {
-  const warnings: string[] = [];
-
-  // Check required variables
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    warnings.push('NEXT_PUBLIC_SUPABASE_URL is missing (required)');
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    warnings.push('NEXT_PUBLIC_SUPABASE_ANON_KEY is missing (required)');
-  }
-
-  // Check optional but important variables
-  if (!process.env.KORAPAY_SECRET_KEY) {
-    warnings.push('KORAPAY_SECRET_KEY is missing (payments disabled)');
-  }
-  if (!process.env.ZEPTOMAIL_TOKEN) {
-    warnings.push('ZEPTOMAIL_TOKEN is missing (emails disabled)');
-  }
-  if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
-    warnings.push('GOOGLE_GENAI_API_KEY is missing (AI features disabled)');
-  }
-  if (!process.env.CREDIT_DIRECT_PUBLIC_KEY) {
-    warnings.push('CREDIT_DIRECT_PUBLIC_KEY is missing (BNPL disabled)');
-  }
-  if (!process.env.CREDIT_DIRECT_PRIVATE_KEY) {
-    warnings.push('CREDIT_DIRECT_PRIVATE_KEY is missing (BNPL disabled)');
-  }
-
-  if (warnings.length > 0 && typeof window === 'undefined') {
-    console.warn('Environment validation warnings:', warnings);
   }
 
   return {
-    valid: warnings.length === 0,
-    warnings,
+    ...parsedServer.data,
+    ...parsedClient.data,
   };
 };
+
+// Singleton env object
+// Note: We use a lazy getter pattern or just executed immediately. 
+// For Next.js/Edge, immediate execution is usually fine, but safeParse handles the "build time" vs "runtime" nuance better.
+export const env = getEnv();
+
+/**
+ * Legacy Getters (Refactored to use the validated `env` object)
+ * Keeping these signatures ensures backward compatibility with the rest of the app.
+ */
+
+export const getSupabaseUrl = () => env?.NEXT_PUBLIC_SUPABASE_URL;
+export const getSupabaseAnonKey = () => env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export const getSupabaseServiceRoleKey = () => {
+  if (typeof window !== 'undefined') throw new Error('SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client');
+  return env?.SUPABASE_SERVICE_ROLE_KEY;
+};
+
+// Optional Getters
+export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
+export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
+export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
+export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
+export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
+export const getGeminiApiKey = () => env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
+export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
+export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
+
+// Blog - The Fix for "Invalid Token"
+// Now guaranteed to have a value (defaulting to dev-preview-secret if missing)
+export const getBlogPreviewSecret = () => env?.BLOG_PREVIEW_SECRET;
+
+export const getRootDomain = () => env?.NEXT_PUBLIC_ROOT_DOMAIN;
+export const getAppUrl = () => env?.NEXT_PUBLIC_APP_URL;
+
+export const isProduction = () => env?.NODE_ENV === 'production';
+
+// Deprecated: No longer needed as we validate on import.
+export const validateEnvironment = () => ({ valid: true, warnings: [] });

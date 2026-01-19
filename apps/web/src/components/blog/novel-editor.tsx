@@ -34,6 +34,7 @@ import { ProductEmbedPicker } from './product-embed';
 interface NovelEditorProps {
   initialValue?: JSONContent | string;
   onChange: (value: JSONContent) => void;
+  onImageUpload?: (file: File) => Promise<string>;
   onProductsChange?: (products: Product[]) => void;
   embeddedProducts?: Product[];
 }
@@ -51,6 +52,7 @@ interface Product {
 export default function NovelEditor({
   initialValue,
   onChange,
+  onImageUpload,
   onProductsChange,
   embeddedProducts = [],
 }: NovelEditorProps) {
@@ -73,6 +75,14 @@ export default function NovelEditor({
     onChange(json);
   }, 500);
 
+  // Use passed upload handler or fallback to default
+  const handleUpload = async (file: File) => {
+    if (onImageUpload) {
+      return onImageUpload(file);
+    }
+    return uploadFn(file);
+  };
+
   return (
     <div className="relative w-full max-w-screen-lg">
       <EditorRoot>
@@ -87,9 +97,11 @@ export default function NovelEditor({
               keydown: (_view, event) => handleCommandNavigation(event),
             },
             handlePaste: (view, event) =>
-              handleImagePaste(view, event, uploadFn),
+              // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
+              handleImagePaste(view, event, handleUpload as any),
             handleDrop: (view, event, _slice, moved) =>
-              handleImageDrop(view, event, moved, uploadFn),
+              // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
+              handleImageDrop(view, event, moved, handleUpload as any),
             attributes: {
               class:
                 'prose prose-lg dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full min-h-[500px] p-6',
