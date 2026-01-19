@@ -1221,7 +1221,11 @@ export const getCachedFeatureSettings = (merchantId: string) => {
  * Cached blog post with related posts
  */
 export const getCachedBlogPost = unstable_cache(
-  async (identifier: string, postSlug: string) => {
+  async (
+    identifier: string,
+    postSlug: string,
+    includeDrafts: boolean = false
+  ) => {
     // 1. Resolve Merchant
     // We can reuse the existing cached merchant helpers, but since we are inside a cached function,
     // we want to be careful about nesting too many unstable_caches if it causes overhead.
@@ -1245,13 +1249,17 @@ export const getCachedBlogPost = unstable_cache(
     const supabase = getPublicSupabaseClient();
 
     // 2. Fetch Post
-    const { data: post, error: postError } = await supabase
+    let query = supabase
       .from('blog_posts')
       .select('*')
       .eq('merchant_id', merchant.id)
-      .eq('slug', postSlug.toLowerCase())
-      .eq('status', 'published')
-      .single();
+      .eq('slug', postSlug.toLowerCase());
+
+    if (!includeDrafts) {
+      query = query.eq('status', 'published');
+    }
+
+    const { data: post, error: postError } = await query.single();
 
     if (postError || !post) {
       if (postError && postError.code !== 'PGRST116') {

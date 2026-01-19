@@ -1,7 +1,14 @@
-import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Tag,
+  User,
+} from 'lucide-react';
 import { marked } from 'marked';
 import type { Metadata, Route } from 'next';
-import { headers } from 'next/headers';
+import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -26,7 +33,8 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
-  const data = await getCachedBlogPost(slug, postSlug);
+  const isDraftMode = (await draftMode()).isEnabled;
+  const data = await getCachedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
     return { title: 'Post Not Found' };
@@ -88,7 +96,8 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug, postSlug } = await params;
-  const data = await getCachedBlogPost(slug, postSlug);
+  const isDraftMode = (await draftMode()).isEnabled;
+  const data = await getCachedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
     notFound();
@@ -153,6 +162,22 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   return (
     <>
+      {isDraftMode && (
+        <div className="bg-amber-600 text-white py-2 px-4 flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Preview Mode: Showing unpublished draft
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-amber-700 h-7 text-xs ml-4 border border-white/20"
+            asChild
+          >
+            <Link href="/api/blog/exit-preview">Exit Preview</Link>
+          </Button>
+        </div>
+      )}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema

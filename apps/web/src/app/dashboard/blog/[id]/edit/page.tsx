@@ -45,6 +45,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+import { getPreviewUrl } from '../../actions';
 
 interface Product {
   id: string;
@@ -334,7 +335,31 @@ export default function EditBlogPostPage() {
     }
   };
 
-  // Calculate SEO metrics
+  const handlePreview = async () => {
+    if (!merchant?.slug) {
+      toast({
+        title: 'Error',
+        description: 'Merchant slug not found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Always save as draft first to ensure the latest content is available in preview
+    await savePost('draft');
+
+    try {
+      const previewUrl = await getPreviewUrl(merchant.slug, formData.slug);
+      window.open(previewUrl, '_blank');
+    } catch (error) {
+      console.error('Error getting preview URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate preview link.',
+        variant: 'destructive',
+      });
+    }
+  };
   const titleLength = formData.seo_title?.length || formData.title.length;
   const descriptionLength =
     formData.seo_description?.length || formData.excerpt.length;
@@ -412,6 +437,14 @@ export default function EditBlogPostPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handlePreview} disabled={isSaving}>
+            {isSaving ? (
+              <BagLoader size={16} />
+            ) : (
+              <Eye className="w-4 h-4 mr-2" />
+            )}
+            Preview
+          </Button>
           {formData.status === 'published' &&
             merchant?.slug &&
             isSafeSlug(merchant.slug) && (
@@ -421,9 +454,8 @@ export default function EditBlogPostPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Eye className="w-4 h-4 mr-2" />
+                  <ExternalLink className="w-4 h-4 mr-2" />
                   View Live
-                  <ExternalLink className="w-3 h-3 ml-1" />
                 </a>
               </Button>
             )}

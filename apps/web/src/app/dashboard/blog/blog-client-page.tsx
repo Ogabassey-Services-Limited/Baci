@@ -8,6 +8,7 @@ import {
   Clock,
   Edit,
   ExternalLink,
+  Eye,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -60,6 +61,7 @@ import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+import { getPreviewUrl } from './actions';
 
 export interface BlogPost {
   id: string;
@@ -162,6 +164,29 @@ export function BlogClientPage({
       setIsLoading(false);
     }
   }, [merchant?.id, statusFilter, debouncedSearch, page, toast]);
+
+  const handlePreview = async (post: BlogPost) => {
+    if (!merchant?.slug) {
+      toast({
+        title: 'Error',
+        description: 'Merchant slug not found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const previewUrl = await getPreviewUrl(merchant.slug, post.slug);
+      window.open(previewUrl, '_blank');
+    } catch (error) {
+      console.error('Error getting preview URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate preview link.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     fetchPosts();
@@ -512,6 +537,10 @@ export function BlogClientPage({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePreview(post)}>
+                          <Eye className="w-4 h-4 mr-2" />
+                          Preview
+                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                           <Link
                             href={asRoute(`/dashboard/blog/${post.id}/edit`)}

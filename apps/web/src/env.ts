@@ -129,6 +129,22 @@ export const getCreditDirectPrivateKey = (): string | undefined => {
   return key;
 };
 
+export const getBlogPreviewSecret = (): string => {
+  const secret = process.env.BLOG_PREVIEW_SECRET;
+  if (!secret && typeof window === 'undefined') {
+    // In dev, provide a fallback to avoid breaking everything immediately,
+    // but warn loudly.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        'BLOG_PREVIEW_SECRET is not defined. Using development fallback.'
+      );
+      return 'dev-preview-secret';
+    }
+    throw new Error('BLOG_PREVIEW_SECRET is not defined in production.');
+  }
+  return secret || 'dev-preview-secret';
+};
+
 export const getRootDomain = (): string => {
   return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 };

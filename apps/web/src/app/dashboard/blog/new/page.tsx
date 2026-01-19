@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Loader2, Save, Send, X } from 'lucide-react';
+import { ArrowLeft, Eye, Loader2, Save, Send, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -33,6 +33,7 @@ import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
+import { getPreviewUrl } from '../actions';
 
 interface Product {
   id: string;
@@ -174,7 +175,10 @@ export default function NewBlogPostPage() {
     return null;
   };
 
-  const savePost = async (status: 'draft' | 'published') => {
+  const savePost = async (
+    status: 'draft' | 'published',
+    shouldRedirect = true
+  ) => {
     const error = validateForm();
     if (error) {
       toast({
@@ -182,7 +186,7 @@ export default function NewBlogPostPage() {
         description: error,
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     setIsSaving(true);
@@ -221,6 +225,8 @@ export default function NewBlogPostPage() {
         throw new Error(data.error || 'Failed to create post');
       }
 
+      const savedPost = await response.json();
+
       toast({
         title: status === 'published' ? 'Post Published!' : 'Draft Saved',
         description:
@@ -232,7 +238,11 @@ export default function NewBlogPostPage() {
       // Clear auto-saved draft on successful server save
       clearSavedData();
 
-      router.push(asRoute('/dashboard/blog'));
+      if (shouldRedirect) {
+        router.push(asRoute('/dashboard/blog'));
+      }
+
+      return savedPost;
     } catch (error) {
       console.error('Error saving post:', error);
       toast({
@@ -241,8 +251,39 @@ export default function NewBlogPostPage() {
           error instanceof Error ? error.message : 'Failed to save blog post.',
         variant: 'destructive',
       });
+      return null;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!merchant?.slug) {
+      toast({
+        title: 'Error',
+        description: 'Merchant slug not found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Save as draft first
+    const savedPost = await savePost('draft', false);
+    if (!savedPost) return;
+
+    try {
+      const previewUrl = await getPreviewUrl(merchant.slug, savedPost.slug);
+      window.open(previewUrl, '_blank');
+
+      // Redirect to edit page
+      router.push(asRoute(`/dashboard/blog/${savedPost.id}/edit`));
+    } catch (error) {
+      console.error('Error getting preview URL:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate preview link.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -301,6 +342,14 @@ export default function NewBlogPostPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handlePreview} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Eye className="w-4 h-4 mr-2" />
+            )}
+            Preview
+          </Button>
           <Button
             variant="outline"
             onClick={() => savePost('draft')}
