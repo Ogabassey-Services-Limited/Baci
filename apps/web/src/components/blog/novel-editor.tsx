@@ -76,11 +76,12 @@ export default function NovelEditor({
   }, 500);
 
   // Use passed upload handler or fallback to default
-  const handleUpload = async (file: File) => {
+  // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
+  const handleUpload = async (file: File, view: any, pos: number) => {
     if (onImageUpload) {
       return onImageUpload(file);
     }
-    return uploadFn(file);
+    return uploadFn(file, view, pos);
   };
 
   return (

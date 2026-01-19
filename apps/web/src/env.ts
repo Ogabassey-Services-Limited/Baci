@@ -102,11 +102,20 @@ export const env = getEnv();
  * Keeping these signatures ensures backward compatibility with the rest of the app.
  */
 
-export const getSupabaseUrl = () => env?.NEXT_PUBLIC_SUPABASE_URL;
-export const getSupabaseAnonKey = () => env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const getSupabaseServiceRoleKey = () => {
+export const getSupabaseUrl = (): string => {
+  if (!env?.NEXT_PUBLIC_SUPABASE_URL) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
+  return env.NEXT_PUBLIC_SUPABASE_URL;
+};
+
+export const getSupabaseAnonKey = (): string => {
+  if (!env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined');
+  return env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+};
+
+export const getSupabaseServiceRoleKey = (): string => {
   if (typeof window !== 'undefined') throw new Error('SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client');
-  return env?.SUPABASE_SERVICE_ROLE_KEY;
+  if (!env?.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
+  return env.SUPABASE_SERVICE_ROLE_KEY;
 };
 
 // Optional Getters
@@ -121,10 +130,12 @@ export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
 
 // Blog - The Fix for "Invalid Token"
 // Now guaranteed to have a value (defaulting to dev-preview-secret if missing)
-export const getBlogPreviewSecret = () => env?.BLOG_PREVIEW_SECRET;
+export const getBlogPreviewSecret = (): string => {
+  return env?.BLOG_PREVIEW_SECRET || 'dev-preview-secret';
+};
 
 export const getRootDomain = () => env?.NEXT_PUBLIC_ROOT_DOMAIN;
-export const getAppUrl = () => env?.NEXT_PUBLIC_APP_URL;
+export const getAppUrl = () => env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 
