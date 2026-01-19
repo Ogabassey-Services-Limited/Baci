@@ -321,6 +321,13 @@ export async function GET() {
 
     return NextResponse.json(readiness);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('Store readiness GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
