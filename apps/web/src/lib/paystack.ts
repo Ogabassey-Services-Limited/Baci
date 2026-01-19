@@ -688,6 +688,129 @@ export async function generatePaymentAccount(data: {
 }
 
 // =============================================================================
+// Transaction Splits API
+// =============================================================================
+
+const SplitResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  type: z.string(),
+  currency: z.string(),
+  split_code: z.string(),
+  active: z.boolean(),
+  bearer_type: z.string(),
+  bearer_subaccount: z.string().nullable(),
+  subaccounts: z.array(
+    z.object({
+      subaccount: SubaccountResponseSchema,
+      share: z.number(),
+    })
+  ),
+});
+
+export type SplitResponse = z.infer<typeof SplitResponseSchema>;
+
+export interface SplitPayload {
+  name: string;
+  type: 'percentage' | 'flat';
+  currency: string;
+  subaccounts: Array<{ subaccount: string; share: number }>;
+  bearer_type?: 'subaccount' | 'account' | 'all' | 'none';
+  bearer_subaccount?: string;
+}
+
+/**
+ * Create a transaction split group
+ */
+export async function createTransactionSplit(
+  payload: SplitPayload
+): Promise<PaystackResult<SplitResponse>> {
+  const result = await paystackRequest<SplitResponse>('/split', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+  if (!result.success) return result;
+
+  const parsed = SplitResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Split response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
+}
+
+// =============================================================================
+// Transfers API (Payouts)
+// =============================================================================
+
+const TransferRecipientSchema = z.object({
+  recipient_code: z.string(),
+  type: z.string(),
+  name: z.string(),
+  details: z.object({
+    account_number: z.string(),
+    bank_code: z.string(),
+    bank_name: z.string(),
+  }),
+});
+
+const TransferResponseSchema = z.object({
+  amount: z.number(),
+  currency: z.string(),
+  transfer_code: z.string(),
+  status: z.string(),
+  recipient: z.number(),
+  id: z.number(),
+});
+
+export type TransferRecipient = z.infer<typeof TransferRecipientSchema>;
+export type TransferResponse = z.infer<typeof TransferResponseSchema>;
+
+/**
+ * Create a transfer recipient (merchant) for payouts
+ */
+export async function createTransferRecipient(data: {
+  type: 'nuban';
+  name: string;
+  account_number: string;
+  bank_code: string;
+  currency?: string;
+}): Promise<PaystackResult<TransferRecipient>> {
+  const result = await paystackRequest<TransferRecipient>(
+    '/transferrecipient',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
+
+  return result;
+}
+
+/**
+ * Initiate a transfer payout to a merchant
+ */
+export async function initiateTransfer(data: {
+  source: 'balance';
+  amount: number; // in kobo
+  recipient: string; // recipient code
+  reason?: string;
+  currency?: string;
+  reference?: string;
+}): Promise<PaystackResult<TransferResponse>> {
+  const result = await paystackRequest<TransferResponse>('/transfer', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+  return result;
+}
+
+// =============================================================================
 // Utility Functions
 // =============================================================================
 

@@ -25,17 +25,21 @@ const bankSchema = z.object({
   accountNumber: z.string().length(10, 'Account number must be 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
+  payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
+  autoPayoutEnabled: z.boolean().default(false),
 });
 
 type BankFormValues = z.infer<typeof bankSchema>;
 
 interface MerchantBankFormProps {
   initialData?: {
-    bankCode?: string;
-    accountNumber?: string;
-    businessName?: string;
     accountName?: string;
     bankName?: string;
+    accountNumber?: string;
+    bankCode?: string;
+    businessName?: string;
+    payoutMode?: 'manual' | 'instant' | 'weekly';
+    autoPayoutEnabled?: boolean;
   };
   onSuccess?: () => void;
 }
@@ -66,6 +70,8 @@ export function MerchantBankForm({
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
       businessName: initialData?.businessName || '',
+      payoutMode: initialData?.payoutMode || 'manual',
+      autoPayoutEnabled: initialData?.autoPayoutEnabled || false,
     },
   });
 
@@ -184,6 +190,8 @@ export function MerchantBankForm({
         accountNumber: data.accountNumber,
         bankCode: data.bankCode,
         businessName: data.businessName,
+        payoutMode: data.payoutMode,
+        autoPayoutEnabled: data.autoPayoutEnabled,
       });
 
       if (result.success) {
@@ -431,24 +439,95 @@ export function MerchantBankForm({
           </div>
         )}
 
-        {/* 3. Business Name - Auto-filled, shown after verification */}
+        {/* 4. Payout Automation Settings */}
         {verifiedName && (
-          <FormField
-            control={form.control}
-            name="businessName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Business Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="My Business Name" {...field} />
-                </FormControl>
-                <FormDescription>
-                  This name appears on customer bank statements
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+              Payout Settings
+              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">
+                Auto-pilot
+              </span>
+            </h3>
+
+            <FormField
+              control={form.control}
+              name="autoPayoutEnabled"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-sm font-medium">
+                      Automatic Settlements
+                    </FormLabel>
+                    <FormDescription className="text-xs">
+                      Baci will automatically transfer your earnings to this
+                      bank account.
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      className="h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                      checked={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {form.watch('autoPayoutEnabled') && (
+              <FormField
+                control={form.control}
+                name="payoutMode"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel className="text-sm font-medium">
+                      Settlement Frequency
+                    </FormLabel>
+                    <FormControl>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label
+                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'instant' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                          <input
+                            type="radio"
+                            className="sr-only"
+                            {...field}
+                            value="instant"
+                            checked={field.value === 'instant'}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold">Instant Payout</p>
+                            <p className="text-[10px] text-gray-500">
+                              2% fee, disbursed same-day
+                            </p>
+                          </div>
+                        </label>
+                        <label
+                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'weekly' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
+                        >
+                          <input
+                            type="radio"
+                            className="sr-only"
+                            {...field}
+                            value="weekly"
+                            checked={field.value === 'weekly'}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold">Weekly Batch</p>
+                            <p className="text-[10px] text-gray-500">
+                              Free, disbursed every Monday
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
-          />
+          </div>
         )}
 
         <Button

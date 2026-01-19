@@ -15,7 +15,13 @@ const PLATFORM_COMMISSION_PERCENTAGE = 0;
 
 export async function POST(request: NextRequest) {
   try {
-    const { bankCode, accountNumber, businessName } = await request.json();
+    const {
+      bankCode,
+      accountNumber,
+      businessName,
+      payoutMode,
+      autoPayoutEnabled,
+    } = await request.json();
     const authHeader = request.headers.get('Authorization');
     // biome-ignore lint/suspicious/noExplicitAny: Supabase client type complex
     let supabase: any;
@@ -114,6 +120,8 @@ export async function POST(request: NextRequest) {
         bank_account_number: accountNumber,
         bank_code: bankCode,
         bank_name: 'Unknown Bank', // resolve endpoint doesn't return bank name
+        payout_mode: payoutMode || 'manual',
+        auto_payout_enabled: autoPayoutEnabled || false,
       })
       .eq('id', merchant.id);
 

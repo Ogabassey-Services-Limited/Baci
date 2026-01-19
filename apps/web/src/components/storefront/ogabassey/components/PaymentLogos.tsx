@@ -44,6 +44,13 @@ const PAYMENT_LOGOS = {
         height: 20,
         bgColor: 'bg-[#6366F1]',
     },
+    bank_transfer: {
+        src: 'https://website-v3-assets.s3.amazonaws.com/assets/img/hero/Paystack-mark-white-twitter.png',
+        alt: 'Bank Transfer - Automated via Paystack',
+        width: 24,
+        height: 24,
+        bgColor: 'bg-[#011B33]',
+    },
 } as const;
 
 export type PaymentPartner = keyof typeof PAYMENT_LOGOS;
@@ -233,6 +240,33 @@ export function JuicywayLogo({ className = '' }: { className?: string }) {
             >
                 JW
             </text>
+        </svg>
+    );
+}
+
+export function BankTransferLogo({ className = '' }: { className?: string }) {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            className={className}
+            role="img"
+            aria-label="Secure bank transfer logo"
+        >
+            <title>Bank Transfer</title>
+            <rect width="24" height="24" rx="4" fill="#011B33" />
+            <path
+                d="M12 6L6 11V18H18V11L12 6Z"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M4 18H20"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+            />
         </svg>
     );
 }

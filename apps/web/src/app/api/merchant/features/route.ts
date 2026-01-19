@@ -175,7 +175,11 @@ export async function GET() {
       );
     }
 
-    if (!hasPermission(access, 'settings', 'view')) {
+    if (
+      !hasPermission(access, 'settings', 'view') &&
+      !hasPermission(access, 'marketing', 'view') &&
+      !hasPermission(access, 'dashboard', 'view')
+    ) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 

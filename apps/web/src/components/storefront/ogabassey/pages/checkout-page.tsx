@@ -24,7 +24,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
-import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, PaymentTrustBadges } from '../components/PaymentLogos';
+import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo, PaymentTrustBadges } from '../components/PaymentLogos';
 import { MobileOrderSummary, MobileCheckoutActions } from '../components/MobileCheckoutComponents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
@@ -192,6 +192,18 @@ export const CheckoutPage: React.FC = () => {
     paymentId: string; // Payment ID (from capture) - used for verification via GET /payments/{id}
     qrcode?: string;
   } | null>(null);
+
+  // Dedicated Virtual Account (DVA) state
+  const [dvaData, setDvaData] = useState<{
+    account_number: string;
+    account_name: string;
+    bank_name: string;
+    bank_code: string;
+    amount: number;
+    reference: string;
+  } | null>(null);
+  const [isInitializingDva, setIsInitializingDva] = useState(false);
+  const [dvaCountdown, setDvaCountdown] = useState(3600); // 1 hour in seconds
 
   // Crypto payment verification state
   const [isVerifyingCrypto, setIsVerifyingCrypto] = useState(false);
@@ -723,7 +735,7 @@ export const CheckoutPage: React.FC = () => {
 
   // Payment State
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | 'pod' | ''>('');
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | 'pod' | 'bank_transfer' | ''>('');
 
   // Wallet state (2025: auto-apply when balance > 0)
   const [walletBalance, setWalletBalance] = useState(0);
@@ -1170,6 +1182,11 @@ export const CheckoutPage: React.FC = () => {
         return;
       }
 
+      if (paymentMethod === 'bank_transfer') {
+        await handleBankTransfer(order, paymentAmount);
+        return;
+      }
+
       if (paymentMethod === 'paystack' || paymentMethod === 'korapay' || paymentMethod === 'juicyway') {
         // For Juicyway crypto payments, show the selector first
         if (paymentMethod === 'juicyway') {
@@ -1366,6 +1383,56 @@ export const CheckoutPage: React.FC = () => {
       setCurrentStep('payment');
       // Ensure steps stay completed so user doesn't have to re-enter info
       setCompletedSteps({ contact: true, delivery: true });
+    }
+  };
+
+  // Dedicated Virtual Account (DVA) Handler
+  const handleBankTransfer = async (order: any, paymentAmount: number) => {
+    if (!merchant) return;
+
+    setIsInitializingDva(true);
+    try {
+      const response = await fetch('/api/payments/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: merchant.id,
+          order_id: order.id,
+          amount: paymentAmount,
+          currency: 'NGN',
+          customer_email: customerEmail,
+          customer_name: `${firstName} ${lastName}`.trim(),
+          customer_phone: customerPhone,
+          gateway: 'paystack',
+          payment_type: 'dva', // Dedicated Virtual Account
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initialize bank transfer');
+      }
+
+      const result = await response.json();
+      if (result.success && result.dva) {
+        setDvaData({
+          ...result.dva,
+          amount: paymentAmount,
+          reference: result.reference,
+        });
+        setDvaCountdown(3600);
+      } else {
+        throw new Error('DVA not returned by the gateway');
+      }
+    } catch (error) {
+      console.error('DVA initialization error:', error);
+      toast({
+        title: 'Bank Transfer Failed',
+        description: error instanceof Error ? error.message : 'Failed to initialize bank transfer',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+      setIsInitializingDva(false);
     }
   };
 
@@ -1851,6 +1918,125 @@ export const CheckoutPage: React.FC = () => {
                   Close and check order status later
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Virtual Account (DVA) Modal */}
+      {dvaData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-6 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <Building2 size={20} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-white leading-none">Bank Transfer</h2>
+                  <p className="text-white/70 text-xs mt-1">Automatic verification</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDvaData(null)}
+                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Amount to Pay */}
+              <div className="text-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Send Exactly</p>
+                <p className="text-3xl font-black text-gray-900">
+                  ₦{dvaData.amount.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Bank Details */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+                    Account Number
+                  </label>
+                  <div className="relative group">
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-xl py-4 px-4 font-mono text-xl font-bold text-gray-900 tracking-wider">
+                      {dvaData.account_number}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(dvaData.account_number)}
+                      className={`absolute right-2 top-2 bottom-2 px-4 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${copiedText === dvaData.account_number
+                        ? 'border-green-300 text-green-600'
+                        : 'border-gray-200 hover:border-[var(--store-primary)]/40 hover:text-[var(--store-primary)]'
+                        }`}
+                    >
+                      {copiedText === dvaData.account_number ? <Check size={18} /> : <Copy size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Bank Name</p>
+                    <p className="font-bold text-gray-900">{dvaData.bank_name}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Account Name</p>
+                    <p className="font-bold text-gray-900 truncate">{dvaData.account_name}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Instruction & Timer */}
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-4">
+                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                  <Clock size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-blue-900">Transfer expires in 60:00</h4>
+                  <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                    Make your transfer within the next hour. Your order will be confirmed automatically once the payment is detected.
+                  </p>
+                </div>
+              </div>
+
+              {/* Waiting Status */}
+              <div className="flex flex-col items-center justify-center py-4 gap-3">
+                <div className="flex items-center gap-3 text-[var(--store-primary)]">
+                  <div className="flex gap-1">
+                    <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce" />
+                  </div>
+                  <span className="text-sm font-bold">Waiting for transfer...</span>
+                </div>
+                <p className="text-[10px] text-gray-400 text-center">
+                  Reference: {dvaData.reference}
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="w-full py-4 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors shadow-lg shadow-[var(--store-primary)]/20"
+                >
+                  Confirm Transfer Sent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDvaData(null)}
+                  className="w-full py-2.5 text-gray-500 text-sm font-medium hover:text-gray-700 transition-colors"
+                >
+                  Close and check later
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2531,6 +2717,36 @@ export const CheckoutPage: React.FC = () => {
                                 <span className="text-xs text-gray-500 block mt-0.5">Card, Bank Transfer, USSD</span>
                               </div>
                               <PaystackLogo className="w-6 h-6" />
+                            </label>
+                          )}
+
+                          {/* Bank Transfer (DVA) - Premium Option */}
+                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="bank_transfer"
+                                checked={paymentMethod === 'bank_transfer'}
+                                onChange={() => setPaymentMethod('bank_transfer')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'bank_transfer' ? 'border-[var(--store-primary)]' : 'border-gray-400'}`}>
+                                {paymentMethod === 'bank_transfer' && <div className="w-2.5 h-2.5 rounded-full bg-[var(--store-primary)]" />}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Bank Transfer</span>
+                                  <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Automatic</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Pay to a unique virtual account</span>
+                              </div>
+                              <BankTransferLogo className="w-6 h-6" />
                             </label>
                           )}
 
