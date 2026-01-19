@@ -15,5 +15,5 @@ export async function GET(request: Request) {
   draft.disable();
 
   // Redirect back to either the specified callback or the blog home
-  redirect(callbackUrl);
+  redirect(callbackUrl as any);
 }

@@ -28,5 +28,5 @@ export async function GET(request: Request) {
 
   // Redirect to the blog post page
   // The page will detect draft mode and include unpublished content
-  redirect(`/${merchantSlug}/blog/${slug}`);
+  redirect(`/${merchantSlug}/blog/${slug}` as any);
 }
