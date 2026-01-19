@@ -146,6 +146,13 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('[Jumia Callback] Error:', error);
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
     const redirectBase =

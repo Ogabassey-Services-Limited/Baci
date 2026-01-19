@@ -22,7 +22,11 @@ export async function GET(req: NextRequest) {
     const brands = await jumia.getBrands();
     return NextResponse.json(brands);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('prerendering')) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
       throw error;
     }
     console.error('Jumia Brands Error:', error);

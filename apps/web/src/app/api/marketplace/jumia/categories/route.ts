@@ -3,7 +3,7 @@ import { JumiaClient } from '@/lib/jumia/client';
 
 export async function GET(req: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
+    const { searchParams } = new URL(req.url);
     const merchantId = searchParams.get('merchantId');
 
     if (!merchantId) {
@@ -22,6 +22,13 @@ export async function GET(req: NextRequest) {
     const categories = await jumia.getCategoryTree();
     return NextResponse.json(categories);
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('Jumia Categories Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch categories' },

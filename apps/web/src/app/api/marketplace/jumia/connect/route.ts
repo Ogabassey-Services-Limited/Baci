@@ -146,6 +146,13 @@ export async function POST(request: NextRequest) {
       return response;
     }
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('[Jumia Connect] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -261,6 +268,13 @@ export async function GET(request: NextRequest) {
       integrations: integrations || [],
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('[Jumia Connect] Status check error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -315,6 +329,13 @@ export async function DELETE(request: NextRequest) {
       message: 'Jumia account disconnected',
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('prerendering') ||
+        error.message.includes('dynamic server usage'))
+    ) {
+      throw error;
+    }
     console.error('[Jumia Disconnect] Error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
