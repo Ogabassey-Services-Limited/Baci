@@ -3,7 +3,8 @@ import { JumiaClient } from '@/lib/jumia/client';
 
 export async function GET(req: NextRequest) {
   try {
-    const searchParams = req.nextUrl.searchParams;
+    // Next.js 16/15 pattern: handle searchParams safely during prerender
+    const { searchParams } = new URL(req.url);
     const merchantId = searchParams.get('merchantId');
 
     if (!merchantId) {
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest) {
     const brands = await jumia.getBrands();
     return NextResponse.json(brands);
   } catch (error) {
+    if (error instanceof Error && error.message.includes('prerendering')) {
+      throw error;
+    }
     console.error('Jumia Brands Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch brands' },
