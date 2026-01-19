@@ -36,6 +36,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { FileUploader } from '@/components/ui/file-uploader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -216,7 +217,57 @@ export default function EditBlogPostPage() {
     }
   }, [isLoading, hasSavedData]);
 
-  // Image upload handler
+  const handleChange = useCallback(
+    (field: keyof PostFormData, value: string) => {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    },
+    []
+  );
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Handle featured image selection and upload
+  const handleFeaturedImageUpload = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+
+      setIsUploading(true);
+      const file = files[0];
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      try {
+        const response = await fetch('/api/merchant/blog/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to upload image');
+        }
+
+        const data = await response.json();
+        handleChange('featured_image_url', data.url);
+        toast({
+          title: 'Success',
+          description: 'Featured image uploaded successfully.',
+        });
+      } catch (error: any) {
+        console.error('Error uploading image:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to upload featured image.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [handleChange, toast]
+  );
+
+  // Image upload handler for the editor
   const handleImageUpload = useCallback(async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
@@ -234,10 +285,6 @@ export default function EditBlogPostPage() {
     const data = await response.json();
     return data.url;
   }, []);
-
-  const handleChange = (field: keyof PostFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
 
   const validateForm = (): string | null => {
     if (!formData.title.trim()) return 'Title is required';
@@ -618,42 +665,44 @@ export default function EditBlogPostPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="featured_image_url">Image URL</Label>
-                <Input
-                  id="featured_image_url"
-                  placeholder="https://..."
-                  value={formData.featured_image_url}
-                  onChange={(e) =>
-                    handleChange('featured_image_url', e.target.value)
-                  }
-                />
-              </div>
-
-              {formData.featured_image_url && (
-                <div className="relative inline-block">
-                  <Image
-                    src={formData.featured_image_url}
-                    alt="Preview"
-                    width={448}
-                    height={252}
-                    className="max-w-md rounded-lg border object-cover"
-                    unoptimized
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
+              <div className="space-y-4">
+                <Label>Featured Image</Label>
+                {formData.featured_image_url ? (
+                  <div className="relative aspect-video max-w-md rounded-lg overflow-hidden border bg-muted">
+                    <Image
+                      src={formData.featured_image_url}
+                      alt="Featured image preview"
+                      fill
+                      className="object-cover"
+                      unoptimized
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleChange('featured_image_url', '')}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remove Image
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <FileUploader
+                    onFilesSelected={handleFeaturedImageUpload}
+                    maxFiles={1}
+                    maxSize={5 * 1024 * 1024}
+                    accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
+                    className="max-w-md"
                   />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2"
-                    onClick={() => handleChange('featured_image_url', '')}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
+                )}
+                {isUploading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <BagLoader size={16} />
+                    Uploading image...
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="featured_image_alt">Alt Text</Label>
