@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { createClient } from '@/lib/supabase/client';
@@ -217,9 +218,8 @@ export function CheckoutIdentityModal({
                       Forgot?
                     </button>
                   </div>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
