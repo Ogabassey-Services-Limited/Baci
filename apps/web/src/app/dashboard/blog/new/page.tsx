@@ -98,6 +98,7 @@ export default function NewBlogPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [hasAutoRecovered, setHasAutoRecovered] = useState(false); // Track if we've already auto-recovered
 
   // Auto-save to localStorage (protects against Chrome Memory Saver)
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
@@ -105,12 +106,58 @@ export default function NewBlogPostPage() {
     data: formData,
   });
 
-  // Check for recovered draft on mount
+  // Silent auto-recovery on mount (no blocking dialog)
   useEffect(() => {
-    if (hasSavedData()) {
-      setShowRecoveryDialog(true);
+    if (!hasAutoRecovered && hasSavedData()) {
+      const saved = getSavedData();
+      if (saved) {
+        setFormData(saved.data);
+        setHasAutoRecovered(true);
+        toast({
+          title: 'Draft Recovered',
+          description: 'Your previous work has been restored.',
+          action: (
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  title: '',
+                  slug: '',
+                  content: '',
+                  excerpt: '',
+                  featured_image_url: '',
+                  featured_image_alt: '',
+                  category: '',
+                  tags: '',
+                  author_name: merchant?.business_name || '',
+                  author_title: '',
+                  author_bio: '',
+                  seo_title: '',
+                  seo_description: '',
+                });
+                clearSavedData();
+                toast({
+                  title: 'Recovery Undone',
+                  description: 'Started with a fresh post.',
+                });
+              }}
+              className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+            >
+              Undo
+            </button>
+          ),
+          duration: 8000,
+        });
+      }
     }
-  }, [hasSavedData]);
+  }, [
+    hasAutoRecovered,
+    hasSavedData,
+    getSavedData,
+    toast,
+    merchant?.business_name,
+    clearSavedData,
+  ]); // Only run once on mount
 
   const recoverDraft = () => {
     const saved = getSavedData();
@@ -124,10 +171,10 @@ export default function NewBlogPostPage() {
     setShowRecoveryDialog(false);
   };
 
-  const discardRecoveredDraft = () => {
+  const discardRecoveredDraft = useCallback(() => {
     clearSavedData();
     setShowRecoveryDialog(false);
-  };
+  }, [clearSavedData]);
 
   // Auto-generate slug from title
   const handleTitleChange = (title: string) => {
@@ -179,11 +226,12 @@ export default function NewBlogPostPage() {
           title: 'Success',
           description: 'Featured image uploaded successfully.',
         });
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error uploading image:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to upload featured image.',
+          description:
+            error instanceof Error ? error.message : 'Failed to upload image',
           variant: 'destructive',
         });
       } finally {

@@ -24,14 +24,19 @@ export async function updateSession(
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+      setAll(
+        cookiesToSet: { name: string; value: string; options: CookieOptions }[]
+      ) {
         // Set cookies on the request for downstream middleware/handlers
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
-        // Create a new response with updated request
+        // Create a new response with updated request AND PRESERVE HEADERS
+        // We use request.headers to ensure headers like x-nonce are passed along
         supabaseResponse = NextResponse.next({
-          request,
+          request: {
+            headers: request.headers,
+          },
         });
         // Set cookies on the response for the browser
         for (const { name, value, options } of cookiesToSet) {

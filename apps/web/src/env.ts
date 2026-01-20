@@ -4,13 +4,15 @@ import { z } from 'zod';
 /**
  * A type-safe and validated way to access environment variables.
  * This is the single source of truth for all environment variables in the app.
- * 
+ *
  * 2026 Best Practice: Schema-based validation using Zod.
  */
 
 const serverSchema = z.object({
   // Supabase (Server Admin)
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  SUPABASE_SERVICE_ROLE_KEY: z
+    .string()
+    .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
 
   // Blog
   BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
@@ -31,7 +33,9 @@ const serverSchema = z.object({
   CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
 
   // Node Env
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
 
   // Internal
   JUICYWAY_BASE_URL: z.string().default('https://api-sandbox.spendjuice.com'),
@@ -39,8 +43,12 @@ const serverSchema = z.object({
 
 const clientSchema = z.object({
   // Supabase (Public)
-  NEXT_PUBLIC_SUPABASE_URL: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_URL is required'),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
+  NEXT_PUBLIC_SUPABASE_URL: z
+    .string()
+    .min(1, 'NEXT_PUBLIC_SUPABASE_URL is required'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z
+    .string()
+    .min(1, 'NEXT_PUBLIC_SUPABASE_ANON_KEY is required'),
 
   // App
   NEXT_PUBLIC_ROOT_DOMAIN: z.string().default('usebaci.com'),
@@ -53,10 +61,13 @@ const clientSchema = z.object({
 });
 
 // Helper to format validation errors
-const formatErrors = (errors: z.ZodFormattedError<Map<string, string>, string>) =>
+const formatErrors = (
+  errors: z.ZodFormattedError<Map<string, string>, string>
+) =>
   Object.entries(errors)
     .map(([name, value]) => {
-      if (value && '_errors' in value) return `${name}: ${value._errors.join(', ')}`;
+      if (value && '_errors' in value)
+        return `${name}: ${value._errors.join(', ')}`;
       return null;
     })
     .filter(Boolean);
@@ -67,33 +78,80 @@ const formatErrors = (errors: z.ZodFormattedError<Map<string, string>, string>) 
  * In production, it logs errors but might allow the app to crash downstream if critical keys are missing.
  */
 const getEnv = () => {
-  const processEnv = { ...process.env }; // Shallow copy
+  const isServer = typeof window === 'undefined';
 
-  const parsedServer = serverSchema.safeParse(processEnv);
-  const parsedClient = clientSchema.safeParse(processEnv);
+  // Explicitly map client variables to ensure they are available on the client
+  // Next.js requires the full process.env.NEXT_PUBLIC_* string for bundling
+  const clientEnv = {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY:
+      process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+    KORAPAY_PUBLIC_KEY: process.env.KORAPAY_PUBLIC_KEY,
+    CREDIT_DIRECT_PUBLIC_KEY: process.env.CREDIT_DIRECT_PUBLIC_KEY,
+  };
 
-  if (!parsedServer.success || !parsedClient.success) {
-    const serverErrors = parsedServer.success ? [] : formatErrors(parsedServer.error.format());
-    const clientErrors = parsedClient.success ? [] : formatErrors(parsedClient.error.format());
-    const allErrors = [...serverErrors, ...clientErrors];
+  const serverEnv = isServer
+    ? {
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
+        KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
+        JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
+        PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
+        GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
+        NODE_ENV: process.env.NODE_ENV,
+        JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
+      }
+    : {};
 
-    console.error('❌ Invalid environment variables:', allErrors.join('\n'));
+  // Validate client side
+  const parsedClient = clientSchema.safeParse(clientEnv);
 
-    // In production, we strictly throw. In dev, we might tolerate some missing optional keys if configured loosely,
-    // but critical (min(1)) keys will always fail here.
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('❌ Invalid environment variables: ' + allErrors.join(', '));
+  // Validate server side ONLY on the server
+  let parsedServer = serverSchema.safeParse(serverEnv);
+
+  if (!isServer) {
+    // On client, we relax server validation (or just mock it)
+    // We already know they are missing, so we just use empty defaults
+    parsedServer = { success: true, data: {} as z.infer<typeof serverSchema> };
+  }
+
+  if (!parsedClient.success || (isServer && !parsedServer.success)) {
+    const clientErrors = parsedClient.success
+      ? []
+      : formatErrors(parsedClient.error.format());
+    const serverErrors =
+      isServer && !parsedServer.success
+        ? formatErrors(parsedServer.error.format())
+        : [];
+
+    const allErrors = [...clientErrors, ...serverErrors];
+
+    if (allErrors.length > 0) {
+      console.error('❌ Invalid environment variables:', allErrors.join('\n'));
+
+      // In production, we strictly throw.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          `❌ Invalid environment variables: ${allErrors.join(', ')}`
+        );
+      }
     }
   }
 
   return {
-    ...parsedServer.data,
-    ...parsedClient.data,
-  };
+    ...(parsedServer.success ? parsedServer.data : {}),
+    ...(parsedClient.success ? parsedClient.data : {}),
+  } as z.infer<typeof serverSchema> & z.infer<typeof clientSchema>;
 };
 
 // Singleton env object
-// Note: We use a lazy getter pattern or just executed immediately. 
+// Note: We use a lazy getter pattern or just executed immediately.
 // For Next.js/Edge, immediate execution is usually fine, but safeParse handles the "build time" vs "runtime" nuance better.
 export const env = getEnv();
 
@@ -103,18 +161,24 @@ export const env = getEnv();
  */
 
 export const getSupabaseUrl = (): string => {
-  if (!env?.NEXT_PUBLIC_SUPABASE_URL) throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
+  if (!env?.NEXT_PUBLIC_SUPABASE_URL)
+    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
   return env.NEXT_PUBLIC_SUPABASE_URL;
 };
 
 export const getSupabaseAnonKey = (): string => {
-  if (!env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined');
+  if (!env?.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined');
   return env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 };
 
 export const getSupabaseServiceRoleKey = (): string => {
-  if (typeof window !== 'undefined') throw new Error('SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client');
-  if (!env?.SUPABASE_SERVICE_ROLE_KEY) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
+  if (typeof window !== 'undefined')
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client'
+    );
+  if (!env?.SUPABASE_SERVICE_ROLE_KEY)
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
   return env.SUPABASE_SERVICE_ROLE_KEY;
 };
 
@@ -124,7 +188,8 @@ export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
-export const getGeminiApiKey = () => env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
+export const getGeminiApiKey = () =>
+  env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
 
@@ -135,7 +200,8 @@ export const getBlogPreviewSecret = (): string => {
 };
 
 export const getRootDomain = () => env?.NEXT_PUBLIC_ROOT_DOMAIN;
-export const getAppUrl = () => env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+export const getAppUrl = () =>
+  env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 

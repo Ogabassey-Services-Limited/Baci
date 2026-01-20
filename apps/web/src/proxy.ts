@@ -13,8 +13,7 @@
  * See: https://nextjs.org/docs/app/building-your-application/routing/middleware
  */
 
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
@@ -259,11 +258,14 @@ function generateCSP(
     routeType === 'admin' || routeType === 'auth'
       ? {
           ...baseDirectives,
-          // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
-          'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
+          // 2026 Next.js 16 Caveat: 'strict-dynamic' requires ALL scripts to be nonced.
+          // Since Next.js internal chunks are not easily nonced in App Router, we use a
+          // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
+          // but still nonces our own custom scripts.
+          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com`,
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
-            "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
+            "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
           'frame-src': "'self' https://checkout.korapay.com",
           'form-action': "'self'",
         }
@@ -370,7 +372,34 @@ export async function proxy(request: NextRequest) {
 
   // Only run auth check for protected or auth routes (skip for public routes)
   if (isProtectedRoute || isAuthRoute) {
-    const { supabaseResponse, user } = await updateSession(request);
+    // Generate Nonce EARLY for CSP (Request Header Injection)
+    // 2026 Best Practice: Next.js reads 'x-nonce' from request headers to authorize internal scripts
+    const routeType = getRouteType(pathname);
+    const isLocal = isLocalhost(hostname);
+    const nonce = crypto.randomUUID();
+
+    // Prepare request headers with nonce
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-nonce', nonce);
+
+    // Create a modified request instance to pass down
+    const modifiedRequest = new NextRequest(request, {
+      headers: requestHeaders,
+    });
+
+    // Create an initial response object that includes the modified request headers
+    const initialResponse = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    // Update session (validates auth token)
+    // Pass the modifiedRequest so it sees the new headers, and initialResponse as base
+    const { supabaseResponse, user } = await updateSession(
+      modifiedRequest,
+      initialResponse
+    );
 
     // Protected routes: redirect to login if no user
     if (isProtectedRoute && !user) {
@@ -398,12 +427,20 @@ export async function proxy(request: NextRequest) {
 
     // For protected routes, apply security headers to the supabase response
     if (isProtectedRoute) {
-      const routeType = getRouteType(pathname);
-      const isLocal = isLocalhost(hostname);
-      const nonce =
-        routeType === 'admin' || routeType === 'auth'
-          ? crypto.randomUUID()
-          : undefined;
+      return applySecurityHeaders(
+        supabaseResponse,
+        pathname,
+        userAgent,
+        routeType,
+        isLocal,
+        nonce, // Pass the pre-generated nonce
+        undefined,
+        hostname
+      );
+    }
+
+    // For Auth routes that aren't redirecting, we also need CSP headers (e.g. Login form)
+    if (isAuthRoute) {
       return applySecurityHeaders(
         supabaseResponse,
         pathname,
@@ -415,6 +452,8 @@ export async function proxy(request: NextRequest) {
         hostname
       );
     }
+
+    return supabaseResponse;
   }
 
   // Extract subdomain with proper validation
@@ -500,10 +539,9 @@ export async function proxy(request: NextRequest) {
 
         const routeType = getRouteType(pathname);
         const isLocal = isLocalhost(hostname);
-        const nonce =
-          routeType === 'admin' || routeType === 'auth'
-            ? crypto.randomUUID()
-            : undefined;
+        // Custom Domain routes might need CSP too if they map to storefront?
+        // But getRouteType logic treats them as storefront usually.
+        // If they access dashboard logic via custom domain (unlikely), they would hit auth block first.
 
         return applySecurityHeaders(
           response,
@@ -511,7 +549,7 @@ export async function proxy(request: NextRequest) {
           userAgent,
           routeType,
           isLocal,
-          nonce,
+          undefined, // Storefront doesn't need strict nonce usually, or we can add it if needed
           request,
           hostname
         );
@@ -534,10 +572,6 @@ export async function proxy(request: NextRequest) {
       // Generate route-specific CSP
       const routeType = getRouteType(pathname);
       const isLocal = isLocalhost(hostname);
-      const nonce =
-        routeType === 'admin' || routeType === 'auth'
-          ? crypto.randomUUID()
-          : undefined;
 
       return applySecurityHeaders(
         response,
@@ -545,7 +579,7 @@ export async function proxy(request: NextRequest) {
         userAgent,
         routeType,
         isLocal,
-        nonce,
+        undefined,
         request, // Pass request for click ID capture on storefront
         hostname
       );
@@ -607,10 +641,6 @@ export async function proxy(request: NextRequest) {
 
     const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
-    const nonce =
-      routeType === 'admin' || routeType === 'auth'
-        ? crypto.randomUUID()
-        : undefined;
 
     return applySecurityHeaders(
       response,
@@ -618,7 +648,7 @@ export async function proxy(request: NextRequest) {
       userAgent,
       routeType,
       isLocal,
-      nonce,
+      undefined, // Storefront doesn't strictly need nonce for now
       request, // Pass request for click ID capture on storefront
       hostname
     );
@@ -628,10 +658,6 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
-  const nonce =
-    routeType === 'admin' || routeType === 'auth'
-      ? crypto.randomUUID()
-      : undefined;
 
   return applySecurityHeaders(
     response,
@@ -639,7 +665,7 @@ export async function proxy(request: NextRequest) {
     userAgent,
     routeType,
     isLocal,
-    nonce,
+    undefined,
     request, // Pass request for click ID capture on storefront
     hostname
   );
@@ -699,13 +725,13 @@ function applySecurityHeaders(
     'camera=(), microphone=(), geolocation=(), browsing-topics=()'
   );
 
-  // Set nonce in request header for server components (admin/auth routes only)
+  // Set x-nonce header for server components (admin/auth routes only)
+  // 2026 pattern: Also include it in the response so it's visible in dev tools / debug
   if (nonce) {
     response.headers.set('x-nonce', nonce);
   }
 
   // Set pathname header for server components to detect current route
-  // This enables conditional rendering (e.g., hide navbar on checkout) without hydration issues
   response.headers.set('x-pathname', pathname);
 
   // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)

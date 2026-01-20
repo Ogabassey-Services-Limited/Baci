@@ -19,7 +19,9 @@ export async function GET(request: Request) {
       receivedLength: secret?.length,
       expectedLength: getBlogPreviewSecret()?.length,
       receivedSnippet: secret ? `${secret.substring(0, 3)}...` : 'undefined',
-      expectedSnippet: getBlogPreviewSecret() ? `${getBlogPreviewSecret().substring(0, 3)}...` : 'undefined'
+      expectedSnippet: getBlogPreviewSecret()
+        ? `${getBlogPreviewSecret().substring(0, 3)}...`
+        : 'undefined',
     });
     return new Response('Invalid token', { status: 401 });
   }
@@ -34,5 +36,6 @@ export async function GET(request: Request) {
 
   // Redirect to the blog post page
   // The page will detect draft mode and include unpublished content
+  // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes requires casting dynamic URLs
   redirect(`/${merchantSlug}/blog/${slug}` as any);
 }

@@ -13,7 +13,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import {
@@ -118,6 +118,10 @@ export default function EditBlogPostPage() {
     status: 'draft',
   });
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [preRecoveryData, setPreRecoveryData] = useState<PostFormData | null>(
+    null
+  ); // For undo functionality
+  const hasCheckedForRecovery = useRef(false);
 
   // Auto-save to localStorage (protects against Chrome Memory Saver)
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
@@ -138,10 +142,23 @@ export default function EditBlogPostPage() {
     setShowRecoveryDialog(false);
   };
 
-  const discardRecoveredDraft = () => {
+  const discardRecoveredDraft = useCallback(() => {
     clearSavedData();
     setShowRecoveryDialog(false);
-  };
+  }, [clearSavedData]);
+
+  // Undo auto-recovery - restore the original database state
+  const undoRecovery = useCallback(() => {
+    if (preRecoveryData) {
+      setFormData(preRecoveryData);
+      clearSavedData();
+      setPreRecoveryData(null);
+      toast({
+        title: 'Recovery Undone',
+        description: 'Restored to the last saved version.',
+      });
+    }
+  }, [preRecoveryData, clearSavedData, toast]);
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -210,12 +227,41 @@ export default function EditBlogPostPage() {
     }
   }, [postId, router, toast]);
 
-  // Check for recovered draft after initial load
+  // Silent auto-recovery after initial load (no blocking dialog)
   useEffect(() => {
-    if (!isLoading && hasSavedData()) {
-      setShowRecoveryDialog(true);
+    if (!isLoading && hasSavedData() && !hasCheckedForRecovery.current) {
+      hasCheckedForRecovery.current = true;
+      const saved = getSavedData();
+      if (saved) {
+        // Store current data for undo functionality
+        setPreRecoveryData({ ...formData });
+        // Silently restore the draft
+        setFormData(saved.data);
+        // Show non-blocking toast with undo option
+        toast({
+          title: 'Draft Recovered',
+          description: 'Your unsaved changes have been restored.',
+          action: (
+            <button
+              type="button"
+              onClick={undoRecovery}
+              className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90"
+            >
+              Undo
+            </button>
+          ),
+          duration: 8000, // Give user time to read and click undo
+        });
+      }
     }
-  }, [isLoading, hasSavedData]);
+  }, [
+    isLoading,
+    hasSavedData,
+    getSavedData,
+    formData,
+    toast,
+    undoRecovery,
+  ]);
 
   const handleChange = useCallback(
     (field: keyof PostFormData, value: string) => {
@@ -253,11 +299,12 @@ export default function EditBlogPostPage() {
           title: 'Success',
           description: 'Featured image uploaded successfully.',
         });
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error uploading image:', error);
         toast({
           title: 'Error',
-          description: error.message || 'Failed to upload featured image.',
+          description:
+            error instanceof Error ? error.message : 'Failed to upload image',
           variant: 'destructive',
         });
       } finally {
@@ -319,15 +366,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,

@@ -15,5 +15,6 @@ export async function GET(request: Request) {
   draft.disable();
 
   // Redirect back to either the specified callback or the blog home
+  // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes requires casting dynamic URLs
   redirect(callbackUrl as any);
 }
