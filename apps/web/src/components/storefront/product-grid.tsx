@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { Eye, Minus, Plus } from 'lucide-react';
+import { Eye, Minus, PackageOpen, Plus, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ProductCardImage } from '@/components/optimized-image';
@@ -657,12 +657,47 @@ export function StorefrontProductGrid({
             })}
           </div>
         ) : (
-          <div className="text-center text-muted-foreground py-16">
-            <h3 className="text-xl font-semibold">No products found</h3>
-            <p>
-              Your search for &quot;{searchQuery}&quot; did not match any
-              products.
+          <div className="flex flex-col items-center justify-center text-center py-16 px-4 animate-in fade-in zoom-in-95 duration-300">
+            <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+              {searchQuery ? (
+                <SearchX className="w-8 h-8 text-muted-foreground" />
+              ) : (
+                <PackageOpen className="w-8 h-8 text-muted-foreground" />
+              )}
+            </div>
+            <h3 className="text-xl font-semibold mb-2">
+              {searchQuery
+                ? 'No matches found'
+                : selectedCategory !== 'All'
+                  ? `No products in ${selectedCategory}`
+                  : 'No products yet'}
+            </h3>
+            <p className="text-muted-foreground max-w-md mb-8">
+              {searchQuery
+                ? `We couldn't find any products matching "${searchQuery}". Try checking for typos or using different keywords.`
+                : selectedCategory !== 'All'
+                  ? 'There are no products in this category yet. Try checking another category.'
+                  : 'This store has no products available at the moment. Please check back later.'}
             </p>
+            {searchQuery ? (
+              <ThemedButton
+                variant="outline"
+                colorRole="primary"
+                onClick={() => handleSetSearchQuery('')}
+                className="min-w-[140px]"
+              >
+                Clear Search
+              </ThemedButton>
+            ) : selectedCategory !== 'All' ? (
+              <ThemedButton
+                variant="outline"
+                colorRole="primary"
+                onClick={() => handleSetSelectedCategory('All')}
+                className="min-w-[140px]"
+              >
+                View All Products
+              </ThemedButton>
+            ) : null}
           </div>
         )}
       </div>
