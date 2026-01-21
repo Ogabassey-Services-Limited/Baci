@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCountryByCode } from '@/lib/countries';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
+import { sanitizeHtml } from '@/lib/sanitize';
 import {
   sanitizeLikePattern,
   sanitizeSchemaMarkup,
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
               stock_quantity: v.stock_quantity,
               sku: v.sku,
               primary_image: v.primary_image,
-              images: v.images,
+              images: v.images || [],
             })) || [],
           category: p.category || 'General',
           color: p.color,
@@ -361,6 +362,11 @@ export async function POST(request: NextRequest) {
         { error: 'Name and Price are required' },
         { status: 400 }
       );
+    }
+
+    // Sanitize description to prevent Stored XSS
+    if (body.description) {
+      body.description = sanitizeHtml(body.description);
     }
 
     // Prepare data for insertion
