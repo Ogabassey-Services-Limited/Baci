@@ -198,8 +198,10 @@ export function QuickViewModal({
                     // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
                     key={idx}
                     onClick={() => setSelectedImage(img.url)}
+                    aria-label={`View image ${idx + 1} of ${allImages.length}`}
+                    aria-current={selectedImage === img.url ? 'true' : undefined}
                     className={cn(
-                      'relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0',
+                      'relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       selectedImage === img.url
                         ? 'border-[var(--store-primary)]'
                         : 'border-transparent hover:border-muted-foreground/30'
@@ -280,8 +282,10 @@ export function QuickViewModal({
                             key={value}
                             onClick={() => handleAttributeChange(key, value)}
                             disabled={!isAvailable}
+                            role="radio"
+                            aria-checked={isSelected}
                             className={cn(
-                              'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
+                              'px-3 py-1.5 rounded-md text-sm font-medium transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                               isSelected
                                 ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
                                 : isAvailable
