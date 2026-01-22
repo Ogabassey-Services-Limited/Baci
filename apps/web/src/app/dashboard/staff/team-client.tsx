@@ -80,13 +80,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { StaffMember, StaffRole } from '@/types/staff';
 import {
-  InviteStaffSchema,
   removeStaffMember,
   resendInvitation,
   updateStaffMember,
   inviteStaffMember,
 } from './actions';
-import type { InviteStaffData } from './actions';
+import { InviteStaffSchema, type InviteStaffData } from './schema';
 
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',

@@ -8,7 +8,7 @@ import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
-import { z } from 'zod';
+import { InviteStaffSchema, type InviteStaffData } from './schema';
 
 // Valid staff statuses
 type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
@@ -32,14 +32,7 @@ const VALID_ROLES: StaffRole[] = [
   'fulfillment',
 ];
 
-export const InviteStaffSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  name: z.string(),
-  role: z.enum(['admin', 'manager', 'sales_rep', 'inventory', 'accountant', 'customer_service', 'marketing', 'fulfillment']),
-  autoCreateAccount: z.boolean(),
-});
-
-export type InviteStaffData = z.infer<typeof InviteStaffSchema>;
+// InviteStaffSchema imported from ./schema.ts
 
 // HTML escape function for email templates to prevent HTML injection
 function escapeHtmlForEmail(str: string): string {
