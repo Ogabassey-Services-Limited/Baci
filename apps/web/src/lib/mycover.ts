@@ -5,6 +5,8 @@
  * Documentation: https://docs.mycover.ai
  */
 
+import { getMyCoverSecretKey } from '@/env';
+
 const MYCOVER_BASE_URL = 'https://api.mycover.ai/v1';
 
 interface MyCoverConfig {
@@ -299,7 +301,7 @@ export function estimateInsurancePremium(itemValue: number): {
  * Create MyCover client instance from environment variables
  */
 export function createMyCoverClient(): MyCoverClient | null {
-  const secretKey = process.env.MYCOVER_SECRET_KEY;
+  const secretKey = getMyCoverSecretKey();
   const publicKey = process.env.MYCOVER_PUBLIC_KEY;
 
   if (!secretKey) {
