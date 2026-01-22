@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -60,7 +61,7 @@ export async function getStaffMembers() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    throw new Error('Unauthorized');
+    redirect('/login');
   }
 
   // Get merchant

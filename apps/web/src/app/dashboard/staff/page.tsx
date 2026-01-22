@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic';
-
 import { Suspense } from 'react';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { getStaffMembers } from './actions';
