@@ -240,6 +240,11 @@ export async function lookupDomain(
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'Origin': 'https://www.whogohost.com',
+          'Referer': 'https://www.whogohost.com/domains/domain-names-nigeria',
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: `domain=${encodeURIComponent(domain)}`,
         signal: controller.signal,
@@ -248,10 +253,12 @@ export async function lookupDomain(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No response body');
       console.error(
         'Go54 lookup failed:',
         response.status,
-        response.statusText
+        response.statusText,
+        errorText
       );
       return null;
     }

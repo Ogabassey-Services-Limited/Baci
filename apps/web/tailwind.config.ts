@@ -1,4 +1,5 @@
 import containerQueries from '@tailwindcss/container-queries';
+import typography from '@tailwindcss/typography';
 import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
 import tailwindcssAnimate from 'tailwindcss-animate';
@@ -199,6 +200,7 @@ export default {
   plugins: [
     tailwindcssAnimate,
     containerQueries,
+    typography,
     // Custom plugin for 2025 responsive best practices
     plugin(({ addUtilities, addComponents }) => {
       // Safe area insets for notched devices (iPhone, etc.)

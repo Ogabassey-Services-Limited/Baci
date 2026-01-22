@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
+  BranchSwitcher,
   InsightCard,
   ProgressCard,
   QuickActionButton,
@@ -263,6 +264,8 @@ export default function HomeScreen() {
           onNotificationPress={() => router.push('/notifications')}
           onAvatarPress={handleAvatarPress}
         />
+
+        <BranchSwitcher />
 
         <View style={styles.actionButtonsRow}>
           <Pressable

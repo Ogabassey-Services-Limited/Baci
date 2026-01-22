@@ -33,7 +33,7 @@ import { ProductEmbedPicker } from './product-embed';
 
 interface NovelEditorProps {
   initialValue?: JSONContent | string;
-  onChange: (value: JSONContent) => void;
+  onChange: (value: string) => void;
   onImageUpload?: (file: File) => Promise<string>;
   onProductsChange?: (products: Product[]) => void;
   embeddedProducts?: Product[];
@@ -71,8 +71,8 @@ export default function NovelEditor({
   ];
 
   const debouncedUpdates = useDebouncedCallback((editor: EditorInstance) => {
-    const json = editor.getJSON();
-    onChange(json);
+    const html = editor.getHTML();
+    onChange(html);
   }, 500);
 
   // Use passed upload handler or fallback to default
@@ -105,7 +105,7 @@ export default function NovelEditor({
               handleImageDrop(view, event, moved, handleUpload as any),
             attributes: {
               class:
-                'prose prose-lg dark:prose-invert prose-headings:font-title font-default focus:outline-none max-w-full min-h-[500px] p-6',
+                'prose prose-lg dark:prose-invert prose-baci text-foreground focus:outline-none max-w-full min-h-[500px] p-6 [&_*]:text-foreground',
             } as Record<string, string>,
           }}
           onUpdate={({ editor }) => {

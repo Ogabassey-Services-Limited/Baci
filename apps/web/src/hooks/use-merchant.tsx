@@ -85,6 +85,7 @@ export interface MerchantData {
   // Ad tracking settings
   offline_conversions_enabled?: boolean;
   // Analytics & Tracking Pixels
+  // Analytics & Tracking Pixels
   facebook_pixel_id?: string;
   facebook_capi_token?: string;
   google_analytics_id?: string;
@@ -94,6 +95,7 @@ export interface MerchantData {
   snapchat_pixel_id?: string;
   snapchat_capi_token?: string;
   twitter_pixel_id?: string;
+  virtual_terminal_code?: string;
 }
 
 export type StaffRole =

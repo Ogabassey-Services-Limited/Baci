@@ -90,14 +90,13 @@ export async function POST(request: Request) {
               domain: r.domain,
               tld: `.${r.domain.split('.').slice(1).join('.')}`,
               available: r.available,
-              price: r.premiumPrice || 15000, // Default price estimate
+              price: r.premiumPrice || 15000,
               renewalPrice: r.premiumPrice || 24000,
               category: r.isPremium ? 'premium' : 'global',
               popular: true,
-              note: 'Pricing may vary - contact support for exact rates',
             })),
             warning:
-              'Using fallback provider. Nigerian TLD pricing unavailable.',
+              'Using fallback provider.',
           });
         }
       }
@@ -117,7 +116,7 @@ export async function POST(request: Request) {
       results,
     });
   } catch (error) {
-    console.error('Error checking domain availability:', error);
+    console.error('[DomainSearch] Error checking domain availability:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -185,13 +184,22 @@ async function buildDomainResults(
     premium: primaryResult.premium,
   });
 
-  // Lookup suggestions in parallel (limit to 5 for performance)
-  const suggestionsToCheck = primaryResult.suggestions.slice(0, 5);
-  const suggestionPromises = suggestionsToCheck.map((suggestion) =>
-    lookupDomain(suggestion)
-  );
+  // Lookup suggestions - limit to 3 to avoid rate limiting
+  const suggestionsToCheck = primaryResult.suggestions.slice(0, 3);
 
-  const suggestionResults = await Promise.all(suggestionPromises);
+  // For suggestions, we'll wait a tiny bit to avoid being flagged as a bot
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  const suggestionResults = await Promise.all(
+    suggestionsToCheck.map(async (suggestion) => {
+      try {
+        return await lookupDomain(suggestion);
+      } catch (error) {
+        console.error(`Error looking up suggestion ${suggestion}:`, error);
+        return null;
+      }
+    })
+  );
 
   for (const suggestion of suggestionResults) {
     if (!suggestion) continue;

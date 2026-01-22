@@ -226,13 +226,16 @@
   /* Hide scrollbar while maintaining scroll functionality */
   .hide-scrollbar,
   .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 
   .hide-scrollbar::-webkit-scrollbar,
   .no-scrollbar::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari, Opera */
+    display: none;
+    /* Chrome, Safari, Opera */
   }
 
   /*
@@ -669,6 +672,10 @@
     margin-inline: auto;
   }
 
+  .dark .prose-baci {
+    @apply text-foreground/90;
+  }
+
   .prose-baci h1 {
     @apply text-page-title font-bold tracking-tight text-primary dark:text-white;
     margin-block: 2.5rem 1.5rem;
@@ -682,24 +689,26 @@
   }
 
   .prose-baci h3 {
-    @apply text-card-title font-semibold text-primary/80 dark:text-white/80;
+    @apply text-card-title font-semibold text-primary/90 dark:text-white;
     margin-block: 1.5rem 0.75rem;
     line-height: 1.3;
   }
 
   .prose-baci p {
+    @apply text-foreground;
     margin-block-end: 1.25rem;
   }
 
   .prose-baci ul,
   .prose-baci ol {
+    @apply text-foreground;
     margin-block-end: 1.5rem;
     padding-inline-start: 1.5rem;
   }
 
   .prose-baci li {
+    @apply text-foreground list-outside;
     margin-block-end: 0.5rem;
-    @apply list-outside;
   }
 
   .prose-baci ul {
@@ -726,6 +735,26 @@
   .prose-baci img {
     @apply rounded-2xl shadow-lg;
     margin-block: 2.5rem;
+  }
+
+  .prose-baci table {
+    @apply w-full border-collapse my-8 text-sm overflow-hidden rounded-xl border border-border;
+  }
+
+  .prose-baci th {
+    @apply bg-muted/50 px-4 py-3 text-left font-semibold text-foreground border-b border-border;
+  }
+
+  .prose-baci td {
+    @apply px-4 py-3 border-b border-border/50 text-muted-foreground transition-colors;
+  }
+
+  .prose-baci tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .prose-baci tr:hover td {
+    @apply bg-accent/5 cursor-default;
   }
 
   /* Truncation utilities */
@@ -916,7 +945,7 @@
   }
 
   /* Ensure grid items don't cause overflow */
-  .react-grid-item > div {
+  .react-grid-item>div {
     max-width: 100%;
     overflow: hidden;
   }
@@ -929,10 +958,13 @@
     white-space: nowrap;
   }
 }
+
 /* Google Places Autocomplete Overrides - Aggressive Fix */
-.pac-container, .pac-container * {
+.pac-container,
+.pac-container * {
   background-color: #ffffff !important;
-  color: #000000 !important; /* Force black text everywhere */
+  color: #000000 !important;
+  /* Force black text everywhere */
 }
 
 .pac-container {
@@ -940,27 +972,34 @@
   border-radius: 0 0 0.5rem 0.5rem !important;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
   font-family: inherit !important;
-  z-index: 99999 !important; /* Maximum z-index */
-  margin-top: 4px !important; /* slight spacing */
+  z-index: 99999 !important;
+  /* Maximum z-index */
+  margin-top: 4px !important;
+  /* slight spacing */
 }
 
 .pac-item {
   border-top: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important; /* Larger touch target */
+  padding: 12px 16px !important;
+  /* Larger touch target */
   cursor: pointer !important;
   color: #000000 !important;
-  font-size: 0.95rem !important; /* Slightly larger text */
+  font-size: 0.95rem !important;
+  /* Slightly larger text */
   line-height: 1.5 !important;
   display: flex !important;
   align-items: center !important;
 }
 
 .pac-item span {
-  color: #000000 !important; /* Explicitly target spans */
+  color: #000000 !important;
+  /* Explicitly target spans */
 }
 
-.pac-item:hover, .pac-item:hover * {
-  background-color: #f1f5f9 !important; /* Light gray on hover */
+.pac-item:hover,
+.pac-item:hover * {
+  background-color: #f1f5f9 !important;
+  /* Light gray on hover */
 }
 
 .pac-item-query {
@@ -976,5 +1015,6 @@
 .pac-icon {
   margin-top: 0 !important;
   margin-right: 12px !important;
-  filter: brightness(0) !important; /* Force icons to be black */
+  filter: brightness(0) !important;
+  /* Force icons to be black */
 }

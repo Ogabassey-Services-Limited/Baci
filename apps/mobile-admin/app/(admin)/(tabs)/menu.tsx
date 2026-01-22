@@ -99,6 +99,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/payment-methods'),
         },
         {
+          id: 'staff-accounts',
+          icon: 'wallet-outline',
+          label: 'Staff Accounts',
+          description: 'Payment accounts for staff & branches',
+          onPress: () => router.push('/staff-accounts'),
+        },
+        {
           id: 'shipping',
           icon: 'car-outline',
           label: 'Shipping',
@@ -118,7 +125,6 @@ export default function MenuScreen() {
           label: 'Domains',
           description: 'Custom domain settings',
           onPress: () => router.push('/domains'),
-          badge: 'PRO',
         },
       ],
     },

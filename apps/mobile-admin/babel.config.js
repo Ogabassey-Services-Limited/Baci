@@ -9,6 +9,7 @@ module.exports = (api) => {
           target: '19',
         },
       ],
+      'react-native-reanimated/plugin',
     ],
   };
 };

@@ -7,6 +7,7 @@ import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
+import { z } from 'zod';
 
 // Valid staff statuses
 type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
@@ -29,6 +30,15 @@ const VALID_ROLES: StaffRole[] = [
   'marketing',
   'fulfillment',
 ];
+
+export const InviteStaffSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  name: z.string(),
+  role: z.enum(['admin', 'manager', 'sales_rep', 'inventory', 'accountant', 'customer_service', 'marketing', 'fulfillment']),
+  autoCreateAccount: z.boolean(),
+});
+
+export type InviteStaffData = z.infer<typeof InviteStaffSchema>;
 
 // HTML escape function for email templates to prevent HTML injection
 function escapeHtmlForEmail(str: string): string {
@@ -82,11 +92,13 @@ export async function getStaffMembers() {
   return staff || [];
 }
 
-export async function inviteStaffMember(data: {
-  email: string;
-  name?: string;
-  role: StaffRole;
-}) {
+export async function inviteStaffMember(rawData: InviteStaffData) {
+  const validated = InviteStaffSchema.safeParse(rawData);
+  if (!validated.success) {
+    throw new Error(validated.error.issues[0].message);
+  }
+
+  const data = validated.data;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -109,7 +121,7 @@ export async function inviteStaffMember(data: {
     throw new Error('Merchant not found');
   }
 
-  const { email, name, role } = data;
+  const { email, name, role, autoCreateAccount } = data;
 
   if (!email || !role) {
     throw new Error('Email and role are required');
@@ -204,6 +216,58 @@ export async function inviteStaffMember(data: {
   );
 
   revalidatePath('/dashboard/staff');
+
+  // Multi-terminal: Auto-create Staff Account if requested
+  if (autoCreateAccount) {
+    try {
+      // Get the newly created staff member ID
+      const { data: newStaff } = await supabase
+        .from('staff_members')
+        .select('id')
+        .eq('merchant_id', merchant.id)
+        .eq('email', email.toLowerCase())
+        .single();
+
+      if (newStaff) {
+        const { createVirtualTerminal } = await import('@/lib/paystack');
+
+        const accountName = name
+          ? `${name}'s Account`
+          : `${email.split('@')[0]}'s Account`;
+
+        const vtResult = await createVirtualTerminal(accountName, []);
+
+        if (vtResult.success) {
+          const nubanMethod = vtResult.data.paymentMethods?.find(
+            (m) => m.type === 'dedicated_nuban'
+          );
+
+          await supabase.from('virtual_terminals').insert({
+            merchant_id: merchant.id,
+            staff_id: newStaff.id,
+            code: vtResult.data.code,
+            name: accountName,
+            account_number: nubanMethod?.account_number || null,
+            account_name: nubanMethod?.account_name || null,
+            bank: nubanMethod?.bank || null,
+            payment_link: `https://paystack.com/vt/${vtResult.data.code}`,
+            active: true,
+          });
+
+          // Also update legacy column for backwards compatibility if needed
+          await supabase
+            .from('merchants')
+            .update({ virtual_terminal_code: vtResult.data.code })
+            .eq('id', merchant.id)
+            .is('virtual_terminal_code', null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to auto-create staff account:', err);
+      // Don't fail the whole invitation if account creation fails
+    }
+  }
+
   return { success: true, message: 'Staff member invited successfully' };
 }
 

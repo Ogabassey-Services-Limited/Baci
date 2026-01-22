@@ -1,6 +1,5 @@
-'use client';
-
 import dynamic from 'next/dynamic';
+import { marked } from 'marked';
 import type { JSONContent } from 'novel';
 import { useCallback, useState } from 'react';
 
@@ -20,7 +19,7 @@ interface Product {
 }
 
 interface BlogEditorProps {
-  content: string; // Used for initial content only in this new version
+  content: string; // Used for content storage
   onChange: (content: string) => void;
   placeholder?: string;
   onImageUpload?: (file: File) => Promise<string>;
@@ -38,25 +37,29 @@ export function BlogEditor({
 }: BlogEditorProps) {
   const [initialContent] = useState<JSONContent | string | undefined>(() => {
     if (!content) return undefined;
+
     try {
-      // Attempt to parse existing content as JSON if it's stored correctly
+      // 1. If it's valid JSON (stored by the editor previously), use it directly
       if (content.trim().startsWith('{')) {
         return JSON.parse(content);
       }
-      // Fallback: If it's HTML, pass it as string. Novel/Tiptap will parse it.
-      return content;
-    } catch {
-      // If parsing fails, assuming it is plain text/HTML
+
+      // 2. If it's Markdown or clustered text (likely from agent), 
+      // convert to HTML for high-fidelity rendering in the editor.
+      const html = marked.parse(content, { async: false }) as string;
+      return html;
+    } catch (e) {
+      console.error('Error parsing blog content:', e);
       return content;
     }
   });
 
-  // Handle JSON content updates from Novel
+  // Handle HTML content updates from Novel
   const handleContentChange = useCallback(
-    (json: JSONContent) => {
-      // We store the JSON stringified as the 'content' in the DB
-      // This allows re-hydration later
-      onChange(JSON.stringify(json));
+    (html: string) => {
+      // We now store the HTML string in the DB
+      // This is much safer than JSON and handles Markdown better
+      onChange(html);
     },
     [onChange]
   );

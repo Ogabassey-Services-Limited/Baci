@@ -68,19 +68,15 @@ export function FileUploader({
           })
         );
 
-        setFiles((prev) => {
-          const updated = [...prev, ...newFiles].slice(0, maxFiles);
-          onFilesSelected(updated);
-          return updated;
-        });
+        const updatedFiles = [...files, ...newFiles].slice(0, maxFiles);
+        setFiles(updatedFiles);
+        onFilesSelected(updatedFiles);
 
-        // Update previews for display (mixing File objects with preview URLs and initial string URLs)
-        setPreviews((prev) => {
-          const newPreviews = newFiles.map(
-            (f) => (f as File & { preview: string }).preview
-          );
-          return [...prev, ...newPreviews].slice(0, maxFiles);
-        });
+        // Update previews for display
+        const newPreviews = newFiles.map(
+          (f) => (f as File & { preview: string }).preview
+        );
+        setPreviews((prev) => [...prev, ...newPreviews].slice(0, maxFiles));
       }
     },
     [maxFiles, maxSize, onFilesSelected]
@@ -112,7 +108,7 @@ export function FileUploader({
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',
           files.length + (initialFiles?.length || 0) >= maxFiles &&
-            'opacity-50 cursor-not-allowed pointer-events-none'
+          'opacity-50 cursor-not-allowed pointer-events-none'
         )}
       >
         <input {...getInputProps()} />

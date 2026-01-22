@@ -45,5 +45,8 @@
       "react-native-worklets": "patches/react-native-worklets.patch",
       "react-native-svg": "patches/react-native-svg.patch"
     }
+  },
+  "dependencies": {
+    "expo-haptics": "~15.0.8"
   }
 }

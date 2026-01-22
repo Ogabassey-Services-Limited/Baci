@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -59,8 +59,9 @@ export default function StaffScreen() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
+  const [autoCreateAccount, setAutoCreateAccount] = useState(true);
 
-  const handleInvite = useCallback(async () => {
+  const handleInvite = async () => {
     if (!inviteEmail.trim()) {
       Alert.alert('Error', 'Please enter an email address');
       return;
@@ -71,12 +72,14 @@ export default function StaffScreen() {
         email: inviteEmail.trim(),
         name: inviteName.trim() || undefined,
         role: selectedRole,
+        autoCreateAccount,
       });
 
       setInviteModalVisible(false);
       setInviteEmail('');
       setInviteName('');
       setSelectedRole('sales_rep');
+      setAutoCreateAccount(true);
 
       // Offer to share the link
       if (result?.inviteUrl) {
@@ -105,175 +108,160 @@ export default function StaffScreen() {
         error instanceof Error ? error.message : 'Failed to send invitation'
       );
     }
-  }, [inviteEmail, inviteName, selectedRole, inviteStaff]);
+  };
 
-  const handleChangeRole = useCallback(
-    async (staffId: string, newRole: StaffRole) => {
-      try {
-        await updateStaff.mutateAsync({ id: staffId, role: newRole });
-        Alert.alert('Success', 'Role updated successfully');
-        setRoleModalVisible(false);
-        setSelectedStaff(null);
-      } catch (error) {
-        Alert.alert(
-          'Error',
-          error instanceof Error ? error.message : 'Failed to update role'
-        );
-      }
-    },
-    [updateStaff]
-  );
-
-  const handleSuspend = useCallback(
-    (member: StaffMember) => {
-      const newStatus = member.status === 'suspended' ? 'active' : 'suspended';
-      const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
-
+  const handleChangeRole = async (staffId: string, newRole: StaffRole) => {
+    try {
+      await updateStaff.mutateAsync({ id: staffId, role: newRole });
+      Alert.alert('Success', 'Role updated successfully');
+      setRoleModalVisible(false);
+      setSelectedStaff(null);
+    } catch (error) {
       Alert.alert(
-        `${action.charAt(0).toUpperCase() + action.slice(1)} Member`,
-        `Are you sure you want to ${action} ${member.name || member.email}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: action.charAt(0).toUpperCase() + action.slice(1),
-            style: newStatus === 'suspended' ? 'destructive' : 'default',
-            onPress: async () => {
-              try {
-                await updateStaff.mutateAsync({
-                  id: member.id,
-                  status: newStatus,
-                });
-                Alert.alert('Success', `Team member ${action}d`);
-              } catch (error) {
-                Alert.alert(
-                  'Error',
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to update status'
-                );
-              }
-            },
-          },
-        ]
+        'Error',
+        error instanceof Error ? error.message : 'Failed to update role'
       );
-    },
-    [updateStaff]
-  );
+    }
+  };
 
-  const handleRemove = useCallback(
-    (member: StaffMember) => {
-      Alert.alert(
-        'Remove Team Member',
-        `Are you sure you want to remove ${member.name || member.email} from your team?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Remove',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await removeStaff.mutateAsync(member.id);
-                Alert.alert('Success', 'Team member removed');
-              } catch (error) {
-                Alert.alert(
-                  'Error',
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to remove member'
-                );
-              }
-            },
+  const handleSuspend = (member: StaffMember) => {
+    const newStatus = member.status === 'suspended' ? 'active' : 'suspended';
+    const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
+
+    Alert.alert(
+      `${action.charAt(0).toUpperCase() + action.slice(1)} Member`,
+      `Are you sure you want to ${action} ${member.name || member.email}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: action.charAt(0).toUpperCase() + action.slice(1),
+          style: newStatus === 'suspended' ? 'destructive' : 'default',
+          onPress: async () => {
+            try {
+              await updateStaff.mutateAsync({
+                id: member.id,
+                status: newStatus,
+              });
+              Alert.alert('Success', `Team member ${action}d`);
+            } catch (error) {
+              Alert.alert(
+                'Error',
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to update status'
+              );
+            }
           },
-        ]
-      );
-    },
-    [removeStaff]
-  );
-
-  const handleResendInvitation = useCallback(
-    async (member: StaffMember) => {
-      try {
-        const result = await resendInvitation.mutateAsync(member.id);
-
-        if (result?.inviteUrl) {
-          Alert.alert(
-            'Invitation Resent',
-            `We've sent a new email to ${member.email}.`,
-            [
-              { text: 'Done', style: 'cancel' },
-              {
-                text: 'Share Link',
-                onPress: () => {
-                  Share.share({
-                    message: `Here is your new invitation link: ${result.inviteUrl}`,
-                    url: result.inviteUrl, // iOS only
-                  });
-                },
-              },
-            ]
-          );
-        } else {
-          Alert.alert('Success', 'Invitation renewed');
-        }
-      } catch (error) {
-        Alert.alert(
-          'Error',
-          error instanceof Error ? error.message : 'Failed to resend invitation'
-        );
-      }
-    },
-    [resendInvitation]
-  );
-
-  const showStaffActions = useCallback(
-    (member: StaffMember) => {
-      const actions: {
-        text: string;
-        onPress: () => void;
-        style?: 'destructive' | 'cancel' | 'default';
-      }[] = [];
-
-      if (member.status === 'pending') {
-        actions.push({
-          text: 'Resend Invitation',
-          onPress: () => handleResendInvitation(member),
-        });
-      }
-
-      actions.push({
-        text: 'Change Role',
-        onPress: () => {
-          setSelectedStaff(member);
-          setSelectedRole(member.role);
-          setRoleModalVisible(true);
         },
-      });
+      ]
+    );
+  };
 
-      if (member.status === 'active') {
-        actions.push({
-          text: 'Suspend Access',
-          onPress: () => handleSuspend(member),
+  const handleRemove = (member: StaffMember) => {
+    Alert.alert(
+      'Remove Team Member',
+      `Are you sure you want to remove ${member.name || member.email} from your team?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
           style: 'destructive',
-        });
-      } else if (member.status === 'suspended') {
-        actions.push({
-          text: 'Reactivate',
-          onPress: () => handleSuspend(member),
-        });
-      }
+          onPress: async () => {
+            try {
+              await removeStaff.mutateAsync(member.id);
+              Alert.alert('Success', 'Team member removed');
+            } catch (error) {
+              Alert.alert(
+                'Error',
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to remove member'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
+  const handleResendInvitation = async (member: StaffMember) => {
+    try {
+      const result = await resendInvitation.mutateAsync(member.id);
+
+      if (result?.inviteUrl) {
+        Alert.alert(
+          'Invitation Resent',
+          `We've sent a new email to ${member.email}.`,
+          [
+            { text: 'Done', style: 'cancel' },
+            {
+              text: 'Share Link',
+              onPress: () => {
+                Share.share({
+                  message: `Here is your new invitation link: ${result.inviteUrl}`,
+                  url: result.inviteUrl, // iOS only
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Success', 'Invitation renewed');
+      }
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to resend invitation'
+      );
+    }
+  };
+
+  const showStaffActions = (member: StaffMember) => {
+    const actions: {
+      text: string;
+      onPress: () => void;
+      style?: 'destructive' | 'cancel' | 'default';
+    }[] = [];
+
+    if (member.status === 'pending') {
       actions.push({
-        text: 'Remove',
-        onPress: () => handleRemove(member),
+        text: 'Resend Invitation',
+        onPress: () => handleResendInvitation(member),
+      });
+    }
+
+    actions.push({
+      text: 'Change Role',
+      onPress: () => {
+        setSelectedStaff(member);
+        setSelectedRole(member.role);
+        setRoleModalVisible(true);
+      },
+    });
+
+    if (member.status === 'active') {
+      actions.push({
+        text: 'Suspend Access',
+        onPress: () => handleSuspend(member),
         style: 'destructive',
       });
+    } else if (member.status === 'suspended') {
+      actions.push({
+        text: 'Reactivate',
+        onPress: () => handleSuspend(member),
+      });
+    }
 
-      actions.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
+    actions.push({
+      text: 'Remove',
+      onPress: () => handleRemove(member),
+      style: 'destructive',
+    });
 
-      Alert.alert(member.name || member.email, undefined, actions);
-    },
-    [handleResendInvitation, handleSuspend, handleRemove]
-  );
+    actions.push({ text: 'Cancel', style: 'cancel', onPress: () => { } });
+
+    Alert.alert(member.name || member.email, undefined, actions);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -568,56 +556,46 @@ export default function StaffScreen() {
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text
-                  style={[styles.inputLabel, { color: colors.textSecondary }]}
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => setAutoCreateAccount(!autoCreateAccount)}
+                accessibilityRole="togglebutton"
+                accessibilityState={{ checked: autoCreateAccount }}
+                accessibilityLabel="Generate Staff Account"
+                accessibilityHint="Automatically create a NUBAN for this staff member"
+              >
+                <View style={styles.toggleInfo}>
+                  <Text style={[styles.toggleLabel, { color: colors.text }]}>
+                    Generate Staff Account
+                  </Text>
+                  <Text
+                    style={[styles.toggleDesc, { color: colors.textSecondary }]}
+                  >
+                    Automatically create a NUBAN for this staff member
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    {
+                      backgroundColor: autoCreateAccount
+                        ? colors.success
+                        : colors.border,
+                    },
+                  ]}
                 >
-                  Role *
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.roleScroll}
-                >
-                  {VALID_ROLES.map((role) => (
-                    <Pressable
-                      key={role}
-                      style={[
-                        styles.roleOption,
-                        {
-                          borderColor:
-                            selectedRole === role
-                              ? colors.primary
-                              : colors.border,
-                        },
-                        selectedRole === role && {
-                          backgroundColor: `${colors.primary}10`,
-                        },
-                      ]}
-                      onPress={() => setSelectedRole(role)}
-                    >
-                      <Text
-                        style={[
-                          styles.roleOptionText,
-                          {
-                            color:
-                              selectedRole === role
-                                ? colors.primary
-                                : colors.text,
-                          },
-                        ]}
-                      >
-                        {ROLE_LABELS[role]}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                <Text
-                  style={[styles.roleDescription, { color: colors.textMuted }]}
-                >
-                  {ROLE_DESCRIPTIONS[selectedRole]}
-                </Text>
-              </View>
+                  <View
+                    style={[
+                      styles.toggleKnob,
+                      {
+                        transform: [
+                          { translateX: autoCreateAccount ? 20 : 0 },
+                        ],
+                      },
+                    ]}
+                  />
+                </View>
+              </Pressable>
 
               <Pressable
                 style={[
@@ -917,5 +895,34 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  toggleInfo: { flex: 1, marginRight: SPACING.md },
+  toggleLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  toggleDesc: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginTop: 2,
+  },
+  toggleSwitch: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    padding: 2,
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
   },
 });

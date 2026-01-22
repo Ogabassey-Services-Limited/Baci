@@ -28,9 +28,20 @@ import { useTheme } from '@/hooks/useTheme';
 // } from '@/constants/domain-pricing';
 import { supabase } from '@/lib/supabase';
 
-// Mock API URL - Replace with actual Production URL
-// Use Environment Variable or Fallback
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
+// Construct API URL safely
+const getApiUrl = () => {
+  // FORCE Production URL for reliability as local IP in .env is often unreachable
+  const base = 'https://usebaci.com';
+  console.log(`[Diagnostic] Base API URL forced to: "${base}"`);
+  // Ensure it has protocol
+  const url = base.startsWith('http') ? base : `https://${base}`;
+  // Ensure it ends with /api but not /api/
+  const final = url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
+  console.log(`[Diagnostic] Final computed API URL: "${final}"`);
+  return final;
+};
+
+const API_URL = getApiUrl();
 
 interface SearchResult {
   domain: string;
@@ -42,15 +53,18 @@ interface SearchResult {
 
 export default function BuyDomainScreen() {
   const { colors, shadows } = useTheme();
-  // const { merchant } = useMerchant();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [purchasing, setPurchasing] = useState<string | null>(null);
 
   const handleSearch = async () => {
-    if (!query.includes('.')) {
-      // Simple validation
+    const cleanQuery = query.trim().toLowerCase();
+    console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
+
+    if (!cleanQuery) return;
+
+    if (!cleanQuery.includes('.')) {
       Alert.alert(
         'Invalid Domain',
         'Please enter a valid domain (e.g. mystore.com)'
@@ -59,58 +73,63 @@ export default function BuyDomainScreen() {
     }
 
     setLoading(true);
+    setResults([]); // Clear previous results
     try {
-      // Get Session for Auth Header
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
 
-      // Setup timeout
+      if (!session) throw new Error('You must be signed in to search domains');
+      console.log(`[Diagnostic] Auth session token present: ${!!session.access_token}`);
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeoutId = setTimeout(() => {
+        console.log(`[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`);
+        controller.abort();
+      }, 20000);
 
-      // Call Next.js API
-      const response = await fetch(`${API_URL}/domains/check-availability`, {
+      const targetUrl = `${API_URL}/domains/check-availability`;
+      console.log(`[Diagnostic] Fetching: ${targetUrl}`);
+
+      const response = await fetch(targetUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ searchTerm: query }),
+        body: JSON.stringify({ searchTerm: cleanQuery }),
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
+      console.log(`[Diagnostic] Fetch response status: ${response.status}`);
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Search failed');
+        const err = await response.json().catch(() => ({ error: 'Search failed' }));
+        console.log(`[Diagnostic] Fetch error body:`, err);
+        throw new Error(err.error || `Server error (${response.status})`);
       }
 
       const data = await response.json();
-      // Map API results to local interface just in case
+      console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
+
       const mappedResults = (data.results || []).map(
-        (r: {
-          domain: string;
-          available: boolean;
-          price: number;
-          popular?: boolean;
-        }) => ({
+        (r: any) => ({
           domain: r.domain,
           available: r.available,
-          price: r.price, // API returns 'price' which is resale price
+          price: r.price,
           currency: 'NGN',
           popular: r.popular,
         })
       );
 
       setResults(mappedResults);
-    } catch (error: unknown) {
-      if ((error as Error).name === 'AbortError') {
-        Alert.alert('Timeout', 'Search took too long. Please try again.');
+    } catch (error: any) {
+      console.error('[Diagnostic] Full search error:', error);
+      if (error.name === 'AbortError') {
+        Alert.alert('Timeout', 'Domain search took too long. Please try again.');
       } else {
-        Alert.alert('Error', (error as Error).message);
+        Alert.alert('Search Failed', error.message || 'An unexpected error occurred');
       }
     } finally {
       setLoading(false);

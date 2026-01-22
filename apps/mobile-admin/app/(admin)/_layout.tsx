@@ -121,6 +121,10 @@ export default function AdminLayout() {
         />
         <Stack.Screen name="staff" options={{ title: 'Staff Management' }} />
         <Stack.Screen
+          name="staff-accounts"
+          options={{ title: 'Payment Accounts' }}
+        />
+        <Stack.Screen
           name="store-settings"
           options={{ title: 'Store Settings' }}
         />

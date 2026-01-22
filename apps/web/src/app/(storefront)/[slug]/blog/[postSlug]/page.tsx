@@ -12,6 +12,7 @@ import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BlogContentRenderer } from '@/components/blog/renderer/BlogContentRenderer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,9 +42,13 @@ export async function generateMetadata({
   }
 
   const { merchant, post } = data;
-  const title = post.seo_title || post.title;
+  const title = post.seo_title || post.title || 'Blog Post';
   const description =
-    post.seo_description || post.excerpt || post.content.substring(0, 160);
+    post.seo_description ||
+    post.excerpt ||
+    (typeof post.content === 'string'
+      ? post.content.substring(0, 160)
+      : 'Read the latest from our blog.');
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
@@ -105,9 +110,24 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const { merchant, post, relatedPosts } = data;
 
-  // Parse markdown content
-  const rawHtml = await marked(post.content);
-  const htmlContent = sanitizeHtml(rawHtml);
+  // Intelligently parse content based on format
+  const content = post.content || '';
+  const contentStr =
+    typeof content === 'string' ? content : JSON.stringify(content);
+
+  // Check if it's potentially raw JSON (TipTap/Novel output)
+  const isJson =
+    contentStr.trim().startsWith('{') || contentStr.trim().startsWith('[');
+  const isHtml = contentStr.trim().startsWith('<');
+
+  let legacyHtml = '';
+  if (!isJson) {
+    if (isHtml) {
+      legacyHtml = sanitizeHtml(contentStr);
+    } else {
+      legacyHtml = sanitizeHtml(await marked(contentStr));
+    }
+  }
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
@@ -294,11 +314,17 @@ export default async function BlogPostPage({ params }: PageProps) {
             </header>
 
             {/* Post Content */}
-            <div
-              className="prose-baci max-w-none w-full mb-8 text-gray-800 [&_*]:!text-gray-800 [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
+            <div className="mb-8">
+              {isJson ? (
+                <BlogContentRenderer json={content} />
+              ) : (
+                <div
+                  className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
+                  dangerouslySetInnerHTML={{ __html: legacyHtml }}
+                />
+              )}
+            </div>
 
             {/* Tags */}
             {post.tags && post.tags.length > 0 && (

@@ -16,7 +16,19 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useActionState, useEffect, useState, useTransition } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,11 +80,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { StaffMember, StaffRole } from '@/types/staff';
 import {
-  inviteStaffMember,
+  InviteStaffSchema,
   removeStaffMember,
   resendInvitation,
   updateStaffMember,
+  inviteStaffMember,
 } from './actions';
+import type { InviteStaffData } from './actions';
 
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',
@@ -163,50 +177,51 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
     currentRole: StaffRole;
   } | null>(null);
   const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
-  const [inviteForm, setInviteForm] = useState({
-    email: '',
-    name: '',
-    role: 'sales_rep' as StaffRole,
+
+  const form = useForm<z.infer<typeof InviteStaffSchema>>({
+    resolver: zodResolver(InviteStaffSchema),
+    defaultValues: {
+      email: '',
+      name: '',
+      role: 'sales_rep',
+      autoCreateAccount: true,
+    },
   });
+
   const { toast } = useToast();
 
-  // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Use Action State for better form handling
+  const [state, formAction, isBasePending] = useActionState(
+    async (prevState: any, formData: FormData) => {
+      const data = {
+        email: formData.get('email') as string,
+        name: formData.get('name') as string,
+        role: formData.get('role') as StaffRole,
+        autoCreateAccount: formData.get('autoCreateAccount') === 'on',
+      };
 
-    if (!inviteForm.email) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an email address.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    startTransition(async () => {
       try {
-        const result = await inviteStaffMember(inviteForm);
-
-        toast({
-          title: 'Invitation Sent',
-          description: result.message,
-        });
-
-        setInviteForm({ email: '', name: '', role: 'sales_rep' });
-        setInviteDialogOpen(false);
-        router.refresh();
+        const result = await inviteStaffMember(data as InviteStaffData);
+        return { success: true, message: result.message };
       } catch (error) {
-        toast({
-          title: 'Error',
-          description:
-            error instanceof Error
-              ? error.message
-              : 'Failed to send invitation.',
-          variant: 'destructive',
-        });
+        return { success: false, error: error instanceof Error ? error.message : 'Invitation failed' };
       }
-    });
-  };
+    },
+    null
+  );
+
+  useEffect(() => {
+    if (state?.success) {
+      toast({ title: 'Invitation Sent', description: state.message });
+      form.reset();
+      setInviteDialogOpen(false);
+      router.refresh();
+    } else if (state?.error) {
+      toast({ title: 'Error', description: state.error, variant: 'destructive' });
+    }
+  }, [state, toast, form, router]);
+
+  const isInvitePending = isBasePending;
 
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
   const handleResendInvite = async (staffId: string) => {
@@ -385,88 +400,122 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                     Send an invitation to join your store as a staff member.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleInvite}>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email Address *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="staff@example.com"
-                        value={inviteForm.email}
-                        onChange={(e) =>
-                          setInviteForm({
-                            ...inviteForm,
-                            email: e.target.value,
-                          })
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="name">Name (optional)</Label>
-                      <Input
-                        id="name"
-                        placeholder="John Doe"
-                        value={inviteForm.name}
-                        onChange={(e) =>
-                          setInviteForm({ ...inviteForm, name: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="role">Role *</Label>
-                      <Select
-                        value={inviteForm.role}
-                        onValueChange={(value) =>
-                          setInviteForm({
-                            ...inviteForm,
-                            role: value as StaffRole,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              <div className="flex flex-col items-start">
-                                <span>{label}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {ROLE_DESCRIPTIONS[value as StaffRole]}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setInviteDialogOpen(false)}
-                      disabled={isPending}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isPending}>
-                      {isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 motion-safe:animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="h-4 w-4 mr-2" />
-                          Send Invitation
-                        </>
+                <Form {...form}>
+                  <form action={formAction} className="grid gap-4 py-4">
+                    <FormField<z.infer<typeof InviteStaffSchema>>
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="staff@example.com"
+                              {...field}
+                              value={field.value as string}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </Button>
-                  </DialogFooter>
-                </form>
+                    />
+                    <FormField<z.infer<typeof InviteStaffSchema>>
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name (optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="John Doe"
+                              {...field}
+                              value={field.value as string}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField<z.infer<typeof InviteStaffSchema>>
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Role *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value as string}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                                <SelectItem key={value} value={value}>
+                                  <div className="flex flex-col items-start">
+                                    <span>{label}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {ROLE_DESCRIPTIONS[value as StaffRole]}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField<z.infer<typeof InviteStaffSchema>>
+                      control={form.control}
+                      name="autoCreateAccount"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value as boolean}
+                              onCheckedChange={field.onChange}
+                              name="autoCreateAccount"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Generate Staff Account (NUBAN)
+                            </FormLabel>
+                            <p className="text-xs text-muted-foreground">
+                              Automatically create a payment account for this staff member.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setInviteDialogOpen(false)}
+                        disabled={isInvitePending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isInvitePending}>
+                        {isInvitePending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 motion-safe:animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Invitation
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
               </DialogContent>
             </Dialog>
           </div>

@@ -65,6 +65,7 @@ interface InviteStaffParams {
   email: string;
   name?: string;
   role: StaffRole;
+  autoCreateAccount?: boolean;
 }
 
 export function useInviteStaff() {
@@ -131,6 +132,50 @@ export function useInviteStaff() {
             error.hint
           );
           throw new Error(error.message || 'Failed to invite staff member');
+        }
+      }
+
+      // Multi-terminal: Auto-create Staff Account if requested
+      if (params.autoCreateAccount) {
+        try {
+          // Get the newly created/reactivated staff member ID
+          const { data: newStaff } = await supabase
+            .from('staff_members')
+            .select('id')
+            .eq('merchant_id', merchant.id)
+            .eq('email', params.email.toLowerCase())
+            .single();
+
+          if (newStaff) {
+            // Mobile app uses Paystack API directly via edge function or server action
+            // Since we're in the hook using supabase client, we can call the same logic
+            // or use a helper. For now, let's keep it consistent with the web action.
+            // However, mobile doesn't have direct access to 'lib/paystack.ts' if it's node-only.
+            // We should use the API route we created: /api/paystack/virtual-terminal
+
+            const accountName = params.name
+              ? `${params.name}'s Account`
+              : `${params.email.split('@')[0]}'s Account`;
+
+            // We use fetch to call our own API
+            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
+            const response = await fetch(`${apiUrl}/api/paystack/virtual-terminal`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: accountName,
+                staffId: newStaff.id,
+              }),
+            });
+
+            if (!response.ok) {
+              console.warn('[InviteStaff] Failed to auto-create account number via API');
+            }
+          }
+        } catch (err) {
+          console.error('[InviteStaff] Error auto-creating account:', err);
         }
       }
 

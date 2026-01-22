@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MerchantBankForm } from '@/components/merchant-bank-form';
+import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -296,6 +297,11 @@ export default function PaymentSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Virtual Terminal Section */}
+      <VirtualTerminalSettings
+        businessName={merchant?.business_name}
+      />
 
       {/* Credit Direct BNPL Card */}
       <Card>

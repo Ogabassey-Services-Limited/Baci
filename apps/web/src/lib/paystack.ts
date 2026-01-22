@@ -858,3 +858,339 @@ export function isValidChannel(channel: string): channel is PaymentChannel {
 }
 
 export { PLATFORM_FEE_PERCENTAGE };
+
+// =============================================================================
+// Virtual Terminal API (WhatsApp Payment Notifications)
+// =============================================================================
+
+/**
+ * Virtual Terminal destination for WhatsApp notifications
+ */
+export interface VirtualTerminalDestination {
+  target: string; // WhatsApp phone number (E.164 format)
+  type: 'whatsapp';
+  name: string; // Descriptive label
+  created_at?: string;
+}
+
+/**
+ * Virtual Terminal payment method (NUBAN for Nigeria)
+ */
+export interface VirtualTerminalPaymentMethod {
+  dedicated_nuban_id?: number;
+  type: 'dedicated_nuban' | string;
+  account_number: string;
+  account_name: string;
+  bank: string;
+}
+
+/**
+ * Virtual Terminal response from Paystack
+ *
+ * For Nigeria: Includes a Dedicated Virtual Account (NUBAN) in paymentMethods
+ * For Kenya: Includes M-Pesa Paybill
+ * For Ghana: Includes USSD code
+ *
+ * @see https://paystack.com/docs/payments/virtual-terminal
+ */
+export interface VirtualTerminalResponse {
+  id: number;
+  code: string; // VT_XXXXX
+  name: string;
+  integration: number;
+  domain: 'test' | 'live';
+  /** Payment methods - for Nigeria, this contains the NUBAN account details */
+  paymentMethods: VirtualTerminalPaymentMethod[];
+  active: boolean;
+  created_at: string;
+  currency: string;
+  metadata: Record<string, unknown> | null;
+  destinations?: VirtualTerminalDestination[];
+  connect_account_id?: string | null;
+}
+
+const VirtualTerminalPaymentMethodSchema = z.object({
+  dedicated_nuban_id: z.number().optional(),
+  type: z.string(),
+  account_number: z.string(),
+  account_name: z.string(),
+  bank: z.string(),
+});
+
+const VirtualTerminalSchema = z.object({
+  id: z.number(),
+  code: z.string(),
+  name: z.string(),
+  integration: z.number(),
+  domain: z.string(),
+  paymentMethods: z.array(VirtualTerminalPaymentMethodSchema),
+  active: z.boolean(),
+  created_at: z.string(),
+  currency: z.string(),
+});
+
+/**
+ * Create a Virtual Terminal with WhatsApp notification destinations
+ *
+ * @param name - Name of the Virtual Terminal (e.g., "OgaBassey Sales")
+ * @param destinations - Array of WhatsApp numbers to notify on payment
+ * @param currency - Transaction currency (defaults to NGN)
+ */
+export async function createVirtualTerminal(
+  name: string,
+  destinations: Array<{ target: string; name: string }>,
+  currency = 'NGN'
+): Promise<PaystackResult<VirtualTerminalResponse>> {
+  if (!name || name.length < 2) {
+    return {
+      success: false,
+      error: 'Terminal name must be at least 2 characters',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  if (destinations.length > 5) {
+    return {
+      success: false,
+      error: 'Maximum 5 WhatsApp destinations allowed per terminal',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  // Validate phone numbers (E.164 format)
+  for (const dest of destinations) {
+    if (!dest.target.startsWith('+') || dest.target.length < 10) {
+      return {
+        success: false,
+        error: `Invalid phone number format: ${dest.target}. Use E.164 format (e.g., +2348012345678)`,
+        code: 'VALIDATION_ERROR',
+      };
+    }
+  }
+
+  const result = await paystackRequest<VirtualTerminalResponse>(
+    '/virtual_terminal',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        destinations,
+        currency,
+      }),
+    }
+  );
+
+  if (result.success) {
+    logger.info({
+      message: 'Virtual Terminal created',
+      code: result.data.code,
+      destinations: destinations.length,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * List all Virtual Terminals on the integration
+ */
+export async function listVirtualTerminals(options: {
+  status?: 'active' | 'inactive';
+  perPage?: number;
+  search?: string;
+} = {}): Promise<PaystackResult<VirtualTerminalResponse[]>> {
+  const params = new URLSearchParams();
+  if (options.status) params.append('status', options.status);
+  if (options.perPage) params.append('perPage', options.perPage.toString());
+  if (options.search) params.append('search', options.search);
+
+  const queryString = params.toString();
+  const endpoint = queryString
+    ? `/virtual_terminal?${queryString}`
+    : '/virtual_terminal';
+
+  return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+}
+
+/**
+ * Fetch a specific Virtual Terminal by code
+ */
+export async function fetchVirtualTerminal(
+  code: string
+): Promise<PaystackResult<VirtualTerminalResponse>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code. Expected format: VT_XXXXX',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<VirtualTerminalResponse>(
+    `/virtual_terminal/${encodeURIComponent(code)}`
+  );
+}
+
+/**
+ * Update a Virtual Terminal's name
+ */
+export async function updateVirtualTerminal(
+  code: string,
+  name: string
+): Promise<PaystackResult<VirtualTerminalResponse>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<VirtualTerminalResponse>(
+    `/virtual_terminal/${encodeURIComponent(code)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ name }),
+    }
+  );
+}
+
+/**
+ * Deactivate a Virtual Terminal
+ */
+export async function deactivateVirtualTerminal(
+  code: string
+): Promise<PaystackResult<{ message: string }>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<{ message: string }>(
+    `/virtual_terminal/${encodeURIComponent(code)}/deactivate`,
+    { method: 'PUT' }
+  );
+}
+
+/**
+ * Add WhatsApp destinations to a Virtual Terminal
+ *
+ * @param code - Virtual Terminal code (VT_XXXXX)
+ * @param destinations - Array of WhatsApp numbers with labels
+ */
+export async function assignVirtualTerminalDestinations(
+  code: string,
+  destinations: Array<{ target: string; name: string }>
+): Promise<PaystackResult<VirtualTerminalDestination[]>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  if (destinations.length === 0) {
+    return {
+      success: false,
+      error: 'At least one destination is required',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<VirtualTerminalDestination[]>(
+    `/virtual_terminal/${encodeURIComponent(code)}/destination/assign`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ destinations }),
+    }
+  );
+}
+
+/**
+ * Remove WhatsApp destinations from a Virtual Terminal
+ *
+ * @param code - Virtual Terminal code (VT_XXXXX)
+ * @param targets - Array of phone numbers to remove
+ */
+export async function unassignVirtualTerminalDestinations(
+  code: string,
+  targets: string[]
+): Promise<PaystackResult<{ message: string }>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<{ message: string }>(
+    `/virtual_terminal/${encodeURIComponent(code)}/destination/unassign`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ targets }),
+    }
+  );
+}
+
+/**
+ * Add a split code to a Virtual Terminal for automatic revenue splitting
+ * This connects the terminal to a subaccount for instant payouts
+ */
+export async function addSplitToVirtualTerminal(
+  code: string,
+  splitCode: string
+): Promise<PaystackResult<SplitResponse>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  if (!splitCode || !splitCode.startsWith('SPL_')) {
+    return {
+      success: false,
+      error: 'Invalid split code. Expected format: SPL_XXXXX',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<SplitResponse>(
+    `/virtual_terminal/${encodeURIComponent(code)}/split_code`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ split_code: splitCode }),
+    }
+  );
+}
+
+/**
+ * Remove a split code from a Virtual Terminal
+ */
+export async function removeSplitFromVirtualTerminal(
+  code: string,
+  splitCode: string
+): Promise<PaystackResult<{ message: string }>> {
+  if (!code || !code.startsWith('VT_')) {
+    return {
+      success: false,
+      error: 'Invalid Virtual Terminal code',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  return paystackRequest<{ message: string }>(
+    `/virtual_terminal/${encodeURIComponent(code)}/split_code`,
+    {
+      method: 'DELETE',
+      body: JSON.stringify({ split_code: splitCode }),
+    }
+  );
+}
+

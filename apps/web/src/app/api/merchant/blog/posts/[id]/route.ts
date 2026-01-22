@@ -56,7 +56,11 @@ function calculateReadingTime(content: string): number {
 
 // Calculate word count
 function calculateWordCount(content: string): number {
-  return content.split(/\s+/).filter(Boolean).length;
+  if (!content) return 0;
+
+  // Strip HTML tags if content is HTML
+  const textOnly = content.replace(/<[^>]*>/g, ' ');
+  return textOnly.split(/\s+/).filter(Boolean).length;
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {

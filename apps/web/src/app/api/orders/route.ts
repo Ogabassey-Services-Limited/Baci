@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
   try {
     // Use service role client for order creation to bypass RLS (storefront guests can't insert orders)
     const supabase = createServiceClient();
-    const body = await request.json();
+    const json = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
     const clientIp =
@@ -204,6 +205,46 @@ export async function POST(request: NextRequest) {
     // Detect privacy region for CCPA/GDPR compliance (LDU flag)
     const geoPrivacy = await detectPrivacyRegion(clientIp);
 
+    // 2026 Best Practice: Zod Validation
+    const OrderCreateSchema = z.object({
+      merchant_id: z.string().uuid(),
+      customer_email: z.string().email(),
+      customer_name: z.string().min(1),
+      customer_phone: z.string().optional(),
+      items: z.array(z.any()).min(1), // TODO: Strict items schema
+      subtotal: z.union([z.string(), z.number()]),
+      shipping_fee: z.union([z.string(), z.number()]).default(0),
+      discount_amount: z.union([z.string(), z.number()]).default(0),
+      tax_amount: z.union([z.string(), z.number()]).default(0),
+      payment_method: z.string().min(1),
+      payment_status: z.string().default('unpaid'),
+      shipping_status: z.string().default('pending'),
+      shipping_address: z.any().optional(),
+      source: z.string().default('online_store'),
+      notes: z.string().optional(),
+      ad_tracking: z.any().optional(),
+      use_wallet_credit: z.boolean().default(false),
+      wallet_amount: z.number().default(0),
+      user_id: z.string().uuid().optional(),
+      // Shipping metadata
+      selected_quote_id: z.string().uuid().optional(),
+      shipping_provider: z.string().optional(),
+      tracking_number: z.string().optional(),
+      // Legacy/Optional fields
+      shipping_provider_legacy: z.string().optional(),
+    });
+
+    const parseResult = OrderCreateSchema.safeParse(json);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request data', details: parseResult.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const body = parseResult.data;
+
     const {
       merchant_id,
       customer_email,
@@ -211,19 +252,19 @@ export async function POST(request: NextRequest) {
       customer_phone,
       items,
       subtotal,
-      shipping_fee = 10.0, // Default shipping fee
+      shipping_fee, // Default already handled by Zod
       payment_method,
-      payment_status = 'unpaid',
-      shipping_status = 'pending',
+      payment_status,
+      shipping_status,
       shipping_address,
-      source = 'online_store',
+      source,
       notes,
       // Ad tracking data for offline conversions
       ad_tracking,
-      // Wallet redemption (2025: auto-apply full balance at checkout)
-      use_wallet_credit = false,
-      wallet_amount = 0,
-      // User ID for linking customer to auth user (passed from checkout if logged in)
+      // Wallet redemption 
+      use_wallet_credit,
+      wallet_amount,
+      // User ID
       user_id,
     } = body;
 
@@ -270,7 +311,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total
-    const total = Number.parseFloat(subtotal) + Number.parseFloat(shipping_fee);
+    const total =
+      Number.parseFloat(subtotal.toString()) +
+      Number.parseFloat(shipping_fee.toString());
 
     // Create or get customer record
     let customer_id = null;
@@ -369,26 +412,30 @@ export async function POST(request: NextRequest) {
       // Enhanced with server-captured IP/User Agent for better Event Match Quality
       ad_tracking: ad_tracking
         ? {
-            ...ad_tracking,
-            // Server-side captured data for better EMQ
-            userIp: clientIp || ad_tracking.userIp,
-            userAgent: clientUserAgent || ad_tracking.userAgent,
-            // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse:
-              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-            // Store geo info for analytics
+          ...ad_tracking,
+          // Server-side captured data for better EMQ
+          userIp: clientIp || ad_tracking.userIp,
+          userAgent: clientUserAgent || ad_tracking.userAgent,
+          // Server-detected privacy compliance (overrides client if more restrictive)
+          limitedDataUse:
+            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+          // Store geo info for analytics
+          geoCountry: geoPrivacy.country,
+          geoRegion: geoPrivacy.region,
+        }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+            userIp: clientIp,
+            userAgent: clientUserAgent,
+            limitedDataUse: geoPrivacy.shouldApplyLDU,
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-              userIp: clientIp,
-              userAgent: clientUserAgent,
-              limitedDataUse: geoPrivacy.shouldApplyLDU,
-              geoCountry: geoPrivacy.country,
-              geoRegion: geoPrivacy.region,
-            }
           : null,
+      // Shipping metadata (2025: Fix for Topship tracking)
+      selected_quote_id: body.selected_quote_id,
+      shipping_provider: body.shipping_provider,
+      tracking_number: body.tracking_number,
     };
 
     // Dynamically handle shipping based on request shipping_provider
@@ -396,7 +443,7 @@ export async function POST(request: NextRequest) {
     if (shippingProvider === 'GIGL') {
       const shipmentDetails = await handleGiglShipment(
         { items },
-        { name: customer_name, phone: customer_phone },
+        { name: customer_name, phone: customer_phone || '' },
         shipping_address
       );
       if (shipmentDetails) {
@@ -682,8 +729,8 @@ export async function POST(request: NextRequest) {
               order.order_number || order.id.slice(0, 8).toUpperCase(),
             customerName: customer_name,
             items: emailItems,
-            subtotal: Number.parseFloat(subtotal),
-            shippingFee: Number.parseFloat(shipping_fee),
+            subtotal: Number.parseFloat(subtotal.toString()),
+            shippingFee: Number.parseFloat(shipping_fee.toString()),
             total: Number.parseFloat(total.toString()),
             shippingAddress: {
               address: shipping_address?.address || '',
@@ -750,10 +797,10 @@ export async function POST(request: NextRequest) {
         // Wallet redemption details for UI display
         wallet: walletRedemptionResult
           ? {
-              amountUsed: walletRedemptionResult.amountRedeemed,
-              newBalance: walletRedemptionResult.newBalance,
-              transactionId: walletRedemptionResult.transactionId,
-            }
+            amountUsed: walletRedemptionResult.amountRedeemed,
+            newBalance: walletRedemptionResult.newBalance,
+            transactionId: walletRedemptionResult.transactionId,
+          }
           : null,
         // Amount still due to payment gateway (for payment initialization)
         amountDueToGateway,
