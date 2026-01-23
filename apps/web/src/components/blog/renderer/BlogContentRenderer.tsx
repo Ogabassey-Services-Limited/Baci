@@ -59,6 +59,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
             <Link
               key={mark.type}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              // biome-ignore lint/suspicious/noExplicitAny: Next.js Link href type compatibility
               href={(mark.attrs?.href || '#') as any}
               target={(mark.attrs?.target as string) || '_blank'}
               rel="noopener noreferrer"
@@ -71,7 +72,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color as string }}>
+              <span
+                key={mark.type}
+                style={{ color: mark.attrs.color as string }}
+              >
                 {content}
               </span>
             );
