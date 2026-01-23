@@ -95,8 +95,7 @@ export async function POST(request: Request) {
               category: r.isPremium ? 'premium' : 'global',
               popular: true,
             })),
-            warning:
-              'Using fallback provider.',
+            warning: 'Using fallback provider.',
           });
         }
       }
@@ -188,7 +187,7 @@ async function buildDomainResults(
   const suggestionsToCheck = primaryResult.suggestions.slice(0, 3);
 
   // For suggestions, we'll wait a tiny bit to avoid being flagged as a bot
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   const suggestionResults = await Promise.all(
     suggestionsToCheck.map(async (suggestion) => {

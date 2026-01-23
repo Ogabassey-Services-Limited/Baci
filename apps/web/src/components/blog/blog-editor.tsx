@@ -1,5 +1,5 @@
-import dynamic from 'next/dynamic';
 import { marked } from 'marked';
+import dynamic from 'next/dynamic';
 import type { JSONContent } from 'novel';
 import { useCallback, useState } from 'react';
 
@@ -44,7 +44,7 @@ export function BlogEditor({
         return JSON.parse(content);
       }
 
-      // 2. If it's Markdown or clustered text (likely from agent), 
+      // 2. If it's Markdown or clustered text (likely from agent),
       // convert to HTML for high-fidelity rendering in the editor.
       const html = marked.parse(content, { async: false }) as string;
       return html;

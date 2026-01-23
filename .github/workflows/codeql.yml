@@ -1,0 +1,58 @@
+# CodeQL Security Analysis Workflow
+# Performs static code analysis to find security vulnerabilities
+
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run weekly on Sundays at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  # Only cancel in-progress for PRs, allow scheduled/push scans to complete
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+        # Add 'python', 'ruby', 'go', etc. if needed
+
+    steps:
+      - name: Checkout repository
+        # Pin to full SHA for supply chain security
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Initialize CodeQL
+        # Pin to full SHA for supply chain security
+        uses: github/codeql-action/init@38e701f46e33fb233075bf4238cb1e5d68e429e4 # v3.31.11
+        with:
+          languages: ${{ matrix.language }}
+          # Use extended security queries for more comprehensive analysis
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        # Pin to full SHA for supply chain security
+        uses: github/codeql-action/autobuild@38e701f46e33fb233075bf4238cb1e5d68e429e4 # v3.31.11
+
+      - name: Perform CodeQL Analysis
+        # Pin to full SHA for supply chain security
+        uses: github/codeql-action/analyze@38e701f46e33fb233075bf4238cb1e5d68e429e4 # v3.31.11
+        with:
+          category: "/language:${{ matrix.language }}"
