@@ -273,6 +273,7 @@ function CreateBranchModal({
               }}
               placeholder="e.g. Lagos Main, Lekki Branch"
               placeholderTextColor={colors.textMuted}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- Intentional for modal UX
               autoFocus
               accessibilityLabel="Branch name input"
             />

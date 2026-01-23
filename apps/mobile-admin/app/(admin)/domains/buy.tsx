@@ -119,7 +119,7 @@ export default function BuyDomainScreen() {
       const data = await response.json();
       console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
 
-      const mappedResults = (data.results || []).map((r: any) => ({
+      const mappedResults = (data.results || []).map((r: { domain: string; available: boolean; price: number; popular?: boolean }) => ({
         domain: r.domain,
         available: r.available,
         price: r.price,
@@ -128,9 +128,9 @@ export default function BuyDomainScreen() {
       }));
 
       setResults(mappedResults);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Diagnostic] Full search error:', error);
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         Alert.alert(
           'Timeout',
           'Domain search took too long. Please try again.'
@@ -138,7 +138,7 @@ export default function BuyDomainScreen() {
       } else {
         Alert.alert(
           'Search Failed',
-          error.message || 'An unexpected error occurred'
+          error instanceof Error ? error.message : 'An unexpected error occurred'
         );
       }
     } finally {
