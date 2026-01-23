@@ -74,7 +74,9 @@ export async function listDisputes(
     status?: 'awaiting-reply' | 'awaiting-merchant-feedback' | 'resolved';
   } = {}
 ) {
-  const query = new URLSearchParams(params as Record<string, string>).toString();
+  const query = new URLSearchParams(
+    params as Record<string, string>
+  ).toString();
   return await paystackRequest<Dispute[]>(`/dispute?${query}`);
 }
 

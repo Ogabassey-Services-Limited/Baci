@@ -77,7 +77,7 @@ export default function NovelEditor({
 
   // Use passed upload handler or fallback to default
   // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-  const handleUpload = async (file: File, view: any, pos: number) => {
+  const handleUpload = (file: File, view: any, pos: number) => {
     if (onImageUpload) {
       return onImageUpload(file);
     }
