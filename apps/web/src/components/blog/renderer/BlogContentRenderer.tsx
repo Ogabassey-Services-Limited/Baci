@@ -12,9 +12,9 @@ import { cn } from '@/lib/utils';
 
 interface TipTapNode {
   type: string;
-  attrs?: Record<string, any>;
+  attrs?: Record<string, unknown>;
   content?: TipTapNode[];
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
   text?: string;
 }
 
@@ -83,7 +83,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
   return <>{content}</>;
 };
 
-const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
+const NodeRenderer = ({
+  node,
+  index: _index,
+}: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
   ));
@@ -198,7 +201,7 @@ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
   }
 };
 
-export const BlogContentRenderer = ({ json }: { json: any }) => {
+export const BlogContentRenderer = ({ json }: { json: unknown }) => {
   if (!json) return null;
 
   try {
