@@ -39,9 +39,11 @@ jobs:
         run: semgrep ci --sarif --output=semgrep.sarif
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
 
       - name: Verify SARIF exists
         id: verify-sarif
+        if: always()
         run: |
           if [ -s semgrep.sarif ]; then
             echo "sarif_exists=true" >> $GITHUB_OUTPUT
@@ -54,6 +56,10 @@ jobs:
         if: always() && steps.verify-sarif.outputs.sarif_exists == 'true'
         with:
           sarif_file: semgrep.sarif
+
+      - name: Fail if Semgrep reported issues
+        if: steps.semgrep.outcome == 'failure'
+        run: exit 1
 
   dependency-review:
     name: Dependency Review

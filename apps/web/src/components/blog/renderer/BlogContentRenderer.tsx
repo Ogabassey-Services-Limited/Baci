@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { cn } from '@/lib/utils';
 
 /**
@@ -212,8 +213,14 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     // Safety check for TipTap format
     if (doc.type !== 'doc') {
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for invalid TipTap format
-      return <div dangerouslySetInnerHTML={{ __html: json }} />;
+      return (
+        <div
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for invalid TipTap format, sanitized
+          dangerouslySetInnerHTML={{
+            __html: sanitizeHtml(typeof json === 'string' ? json : ''),
+          }}
+        />
+      );
     }
 
     return (
@@ -223,7 +230,13 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
     );
   } catch (e) {
     console.error('Renderer failed:', e);
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for rendering errors
-    return <div dangerouslySetInnerHTML={{ __html: json }} />;
+    return (
+      <div
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for rendering errors, sanitized
+        dangerouslySetInnerHTML={{
+          __html: sanitizeHtml(typeof json === 'string' ? json : ''),
+        }}
+      />
+    );
   }
 };

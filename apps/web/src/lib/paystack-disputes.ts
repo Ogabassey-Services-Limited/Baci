@@ -74,10 +74,19 @@ export async function listDisputes(
     status?: 'awaiting-reply' | 'awaiting-merchant-feedback' | 'resolved';
   } = {}
 ) {
-  const query = new URLSearchParams(
-    params as Record<string, string>
-  ).toString();
-  return await paystackRequest<Dispute[]>(`/dispute?${query}`);
+  // Build query params safely, filtering out undefined values and converting numbers to strings
+  const searchParams = new URLSearchParams();
+  if (params.from !== undefined) searchParams.set('from', params.from);
+  if (params.to !== undefined) searchParams.set('to', params.to);
+  if (params.perPage !== undefined)
+    searchParams.set('perPage', String(params.perPage));
+  if (params.page !== undefined) searchParams.set('page', String(params.page));
+  if (params.status !== undefined) searchParams.set('status', params.status);
+
+  const query = searchParams.toString();
+  return await paystackRequest<Dispute[]>(
+    `/dispute${query ? `?${query}` : ''}`
+  );
 }
 
 /**
