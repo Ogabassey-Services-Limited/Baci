@@ -4,7 +4,6 @@
  */
 
 import { z } from 'zod';
-import { logger } from './logger';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
@@ -75,7 +74,9 @@ export async function listDisputes(
     status?: 'awaiting-reply' | 'awaiting-merchant-feedback' | 'resolved';
   } = {}
 ) {
-  const query = new URLSearchParams(params as any).toString();
+  const query = new URLSearchParams(
+    params as Record<string, string>
+  ).toString();
   return await paystackRequest<Dispute[]>(`/dispute?${query}`);
 }
 
