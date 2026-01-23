@@ -185,6 +185,6 @@
     "not op_mini all"
   ],
   "overrides": {
-    "prismjs": ">=1.30.0"
+    "prismjs": "^1.30.0"
   }
 }

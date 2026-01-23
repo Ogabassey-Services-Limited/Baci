@@ -263,12 +263,12 @@ Deno.serve(async (req) => {
           console.error('Failed to update order payout status:', updateError);
         }
 
+        // 2026 best practice: Use merchant.id instead of business_name to avoid PII in logs/responses
         results.push({
-          merchant: merchant.business_name,
+          merchantId: merchant.id,
           amount: totalAmount,
           status: 'success',
           reference: idempotencyRef,
-          transferCode,
         });
       } catch (err: unknown) {
         console.error('Payout logic failed for merchant %s:', merchant.id, err);
@@ -291,11 +291,13 @@ Deno.serve(async (req) => {
           .eq('reference', idempotencyRef)
           .eq('status', 'processing');
 
+        // 2026 best practice: Use merchant.id and sanitize error for response
+        // Don't expose raw system errors - provide generic message for client
         results.push({
-          merchant: merchant.business_name,
+          merchantId: merchant.id,
           amount: totalAmount,
           status: 'failed',
-          error: errorMessage,
+          error: 'Payout processing failed', // Generic message for response
         });
       }
     }
@@ -305,11 +307,14 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
+    // 2026 best practice: Don't expose internal error details to clients
+    console.error('Process payouts failed:', error);
+    return new Response(
+      JSON.stringify({ error: 'Payout processing encountered an error' }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, // Use 500 for server errors, not 400
+      }
+    );
   }
 });
