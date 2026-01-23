@@ -71,7 +71,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color as string }}>
+              <span
+                key={mark.type}
+                style={{ color: mark.attrs.color as string }}
+              >
                 {content}
               </span>
             );
@@ -87,6 +90,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
 const NodeRenderer = ({
   node,
   index: _index,
+  // biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
@@ -210,6 +214,7 @@ export const BlogContentRenderer = ({ json }: { json: unknown }) => {
 
     // Safety check for TipTap format
     if (doc.type !== 'doc') {
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for non-TipTap HTML
       return <div dangerouslySetInnerHTML={{ __html: json }} />;
     }
 
@@ -220,6 +225,7 @@ export const BlogContentRenderer = ({ json }: { json: unknown }) => {
     );
   } catch (e) {
     console.error('Renderer failed:', e);
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: Error recovery fallback
     return <div dangerouslySetInnerHTML={{ __html: json }} />;
   }
 };
