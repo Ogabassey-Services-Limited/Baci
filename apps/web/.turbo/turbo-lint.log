@@ -1,61 +1,387 @@
 
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
-> biome check .
+> biome check . --write
 
-src/app/api/blog/exit-preview/route.ts:18:27 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/paystack/virtual-terminal/[code]/route.ts:25:27 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    23 │  * Fetch a specific Virtual Terminal
+    24 │  */
+  > 25 │ export async function GET(request: NextRequest, { params }: RouteParams) {
+       │                           ^^^^^^^
+    26 │     try {
+    27 │         const { code } = await params;
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend request with an underscore.
+  
+     23  23 │    * Fetch a specific Virtual Terminal
+     24  24 │    */
+     25     │ - export·async·function·GET(request:·NextRequest,·{·params·}:·RouteParams)·{
+         25 │ + export·async·function·GET(_request:·NextRequest,·{·params·}:·RouteParams)·{
+     26  26 │       try {
+     27  27 │           const { code } = await params;
+  
+
+src/app/api/paystack/virtual-terminal/[code]/route.ts:129:30 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    127 │  * Deactivate a Virtual Terminal
+    128 │  */
+  > 129 │ export async function DELETE(request: NextRequest, { params }: RouteParams) {
+        │                              ^^^^^^^
+    130 │     try {
+    131 │         const { code } = await params;
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend request with an underscore.
+  
+    127 127 │    * Deactivate a Virtual Terminal
+    128 128 │    */
+    129     │ - export·async·function·DELETE(request:·NextRequest,·{·params·}:·RouteParams)·{
+        129 │ + export·async·function·DELETE(_request:·NextRequest,·{·params·}:·RouteParams)·{
+    130 130 │       try {
+    131 131 │           const { code } = await params;
+  
+
+src/app/api/paystack/virtual-terminal/route.ts:13:5 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    11 │ import {
+    12 │     createVirtualTerminal,
+  > 13 │     type VirtualTerminalResponse,
+       │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    14 │ } from '@/lib/paystack';
+    15 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     11  11 │   import {
+     12  12 │       createVirtualTerminal,
+     13     │ - ····type·VirtualTerminalResponse,
+     14  13 │   } from '@/lib/paystack';
+     15  14 │   import { createClient } from '@/lib/supabase/server';
+  
+
+src/app/dashboard/settings/payments/components/virtual-terminal-settings.tsx:412:81 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    410 │                                                             className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary"
+    411 │                                                             onClick={() =>
+  > 412 │                                                                 copyToClipboard(account.account_number!, 'Account Number')
+        │                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+    413 │                                                             }
+    414 │                                                         />
+  
+
+src/app/dashboard/settings/payments/components/virtual-terminal-settings.tsx:443:77 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    441 │                                                         className="w-full justify-start text-xs h-7 px-2"
+    442 │                                                         onClick={() =>
+  > 443 │                                                             copyToClipboard(account.payment_link!, 'Link')
+        │                                                                             ^^^^^^^^^^^^^^^^^^^^^
+    444 │                                                         }
+    445 │                                                     >
+  
+
+src/app/dashboard/staff/team-client.tsx:194:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    17 │   // Redirect back to either the specified callback or the blog home
-  > 18 │   redirect(callbackUrl as any);
-       │                           ^^^
+    192 │   // Use Action State for better form handling
+    193 │   const [state, formAction, isBasePending] = useActionState(
+  > 194 │     async (prevState: any, formData: FormData) => {
+        │                       ^^^
+    195 │       const data = {
+    196 │         email: formData.get('email') as string,
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/dashboard/staff/team-client.tsx:194:12 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    192 │   // Use Action State for better form handling
+    193 │   const [state, formAction, isBasePending] = useActionState(
+  > 194 │     async (prevState: any, formData: FormData) => {
+        │            ^^^^^^^^^
+    195 │       const data = {
+    196 │         email: formData.get('email') as string,
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend prevState with an underscore.
+  
+    192 192 │     // Use Action State for better form handling
+    193 193 │     const [state, formAction, isBasePending] = useActionState(
+    194     │ - ····async·(prevState:·any,·formData:·FormData)·=>·{
+        194 │ + ····async·(_prevState:·any,·formData:·FormData)·=>·{
+    195 195 │         const data = {
+    196 196 │           email: formData.get('email') as string,
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:15:28 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    13 │ interface TipTapNode {
+    14 │     type: string;
+  > 15 │     attrs?: Record<string, any>;
+       │                            ^^^
+    16 │     content?: TipTapNode[];
+    17 │     marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:17:58 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    15 │     attrs?: Record<string, any>;
+    16 │     content?: TipTapNode[];
+  > 17 │     marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+       │                                                          ^^^
+    18 │     text?: string;
     19 │ }
-    20 │ 
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/blog/preview/route.ts:31:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/components/blog/renderer/BlogContentRenderer.tsx:173:55 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    29 │   // Redirect to the blog post page
-    30 │   // The page will detect draft mode and include unpublished content
-  > 31 │   redirect(`/${merchantSlug}/blog/${slug}` as any);
-       │                                               ^^^
-    32 │ }
-    33 │ 
+    171 │ };
+    172 │ 
+  > 173 │ export const BlogContentRenderer = ({ json }: { json: any }) => {
+        │                                                       ^^^
+    174 │     if (!json) return null;
+    175 │ 
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/dashboard/blog/[id]/edit/page.tsx:256:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
+src/components/blog/renderer/BlogContentRenderer.tsx:75:31 lint/correctness/noUnusedFunctionParameters ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    73 │ };
+    74 │ 
+  > 75 │ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
+       │                               ^^^^^
+    76 │     const children = node.content?.map((child, i) => (
+    77 │         <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:181:25 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    179 │         // Safety check for TipTap format
+    180 │         if (doc.type !== 'doc') {
+  > 181 │             return <div dangerouslySetInnerHTML={{ __html: json }} />;
+        │                         ^^^^^^^^^^^^^^^^^^^^^^^
+    182 │         }
+    183 │ 
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:191:21 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    189 │     } catch (e) {
+    190 │         console.error('Renderer failed:', e);
+  > 191 │         return <div dangerouslySetInnerHTML={{ __html: json }} />;
+        │                     ^^^^^^^^^^^^^^^^^^^^^^^
+    192 │     }
+    193 │ };
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+supabase/functions/process-payouts/index.ts:175:27 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    254 │           description: 'Featured image uploaded successfully.',
-    255 │         });
-  > 256 │       } catch (error: any) {
-        │                       ^^^
-    257 │         console.error('Error uploading image:', error);
-    258 │         toast({
+    173 │                 });
+    174 │ 
+  > 175 │             } catch (err: any) {
+        │                           ^^^
+    176 │                 console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
+    177 │                 results.push({
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/dashboard/blog/new/page.tsx:182:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+supabase/functions/process-payouts/index.ts:191:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    180 │           description: 'Featured image uploaded successfully.',
-    181 │         });
-  > 182 │       } catch (error: any) {
-        │                       ^^^
-    183 │         console.error('Error uploading image:', error);
-    184 │         toast({
+    189 │         });
+    190 │ 
+  > 191 │     } catch (error: any) {
+        │                     ^^^
+    192 │         return new Response(JSON.stringify({ error: error.message }), {
+    193 │             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 844 files in 521ms. No fixes applied.
-Found 4 warnings.
+src/app/api/branches/route.ts:27:7 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━━━━━━━━━━━
+
+  × This variable UpdateBranchSchema is unused.
+  
+    25 │ });
+    26 │ 
+  > 27 │ const UpdateBranchSchema = CreateBranchSchema.partial();
+       │       ^^^^^^^^^^^^^^^^^^
+    28 │ 
+    29 │ // =============================================================================
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend UpdateBranchSchema with an underscore.
+  
+     25  25 │   });
+     26  26 │   
+     27     │ - const·UpdateBranchSchema·=·CreateBranchSchema.partial();
+         27 │ + const·_UpdateBranchSchema·=·CreateBranchSchema.partial();
+     28  28 │   
+     29  29 │   // =============================================================================
+  
+
+src/components/blog/novel-editor.tsx:80:24 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    78 │   // Use passed upload handler or fallback to default
+    79 │   // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
+  > 80 │   const handleUpload = async (file: File, view: any, pos: number) => {
+       │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 81 │     if (onImageUpload) {
+  > 82 │       return onImageUpload(file);
+  > 83 │     }
+  > 84 │     return uploadFn(file, view, pos);
+  > 85 │   };
+       │   ^
+    86 │ 
+    87 │   return (
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    78 │   // Use passed upload handler or fallback to default
+    79 │   // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
+  > 80 │   const handleUpload = async (file: File, view: any, pos: number) => {
+       │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 81 │     if (onImageUpload) {
+  > 82 │       return onImageUpload(file);
+  > 83 │     }
+  > 84 │     return uploadFn(file, view, pos);
+  > 85 │   };
+       │   ^
+    86 │ 
+    87 │   return (
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:997:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+     995 │  * List all Virtual Terminals on the integration
+     996 │  */
+   > 997 │ export async function listVirtualTerminals(options: {
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   > 998 │   status?: 'active' | 'inactive';
+          ...
+  > 1012 │   return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+  > 1013 │ }
+         │ ^
+    1014 │ 
+    1015 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+     995 │  * List all Virtual Terminals on the integration
+     996 │  */
+   > 997 │ export async function listVirtualTerminals(options: {
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   > 998 │   status?: 'active' | 'inactive';
+          ...
+  > 1012 │   return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+  > 1013 │ }
+         │ ^
+    1014 │ 
+    1015 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+supabase/functions/process-payouts/index.ts:17:11 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━
+
+  × This interface Order is unused.
+  
+    15 │ }
+    16 │ 
+  > 17 │ interface Order {
+       │           ^^^^^
+    18 │     id: string;
+    19 │     merchant_id: string;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+supabase/functions/process-payouts/index.ts:135:23 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
+
+  × This variable transferReference is unused.
+  
+    133 │                 }
+    134 │ 
+  > 135 │                 const transferReference = transferData.data.reference;
+        │                       ^^^^^^^^^^^^^^^^^
+    136 │                 const transferCode = transferData.data.transfer_code;
+    137 │ 
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend transferReference with an underscore.
+  
+    133 133 │                   }
+    134 134 │   
+    135     │ - ················const·transferReference·=·transferData.data.reference;
+        135 │ + ················const·_transferReference·=·transferData.data.reference;
+    136 136 │                   const transferCode = transferData.data.transfer_code;
+    137 137 │   
+  
+
+Skipped 10 suggested fixes.
+If you wish to apply the suggested (unsafe) fixes, use the command biome check --write --unsafe
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 16.
+Checked 855 files in 3s. Fixed 23 files.
+Found 17 errors.
+Found 19 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while applying fixes.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

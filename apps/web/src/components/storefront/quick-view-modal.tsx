@@ -207,7 +207,6 @@ export function QuickViewModal({
                     )}
                     aria-label={`View image ${idx + 1} of ${allImages.length}`}
                     aria-current={selectedImage === img.url}
-                    role="listitem"
                   >
                     <Image
                       src={img.url}
@@ -305,7 +304,10 @@ export function QuickViewModal({
                             )}
                           >
                             {isSelected && (
-                              <Check className="w-3 h-3 inline mr-1" aria-hidden="true" />
+                              <Check
+                                className="w-3 h-3 inline mr-1"
+                                aria-hidden="true"
+                              />
                             )}
                             {value}
                           </button>
