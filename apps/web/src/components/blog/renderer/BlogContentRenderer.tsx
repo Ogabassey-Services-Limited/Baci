@@ -66,21 +66,31 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           );
           break;
         case 'link': {
-          // Sanitize URL to prevent javascript: XSS attacks (2026 security best practice)
-          const safeHref = mark.attrs?.href ? sanitizeUrl(mark.attrs.href) : '';
+          // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
+          const rawHref = mark.attrs?.href ?? '';
+          const isRelative =
+            rawHref.startsWith('/') && !rawHref.startsWith('//');
+          const isAnchor = rawHref.startsWith('#');
+
+          const safeHref =
+            isRelative || isAnchor ? rawHref : sanitizeUrl(rawHref);
+
+          const isExternal =
+            !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
+
           content = safeHref ? (
-            // Use anchor tag for external/user-generated URLs (not Next.js Link)
+            // Use anchor tag for user-generated URLs
             <a
               key={mark.type}
               href={safeHref}
-              target={mark.attrs?.target || '_blank'}
-              rel="noopener noreferrer"
+              target={isExternal ? mark.attrs?.target || '_blank' : undefined}
+              rel={isExternal ? 'noopener noreferrer' : undefined}
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
             >
               {content}
             </a>
           ) : (
-            // Render as plain text if URL is invalid/malicious
+            // Render as plain text if URL is invalid/malicious (e.g. "javascript:")
             <span key={mark.type}>{content}</span>
           );
           break;

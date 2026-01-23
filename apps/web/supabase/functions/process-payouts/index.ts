@@ -15,24 +15,26 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
-// Helper to generate idempotency reference (2026 best practice: DRY principle + collision resistance)
+// Helper to generate idempotency reference (2026 best practice: SHA-256 fingerprinting)
 // Format: baci-payout-{merchantId}-{date}-{amount}-{idsHash}
-function generateIdempotencyRef(
+async function generateIdempotencyRef(
   merchantId: string,
   date: Date,
   orderIds: string[],
   amountKobo: number
-): string {
+): Promise<string> {
   // Sort IDs to ensure deterministic reference regardless of fetch order
   const idString = [...orderIds].sort().join(',');
-  // Use a simple checksum/hash of the IDs to keep ref length manageable
-  let hash = 0;
-  for (let i = 0; i < idString.length; i++) {
-    const char = idString.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0; // Convert to 32bit integer
-  }
-  const idHash = Math.abs(hash).toString(36);
+
+  // 2026 Best Practice: Use SHA-256 for collision resistance (Standard in FinTech)
+  const encoder = new TextEncoder();
+  const data = encoder.encode(idString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const idHash = hashArray
+    .slice(0, 8) // First 8 bytes are sufficient for this context
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 
   return `baci-payout-${merchantId}-${date.toISOString().slice(0, 10)}-${amountKobo}-${idHash}`;
 }
@@ -191,7 +193,7 @@ Deno.serve(async (req) => {
         const transferAmountKobo = Math.round(totalAmount * 100);
 
         // Generate idempotency reference to prevent double-payouts on retries
-        const idempotencyRef = generateIdempotencyRef(
+        const idempotencyRef = await generateIdempotencyRef(
           merchant.id,
           today,
           orderIds,
@@ -214,7 +216,15 @@ Deno.serve(async (req) => {
 
           if (existingPayout.status === 'processing') {
             // If we found a processing payout, it means another run is likely active or stuck
-            // We'll skip this merchant for this run to avoid race conditions
+            // We'll link orders anyway to ensure consistency if they missed it last time
+            const { error: processingLinkError } = await supabase
+              .from('orders')
+              .update({
+                payout_id: existingPayout.id,
+                payout_status: 'processing',
+              })
+              .in('id', orderIds);
+            if (processingLinkError) throw processingLinkError;
             continue;
           }
 
@@ -264,6 +274,15 @@ Deno.serve(async (req) => {
 
         if (linkError) {
           console.error('Failed to link orders to payout:', linkError);
+          // Mark as failed and stop (safety: don't transfer money without links)
+          await supabase
+            .from('payouts')
+            .update({
+              status: 'failed',
+              error_message: 'Failed to link orders to payout',
+            })
+            .eq('id', payout.id);
+          throw linkError;
         }
 
         const transferResponse = await fetchWithTimeout(
@@ -363,7 +382,7 @@ Deno.serve(async (req) => {
 
         // Update payout record to failed status if it was created
         const failedTransferAmountKobo = Math.round(totalAmount * 100);
-        const failedIdempotencyRef = generateIdempotencyRef(
+        const failedIdempotencyRef = await generateIdempotencyRef(
           merchant.id,
           today,
           orderIds,

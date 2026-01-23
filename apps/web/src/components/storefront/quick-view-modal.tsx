@@ -305,6 +305,43 @@ export function QuickViewModal({
                               role="radio"
                               aria-checked={isSelected}
                               aria-label={`${key}: ${value}`}
+                              tabIndex={isSelected ? 0 : -1}
+                              onKeyDown={(event) => {
+                                const keys = [
+                                  'ArrowRight',
+                                  'ArrowDown',
+                                  'ArrowLeft',
+                                  'ArrowUp',
+                                  'Home',
+                                  'End',
+                                ];
+                                if (!keys.includes(event.key)) return;
+                                event.preventDefault();
+                                const buttons = Array.from(
+                                  event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+                                    '[role="radio"]'
+                                  ) ?? []
+                                );
+                                const currentIndex = buttons.indexOf(
+                                  event.currentTarget
+                                );
+                                if (currentIndex < 0) return;
+                                const lastIndex = buttons.length - 1;
+                                const nextIndex =
+                                  event.key === 'Home'
+                                    ? 0
+                                    : event.key === 'End'
+                                      ? lastIndex
+                                      : event.key === 'ArrowRight' ||
+                                          event.key === 'ArrowDown'
+                                        ? (currentIndex + 1) % buttons.length
+                                        : (currentIndex - 1 + buttons.length) %
+                                          buttons.length;
+                                const nextValue = values[nextIndex];
+                                handleAttributeChange(key, nextValue);
+                                // Focus the next button in the set
+                                buttons[nextIndex]?.focus();
+                              }}
                               className={cn(
                                 'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
                                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',

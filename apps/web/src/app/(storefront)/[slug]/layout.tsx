@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
@@ -71,7 +72,7 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
 
   // Validate identifier format
@@ -102,9 +103,8 @@ export async function generateMetadata({
     | Record<string, unknown>
     | undefined;
 
-  const verificationCode =
-    featureSettings?.google_site_verification ||
-    publishedConfig?.google_site_verification;
+  const verificationCode = (featureSettings?.google_site_verification ||
+    publishedConfig?.google_site_verification) as string | undefined;
 
   // Build icons configuration for merchant favicon
   // Fall back to logo_url if no dedicated favicon exists
@@ -140,19 +140,12 @@ export async function generateMetadata({
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
 
-  // Determine theme color for browser UI (prevent flashes)
-  const isDarkTemplate =
-    merchant.template_id === 'ogabassey' ||
-    merchant.template_id === 'classic-elegant';
-  const themeColor = isDarkTemplate ? '#0F0F0F' : '#ffffff';
-
   return {
     title:
       merchant.site_title ||
       `${merchant.business_name} | Buy Gadgets Pay Later`,
     description,
     icons,
-    themeColor,
     verification: verificationCode
       ? {
           google: verificationCode,
@@ -165,9 +158,36 @@ export async function generateMetadata({
     },
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
-    other: {
-      'theme-color': themeColor,
-    },
+  };
+}
+
+/**
+ * Modern Next.js 15+ Viewport Configuration
+ * 2026 Best Practice: Separate viewport configuration for optimized browser rendering
+ */
+export async function generateViewport({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Viewport> {
+  const { slug } = await params;
+  if (!isValidMerchantIdentifier(slug)) return {};
+
+  let merchant = null;
+  if (isDomainIdentifier(slug)) {
+    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
+  } else {
+    merchant = await getCachedMerchant(slug.toLowerCase());
+  }
+
+  if (!merchant) return {};
+
+  const isDarkTemplate =
+    merchant.template_id === 'ogabassey' ||
+    merchant.template_id === 'classic-elegant';
+
+  return {
+    themeColor: isDarkTemplate ? '#0F0F0F' : '#ffffff',
   };
 }
 

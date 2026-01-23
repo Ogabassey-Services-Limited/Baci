@@ -329,7 +329,10 @@ export function MerchantBankForm({
                   />
                   {isLoadingBanks && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <Loader2
+                        className="h-4 w-4 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     </div>
                   )}
                 </div>
@@ -540,7 +543,9 @@ export function MerchantBankForm({
           className="w-full"
           disabled={isSubmitting || isVerifying || !verifiedName}
         >
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>
       </form>

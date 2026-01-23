@@ -1,6 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 
 /**
  * MyCover.ai Webhook Handler
@@ -17,31 +16,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const myCoverWebhookSecret = process.env.MYCOVER_WEBHOOK_SECRET || '';
 
-const myCoverWebhookSchema = z.object({
-  event: z.string(),
-  data: z
-    .object({
-      policy_id: z.string().optional(),
-      policy_number: z.string().optional(),
-      status: z.string().optional(),
-      customer: z
-        .object({
-          email: z.string().optional(),
-          phone: z.string().optional(),
-          first_name: z.string().optional(),
-          last_name: z.string().optional(),
-        })
-        .optional(),
-      start_date: z.string().optional(),
-      expiration_date: z.string().optional(),
-      genius_price: z.number().optional(),
-      market_price: z.number().optional(),
-      claim_id: z.string().optional(),
-      claim_status: z.string().optional(),
-    })
-    .passthrough(),
-  timestamp: z.string().optional(),
-});
+import {
+  type MyCoverWebhookPayload,
+  myCoverWebhookSchema,
+} from '@/schemas/mycover-webhook';
 
 /**
  * Verify MyCover webhook signature using HMAC-SHA512
@@ -100,8 +78,6 @@ async function verifyWebhookSignature(
     return false;
   }
 }
-
-interface MyCoverWebhookPayload extends z.infer<typeof myCoverWebhookSchema> {}
 
 export async function POST(request: NextRequest) {
   try {

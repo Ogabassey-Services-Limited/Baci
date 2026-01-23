@@ -72,7 +72,7 @@ export function StorefrontProductCard({
   };
 
   const handleDecreaseQuantity = () => {
-    if (cartItem) {
+    if (cartItem && cartItem.quantity > 0) {
       onUpdateQuantity(product.id, cartItem.quantity - 1);
     }
   };
@@ -89,7 +89,7 @@ export function StorefrontProductCard({
   };
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = Number.parseInt(e.target.value, 10) || 0;
+    let value = Math.max(0, Number.parseInt(e.target.value, 10) || 0);
     // 2026 Best Practice: Clamp to available stock
     if (product.manage_stock) {
       value = Math.min(value, product.stock);
@@ -198,6 +198,7 @@ export function StorefrontProductCard({
               colorRole="primary"
               size="sm"
               onClick={handleAddToCart}
+              aria-label={`Add ${product.name} to cart`}
             >
               Add to Cart
             </ThemedButton>

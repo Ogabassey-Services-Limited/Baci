@@ -82,21 +82,23 @@ export function FileUploader({
 
     // Handle accepted files
     if (acceptedFiles?.length) {
-      // Calculate remaining slots accounting for current entries
-      const remainingSlots = Math.max(0, maxFiles - entries.length);
-      const filesToAdd = acceptedFiles.slice(0, remainingSlots);
+      setEntries((prev) => {
+        const remainingSlots = Math.max(0, maxFiles - prev.length);
+        const filesToAdd = acceptedFiles.slice(0, remainingSlots);
 
-      if (filesToAdd.length === 0) return;
+        if (filesToAdd.length === 0) return prev;
 
-      // Create new entries with File objects
-      const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
-        src: URL.createObjectURL(file),
-        file,
-      }));
+        // Create new entries with File objects
+        const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
+          src: URL.createObjectURL(file),
+          file,
+        }));
 
-      const updatedEntries = [...entries, ...newEntries];
-      setEntries(updatedEntries);
-      onFilesSelected(getFiles(updatedEntries));
+        const updatedEntries = [...prev, ...newEntries];
+        // Propagate current files to parent
+        onFilesSelected(getFiles(updatedEntries));
+        return updatedEntries;
+      });
     }
   };
 

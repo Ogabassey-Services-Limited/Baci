@@ -466,6 +466,7 @@ export default function WishListPage() {
                         handleRemoveItem(item.id, item.products.name)
                       }
                       disabled={removingItemId === item.id}
+                      aria-label={`Remove ${item.products.name} from wishlist`}
                     >
                       {removingItemId === item.id ? (
                         <Loader2
