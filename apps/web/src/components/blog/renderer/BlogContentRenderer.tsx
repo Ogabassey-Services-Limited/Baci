@@ -71,7 +71,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color as string }}>
+              <span
+                key={mark.type}
+                style={{ color: mark.attrs.color as string }}
+              >
                 {content}
               </span>
             );

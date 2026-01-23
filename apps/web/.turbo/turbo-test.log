@@ -5,73 +5,31 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.17 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
-[90mstderr[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify valid HMAC-SHA512 signature
-[22m[39m[MyCover Webhook] Signature verification FAILED. Possible spoofing attempt.
+ [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+[90mstdout[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify valid HMAC-SHA256 signature with x-mycover-signature header
+[22m[39m[MyCover Webhook] ✅ Signature verified.
+[MyCover Webhook] Received: test
+[MyCover Webhook] Unhandled event: test
 
 [90mstdout[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify valid HMAC-SHA256 signature
 [22m[39m[MyCover Webhook] ✅ Signature verified.
 [MyCover Webhook] Received: test
 [MyCover Webhook] Unhandled event: test
 
-[90mstderr[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify using x-signature header as fallback
-[22m[39m[MyCover Webhook] Signature verification FAILED. Possible spoofing attempt.
+[90mstdout[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify using x-signature header as fallback
+[22m[39m[MyCover Webhook] ✅ Signature verified.
+[MyCover Webhook] Received: test
+[MyCover Webhook] Unhandled event: test
 
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 49[2mms[22m[39m
- [31m❯[39m src/app/api/webhooks/mycover/route.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 26[2mms[22m[39m
-[31m     [31m×[31m should verify valid HMAC-SHA512 signature[39m[32m 20[2mms[22m[39m
-     [32m✓[39m should verify valid HMAC-SHA256 signature[32m 2[2mms[22m[39m
-     [32m✓[39m should reject request with invalid signature (hard fail - 2026 best practice)[32m 1[2mms[22m[39m
-[31m     [31m×[31m should verify using x-signature header as fallback[39m[32m 2[2mms[22m[39m
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 307[2mms[22m[39m
- [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 566[2mms[22m[39m
-     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 550[2mms[22m[39m
+ [32m✓[39m src/app/api/webhooks/mycover/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 128[2mms[22m[39m
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 534[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 529[2mms[22m[39m
 
-[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m      Tests [22m [1m[32m23 passed[39m[22m[90m (23)[39m
+[2m   Start at [22m 14:47:28
+[2m   Duration [22m 2.19s[2m (transform 591ms, setup 945ms, import 1.23s, tests 693ms, environment 6.28s)[22m
 
-[41m[1m FAIL [22m[49m src/app/api/webhooks/mycover/route.test.ts[2m > [22mMyCover Webhook[2m > [22mshould verify valid HMAC-SHA512 signature
-[31m[1mAssertionError[22m: expected 401 to be 200 // Object.is equality[39m
-
-[32m- Expected[39m
-[31m+ Received[39m
-
-[32m- 200[39m
-[31m+ 401[39m
-
-[36m [2m❯[22m src/app/api/webhooks/mycover/route.test.ts:[2m39:24[22m[39m
-    [90m 37| [39m
-    [90m 38| [39m    [35mconst[39m res [33m=[39m [35mawait[39m [33mPOST[39m(req)[33m;[39m
-    [90m 39| [39m    [34mexpect[39m(res[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
-    [90m   | [39m                       [31m^[39m
-    [90m 40| [39m  })[33m;[39m
-    [90m 41| [39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m src/app/api/webhooks/mycover/route.test.ts[2m > [22mMyCover Webhook[2m > [22mshould verify using x-signature header as fallback
-[31m[1mAssertionError[22m: expected 401 to be 200 // Object.is equality[39m
-
-[32m- Expected[39m
-[31m+ Received[39m
-
-[32m- 200[39m
-[31m+ 401[39m
-
-[36m [2m❯[22m src/app/api/webhooks/mycover/route.test.ts:[2m95:24[22m[39m
-    [90m 93| [39m
-    [90m 94| [39m    [35mconst[39m res [33m=[39m [35mawait[39m [33mPOST[39m(req)[33m;[39m
-    [90m 95| [39m    [34mexpect[39m(res[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)[33m;[39m
-    [90m   | [39m                       [31m^[39m
-    [90m 96| [39m  })[33m;[39m
-    [90m 97| [39m})[33m;[39m
-
-
-[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (6)[39m
-[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (23)[39m
-[2m   Start at [22m 14:46:24
-[2m   Duration [22m 5.56s[2m (transform 1.78s, setup 1.53s, import 3.11s, tests 960ms, environment 21.42s)[22m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
-
- ELIFECYCLE  Test failed. See above for more details.
