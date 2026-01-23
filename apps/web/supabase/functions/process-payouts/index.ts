@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
 
         // A. Create/Fetch Transfer Recipient
         // We create it every time to be safe (idempotent if same details)
+        // 2026 best practice: Add timeout to prevent edge function hangs
         const recipientResponse = await fetch(
           'https://api.paystack.co/transferrecipient',
           {
@@ -122,26 +123,36 @@ Deno.serve(async (req) => {
               bank_code: merchant.bank_code,
               currency: 'NGN',
             }),
+            signal: AbortSignal.timeout(10000), // 10s timeout
           }
         );
 
         if (!recipientResponse.ok) {
-          throw new Error(`Paystack API error: ${recipientResponse.status}`);
+          const errorText = await recipientResponse.text().catch(() => '');
+          throw new Error(
+            `Paystack API error: ${recipientResponse.status} - ${errorText}`
+          );
         }
         const recipientData = await recipientResponse.json();
-        if (!recipientData.status) {
+        if (!recipientData.status || !recipientData.data?.recipient_code) {
           throw new Error(
-            `Failed to create recipient: ${recipientData.message}`
+            `Failed to create recipient: ${recipientData.message || 'Invalid response'}`
           );
         }
         const recipientCode = recipientData.data.recipient_code;
 
         // B. Initiate Transfer
         // Note: Paystack amount is in kobo (subunits)
-        // Adjust logic if totalAmount is already in kobo?
-        // Assuming database stores main unit (Naira), so multiply by 100.
-        // CHECK THIS assumption. Usually apps store main units.
+        // Database stores main unit (Naira), so multiply by 100.
+        // Validation: totalAmount must be positive and within reasonable bounds
+        if (totalAmount <= 0 || totalAmount > 10_000_000) {
+          throw new Error(`Invalid transfer amount: ${totalAmount}`);
+        }
         const transferAmountKobo = Math.round(totalAmount * 100);
+
+        // Generate idempotency reference to prevent double-payouts on retries
+        // Format: baci-payout-{merchantId}-{date}-{orderCount}-{amount}
+        const idempotencyRef = `baci-payout-${merchant.id}-${today.toISOString().slice(0, 10)}-${orders.length}-${transferAmountKobo}`;
 
         const transferResponse = await fetch(
           'https://api.paystack.co/transfer',
@@ -156,18 +167,23 @@ Deno.serve(async (req) => {
               amount: transferAmountKobo,
               recipient: recipientCode,
               reason: `Payout for ${orders.length} orders`,
+              reference: idempotencyRef, // Idempotency key prevents duplicate transfers
             }),
+            signal: AbortSignal.timeout(10000), // 10s timeout
           }
         );
 
         if (!transferResponse.ok) {
+          const errorText = await transferResponse.text().catch(() => '');
           throw new Error(
-            `Paystack transfer API error: ${transferResponse.status}`
+            `Paystack transfer API error: ${transferResponse.status} - ${errorText}`
           );
         }
         const transferData = await transferResponse.json();
-        if (!transferData.status) {
-          throw new Error(`Transfer failed: ${transferData.message}`);
+        if (!transferData.status || !transferData.data?.transfer_code) {
+          throw new Error(
+            `Transfer failed: ${transferData.message || 'Invalid response'}`
+          );
         }
 
         const transferCode = transferData.data.transfer_code;
