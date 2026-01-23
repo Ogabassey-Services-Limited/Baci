@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -155,8 +156,14 @@ export async function GET() {
  * PATCH /api/wallet
  * Update wallet settings (auto-payout preferences)
  */
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
+    // CSRF Protection
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) {
+      return response;
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -205,6 +212,12 @@ export async function PATCH(request: Request) {
       }
     }
     if (typeof minPayoutAmount === 'number' && minPayoutAmount >= 100) {
+      if (minPayoutAmount > 10000000) {
+        return NextResponse.json(
+          { error: 'Minimum payout amount cannot exceed ₦10,000,000' },
+          { status: 400 }
+        );
+      }
       updates.min_payout_amount = minPayoutAmount;
     }
 
