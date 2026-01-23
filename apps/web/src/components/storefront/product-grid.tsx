@@ -657,6 +657,7 @@ export function StorefrontProductGrid({
             })}
           </div>
         ) : (
+          // biome-ignore lint/a11y/useSemanticElements: Flexible layout div
           <div
             className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in"
             role="status"

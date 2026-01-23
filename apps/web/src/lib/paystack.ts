@@ -1011,7 +1011,7 @@ export async function listVirtualTerminals(
     ? `/virtual_terminal?${queryString}`
     : '/virtual_terminal';
 
-  return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+  return await paystackRequest<VirtualTerminalResponse[]>(endpoint);
 }
 
 /**
@@ -1028,7 +1028,7 @@ export async function fetchVirtualTerminal(
     };
   }
 
-  return paystackRequest<VirtualTerminalResponse>(
+  return await paystackRequest<VirtualTerminalResponse>(
     `/virtual_terminal/${encodeURIComponent(code)}`
   );
 }
@@ -1048,7 +1048,7 @@ export async function updateVirtualTerminal(
     };
   }
 
-  return paystackRequest<VirtualTerminalResponse>(
+  return await paystackRequest<VirtualTerminalResponse>(
     `/virtual_terminal/${encodeURIComponent(code)}`,
     {
       method: 'PUT',
@@ -1071,7 +1071,7 @@ export async function deactivateVirtualTerminal(
     };
   }
 
-  return paystackRequest<{ message: string }>(
+  return await paystackRequest<{ message: string }>(
     `/virtual_terminal/${encodeURIComponent(code)}/deactivate`,
     { method: 'PUT' }
   );
@@ -1103,7 +1103,7 @@ export async function assignVirtualTerminalDestinations(
     };
   }
 
-  return paystackRequest<VirtualTerminalDestination[]>(
+  return await paystackRequest<VirtualTerminalDestination[]>(
     `/virtual_terminal/${encodeURIComponent(code)}/destination/assign`,
     {
       method: 'POST',
@@ -1130,7 +1130,7 @@ export async function unassignVirtualTerminalDestinations(
     };
   }
 
-  return paystackRequest<{ message: string }>(
+  return await paystackRequest<{ message: string }>(
     `/virtual_terminal/${encodeURIComponent(code)}/destination/unassign`,
     {
       method: 'POST',
@@ -1163,7 +1163,7 @@ export async function addSplitToVirtualTerminal(
     };
   }
 
-  return paystackRequest<SplitResponse>(
+  return await paystackRequest<SplitResponse>(
     `/virtual_terminal/${encodeURIComponent(code)}/split_code`,
     {
       method: 'PUT',
@@ -1187,7 +1187,7 @@ export async function removeSplitFromVirtualTerminal(
     };
   }
 
-  return paystackRequest<{ message: string }>(
+  return await paystackRequest<{ message: string }>(
     `/virtual_terminal/${encodeURIComponent(code)}/split_code`,
     {
       method: 'DELETE',

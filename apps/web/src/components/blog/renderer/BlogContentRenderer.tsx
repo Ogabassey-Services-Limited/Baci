@@ -1,5 +1,6 @@
 'use client';
 
+import DOMPurify from 'isomorphic-dompurify';
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
@@ -12,15 +13,17 @@ import { cn } from '@/lib/utils';
 
 interface TipTapNode {
   type: string;
+  // biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
   attrs?: Record<string, any>;
   content?: TipTapNode[];
+  // biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
   marks?: Array<{ type: string; attrs?: Record<string, any> }>;
   text?: string;
 }
 
 interface NodeRendererProps {
   node: TipTapNode;
-  index: number;
+  index?: number;
 }
 
 const TextRenderer = ({ node }: { node: TipTapNode }) => {
@@ -83,7 +86,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
   return <>{content}</>;
 };
 
-const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
+const NodeRenderer = ({ node, _index }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
   ));
@@ -198,6 +201,7 @@ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
   }
 };
 
+// biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
 export const BlogContentRenderer = ({ json }: { json: any }) => {
   if (!json) return null;
 
@@ -206,7 +210,11 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     // Safety check for TipTap format
     if (doc.type !== 'doc') {
-      return <div dangerouslySetInnerHTML={{ __html: json }} />;
+      const sanitizedHtml = DOMPurify.sanitize(
+        typeof json === 'string' ? json : String(json)
+      );
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for non-TipTap HTML
+      return <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
     }
 
     return (
@@ -216,6 +224,10 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
     );
   } catch (e) {
     console.error('Renderer failed:', e);
-    return <div dangerouslySetInnerHTML={{ __html: json }} />;
+    const sanitizedHtml = DOMPurify.sanitize(
+      typeof json === 'string' ? json : String(json)
+    );
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: Error recovery fallback
+    return <div dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;
   }
 };
