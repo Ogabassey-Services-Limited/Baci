@@ -15,11 +15,7 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
-interface Order {
-  id: string;
-  merchant_id: string;
-  total_amount: number;
-}
+// Removed unused Order interface - not needed for current payout logic
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -189,7 +185,8 @@ Deno.serve(async (req) => {
           reference: transferCode,
         });
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Unknown error';
         console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
         results.push({
           merchant: merchant.business_name,
@@ -205,7 +202,8 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

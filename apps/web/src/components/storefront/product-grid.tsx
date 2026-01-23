@@ -657,6 +657,7 @@ export function StorefrontProductGrid({
             })}
           </div>
         ) : (
+          // biome-ignore lint/a11y/useSemanticElements: Using div for flexible layout, output element doesn't support these classes
           <div
             className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in"
             role="status"
