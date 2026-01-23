@@ -15,6 +15,17 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
+// Helper to generate idempotency reference (2026 best practice: DRY principle)
+// Format: baci-payout-{merchantId}-{date}-{orderCount}-{amount}
+function generateIdempotencyRef(
+  merchantId: string,
+  date: Date,
+  orderCount: number,
+  amountKobo: number
+): string {
+  return `baci-payout-${merchantId}-${date.toISOString().slice(0, 10)}-${orderCount}-${amountKobo}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -151,8 +162,12 @@ Deno.serve(async (req) => {
         const transferAmountKobo = Math.round(totalAmount * 100);
 
         // Generate idempotency reference to prevent double-payouts on retries
-        // Format: baci-payout-{merchantId}-{date}-{orderCount}-{amount}
-        const idempotencyRef = `baci-payout-${merchant.id}-${today.toISOString().slice(0, 10)}-${orders.length}-${transferAmountKobo}`;
+        const idempotencyRef = generateIdempotencyRef(
+          merchant.id,
+          today,
+          orders.length,
+          transferAmountKobo
+        );
 
         // 2026 Best Practice: Check for existing payout with same reference
         // This prevents duplicate transfers if the function runs multiple times
@@ -186,7 +201,7 @@ Deno.serve(async (req) => {
             status: 'processing', // Mark as processing before transfer
             reference: idempotencyRef, // Use idempotency ref as our reference
             payout_mode: merchant.payout_mode,
-            processed_at: new Date().toISOString(),
+            initiated_at: new Date().toISOString(), // Set when initiated, not when processed
           })
           .select()
           .single();
@@ -237,21 +252,15 @@ Deno.serve(async (req) => {
 
         const transferCode = transferData.data.transfer_code;
 
-        // Update payout record with transfer code and set status to pending
+        // Update payout record with transfer code, status, and processed_at timestamp
         const { error: updatePayoutError } = await supabase
           .from('payouts')
           .update({
             status: 'pending', // Paystack accepted the transfer
             paystack_transfer_code: transferCode,
+            processed_at: new Date().toISOString(), // Set when transfer actually succeeds
           })
           .eq('id', payout.id);
-
-        if (updatePayoutError) {
-          console.error(
-            'Failed to update payout with transfer code:',
-            updatePayoutError
-          );
-        }
 
         // Update orders status to pending
         const { error: updateError } = await supabase
@@ -259,8 +268,29 @@ Deno.serve(async (req) => {
           .update({ payout_status: 'pending' })
           .in('id', orderIds);
 
-        if (updateError) {
-          console.error('Failed to update order payout status:', updateError);
+        // 2026 Best Practice: Handle partial success state when transfer succeeds but DB updates fail
+        // This prevents silent failures that leave inconsistent state
+        if (updatePayoutError || updateError) {
+          if (updatePayoutError) {
+            console.error(
+              'Failed to update payout with transfer code:',
+              updatePayoutError
+            );
+          }
+          if (updateError) {
+            console.error('Failed to update order payout status:', updateError);
+          }
+          // Flag partial success - money was sent but records need reconciliation
+          results.push({
+            merchantId: merchant.id,
+            amount: totalAmount,
+            status: 'partial_success',
+            reference: idempotencyRef,
+            transferCode,
+            warning:
+              'Transfer succeeded but database update failed - requires manual reconciliation',
+          });
+          continue;
         }
 
         // 2026 best practice: Use merchant.id instead of business_name to avoid PII in logs/responses
@@ -282,13 +312,18 @@ Deno.serve(async (req) => {
           .in('id', orderIds);
 
         // Update payout record to failed status if it was created
-        // Use the idempotency reference pattern to find it
-        const transferAmountKobo = Math.round(totalAmount * 100);
-        const idempotencyRef = `baci-payout-${merchant.id}-${today.toISOString().slice(0, 10)}-${orders.length}-${transferAmountKobo}`;
+        // Use the helper function to regenerate the same reference
+        const failedTransferAmountKobo = Math.round(totalAmount * 100);
+        const failedIdempotencyRef = generateIdempotencyRef(
+          merchant.id,
+          today,
+          orders.length,
+          failedTransferAmountKobo
+        );
         await supabase
           .from('payouts')
           .update({ status: 'failed', error_message: errorMessage })
-          .eq('reference', idempotencyRef)
+          .eq('reference', failedIdempotencyRef)
           .eq('status', 'processing');
 
         // 2026 best practice: Use merchant.id and sanitize error for response
