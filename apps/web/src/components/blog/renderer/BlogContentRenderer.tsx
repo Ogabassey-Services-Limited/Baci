@@ -23,7 +23,7 @@ interface TipTapNode {
 
 interface NodeRendererProps {
   node: TipTapNode;
-  index?: number;
+  _index?: number;
 }
 
 const TextRenderer = ({ node }: { node: TipTapNode }) => {
@@ -88,7 +88,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
 
 const NodeRenderer = ({ node, _index }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
-    <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
+    <NodeRenderer key={`${child.type}-${i}`} node={child} _index={i} />
   ));
 
   const textAlignClass = node.attrs?.textAlign
@@ -219,7 +219,7 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     return (
       <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
-        <NodeRenderer node={doc} index={0} />
+        <NodeRenderer node={doc} _index={0} />
       </div>
     );
   } catch (e) {
