@@ -7,8 +7,8 @@ import { ProductCardImage } from '@/components/optimized-image';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useCurrency } from '@/hooks/use-currency';
 import type { CartItem } from '@/hooks/use-cart';
+import { useCurrency } from '@/hooks/use-currency';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 
@@ -47,11 +47,16 @@ export const StorefrontProductCard = memo(
 
     // Memoize expensive calculations
     const discountPercentage = useMemo(() => {
-      if (!product.compare_at_price || product.compare_at_price <= product.price) {
+      if (
+        !product.compare_at_price ||
+        product.compare_at_price <= product.price
+      ) {
         return null;
       }
       return Math.round(
-        ((product.compare_at_price - product.price) / product.compare_at_price) * 100
+        ((product.compare_at_price - product.price) /
+          product.compare_at_price) *
+          100
       );
     }, [product.price, product.compare_at_price]);
 
@@ -162,7 +167,10 @@ export const StorefrontProductCard = memo(
           </p>
 
           <div className="flex items-center justify-between mt-4">
-            <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>
+            <p
+              className="text-lg font-bold"
+              style={{ color: 'var(--store-primary)' }}
+            >
               {formatCurrency(product.price)}
             </p>
 
@@ -197,7 +205,11 @@ export const StorefrontProductCard = memo(
                 </ThemedButton>
               </div>
             ) : (
-              <ThemedButton colorRole="primary" size="sm" onClick={handleAddToCart}>
+              <ThemedButton
+                colorRole="primary"
+                size="sm"
+                onClick={handleAddToCart}
+              >
                 Add to Cart
               </ThemedButton>
             )}

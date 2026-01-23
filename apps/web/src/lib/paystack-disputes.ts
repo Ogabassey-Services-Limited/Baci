@@ -4,7 +4,6 @@
  */
 
 import { z } from 'zod';
-import { logger } from './logger';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';

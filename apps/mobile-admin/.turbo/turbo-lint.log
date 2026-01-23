@@ -4,3 +4,14 @@
 
 env: load .env
 env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL
+
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/domains/buy.tsx
+  117:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/mac/Baci-app/apps/mobile-admin/components/dashboard/BranchSwitcher.tsx
+  280:29  warning  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  jsx-a11y/no-autofocus
+
+✖ 3 problems (2 errors, 1 warning)
+
+ ELIFECYCLE  Command failed with exit code 1.

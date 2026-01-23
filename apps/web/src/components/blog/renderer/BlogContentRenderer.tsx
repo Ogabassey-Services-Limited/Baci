@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
  * This component recursively renders TipTap JSON as native React components.
  */
 
-// biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
 interface TipTapNode {
   type: string;
   // biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
@@ -87,7 +86,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
   return <>{content}</>;
 };
 
-const NodeRenderer = ({ node, _index }: NodeRendererProps): React.ReactNode => {
+const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
   ));
@@ -211,9 +210,9 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     // Safety check for TipTap format
     if (doc.type !== 'doc') {
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for non-TipTap HTML
       return (
         <div
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for non-TipTap HTML
           dangerouslySetInnerHTML={{
             __html: DOMPurify.sanitize(
               typeof json === 'string' ? json : String(json)
@@ -230,9 +229,9 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
     );
   } catch (e) {
     console.error('Renderer failed:', e);
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: Error recovery fallback
     return (
       <div
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Error recovery fallback
         dangerouslySetInnerHTML={{
           __html: DOMPurify.sanitize(
             typeof json === 'string' ? json : String(json)

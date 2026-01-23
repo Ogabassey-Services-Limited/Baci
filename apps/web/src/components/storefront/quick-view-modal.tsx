@@ -272,7 +272,7 @@ export function QuickViewModal({
                         {selectedAttributes[key]}
                       </span>
                     </Label>
-                    {/* biome-ignore lint/a11y/useSemanticElements: Custom radio buttons */}
+
                     <div
                       className="flex flex-wrap gap-2"
                       role="radiogroup"

@@ -1,5 +1,6 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   ArrowLeft,
   CheckCircle,
@@ -18,17 +19,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import type { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -38,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -54,6 +46,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -80,12 +80,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import type { StaffMember, StaffRole } from '@/types/staff';
 import {
+  inviteStaffMember,
   removeStaffMember,
   resendInvitation,
   updateStaffMember,
-  inviteStaffMember,
 } from './actions';
-import { InviteStaffSchema, type InviteStaffData } from './schema';
+import { type InviteStaffData, InviteStaffSchema } from './schema';
 
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',
@@ -192,7 +192,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   // Use Action State for better form handling
   const [state, formAction, isBasePending] = useActionState(
     async (
-      prevState: { success: boolean; message?: string; error?: string } | null,
+      _prevState: { success: boolean; message?: string; error?: string } | null,
       formData: FormData
     ) => {
       const data = {

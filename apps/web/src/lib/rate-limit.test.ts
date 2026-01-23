@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { checkRateLimit } from './rate-limit';
 import { NextRequest } from 'next/server';
+import { describe, expect, it } from 'vitest';
+import { checkRateLimit } from './rate-limit';
 
 describe('checkRateLimit', () => {
   it('should return correct limits for /api/wallet', () => {
