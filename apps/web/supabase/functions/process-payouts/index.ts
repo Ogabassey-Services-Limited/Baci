@@ -154,6 +154,55 @@ Deno.serve(async (req) => {
         // Format: baci-payout-{merchantId}-{date}-{orderCount}-{amount}
         const idempotencyRef = `baci-payout-${merchant.id}-${today.toISOString().slice(0, 10)}-${orders.length}-${transferAmountKobo}`;
 
+        // 2026 Best Practice: Check for existing payout with same reference
+        // This prevents duplicate transfers if the function runs multiple times
+        const { data: existingPayout } = await supabase
+          .from('payouts')
+          .select('id, status, reference')
+          .eq('reference', idempotencyRef)
+          .maybeSingle();
+
+        if (existingPayout) {
+          // Payout already exists - skip to prevent duplicate
+          console.log(
+            `Payout already exists for merchant ${merchant.id} with reference ${idempotencyRef}, status: ${existingPayout.status}`
+          );
+          // Reset orders back to their previous state since we're skipping
+          await supabase
+            .from('orders')
+            .update({ payout_status: 'unpaid' })
+            .in('id', orderIds);
+          continue;
+        }
+
+        // 2026 Best Practice: Create payout record BEFORE Paystack transfer
+        // This ensures we have a record of the attempt even if transfer fails
+        const { data: payout, error: payoutError } = await supabase
+          .from('payouts')
+          .insert({
+            merchant_id: merchant.id,
+            amount: totalAmount,
+            currency: 'NGN',
+            status: 'processing', // Mark as processing before transfer
+            reference: idempotencyRef, // Use idempotency ref as our reference
+            payout_mode: merchant.payout_mode,
+            processed_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (payoutError) throw payoutError;
+
+        // Link orders to payout immediately
+        const { error: linkError } = await supabase
+          .from('orders')
+          .update({ payout_id: payout.id })
+          .in('id', orderIds);
+
+        if (linkError) {
+          console.error('Failed to link orders to payout:', linkError);
+        }
+
         const transferResponse = await fetch(
           'https://api.paystack.co/transfer',
           {
@@ -167,7 +216,7 @@ Deno.serve(async (req) => {
               amount: transferAmountKobo,
               recipient: recipientCode,
               reason: `Payout for ${orders.length} orders`,
-              reference: idempotencyRef, // Idempotency key prevents duplicate transfers
+              reference: idempotencyRef, // Same reference for Paystack idempotency
             }),
             signal: AbortSignal.timeout(10000), // 10s timeout
           }
@@ -188,40 +237,38 @@ Deno.serve(async (req) => {
 
         const transferCode = transferData.data.transfer_code;
 
-        // 4. Update Database
-        // A. Create Payout Record
-        const { data: payout, error: payoutError } = await supabase
+        // Update payout record with transfer code and set status to pending
+        const { error: updatePayoutError } = await supabase
           .from('payouts')
-          .insert({
-            merchant_id: merchant.id,
-            amount: totalAmount,
-            currency: 'NGN',
-            status: 'pending', // Paystack status is usually 'pending' or 'success'
-            reference: transferCode, // Using transfer code as reference
-            payout_mode: merchant.payout_mode,
-            processed_at: new Date().toISOString(),
+          .update({
+            status: 'pending', // Paystack accepted the transfer
+            paystack_transfer_code: transferCode,
           })
-          .select()
-          .single();
+          .eq('id', payout.id);
 
-        if (payoutError) throw payoutError;
+        if (updatePayoutError) {
+          console.error(
+            'Failed to update payout with transfer code:',
+            updatePayoutError
+          );
+        }
 
-        // B. Update Orders with payout reference
+        // Update orders status to pending
         const { error: updateError } = await supabase
           .from('orders')
-          .update({
-            payout_status: 'pending',
-            payout_id: payout.id,
-          })
+          .update({ payout_status: 'pending' })
           .in('id', orderIds);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('Failed to update order payout status:', updateError);
+        }
 
         results.push({
           merchant: merchant.business_name,
           amount: totalAmount,
           status: 'success',
-          reference: transferCode,
+          reference: idempotencyRef,
+          transferCode,
         });
       } catch (err: unknown) {
         console.error('Payout logic failed for merchant %s:', merchant.id, err);
@@ -231,8 +278,18 @@ Deno.serve(async (req) => {
         // Rollback: Reset orders back to unpaid status if transfer failed
         await supabase
           .from('orders')
-          .update({ payout_status: 'unpaid' })
+          .update({ payout_status: 'unpaid', payout_id: null })
           .in('id', orderIds);
+
+        // Update payout record to failed status if it was created
+        // Use the idempotency reference pattern to find it
+        const transferAmountKobo = Math.round(totalAmount * 100);
+        const idempotencyRef = `baci-payout-${merchant.id}-${today.toISOString().slice(0, 10)}-${orders.length}-${transferAmountKobo}`;
+        await supabase
+          .from('payouts')
+          .update({ status: 'failed', error_message: errorMessage })
+          .eq('reference', idempotencyRef)
+          .eq('status', 'processing');
 
         results.push({
           merchant: merchant.business_name,
