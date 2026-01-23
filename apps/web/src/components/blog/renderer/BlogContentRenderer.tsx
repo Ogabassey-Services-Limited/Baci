@@ -58,7 +58,8 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           content = (
             <Link
               key={mark.type}
-              href={(mark.attrs?.href as string) || '#'}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              href={(mark.attrs?.href || '#') as any}
               target={(mark.attrs?.target as string) || '_blank'}
               rel="noopener noreferrer"
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
