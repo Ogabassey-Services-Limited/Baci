@@ -1,5 +1,7 @@
+import crypto from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMyCoverSecretKey } from '@/env';
 
 /**
  * MyCover.ai Webhook Handler
@@ -36,9 +38,112 @@ interface MyCoverWebhookPayload {
   timestamp?: string;
 }
 
+/**
+ * Verify MyCover webhook signature
+ * Note: Checks both SHA512 and SHA256 as algorithm wasn't explicitly documented
+ */
+function verifySignature(
+  rawBody: string,
+  signature: string,
+  secret: string
+): boolean {
+  try {
+    const signatureBuffer = Buffer.from(signature);
+
+    // Try HMAC-SHA512 (Common in fintech)
+    const hash512 = crypto
+      .createHmac('sha512', secret)
+      .update(rawBody)
+      .digest('hex');
+    const buffer512 = Buffer.from(hash512);
+
+    if (
+      signatureBuffer.length === buffer512.length &&
+      crypto.timingSafeEqual(signatureBuffer, buffer512)
+    ) {
+      return true;
+    }
+
+    // Try HMAC-SHA256 (Standard)
+    const hash256 = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex');
+    const buffer256 = Buffer.from(hash256);
+
+    if (
+      signatureBuffer.length === buffer256.length &&
+      crypto.timingSafeEqual(signatureBuffer, buffer256)
+    ) {
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('[MyCover Webhook] Signature verification error:', err);
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const payload: MyCoverWebhookPayload = await request.json();
+    const rawBody = await request.text();
+    let payload: MyCoverWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    // Security: Verify Signature
+    const secretKey = getMyCoverSecretKey();
+    if (secretKey) {
+      const signature =
+        request.headers.get('x-mycover-signature') ||
+        request.headers.get('x-signature');
+
+      if (signature) {
+        const isValid = verifySignature(rawBody, signature, secretKey);
+        if (!isValid) {
+          console.error(
+            '[MyCover Webhook] 🚨 Signature verification FAILED. Possible spoofing attempt.',
+            {
+              headers: Object.fromEntries(request.headers.entries()),
+              bodyLength: rawBody.length,
+            }
+          );
+          // SECURITY: Enforce signature verification (hardened in 2026 best practices)
+          return NextResponse.json(
+            {
+              error: 'Invalid signature',
+              message: 'Webhook signature verification failed',
+            },
+            { status: 401 }
+          );
+        }
+        console.log('[MyCover Webhook] ✅ Signature verified.');
+      } else {
+        console.error(
+          '[MyCover Webhook] ⚠️ No signature header found (x-mycover-signature or x-signature). Rejecting webhook.',
+          {
+            headers: Object.fromEntries(request.headers.entries()),
+          }
+        );
+        // SECURITY: Require signature header (2026 best practice)
+        return NextResponse.json(
+          {
+            error: 'Missing signature',
+            message: 'Webhook signature header required',
+          },
+          { status: 401 }
+        );
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      // In production, we should probably warn louder if secret is missing
+      console.warn(
+        '[MyCover Webhook] ⚠️ MYCOVER_SECRET_KEY not configured. Cannot verify webhook authenticity.'
+      );
+    }
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');

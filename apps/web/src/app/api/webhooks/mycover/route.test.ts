@@ -1,0 +1,96 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { POST } from './route';
+import { NextRequest } from 'next/server';
+import crypto from 'node:crypto';
+
+// Mock dependencies
+vi.mock('@/env', () => ({
+  getMyCoverSecretKey: vi.fn(),
+}));
+
+// Mock Supabase to avoid real network calls
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      update: vi.fn(() => ({
+        eq: vi.fn(() => ({ error: null })),
+      })),
+    })),
+  })),
+}));
+
+import { getMyCoverSecretKey } from '@/env';
+
+describe('MyCover Webhook', () => {
+  const secret = 'test_secret';
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    (getMyCoverSecretKey as unknown as ReturnType<typeof vi.fn>).mockReturnValue(secret);
+  });
+
+  it('should verify valid HMAC-SHA512 signature', async () => {
+    const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
+    const signature = crypto.createHmac('sha512', secret).update(payload).digest('hex');
+
+    const req = new NextRequest('http://localhost/api/webhooks/mycover', {
+      method: 'POST',
+      body: payload,
+      headers: {
+        'x-mycover-signature': signature,
+      },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+
+   it('should verify valid HMAC-SHA256 signature', async () => {
+    const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+
+    const req = new NextRequest('http://localhost/api/webhooks/mycover', {
+      method: 'POST',
+      body: payload,
+      headers: {
+        'x-mycover-signature': signature,
+      },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+
+  it('should log error on invalid signature but process request (soft fail)', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
+
+    const req = new NextRequest('http://localhost/api/webhooks/mycover', {
+      method: 'POST',
+      body: payload,
+      headers: {
+        'x-mycover-signature': 'invalid_signature',
+      },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200); // Should still process for now
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Signature verification FAILED'));
+  });
+
+  it('should verify using x-signature header as fallback', async () => {
+    const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
+    const signature = crypto.createHmac('sha512', secret).update(payload).digest('hex');
+
+    const req = new NextRequest('http://localhost/api/webhooks/mycover', {
+      method: 'POST',
+      body: payload,
+      headers: {
+        'x-signature': signature,
+      },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+  });
+});

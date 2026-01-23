@@ -32,6 +32,9 @@ const serverSchema = z.object({
   // BNPL
   CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
 
+  // Insurance
+  MYCOVER_SECRET_KEY: z.string().optional(),
+
   // Node Env
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -104,6 +107,7 @@ const getEnv = () => {
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
+        MYCOVER_SECRET_KEY: process.env.MYCOVER_SECRET_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
       }
@@ -192,6 +196,8 @@ export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
+
+export const getMyCoverSecretKey = () => env?.MYCOVER_SECRET_KEY;
 
 // Blog - The Fix for "Invalid Token"
 // Now guaranteed to have a value (defaulting to dev-preview-secret if missing)
