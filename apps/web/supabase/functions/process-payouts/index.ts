@@ -15,6 +15,11 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
+interface Order {
+  id: string;
+  total_amount: number;
+}
+
 // Helper to generate idempotency reference (2026 best practice: SHA-256 fingerprinting)
 // Format: baci-payout-{merchantId}-{date}-{amount}-{idsHash}
 async function generateIdempotencyRef(
@@ -118,7 +123,7 @@ Deno.serve(async (req: Request) => {
       if (!orders || orders.length === 0) continue;
 
       // Calculate Total Logic (with NaN protection)
-      const totalAmount = orders.reduce((sum: number, order: any) => {
+      const totalAmount = orders.reduce((sum: number, order: Order) => {
         const amount = Number(order.total_amount);
         return sum + (Number.isFinite(amount) ? amount : 0);
       }, 0);
@@ -127,7 +132,7 @@ Deno.serve(async (req: Request) => {
       if (!Number.isFinite(totalAmount) || totalAmount < 100) continue;
 
       // Define orderIds before try block so it's accessible in catch for rollback
-      const orderIds = orders.map((o: any) => o.id);
+      const orderIds = orders.map((o: Order) => o.id);
 
       // 3. Initiate Transfer with Paystack
       try {
@@ -278,10 +283,14 @@ Deno.serve(async (req: Request) => {
           payoutRecord = insertedPayout;
         }
 
+        if (!payoutRecord) {
+          throw new Error('Payout record could not be created or retrieved');
+        }
+
         // Link orders to payout immediately
         const { error: linkError } = await supabase
           .from('orders')
-          .update({ payout_id: payoutRecord!.id })
+          .update({ payout_id: payoutRecord.id })
           .in('id', orderIds);
 
         if (linkError) {
@@ -293,7 +302,7 @@ Deno.serve(async (req: Request) => {
               status: 'failed',
               error_message: 'Failed to link orders to payout',
             })
-            .eq('id', payoutRecord!.id);
+            .eq('id', payoutRecord.id);
           throw linkError;
         }
 
@@ -340,7 +349,7 @@ Deno.serve(async (req: Request) => {
             paystack_transfer_code: transferCode,
             processed_at: new Date().toISOString(), // Set when transfer actually succeeds
           })
-          .eq('id', payoutRecord!.id);
+          .eq('id', payoutRecord.id);
 
         // Update orders status to pending
         const { error: updateError } = await supabase

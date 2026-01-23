@@ -23,6 +23,10 @@ interface FileUploaderProps {
   initialFiles?: string[]; // URLs of existing files
 }
 
+// Extract just the File objects for the callback
+const getFiles = (entryList: PreviewEntry[]): File[] =>
+  entryList.flatMap((e) => (e.file ? [e.file] : []));
+
 export function FileUploader({
   onFilesSelected,
   maxFiles = 5,
@@ -67,10 +71,6 @@ export function FileUploader({
       }
     };
   }, []);
-
-  // Extract just the File objects for the callback
-  const getFiles = (entryList: PreviewEntry[]): File[] =>
-    entryList.flatMap((e) => (e.file ? [e.file] : []));
 
   const onDrop = (acceptedFiles: File[], fileRejections: FileRejection[]) => {
     // Handle errors

@@ -1,0 +1,414 @@
+
+> @baci/web@0.1.0 knip /Users/mac/Baci-app/apps/web
+> knip --no-exit-code
+
+Unused files (66)
+src/ai/flows/generate-product-faq.ts                                   
+src/app/(storefront)/[slug]/google-reviews-section.tsx                 
+src/app/(storefront)/[slug]/products-section.tsx                       
+src/app/actions/paystack.ts                                            
+src/app/dashboard/orders/[orderId]/fulfillment-dialog.tsx              
+src/components/blog/renderer/static-extensions.ts                      
+src/components/csrf-initializer.tsx                                    
+src/components/dashboard/mobile-preview.tsx                            
+src/components/dashboard/upgrade-modal.tsx                             
+src/components/products/jumia-product-overrides.tsx                    
+src/components/storefront/app-body.tsx                                 
+src/components/storefront/ogabassey/adLocations/config.ts              
+src/components/storefront/ogabassey/components/GiftModal.tsx           
+src/components/storefront/ogabassey/components/InvoiceModal.tsx        
+src/components/storefront/ogabassey/components/loader.tsx              
+src/components/storefront/ogabassey/components/MobileMenu.tsx          
+src/components/storefront/ogabassey/components/ProductFilters.tsx      
+src/components/storefront/ogabassey/components/ReceiptModal.tsx        
+src/components/storefront/ogabassey/components/SavedToast.tsx          
+src/components/storefront/ogabassey/components/SEO.tsx                 
+src/components/storefront/ogabassey/components/SnowEffect.tsx          
+src/components/storefront/ogabassey/components/SourceRequestModal.tsx  
+src/components/storefront/ogabassey/components/UpsellToast.tsx         
+src/components/storefront/ogabassey/contexts/ComparisonContext.tsx     
+src/components/storefront/ogabassey/contexts/SavedContext.tsx          
+src/components/storefront/ogabassey/layout/app-body.tsx                
+src/components/storefront/ogabassey/pages/cart.tsx                     
+src/components/storefront/ogabassey/pages/category.tsx                 
+src/components/storefront/ogabassey/pages/notifications.tsx            
+src/components/storefront/ogabassey/pages/order-details.tsx            
+src/components/storefront/ogabassey/pages/order-success-page.tsx       
+src/components/storefront/ogabassey/pages/orders.tsx                   
+src/components/storefront/ogabassey/pages/product-details.tsx          
+src/components/storefront/ogabassey/pages/profile.tsx                  
+src/components/storefront/ogabassey/pages/receipts.tsx                 
+src/components/storefront/ogabassey/pages/saved-page.tsx               
+src/components/storefront/ogabassey/pages/saved.tsx                    
+src/components/storefront/ogabassey/pages/security.tsx                 
+src/components/storefront/ogabassey/providers/v2-order-context.tsx     
+src/components/storefront/ogabassey/providers/v2-wallet-context.tsx    
+src/components/storefront/product-card.tsx                             
+src/components/storefront/related-products.tsx                         
+src/components/storefront/santa-chat/chat-input.tsx                    
+src/components/storefront/santa-chat/chat-message.tsx                  
+src/components/storefront/santa-chat/index.ts                          
+src/components/storefront/santa-chat/santa-chat-dialog.tsx             
+src/components/storefront/santa-chat/santa-widget.tsx                  
+src/components/storefront/santa-chat/welcome-screen.tsx                
+src/components/storefront/shared/checkout-theme.ts                     
+src/hooks/use-ad-tracking.ts                                           
+src/hooks/use-comparison.tsx                                           
+src/hooks/use-merchant-features.tsx                                    
+src/hooks/use-saved.tsx                                                
+src/hooks/use-storefront-products.ts                                   
+src/lib/ad-monetization/index.ts                                       
+src/lib/ad-monetization/types.ts                                       
+src/lib/ad-monetization/use-ad-settings.tsx                            
+src/lib/feature-flags.ts                                               
+src/lib/firebase-admin.ts                                              
+src/lib/get-merchant-for-api-request.ts                                
+src/lib/jumia/types.ts                                                 
+src/lib/paystack-disputes.ts                                           
+src/lib/schemas.ts                                                     
+src/schemas/page-blocks.ts                                             
+src/scripts/generate-all-product-faqs.ts                               
+src/templates/modern.tsx                                               
+Unused devDependencies (10)
+@typescript-eslint/eslint-plugin  package.json:148:6
+@typescript-eslint/parser         package.json:149:6
+@unlighthouse/core                package.json:151:6
+baseline-browser-mapping          package.json:154:6
+change-case                       package.json:155:6
+critical                          package.json:156:6
+eslint-plugin-prettier            package.json:161:6
+joi                               package.json:163:6
+prettier                          package.json:168:6
+puppeteer                         package.json:169:6
+Unlisted dependencies (3)
+@eslint/js           eslint.config.js:1:21  
+globals              eslint.config.js:6:22  
+postcss-load-config  postcss.config.mjs:1:43
+Unlisted binaries (1)
+wait-on  .github/workflows/unlighthouse.yml
+Unresolved imports (1)
+./src/lib/paystack  mcp-server/server.ts:2356:50
+Unused exports (243)
+SANTA_SYSTEM_INSTRUCTION                   src/ai/prompts/santa.ts:11:14                                                
+SANTA_GREETING                             src/ai/prompts/santa.ts:51:14                                                
+StreamingStorefrontContent       function  src/app/(storefront)/[slug]/storefront-content.tsx:88:17                     
+OrdersChart                      function  src/components/analytics/chart-components.tsx:111:17                         
+sendEnhancedConversion           function  src/components/analytics/google-analytics.tsx:89:17                          
+trackMerchantFirstSale           function  src/components/analytics/platform-analytics-provider.tsx:179:17              
+trackStorePublished              function  src/components/analytics/platform-analytics-provider.tsx:220:17              
+trackPricingPageView             function  src/components/analytics/platform-analytics-provider.tsx:283:17              
+platformInstructions                       src/components/analytics/setup-instructions.tsx:62:14                        
+snapchatEvents                             src/components/analytics/snapchat-pixel.tsx:68:14                            
+tiktokEvents                               src/components/analytics/tiktok-pixel.tsx:65:14                              
+twitterEvents                              src/components/analytics/twitter-pixel.tsx:65:14                             
+isValidUrl                       function  src/components/blog/novel-features/selectors/link-selector.tsx:13:17         
+getUrlFromString                 function  src/components/blog/novel-features/selectors/link-selector.tsx:22:17         
+ProductCard                      function  src/components/blog/product-embed.tsx:210:17                                 
+COMPONENT_NAMES                            src/components/builder/component-schema.ts:124:14                            
+iconRegistry                               src/components/builder/icon-registry.tsx:117:14                              
+iconCategories                             src/components/builder/icon-registry.tsx:239:14                              
+getGroupedIconOptions            function  src/components/builder/icon-registry.tsx:307:17                              
+isValidIcon                      function  src/components/builder/icon-registry.tsx:338:17                              
+defaultFeatureIcons                        src/components/builder/icon-registry.tsx:345:14                              
+SetupChecklistCompact            function  src/components/dashboard/setup-checklist.tsx:594:17                          
+NotificationBannerStack          function  src/components/notifications/notification-banner.tsx:172:17                  
+OptimizedImage                   function  src/components/optimized-image.tsx:65:17                                     
+HeroImage                        function  src/components/optimized-image.tsx:133:17                                    
+ProductMainImage                 function  src/components/optimized-image.tsx:140:17                                    
+ThumbnailImage                   function  src/components/optimized-image.tsx:161:17                                    
+LogoImage                        function  src/components/optimized-image.tsx:175:17                                    
+ImagePlaceholder                 function  src/components/optimized-image.tsx:184:17                                    
+useCookieConsent                 function  src/components/storefront/cookie-consent.tsx:314:17                          
+isCookieAllowed                  function  src/components/storefront/cookie-consent.tsx:344:17                          
+CartPage                                   src/components/storefront/new-template/cart-page.tsx:21:14                   
+NewTemplateCartPage                        src/components/storefront/new-template/index.ts:3:22                         
+NewTemplateHome                            src/components/storefront/new-template/index.ts:5:18                         
+InteractiveProductGrid                     src/components/storefront/new-template/index.ts:7:10                         
+NewTemplateProductDetails                  src/components/storefront/new-template/index.ts:8:28                         
+ProductDetails                             src/components/storefront/new-template/product-details.tsx:28:14             
+InteractiveProductGrid                     …/components/storefront/ogabassey/components/InteractiveProductGrid.tsx:29:14
+LogoIcon                                   src/components/storefront/ogabassey/components/Logo.tsx:84:14                
+OgabasseyMobileFooter                      src/components/storefront/ogabassey/components/MobileFooter.tsx:168:26       
+PaymentLogo                      function  src/components/storefront/ogabassey/components/PaymentLogos.tsx:69:17        
+AdUnit                                     src/components/storefront/ogabassey/index.ts:3:10                            
+BannerCarousel                             src/components/storefront/ogabassey/index.ts:5:10                            
+BlogSnippet                                src/components/storefront/ogabassey/index.ts:6:10                            
+OgabasseyCartSidebar                       src/components/storefront/ogabassey/index.ts:7:25                            
+EngineProductGrid                          src/components/storefront/ogabassey/index.ts:8:10                            
+InteractiveProductGrid                     src/components/storefront/ogabassey/index.ts:9:10                            
+NegotiationModal                           src/components/storefront/ogabassey/index.ts:10:10                           
+OgabasseyProductCard                       src/components/storefront/ogabassey/index.ts:11:25                           
+OgabasseyFooter                            src/components/storefront/ogabassey/index.ts:13:10                           
+OgabasseyMobileFooter                      src/components/storefront/ogabassey/index.ts:14:26                           
+OgabasseyMobileMenu                        src/components/storefront/ogabassey/index.ts:15:24                           
+OgabasseyNavbar                            src/components/storefront/ogabassey/index.ts:16:10                           
+OgabasseyFooter                            src/components/storefront/ogabassey/layout/footer.tsx:27:14                  
+OgabasseyMobileMenu                        src/components/storefront/ogabassey/layout/mobile-menu.tsx:134:24            
+useV2Notification                          …/components/storefront/ogabassey/providers/v2-notification-context.tsx:28:14
+ProductRating                    function  src/components/storefront/reviews-section.tsx:217:17                         
+ThemedLink                                 src/components/themed/index.ts:24:10                                         
+ThemedLink                                 src/components/themed/themed-link.tsx:26:14                                  
+getBusinessTypeById              function  src/config/business-types.ts:387:17                                          
+getAllBusinessTypeIds            function  src/config/business-types.ts:407:17                                          
+isValidBusinessTypeId            function  src/config/business-types.ts:442:17                                          
+getProductDescriptionStyle       function  src/config/business-types.ts:469:17                                          
+DOMAIN_PRICING                             src/config/domain-pricing.ts:22:14                                           
+RESALE_MARKUP                              src/config/domain-pricing.ts:151:14                                          
+getPopularDomains                function  src/config/domain-pricing.ts:168:17                                          
+getRecommendedDomains            function  src/config/domain-pricing.ts:172:17                                          
+getNigerianDomains               function  src/config/domain-pricing.ts:176:17                                          
+getAllTLDs                       function  src/config/domain-pricing.ts:180:17                                          
+env                                        src/env.ts:158:14                                                            
+getKorapaySecretKey                        src/env.ts:188:14                                                            
+getKorapayPublicKey                        src/env.ts:189:14                                                            
+getJuicywaySecretKey                       src/env.ts:190:14                                                            
+getJuicywayBaseUrl                         src/env.ts:191:14                                                            
+getZeptoMailToken                          src/env.ts:192:14                                                            
+getGeminiApiKey                            src/env.ts:193:14                                                            
+getCreditDirectPublicKey                   src/env.ts:195:14                                                            
+getCreditDirectPrivateKey                  src/env.ts:196:14                                                            
+isProduction                               src/env.ts:214:14                                                            
+validateEnvironment                        src/env.ts:217:14                                                            
+useCartSafe                                src/hooks/use-cart.tsx:678:14                                                
+useStorefrontFeatures            function  src/hooks/use-merchant-features.ts:143:17                                    
+useNotificationsSafe             function  src/hooks/use-notifications.ts:385:17                                        
+usePersistedState                function  src/hooks/use-persisted-state.ts:13:17                                       
+getRecentlyViewedIds             function  src/hooks/use-recently-viewed.ts:197:17                                      
+actionTypes                                src/hooks/use-toast.ts:18:14                                                 
+reducer                                    src/hooks/use-toast.ts:74:14                                                 
+AD_TRACKING_COOKIES                        src/lib/ad-tracking-cookies.ts:20:14                                         
+parseAdTrackingCookies           function  src/lib/ad-tracking-cookies.ts:111:17                                        
+getAdTrackingData                function  src/lib/ad-tracking-cookies.ts:152:17                                        
+generateFbc                      function  src/lib/ad-tracking-cookies.ts:165:17                                        
+generateEventId                  function  src/lib/ad-tracking-cookies.ts:175:17                                        
+getTrackingDataForOrder          function  src/lib/ad-tracking-cookies.ts:190:17                                        
+shouldApplyLimitedDataUse        function  src/lib/ad-tracking-cookies.ts:211:17                                        
+getOrCreatePaystackCustomer      function  src/lib/agentic/paystack.ts:47:23                                            
+fetchWithCsrf                    function  src/lib/api-client.ts:22:17                                                  
+apiPut                           function  src/lib/api-client.ts:75:23                                                  
+apiDelete                        function  src/lib/api-client.ts:119:23                                                 
+getCacheControl                  function  src/lib/cache-headers.ts:17:17                                               
+withCacheHeaders                 function  src/lib/cache-headers.ts:85:17                                               
+withCache                        function  src/lib/cache.ts:136:23                                                      
+getCachedMerchantById                      src/lib/cached-data.ts:345:14                                                
+getCachedCategories                        src/lib/cached-data.ts:710:14                                                
+getCachedCategory                          src/lib/cached-data.ts:744:14                                                
+getCachedPageConfig                        src/lib/cached-data.ts:779:14                                                
+CATEGORY_CONFIGS                           src/lib/category-configs.ts:49:14                                            
+getCategoryConfig                function  src/lib/category-configs.ts:725:17                                           
+getAllCategories                 function  src/lib/category-configs.ts:729:17                                           
+getVariantCategories             function  src/lib/category-configs.ts:733:17                                           
+hexToRgb                         function  src/lib/color-utils.ts:28:17                                                 
+getContrastRatio                 function  src/lib/color-utils.ts:81:17                                                 
+isLightColor                     function  src/lib/color-utils.ts:101:17                                                
+meetsWCAGAA                      function  src/lib/color-utils.ts:141:17                                                
+meetsWCAGAAA                     function  src/lib/color-utils.ts:151:17                                                
+meetsWCAGAALarge                 function  src/lib/color-utils.ts:161:17                                                
+adjustColorBrightness            function  src/lib/color-utils.ts:171:17                                                
+isCreditDirectLoaded             function  src/lib/credit-direct-client.ts:75:17                                        
+loadCreditDirectScript           function  src/lib/credit-direct-client.ts:82:17                                        
+isCreditDirectEligible           function  src/lib/credit-direct-client.ts:222:17                                       
+buildCheckoutConfig              function  src/lib/credit-direct.ts:192:17                                              
+getCheckoutScriptUrl             function  src/lib/credit-direct.ts:227:17                                              
+CREDPAL_SCRIPT_URL                         src/lib/credpal.ts:36:14                                                     
+isCredPalLoaded                  function  src/lib/credpal.ts:53:17                                                     
+loadCredPalScript                function  src/lib/credpal.ts:60:17                                                     
+estimateMonthlyPayment           function  src/lib/credpal.ts:142:17                                                    
+generateCsrfToken                function  src/lib/csrf.ts:14:17                                                        
+createCsrfTokenPair              function  src/lib/csrf.ts:26:17                                                        
+getCsrfToken                     function  src/lib/csrf.ts:89:23                                                        
+verifyCsrfToken                  function  src/lib/csrf.ts:99:23                                                        
+checkCsrfProtection              function  src/lib/csrf.ts:133:23                                                       
+getClientCsrfToken               function  src/lib/csrf.ts:179:17                                                       
+getCustomerById                  function  src/lib/customers.ts:57:17                                                   
+isDeviceSupported                function  src/lib/device-images.ts:131:17                                              
+validateDNSRecord                function  src/lib/dns-validator.ts:9:17                                                
+generateEmbedding                function  src/lib/embeddings.ts:21:23                                                  
+sendPushNotification             function  src/lib/expo-push.ts:59:23                                                   
+notifyMerchant                   function  src/lib/expo-push.ts:122:23                                                  
+notifyCustomer                   function  src/lib/expo-push.ts:197:23                                                  
+notifyNewReview                  function  src/lib/expo-push.ts:360:23                                                  
+notifyWithdrawalProcessed        function  src/lib/expo-push.ts:385:23                                                  
+notifyCustomerPromotion          function  src/lib/expo-push.ts:502:23                                                  
+notifyBackInStock                function  src/lib/expo-push.ts:525:23                                                  
+notifyPriceDrop                  function  src/lib/expo-push.ts:545:23                                                  
+sanitizeSVG                      function  src/lib/favicon-processor.ts:150:17                                          
+getGeoFromHeaders                function  src/lib/geo-privacy.ts:67:23                                                 
+getGeoFromIP                     function  src/lib/geo-privacy.ts:83:23                                                 
+shouldApplyLimitedDataUse        function  src/lib/geo-privacy.ts:184:23                                                
+trackGiglShipment                function  src/lib/gigl.ts:120:23                                                       
+checkDomainAvailability          function  src/lib/go54.ts:284:23                                                       
+transferDomain                   function  src/lib/go54.ts:407:23                                                       
+renewDomain                      function  src/lib/go54.ts:453:23                                                       
+getDomainEPPCode                 function  src/lib/go54.ts:477:23                                                       
+getDomainContacts                function  src/lib/go54.ts:496:23                                                       
+updateDomainContacts             function  src/lib/go54.ts:515:23                                                       
+syncDomainDetails                function  src/lib/go54.ts:633:23                                                       
+syncDomainTransfer               function  src/lib/go54.ts:652:23                                                       
+getTldPricing                    function  src/lib/go54.ts:797:23                                                       
+registerChildNameserver          function  src/lib/go54.ts:812:23                                                       
+modifyChildNameserver            function  src/lib/go54.ts:837:23                                                       
+deleteChildNameserver            function  src/lib/go54.ts:864:23                                                       
+getDomainSuggestions             function  src/lib/go54.ts:887:23                                                       
+requestDomainDelete              function  src/lib/go54.ts:914:23                                                       
+releaseDomain                    function  src/lib/go54.ts:933:23                                                       
+getPlaceDetailsServer            function  src/lib/google-places.ts:84:23                                               
+DEFAULT_BLUR_DATA_URL                      src/lib/image-utils.ts:12:14                                                 
+CATEGORY_BLUR_COLORS                       src/lib/image-utils.ts:19:14                                                 
+generateColorBlur                function  src/lib/image-utils.ts:33:17                                                 
+generateBlurFromImage            function  src/lib/image-utils.ts:44:23                                                 
+getImageLoader                   function  src/lib/image-utils.ts:71:17                                                 
+generateInvoicePDF               function  src/lib/invoice-generator.ts:192:17                                          
+downloadInvoice                  function  src/lib/invoice-generator.ts:688:17                                          
+generateInvoiceDataUrl           function  src/lib/invoice-generator.ts:696:17                                          
+JUICYWAY_CURRENCIES                        src/lib/juicyway.ts:29:14                                                    
+JUICYWAY_PAYMENT_METHODS                   src/lib/juicyway.ts:38:14                                                    
+JUICYWAY_STATUSES                          src/lib/juicyway.ts:48:14                                                    
+JUICYWAY_AUTH_TYPES                        src/lib/juicyway.ts:57:14                                                    
+JUICYWAY_CRYPTO_CHAINS                     src/lib/juicyway.ts:61:14                                                    
+JUICYWAY_STABLECOINS                       src/lib/juicyway.ts:65:14                                                    
+getPayment                       function  src/lib/juicyway.ts:431:23                                                   
+isJuicywayConfigured             function  src/lib/juicyway.ts:660:17                                                   
+getJuicywayMode                  function  src/lib/juicyway.ts:667:17                                                   
+JumiaTokenSchema                           src/lib/jumia/client.ts:41:14                                                
+JumiaShopSchema                            src/lib/jumia/client.ts:48:14                                                
+JumiaOrderSchema                           src/lib/jumia/client.ts:60:14                                                
+JumiaOrderItemSchema                       src/lib/jumia/client.ts:88:14                                                
+JumiaFeedSchema                            src/lib/jumia/client.ts:99:14                                                
+JumiaPrintLabelResponseSchema              src/lib/jumia/client.ts:108:14                                               
+JumiaActionResponseSchema                  src/lib/jumia/client.ts:110:14                                               
+JumiaProductsResponseSchema                src/lib/jumia/client.ts:136:14                                               
+JumiaCategorySchema                        src/lib/jumia/client.ts:159:14                                               
+JumiaCategoryTreeResponseSchema            src/lib/jumia/client.ts:167:14                                               
+JumiaBrandsResponseSchema                  src/lib/jumia/client.ts:189:14                                               
+JumiaApiError                    class     src/lib/jumia/client.ts:238:14                                               
+CURRENCY_SYMBOLS                           src/lib/korapay.ts:45:14                                                     
+CURRENCY_NAMES                             src/lib/korapay.ts:54:14                                                     
+getExchangeRate                  function  src/lib/korapay.ts:332:23                                                    
+convertCurrency                  function  src/lib/korapay.ts:359:23                                                    
+sendBulkPayouts                  function  src/lib/korapay.ts:414:23                                                    
+getBanks                         function  src/lib/korapay.ts:431:23                                                    
+resolveBankAccount               function  src/lib/korapay.ts:454:23                                                    
+getPublicKey                     function  src/lib/korapay.ts:601:17                                                    
+formatCurrency                   function  src/lib/korapay.ts:608:17                                                    
+getCurrencyFromCountry           function  src/lib/korapay.ts:616:17                                                    
+isSupportedCurrency              function  src/lib/korapay.ts:634:17                                                    
+isKorapayConfigured              function  src/lib/korapay.ts:641:17                                                    
+PLATFORM_FEE_PERCENTAGE                    src/lib/korapay.ts:645:10                                                    
+getBillersByType                 function  src/lib/kuda.ts:202:23                                                       
+getDataProviders                 function  src/lib/kuda.ts:222:17                                                       
+verifyBillCustomer               function  src/lib/kuda.ts:229:23                                                       
+checkTransactionStatus           function  src/lib/kuda.ts:378:23                                                       
+getPurchasedBills                function  src/lib/kuda.ts:395:23                                                       
+getAccountBalance                function  src/lib/kuda.ts:420:23                                                       
+getBankList                      function  src/lib/kuda.ts:469:23                                                       
+verifyBankAccount                function  src/lib/kuda.ts:480:23                                                       
+transferFunds                    function  src/lib/kuda.ts:522:23                                                       
+KUDA_COMMISSION_RATES                      src/lib/kuda.ts:712:14                                                       
+getCommissionRate                function  src/lib/kuda.ts:758:17                                                       
+calculateVTUCommission           function  src/lib/kuda.ts:785:17                                                       
+cleanupRateLimitStore            function  src/lib/rate-limit.ts:238:17                                                 
+sanitizeSchemaUrl                function  src/lib/sanitize-core.ts:109:17                                              
+sanitizeNumber                   function  src/lib/sanitize-core.ts:155:17                                              
+sanitizeInteger                  function  src/lib/sanitize-core.ts:163:17                                              
+sanitizePrice                    function  src/lib/sanitize-core.ts:171:17                                              
+sanitizeObjectKeys               function  src/lib/sanitize-core.ts:179:17                                              
+customerSchema                             src/lib/sanitize-core.ts:200:14                                              
+productSchema                              src/lib/sanitize-core.ts:237:14                                              
+orderSchema                                src/lib/sanitize-core.ts:273:14                                              
+sanitizeFileName                 function  src/lib/sanitize-core.ts:337:17                                              
+sanitizeJson                     function  src/lib/sanitize-core.ts:353:17                                              
+checkAuth                        function  src/lib/supabase/middleware.ts:64:23                                         
+getCurrentTheme                  function  src/lib/theme-manager.ts:307:17                                              
+validateTheme                    function  src/lib/theme-manager.ts:326:17                                              
+streamToDataURI                  function  src/lib/utils.ts:144:23                                                      
+validateSlug                     function  src/lib/validate-slug.ts:32:17                                               
+VALID_SLUG_REGEX                           src/lib/validation.ts:5:14                                                   
+VALID_DOMAIN_REGEX                         src/lib/validation.ts:11:14                                                  
+RESERVED_PATHS                             src/lib/validation.ts:17:14                                                  
+isValidMerchantSlug              function  src/lib/validation.ts:77:17                                                  
+loginSchema                                src/schemas/auth.ts:3:14                                                     
+forgotPasswordSchema                       src/schemas/auth.ts:19:14                                                    
+step1Schema                                src/schemas/onboarding.ts:27:14                                              
+step2Schema                                src/schemas/onboarding.ts:47:14                                              
+step3Schema                                src/schemas/onboarding.ts:132:14                                             
+Unused exported types (64)
+ProductRow                    type       src/ai/santa-data.ts:10:13                                                    
+SegmentInfo                   interface  src/components/analytics/draggable-analytics-grid.tsx:94:18                   
+AdPlatformData                interface  src/components/analytics/draggable-analytics-grid.tsx:108:18                  
+AdAnalyticsSummary            interface  src/components/analytics/draggable-analytics-grid.tsx:116:18                  
+AdAnalyticsDetails            interface  src/components/analytics/draggable-analytics-grid.tsx:127:18                  
+ProductExtensionOptions       interface  src/components/blog/novel-features/product-extension.ts:3:18                  
+BubbleColorMenuItem           interface  src/components/blog/novel-features/selectors/color-selector.tsx:11:18         
+AnimationDuration             type       src/components/builder/animated-wrapper.tsx:16:13                             
+AnimationConfig               interface  src/components/builder/animated-wrapper.tsx:18:18                             
+CartItem                      interface  src/components/storefront/new-template/types.ts:33:18                         
+Category                      interface  src/components/storefront/new-template/types.ts:40:18                         
+PaymentPartner                type       src/components/storefront/ogabassey/components/PaymentLogos.tsx:56:13         
+AdPlacement                   interface  src/components/storefront/ogabassey/config/ads.ts:2:18                        
+AdPlacement                   interface  src/components/storefront/ogabassey/pages/ad-config.ts:3:18                   
+AddressBookProps              interface  src/components/storefront/ogabassey/pages/address-book.tsx:11:18              
+CategorySEOProps              interface  src/components/storefront/ogabassey/pages/category-page.tsx:28:18             
+OrderItem                     interface  src/components/storefront/ogabassey/pages/purchase-history.tsx:8:18           
+Order                         interface  src/components/storefront/ogabassey/pages/purchase-history.tsx:17:18          
+PurchaseHistoryProps          interface  src/components/storefront/ogabassey/pages/purchase-history.tsx:25:18          
+V2Notification                interface  src/components/storefront/ogabassey/providers/v2-notification-context.tsx:6:18
+ProductRecommendation         interface  src/components/storefront/ogabassey/types.ts:25:18                            
+Banner                        interface  src/components/storefront/ogabassey/types.ts:42:18                            
+V2CartItem                    type       src/components/storefront/ogabassey/types.ts:181:13                           
+Order                         interface  src/components/storefront/ogabassey/types.ts:183:18                           
+V2Product                     type       src/components/storefront/ogabassey/types.ts:196:26                           
+ChatMessage                   interface  src/components/storefront/santa-chat/types.ts:5:18                            
+BusinessTypeJourney           interface  src/config/business-types.ts:41:18                                            
+BusinessTypeConfig            interface  src/config/business-types.ts:65:18                                            
+BusinessTypeId                type       src/config/business-types.ts:368:13                                           
+CategorySEO                   interface  src/config/category-seo-defaults.ts:1:18                                      
+Template                      interface  src/config/templates.ts:3:18                                                  
+WorkflowStep                  type       src/contexts/product-context.tsx:17:13                                        
+CartContextType               interface  src/hooks/use-cart.tsx:61:18                                                  
+StorefrontFeatures            interface  src/hooks/use-merchant-features.ts:8:18                                       
+Product                       type       src/hooks/use-recently-viewed.ts:15:15                                        
+CacheStrategy                 type       src/lib/cache-headers.ts:6:13                                                 
+ConsentState                  type       src/lib/consent-mode.ts:13:13                                                 
+CreditDirectProduct           interface  src/lib/credit-direct-client.ts:12:18                                         
+CreditDirectTransaction       interface  src/lib/credit-direct.ts:22:18                                                
+CreditDirectCheckoutConfig    interface  src/lib/credit-direct.ts:31:18                                                
+CredPalSuccessResponse        interface  src/lib/credpal.ts:21:18                                                      
+EventType                     type       src/lib/event-tracking.ts:15:13                                               
+NotificationChannel           type       src/lib/expo-push.ts:49:13                                                    
+DomainAvailabilityResult      interface  src/lib/go54.ts:29:18                                                         
+IDProtectionStatus            interface  src/lib/go54.ts:58:18                                                         
+TldPricing                    interface  src/lib/go54.ts:63:18                                                         
+DomainSuggestion              interface  src/lib/go54.ts:76:18                                                         
+JuicywayPaymentMethodType     type       src/lib/juicyway.ts:45:13                                                     
+JuicywayAuthType              type       src/lib/juicyway.ts:58:13                                                     
+JuicywayBillingAddress        type       src/lib/juicyway.ts:146:13                                                    
+JuicywayOrderItem             interface  src/lib/juicyway.ts:150:18                                                    
+JuicywayOrder                 interface  src/lib/juicyway.ts:155:18                                                    
+JuicywayCryptoPaymentRequest  interface  src/lib/juicyway.ts:199:18                                                    
+PaymentStatus                 type       src/lib/korapay.ts:64:13                                                      
+PayoutStatus                  type       src/lib/korapay.ts:67:13                                                      
+ExchangeRateResponse          type       src/lib/korapay.ts:133:13                                                     
+ConversionResponse            type       src/lib/korapay.ts:134:13                                                     
+ConversionRequest             interface  src/lib/korapay.ts:152:18                                                     
+KudaServiceType               enum       src/lib/kuda.ts:17:13                                                         
+BillType                      enum       src/lib/kuda.ts:44:13                                                         
+DataPlan                      interface  src/lib/kuda.ts:61:18                                                         
+BillItem                      interface  src/lib/kuda.ts:79:18                                                         
+Bank                          interface  src/lib/kuda.ts:439:18                                                        
+NameEnquiryResult             interface  src/lib/kuda.ts:444:18                                                        
+Configuration hints (45)
+. (root)                     knip.json  Add entry and/or refine project files (66 unused files)
+postcss                      knip.json  Remove from ignoreDependencies                         
+autoprefixer                 knip.json  Remove from ignoreDependencies                         
+tailwindcss                  knip.json  Remove from ignoreDependencies                         
+sharp                        knip.json  Remove from ignoreDependencies                         
+encoding                     knip.json  Remove from ignoreDependencies                         
+@ai-sdk/google               knip.json  Remove from ignoreDependencies                         
+@google/generative-ai        knip.json  Remove from ignoreDependencies                         
+/@supabase\/*/               knip.json  Remove from ignoreDependencies                         
+ai                           knip.json  Remove from ignoreDependencies                         
+class-variance-authority     knip.json  Remove from ignoreDependencies                         
+...32 more similar hints                                                                       
+scripts/*.{js,ts,cjs,mjs}    knip.json  Refine project pattern (no matches)                    
+src/proxy.ts                 knip.json  Remove redundant entry pattern                         
