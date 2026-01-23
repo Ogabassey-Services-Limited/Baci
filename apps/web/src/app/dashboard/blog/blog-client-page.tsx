@@ -83,6 +83,7 @@ export interface BlogClientPageProps {
   merchant: {
     id: string;
     slug?: string | null;
+    custom_domain?: string | null;
   };
   initialPosts?: BlogPost[];
   initialCounts?: {
@@ -554,7 +555,11 @@ export function BlogClientPage({
                           isSafeSlug(merchant.slug) && (
                             <DropdownMenuItem asChild>
                               <a
-                                href={`/${merchant.slug}/blog/${post.slug}`}
+                                href={
+                                  merchant.custom_domain
+                                    ? `https://${merchant.custom_domain}/blog/${post.slug}`
+                                    : `/${merchant.slug}/blog/${post.slug}`
+                                }
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
