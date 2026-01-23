@@ -3,11 +3,6 @@ import { POST } from './route';
 import { NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 
-// Mock dependencies
-vi.mock('@/env', () => ({
-  getMyCoverSecretKey: vi.fn(),
-}));
-
 // Mock Supabase to avoid real network calls
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
@@ -19,14 +14,13 @@ vi.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-import { getMyCoverSecretKey } from '@/env';
-
 describe('MyCover Webhook', () => {
   const secret = 'test_secret';
 
   beforeEach(() => {
     vi.resetAllMocks();
-    (getMyCoverSecretKey as unknown as ReturnType<typeof vi.fn>).mockReturnValue(secret);
+    // Set environment variable for webhook secret
+    process.env.MYCOVER_SECRET_KEY = secret;
   });
 
   it('should verify valid HMAC-SHA512 signature', async () => {
