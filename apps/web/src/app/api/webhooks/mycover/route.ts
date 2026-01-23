@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 /**
  * MyCover.ai Webhook Handler
@@ -16,6 +17,32 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const myCoverWebhookSecret = process.env.MYCOVER_WEBHOOK_SECRET || '';
 
+const myCoverWebhookSchema = z.object({
+  event: z.string(),
+  data: z
+    .object({
+      policy_id: z.string().optional(),
+      policy_number: z.string().optional(),
+      status: z.string().optional(),
+      customer: z
+        .object({
+          email: z.string().optional(),
+          phone: z.string().optional(),
+          first_name: z.string().optional(),
+          last_name: z.string().optional(),
+        })
+        .optional(),
+      start_date: z.string().optional(),
+      expiration_date: z.string().optional(),
+      genius_price: z.number().optional(),
+      market_price: z.number().optional(),
+      claim_id: z.string().optional(),
+      claim_status: z.string().optional(),
+    })
+    .passthrough(),
+  timestamp: z.string().optional(),
+});
+
 /**
  * Verify MyCover webhook signature using HMAC-SHA512
  * Uses Web Crypto API (SubtleCrypto) for Edge Runtime compatibility
@@ -25,7 +52,8 @@ async function verifyWebhookSignature(
   rawBody: string,
   signature: string | null
 ): Promise<boolean> {
-  if (!signature || !myCoverWebhookSecret) {
+  if (!signature) {
+    console.warn('[MyCover Webhook] Missing signature header');
     return false;
   }
 
@@ -55,13 +83,15 @@ async function verifyWebhookSignature(
       .join('');
 
     // Constant-time comparison to prevent timing attacks
-    if (signature.length !== expectedSignature.length) {
-      return false;
-    }
+    // We iterate exactly the length of the expected signature to ensure consistent timing
+    const expectedLen = expectedSignature.length;
+    let result = signature.length ^ expectedLen;
 
-    let result = 0;
-    for (let i = 0; i < signature.length; i++) {
-      result |= signature.charCodeAt(i) ^ expectedSignature.charCodeAt(i);
+    for (let i = 0; i < expectedLen; i++) {
+      // Use logical OR with 0 for out-of-bounds to keep type numeric and prevent early returns
+      const charA = signature.charCodeAt(i) || 0;
+      const charB = expectedSignature.charCodeAt(i);
+      result |= charA ^ charB;
     }
 
     return result === 0;
@@ -71,51 +101,40 @@ async function verifyWebhookSignature(
   }
 }
 
-interface MyCoverWebhookPayload {
-  event: string;
-  data: {
-    policy_id?: string;
-    policy_number?: string;
-    status?: string;
-    customer?: {
-      email?: string;
-      phone?: string;
-      first_name?: string;
-      last_name?: string;
-    };
-    start_date?: string;
-    expiration_date?: string;
-    genius_price?: number;
-    market_price?: number;
-    claim_id?: string;
-    claim_status?: string;
-    [key: string]: unknown;
-  };
-  timestamp?: string;
-}
+interface MyCoverWebhookPayload extends z.infer<typeof myCoverWebhookSchema> {}
 
 export async function POST(request: NextRequest) {
   try {
     // Read raw body for signature verification
     const rawBody = await request.text();
 
+    // Verify webhook environment configuration (2026 Best Practice: Check dependencies early)
+    if (!myCoverWebhookSecret) {
+      console.error(
+        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET is not configured in environment variables'
+      );
+      return NextResponse.json(
+        { error: 'Webhook configuration error' },
+        { status: 500 }
+      );
+    }
+
     // Verify webhook signature (2026 security best practice)
     const signature = request.headers.get('x-mycoverai-signature');
     const isValid = await verifyWebhookSignature(rawBody, signature);
 
     if (!isValid) {
-      console.warn('[MyCover Webhook] Invalid or missing signature');
       return NextResponse.json(
-        { error: 'Invalid webhook signature' },
+        { error: 'Invalid or missing webhook signature' },
         { status: 401 }
       );
     }
 
     // Parse payload after signature verification
-    // 2026 Best Practice: Return 400 for malformed JSON (client error, not server error)
-    let payload: MyCoverWebhookPayload;
+    // 2026 Best Practice: Return 400 for malformed JSON or schema failure (client error)
+    let jsonPayload: unknown;
     try {
-      payload = JSON.parse(rawBody);
+      jsonPayload = JSON.parse(rawBody);
     } catch {
       console.warn('[MyCover Webhook] Invalid JSON payload');
       return NextResponse.json(
@@ -123,6 +142,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const parseResult = myCoverWebhookSchema.safeParse(jsonPayload);
+    if (!parseResult.success) {
+      console.warn(
+        '[MyCover Webhook] Invalid payload structure:',
+        parseResult.error.format()
+      );
+      return NextResponse.json(
+        { error: 'Invalid payload structure' },
+        { status: 400 }
+      );
+    }
+
+    const payload = parseResult.data;
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');

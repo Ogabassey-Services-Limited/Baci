@@ -633,7 +633,10 @@ export function VirtualTerminalSettings({
         </Tabs>
 
         <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex gap-3">
-          <QrCode className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+          <QrCode
+            className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0"
+            aria-hidden="true"
+          />
           <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
             <strong>Pro Tip:</strong> Download printable QR codes from your
             Paystack Dashboard for each account to display at physical

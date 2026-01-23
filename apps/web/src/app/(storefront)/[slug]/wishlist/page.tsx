@@ -468,9 +468,12 @@ export default function WishListPage() {
                       disabled={removingItemId === item.id}
                     >
                       {removingItemId === item.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2
+                          className="mr-2 h-4 w-4 motion-safe:animate-spin"
+                          aria-hidden="true"
+                        />
                       ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                       )}
                       Remove
                     </Button>

@@ -22,7 +22,9 @@ import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 
 const bankSchema = z.object({
-  accountNumber: z.string().length(10, 'Account number must be 10 digits'),
+  accountNumber: z
+    .string()
+    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
   payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
@@ -414,14 +416,17 @@ export function MerchantBankForm({
         {/* Verification Status */}
         {isVerifying && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Verifying account...
           </div>
         )}
 
         {verifiedName && (
           <div className="rounded-md bg-green-50 dark:bg-green-950/50 p-4 flex items-start gap-3 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
-            <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+            <CheckCircle2
+              className="h-5 w-5 shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
             <div className="space-y-1">
               <p className="font-medium">Account Verified</p>
               <p className="text-sm">{verifiedName}</p>
@@ -431,7 +436,7 @@ export function MerchantBankForm({
 
         {verificationError && (
           <div className="rounded-md bg-red-50 dark:bg-red-950/50 p-4 flex items-center gap-3 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-            <AlertCircle className="h-5 w-5 shrink-0" />
+            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium">Verification Failed</p>
               <p className="text-sm">{verificationError}</p>

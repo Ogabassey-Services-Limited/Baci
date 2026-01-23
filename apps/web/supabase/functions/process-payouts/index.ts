@@ -15,15 +15,26 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
-// Helper to generate idempotency reference (2026 best practice: DRY principle)
-// Format: baci-payout-{merchantId}-{date}-{orderCount}-{amount}
+// Helper to generate idempotency reference (2026 best practice: DRY principle + collision resistance)
+// Format: baci-payout-{merchantId}-{date}-{amount}-{idsHash}
 function generateIdempotencyRef(
   merchantId: string,
   date: Date,
-  orderCount: number,
+  orderIds: string[],
   amountKobo: number
 ): string {
-  return `baci-payout-${merchantId}-${date.toISOString().slice(0, 10)}-${orderCount}-${amountKobo}`;
+  // Sort IDs to ensure deterministic reference regardless of fetch order
+  const idString = [...orderIds].sort().join(',');
+  // Use a simple checksum/hash of the IDs to keep ref length manageable
+  let hash = 0;
+  for (let i = 0; i < idString.length; i++) {
+    const char = idString.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  const idHash = Math.abs(hash).toString(36);
+
+  return `baci-payout-${merchantId}-${date.toISOString().slice(0, 10)}-${amountKobo}-${idHash}`;
 }
 
 // Helper for fetch with explicit timeout error context (2026 best practice)
@@ -183,7 +194,7 @@ Deno.serve(async (req) => {
         const idempotencyRef = generateIdempotencyRef(
           merchant.id,
           today,
-          orders.length,
+          orderIds,
           transferAmountKobo
         );
 
@@ -196,16 +207,35 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existingPayout) {
-          // Payout already exists - skip to prevent duplicate
+          // Payout already exists
           console.log(
             `Payout already exists for merchant ${merchant.id} with reference ${idempotencyRef}, status: ${existingPayout.status}`
           );
-          // Reset orders back to their previous state since we're skipping
-          await supabase
-            .from('orders')
-            .update({ payout_status: 'unpaid' })
-            .in('id', orderIds);
-          continue;
+
+          if (existingPayout.status === 'processing') {
+            // If we found a processing payout, it means another run is likely active or stuck
+            // We'll skip this merchant for this run to avoid race conditions
+            continue;
+          }
+
+          // If it was already pending or success, just link orders (idempotent update) and move on
+          if (
+            existingPayout.status === 'pending' ||
+            existingPayout.status === 'success'
+          ) {
+            await supabase
+              .from('orders')
+              .update({
+                payout_id: existingPayout.id,
+                payout_status:
+                  existingPayout.status === 'success' ? 'paid' : 'pending',
+              })
+              .in('id', orderIds);
+            continue;
+          }
+
+          // If it failed, we might want to try again with a DIFFERENT reference or handle it
+          // For now, we'll continue to the catch/retry logic
         }
 
         // 2026 Best Practice: Create payout record BEFORE Paystack transfer
@@ -325,18 +355,18 @@ Deno.serve(async (req) => {
           err instanceof Error ? err.message : 'Unknown error';
 
         // Rollback: Reset orders back to unpaid status if transfer failed
+        // 2026 Best Practice: Keep payout_id link if payout was created, but mark status failed
         await supabase
           .from('orders')
-          .update({ payout_status: 'unpaid', payout_id: null })
+          .update({ payout_status: 'unpaid' })
           .in('id', orderIds);
 
         // Update payout record to failed status if it was created
-        // Use the helper function to regenerate the same reference
         const failedTransferAmountKobo = Math.round(totalAmount * 100);
         const failedIdempotencyRef = generateIdempotencyRef(
           merchant.id,
           today,
-          orders.length,
+          orderIds,
           failedTransferAmountKobo
         );
         await supabase
@@ -346,12 +376,11 @@ Deno.serve(async (req) => {
           .eq('status', 'processing');
 
         // 2026 best practice: Use merchant.id and sanitize error for response
-        // Don't expose raw system errors - provide generic message for client
         results.push({
           merchantId: merchant.id,
           amount: totalAmount,
           status: 'failed',
-          error: 'Payout processing failed', // Generic message for response
+          error: 'Payout processing failed',
         });
       }
     }

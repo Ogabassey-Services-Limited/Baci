@@ -157,11 +157,15 @@ const NodeRenderer = ({
 
     case 'image': {
       // Guard against missing src to prevent runtime errors
-      const imageSrc = node.attrs?.src;
-      if (!imageSrc) {
-        console.warn('Blog image node missing src attribute');
+      const rawSrc = node.attrs?.src;
+      const imageSrc = rawSrc ? sanitizeUrl(rawSrc) : '';
+
+      // Only allow http/https protocols for blog images in 2026 for security and CDN stability
+      if (!imageSrc || !imageSrc.startsWith('http')) {
+        console.warn('Blog image node missing or invalid src attribute');
         return null;
       }
+
       return (
         <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image

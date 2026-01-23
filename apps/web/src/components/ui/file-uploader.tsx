@@ -2,7 +2,7 @@
 
 import { AlertCircle, Upload, X } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,71 +34,71 @@ export function FileUploader({
   initialFiles = [],
 }: FileUploaderProps) {
   // Use unified entries to track both initialFiles (URLs) and new uploads (File objects)
-  // This prevents index mismatch when removing files
   const [entries, setEntries] = useState<PreviewEntry[]>(() =>
     initialFiles.map((src) => ({ src, file: null }))
   );
   const [errors, setErrors] = useState<string[]>([]);
 
+  // 2026 Best Practice: Use a ref to track the latest entries for safe revocation on unmount
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
   // Cleanup object URLs to avoid memory leaks
+  // Runs only on unmount to ensure URLs remain valid while the component is active
   useEffect(() => {
     return () => {
-      entries.forEach((entry) => {
+      for (const entry of entriesRef.current) {
         // Only revoke blob URLs (new uploads), not external URLs (initialFiles)
         if (entry.file && entry.src.startsWith('blob:')) {
           URL.revokeObjectURL(entry.src);
         }
-      });
+      }
     };
-  }, [entries]);
+  }, []);
 
   // Extract just the File objects for the callback
-  const getFiles = useCallback(
-    (entryList: PreviewEntry[]): File[] =>
-      entryList.filter((e) => e.file !== null).map((e) => e.file as File),
-    []
-  );
+  const getFiles = (entryList: PreviewEntry[]): File[] =>
+    entryList.flatMap((e) => (e.file ? [e.file] : []));
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      // Handle errors
-      const newErrors: string[] = [];
-      fileRejections.forEach(({ file, errors: fileErrors }) => {
-        fileErrors.forEach((e) => {
-          if (e.code === 'file-too-large') {
-            newErrors.push(
-              `${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB`
-            );
-          } else if (e.code === 'file-invalid-type') {
-            newErrors.push(`${file.name} has an invalid file type.`);
-          } else {
-            newErrors.push(`${file.name}: ${e.message}`);
-          }
-        });
+  const onDrop = (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+    // Handle errors
+    const newErrors: string[] = [];
+    fileRejections.forEach(({ file, errors: fileErrors }) => {
+      fileErrors.forEach((e) => {
+        if (e.code === 'file-too-large') {
+          newErrors.push(
+            `${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB`
+          );
+        } else if (e.code === 'file-invalid-type') {
+          newErrors.push(`${file.name} has an invalid file type.`);
+        } else {
+          newErrors.push(`${file.name}: ${e.message}`);
+        }
       });
-      setErrors(newErrors);
+    });
+    setErrors(newErrors);
 
-      // Handle accepted files
-      if (acceptedFiles?.length) {
-        // Calculate remaining slots accounting for current entries
-        const remainingSlots = Math.max(0, maxFiles - entries.length);
-        const filesToAdd = acceptedFiles.slice(0, remainingSlots);
+    // Handle accepted files
+    if (acceptedFiles?.length) {
+      // Calculate remaining slots accounting for current entries
+      const remainingSlots = Math.max(0, maxFiles - entries.length);
+      const filesToAdd = acceptedFiles.slice(0, remainingSlots);
 
-        if (filesToAdd.length === 0) return;
+      if (filesToAdd.length === 0) return;
 
-        // Create new entries with File objects
-        const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
-          src: URL.createObjectURL(file),
-          file,
-        }));
+      // Create new entries with File objects
+      const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
+        src: URL.createObjectURL(file),
+        file,
+      }));
 
-        const updatedEntries = [...entries, ...newEntries];
-        setEntries(updatedEntries);
-        onFilesSelected(getFiles(updatedEntries));
-      }
-    },
-    [maxFiles, maxSize, onFilesSelected, entries, getFiles]
-  );
+      const updatedEntries = [...entries, ...newEntries];
+      setEntries(updatedEntries);
+      onFilesSelected(getFiles(updatedEntries));
+    }
+  };
 
   const removeFile = (index: number) => {
     setEntries((prev) => {

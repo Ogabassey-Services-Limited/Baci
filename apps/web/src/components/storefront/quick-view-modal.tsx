@@ -215,6 +215,7 @@ export function QuickViewModal({
                         alt={img.alt || `Product image ${idx + 1}`}
                         fill
                         className="object-cover"
+                        sizes="64px"
                       />
                     </button>
                   </li>

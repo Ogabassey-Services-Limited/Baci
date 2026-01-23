@@ -1,4 +1,3 @@
-import type { Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
@@ -67,15 +66,6 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
-
-/**
- * Storefront-specific viewport configuration
- * Overrides root layout to prevent blue flash on dark storefronts
- * The dark color (#0F0F0F) matches the Ogabassey template background
- */
-export const viewport: Viewport = {
-  themeColor: '#0F0F0F',
-};
 
 export async function generateMetadata({
   params,
@@ -150,12 +140,19 @@ export async function generateMetadata({
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
 
+  // Determine theme color for browser UI (prevent flashes)
+  const isDarkTemplate =
+    merchant.template_id === 'ogabassey' ||
+    merchant.template_id === 'classic-elegant';
+  const themeColor = isDarkTemplate ? '#0F0F0F' : '#ffffff';
+
   return {
     title:
       merchant.site_title ||
       `${merchant.business_name} | Buy Gadgets Pay Later`,
     description,
     icons,
+    themeColor,
     verification: verificationCode
       ? {
           google: verificationCode,
@@ -168,6 +165,9 @@ export async function generateMetadata({
     },
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
+    other: {
+      'theme-color': themeColor,
+    },
   };
 }
 
