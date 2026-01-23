@@ -80,11 +80,15 @@ export default function BuyDomainScreen() {
       } = await supabase.auth.getSession();
 
       if (!session) throw new Error('You must be signed in to search domains');
-      console.log(`[Diagnostic] Auth session token present: ${!!session.access_token}`);
+      console.log(
+        `[Diagnostic] Auth session token present: ${!!session.access_token}`
+      );
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log(`[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`);
+        console.log(
+          `[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`
+        );
         controller.abort();
       }, 20000);
 
@@ -105,7 +109,9 @@ export default function BuyDomainScreen() {
       console.log(`[Diagnostic] Fetch response status: ${response.status}`);
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Search failed' }));
+        const err = await response
+          .json()
+          .catch(() => ({ error: 'Search failed' }));
         console.log(`[Diagnostic] Fetch error body:`, err);
         throw new Error(err.error || `Server error (${response.status})`);
       }
@@ -113,23 +119,27 @@ export default function BuyDomainScreen() {
       const data = await response.json();
       console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
 
-      const mappedResults = (data.results || []).map(
-        (r: any) => ({
-          domain: r.domain,
-          available: r.available,
-          price: r.price,
-          currency: 'NGN',
-          popular: r.popular,
-        })
-      );
+      const mappedResults = (data.results || []).map((r: any) => ({
+        domain: r.domain,
+        available: r.available,
+        price: r.price,
+        currency: 'NGN',
+        popular: r.popular,
+      }));
 
       setResults(mappedResults);
     } catch (error: any) {
       console.error('[Diagnostic] Full search error:', error);
       if (error.name === 'AbortError') {
-        Alert.alert('Timeout', 'Domain search took too long. Please try again.');
+        Alert.alert(
+          'Timeout',
+          'Domain search took too long. Please try again.'
+        );
       } else {
-        Alert.alert('Search Failed', error.message || 'An unexpected error occurred');
+        Alert.alert(
+          'Search Failed',
+          error.message || 'An unexpected error occurred'
+        );
       }
     } finally {
       setLoading(false);

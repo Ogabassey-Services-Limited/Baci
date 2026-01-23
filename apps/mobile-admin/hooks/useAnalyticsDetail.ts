@@ -194,8 +194,8 @@ export function useAnalyticsDetail({
       const worstPeriod =
         nonZeroData.length > 0
           ? nonZeroData.reduce((worst, d) =>
-            d.value < worst.value ? d : worst
-          )
+              d.value < worst.value ? d : worst
+            )
           : null;
 
       // Fetch comparison data if requested
@@ -226,7 +226,11 @@ export function useAnalyticsDetail({
           const date = new Date(order.created_at);
           const bucketIndex = getBucketIndex(date, granularity);
 
-          if (comparisonData && bucketIndex >= 0 && bucketIndex < comparisonData.length) {
+          if (
+            comparisonData &&
+            bucketIndex >= 0 &&
+            bucketIndex < comparisonData.length
+          ) {
             comparisonData[bucketIndex].count =
               (comparisonData[bucketIndex].count || 0) + 1;
 

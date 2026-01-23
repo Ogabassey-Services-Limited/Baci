@@ -1,16 +1,28 @@
-import { cookies } from 'next/headers';
+// import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { payoutMerchantCommission } from '@/lib/kuda';
-import { createClient } from '@/lib/supabase/server';
+// import { payoutMerchantCommission } from '@/lib/kuda';
+// import { createClient } from '@/lib/supabase/server';
 
-const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
+// const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
 
 /**
  * POST /api/wallet/withdraw
  * Manual withdrawal request - transfer to merchant's bank account
  */
-export async function POST(request: Request) {
+export function POST(_request: Request) {
   try {
+    // SECURITY: Withdrawals are temporarily disabled for manual review
+    // This matches the UI logic (canWithdraw: false) to prevent API bypass
+    return NextResponse.json(
+      {
+        error: 'Withdrawals are temporarily disabled',
+        message:
+          'Manual withdrawals are currently paused. Please contact support.',
+      },
+      { status: 403 }
+    );
+
+    /* Code disabled for security
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -177,6 +189,7 @@ export async function POST(request: Request) {
         bankAccount: `${merchant.bank_account_name} - ****${merchant.bank_account_number.slice(-4)}`,
       },
     });
+    */
   } catch (error) {
     console.error('Withdrawal error:', error);
     return NextResponse.json({ error: 'Withdrawal failed' }, { status: 500 });

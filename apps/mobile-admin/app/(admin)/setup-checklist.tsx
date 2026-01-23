@@ -99,8 +99,8 @@ export default function SetupChecklistScreen() {
         key={item.id}
         onPress={() =>
           item.href.startsWith('/')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? router.push(item.href as any)
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              router.push(item.href as any)
             : undefined
         }
         style={[

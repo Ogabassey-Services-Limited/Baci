@@ -18,30 +18,31 @@ import { TextAlign } from '@tiptap/extension-text-align';
  * These do not contain any browser-only logic (window, document, etc.)
  */
 export const blogStaticExtensions = [
-    StarterKit,
-    TiptapImage.configure({
-        HTMLAttributes: {
-            class: 'rounded-2xl shadow-lg border border-border/50 my-8',
-        },
-    }),
-    TiptapLink.configure({
-        HTMLAttributes: {
-            class: 'text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:text-primary/80',
-        },
-    }),
-    Table.configure({
-        resizable: true,
-    }),
-    TableCell,
-    TableHeader,
-    TableRow,
-    TextStyle,
-    Color,
-    Highlight.configure({ multicolor: true }),
-    TaskItem,
-    TaskList,
-    Typography,
-    TextAlign.configure({
-        types: ['heading', 'paragraph'],
-    }),
+  StarterKit,
+  TiptapImage.configure({
+    HTMLAttributes: {
+      class: 'rounded-2xl shadow-lg border border-border/50 my-8',
+    },
+  }),
+  TiptapLink.configure({
+    HTMLAttributes: {
+      class:
+        'text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:text-primary/80',
+    },
+  }),
+  Table.configure({
+    resizable: true,
+  }),
+  TableCell,
+  TableHeader,
+  TableRow,
+  TextStyle,
+  Color,
+  Highlight.configure({ multicolor: true }),
+  TaskItem,
+  TaskList,
+  Typography,
+  TextAlign.configure({
+    types: ['heading', 'paragraph'],
+  }),
 ];

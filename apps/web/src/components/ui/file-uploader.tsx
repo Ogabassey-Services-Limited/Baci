@@ -108,7 +108,7 @@ export function FileUploader({
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',
           files.length + (initialFiles?.length || 0) >= maxFiles &&
-          'opacity-50 cursor-not-allowed pointer-events-none'
+            'opacity-50 cursor-not-allowed pointer-events-none'
         )}
       >
         <input {...getInputProps()} />

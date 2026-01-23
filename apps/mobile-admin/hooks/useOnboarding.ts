@@ -2,61 +2,61 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
 interface RegisterPayload {
-    email: string;
-    password?: string;
-    confirmPassword?: string;
-    fullName: string;
-    businessName: string;
-    businessType?: string;
-    otherBusinessType?: string;
-    slug?: string;
-    phone?: string;
-    brandColors?: string;
-    logoUrl?: string;
+  email: string;
+  password?: string;
+  confirmPassword?: string;
+  fullName: string;
+  businessName: string;
+  businessType?: string;
+  otherBusinessType?: string;
+  slug?: string;
+  phone?: string;
+  brandColors?: string;
+  logoUrl?: string;
 }
 
 interface CompleteProfilePayload {
-    fullName: string;
-    phone?: string;
-    email: string;
-    businessName: string;
-    businessType: string;
-    otherBusinessType?: string;
-    slug?: string;
-    logoUrl?: string;
-    brandColors?: string;
+  fullName: string;
+  phone?: string;
+  email: string;
+  businessName: string;
+  businessType: string;
+  otherBusinessType?: string;
+  slug?: string;
+  logoUrl?: string;
+  brandColors?: string;
 }
 
 export function useOnboarding() {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    // Register Mutation
-    const registerMutation = useMutation({
-        mutationFn: (data: RegisterPayload) =>
-            apiClient('/api/mobile-onboarding', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-        onSuccess: () => {
-            // Invalidate auth/merchant queries if needed
-        },
-    });
+  // Register Mutation
+  const registerMutation = useMutation({
+    mutationFn: (data: RegisterPayload) =>
+      apiClient('/api/mobile-onboarding', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      // Invalidate auth/merchant queries if needed
+    },
+  });
 
-    // Complete Profile Mutation
-    const completeProfileMutation = useMutation({
-        mutationFn: (data: CompleteProfilePayload) =>
-            apiClient('/api/mobile-onboarding', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['merchant'] });
-        },
-    });
+  // Complete Profile Mutation
+  const completeProfileMutation = useMutation({
+    mutationFn: (data: CompleteProfilePayload) =>
+      apiClient('/api/mobile-onboarding', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    },
+  });
 
-    return {
-        register: registerMutation,
-        completeProfile: completeProfileMutation,
-        isLoading: registerMutation.isPending || completeProfileMutation.isPending,
-    };
+  return {
+    register: registerMutation,
+    completeProfile: completeProfileMutation,
+    isLoading: registerMutation.isPending || completeProfileMutation.isPending,
+  };
 }

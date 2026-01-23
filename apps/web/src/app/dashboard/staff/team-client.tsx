@@ -203,7 +203,10 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         const result = await inviteStaffMember(data as InviteStaffData);
         return { success: true, message: result.message };
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : 'Invitation failed' };
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Invitation failed',
+        };
       }
     },
     null
@@ -216,7 +219,11 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
       setInviteDialogOpen(false);
       router.refresh();
     } else if (state?.error) {
-      toast({ title: 'Error', description: state.error, variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: state.error,
+        variant: 'destructive',
+      });
     }
   }, [state, toast, form, router]);
 
@@ -451,16 +458,18 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                                <SelectItem key={value} value={value}>
-                                  <div className="flex flex-col items-start">
-                                    <span>{label}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {ROLE_DESCRIPTIONS[value as StaffRole]}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))}
+                              {Object.entries(ROLE_LABELS).map(
+                                ([value, label]) => (
+                                  <SelectItem key={value} value={value}>
+                                    <div className="flex flex-col items-start">
+                                      <span>{label}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {ROLE_DESCRIPTIONS[value as StaffRole]}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                )
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -484,7 +493,8 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                               Generate Staff Account (NUBAN)
                             </FormLabel>
                             <p className="text-xs text-muted-foreground">
-                              Automatically create a payment account for this staff member.
+                              Automatically create a payment account for this
+                              staff member.
                             </p>
                           </div>
                         </FormItem>

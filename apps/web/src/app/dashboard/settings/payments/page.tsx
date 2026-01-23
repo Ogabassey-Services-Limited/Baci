@@ -299,9 +299,7 @@ export default function PaymentSettingsPage() {
       </Card>
 
       {/* Virtual Terminal Section */}
-      <VirtualTerminalSettings
-        businessName={merchant?.business_name}
-      />
+      <VirtualTerminalSettings businessName={merchant?.business_name} />
 
       {/* Credit Direct BNPL Card */}
       <Card>
