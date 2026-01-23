@@ -2,3 +2,12 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
+src/components/blog/renderer/BlogContentRenderer.tsx(62,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: LinkProps<{}>): JSX.Element', gave the following error.
+    Type '{}' is not assignable to type 'HTMLAttributeAnchorTarget | undefined'.
+  Overload 2 of 2, '(props: LinkProps<{}>): JSX.Element', gave the following error.
+    Type '{}' is not assignable to type 'HTMLAttributeAnchorTarget | undefined'.
+src/components/blog/renderer/BlogContentRenderer.tsx(73,46): error TS2322: Type '{}' is not assignable to type 'Color | undefined'.
+src/components/blog/renderer/BlogContentRenderer.tsx(143,13): error TS2322: Type 'unknown' is not assignable to type 'string | StaticImport'.
+src/components/blog/renderer/BlogContentRenderer.tsx(144,13): error TS2322: Type '{}' is not assignable to type 'string'.
+ ELIFECYCLE  Command failed with exit code 2.

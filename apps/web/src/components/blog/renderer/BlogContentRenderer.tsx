@@ -58,8 +58,8 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           content = (
             <Link
               key={mark.type}
-              href={mark.attrs?.href || '#'}
-              target={mark.attrs?.target || '_blank'}
+              href={(mark.attrs?.href as string) || '#'}
+              target={(mark.attrs?.target as string) || '_blank'}
               rel="noopener noreferrer"
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
             >
@@ -70,7 +70,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color }}>
+              <span key={mark.type} style={{ color: mark.attrs.color as string }}>
                 {content}
               </span>
             );
@@ -140,8 +140,8 @@ const NodeRenderer = ({
       return (
         <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image
-            src={node.attrs?.src}
-            alt={node.attrs?.alt || 'Blog image'}
+            src={(node.attrs?.src as string) || ''}
+            alt={(node.attrs?.alt as string) || 'Blog image'}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 800px"
