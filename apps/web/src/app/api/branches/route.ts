@@ -24,8 +24,6 @@ const CreateBranchSchema = z.object({
   isDefault: z.boolean().optional().default(false),
 });
 
-const _UpdateBranchSchema = CreateBranchSchema.partial();
-
 // =============================================================================
 // Route Handlers
 // =============================================================================

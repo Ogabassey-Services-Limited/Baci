@@ -101,8 +101,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { name } = z.object({ name: z.string().min(2) }).parse(body);
+    const parseResult = z.object({ name: z.string().min(2) }).safeParse(body);
 
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: parseResult.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    const { name } = parseResult.data;
     const result = await updateVirtualTerminal(code, name);
 
     if (!result.success) {

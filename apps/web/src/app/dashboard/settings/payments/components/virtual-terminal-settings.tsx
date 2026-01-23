@@ -202,12 +202,13 @@ export function VirtualTerminalSettings({
       });
 
       if (response.ok) {
+        const createdBranchName = newBranch.name;
         await fetchData();
         setBranchDialogOpen(false);
         setNewBranch({ name: '', address: '', city: '' });
         toast({
           title: 'Branch Created',
-          description: `${newBranch.name} has been added.`,
+          description: `${createdBranchName} has been added.`,
         });
       } else {
         const error = await response.json();
@@ -225,12 +226,20 @@ export function VirtualTerminalSettings({
     }
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: 'Copied',
-      description: `${label} copied to clipboard.`,
-    });
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: 'Copied',
+        description: `${label} copied to clipboard.`,
+      });
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Copy Failed',
+        description: 'Unable to copy to clipboard.',
+      });
+    }
   };
 
   if (loading) {

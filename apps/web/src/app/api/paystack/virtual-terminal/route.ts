@@ -118,8 +118,16 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Failed to save terminal to DB:', insertError);
-      // Terminal was created in Paystack but not saved locally
-      // Return success but warn about DB issue
+      // Terminal was created in Paystack but not saved locally - this is critical
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Terminal created in Paystack but failed to save locally. Please contact support.',
+          paystackCode: result.data.code,
+        },
+        { status: 500 }
+      );
     }
 
     // Also update legacy column for backwards compatibility

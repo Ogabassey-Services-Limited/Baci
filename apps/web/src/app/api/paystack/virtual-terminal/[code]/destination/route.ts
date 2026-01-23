@@ -31,7 +31,11 @@ const DestinationSchema = z.object({
 });
 
 const UnassignSchema = z.object({
-  targets: z.array(z.string().regex(/^\+?\d{10,15}$/, 'Invalid phone number')),
+  targets: z.array(
+    z
+      .string()
+      .regex(/^\+\d{10,15}$/, 'Invalid phone number (E.164 format required)')
+  ),
 });
 
 /**

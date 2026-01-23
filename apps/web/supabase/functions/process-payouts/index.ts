@@ -25,8 +25,8 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const paystackSecretKey = Deno.env.get('PAYSTACK_SECRET_KEY') ?? '';
 
-    if (!paystackSecretKey) {
-      throw new Error('Missing PAYSTACK_SECRET_KEY');
+    if (!supabaseUrl || !supabaseServiceKey || !paystackSecretKey) {
+      throw new Error('Missing required environment variables');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -75,17 +75,34 @@ Deno.serve(async (req) => {
 
       if (!orders || orders.length === 0) continue;
 
-      // Calculate Total Logic
-      const totalAmount = orders.reduce(
-        (sum, order) => sum + Number(order.total_amount),
-        0
-      );
+      // Calculate Total Logic (with NaN protection)
+      const totalAmount = orders.reduce((sum, order) => {
+        const amount = Number(order.total_amount);
+        return sum + (Number.isFinite(amount) ? amount : 0);
+      }, 0);
 
-      // Minimum payout threshold (e.g., ₦100)
-      if (totalAmount < 100) continue;
+      // Skip if total is invalid or below minimum threshold (₦100)
+      if (!Number.isFinite(totalAmount) || totalAmount < 100) continue;
+
+      // Define orderIds before try block so it's accessible in catch for rollback
+      const orderIds = orders.map((o) => o.id);
 
       // 3. Initiate Transfer with Paystack
       try {
+        // Mark orders as processing BEFORE initiating transfer to prevent duplicates
+        const { error: lockError } = await supabase
+          .from('orders')
+          .update({ payout_status: 'processing' })
+          .in('id', orderIds);
+
+        if (lockError) {
+          console.error(
+            `Failed to lock orders for merchant ${merchant.id}:`,
+            lockError
+          );
+          continue;
+        }
+
         // A. Create/Fetch Transfer Recipient
         // We create it every time to be safe (idempotent if same details)
         const recipientResponse = await fetch(
@@ -106,6 +123,9 @@ Deno.serve(async (req) => {
           }
         );
 
+        if (!recipientResponse.ok) {
+          throw new Error(`Paystack API error: ${recipientResponse.status}`);
+        }
         const recipientData = await recipientResponse.json();
         if (!recipientData.status) {
           throw new Error(
@@ -138,12 +158,16 @@ Deno.serve(async (req) => {
           }
         );
 
+        if (!transferResponse.ok) {
+          throw new Error(
+            `Paystack transfer API error: ${transferResponse.status}`
+          );
+        }
         const transferData = await transferResponse.json();
         if (!transferData.status) {
           throw new Error(`Transfer failed: ${transferData.message}`);
         }
 
-        const _transferReference = transferData.data.reference;
         const transferCode = transferData.data.transfer_code;
 
         // 4. Update Database
@@ -164,8 +188,7 @@ Deno.serve(async (req) => {
 
         if (payoutError) throw payoutError;
 
-        // B. Update Orders
-        const orderIds = orders.map((o) => o.id);
+        // B. Update Orders with payout reference
         const { error: updateError } = await supabase
           .from('orders')
           .update({
@@ -186,6 +209,13 @@ Deno.serve(async (req) => {
         console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error';
+
+        // Rollback: Reset orders back to unpaid status if transfer failed
+        await supabase
+          .from('orders')
+          .update({ payout_status: 'unpaid' })
+          .in('id', orderIds);
+
         results.push({
           merchant: merchant.business_name,
           amount: totalAmount,

@@ -41,6 +41,21 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get merchant to verify ownership
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Only fetch branches owned by this merchant
     const { data: branch, error } = await supabase
       .from('branches')
       .select(`
@@ -58,6 +73,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         )
       `)
       .eq('id', id)
+      .eq('merchant_id', merchant.id)
       .single();
 
     if (error || !branch) {
@@ -91,6 +107,20 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get merchant to verify ownership
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     const parseResult = UpdateBranchSchema.safeParse(body);
 
@@ -114,10 +144,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (isDefault !== undefined) updateData.is_default = isDefault;
     if (active !== undefined) updateData.active = active;
 
+    // Only allow updating branches owned by this merchant
     const { data: branch, error } = await supabase
       .from('branches')
       .update(updateData)
       .eq('id', id)
+      .eq('merchant_id', merchant.id)
       .select()
       .single();
 
@@ -156,21 +188,38 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Soft delete by setting active = false
-    const { error } = await supabase
-      .from('branches')
-      .update({ active: false })
-      .eq('id', id);
+    // Get merchant to verify ownership
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
 
-    if (error) {
-      console.error('Branch delete error:', error);
+    if (!merchant) {
       return NextResponse.json(
-        { error: 'Failed to delete branch' },
-        { status: 500 }
+        { error: 'Merchant not found' },
+        { status: 404 }
       );
     }
 
-    // Unassign staff accounts from this branch
+    // Soft delete by setting active = false (only for branches owned by this merchant)
+    const { data: deletedBranch, error } = await supabase
+      .from('branches')
+      .update({ active: false })
+      .eq('id', id)
+      .eq('merchant_id', merchant.id)
+      .select('id')
+      .single();
+
+    if (error || !deletedBranch) {
+      console.error('Branch delete error:', error);
+      return NextResponse.json(
+        { error: 'Branch not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    // Unassign virtual terminals from this branch
     await supabase
       .from('virtual_terminals')
       .update({ branch_id: null })
