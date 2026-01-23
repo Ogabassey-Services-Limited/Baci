@@ -191,6 +191,7 @@ export function QuickViewModal({
 
             {/* Thumbnail Gallery */}
             {allImages.length > 1 && (
+              // biome-ignore lint/a11y/useSemanticElements: Flexbox layout
               <div className="flex gap-2 mt-4 overflow-x-auto pb-2" role="list">
                 {allImages.map((img, idx) => (
                   <button
@@ -271,6 +272,7 @@ export function QuickViewModal({
                         {selectedAttributes[key]}
                       </span>
                     </Label>
+                    {/* biome-ignore lint/a11y/useSemanticElements: Custom radio buttons */}
                     <div
                       className="flex flex-wrap gap-2"
                       role="radiogroup"
@@ -285,6 +287,7 @@ export function QuickViewModal({
                         );
 
                         return (
+                          // biome-ignore lint/a11y/useSemanticElements: Custom radio button styling
                           <button
                             type="button"
                             key={value}

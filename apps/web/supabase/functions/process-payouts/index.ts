@@ -15,12 +15,6 @@ interface Merchant {
   auto_payout_enabled: boolean;
 }
 
-interface Order {
-  id: string;
-  merchant_id: string;
-  total_amount: number;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -189,8 +183,9 @@ Deno.serve(async (req) => {
           reference: transferCode,
         });
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
+        const errorMessage =
+          err instanceof Error ? err.message : 'Unknown error';
         results.push({
           merchant: merchant.business_name,
           amount: totalAmount,
@@ -205,7 +200,8 @@ Deno.serve(async (req) => {
       status: 200,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
