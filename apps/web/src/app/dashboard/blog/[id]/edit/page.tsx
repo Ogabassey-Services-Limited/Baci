@@ -254,14 +254,7 @@ export default function EditBlogPostPage() {
         });
       }
     }
-  }, [
-    isLoading,
-    hasSavedData,
-    getSavedData,
-    formData,
-    toast,
-    undoRecovery,
-  ]);
+  }, [isLoading, hasSavedData, getSavedData, formData, toast, undoRecovery]);
 
   const handleChange = useCallback(
     (field: keyof PostFormData, value: string) => {
@@ -366,15 +359,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-            .split(',')
-            .map((k) => k.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((k) => k.trim())
+              .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -544,7 +537,11 @@ export default function EditBlogPostPage() {
             isSafeSlug(merchant.slug) && (
               <Button variant="outline" asChild>
                 <a
-                  href={`/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`}
+                  href={
+                    merchant.custom_domain
+                      ? `https://${merchant.custom_domain}/blog/${encodeURIComponent(formData.slug)}`
+                      : `/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -890,7 +887,9 @@ export default function EditBlogPostPage() {
                     {formData.seo_title || formData.title || 'Post Title'}
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
-                    {merchant?.slug}.usebaci.com/blog/
+                    {merchant?.custom_domain
+                      ? `${merchant.custom_domain}/blog/`
+                      : `${merchant?.slug}.usebaci.com/blog/`}
                     {formData.slug || 'post-slug'}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-2">

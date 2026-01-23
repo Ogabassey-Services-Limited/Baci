@@ -41,6 +41,7 @@ interface Merchant {
   business_name: string;
   site_description: string | null;
   logo_url: string | null;
+  custom_domain?: string | null;
 }
 
 // Strip HTML tags for plain text excerpts using sanitize-html
@@ -74,16 +75,42 @@ const getCachedFeed = unstable_cache(
       throw new Error('Supabase not configured');
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
+    // Get merchant with custom domain in a single query (2026 best practice)
+    const { data: merchantData, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, slug, business_name, site_description, logo_url')
+      .select(`
+        id,
+        slug,
+        business_name,
+        site_description,
+        logo_url,
+        domains!left(domain, is_primary, status)
+      `)
       .eq('slug', merchantSlug)
       .single();
 
-    if (merchantError || !merchant) {
+    if (merchantError || !merchantData) {
       return null;
     }
+
+    // Extract primary active domain from joined data
+    const domains = merchantData.domains as Array<{
+      domain: string;
+      is_primary: boolean;
+      status: string;
+    }> | null;
+    const primaryDomain = domains?.find(
+      (d) => d.is_primary && d.status === 'active'
+    );
+
+    const merchant = {
+      id: merchantData.id,
+      slug: merchantData.slug,
+      business_name: merchantData.business_name,
+      site_description: merchantData.site_description,
+      logo_url: merchantData.logo_url,
+      custom_domain: primaryDomain?.domain || null,
+    };
 
     // Get published blog posts
     const { data: posts, error: postsError } = await supabase
@@ -126,8 +153,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { merchant, posts } = data;
 
     // Base URL for the merchant's storefront
+    // Use custom domain if available, otherwise fall back to slug-based URL
     const baseUrl = getAppUrl();
-    const storeUrl = `${baseUrl}/${merchant.slug}`;
+    const storeUrl = merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `${baseUrl}/${merchant.slug}`;
     const feedUrl = `${baseUrl}/api/blog/feed/${merchant.slug}`;
 
     // Build date for the channel

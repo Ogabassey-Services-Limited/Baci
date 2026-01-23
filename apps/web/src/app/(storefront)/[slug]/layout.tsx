@@ -1,3 +1,4 @@
+import type { Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
@@ -66,6 +67,15 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
+
+/**
+ * Storefront-specific viewport configuration
+ * Overrides root layout to prevent blue flash on dark storefronts
+ * The dark color (#0F0F0F) matches the Ogabassey template background
+ */
+export const viewport: Viewport = {
+  themeColor: '#0F0F0F',
+};
 
 export async function generateMetadata({
   params,
