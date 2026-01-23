@@ -3,7 +3,7 @@
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import {
   Dialog,
@@ -445,17 +445,38 @@ function isVariantAvailable(
 export function useQuickView() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const openQuickView = (p: Product) => {
+  // Cleanup effect - clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const openQuickView = useCallback((p: Product) => {
+    // Clear any pending timeout when opening new quick view
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     setProduct(p);
     setIsOpen(true);
-  };
+  }, []);
 
-  const closeQuickView = () => {
+  const closeQuickView = useCallback(() => {
     setIsOpen(false);
+    // Clear previous timeout if exists
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     // Delay clearing product to allow close animation
-    setTimeout(() => setProduct(null), 300);
-  };
+    timeoutRef.current = setTimeout(() => {
+      setProduct(null);
+      timeoutRef.current = null;
+    }, 300);
+  }, []);
 
   return {
     product,
