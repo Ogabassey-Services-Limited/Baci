@@ -28,11 +28,12 @@ jobs:
 
     container:
       # Pin to specific version for reproducibility
-      image: semgrep/semgrep:1.56.0
+      image: semgrep/semgrep:1.104.0
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # Pin to full SHA for supply chain security
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Run Semgrep
         id: semgrep
@@ -52,7 +53,8 @@ jobs:
           fi
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
+        # Pin to full SHA for supply chain security
+        uses: github/codeql-action/upload-sarif@38e701f46e33fb233075bf4238cb1e5d68e429e4 # v3.31.11
         if: always() && steps.verify-sarif.outputs.sarif_exists == 'true'
         with:
           sarif_file: semgrep.sarif
@@ -71,10 +73,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # Pin to full SHA for supply chain security
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        # Pin to full SHA for supply chain security
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4
         with:
           fail-on-severity: high
           # Note: AGPL excluded to allow TruffleHog (security tool)
@@ -89,12 +93,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        # Pin to full SHA for supply chain security
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: TruffleHog OSS
-        # Pin to specific version for supply-chain security
-        uses: trufflesecurity/trufflehog@v3.63.11
+        # Pin to full SHA for supply-chain security
+        uses: trufflesecurity/trufflehog@383f8a1f67c7172ab0606ef1605631e33408f4d3 # v3.63.11
         with:
           extra_args: --only-verified
