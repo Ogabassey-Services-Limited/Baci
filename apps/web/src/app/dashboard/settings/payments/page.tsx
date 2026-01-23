@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { MerchantBankForm } from '@/components/merchant-bank-form';
-import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -32,6 +31,7 @@ import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { VirtualTerminalSettings } from './components/virtual-terminal-settings';
 
 interface PaymentGatewaySettings {
   paystack_enabled: boolean;
@@ -299,9 +299,7 @@ export default function PaymentSettingsPage() {
       </Card>
 
       {/* Virtual Terminal Section */}
-      <VirtualTerminalSettings
-        businessName={merchant?.business_name}
-      />
+      <VirtualTerminalSettings businessName={merchant?.business_name} />
 
       {/* Credit Direct BNPL Card */}
       <Card>
