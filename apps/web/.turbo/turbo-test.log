@@ -11,25 +11,25 @@
 [MyCover Webhook] Received: test
 [MyCover Webhook] Unhandled event: test
 
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
 [90mstdout[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify valid HMAC-SHA256 signature
 [22m[39m[MyCover Webhook] ✅ Signature verified.
 [MyCover Webhook] Received: test
 [MyCover Webhook] Unhandled event: test
 
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 9[2mms[22m[39m
 [90mstdout[2m | src/app/api/webhooks/mycover/route.test.ts[2m > [22m[2mMyCover Webhook[2m > [22m[2mshould verify using x-signature header as fallback
 [22m[39m[MyCover Webhook] ✅ Signature verified.
 [MyCover Webhook] Received: test
 [MyCover Webhook] Unhandled event: test
 
- [32m✓[39m src/app/api/webhooks/mycover/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 41[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 121[2mms[22m[39m
- [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 529[2mms[22m[39m
-     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 524[2mms[22m[39m
+ [32m✓[39m src/app/api/webhooks/mycover/route.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 104[2mms[22m[39m
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 523[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 518[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
 [2m      Tests [22m [1m[32m23 passed[39m[22m[90m (23)[39m
-[2m   Start at [22m 12:10:41
-[2m   Duration [22m 1.87s[2m (transform 817ms, setup 876ms, import 1.49s, tests 706ms, environment 4.46s)[22m
+[2m   Start at [22m 12:25:11
+[2m   Duration [22m 1.71s[2m (transform 538ms, setup 548ms, import 836ms, tests 648ms, environment 4.45s)[22m
 
