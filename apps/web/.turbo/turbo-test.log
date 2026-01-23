@@ -5,14 +5,14 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.17 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 107[2mms[22m[39m
- [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 527[2mms[22m[39m
-     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 521[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 532[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 526[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
 [2m      Tests [22m [1m[32m17 passed[39m[22m[90m (17)[39m
-[2m   Start at [22m 11:44:22
-[2m   Duration [22m 1.59s[2m (transform 299ms, setup 435ms, import 570ms, tests 641ms, environment 2.74s)[22m
+[2m   Start at [22m 12:34:52
+[2m   Duration [22m 1.53s[2m (transform 380ms, setup 343ms, import 616ms, tests 673ms, environment 2.46s)[22m
 

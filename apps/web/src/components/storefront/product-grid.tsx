@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { Eye, Minus, Plus } from 'lucide-react';
+import { Eye, Minus, PackageOpen, Plus, SearchX } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ProductCardImage } from '@/components/optimized-image';
@@ -657,12 +657,65 @@ export function StorefrontProductGrid({
             })}
           </div>
         ) : (
-          <div className="text-center text-muted-foreground py-16">
-            <h3 className="text-xl font-semibold">No products found</h3>
-            <p>
-              Your search for &quot;{searchQuery}&quot; did not match any
-              products.
-            </p>
+          <div
+            className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in"
+            role="status"
+            aria-live="polite"
+          >
+            {searchQuery || selectedCategory !== 'All' ? (
+              <>
+                {/* Search Results Empty State */}
+                <div className="rounded-full bg-muted/50 p-6 mb-6">
+                  <SearchX
+                    className="w-16 h-16 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-3">
+                  No matches found
+                </h3>
+                <p className="text-muted-foreground mb-6 max-w-md text-center">
+                  {searchQuery ? (
+                    <>
+                      Your search for <strong>&quot;{searchQuery}&quot;</strong>{' '}
+                      did not match any products.
+                    </>
+                  ) : (
+                    <>
+                      No products found in the{' '}
+                      <strong>&quot;{selectedCategory}&quot;</strong> category.
+                    </>
+                  )}
+                </p>
+                <ThemedButton
+                  colorRole="primary"
+                  onClick={() => {
+                    handleSetSearchQuery('');
+                    handleSetSelectedCategory('All');
+                  }}
+                  aria-label="Clear search filters and show all products"
+                >
+                  Clear Search
+                </ThemedButton>
+              </>
+            ) : (
+              <>
+                {/* General Empty State */}
+                <div className="rounded-full bg-muted/50 p-6 mb-6">
+                  <PackageOpen
+                    className="w-16 h-16 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-3">
+                  No products available
+                </h3>
+                <p className="text-muted-foreground max-w-md text-center">
+                  This store doesn&apos;t have any products yet. Check back
+                  soon!
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

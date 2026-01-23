@@ -441,11 +441,15 @@ export default function WishListPage() {
                           handleRemoveItem(item.id, item.products.name)
                         }
                         disabled={removingItemId === item.id}
+                        aria-label={`Remove ${item.products.name} from wishlist`}
                       >
                         {removingItemId === item.id ? (
-                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                          <Loader2
+                            className="h-4 w-4 motion-safe:animate-spin"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         )}
                       </Button>
                     </div>
