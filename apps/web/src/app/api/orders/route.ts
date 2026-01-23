@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
       notes,
       // Ad tracking data for offline conversions
       ad_tracking,
-      // Wallet redemption 
+      // Wallet redemption
       use_wallet_credit,
       wallet_amount,
       // User ID
@@ -412,25 +412,25 @@ export async function POST(request: NextRequest) {
       // Enhanced with server-captured IP/User Agent for better Event Match Quality
       ad_tracking: ad_tracking
         ? {
-          ...ad_tracking,
-          // Server-side captured data for better EMQ
-          userIp: clientIp || ad_tracking.userIp,
-          userAgent: clientUserAgent || ad_tracking.userAgent,
-          // Server-detected privacy compliance (overrides client if more restrictive)
-          limitedDataUse:
-            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-          // Store geo info for analytics
-          geoCountry: geoPrivacy.country,
-          geoRegion: geoPrivacy.region,
-        }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-            userIp: clientIp,
-            userAgent: clientUserAgent,
-            limitedDataUse: geoPrivacy.shouldApplyLDU,
+            ...ad_tracking,
+            // Server-side captured data for better EMQ
+            userIp: clientIp || ad_tracking.userIp,
+            userAgent: clientUserAgent || ad_tracking.userAgent,
+            // Server-detected privacy compliance (overrides client if more restrictive)
+            limitedDataUse:
+              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+            // Store geo info for analytics
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+              userIp: clientIp,
+              userAgent: clientUserAgent,
+              limitedDataUse: geoPrivacy.shouldApplyLDU,
+              geoCountry: geoPrivacy.country,
+              geoRegion: geoPrivacy.region,
+            }
           : null,
       // Shipping metadata (2025: Fix for Topship tracking)
       selected_quote_id: body.selected_quote_id,
@@ -797,10 +797,10 @@ export async function POST(request: NextRequest) {
         // Wallet redemption details for UI display
         wallet: walletRedemptionResult
           ? {
-            amountUsed: walletRedemptionResult.amountRedeemed,
-            newBalance: walletRedemptionResult.newBalance,
-            transactionId: walletRedemptionResult.transactionId,
-          }
+              amountUsed: walletRedemptionResult.amountRedeemed,
+              newBalance: walletRedemptionResult.newBalance,
+              transactionId: walletRedemptionResult.transactionId,
+            }
           : null,
         // Amount still due to payment gateway (for payment initialization)
         amountDueToGateway,

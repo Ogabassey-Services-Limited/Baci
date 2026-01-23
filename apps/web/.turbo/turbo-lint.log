@@ -2,60 +2,444 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/api/blog/exit-preview/route.ts:18:27 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/dashboard/settings/payments/components/virtual-terminal-settings.tsx:421:35 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    419 │                               onClick={() =>
+    420 │                                 copyToClipboard(
+  > 421 │                                   account.account_number!,
+        │                                   ^^^^^^^^^^^^^^^^^^^^^^^
+    422 │                                   'Account Number'
+    423 │                                 )
+  
+
+src/app/dashboard/settings/payments/components/virtual-terminal-settings.tsx:456:47 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    454 │                             className="w-full justify-start text-xs h-7 px-2"
+    455 │                             onClick={() =>
+  > 456 │                               copyToClipboard(account.payment_link!, 'Link')
+        │                                               ^^^^^^^^^^^^^^^^^^^^^
+    457 │                             }
+    458 │                           >
+  
+
+src/app/dashboard/staff/team-client.tsx:194:24 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    17 │   // Redirect back to either the specified callback or the blog home
-  > 18 │   redirect(callbackUrl as any);
-       │                           ^^^
+    192 │   // Use Action State for better form handling
+    193 │   const [state, formAction, isBasePending] = useActionState(
+  > 194 │     async (_prevState: any, formData: FormData) => {
+        │                        ^^^
+    195 │       const data = {
+    196 │         email: formData.get('email') as string,
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:15:26 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    13 │ interface TipTapNode {
+    14 │   type: string;
+  > 15 │   attrs?: Record<string, any>;
+       │                          ^^^
+    16 │   content?: TipTapNode[];
+    17 │   marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:17:56 lint/suspicious/noExplicitAny ━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    15 │   attrs?: Record<string, any>;
+    16 │   content?: TipTapNode[];
+  > 17 │   marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+       │                                                        ^^^
+    18 │   text?: string;
     19 │ }
-    20 │ 
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/blog/preview/route.ts:31:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/components/blog/renderer/BlogContentRenderer.tsx:201:55 lint/suspicious/noExplicitAny ━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    29 │   // Redirect to the blog post page
-    30 │   // The page will detect draft mode and include unpublished content
-  > 31 │   redirect(`/${merchantSlug}/blog/${slug}` as any);
-       │                                               ^^^
-    32 │ }
-    33 │ 
+    199 │ };
+    200 │ 
+  > 201 │ export const BlogContentRenderer = ({ json }: { json: any }) => {
+        │                                                       ^^^
+    202 │   if (!json) return null;
+    203 │ 
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/dashboard/blog/[id]/edit/page.tsx:256:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
+src/components/blog/renderer/BlogContentRenderer.tsx:86:31 lint/correctness/noUnusedFunctionParameters ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    84 │ };
+    85 │ 
+  > 86 │ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
+       │                               ^^^^^
+    87 │   const children = node.content?.map((child, i) => (
+    88 │     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:209:19 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    207 │     // Safety check for TipTap format
+    208 │     if (doc.type !== 'doc') {
+  > 209 │       return <div dangerouslySetInnerHTML={{ __html: json }} />;
+        │                   ^^^^^^^^^^^^^^^^^^^^^^^
+    210 │     }
+    211 │ 
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+src/components/blog/renderer/BlogContentRenderer.tsx:219:17 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    217 │   } catch (e) {
+    218 │     console.error('Renderer failed:', e);
+  > 219 │     return <div dangerouslySetInnerHTML={{ __html: json }} />;
+        │                 ^^^^^^^^^^^^^^^^^^^^^^^
+    220 │   }
+    221 │ };
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+supabase/functions/process-payouts/index.ts:191:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    254 │           description: 'Featured image uploaded successfully.',
-    255 │         });
-  > 256 │       } catch (error: any) {
-        │                       ^^^
-    257 │         console.error('Error uploading image:', error);
-    258 │         toast({
+    189 │           reference: transferCode,
+    190 │         });
+  > 191 │       } catch (err: any) {
+        │                     ^^^
+    192 │         console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
+    193 │         results.push({
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/dashboard/blog/new/page.tsx:182:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+supabase/functions/process-payouts/index.ts:206:19 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    180 │           description: 'Featured image uploaded successfully.',
-    181 │         });
-  > 182 │       } catch (error: any) {
-        │                       ^^^
-    183 │         console.error('Error uploading image:', error);
-    184 │         toast({
+    204 │       status: 200,
+    205 │     });
+  > 206 │   } catch (error: any) {
+        │                   ^^^
+    207 │     return new Response(JSON.stringify({ error: error.message }), {
+    208 │       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-Checked 844 files in 521ms. No fixes applied.
-Found 4 warnings.
+src/components/blog/novel-editor.tsx:80:24 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    78 │   // Use passed upload handler or fallback to default
+    79 │   // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
+  > 80 │   const handleUpload = async (file: File, view: any, pos: number) => {
+       │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 81 │     if (onImageUpload) {
+  > 82 │       return onImageUpload(file);
+  > 83 │     }
+  > 84 │     return uploadFn(file, view, pos);
+  > 85 │   };
+       │   ^
+    86 │ 
+    87 │   return (
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    78 │   // Use passed upload handler or fallback to default
+    79 │   // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
+  > 80 │   const handleUpload = async (file: File, view: any, pos: number) => {
+       │                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 81 │     if (onImageUpload) {
+  > 82 │       return onImageUpload(file);
+  > 83 │     }
+  > 84 │     return uploadFn(file, view, pos);
+  > 85 │   };
+       │   ^
+    86 │ 
+    87 │   return (
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:997:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+     995 │  * List all Virtual Terminals on the integration
+     996 │  */
+   > 997 │ export async function listVirtualTerminals(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   > 998 │   options: {
+          ...
+  > 1014 │   return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+  > 1015 │ }
+         │ ^
+    1016 │ 
+    1017 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+     995 │  * List all Virtual Terminals on the integration
+     996 │  */
+   > 997 │ export async function listVirtualTerminals(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   > 998 │   options: {
+          ...
+  > 1014 │   return paystackRequest<VirtualTerminalResponse[]>(endpoint);
+  > 1015 │ }
+         │ ^
+    1016 │ 
+    1017 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1020:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1018 │  * Fetch a specific Virtual Terminal by code
+    1019 │  */
+  > 1020 │ export async function fetchVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1021 │   code: string
+          ...
+  > 1033 │   );
+  > 1034 │ }
+         │ ^
+    1035 │ 
+    1036 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1018 │  * Fetch a specific Virtual Terminal by code
+    1019 │  */
+  > 1020 │ export async function fetchVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1021 │   code: string
+          ...
+  > 1033 │   );
+  > 1034 │ }
+         │ ^
+    1035 │ 
+    1036 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1039:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1037 │  * Update a Virtual Terminal's name
+    1038 │  */
+  > 1039 │ export async function updateVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1040 │   code: string,
+          ...
+  > 1057 │   );
+  > 1058 │ }
+         │ ^
+    1059 │ 
+    1060 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1037 │  * Update a Virtual Terminal's name
+    1038 │  */
+  > 1039 │ export async function updateVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1040 │   code: string,
+          ...
+  > 1057 │   );
+  > 1058 │ }
+         │ ^
+    1059 │ 
+    1060 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1063:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1061 │  * Deactivate a Virtual Terminal
+    1062 │  */
+  > 1063 │ export async function deactivateVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1064 │   code: string
+          ...
+  > 1077 │   );
+  > 1078 │ }
+         │ ^
+    1079 │ 
+    1080 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1061 │  * Deactivate a Virtual Terminal
+    1062 │  */
+  > 1063 │ export async function deactivateVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1064 │   code: string
+          ...
+  > 1077 │   );
+  > 1078 │ }
+         │ ^
+    1079 │ 
+    1080 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1086:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1084 │  * @param destinations - Array of WhatsApp numbers with labels
+    1085 │  */
+  > 1086 │ export async function assignVirtualTerminalDestinations(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1087 │   code: string,
+          ...
+  > 1112 │   );
+  > 1113 │ }
+         │ ^
+    1114 │ 
+    1115 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1084 │  * @param destinations - Array of WhatsApp numbers with labels
+    1085 │  */
+  > 1086 │ export async function assignVirtualTerminalDestinations(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1087 │   code: string,
+          ...
+  > 1112 │   );
+  > 1113 │ }
+         │ ^
+    1114 │ 
+    1115 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1121:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1119 │  * @param targets - Array of phone numbers to remove
+    1120 │  */
+  > 1121 │ export async function unassignVirtualTerminalDestinations(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1122 │   code: string,
+          ...
+  > 1139 │   );
+  > 1140 │ }
+         │ ^
+    1141 │ 
+    1142 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1119 │  * @param targets - Array of phone numbers to remove
+    1120 │  */
+  > 1121 │ export async function unassignVirtualTerminalDestinations(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1122 │   code: string,
+          ...
+  > 1139 │   );
+  > 1140 │ }
+         │ ^
+    1141 │ 
+    1142 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+src/lib/paystack.ts:1146:8 lint/suspicious/useAwait ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × This async function lacks an await expression.
+  
+    1144 │  * This connects the terminal to a subaccount for instant payouts
+    1145 │  */
+  > 1146 │ export async function addSplitToVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1147 │   code: string,
+          ...
+  > 1172 │   );
+  > 1173 │ }
+         │ ^
+    1174 │ 
+    1175 │ /**
+  
+  i Remove this async modifier, or add an await expression in the function.
+  
+    1144 │  * This connects the terminal to a subaccount for instant payouts
+    1145 │  */
+  > 1146 │ export async function addSplitToVirtualTerminal(
+         │        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 1147 │   code: string,
+          ...
+  > 1172 │   );
+  > 1173 │ }
+         │ ^
+    1174 │ 
+    1175 │ /**
+  
+  i Async functions without await expressions may not need to be declared async.
+  
+
+supabase/functions/process-payouts/index.ts:18:11 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━
+
+  × This interface Order is unused.
+  
+    16 │ }
+    17 │ 
+  > 18 │ interface Order {
+       │           ^^^^^
+    19 │   id: string;
+    20 │   merchant_id: string;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 2.
+Checked 857 files in 775ms. No fixes applied.
+Found 10 errors.
+Found 12 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.
