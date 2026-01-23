@@ -660,8 +660,11 @@ export function StorefrontProductGrid({
           <div className="text-center text-muted-foreground py-16">
             <h3 className="text-xl font-semibold">No products found</h3>
             <p>
-              Your search for &quot;{searchQuery}&quot; did not match any
-              products.
+              {searchQuery
+                ? `Your search for "${searchQuery}" did not match any products.`
+                : selectedCategory !== 'All'
+                  ? `No products found in ${filterType === 'price' ? 'this price range' : `this ${filterType}`}.`
+                  : 'No products are currently available.'}
             </p>
           </div>
         )}

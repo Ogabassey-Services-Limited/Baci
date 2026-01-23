@@ -1,10 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import type React from 'react';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
+
+// Explicit text alignment class mapping for Tailwind tree-shaking (2026 best practice)
+const TEXT_ALIGN_CLASSES: Record<string, string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+  justify: 'text-justify',
+};
 
 /**
  * Premium 2026 JSON-to-React Renderer for Baci
@@ -57,19 +65,26 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
             </code>
           );
           break;
-        case 'link':
-          content = (
-            <Link
+        case 'link': {
+          // Sanitize URL to prevent javascript: XSS attacks (2026 security best practice)
+          const safeHref = mark.attrs?.href ? sanitizeUrl(mark.attrs.href) : '';
+          content = safeHref ? (
+            // Use anchor tag for external/user-generated URLs (not Next.js Link)
+            <a
               key={mark.type}
-              href={mark.attrs?.href || '#'}
+              href={safeHref}
               target={mark.attrs?.target || '_blank'}
               rel="noopener noreferrer"
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
             >
               {content}
-            </Link>
+            </a>
+          ) : (
+            // Render as plain text if URL is invalid/malicious
+            <span key={mark.type}>{content}</span>
           );
           break;
+        }
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
@@ -94,8 +109,9 @@ const NodeRenderer = ({
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
   ));
 
+  // Use explicit mapping for Tailwind tree-shaking (avoids dynamic class generation)
   const textAlignClass = node.attrs?.textAlign
-    ? `text-${node.attrs.textAlign}`
+    ? TEXT_ALIGN_CLASSES[node.attrs.textAlign] || ''
     : '';
 
   switch (node.type) {
@@ -139,11 +155,17 @@ const NodeRenderer = ({
         </blockquote>
       );
 
-    case 'image':
+    case 'image': {
+      // Guard against missing src to prevent runtime errors
+      const imageSrc = node.attrs?.src;
+      if (!imageSrc) {
+        console.warn('Blog image node missing src attribute');
+        return null;
+      }
       return (
         <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image
-            src={node.attrs?.src}
+            src={imageSrc}
             alt={node.attrs?.alt || 'Blog image'}
             fill
             className="object-cover"
@@ -151,6 +173,7 @@ const NodeRenderer = ({
           />
         </div>
       );
+    }
 
     case 'table':
       return (

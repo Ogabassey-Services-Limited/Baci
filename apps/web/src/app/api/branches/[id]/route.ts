@@ -220,10 +220,18 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Unassign virtual terminals from this branch
-    await supabase
+    const { error: terminalError } = await supabase
       .from('virtual_terminals')
       .update({ branch_id: null })
       .eq('branch_id', id);
+
+    if (terminalError) {
+      // Log but don't fail - branch is already deleted, terminal cleanup is secondary
+      console.error(
+        'Failed to unassign virtual terminals from branch:',
+        terminalError
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

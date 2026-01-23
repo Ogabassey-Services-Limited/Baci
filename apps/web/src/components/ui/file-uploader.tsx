@@ -62,13 +62,19 @@ export function FileUploader({
 
       // Handle accepted files
       if (acceptedFiles?.length) {
-        const newFiles = acceptedFiles.map((file) =>
+        // Calculate remaining slots accounting for initial previews
+        const remainingSlots = Math.max(0, maxFiles - previews.length);
+        const filesToAdd = acceptedFiles.slice(0, remainingSlots);
+
+        if (filesToAdd.length === 0) return;
+
+        const newFiles = filesToAdd.map((file) =>
           Object.assign(file, {
             preview: URL.createObjectURL(file),
           })
         );
 
-        const updatedFiles = [...files, ...newFiles].slice(0, maxFiles);
+        const updatedFiles = [...files, ...newFiles];
         setFiles(updatedFiles);
         onFilesSelected(updatedFiles);
 
@@ -76,10 +82,10 @@ export function FileUploader({
         const newPreviews = newFiles.map(
           (f) => (f as File & { preview: string }).preview
         );
-        setPreviews((prev) => [...prev, ...newPreviews].slice(0, maxFiles));
+        setPreviews((prev) => [...prev, ...newPreviews]);
       }
     },
-    [maxFiles, maxSize, onFilesSelected, files]
+    [maxFiles, maxSize, onFilesSelected, files, previews]
   );
 
   const removeFile = (index: number) => {
@@ -93,7 +99,8 @@ export function FileUploader({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    maxFiles: maxFiles - files.length, // Adjust max files based on what's already selected
+    // Account for both new files AND initial previews when enforcing maxFiles limit
+    maxFiles: Math.max(0, maxFiles - previews.length),
     maxSize,
     accept,
   });
