@@ -23,3 +23,7 @@ https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is
 
 # Blockchain explorer URL prefixes (incomplete - need address appended)
 https://etherscan.io/address/
+
+# Placeholder/dummy URLs in code examples
+http://dummy.com/
+https://dummy.com/
