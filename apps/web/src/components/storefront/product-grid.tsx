@@ -563,7 +563,7 @@ export function StorefrontProductGrid({
                           </span>
                         )}
                       {product.manage_stock &&
-                        product.stock <= (product.low_stock_threshold || 5) &&
+                        product.stock <= (product.low_stock_threshold ?? 5) &&
                         product.stock > 0 && (
                           <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
                             LOW STOCK
@@ -663,7 +663,7 @@ export function StorefrontProductGrid({
               {searchQuery
                 ? `Your search for "${searchQuery}" did not match any products.`
                 : selectedCategory !== 'All'
-                  ? `No products found in ${filterType === 'price' ? 'this price range' : `this ${filterType}`}.`
+                  ? `No products found ${filterType === 'price' ? 'in this price range' : filterType === 'brand' ? 'for this brand' : 'in this category'}.`
                   : 'No products are currently available.'}
             </p>
           </div>

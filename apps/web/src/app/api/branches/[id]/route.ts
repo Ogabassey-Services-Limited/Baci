@@ -236,7 +236,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         success: true,
         warning:
           'Branch deactivated, but terminal cleanup encountered an error',
-        cleanup_error: terminalError.message,
       });
     }
 

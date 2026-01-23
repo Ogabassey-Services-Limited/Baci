@@ -1,10 +1,7 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  getMyCoverWebhookSecret,
-  getSupabaseServiceRoleKey,
-  getSupabaseUrl,
-} from '@/env';
+import { getMyCoverWebhookSecret } from '@/env';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   type MyCoverWebhookPayload,
   myCoverWebhookSchema,
@@ -21,10 +18,6 @@ import {
  * Security: Verifies HMAC-SHA512 signature using x-mycoverai-signature header
  */
 
-const supabaseUrl = getSupabaseUrl();
-const supabaseServiceKey = getSupabaseServiceRoleKey();
-const myCoverWebhookSecret = getMyCoverWebhookSecret();
-
 /**
  * Verify MyCover webhook signature using HMAC-SHA512
  * Uses Web Crypto API (SubtleCrypto) for Edge Runtime compatibility
@@ -32,7 +25,8 @@ const myCoverWebhookSecret = getMyCoverWebhookSecret();
  */
 async function verifyWebhookSignature(
   rawBody: string,
-  signature: string | null
+  signature: string | null,
+  secret: string
 ): Promise<boolean> {
   if (!signature) {
     console.warn('[MyCover Webhook] Missing signature header');
@@ -42,7 +36,7 @@ async function verifyWebhookSignature(
   try {
     // Encode the secret and body for Web Crypto API
     const encoder = new TextEncoder();
-    const keyData = encoder.encode(myCoverWebhookSecret);
+    const keyData = encoder.encode(secret);
     const messageData = encoder.encode(rawBody);
 
     // Import the secret as an HMAC key
@@ -89,9 +83,13 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
 
     // Verify webhook environment configuration (2026 Best Practice: Check dependencies early)
-    if (!myCoverWebhookSecret) {
+    let myCoverWebhookSecret: string;
+    try {
+      myCoverWebhookSecret = getMyCoverWebhookSecret();
+    } catch (error) {
       console.error(
-        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET is not configured in environment variables'
+        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET is not configured in environment variables',
+        error
       );
       return NextResponse.json(
         { error: 'Webhook configuration error' },
@@ -101,7 +99,11 @@ export async function POST(request: NextRequest) {
 
     // Verify webhook signature (2026 security best practice)
     const signature = request.headers.get('x-mycoverai-signature');
-    const isValid = await verifyWebhookSignature(rawBody, signature);
+    const isValid = await verifyWebhookSignature(
+      rawBody,
+      signature,
+      myCoverWebhookSecret
+    );
 
     if (!isValid) {
       return NextResponse.json(
@@ -141,8 +143,8 @@ export async function POST(request: NextRequest) {
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
     console.log('[MyCover Webhook] Received:', safeEvent);
 
-    // Create admin Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create admin Supabase client (2026 Best Practice: Use centralized factory)
+    const supabase = createAdminClient();
 
     switch (payload.event) {
       case 'policy.purchased':
@@ -269,8 +271,13 @@ async function handleClaimUpdate(
       claimStatus = 'unknown';
   }
 
-  // 2026 Best Practice: Explicit conditional updates for clarity and to avoid unintentional field omissions
-  const updateData: Record<string, unknown> = {
+  // 2026 Best Practice: Explicit conditional updates for clarity and type safety
+  const updateData: {
+    claim_status: string;
+    claim_id: string | undefined;
+    updated_at: string;
+    status?: string;
+  } = {
     claim_status: claimStatus,
     claim_id: data.claim_id,
     updated_at: new Date().toISOString(),

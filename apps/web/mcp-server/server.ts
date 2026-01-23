@@ -1074,7 +1074,6 @@ function createOgabasseyServer() {
     'search_products',
     {
       title: 'Search Products',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Search for products in Ogabassey store. Returns rich details including variants (colors/sizes), stock confidence, and price trends. Always use this for general product queries.',
@@ -1360,7 +1359,6 @@ function createOgabasseyServer() {
     'get_product',
     {
       title: 'Get Product Details',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Get detailed information about a specific product including variants, conditions, specifications, and reviews.',
@@ -1571,7 +1569,6 @@ function createOgabasseyServer() {
     'check_order',
     {
       title: 'Check Order Status',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Look up order status by order number or phone.',
       inputSchema: {
@@ -1691,7 +1688,6 @@ function createOgabasseyServer() {
     'get_store_info',
     {
       title: 'Get Store Information',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get information about Ogabassey store.',
       inputSchema: {
@@ -1729,7 +1725,6 @@ function createOgabasseyServer() {
     'get_recommendations',
     {
       title: 'Get Recommendations',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get product recommendations based on use case and budget.',
       inputSchema: {
@@ -1836,7 +1831,6 @@ function createOgabasseyServer() {
     'get_product_variants',
     {
       title: 'Get Product Variants',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Get all available variants (colors, storage options, conditions) for a product.',
@@ -1973,7 +1967,6 @@ function createOgabasseyServer() {
     'browse_categories',
     {
       title: 'Browse Categories',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get a list of product categories available in the store.',
       inputSchema: {},
@@ -2020,7 +2013,6 @@ function createOgabasseyServer() {
     'get_brands',
     {
       title: 'Get Available Brands',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description: 'Get a list of brands available in the store.',
       inputSchema: {
@@ -2088,7 +2080,6 @@ function createOgabasseyServer() {
     'get_shipping_quote',
     {
       title: 'Calculate Delivery Fee',
-      isReadOnly: true,
       annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
       description:
         'Calculate shipping/delivery cost based on location. Provides real-time quotes from multiple carriers (GIGL, Topship).',
@@ -2353,7 +2344,7 @@ function createOgabasseyServer() {
         const { customer_email, customer_name, customer_phone, amount, order_id } = args;
 
         // Import the paystack function dynamically to avoid circular deps
-        const { generatePaymentAccount } = await import('./src/lib/paystack');
+        const { generatePaymentAccount } = await import('../src/lib/paystack');
 
         // Split name into first/last
         const nameParts = customer_name?.split(' ') || [];

@@ -68,6 +68,19 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
+/**
+ * Shared helper to resolve merchant by identifier (slug or custom domain)
+ * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior
+ */
+function getMerchantByIdentifier(identifier: string) {
+  if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isDomainIdentifier(identifier)) {
+    return getCachedMerchantByDomain(identifier.toLowerCase());
+  }
+  return getCachedMerchant(identifier.toLowerCase());
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -81,12 +94,7 @@ export async function generateMetadata({
   }
 
   // Fetch merchant data (returns CachedMerchant | null)
-  let merchant = null as Awaited<ReturnType<typeof getCachedMerchant>> | null;
-  if (isDomainIdentifier(slug)) {
-    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
-  } else {
-    merchant = await getCachedMerchant(slug.toLowerCase());
-  }
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return { title: 'Store Not Found' };
@@ -174,16 +182,15 @@ export async function generateViewport({
   params: Promise<{ slug: string }>;
 }): Promise<Viewport> {
   const { slug } = await params;
-  if (!isValidMerchantIdentifier(slug)) return {};
-
-  let merchant = null;
-  if (isDomainIdentifier(slug)) {
-    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
-  } else {
-    merchant = await getCachedMerchant(slug.toLowerCase());
-  }
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) return {};
+
+  // biome-ignore lint/suspicious/noExplicitAny: Theme color logic
+  const merchantWithConfig = merchant as any;
+  if (merchantWithConfig.theme_color) {
+    return { themeColor: merchantWithConfig.theme_color };
+  }
 
   const isDarkTemplate =
     merchant.template_id === 'ogabassey' ||
@@ -209,16 +216,7 @@ export default async function StorefrontLayout({
   }
 
   // Use appropriate lookup method based on identifier type
-  type MerchantResult = Awaited<ReturnType<typeof getCachedMerchant>>;
-  let merchant: MerchantResult;
-
-  if (isDomainIdentifier(slug)) {
-    // Custom domain access (e.g., ogabassey.com) - normalize to lowercase
-    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
-  } else {
-    // Standard slug access (e.g., ogabassey) - normalize to lowercase
-    merchant = await getCachedMerchant(slug.toLowerCase());
-  }
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

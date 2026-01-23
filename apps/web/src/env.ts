@@ -206,6 +206,8 @@ export const getAppUrl = () =>
   env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export const getMyCoverWebhookSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('MYCOVER_WEBHOOK_SECRET cannot be accessed on the client');
   if (!env?.MYCOVER_WEBHOOK_SECRET)
     throw new Error('MYCOVER_WEBHOOK_SECRET is not defined');
   return env.MYCOVER_WEBHOOK_SECRET;

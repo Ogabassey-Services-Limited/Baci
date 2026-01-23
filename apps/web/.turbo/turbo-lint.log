@@ -1,6 +1,84 @@
 
-
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-[0m[34mChecked [0m[0m[34m857[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m519[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
+src/app/(storefront)/[slug]/layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    129 129 │       faviconSvg || faviconPng32 || faviconAppleTouch
+    130 130 │         ? {
+    131     │ - ········icon:·[
+    132     │ - ··········...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
+    133     │ - ··········...(faviconPng32
+    134     │ - ············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
+    135     │ - ············:·[]),
+    136     │ - ········].filter(Boolean),
+    137     │ - ········apple:·faviconAppleTouch
+    138     │ - ··········?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
+    139     │ - ··········:·undefined,
+    140     │ - ······}
+        131 │ + ··········icon:·[
+        132 │ + ············...(faviconSvg·?·[{·url:·faviconSvg,·type:·'image/svg+xml'·}]·:·[]),
+        133 │ + ············...(faviconPng32
+        134 │ + ··············?·[{·url:·faviconPng32,·sizes:·'32x32',·type:·'image/png'·}]
+        135 │ + ··············:·[]),
+        136 │ + ··········].filter(Boolean),
+        137 │ + ··········apple:·faviconAppleTouch
+        138 │ + ············?·[{·url:·faviconAppleTouch,·sizes:·'180x180',·type:·'image/png'·}]
+        139 │ + ············:·undefined,
+        140 │ + ········}
+    141 141 │         : merchant.logo_url
+    142 142 │           ? {
+    143     │ - ··········icon:·[{·url:·merchant.logo_url·}],
+    144     │ - ··········apple:·[{·url:·merchant.logo_url·}],
+    145     │ - ········}
+        143 │ + ············icon:·[{·url:·merchant.logo_url·}],
+        144 │ + ············apple:·[{·url:·merchant.logo_url·}],
+        145 │ + ··········}
+    146 146 │           : undefined;
+    147 147 │   
+    ······· │ 
+    160 160 │       verification: verificationCode
+    161 161 │         ? {
+    162     │ - ········google:·verificationCode,
+    163     │ - ······}
+        162 │ + ··········google:·verificationCode,
+        163 │ + ········}
+    164 164 │         : undefined,
+    165 165 │       openGraph: {
+  
+
+src/components/merchant-bank-form.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    366 366 │                             field.value === bank.code && 'bg-accent/50',
+    367 367 │                             highlightedIndex === index &&
+Checked 857 files in 810ms. No fixes applied.
+    368     │ - ··························'bg-accent·text-accent-foreground'
+        368 │ + ····························'bg-accent·text-accent-foreground'
+    369 369 │                           )}
+Found 2 errors.
+    370 370 │                           onMouseDown={(e) => {
+    ······· │ 
+    410 410 │                         b.code.includes(bankSearchTerm)
+    411 411 │                     ).length === 0 && (
+    412     │ - ······················<div·className="py-6·text-center·text-sm·text-muted-foreground">
+    413     │ - ························No·bank·found.
+    414     │ - ······················</div>
+    415     │ - ····················)}
+        412 │ + ····················<div·className="py-6·text-center·text-sm·text-muted-foreground">
+        413 │ + ······················No·bank·found.
+        414 │ + ····················</div>
+        415 │ + ··················)}
+    416 416 │                   </div>
+    417 417 │                 )}
+  
+
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

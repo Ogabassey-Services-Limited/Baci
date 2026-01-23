@@ -59,6 +59,19 @@ export function FileUploader({
     onFilesSelected(getFiles(entries));
   }, [entries, onFilesSelected]);
 
+  // Sync initialFiles prop changes to state while preserving new uploads
+  // This allows parent forms to update (e.g. from DB) without losing work
+  useEffect(() => {
+    setEntries((prev) => {
+      const newInitialEntries = initialFiles.map((src) => ({
+        src,
+        file: null,
+      }));
+      const fileEntries = prev.filter((e) => e.file !== null);
+      return [...newInitialEntries, ...fileEntries];
+    });
+  }, [initialFiles]);
+
   // Cleanup object URLs to avoid memory leaks
   // Runs only on unmount to ensure URLs remain valid while the component is active
   useEffect(() => {

@@ -52,7 +52,7 @@ export function StorefrontProductCard({
 
   const isLowStock =
     product.manage_stock &&
-    product.stock <= (product.low_stock_threshold || 5) &&
+    product.stock <= (product.low_stock_threshold ?? 5) &&
     product.stock > 0;
 
   const isOutOfStock = product.manage_stock && product.stock === 0;

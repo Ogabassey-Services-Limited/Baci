@@ -539,7 +539,7 @@ export default function EditBlogPostPage() {
                 <a
                   href={
                     merchant.custom_domain
-                      ? `https://${merchant.custom_domain}/blog/${encodeURIComponent(formData.slug)}`
+                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/${encodeURIComponent(formData.slug)}`
                       : `/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`
                   }
                   target="_blank"
@@ -889,7 +889,9 @@ export default function EditBlogPostPage() {
                   <div className="text-green-700 dark:text-green-500 text-sm">
                     {merchant?.custom_domain
                       ? `${merchant.custom_domain.replace(/\/$/, '')}/blog/`
-                      : `/${merchant?.slug}/blog/`}
+                      : merchant?.slug
+                        ? `${process.env.NEXT_PUBLIC_ROOT_DOMAIN}/${merchant.slug}/blog/`
+                        : '/blog/'}
                     {formData.slug || 'post-slug'}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-2">

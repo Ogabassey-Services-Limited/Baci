@@ -180,6 +180,7 @@ export function QuickViewModal({
                 fill
                 className="object-contain"
                 priority
+                sizes="(min-width: 768px) 50vw, 100vw"
               />
               {product.compare_at_price &&
                 product.compare_at_price > currentPrice && (
@@ -343,7 +344,7 @@ export function QuickViewModal({
                                           buttons.length) %
                                         buttons.length;
 
-                                // 2026 A11y Best Practice: Skip disabled options in radio group navigation
+                                // ARIA APG Radio Group Pattern: Skip disabled options during keyboard navigation
                                 let attempts = 0;
                                 while (
                                   buttons[nextIndex]?.disabled &&
@@ -404,7 +405,7 @@ export function QuickViewModal({
               )}
               {product.manage_stock &&
                 currentStock > 0 &&
-                currentStock <= (product.low_stock_threshold || 5) && (
+                currentStock <= (product.low_stock_threshold ?? 5) && (
                   <span className="ml-2 text-sm text-amber-600">
                     Only {currentStock} left
                   </span>

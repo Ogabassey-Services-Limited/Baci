@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 const bankSchema = z.object({
   accountNumber: z
     .string()
-    .regex(/^\d+$/, 'Account number must contain only digits'),
+    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
   payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
@@ -359,8 +359,8 @@ export function MerchantBankForm({
                         key={bank.code}
                         id={`bank-option-${index}`}
                         role="option"
-                        aria-selected={field.value === bank.code}
                         tabIndex={0}
+                        aria-selected={field.value === bank.code}
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                           field.value === bank.code && 'bg-accent/50',
@@ -396,13 +396,18 @@ export function MerchantBankForm({
                               ? 'opacity-100'
                               : 'opacity-0'
                           )}
+                          aria-hidden="true"
                         />
                         {bank.name}
                       </div>
                     ))}
                   {/* Empty state for search */}
-                  {banks.filter((b) =>
-                    b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())
+                  {banks.filter(
+                    (b) =>
+                      b.name
+                        .toLowerCase()
+                        .includes(bankSearchTerm.toLowerCase()) ||
+                      b.code.includes(bankSearchTerm)
                   ).length === 0 && (
                     <div className="py-6 text-center text-sm text-muted-foreground">
                       No bank found.
@@ -493,7 +498,11 @@ export function MerchantBankForm({
                       Settlement Frequency
                     </FormLabel>
                     <FormControl>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div
+                        role="radiogroup"
+                        aria-label="Settlement frequency"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                      >
                         <label
                           className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'instant' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
                         >
