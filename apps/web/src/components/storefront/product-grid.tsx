@@ -657,6 +657,7 @@ export function StorefrontProductGrid({
             })}
           </div>
         ) : (
+          // biome-ignore lint/a11y/useSemanticElements: Flexible layout div
           <div
             className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in"
             role="status"
@@ -711,7 +712,8 @@ export function StorefrontProductGrid({
                   No products available
                 </h3>
                 <p className="text-muted-foreground max-w-md text-center">
-                  This store doesn&apos;t have any products yet. Check back soon!
+                  This store doesn&apos;t have any products yet. Check back
+                  soon!
                 </p>
               </>
             )}

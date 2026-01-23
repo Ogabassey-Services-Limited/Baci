@@ -191,6 +191,7 @@ export function QuickViewModal({
 
             {/* Thumbnail Gallery */}
             {allImages.length > 1 && (
+              // biome-ignore lint/a11y/useSemanticElements: Flexbox layout
               <div className="flex gap-2 mt-4 overflow-x-auto pb-2" role="list">
                 {allImages.map((img, idx) => (
                   <button
@@ -207,7 +208,6 @@ export function QuickViewModal({
                     )}
                     aria-label={`View image ${idx + 1} of ${allImages.length}`}
                     aria-current={selectedImage === img.url}
-                    role="listitem"
                   >
                     <Image
                       src={img.url}
@@ -272,6 +272,7 @@ export function QuickViewModal({
                         {selectedAttributes[key]}
                       </span>
                     </Label>
+                    {/* biome-ignore lint/a11y/useSemanticElements: Custom radio buttons */}
                     <div
                       className="flex flex-wrap gap-2"
                       role="radiogroup"
@@ -286,6 +287,7 @@ export function QuickViewModal({
                         );
 
                         return (
+                          // biome-ignore lint/a11y/useSemanticElements: Custom radio button styling
                           <button
                             type="button"
                             key={value}
@@ -305,7 +307,10 @@ export function QuickViewModal({
                             )}
                           >
                             {isSelected && (
-                              <Check className="w-3 h-3 inline mr-1" aria-hidden="true" />
+                              <Check
+                                className="w-3 h-3 inline mr-1"
+                                aria-hidden="true"
+                              />
                             )}
                             {value}
                           </button>
