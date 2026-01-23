@@ -118,8 +118,10 @@ export default function ProfileScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     try {
-                      const { data: session } = await supabase.auth.getSession();
-                      if (!session.session) throw new Error('No active session');
+                      const { data: session } =
+                        await supabase.auth.getSession();
+                      if (!session.session)
+                        throw new Error('No active session');
 
                       const response = await fetch(
                         `${process.env.EXPO_PUBLIC_API_URL}/api/merchant/auth/account-deletion`,
@@ -133,7 +135,9 @@ export default function ProfileScreen() {
 
                       if (!response.ok) {
                         const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to delete account');
+                        throw new Error(
+                          errorData.error || 'Failed to delete account'
+                        );
                       }
 
                       Alert.alert(
@@ -151,7 +155,10 @@ export default function ProfileScreen() {
                         ]
                       );
                     } catch (error: unknown) {
-                      Alert.alert('Error', (error as Error).message || 'Failed to delete account');
+                      Alert.alert(
+                        'Error',
+                        (error as Error).message || 'Failed to delete account'
+                      );
                     }
                   },
                 },

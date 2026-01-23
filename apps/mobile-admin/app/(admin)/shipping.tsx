@@ -296,7 +296,9 @@ export default function ShippingScreen() {
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
             onPress={() => {
               if (!isEditingThreshold) {
-                setTempThreshold(settings?.free_shipping_threshold?.toString() || '');
+                setTempThreshold(
+                  settings?.free_shipping_threshold?.toString() || ''
+                );
                 setIsEditingThreshold(true);
               }
             }}
@@ -321,25 +323,46 @@ export default function ShippingScreen() {
                 {isEditingThreshold ? (
                   <View style={styles.editRow}>
                     <TextInput
-                      style={[styles.thresholdInput, { color: colors.text, borderColor: colors.border }]}
+                      style={[
+                        styles.thresholdInput,
+                        { color: colors.text, borderColor: colors.border },
+                      ]}
                       value={tempThreshold}
                       onChangeText={setTempThreshold}
                       keyboardType="numeric"
                       placeholder="Min amount"
                     />
                     <Pressable
-                      onPress={() => updateThresholdMutation.mutate(tempThreshold ? Number(tempThreshold) : null)}
+                      onPress={() =>
+                        updateThresholdMutation.mutate(
+                          tempThreshold ? Number(tempThreshold) : null
+                        )
+                      }
                       disabled={updateThresholdMutation.isPending}
                       style={styles.actionIcon}
                     >
                       {updateThresholdMutation.isPending ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.primary}
+                        />
                       ) : (
-                        <Ionicons name="checkmark-circle" size={28} color={colors.success} />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={28}
+                          color={colors.success}
+                        />
                       )}
                     </Pressable>
-                    <Pressable onPress={() => setIsEditingThreshold(false)} style={styles.actionIcon}>
-                      <Ionicons name="close-circle" size={28} color={colors.error} />
+                    <Pressable
+                      onPress={() => setIsEditingThreshold(false)}
+                      style={styles.actionIcon}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={28}
+                        color={colors.error}
+                      />
                     </Pressable>
                   </View>
                 ) : (

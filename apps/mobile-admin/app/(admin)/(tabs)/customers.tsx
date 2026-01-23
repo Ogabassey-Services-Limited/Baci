@@ -142,7 +142,6 @@ export default function CustomersScreen() {
   };
 
   const getDisplayName = (customer: Customer) => {
-
     const names = [customer.first_name, customer.last_name]
       .filter(Boolean)
       .join(' ');

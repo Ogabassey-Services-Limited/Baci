@@ -6,7 +6,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
-
 export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
   const { registerPush, isRegistered } = usePushNotifications();
@@ -49,7 +48,6 @@ export default function AdminLayout() {
           headerBackTitle: 'Back',
         }}
       >
-
         <Stack.Screen
           name="(tabs)"
           options={{ headerShown: false, title: 'Dashboard' }}
@@ -77,7 +75,6 @@ export default function AdminLayout() {
         <Stack.Screen name="customer" options={{ title: 'Customers' }} />
         <Stack.Screen name="discounts" options={{ title: 'Discounts' }} />
         <Stack.Screen name="expenses" options={{ title: 'Expenses' }} />
-
 
         {/* Individual screens */}
         <Stack.Screen

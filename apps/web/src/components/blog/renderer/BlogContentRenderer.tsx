@@ -12,9 +12,9 @@ import { cn } from '@/lib/utils';
 
 interface TipTapNode {
   type: string;
-  attrs?: Record<string, any>;
+  attrs?: Record<string, unknown>;
   content?: TipTapNode[];
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
   text?: string;
 }
 
@@ -58,8 +58,9 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           content = (
             <Link
               key={mark.type}
-              href={mark.attrs?.href || '#'}
-              target={mark.attrs?.target || '_blank'}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              href={(mark.attrs?.href || '#') as any}
+              target={(mark.attrs?.target as string) || '_blank'}
               rel="noopener noreferrer"
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
             >
@@ -70,7 +71,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color }}>
+              <span key={mark.type} style={{ color: mark.attrs.color as string }}>
                 {content}
               </span>
             );
@@ -83,7 +84,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
   return <>{content}</>;
 };
 
-const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
+const NodeRenderer = ({
+  node,
+  index: _index,
+}: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
   ));
@@ -137,8 +141,8 @@ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
       return (
         <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image
-            src={node.attrs?.src}
-            alt={node.attrs?.alt || 'Blog image'}
+            src={(node.attrs?.src as string) || ''}
+            alt={(node.attrs?.alt as string) || 'Blog image'}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 800px"
@@ -198,7 +202,7 @@ const NodeRenderer = ({ node, index }: NodeRendererProps): React.ReactNode => {
   }
 };
 
-export const BlogContentRenderer = ({ json }: { json: any }) => {
+export const BlogContentRenderer = ({ json }: { json: unknown }) => {
   if (!json) return null;
 
   try {

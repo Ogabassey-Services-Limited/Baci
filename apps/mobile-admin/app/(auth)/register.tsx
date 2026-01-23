@@ -34,7 +34,6 @@ const BUSINESS_TYPES = [
 
 // Construct API URL: Ensure we append the path to the base URL
 
-
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useOnboarding();
@@ -109,44 +108,47 @@ export default function RegisterScreen() {
       return;
     }
 
-    register.mutate({
-      email: formData.email.toLowerCase(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword,
-      fullName: formData.businessName.split(' ')[0],
-      businessName: formData.businessName,
-      businessType: formData.businessType,
-      otherBusinessType: formData.otherBusinessType,
-      slug: formData.slug || undefined,
-      brandColors: JSON.stringify({
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#F59E0B',
-      }),
-      logoUrl: 'https://via.placeholder.com/150',
-    }, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onSuccess: (data: any) => {
-        // Check if verifying
-        if (data.user?.email_confirmed_at) {
-          Alert.alert('Success', 'Account created!', [
-            { text: 'Continue', onPress: () => router.push('/(auth)/login') },
-          ]);
-        } else {
-          router.push({
-            pathname: '/(auth)/verify',
-            params: { email: formData.email },
-          });
-        }
+    register.mutate(
+      {
+        email: formData.email.toLowerCase(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        fullName: formData.businessName.split(' ')[0],
+        businessName: formData.businessName,
+        businessType: formData.businessType,
+        otherBusinessType: formData.otherBusinessType,
+        slug: formData.slug || undefined,
+        brandColors: JSON.stringify({
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        }),
+        logoUrl: 'https://via.placeholder.com/150',
       },
-      onError: (error) => {
-        console.error('Registration error:', error);
-        Alert.alert(
-          'Registration Failed',
-          error.message || 'Please try again later.'
-        );
+      {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onSuccess: (data: any) => {
+          // Check if verifying
+          if (data.user?.email_confirmed_at) {
+            Alert.alert('Success', 'Account created!', [
+              { text: 'Continue', onPress: () => router.push('/(auth)/login') },
+            ]);
+          } else {
+            router.push({
+              pathname: '/(auth)/verify',
+              params: { email: formData.email },
+            });
+          }
+        },
+        onError: (error) => {
+          console.error('Registration error:', error);
+          Alert.alert(
+            'Registration Failed',
+            error.message || 'Please try again later.'
+          );
+        },
       }
-    });
+    );
   };
 
   return (
@@ -300,7 +302,7 @@ export default function RegisterScreen() {
                         style={[
                           styles.typeCard,
                           formData.businessType === type.id &&
-                          styles.typeCardSelected,
+                            styles.typeCardSelected,
                         ]}
                         onPress={() => updateForm('businessType', type.id)}
                       >
@@ -308,7 +310,7 @@ export default function RegisterScreen() {
                           style={[
                             styles.typeText,
                             formData.businessType === type.id &&
-                            styles.typeTextSelected,
+                              styles.typeTextSelected,
                           ]}
                         >
                           {type.label}

@@ -188,13 +188,14 @@ Deno.serve(async (req) => {
           status: 'success',
           reference: transferCode,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
         results.push({
           merchant: merchant.business_name,
           amount: totalAmount,
           status: 'failed',
-          error: err.message,
+          error: errorMessage,
         });
       }
     }
@@ -203,8 +204,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     });
