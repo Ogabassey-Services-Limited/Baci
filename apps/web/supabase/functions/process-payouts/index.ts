@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
 
       if (orderError) {
         console.error(
-          `Error fetching orders for merchant ${merchant.id}:`,
+          'Error fetching orders for merchant %s:',
+          merchant.id,
           orderError
         );
         continue;
@@ -97,7 +98,8 @@ Deno.serve(async (req) => {
 
         if (lockError) {
           console.error(
-            `Failed to lock orders for merchant ${merchant.id}:`,
+            'Failed to lock orders for merchant %s:',
+            merchant.id,
             lockError
           );
           continue;
@@ -206,7 +208,7 @@ Deno.serve(async (req) => {
           reference: transferCode,
         });
       } catch (err: unknown) {
-        console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
+        console.error('Payout logic failed for merchant %s:', merchant.id, err);
         const errorMessage =
           err instanceof Error ? err.message : 'Unknown error';
 
