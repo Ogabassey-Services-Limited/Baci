@@ -58,7 +58,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           content = (
             <Link
               key={mark.type}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              // biome-ignore lint/suspicious/noExplicitAny: compatibility with Link href
               href={(mark.attrs?.href || '#') as any}
               target={(mark.attrs?.target as string) || '_blank'}
               rel="noopener noreferrer"
@@ -90,7 +90,6 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
 const NodeRenderer = ({
   node,
   index: _index,
-  // biome-ignore lint/suspicious/noExplicitAny: TipTap node types from external library
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />

@@ -68,7 +68,9 @@ describe('MyCover Webhook', () => {
   });
 
   it('should reject request with invalid signature (hard fail - 2026 best practice)', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Intentionally empty for testing
+    });
     const payload = JSON.stringify({
       event: 'test',
       data: { policy_id: '123' },
