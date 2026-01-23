@@ -181,20 +181,23 @@ export function useUpdateOrderStatus() {
       const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
 
       // Optimistically update list
-      queryClient.setQueryData(['orders', merchant?.id], (old: { pages: OrdersPage[] } | undefined) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: OrdersPage) => ({
-            ...page,
-            orders: page.orders.map((order: Order) =>
-              order.id === orderId
-                ? { ...order, shipping_status: status }
-                : order
-            ),
-          })),
-        };
-      });
+      queryClient.setQueryData(
+        ['orders', merchant?.id],
+        (old: { pages: OrdersPage[] } | undefined) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: OrdersPage) => ({
+              ...page,
+              orders: page.orders.map((order: Order) =>
+                order.id === orderId
+                  ? { ...order, shipping_status: status }
+                  : order
+              ),
+            })),
+          };
+        }
+      );
 
       // KEY FIX: Optimistically update the single order detail view
       const previousOrder = queryClient.getQueryData(['order', orderId]);

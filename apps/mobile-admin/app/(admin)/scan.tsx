@@ -62,8 +62,7 @@ export default function ScanScreen() {
             },
             {
               text: 'Add New Product',
-              onPress: () =>
-                router.push(`/product/new?sku=${data}`),
+              onPress: () => router.push(`/product/new?sku=${data}`),
             },
           ]
         );

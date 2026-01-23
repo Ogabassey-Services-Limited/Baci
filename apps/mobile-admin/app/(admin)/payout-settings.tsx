@@ -102,32 +102,33 @@ export default function PayoutSettingsScreen() {
       return;
     }
 
-
-
     try {
-      resolveAccount.mutate({
-        account_number: accountnumber,
-        bank_code: selectedBank.code,
-      }, {
-        onSuccess: (data) => {
-          setVerifiedName(data.account_name);
-          setVerifyError(null);
+      resolveAccount.mutate(
+        {
+          account_number: accountnumber,
+          bank_code: selectedBank.code,
         },
-        onError: (error) => {
-          console.error('Resolution error:', error);
-          // Fallback for test account
-          if (accountnumber === '0000000000') {
-            setVerifiedName('Test Account');
+        {
+          onSuccess: (data) => {
+            setVerifiedName(data.account_name);
             setVerifyError(null);
-            return;
-          }
+          },
+          onError: (error) => {
+            console.error('Resolution error:', error);
+            // Fallback for test account
+            if (accountnumber === '0000000000') {
+              setVerifiedName('Test Account');
+              setVerifyError(null);
+              return;
+            }
 
-          setVerifyError(
-            (error as Error).message || 'Network error checking account'
-          );
-          setVerifiedName(null);
+            setVerifyError(
+              (error as Error).message || 'Network error checking account'
+            );
+            setVerifiedName(null);
+          },
         }
-      });
+      );
     } catch (_error) {
       // Should be handled in onError, but keeping try/catch block structure for safety if needed
       // Actually, react-query mutation is async but verifyAccount logic was try/catch.
@@ -161,8 +162,6 @@ export default function PayoutSettingsScreen() {
     }
   }, [merchant, banks]);
 
-
-
   // Filter banks
   const filteredBanks =
     banks?.filter((bank) =>
@@ -186,18 +185,21 @@ export default function PayoutSettingsScreen() {
       Alert.alert('Error', 'Please wait for account verification');
       return;
     }
-    savePayoutSettings.mutate({
-      bankCode: selectedBank.code,
-      accountNumber: accountnumber,
-      businessName: merchant?.business_name || 'My Store',
-    }, {
-      onSuccess: () => {
-        // Invalidations handled in hook
+    savePayoutSettings.mutate(
+      {
+        bankCode: selectedBank.code,
+        accountNumber: accountnumber,
+        businessName: merchant?.business_name || 'My Store',
       },
-      onError: (error) => {
-        Alert.alert('Error', error.message || 'Failed to update details');
+      {
+        onSuccess: () => {
+          // Invalidations handled in hook
+        },
+        onError: (error) => {
+          Alert.alert('Error', error.message || 'Failed to update details');
+        },
       }
-    });
+    );
   };
 
   if (isLoadingMerchant) {

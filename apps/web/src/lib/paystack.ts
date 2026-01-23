@@ -917,7 +917,7 @@ const VirtualTerminalPaymentMethodSchema = z.object({
   bank: z.string(),
 });
 
-const VirtualTerminalSchema = z.object({
+const _VirtualTerminalSchema = z.object({
   id: z.number(),
   code: z.string(),
   name: z.string(),
@@ -994,11 +994,13 @@ export async function createVirtualTerminal(
 /**
  * List all Virtual Terminals on the integration
  */
-export async function listVirtualTerminals(options: {
-  status?: 'active' | 'inactive';
-  perPage?: number;
-  search?: string;
-} = {}): Promise<PaystackResult<VirtualTerminalResponse[]>> {
+export async function listVirtualTerminals(
+  options: {
+    status?: 'active' | 'inactive';
+    perPage?: number;
+    search?: string;
+  } = {}
+): Promise<PaystackResult<VirtualTerminalResponse[]>> {
   const params = new URLSearchParams();
   if (options.status) params.append('status', options.status);
   if (options.perPage) params.append('perPage', options.perPage.toString());
@@ -1193,4 +1195,3 @@ export async function removeSplitFromVirtualTerminal(
     }
   );
 }
-

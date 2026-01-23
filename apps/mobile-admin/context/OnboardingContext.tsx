@@ -39,7 +39,7 @@ export function OnboardingProvider({
 
   useEffect(() => {
     checkOnboarding();
-  }, []);
+  }, [checkOnboarding]);
 
   const completeOnboarding = async () => {
     try {

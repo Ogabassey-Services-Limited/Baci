@@ -278,20 +278,23 @@ export function useUpdateProductStock() {
         merchant?.id,
       ]);
 
-      queryClient.setQueryData(['products', merchant?.id], (old: { pages: ProductsPage[] } | undefined) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: ProductsPage) => ({
-            ...page,
-            products: page.products.map((product: Product) =>
-              product.id === productId
-                ? { ...product, stock, stock_quantity: stock }
-                : product
-            ),
-          })),
-        };
-      });
+      queryClient.setQueryData(
+        ['products', merchant?.id],
+        (old: { pages: ProductsPage[] } | undefined) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: ProductsPage) => ({
+              ...page,
+              products: page.products.map((product: Product) =>
+                product.id === productId
+                  ? { ...product, stock, stock_quantity: stock }
+                  : product
+              ),
+            })),
+          };
+        }
+      );
 
       return { previousProducts };
     },

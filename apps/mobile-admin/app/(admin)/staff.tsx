@@ -258,7 +258,7 @@ export default function StaffScreen() {
       style: 'destructive',
     });
 
-    actions.push({ text: 'Cancel', style: 'cancel', onPress: () => { } });
+    actions.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
 
     Alert.alert(member.name || member.email, undefined, actions);
   };
@@ -588,9 +588,7 @@ export default function StaffScreen() {
                     style={[
                       styles.toggleKnob,
                       {
-                        transform: [
-                          { translateX: autoCreateAccount ? 20 : 0 },
-                        ],
+                        transform: [{ translateX: autoCreateAccount ? 20 : 0 }],
                       },
                     ]}
                   />
