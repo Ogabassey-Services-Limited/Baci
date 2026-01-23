@@ -2,60 +2,1353 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/app/api/blog/exit-preview/route.ts:18:27 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/paystack/virtual-terminal/[code]/route.ts:25:27 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    23 │  * Fetch a specific Virtual Terminal
+    24 │  */
+  > 25 │ export async function GET(request: NextRequest, { params }: RouteParams) {
+       │                           ^^^^^^^
+    26 │     try {
+    27 │         const { code } = await params;
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend request with an underscore.
+  
+     23  23 │    * Fetch a specific Virtual Terminal
+     24  24 │    */
+     25     │ - export·async·function·GET(request:·NextRequest,·{·params·}:·RouteParams)·{
+         25 │ + export·async·function·GET(_request:·NextRequest,·{·params·}:·RouteParams)·{
+     26  26 │       try {
+     27  27 │           const { code } = await params;
+  
+
+src/app/api/paystack/virtual-terminal/[code]/route.ts:129:30 lint/correctness/noUnusedFunctionParameters  FIXABLE  ━━━━━━━━━━
+
+  ! This parameter is unused.
+  
+    127 │  * Deactivate a Virtual Terminal
+    128 │  */
+  > 129 │ export async function DELETE(request: NextRequest, { params }: RouteParams) {
+        │                              ^^^^^^^
+    130 │     try {
+    131 │         const { code } = await params;
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend request with an underscore.
+  
+    127 127 │    * Deactivate a Virtual Terminal
+    128 128 │    */
+    129     │ - export·async·function·DELETE(request:·NextRequest,·{·params·}:·RouteParams)·{
+        129 │ + export·async·function·DELETE(_request:·NextRequest,·{·params·}:·RouteParams)·{
+    130 130 │       try {
+    131 131 │           const { code } = await params;
+  
+
+src/app/api/paystack/virtual-terminal/route.ts:13:5 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! Several of these imports are unused.
+  
+    11 │ import {
+    12 │     createVirtualTerminal,
+  > 13 │     type VirtualTerminalResponse,
+       │     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    14 │ } from '@/lib/paystack';
+    15 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+     11  11 │   import {
+     12  12 │       createVirtualTerminal,
+     13     │ - ····type·VirtualTerminalResponse,
+     14  13 │   } from '@/lib/paystack';
+     15  14 │   import { createClient } from '@/lib/supabase/server';
+  
+
+src/app/dashboard/settings/payments/components/virtual-terminal-settings.tsx:412:81 lint/style/noNonNullAssertion ━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    410 │                                                             className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary"
+    411 │                                                             onClick={() =>
+  > 412 │                                                                 copyToClipboard(account.account_number!, 'Account Number')
+        │                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+    413 │                                                             }
+    414 │                                                         />
+  
+
+supabase/functions/process-payouts/index.ts:175:27 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    17 │   // Redirect back to either the specified callback or the blog home
-  > 18 │   redirect(callbackUrl as any);
-       │                           ^^^
-    19 │ }
-    20 │ 
+    173 │                 });
+    174 │ 
+  > 175 │             } catch (err: any) {
+        │                           ^^^
+    176 │                 console.error(`Payout logic failed for merchant ${merchant.id}:`, err);
+    177 │                 results.push({
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/api/blog/preview/route.ts:31:47 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+supabase/functions/process-payouts/index.ts:191:21 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━
 
   ! Unexpected any. Specify a different type.
   
-    29 │   // Redirect to the blog post page
-    30 │   // The page will detect draft mode and include unpublished content
-  > 31 │   redirect(`/${merchantSlug}/blog/${slug}` as any);
-       │                                               ^^^
-    32 │ }
-    33 │ 
+    189 │         });
+    190 │ 
+  > 191 │     } catch (error: any) {
+        │                     ^^^
+    192 │         return new Response(JSON.stringify({ error: error.message }), {
+    193 │             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   
   i any disables many type checking rules. Its use should be avoided.
   
 
-src/app/dashboard/blog/[id]/edit/page.tsx:256:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━
+src/app/api/branches/[id]/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ! Unexpected any. Specify a different type.
+  × Formatter would have printed the following content:
   
-    254 │           description: 'Featured image uploaded successfully.',
-    255 │         });
-  > 256 │       } catch (error: any) {
-        │                       ^^^
-    257 │         console.error('Error uploading image:', error);
-    258 │         toast({
-  
-  i any disables many type checking rules. Its use should be avoided.
+     11  11 │   
+     12  12 │   const UpdateBranchSchema = z.object({
+     13     │ - ····name:·z.string().min(2).optional(),
+     14     │ - ····address:·z.string().optional(),
+     15     │ - ····city:·z.string().optional(),
+     16     │ - ····state:·z.string().optional(),
+     17     │ - ····phone:·z.string().optional(),
+     18     │ - ····managerId:·z.string().uuid().nullable().optional(),
+     19     │ - ····isDefault:·z.boolean().optional(),
+     20     │ - ····active:·z.boolean().optional(),
+         13 │ + ··name:·z.string().min(2).optional(),
+         14 │ + ··address:·z.string().optional(),
+         15 │ + ··city:·z.string().optional(),
+         16 │ + ··state:·z.string().optional(),
+         17 │ + ··phone:·z.string().optional(),
+         18 │ + ··managerId:·z.string().uuid().nullable().optional(),
+         19 │ + ··isDefault:·z.boolean().optional(),
+         20 │ + ··active:·z.boolean().optional(),
+     21  21 │   });
+     22  22 │   
+     23  23 │   interface RouteParams {
+     24     │ - ····params:·Promise<{·id:·string·}>;
+         24 │ + ··params:·Promise<{·id:·string·}>;
+     25  25 │   }
+     26  26 │   
+    ······· │ 
+     30  30 │    */
+     31  31 │   export async function GET(_request: NextRequest, { params }: RouteParams) {
+     32     │ - ····try·{
+     33     │ - ········const·{·id·}·=·await·params;
+     34     │ - ········const·cookieStore·=·await·cookies();
+     35     │ - ········const·supabase·=·createClient(cookieStore);
+     36     │ - ········const·{
+     37     │ - ············data:·{·user·},
+     38     │ - ········}·=·await·supabase.auth.getUser();
+         32 │ + ··try·{
+         33 │ + ····const·{·id·}·=·await·params;
+         34 │ + ····const·cookieStore·=·await·cookies();
+         35 │ + ····const·supabase·=·createClient(cookieStore);
+         36 │ + ····const·{
+         37 │ + ······data:·{·user·},
+         38 │ + ····}·=·await·supabase.auth.getUser();
+     39  39 │   
+     40     │ - ········if·(!user)·{
+     41     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     42     │ - ········}
+         40 │ + ····if·(!user)·{
+         41 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         42 │ + ····}
+     43  43 │   
+     44     │ - ········const·{·data:·branch,·error·}·=·await·supabase
+     45     │ - ············.from('branches')
+     46     │ - ············.select(`
+         44 │ + ····const·{·data:·branch,·error·}·=·await·supabase
+         45 │ + ······.from('branches')
+         46 │ + ······.select(`
+     47  47 │           *,
+     48  48 │           staff_members:manager_id (
+    ······· │ 
+     58  58 │           )
+     59  59 │         `)
+     60     │ - ············.eq('id',·id)
+     61     │ - ············.single();
+         60 │ + ······.eq('id',·id)
+         61 │ + ······.single();
+     62  62 │   
+     63     │ - ········if·(error·||·!branch)·{
+     64     │ - ············return·NextResponse.json({·error:·'Branch·not·found'·},·{·status:·404·});
+     65     │ - ········}
+         63 │ + ····if·(error·||·!branch)·{
+         64 │ + ······return·NextResponse.json({·error:·'Branch·not·found'·},·{·status:·404·});
+         65 │ + ····}
+     66  66 │   
+     67     │ - ········return·NextResponse.json({·success:·true,·branch·});
+     68     │ - ····}·catch·(error)·{
+     69     │ - ········console.error('Branch·fetch·error:',·error);
+     70     │ - ········return·NextResponse.json(
+     71     │ - ············{·error:·'Failed·to·fetch·branch'·},
+     72     │ - ············{·status:·500·}
+     73     │ - ········);
+     74     │ - ····}
+         67 │ + ····return·NextResponse.json({·success:·true,·branch·});
+         68 │ + ··}·catch·(error)·{
+         69 │ + ····console.error('Branch·fetch·error:',·error);
+         70 │ + ····return·NextResponse.json(
+         71 │ + ······{·error:·'Failed·to·fetch·branch'·},
+         72 │ + ······{·status:·500·}
+         73 │ + ····);
+         74 │ + ··}
+     75  75 │   }
+     76  76 │   
+    ······· │ 
+     80  80 │    */
+     81  81 │   export async function PUT(request: NextRequest, { params }: RouteParams) {
+     82     │ - ····try·{
+     83     │ - ········const·{·id·}·=·await·params;
+     84     │ - ········const·cookieStore·=·await·cookies();
+     85     │ - ········const·supabase·=·createClient(cookieStore);
+     86     │ - ········const·{
+     87     │ - ············data:·{·user·},
+     88     │ - ········}·=·await·supabase.auth.getUser();
+         82 │ + ··try·{
+         83 │ + ····const·{·id·}·=·await·params;
+         84 │ + ····const·cookieStore·=·await·cookies();
+         85 │ + ····const·supabase·=·createClient(cookieStore);
+         86 │ + ····const·{
+         87 │ + ······data:·{·user·},
+         88 │ + ····}·=·await·supabase.auth.getUser();
+     89  89 │   
+     90     │ - ········if·(!user)·{
+     91     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     92     │ - ········}
+         90 │ + ····if·(!user)·{
+         91 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         92 │ + ····}
+     93  93 │   
+     94     │ - ········const·body·=·await·request.json();
+     95     │ - ········const·parseResult·=·UpdateBranchSchema.safeParse(body);
+         94 │ + ····const·body·=·await·request.json();
+         95 │ + ····const·parseResult·=·UpdateBranchSchema.safeParse(body);
+     96  96 │   
+     97     │ - ········if·(!parseResult.success)·{
+     98     │ - ············return·NextResponse.json(
+     99     │ - ················{·error:·parseResult.error.issues[0].message·},
+    100     │ - ················{·status:·400·}
+    101     │ - ············);
+    102     │ - ········}
+         97 │ + ····if·(!parseResult.success)·{
+         98 │ + ······return·NextResponse.json(
+         99 │ + ········{·error:·parseResult.error.issues[0].message·},
+        100 │ + ········{·status:·400·}
+        101 │ + ······);
+        102 │ + ····}
+    103 103 │   
+    104     │ - ········const·{·name,·address,·city,·state,·phone,·managerId,·isDefault,·active·}·=
+    105     │ - ············parseResult.data;
+        104 │ + ····const·{·name,·address,·city,·state,·phone,·managerId,·isDefault,·active·}·=
+        105 │ + ······parseResult.data;
+    106 106 │   
+    107     │ - ········const·updateData:·Record<string,·unknown>·=·{};
+    108     │ - ········if·(name·!==·undefined)·updateData.name·=·name;
+    109     │ - ········if·(address·!==·undefined)·updateData.address·=·address;
+    110     │ - ········if·(city·!==·undefined)·updateData.city·=·city;
+    111     │ - ········if·(state·!==·undefined)·updateData.state·=·state;
+    112     │ - ········if·(phone·!==·undefined)·updateData.phone·=·phone;
+    113     │ - ········if·(managerId·!==·undefined)·updateData.manager_id·=·managerId;
+    114     │ - ········if·(isDefault·!==·undefined)·updateData.is_default·=·isDefault;
+    115     │ - ········if·(active·!==·undefined)·updateData.active·=·active;
+        107 │ + ····const·updateData:·Record<string,·unknown>·=·{};
+        108 │ + ····if·(name·!==·undefined)·updateData.name·=·name;
+        109 │ + ····if·(address·!==·undefined)·updateData.address·=·address;
+        110 │ + ····if·(city·!==·undefined)·updateData.city·=·city;
+        111 │ + ····if·(state·!==·undefined)·updateData.state·=·state;
+  124 more lines truncated
   
 
-src/app/dashboard/blog/new/page.tsx:182:23 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+src/app/api/branches/route.ts:27:7 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━━━━━━━━━━━
 
-  ! Unexpected any. Specify a different type.
+  × This variable UpdateBranchSchema is unused.
   
-    180 │           description: 'Featured image uploaded successfully.',
-    181 │         });
-  > 182 │       } catch (error: any) {
-        │                       ^^^
-    183 │         console.error('Error uploading image:', error);
-    184 │         toast({
+    25 │ });
+    26 │ 
+  > 27 │ const UpdateBranchSchema = CreateBranchSchema.partial();
+       │       ^^^^^^^^^^^^^^^^^^
+    28 │ 
+    29 │ // =============================================================================
   
-  i any disables many type checking rules. Its use should be avoided.
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend UpdateBranchSchema with an underscore.
+  
+     25  25 │   });
+     26  26 │   
+     27     │ - const·UpdateBranchSchema·=·CreateBranchSchema.partial();
+         27 │ + const·_UpdateBranchSchema·=·CreateBranchSchema.partial();
+     28  28 │   
+     29  29 │   // =============================================================================
   
 
-Checked 844 files in 521ms. No fixes applied.
-Found 4 warnings.
+src/app/api/branches/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     16  16 │   
+     17  17 │   const CreateBranchSchema = z.object({
+     18     │ - ····name:·z.string().min(2,·'Branch·name·must·be·at·least·2·characters'),
+     19     │ - ····address:·z.string().optional(),
+     20     │ - ····city:·z.string().optional(),
+     21     │ - ····state:·z.string().optional(),
+     22     │ - ····phone:·z.string().optional(),
+     23     │ - ····managerId:·z.string().uuid().optional(),
+     24     │ - ····isDefault:·z.boolean().optional().default(false),
+         18 │ + ··name:·z.string().min(2,·'Branch·name·must·be·at·least·2·characters'),
+         19 │ + ··address:·z.string().optional(),
+         20 │ + ··city:·z.string().optional(),
+         21 │ + ··state:·z.string().optional(),
+         22 │ + ··phone:·z.string().optional(),
+         23 │ + ··managerId:·z.string().uuid().optional(),
+         24 │ + ··isDefault:·z.boolean().optional().default(false),
+     25  25 │   });
+     26  26 │   
+    ······· │ 
+     36  36 │    */
+     37  37 │   export async function GET(_request: NextRequest) {
+     38     │ - ····try·{
+     39     │ - ········const·cookieStore·=·await·cookies();
+     40     │ - ········const·supabase·=·createClient(cookieStore);
+     41     │ - ········const·{
+     42     │ - ············data:·{·user·},
+     43     │ - ········}·=·await·supabase.auth.getUser();
+         38 │ + ··try·{
+         39 │ + ····const·cookieStore·=·await·cookies();
+         40 │ + ····const·supabase·=·createClient(cookieStore);
+         41 │ + ····const·{
+         42 │ + ······data:·{·user·},
+         43 │ + ····}·=·await·supabase.auth.getUser();
+     44  44 │   
+     45     │ - ········if·(!user)·{
+     46     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     47     │ - ········}
+         45 │ + ····if·(!user)·{
+         46 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         47 │ + ····}
+     48  48 │   
+     49     │ - ········//·Get·merchant
+     50     │ - ········const·{·data:·merchant·}·=·await·supabase
+     51     │ - ············.from('merchants')
+     52     │ - ············.select('id')
+     53     │ - ············.eq('user_id',·user.id)
+     54     │ - ············.single();
+         49 │ + ····//·Get·merchant
+         50 │ + ····const·{·data:·merchant·}·=·await·supabase
+         51 │ + ······.from('merchants')
+         52 │ + ······.select('id')
+         53 │ + ······.eq('user_id',·user.id)
+         54 │ + ······.single();
+     55  55 │   
+     56     │ - ········if·(!merchant)·{
+     57     │ - ············//·Check·if·user·is·staff
+     58     │ - ············const·{·data:·staffMember·}·=·await·supabase
+     59     │ - ················.from('staff_members')
+     60     │ - ················.select('merchant_id')
+     61     │ - ················.eq('user_id',·user.id)
+     62     │ - ················.eq('status',·'active')
+     63     │ - ················.single();
+         56 │ + ····if·(!merchant)·{
+         57 │ + ······//·Check·if·user·is·staff
+         58 │ + ······const·{·data:·staffMember·}·=·await·supabase
+         59 │ + ········.from('staff_members')
+         60 │ + ········.select('merchant_id')
+         61 │ + ········.eq('user_id',·user.id)
+         62 │ + ········.eq('status',·'active')
+         63 │ + ········.single();
+     64  64 │   
+     65     │ - ············if·(!staffMember)·{
+     66     │ - ················return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     67     │ - ············}
+         65 │ + ······if·(!staffMember)·{
+         66 │ + ········return·NextResponse.json(
+         67 │ + ··········{·error:·'Merchant·not·found'·},
+         68 │ + ··········{·status:·404·}
+         69 │ + ········);
+         70 │ + ······}
+     68  71 │   
+     69     │ - ············//·Staff·-·list·branches·for·their·merchant
+     70     │ - ············const·{·data:·branches·}·=·await·supabase
+     71     │ - ················.from('branches')
+     72     │ - ················.select(`
+         72 │ + ······//·Staff·-·list·branches·for·their·merchant
+         73 │ + ······const·{·data:·branches·}·=·await·supabase
+         74 │ + ········.from('branches')
+         75 │ + ········.select(`
+     73  76 │             id,
+     74  77 │             name,
+    ······· │ 
+     86  89 │             )
+     87  90 │           `)
+     88     │ - ················.eq('merchant_id',·staffMember.merchant_id)
+     89     │ - ················.order('is_default',·{·ascending:·false·})
+     90     │ - ················.order('created_at',·{·ascending:·true·});
+         91 │ + ········.eq('merchant_id',·staffMember.merchant_id)
+         92 │ + ········.order('is_default',·{·ascending:·false·})
+         93 │ + ········.order('created_at',·{·ascending:·true·});
+     91  94 │   
+     92     │ - ············return·NextResponse.json({·success:·true,·branches:·branches·||·[]·});
+     93     │ - ········}
+         95 │ + ······return·NextResponse.json({·success:·true,·branches:·branches·||·[]·});
+         96 │ + ····}
+     94  97 │   
+     95     │ - ········//·Merchant·owner
+     96     │ - ········const·{·data:·branches·}·=·await·supabase
+     97     │ - ············.from('branches')
+     98     │ - ············.select(`
+         98 │ + ····//·Merchant·owner
+         99 │ + ····const·{·data:·branches·}·=·await·supabase
+        100 │ + ······.from('branches')
+        101 │ + ······.select(`
+     99 102 │           id,
+    100 103 │           name,
+    ······· │ 
+    112 115 │           )
+    113 116 │         `)
+    114     │ - ············.eq('merchant_id',·merchant.id)
+    115     │ - ············.order('is_default',·{·ascending:·false·})
+    116     │ - ············.order('created_at',·{·ascending:·true·});
+        117 │ + ······.eq('merchant_id',·merchant.id)
+        118 │ + ······.order('is_default',·{·ascending:·false·})
+        119 │ + ······.order('created_at',·{·ascending:·true·});
+    117 120 │   
+    118     │ - ········return·NextResponse.json({·success:·true,·branches:·branches·||·[]·});
+    119     │ - ····}·catch·(error)·{
+    120     │ - ········console.error('Branch·list·error:',·error);
+    121     │ - ········return·NextResponse.json(
+    122     │ - ············{·error:·'Failed·to·list·branches'·},
+    123     │ - ············{·status:·500·}
+    124     │ - ········);
+    125     │ - ····}
+        121 │ + ····return·NextResponse.json({·success:·true,·branches:·branches·||·[]·});
+        122 │ + ··}·catch·(error)·{
+        123 │ + ····console.error('Branch·list·error:',·error);
+        124 │ + ····return·NextResponse.json(
+        125 │ + ······{·error:·'Failed·to·list·branches'·},
+        126 │ + ······{·status:·500·}
+        127 │ + ····);
+        128 │ + ··}
+    126 129 │   }
+    127 130 │   
+    ······· │ 
+    131 134 │    */
+    132 135 │   export async function POST(request: NextRequest) {
+    133     │ - ····try·{
+    134     │ - ········const·cookieStore·=·await·cookies();
+    135     │ - ········const·supabase·=·createClient(cookieStore);
+    136     │ - ········const·{
+    137     │ - ············data:·{·user·},
+    138     │ - ········}·=·await·supabase.auth.getUser();
+        136 │ + ··try·{
+  121 more lines truncated
+  
+
+src/app/api/domains/check-availability/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     96  96 │                 popular: true,
+     97  97 │               })),
+     98     │ - ············warning:
+     99     │ - ··············'Using·fallback·provider.',
+         98 │ + ············warning:·'Using·fallback·provider.',
+    100  99 │             });
+    101 100 │           }
+    ······· │ 
+    189 188 │   
+    190 189 │     // For suggestions, we'll wait a tiny bit to avoid being flagged as a bot
+    191     │ - ··await·new·Promise(resolve·=>·setTimeout(resolve,·300));
+        190 │ + ··await·new·Promise((resolve)·=>·setTimeout(resolve,·300));
+    192 191 │   
+    193 192 │     const suggestionResults = await Promise.all(
+  
+
+src/app/api/orders/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    262 262 │         // Ad tracking data for offline conversions
+    263 263 │         ad_tracking,
+    264     │ - ······//·Wallet·redemption·
+        264 │ + ······//·Wallet·redemption
+    265 265 │         use_wallet_credit,
+    266 266 │         wallet_amount,
+    ······· │ 
+    413 413 │         ad_tracking: ad_tracking
+    414 414 │           ? {
+    415     │ - ··········...ad_tracking,
+    416     │ - ··········//·Server-side·captured·data·for·better·EMQ
+    417     │ - ··········userIp:·clientIp·||·ad_tracking.userIp,
+    418     │ - ··········userAgent:·clientUserAgent·||·ad_tracking.userAgent,
+    419     │ - ··········//·Server-detected·privacy·compliance·(overrides·client·if·more·restrictive)
+    420     │ - ··········limitedDataUse:
+    421     │ - ············geoPrivacy.shouldApplyLDU·||·ad_tracking.limitedDataUse,
+    422     │ - ··········//·Store·geo·info·for·analytics
+    423     │ - ··········geoCountry:·geoPrivacy.country,
+    424     │ - ··········geoRegion:·geoPrivacy.region,
+    425     │ - ········}
+        415 │ + ············...ad_tracking,
+        416 │ + ············//·Server-side·captured·data·for·better·EMQ
+        417 │ + ············userIp:·clientIp·||·ad_tracking.userIp,
+        418 │ + ············userAgent:·clientUserAgent·||·ad_tracking.userAgent,
+        419 │ + ············//·Server-detected·privacy·compliance·(overrides·client·if·more·restrictive)
+        420 │ + ············limitedDataUse:
+        421 │ + ··············geoPrivacy.shouldApplyLDU·||·ad_tracking.limitedDataUse,
+        422 │ + ············//·Store·geo·info·for·analytics
+        423 │ + ············geoCountry:·geoPrivacy.country,
+        424 │ + ············geoRegion:·geoPrivacy.region,
+        425 │ + ··········}
+    426 426 │           : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+    427 427 │             ? {
+    428     │ - ············userIp:·clientIp,
+    429     │ - ············userAgent:·clientUserAgent,
+    430     │ - ············limitedDataUse:·geoPrivacy.shouldApplyLDU,
+    431     │ - ············geoCountry:·geoPrivacy.country,
+    432     │ - ············geoRegion:·geoPrivacy.region,
+    433     │ - ··········}
+        428 │ + ··············userIp:·clientIp,
+        429 │ + ··············userAgent:·clientUserAgent,
+        430 │ + ··············limitedDataUse:·geoPrivacy.shouldApplyLDU,
+        431 │ + ··············geoCountry:·geoPrivacy.country,
+        432 │ + ··············geoRegion:·geoPrivacy.region,
+        433 │ + ············}
+    434 434 │             : null,
+    435 435 │         // Shipping metadata (2025: Fix for Topship tracking)
+    ······· │ 
+    798 798 │           wallet: walletRedemptionResult
+    799 799 │             ? {
+    800     │ - ············amountUsed:·walletRedemptionResult.amountRedeemed,
+    801     │ - ············newBalance:·walletRedemptionResult.newBalance,
+    802     │ - ············transactionId:·walletRedemptionResult.transactionId,
+    803     │ - ··········}
+        800 │ + ··············amountUsed:·walletRedemptionResult.amountRedeemed,
+        801 │ + ··············newBalance:·walletRedemptionResult.newBalance,
+        802 │ + ··············transactionId:·walletRedemptionResult.transactionId,
+        803 │ + ············}
+    804 804 │             : null,
+    805 805 │           // Amount still due to payment gateway (for payment initialization)
+  
+
+src/app/api/paystack/virtual-terminal/[code]/destination/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     10  10 │   import { z } from 'zod';
+     11  11 │   import {
+     12     │ - ····assignVirtualTerminalDestinations,
+     13     │ - ····unassignVirtualTerminalDestinations,
+         12 │ + ··assignVirtualTerminalDestinations,
+         13 │ + ··unassignVirtualTerminalDestinations,
+     14  14 │   } from '@/lib/paystack';
+     15  15 │   import { createClient } from '@/lib/supabase/server';
+     16  16 │   
+     17  17 │   interface RouteParams {
+     18     │ - ····params:·Promise<{·code:·string·}>;
+         18 │ + ··params:·Promise<{·code:·string·}>;
+     19  19 │   }
+     20  20 │   
+     21  21 │   const DestinationSchema = z.object({
+     22     │ - ····destinations:·z
+     23     │ - ········.array(
+     24     │ - ············z.object({
+     25     │ - ················target:·z.string().regex(/^\+\d{10,15}$/,·'Invalid·phone·number'),
+     26     │ - ················name:·z.string().min(1),
+     27     │ - ············})
+     28     │ - ········)
+     29     │ - ········.min(1)
+     30     │ - ········.max(5),
+         22 │ + ··destinations:·z
+         23 │ + ····.array(
+         24 │ + ······z.object({
+         25 │ + ········target:·z.string().regex(/^\+\d{10,15}$/,·'Invalid·phone·number'),
+         26 │ + ········name:·z.string().min(1),
+         27 │ + ······})
+         28 │ + ····)
+         29 │ + ····.min(1)
+         30 │ + ····.max(5),
+     31  31 │   });
+     32  32 │   
+     33  33 │   const UnassignSchema = z.object({
+     34     │ - ····targets:·z.array(z.string().regex(/^\+?\d{10,15}$/,·'Invalid·phone·number')),
+         34 │ + ··targets:·z.array(z.string().regex(/^\+?\d{10,15}$/,·'Invalid·phone·number')),
+     35  35 │   });
+     36  36 │   
+    ······· │ 
+     40  40 │    */
+     41  41 │   export async function POST(request: NextRequest, { params }: RouteParams) {
+     42     │ - ····try·{
+     43     │ - ········const·{·code·}·=·await·params;
+     44     │ - ········const·cookieStore·=·await·cookies();
+     45     │ - ········const·supabase·=·createClient(cookieStore);
+     46     │ - ········const·{
+     47     │ - ············data:·{·user·},
+     48     │ - ········}·=·await·supabase.auth.getUser();
+         42 │ + ··try·{
+         43 │ + ····const·{·code·}·=·await·params;
+         44 │ + ····const·cookieStore·=·await·cookies();
+         45 │ + ····const·supabase·=·createClient(cookieStore);
+         46 │ + ····const·{
+         47 │ + ······data:·{·user·},
+         48 │ + ····}·=·await·supabase.auth.getUser();
+     49  49 │   
+     50     │ - ········if·(!user)·{
+     51     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     52     │ - ········}
+         50 │ + ····if·(!user)·{
+         51 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         52 │ + ····}
+     53  53 │   
+     54     │ - ········//·Verify·merchant·owns·this·terminal
+     55     │ - ········const·{·data:·merchant·}·=·await·supabase
+     56     │ - ············.from('merchants')
+     57     │ - ············.select('id,·virtual_terminal_code')
+     58     │ - ············.eq('user_id',·user.id)
+     59     │ - ············.single();
+         54 │ + ····//·Verify·merchant·owns·this·terminal
+         55 │ + ····const·{·data:·merchant·}·=·await·supabase
+         56 │ + ······.from('merchants')
+         57 │ + ······.select('id,·virtual_terminal_code')
+         58 │ + ······.eq('user_id',·user.id)
+         59 │ + ······.single();
+     60  60 │   
+     61     │ - ········if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+     62     │ - ············return·NextResponse.json(
+     63     │ - ················{·error:·'Terminal·not·found·or·not·authorized'·},
+     64     │ - ················{·status:·404·}
+     65     │ - ············);
+     66     │ - ········}
+         61 │ + ····if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+         62 │ + ······return·NextResponse.json(
+         63 │ + ········{·error:·'Terminal·not·found·or·not·authorized'·},
+         64 │ + ········{·status:·404·}
+         65 │ + ······);
+         66 │ + ····}
+     67  67 │   
+     68     │ - ········const·body·=·await·request.json();
+     69     │ - ········const·parseResult·=·DestinationSchema.safeParse(body);
+         68 │ + ····const·body·=·await·request.json();
+         69 │ + ····const·parseResult·=·DestinationSchema.safeParse(body);
+     70  70 │   
+     71     │ - ········if·(!parseResult.success)·{
+     72     │ - ············return·NextResponse.json(
+     73     │ - ················{·error:·parseResult.error.issues[0].message·},
+     74     │ - ················{·status:·400·}
+     75     │ - ············);
+     76     │ - ········}
+         71 │ + ····if·(!parseResult.success)·{
+         72 │ + ······return·NextResponse.json(
+         73 │ + ········{·error:·parseResult.error.issues[0].message·},
+         74 │ + ········{·status:·400·}
+         75 │ + ······);
+         76 │ + ····}
+     77  77 │   
+     78     │ - ········const·{·destinations·}·=·parseResult.data;
+         78 │ + ····const·{·destinations·}·=·parseResult.data;
+     79  79 │   
+     80     │ - ········const·result·=·await·assignVirtualTerminalDestinations(code,·destinations);
+         80 │ + ····const·result·=·await·assignVirtualTerminalDestinations(code,·destinations);
+     81  81 │   
+     82     │ - ········if·(!result.success)·{
+     83     │ - ············return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+     84     │ - ········}
+         82 │ + ····if·(!result.success)·{
+         83 │ + ······return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+         84 │ + ····}
+     85  85 │   
+     86     │ - ········return·NextResponse.json({
+     87     │ - ············success:·true,
+     88     │ - ············destinations:·result.data,
+     89     │ - ········});
+     90     │ - ····}·catch·(error)·{
+     91     │ - ········console.error('Destination·assignment·error:',·error);
+     92     │ - ········return·NextResponse.json(
+     93     │ - ············{·error:·'Failed·to·add·WhatsApp·destinations'·},
+     94     │ - ············{·status:·500·}
+     95     │ - ········);
+     96     │ - ····}
+         86 │ + ····return·NextResponse.json({
+         87 │ + ······success:·true,
+         88 │ + ······destinations:·result.data,
+         89 │ + ····});
+         90 │ + ··}·catch·(error)·{
+         91 │ + ····console.error('Destination·assignment·error:',·error);
+         92 │ + ····return·NextResponse.json(
+         93 │ + ······{·error:·'Failed·to·add·WhatsApp·destinations'·},
+         94 │ + ······{·status:·500·}
+         95 │ + ····);
+         96 │ + ··}
+     97  97 │   }
+     98  98 │   
+    ······· │ 
+    102 102 │    */
+    103 103 │   export async function DELETE(request: NextRequest, { params }: RouteParams) {
+    104     │ - ····try·{
+    105     │ - ········const·{·code·}·=·await·params;
+    106     │ - ········const·cookieStore·=·await·cookies();
+  100 more lines truncated
+  
+
+src/app/api/paystack/virtual-terminal/[code]/route.ts:7:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    5 │  */
+    6 │ 
+  > 7 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    8 │ import { type NextRequest, NextResponse } from 'next/server';
+    9 │ import { z } from 'zod';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      9   9 │   import { z } from 'zod';
+     10  10 │   import {
+     11     │ - ····fetchVirtualTerminal,
+     12     │ - ····updateVirtualTerminal,
+     13     │ - ····deactivateVirtualTerminal,
+         11 │ + ····deactivateVirtualTerminal,
+         12 │ + ····fetchVirtualTerminal,
+         13 │ + ····updateVirtualTerminal,
+     14  14 │   } from '@/lib/paystack';
+     15  15 │   import { createClient } from '@/lib/supabase/server';
+  
+
+src/app/api/paystack/virtual-terminal/[code]/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      9   9 │   import { z } from 'zod';
+     10  10 │   import {
+     11     │ - ····fetchVirtualTerminal,
+     12     │ - ····updateVirtualTerminal,
+     13     │ - ····deactivateVirtualTerminal,
+         11 │ + ··fetchVirtualTerminal,
+         12 │ + ··updateVirtualTerminal,
+         13 │ + ··deactivateVirtualTerminal,
+     14  14 │   } from '@/lib/paystack';
+     15  15 │   import { createClient } from '@/lib/supabase/server';
+     16  16 │   
+     17  17 │   interface RouteParams {
+     18     │ - ····params:·Promise<{·code:·string·}>;
+         18 │ + ··params:·Promise<{·code:·string·}>;
+     19  19 │   }
+     20  20 │   
+    ······· │ 
+     24  24 │    */
+     25  25 │   export async function GET(request: NextRequest, { params }: RouteParams) {
+     26     │ - ····try·{
+     27     │ - ········const·{·code·}·=·await·params;
+     28     │ - ········const·cookieStore·=·await·cookies();
+     29     │ - ········const·supabase·=·createClient(cookieStore);
+     30     │ - ········const·{
+     31     │ - ············data:·{·user·},
+     32     │ - ········}·=·await·supabase.auth.getUser();
+         26 │ + ··try·{
+         27 │ + ····const·{·code·}·=·await·params;
+         28 │ + ····const·cookieStore·=·await·cookies();
+         29 │ + ····const·supabase·=·createClient(cookieStore);
+         30 │ + ····const·{
+         31 │ + ······data:·{·user·},
+         32 │ + ····}·=·await·supabase.auth.getUser();
+     33  33 │   
+     34     │ - ········if·(!user)·{
+     35     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     36     │ - ········}
+         34 │ + ····if·(!user)·{
+         35 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         36 │ + ····}
+     37  37 │   
+     38     │ - ········//·Verify·merchant·owns·this·terminal
+     39     │ - ········const·{·data:·merchant·}·=·await·supabase
+     40     │ - ············.from('merchants')
+     41     │ - ············.select('id,·virtual_terminal_code')
+     42     │ - ············.eq('user_id',·user.id)
+     43     │ - ············.single();
+         38 │ + ····//·Verify·merchant·owns·this·terminal
+         39 │ + ····const·{·data:·merchant·}·=·await·supabase
+         40 │ + ······.from('merchants')
+         41 │ + ······.select('id,·virtual_terminal_code')
+         42 │ + ······.eq('user_id',·user.id)
+         43 │ + ······.single();
+     44  44 │   
+     45     │ - ········if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+     46     │ - ············return·NextResponse.json(
+     47     │ - ················{·error:·'Terminal·not·found·or·not·authorized'·},
+     48     │ - ················{·status:·404·}
+     49     │ - ············);
+     50     │ - ········}
+         45 │ + ····if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+         46 │ + ······return·NextResponse.json(
+         47 │ + ········{·error:·'Terminal·not·found·or·not·authorized'·},
+         48 │ + ········{·status:·404·}
+         49 │ + ······);
+         50 │ + ····}
+     51  51 │   
+     52     │ - ········const·result·=·await·fetchVirtualTerminal(code);
+         52 │ + ····const·result·=·await·fetchVirtualTerminal(code);
+     53  53 │   
+     54     │ - ········if·(!result.success)·{
+     55     │ - ············return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+     56     │ - ········}
+         54 │ + ····if·(!result.success)·{
+         55 │ + ······return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+         56 │ + ····}
+     57  57 │   
+     58     │ - ········return·NextResponse.json({
+     59     │ - ············success:·true,
+     60     │ - ············terminal:·result.data,
+     61     │ - ············paymentLink:·`https://paystack.com/vt/${result.data.code}`,
+     62     │ - ········});
+     63     │ - ····}·catch·(error)·{
+     64     │ - ········console.error('Virtual·Terminal·fetch·error:',·error);
+     65     │ - ········return·NextResponse.json(
+     66     │ - ············{·error:·'Failed·to·fetch·Virtual·Terminal'·},
+     67     │ - ············{·status:·500·}
+     68     │ - ········);
+     69     │ - ····}
+         58 │ + ····return·NextResponse.json({
+         59 │ + ······success:·true,
+         60 │ + ······terminal:·result.data,
+         61 │ + ······paymentLink:·`https://paystack.com/vt/${result.data.code}`,
+         62 │ + ····});
+         63 │ + ··}·catch·(error)·{
+         64 │ + ····console.error('Virtual·Terminal·fetch·error:',·error);
+         65 │ + ····return·NextResponse.json(
+         66 │ + ······{·error:·'Failed·to·fetch·Virtual·Terminal'·},
+         67 │ + ······{·status:·500·}
+         68 │ + ····);
+         69 │ + ··}
+     70  70 │   }
+     71  71 │   
+    ······· │ 
+     75  75 │    */
+     76  76 │   export async function PUT(request: NextRequest, { params }: RouteParams) {
+     77     │ - ····try·{
+     78     │ - ········const·{·code·}·=·await·params;
+     79     │ - ········const·cookieStore·=·await·cookies();
+     80     │ - ········const·supabase·=·createClient(cookieStore);
+     81     │ - ········const·{
+     82     │ - ············data:·{·user·},
+     83     │ - ········}·=·await·supabase.auth.getUser();
+         77 │ + ··try·{
+         78 │ + ····const·{·code·}·=·await·params;
+         79 │ + ····const·cookieStore·=·await·cookies();
+         80 │ + ····const·supabase·=·createClient(cookieStore);
+         81 │ + ····const·{
+         82 │ + ······data:·{·user·},
+         83 │ + ····}·=·await·supabase.auth.getUser();
+     84  84 │   
+     85     │ - ········if·(!user)·{
+     86     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     87     │ - ········}
+         85 │ + ····if·(!user)·{
+         86 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         87 │ + ····}
+     88  88 │   
+     89     │ - ········//·Verify·merchant·owns·this·terminal
+     90     │ - ········const·{·data:·merchant·}·=·await·supabase
+     91     │ - ············.from('merchants')
+     92     │ - ············.select('id,·virtual_terminal_code')
+     93     │ - ············.eq('user_id',·user.id)
+     94     │ - ············.single();
+         89 │ + ····//·Verify·merchant·owns·this·terminal
+         90 │ + ····const·{·data:·merchant·}·=·await·supabase
+         91 │ + ······.from('merchants')
+         92 │ + ······.select('id,·virtual_terminal_code')
+         93 │ + ······.eq('user_id',·user.id)
+         94 │ + ······.single();
+     95  95 │   
+     96     │ - ········if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+     97     │ - ············return·NextResponse.json(
+     98     │ - ················{·error:·'Terminal·not·found·or·not·authorized'·},
+     99     │ - ················{·status:·404·}
+    100     │ - ············);
+    101     │ - ········}
+         96 │ + ····if·(!merchant·||·merchant.virtual_terminal_code·!==·code)·{
+         97 │ + ······return·NextResponse.json(
+         98 │ + ········{·error:·'Terminal·not·found·or·not·authorized'·},
+         99 │ + ········{·status:·404·}
+        100 │ + ······);
+  136 more lines truncated
+  
+
+src/app/api/paystack/virtual-terminal/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     10  10 │   import { z } from 'zod';
+     11  11 │   import {
+     12     │ - ····createVirtualTerminal,
+     13     │ - ····type·VirtualTerminalResponse,
+         12 │ + ··createVirtualTerminal,
+         13 │ + ··type·VirtualTerminalResponse,
+     14  14 │   } from '@/lib/paystack';
+     15  15 │   import { createClient } from '@/lib/supabase/server';
+    ······· │ 
+     20  20 │   
+     21  21 │   const CreateTerminalSchema = z.object({
+     22     │ - ····name:·z.string().min(2,·'Account·name·must·be·at·least·2·characters'),
+     23     │ - ····staffId:·z.string().uuid().optional(),·//·Optional·staff·assignment
+     24     │ - ····branchId:·z.string().uuid().optional(),·//·Optional·branch·assignment
+     25     │ - ····destinations:·z
+     26     │ - ········.array(
+     27     │ - ············z.object({
+     28     │ - ················target:·z
+     29     │ - ····················.string()
+     30     │ - ····················.regex(/^\+\d{10,15}$/,·'Invalid·phone·number·(E.164·format·required)'),
+     31     │ - ················name:·z.string().min(1,·'Destination·name·is·required'),
+     32     │ - ············})
+     33     │ - ········)
+     34     │ - ········.max(5,·'Maximum·5·WhatsApp·destinations·allowed')
+     35     │ - ········.optional()
+     36     │ - ········.default([]),
+         22 │ + ··name:·z.string().min(2,·'Account·name·must·be·at·least·2·characters'),
+         23 │ + ··staffId:·z.string().uuid().optional(),·//·Optional·staff·assignment
+         24 │ + ··branchId:·z.string().uuid().optional(),·//·Optional·branch·assignment
+         25 │ + ··destinations:·z
+         26 │ + ····.array(
+         27 │ + ······z.object({
+         28 │ + ········target:·z
+         29 │ + ··········.string()
+         30 │ + ··········.regex(
+         31 │ + ············/^\+\d{10,15}$/,
+         32 │ + ············'Invalid·phone·number·(E.164·format·required)'
+         33 │ + ··········),
+         34 │ + ········name:·z.string().min(1,·'Destination·name·is·required'),
+         35 │ + ······})
+         36 │ + ····)
+         37 │ + ····.max(5,·'Maximum·5·WhatsApp·destinations·allowed')
+         38 │ + ····.optional()
+         39 │ + ····.default([]),
+     37  40 │   });
+     38  41 │   
+    ······· │ 
+     46  49 │    */
+     47  50 │   export async function POST(request: NextRequest) {
+     48     │ - ····try·{
+     49     │ - ········const·cookieStore·=·await·cookies();
+     50     │ - ········const·supabase·=·createClient(cookieStore);
+     51     │ - ········const·{
+     52     │ - ············data:·{·user·},
+     53     │ - ········}·=·await·supabase.auth.getUser();
+         51 │ + ··try·{
+         52 │ + ····const·cookieStore·=·await·cookies();
+         53 │ + ····const·supabase·=·createClient(cookieStore);
+         54 │ + ····const·{
+         55 │ + ······data:·{·user·},
+         56 │ + ····}·=·await·supabase.auth.getUser();
+     54  57 │   
+     55     │ - ········if·(!user)·{
+     56     │ - ············return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+     57     │ - ········}
+         58 │ + ····if·(!user)·{
+         59 │ + ······return·NextResponse.json({·error:·'Unauthorized'·},·{·status:·401·});
+         60 │ + ····}
+     58  61 │   
+     59     │ - ········//·Get·merchant
+     60     │ - ········const·{·data:·merchant·}·=·await·supabase
+     61     │ - ············.from('merchants')
+     62     │ - ············.select('id,·business_name')
+     63     │ - ············.eq('user_id',·user.id)
+     64     │ - ············.single();
+         62 │ + ····//·Get·merchant
+         63 │ + ····const·{·data:·merchant·}·=·await·supabase
+         64 │ + ······.from('merchants')
+         65 │ + ······.select('id,·business_name')
+         66 │ + ······.eq('user_id',·user.id)
+         67 │ + ······.single();
+     65  68 │   
+     66     │ - ········if·(!merchant)·{
+     67     │ - ············return·NextResponse.json({·error:·'Merchant·not·found'·},·{·status:·404·});
+     68     │ - ········}
+         69 │ + ····if·(!merchant)·{
+         70 │ + ······return·NextResponse.json(
+         71 │ + ········{·error:·'Merchant·not·found'·},
+         72 │ + ········{·status:·404·}
+         73 │ + ······);
+         74 │ + ····}
+     69  75 │   
+     70     │ - ········//·Parse·and·validate·request·body
+     71     │ - ········const·body·=·await·request.json();
+     72     │ - ········const·parseResult·=·CreateTerminalSchema.safeParse(body);
+         76 │ + ····//·Parse·and·validate·request·body
+         77 │ + ····const·body·=·await·request.json();
+         78 │ + ····const·parseResult·=·CreateTerminalSchema.safeParse(body);
+     73  79 │   
+     74     │ - ········if·(!parseResult.success)·{
+     75     │ - ············return·NextResponse.json(
+     76     │ - ················{·error:·parseResult.error.issues[0].message·},
+     77     │ - ················{·status:·400·}
+     78     │ - ············);
+     79     │ - ········}
+         80 │ + ····if·(!parseResult.success)·{
+         81 │ + ······return·NextResponse.json(
+         82 │ + ········{·error:·parseResult.error.issues[0].message·},
+         83 │ + ········{·status:·400·}
+         84 │ + ······);
+         85 │ + ····}
+     80  86 │   
+     81     │ - ········const·{·name,·staffId,·branchId,·destinations·}·=·parseResult.data;
+         87 │ + ····const·{·name,·staffId,·branchId,·destinations·}·=·parseResult.data;
+     82  88 │   
+     83     │ - ········//·Create·terminal·via·Paystack·API
+     84     │ - ········const·result·=·await·createVirtualTerminal(
+     85     │ - ············name·||·`${merchant.business_name}·Account`,
+     86     │ - ············destinations
+     87     │ - ········);
+         89 │ + ····//·Create·terminal·via·Paystack·API
+         90 │ + ····const·result·=·await·createVirtualTerminal(
+         91 │ + ······name·||·`${merchant.business_name}·Account`,
+         92 │ + ······destinations
+         93 │ + ····);
+     88  94 │   
+     89     │ - ········if·(!result.success)·{
+     90     │ - ············return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+     91     │ - ········}
+         95 │ + ····if·(!result.success)·{
+         96 │ + ······return·NextResponse.json({·error:·result.error·},·{·status:·400·});
+         97 │ + ····}
+     92  98 │   
+     93     │ - ········//·Extract·NUBAN·bank·account·details·(for·Nigeria)
+     94     │ - ········const·nubanMethod·=·result.data.paymentMethods?.find(
+     95     │ - ············(m)·=>·m.type·===·'dedicated_nuban'
+     96     │ - ········);
+         99 │ + ····//·Extract·NUBAN·bank·account·details·(for·Nigeria)
+        100 │ + ····const·nubanMethod·=·result.data.paymentMethods?.find(
+        101 │ + ······(m)·=>·m.type·===·'dedicated_nuban'
+        102 │ + ····);
+     97 103 │   
+     98     │ - ········//·Save·terminal·to·virtual_terminals·table
+     99     │ - ········const·{·data:·savedTerminal,·error:·insertError·}·=·await·supabase
+    100     │ - ············.from('virtual_terminals')
+    101     │ - ············.insert({
+    102     │ - ················merchant_id:·merchant.id,
+    103     │ - ················staff_id:·staffId·||·null,
+    104     │ - ················branch_id:·branchId·||·null,
+    105     │ - ················code:·result.data.code,
+    106     │ - ················name:·name·||·`${merchant.business_name}·Account`,
+    107     │ - ················account_number:·nubanMethod?.account_number·||·null,
+  237 more lines truncated
+  
+
+src/app/dashboard/blog/[id]/edit/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    255 255 │         }
+    256 256 │       }
+    257     │ - ··},·[
+    258     │ - ····isLoading,
+    259     │ - ····hasSavedData,
+    260     │ - ····getSavedData,
+    261     │ - ····formData,
+    262     │ - ····toast,
+    263     │ - ····undoRecovery,
+    264     │ - ··]);
+        257 │ + ··},·[isLoading,·hasSavedData,·getSavedData,·formData,·toast,·undoRecovery]);
+    265 258 │   
+    266 259 │     const handleChange = useCallback(
+    ······· │ 
+    367 360 │           tags: formData.tags
+    368 361 │             ? formData.tags
+    369     │ - ············.split(',')
+    370     │ - ············.map((t)·=>·t.trim())
+    371     │ - ············.filter(Boolean)
+        362 │ + ··············.split(',')
+        363 │ + ··············.map((t)·=>·t.trim())
+        364 │ + ··············.filter(Boolean)
+    372 365 │             : [],
+    373 366 │           keywords: formData.keywords
+    374 367 │             ? formData.keywords
+    375     │ - ············.split(',')
+    376     │ - ············.map((k)·=>·k.trim())
+    377     │ - ············.filter(Boolean)
+        368 │ + ··············.split(',')
+        369 │ + ··············.map((k)·=>·k.trim())
+        370 │ + ··············.filter(Boolean)
+    378 371 │             : [],
+    379 372 │           author_name: formData.author_name,
+  
+
+src/app/dashboard/settings/payments/page.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+     1 │ 'use client';
+     2 │ 
+   > 3 │ import {
+       │ ^^^^^^^^
+   > 4 │   AlertCircle,
+        ...
+  > 10 │   Wallet,
+  > 11 │ } from 'lucide-react';
+       │ ^^^^^^^^^^^^^^^^^^^^^^
+    12 │ import { useEffect, useState } from 'react';
+    13 │ import { MerchantBankForm } from '@/components/merchant-bank-form';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     12  12 │   import { useEffect, useState } from 'react';
+     13  13 │   import { MerchantBankForm } from '@/components/merchant-bank-form';
+     14     │ - import·{·VirtualTerminalSettings·}·from·'./components/virtual-terminal-settings';
+     15     │ - import·{·Button·}·from·'@/components/ui/button';
+     16     │ - import·{
+     17     │ - ··Card,
+     18     │ - ··CardContent,
+     19     │ - ··CardDescription,
+     20     │ - ··CardHeader,
+     21     │ - ··CardTitle,
+     22     │ - }·from·'@/components/ui/card';
+     23     │ - import·{·Label·}·from·'@/components/ui/label';
+     24     │ - import·{
+     25     │ - ··Select,
+     26     │ - ··SelectContent,
+     27     │ - ··SelectItem,
+     28     │ - ··SelectTrigger,
+     29     │ - ··SelectValue,
+     30     │ - }·from·'@/components/ui/select';
+     31     │ - import·{·Switch·}·from·'@/components/ui/switch';
+     32     │ - import·{·useMerchant·}·from·'@/hooks/use-merchant';
+     33     │ - import·{·useToast·}·from·'@/hooks/use-toast';
+     34     │ - import·{·cn·}·from·'@/lib/utils';
+         14 │ + import·{·Button·}·from·'@/components/ui/button';
+         15 │ + import·{
+         16 │ + ··Card,
+         17 │ + ··CardContent,
+         18 │ + ··CardDescription,
+         19 │ + ··CardHeader,
+         20 │ + ··CardTitle,
+         21 │ + }·from·'@/components/ui/card';
+         22 │ + import·{·Label·}·from·'@/components/ui/label';
+         23 │ + import·{
+         24 │ + ··Select,
+         25 │ + ··SelectContent,
+         26 │ + ··SelectItem,
+         27 │ + ··SelectTrigger,
+         28 │ + ··SelectValue,
+         29 │ + }·from·'@/components/ui/select';
+         30 │ + import·{·Switch·}·from·'@/components/ui/switch';
+         31 │ + import·{·useMerchant·}·from·'@/hooks/use-merchant';
+         32 │ + import·{·useToast·}·from·'@/hooks/use-toast';
+         33 │ + import·{·cn·}·from·'@/lib/utils';
+         34 │ + import·{·VirtualTerminalSettings·}·from·'./components/virtual-terminal-settings';
+     35  35 │   
+     36  36 │   interface PaymentGatewaySettings {
+  
+
+supabase/functions/process-payouts/index.ts:17:11 lint/correctness/noUnusedVariables ━━━━━━━━━━━━━━━
+
+  × This interface Order is unused.
+  
+    15 │ }
+    16 │ 
+  > 17 │ interface Order {
+       │           ^^^^^
+    18 │     id: string;
+    19 │     merchant_id: string;
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+
+supabase/functions/process-payouts/index.ts:135:23 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
+
+  × This variable transferReference is unused.
+  
+    133 │                 }
+    134 │ 
+  > 135 │                 const transferReference = transferData.data.reference;
+        │                       ^^^^^^^^^^^^^^^^^
+    136 │                 const transferCode = transferData.data.transfer_code;
+    137 │ 
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend transferReference with an underscore.
+  
+    133 133 │                   }
+    134 134 │   
+    135     │ - ················const·transferReference·=·transferData.data.reference;
+        135 │ + ················const·_transferReference·=·transferData.data.reference;
+    136 136 │                   const transferCode = transferData.data.transfer_code;
+    137 137 │   
+  
+
+supabase/functions/process-payouts/index.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+      2   2 │   
+      3   3 │   const corsHeaders = {
+      4     │ - ····'Access-Control-Allow-Origin':·'*',
+      5     │ - ····'Access-Control-Allow-Headers':·'authorization,·x-client-info,·apikey,·content-type',
+          4 │ + ··'Access-Control-Allow-Origin':·'*',
+          5 │ + ··'Access-Control-Allow-Headers':
+          6 │ + ····'authorization,·x-client-info,·apikey,·content-type',
+      6   7 │   };
+      7   8 │   
+      8   9 │   interface Merchant {
+      9     │ - ····id:·string;
+     10     │ - ····business_name:·string;
+     11     │ - ····bank_code:·string;
+     12     │ - ····bank_account_number:·string;
+     13     │ - ····payout_mode:·'instant'·|·'weekly';
+     14     │ - ····auto_payout_enabled:·boolean;
+         10 │ + ··id:·string;
+         11 │ + ··business_name:·string;
+         12 │ + ··bank_code:·string;
+         13 │ + ··bank_account_number:·string;
+         14 │ + ··payout_mode:·'instant'·|·'weekly';
+         15 │ + ··auto_payout_enabled:·boolean;
+     15  16 │   }
+     16  17 │   
+     17  18 │   interface Order {
+     18     │ - ····id:·string;
+     19     │ - ····merchant_id:·string;
+     20     │ - ····total_amount:·number;
+         19 │ + ··id:·string;
+         20 │ + ··merchant_id:·string;
+         21 │ + ··total_amount:·number;
+     21  22 │   }
+     22  23 │   
+     23  24 │   Deno.serve(async (req) => {
+     24     │ - ····if·(req.method·===·'OPTIONS')·{
+     25     │ - ········return·new·Response('ok',·{·headers:·corsHeaders·});
+     26     │ - ····}
+         25 │ + ··if·(req.method·===·'OPTIONS')·{
+         26 │ + ····return·new·Response('ok',·{·headers:·corsHeaders·});
+         27 │ + ··}
+     27  28 │   
+     28     │ - ····try·{
+     29     │ - ········const·supabaseUrl·=·Deno.env.get('SUPABASE_URL')·??·'';
+     30     │ - ········const·supabaseServiceKey·=·Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')·??·'';
+     31     │ - ········const·paystackSecretKey·=·Deno.env.get('PAYSTACK_SECRET_KEY')·??·'';
+         29 │ + ··try·{
+         30 │ + ····const·supabaseUrl·=·Deno.env.get('SUPABASE_URL')·??·'';
+         31 │ + ····const·supabaseServiceKey·=·Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')·??·'';
+         32 │ + ····const·paystackSecretKey·=·Deno.env.get('PAYSTACK_SECRET_KEY')·??·'';
+     32  33 │   
+     33     │ - ········if·(!paystackSecretKey)·{
+     34     │ - ············throw·new·Error('Missing·PAYSTACK_SECRET_KEY');
+     35     │ - ········}
+         34 │ + ····if·(!paystackSecretKey)·{
+         35 │ + ······throw·new·Error('Missing·PAYSTACK_SECRET_KEY');
+         36 │ + ····}
+     36  37 │   
+     37     │ - ········const·supabase·=·createClient(supabaseUrl,·supabaseServiceKey);
+         38 │ + ····const·supabase·=·createClient(supabaseUrl,·supabaseServiceKey);
+     38  39 │   
+     39     │ - ········//·1.·Determine·Eligibility·Logic
+     40     │ - ········const·today·=·new·Date();
+     41     │ - ········const·isMonday·=·today.getDay()·===·1;
+         40 │ + ····//·1.·Determine·Eligibility·Logic
+         41 │ + ····const·today·=·new·Date();
+         42 │ + ····const·isMonday·=·today.getDay()·===·1;
+     42  43 │   
+     43     │ - ········//·Fetch·all·merchants·with·auto_payout_enabled
+     44     │ - ········const·{·data:·merchants,·error:·merchantError·}·=·await·supabase
+     45     │ - ············.from('merchants')
+     46     │ - ············.select('id,·business_name,·bank_code,·bank_account_number,·payout_mode,·auto_payout_enabled')
+     47     │ - ············.eq('auto_payout_enabled',·true)
+     48     │ - ············.not('bank_code',·'is',·null)
+     49     │ - ············.not('bank_account_number',·'is',·null);
+         44 │ + ····//·Fetch·all·merchants·with·auto_payout_enabled
+         45 │ + ····const·{·data:·merchants,·error:·merchantError·}·=·await·supabase
+         46 │ + ······.from('merchants')
+         47 │ + ······.select(
+         48 │ + ········'id,·business_name,·bank_code,·bank_account_number,·payout_mode,·auto_payout_enabled'
+         49 │ + ······)
+         50 │ + ······.eq('auto_payout_enabled',·true)
+         51 │ + ······.not('bank_code',·'is',·null)
+         52 │ + ······.not('bank_account_number',·'is',·null);
+     50  53 │   
+     51     │ - ········if·(merchantError)·throw·merchantError;
+         54 │ + ····if·(merchantError)·throw·merchantError;
+     52  55 │   
+     53     │ - ········const·eligibleMerchants·=·(merchants·as·Merchant[]).filter((m)·=>·{
+     54     │ - ············if·(m.payout_mode·===·'instant')·return·true;·//·Runs·daily/frequently
+     55     │ - ············if·(m.payout_mode·===·'weekly'·&&·isMonday)·return·true;·//·Runs·only·on·Mondays
+     56     │ - ············return·false;
+     57     │ - ········});
+         56 │ + ····const·eligibleMerchants·=·(merchants·as·Merchant[]).filter((m)·=>·{
+         57 │ + ······if·(m.payout_mode·===·'instant')·return·true;·//·Runs·daily/frequently
+         58 │ + ······if·(m.payout_mode·===·'weekly'·&&·isMonday)·return·true;·//·Runs·only·on·Mondays
+         59 │ + ······return·false;
+         60 │ + ····});
+     58  61 │   
+     59     │ - ········const·results·=·[];
+         62 │ + ····const·results·=·[];
+     60  63 │   
+     61     │ - ········//·2.·Process·Each·Merchant
+     62     │ - ········for·(const·merchant·of·eligibleMerchants)·{
+     63     │ - ············//·Fetch·unpaid·completed·orders
+     64     │ - ············const·{·data:·orders,·error:·orderError·}·=·await·supabase
+     65     │ - ················.from('orders')
+     66     │ - ················.select('id,·total_amount')
+     67     │ - ················.eq('merchant_id',·merchant.id)
+     68     │ - ················.eq('status',·'completed')
+     69     │ - ················.eq('payout_status',·'unpaid');
+         64 │ + ····//·2.·Process·Each·Merchant
+         65 │ + ····for·(const·merchant·of·eligibleMerchants)·{
+         66 │ + ······//·Fetch·unpaid·completed·orders
+         67 │ + ······const·{·data:·orders,·error:·orderError·}·=·await·supabase
+         68 │ + ········.from('orders')
+         69 │ + ········.select('id,·total_amount')
+         70 │ + ········.eq('merchant_id',·merchant.id)
+         71 │ + ········.eq('status',·'completed')
+         72 │ + ········.eq('payout_status',·'unpaid');
+     70  73 │   
+     71     │ - ············if·(orderError)·{
+     72     │ - ················console.error(`Error·fetching·orders·for·merchant·${merchant.id}:`,·orderError);
+     73     │ - ················continue;
+     74     │ - ············}
+         74 │ + ······if·(orderError)·{
+         75 │ + ········console.error(
+         76 │ + ··········`Error·fetching·orders·for·merchant·${merchant.id}:`,
+         77 │ + ··········orderError
+         78 │ + ········);
+         79 │ + ········continue;
+         80 │ + ······}
+     75  81 │   
+     76     │ - ············if·(!orders·||·orders.length·===·0)·continue;
+         82 │ + ······if·(!orders·||·orders.length·===·0)·continue;
+     77  83 │   
+     78     │ - ············//·Calculate·Total·Logic
+     79     │ - ············const·totalAmount·=·orders.reduce((sum,·order)·=>·sum·+·Number(order.total_amount),·0);
+         84 │ + ······//·Calculate·Total·Logic
+         85 │ + ······const·totalAmount·=·orders.reduce(
+         86 │ + ········(sum,·order)·=>·sum·+·Number(order.total_amount),
+         87 │ + ········0
+         88 │ + ······);
+     80  89 │   
+     81     │ - ············//·Minimum·payout·threshold·(e.g.,·₦100)
+     82     │ - ············if·(totalAmount·<·100)·continue;
+         90 │ + ······//·Minimum·payout·threshold·(e.g.,·₦100)
+         91 │ + ······if·(totalAmount·<·100)·continue;
+     83  92 │   
+     84     │ - ············//·3.·Initiate·Transfer·with·Paystack
+     85     │ - ············try·{
+  221 more lines truncated
+  
+
+The number of diagnostics exceeds the limit allowed. Use --max-diagnostics to increase it.
+Diagnostics not shown: 39.
+Checked 855 files in 775ms. No fixes applied.
+Found 39 errors.
+Found 20 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

@@ -61,7 +61,7 @@ describe('MyCover Webhook', () => {
     expect(res.status).toBe(200);
   });
 
-  it('should log error on invalid signature but process request (soft fail)', async () => {
+  it('should reject request with invalid signature (hard fail - 2026 best practice)', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
 
@@ -74,8 +74,15 @@ describe('MyCover Webhook', () => {
     });
 
     const res = await POST(req);
-    expect(res.status).toBe(200); // Should still process for now
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Signature verification FAILED'));
+    expect(res.status).toBe(401); // Hardened to fail fast (2026 security best practice)
+
+    // Verify error was logged (first argument contains the message)
+    expect(consoleSpy).toHaveBeenCalled();
+    const firstCallArgs = consoleSpy.mock.calls[0];
+    expect(firstCallArgs[0]).toContain('Signature verification FAILED');
+
+    const body = await res.json();
+    expect(body.error).toBe('Invalid signature');
   });
 
   it('should verify using x-signature header as fallback', async () => {

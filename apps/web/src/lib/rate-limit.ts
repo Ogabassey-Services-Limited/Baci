@@ -15,6 +15,7 @@ interface RateLimitConfig {
 
 // Rate limit configurations per endpoint pattern
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  '/api/wallet': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute (sensitive financial operations)
   '/api/orders': { maxRequests: 10, windowMs: 60000 }, // 10 requests per minute
   '/api/products': { maxRequests: 30, windowMs: 60000 }, // 30 requests per minute
   '/api/storefront': { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
