@@ -3,7 +3,7 @@
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import {
   Dialog,
@@ -191,7 +191,7 @@ export function QuickViewModal({
 
             {/* Thumbnail Gallery */}
             {allImages.length > 1 && (
-              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-2" role="list">
                 {allImages.map((img, idx) => (
                   <button
                     type="button"
@@ -199,11 +199,15 @@ export function QuickViewModal({
                     key={idx}
                     onClick={() => setSelectedImage(img.url)}
                     className={cn(
-                      'relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0',
+                      'relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                       selectedImage === img.url
                         ? 'border-[var(--store-primary)]'
                         : 'border-transparent hover:border-muted-foreground/30'
                     )}
+                    aria-label={`View image ${idx + 1} of ${allImages.length}`}
+                    aria-current={selectedImage === img.url}
+                    role="listitem"
                   >
                     <Image
                       src={img.url}
@@ -259,13 +263,20 @@ export function QuickViewModal({
               <div className="space-y-4 mb-6">
                 {attributeOptions.map(({ key, values }) => (
                   <div key={key}>
-                    <Label className="text-sm font-medium mb-2 block capitalize">
+                    <Label
+                      className="text-sm font-medium mb-2 block capitalize"
+                      id={`variant-label-${key}`}
+                    >
                       {key}:{' '}
                       <span className="font-normal">
                         {selectedAttributes[key]}
                       </span>
                     </Label>
-                    <div className="flex flex-wrap gap-2">
+                    <div
+                      className="flex flex-wrap gap-2"
+                      role="radiogroup"
+                      aria-labelledby={`variant-label-${key}`}
+                    >
                       {values.map((value) => {
                         const isSelected = selectedAttributes[key] === value;
                         // Check if this option is available
@@ -280,8 +291,12 @@ export function QuickViewModal({
                             key={value}
                             onClick={() => handleAttributeChange(key, value)}
                             disabled={!isAvailable}
+                            role="radio"
+                            aria-checked={isSelected}
+                            aria-label={`${key}: ${value}`}
                             className={cn(
                               'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                               isSelected
                                 ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
                                 : isAvailable
@@ -290,7 +305,7 @@ export function QuickViewModal({
                             )}
                           >
                             {isSelected && (
-                              <Check className="w-3 h-3 inline mr-1" />
+                              <Check className="w-3 h-3 inline mr-1" aria-hidden="true" />
                             )}
                             {value}
                           </button>
@@ -426,23 +441,41 @@ function isVariantAvailable(
 
 /**
  * Hook to manage quick view state
- *
- * 2026 Best Practice: Wrap callbacks in useCallback for stable references
- * to prevent unnecessary re-renders in components that use this hook.
  */
 export function useQuickView() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup effect - clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const openQuickView = useCallback((p: Product) => {
+    // Clear any pending timeout when opening new quick view
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     setProduct(p);
     setIsOpen(true);
   }, []);
 
   const closeQuickView = useCallback(() => {
     setIsOpen(false);
+    // Clear previous timeout if exists
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     // Delay clearing product to allow close animation
-    setTimeout(() => setProduct(null), 300);
+    timeoutRef.current = setTimeout(() => {
+      setProduct(null);
+      timeoutRef.current = null;
+    }, 300);
   }, []);
 
   return {

@@ -1,8 +1,13 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { ThemedButton } from '@/components/themed';
+import { Eye, Minus, PackageOpen, Plus, SearchX } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { ProductCardImage } from '@/components/optimized-image';
+import { ThemedButton, ThemedCard } from '@/components/themed';
+import { CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
@@ -13,8 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { findDarkestColor } from '@/lib/color-utils';
 import { type Product, sampleProductsByCategory } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
 import { DidYouMeanBanner } from './did-you-mean-banner';
-import { StorefrontProductCard } from './product-card';
 import { QuickViewModal, useQuickView } from './quick-view-modal';
 
 interface StorefrontProductGridProps {
@@ -54,6 +59,7 @@ export function StorefrontProductGrid({
   const merchant = merchantContext?.merchant || null;
   const { cart, addToCart, updateQuantity, setMerchantSlug } = useCart();
   const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
   const storefrontContext = useStorefrontSafe();
 
   // Optimization: Memoize cart items map for O(1) lookup in render loop
@@ -371,33 +377,17 @@ export function StorefrontProductGrid({
     priceRanges,
   ]);
 
-  // 2026 Best Practice: Wrap callbacks in useCallback for stable references
-  // This prevents child components from re-rendering unnecessarily
-  const handleAddToCart = useCallback(
-    (product: Product) => {
-      // Store merchant slug for checkout
-      if (merchant?.slug) {
-        setMerchantSlug(merchant.slug);
-      }
-      addToCart(product);
-      toast({
-        title: 'Added to cart',
-        description: `${product.name} has been added to your cart.`,
-      });
-    },
-    [merchant?.slug, setMerchantSlug, addToCart, toast]
-  );
-
-  const handleUpdateQuantity = useCallback(
-    (productId: string, quantity: number) => {
-      updateQuantity(productId, quantity);
-    },
-    [updateQuantity]
-  );
-
-  // 2026 React 19 Pattern: useDeferredValue for non-urgent updates
-  // This allows React to prioritize user interactions over list rendering
-  const deferredSearchResults = useDeferredValue(searchResults);
+  const handleAddToCart = (product: Product) => {
+    // Store merchant slug for checkout
+    if (merchant?.slug) {
+      setMerchantSlug(merchant.slug);
+    }
+    addToCart(product);
+    toast({
+      title: 'Added to cart',
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
 
   const brandColors = merchant?.brand_colors
     ? [
@@ -530,35 +520,201 @@ export function StorefrontProductGrid({
             count={limit}
             columns={columns as 2 | 3 | 4 | 5 | 6}
           />
-        ) : deferredSearchResults.length > 0 ? (
+        ) : searchResults.length > 0 ? (
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${GRID_COLUMN_CLASSES[columns] || GRID_COLUMN_CLASSES[4]} gap-6`}
           >
-            {deferredSearchResults.map((product, index) => {
+            {searchResults.map((product, index) => {
               const cartItem = cartItemsMap.get(product.id);
+              // Stagger animation class (1-8, then loops)
               const staggerClass =
                 STAGGER_CLASSES[index % STAGGER_CLASSES.length];
+              const productCategory =
+                // biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join
+                (product as any).categories?.name ||
+                product.category ||
+                'General';
 
               return (
-                <StorefrontProductCard
+                <ThemedCard
                   key={product.id}
-                  product={product}
-                  cartItem={cartItem}
-                  staggerClass={staggerClass}
-                  onAddToCart={handleAddToCart}
-                  onUpdateQuantity={handleUpdateQuantity}
-                  onQuickView={openQuickView}
-                />
+                  className={`glass-themed overflow-hidden hover-lift flex flex-col group/card animate-fade-in-up ${staggerClass}`}
+                  accentPosition="top"
+                >
+                  <Link
+                    href={getProductUrl(product)}
+                    className="block relative group"
+                  >
+                    <ProductCardImage
+                      src={product.imageLarge}
+                      alt={product.name}
+                      data-ai-hint={product.imageHint}
+                      width={600}
+                      height={400}
+                      className="object-cover w-full h-auto aspect-video"
+                      category={productCategory}
+                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    />
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
+                      {product.compare_at_price &&
+                        product.compare_at_price > product.price && (
+                          <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                            SALE
+                          </span>
+                        )}
+                      {product.manage_stock &&
+                        product.stock <= (product.low_stock_threshold || 5) &&
+                        product.stock > 0 && (
+                          <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                            LOW STOCK
+                          </span>
+                        )}
+                      {product.manage_stock && product.stock === 0 && (
+                        <span className="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                          OUT OF STOCK
+                        </span>
+                      )}
+                    </div>
+                    {/* Quick View Button - Desktop Only */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openQuickView(product);
+                      }}
+                      className="absolute bottom-3 left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-gray-900 px-4 py-2 rounded-full text-sm font-medium shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-white hover:scale-105"
+                      aria-label={`Quick view ${product.name}`}
+                    >
+                      <Eye className="w-4 h-4" />
+                      Quick View
+                    </button>
+                  </Link>
+                  <CardContent className="p-4 flex flex-col flex-1">
+                    <h3 className="font-semibold text-lg">{product.name}</h3>
+                    <p className="text-muted-foreground text-sm mt-1 truncate flex-1">
+                      {product.description}
+                    </p>
+                    <div className="flex items-center justify-between mt-4">
+                      <p
+                        className="text-lg font-bold"
+                        style={{ color: 'var(--store-primary)' }}
+                      >
+                        {formatCurrency(product.price)}
+                      </p>
+                      {cartItem ? (
+                        <div className="flex items-center gap-1">
+                          <ThemedButton
+                            colorRole="primary"
+                            size="icon"
+                            variant="outline"
+                            className="h-10 w-10 min-w-[44px] min-h-[44px]"
+                            onClick={() =>
+                              updateQuantity(product.id, cartItem.quantity - 1)
+                            }
+                            aria-label={`Decrease quantity of ${product.name}`}
+                          >
+                            <Minus className="h-4 w-4" aria-hidden="true" />
+                          </ThemedButton>
+                          <Input
+                            type="number"
+                            value={cartItem.quantity}
+                            onChange={(e) =>
+                              updateQuantity(
+                                product.id,
+                                Number.parseInt(e.target.value, 10) || 0
+                              )
+                            }
+                            className="h-10 w-12 text-center remove-arrow"
+                            min="0"
+                            aria-label={`Quantity for ${product.name}`}
+                          />
+                          <ThemedButton
+                            colorRole="primary"
+                            size="icon"
+                            className="h-10 w-10 min-w-[44px] min-h-[44px]"
+                            onClick={() =>
+                              updateQuantity(product.id, cartItem.quantity + 1)
+                            }
+                            aria-label={`Increase quantity of ${product.name}`}
+                          >
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                          </ThemedButton>
+                        </div>
+                      ) : (
+                        <ThemedButton
+                          colorRole="primary"
+                          size="sm"
+                          onClick={() => handleAddToCart(product)}
+                        >
+                          Add to Cart
+                        </ThemedButton>
+                      )}
+                    </div>
+                  </CardContent>
+                </ThemedCard>
               );
             })}
           </div>
         ) : (
-          <div className="text-center text-muted-foreground py-16">
-            <h3 className="text-xl font-semibold">No products found</h3>
-            <p>
-              Your search for &quot;{searchQuery}&quot; did not match any
-              products.
-            </p>
+          <div
+            className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in"
+            role="status"
+            aria-live="polite"
+          >
+            {searchQuery || selectedCategory !== 'All' ? (
+              <>
+                {/* Search Results Empty State */}
+                <div className="rounded-full bg-muted/50 p-6 mb-6">
+                  <SearchX
+                    className="w-16 h-16 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-3">
+                  No matches found
+                </h3>
+                <p className="text-muted-foreground mb-6 max-w-md text-center">
+                  {searchQuery ? (
+                    <>
+                      Your search for <strong>&quot;{searchQuery}&quot;</strong>{' '}
+                      did not match any products.
+                    </>
+                  ) : (
+                    <>
+                      No products found in the{' '}
+                      <strong>&quot;{selectedCategory}&quot;</strong> category.
+                    </>
+                  )}
+                </p>
+                <ThemedButton
+                  colorRole="primary"
+                  onClick={() => {
+                    handleSetSearchQuery('');
+                    handleSetSelectedCategory('All');
+                  }}
+                  aria-label="Clear search filters and show all products"
+                >
+                  Clear Search
+                </ThemedButton>
+              </>
+            ) : (
+              <>
+                {/* General Empty State */}
+                <div className="rounded-full bg-muted/50 p-6 mb-6">
+                  <PackageOpen
+                    className="w-16 h-16 text-muted-foreground/50"
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="text-2xl font-semibold text-foreground mb-3">
+                  No products available
+                </h3>
+                <p className="text-muted-foreground max-w-md text-center">
+                  This store doesn&apos;t have any products yet. Check back soon!
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
