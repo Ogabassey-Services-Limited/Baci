@@ -22,6 +22,9 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    # Skip for forked PRs where SEMGREP_APP_TOKEN is not available
+    # Forked PRs don't have access to secrets, which would cause Semgrep CI to fail
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
       security-events: write

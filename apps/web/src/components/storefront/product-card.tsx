@@ -73,10 +73,11 @@ export const StorefrontProductCard = memo(
     }, [product.manage_stock, product.stock]);
 
     // Extract category (handles both categories join and direct category)
+    // biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join
+    const categoriesName = (product as any).categories?.name;
     const productCategory = useMemo(() => {
-      // biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join
-      return (product as any).categories?.name || product.category || 'General';
-    }, [product]);
+      return categoriesName || product.category || 'General';
+    }, [categoriesName, product.category]);
 
     // Stable callbacks using useCallback
     const handleAddToCart = useCallback(() => {
@@ -221,12 +222,20 @@ export const StorefrontProductCard = memo(
   // Custom equality check for optimal re-render prevention
   (prevProps, nextProps) => {
     // Re-render only if these specific properties change
+    // Includes all fields used in render: price display, badges, description, category
     return (
       prevProps.product.id === nextProps.product.id &&
       prevProps.product.name === nextProps.product.name &&
       prevProps.product.price === nextProps.product.price &&
+      prevProps.product.compare_at_price ===
+        nextProps.product.compare_at_price &&
       prevProps.product.imageLarge === nextProps.product.imageLarge &&
       prevProps.product.stock === nextProps.product.stock &&
+      prevProps.product.manage_stock === nextProps.product.manage_stock &&
+      prevProps.product.low_stock_threshold ===
+        nextProps.product.low_stock_threshold &&
+      prevProps.product.description === nextProps.product.description &&
+      prevProps.product.category === nextProps.product.category &&
       prevProps.cartItem?.quantity === nextProps.cartItem?.quantity &&
       prevProps.staggerClass === nextProps.staggerClass
     );

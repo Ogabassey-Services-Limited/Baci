@@ -191,33 +191,33 @@ export function QuickViewModal({
 
             {/* Thumbnail Gallery */}
             {allImages.length > 1 && (
-              // biome-ignore lint/a11y/useSemanticElements: Flexbox layout for horizontal scrolling thumbnails
-              <div className="flex gap-2 mt-4 overflow-x-auto pb-2" role="list">
+              <ul className="flex gap-2 mt-4 overflow-x-auto pb-2 list-none m-0 p-0">
                 {allImages.map((img, idx) => (
-                  <button
-                    type="button"
-                    // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
-                    key={idx}
-                    onClick={() => setSelectedImage(img.url)}
-                    className={cn(
-                      'relative w-16 h-16 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all',
-                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                      selectedImage === img.url
-                        ? 'border-[var(--store-primary)]'
-                        : 'border-transparent hover:border-muted-foreground/30'
-                    )}
-                    aria-label={`View image ${idx + 1} of ${allImages.length}`}
-                    aria-current={selectedImage === img.url}
-                  >
-                    <Image
-                      src={img.url}
-                      alt={img.alt || `Product image ${idx + 1}`}
-                      fill
-                      className="object-cover"
-                    />
-                  </button>
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
+                  <li key={idx} className="flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(img.url)}
+                      className={cn(
+                        'relative w-16 h-16 rounded-md overflow-hidden border-2 transition-all',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                        selectedImage === img.url
+                          ? 'border-[var(--store-primary)]'
+                          : 'border-transparent hover:border-muted-foreground/30'
+                      )}
+                      aria-label={`View image ${idx + 1} of ${allImages.length}`}
+                      aria-current={selectedImage === img.url}
+                    >
+                      <Image
+                        src={img.url}
+                        alt={img.alt || `Product image ${idx + 1}`}
+                        fill
+                        className="object-cover"
+                      />
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
 
@@ -261,63 +261,70 @@ export function QuickViewModal({
             {/* Variant Selection */}
             {product.has_variants && attributeOptions.length > 0 && (
               <div className="space-y-4 mb-6">
-                {attributeOptions.map(({ key, values }) => (
-                  <div key={key}>
-                    <Label
-                      className="text-sm font-medium mb-2 block capitalize"
-                      id={`variant-label-${key}`}
-                    >
-                      {key}:{' '}
-                      <span className="font-normal">
-                        {selectedAttributes[key]}
-                      </span>
-                    </Label>
-                    <div
-                      className="flex flex-wrap gap-2"
-                      role="radiogroup"
-                      aria-labelledby={`variant-label-${key}`}
-                    >
-                      {values.map((value) => {
-                        const isSelected = selectedAttributes[key] === value;
-                        // Check if this option is available
-                        const isAvailable = isVariantAvailable(
-                          product.variants || [],
-                          { ...selectedAttributes, [key]: value }
-                        );
+                {attributeOptions.map(({ key, values }) => {
+                  // Sanitize key for valid HTML id (lowercase, alphanumeric + hyphens only)
+                  const labelId = `variant-label-${key
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '')}`;
+                  return (
+                    <div key={key}>
+                      <Label
+                        className="text-sm font-medium mb-2 block capitalize"
+                        id={labelId}
+                      >
+                        {key}:{' '}
+                        <span className="font-normal">
+                          {selectedAttributes[key]}
+                        </span>
+                      </Label>
+                      <div
+                        className="flex flex-wrap gap-2"
+                        role="radiogroup"
+                        aria-labelledby={labelId}
+                      >
+                        {values.map((value) => {
+                          const isSelected = selectedAttributes[key] === value;
+                          // Check if this option is available
+                          const isAvailable = isVariantAvailable(
+                            product.variants || [],
+                            { ...selectedAttributes, [key]: value }
+                          );
 
-                        return (
-                          // biome-ignore lint/a11y/useSemanticElements: Custom styled radio buttons for better visual design
-                          <button
-                            type="button"
-                            key={value}
-                            onClick={() => handleAttributeChange(key, value)}
-                            disabled={!isAvailable}
-                            role="radio"
-                            aria-checked={isSelected}
-                            aria-label={`${key}: ${value}`}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                              isSelected
-                                ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
-                                : isAvailable
-                                  ? 'bg-muted hover:bg-muted/80'
-                                  : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'
-                            )}
-                          >
-                            {isSelected && (
-                              <Check
-                                className="w-3 h-3 inline mr-1"
-                                aria-hidden="true"
-                              />
-                            )}
-                            {value}
-                          </button>
-                        );
-                      })}
+                          return (
+                            // biome-ignore lint/a11y/useSemanticElements: Custom styled radio buttons for better visual design
+                            <button
+                              type="button"
+                              key={value}
+                              onClick={() => handleAttributeChange(key, value)}
+                              disabled={!isAvailable}
+                              role="radio"
+                              aria-checked={isSelected}
+                              aria-label={`${key}: ${value}`}
+                              className={cn(
+                                'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                isSelected
+                                  ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
+                                  : isAvailable
+                                    ? 'bg-muted hover:bg-muted/80'
+                                    : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'
+                              )}
+                            >
+                              {isSelected && (
+                                <Check
+                                  className="w-3 h-3 inline mr-1"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {value}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
