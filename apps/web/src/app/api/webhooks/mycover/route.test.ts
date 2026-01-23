@@ -23,9 +23,9 @@ describe('MyCover Webhook', () => {
     process.env.MYCOVER_SECRET_KEY = secret;
   });
 
-  it('should verify valid HMAC-SHA512 signature', async () => {
+  it('should verify valid HMAC-SHA256 signature with x-mycover-signature header', async () => {
     const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
-    const signature = crypto.createHmac('sha512', secret).update(payload).digest('hex');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
     const req = new NextRequest('http://localhost/api/webhooks/mycover', {
       method: 'POST',
@@ -81,7 +81,7 @@ describe('MyCover Webhook', () => {
 
   it('should verify using x-signature header as fallback', async () => {
     const payload = JSON.stringify({ event: 'test', data: { policy_id: '123' } });
-    const signature = crypto.createHmac('sha512', secret).update(payload).digest('hex');
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
     const req = new NextRequest('http://localhost/api/webhooks/mycover', {
       method: 'POST',
