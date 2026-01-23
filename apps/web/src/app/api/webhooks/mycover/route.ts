@@ -36,9 +36,101 @@ interface MyCoverWebhookPayload {
   timestamp?: string;
 }
 
+/**
+ * Verifies webhook signature using HMAC-SHA256
+ */
+async function verifySignature(
+  rawBody: string,
+  signature: string,
+  secret: string
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(rawBody);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+
+    const signatureBuffer = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      messageData
+    );
+
+    const computedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    return computedSignature === signature.toLowerCase();
+  } catch (error) {
+    console.error('[MyCover Webhook] Signature verification error:', error);
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const payload: MyCoverWebhookPayload = await request.json();
+    const secret = process.env.MYCOVER_SECRET_KEY;
+
+    // CRITICAL: Fail-closed - reject if secret missing
+    if (!secret) {
+      console.error(
+        '[MyCover Webhook] MYCOVER_SECRET_KEY not configured. Rejecting webhook.'
+      );
+      return NextResponse.json(
+        {
+          error: 'Configuration error',
+          message: 'Webhook verification secret not configured',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Get signature from headers
+    const signature =
+      request.headers.get('x-mycover-signature') ||
+      request.headers.get('x-signature');
+
+    if (!signature) {
+      console.error('[MyCover Webhook] No signature header found.');
+      return NextResponse.json(
+        {
+          error: 'Missing signature',
+          message: 'Webhook signature header required',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Read raw body for signature verification
+    const rawBody = await request.text();
+
+    // Verify signature
+    const isValid = await verifySignature(rawBody, signature, secret);
+
+    if (!isValid) {
+      console.error(
+        '[MyCover Webhook] Signature verification FAILED. Possible spoofing attempt.'
+      );
+      return NextResponse.json(
+        {
+          error: 'Invalid signature',
+          message: 'Webhook signature verification failed',
+        },
+        { status: 401 }
+      );
+    }
+
+    console.log('[MyCover Webhook] ✅ Signature verified.');
+
+    // Now parse payload and continue processing
+    const payload: MyCoverWebhookPayload = JSON.parse(rawBody);
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');

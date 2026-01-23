@@ -444,7 +444,10 @@ export default function WishListPage() {
                         aria-label={`Remove ${item.products.name} from wishlist`}
                       >
                         {removingItemId === item.id ? (
-                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
+                          <Loader2
+                            className="h-4 w-4 motion-safe:animate-spin"
+                            aria-hidden="true"
+                          />
                         ) : (
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         )}

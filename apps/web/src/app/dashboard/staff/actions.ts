@@ -8,7 +8,7 @@ import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
-import { InviteStaffSchema, type InviteStaffData } from './schema';
+import { type InviteStaffData, InviteStaffSchema } from './schema';
 
 // Valid staff statuses
 type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
