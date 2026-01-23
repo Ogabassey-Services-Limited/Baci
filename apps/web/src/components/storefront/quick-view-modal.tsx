@@ -327,16 +327,38 @@ export function QuickViewModal({
                                 );
                                 if (currentIndex < 0) return;
                                 const lastIndex = buttons.length - 1;
-                                const nextIndex =
+
+                                const isForward =
+                                  event.key === 'ArrowRight' ||
+                                  event.key === 'ArrowDown' ||
+                                  event.key === 'Home';
+
+                                let nextIndex =
                                   event.key === 'Home'
                                     ? 0
                                     : event.key === 'End'
                                       ? lastIndex
-                                      : event.key === 'ArrowRight' ||
-                                          event.key === 'ArrowDown'
-                                        ? (currentIndex + 1) % buttons.length
-                                        : (currentIndex - 1 + buttons.length) %
-                                          buttons.length;
+                                      : (currentIndex +
+                                          (isForward ? 1 : -1) +
+                                          buttons.length) %
+                                        buttons.length;
+
+                                // 2026 A11y Best Practice: Skip disabled options in radio group navigation
+                                let attempts = 0;
+                                while (
+                                  buttons[nextIndex]?.disabled &&
+                                  attempts < buttons.length
+                                ) {
+                                  nextIndex =
+                                    (nextIndex +
+                                      (isForward ? 1 : -1) +
+                                      buttons.length) %
+                                    buttons.length;
+                                  attempts += 1;
+                                }
+
+                                if (buttons[nextIndex]?.disabled) return;
+
                                 const nextValue = values[nextIndex];
                                 handleAttributeChange(key, nextValue);
                                 // Focus the next button in the set

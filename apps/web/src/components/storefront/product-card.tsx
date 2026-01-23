@@ -62,6 +62,7 @@ export function StorefrontProductCard({
     product.categories?.name || product.category || 'General';
 
   const handleAddToCart = () => {
+    if (isOutOfStock) return;
     onAddToCart(product);
   };
 
@@ -170,6 +171,7 @@ export function StorefrontProductCard({
                 variant="outline"
                 className="h-10 w-10 min-w-[44px] min-h-[44px]"
                 onClick={handleDecreaseQuantity}
+                disabled={cartItem.quantity <= 0}
                 aria-label={`Decrease quantity of ${product.name}`}
               >
                 <Minus className="h-4 w-4" aria-hidden="true" />
@@ -188,6 +190,9 @@ export function StorefrontProductCard({
                 size="icon"
                 className="h-10 w-10 min-w-[44px] min-h-[44px]"
                 onClick={handleIncreaseQuantity}
+                disabled={
+                  product.manage_stock && cartItem.quantity >= product.stock
+                }
                 aria-label={`Increase quantity of ${product.name}`}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -198,9 +203,15 @@ export function StorefrontProductCard({
               colorRole="primary"
               size="sm"
               onClick={handleAddToCart}
-              aria-label={`Add ${product.name} to cart`}
+              disabled={isOutOfStock}
+              aria-disabled={isOutOfStock}
+              aria-label={
+                isOutOfStock
+                  ? `Out of stock: ${product.name}`
+                  : `Add ${product.name} to cart`
+              }
             >
-              Add to Cart
+              {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
             </ThemedButton>
           )}
         </div>

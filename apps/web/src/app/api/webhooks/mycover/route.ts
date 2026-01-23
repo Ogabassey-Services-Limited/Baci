@@ -1,5 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  getMyCoverWebhookSecret,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl,
+} from '@/env';
+import {
+  type MyCoverWebhookPayload,
+  myCoverWebhookSchema,
+} from '@/schemas/mycover-webhook';
 
 /**
  * MyCover.ai Webhook Handler
@@ -12,14 +21,9 @@ import { type NextRequest, NextResponse } from 'next/server';
  * Security: Verifies HMAC-SHA512 signature using x-mycoverai-signature header
  */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const myCoverWebhookSecret = process.env.MYCOVER_WEBHOOK_SECRET || '';
-
-import {
-  type MyCoverWebhookPayload,
-  myCoverWebhookSchema,
-} from '@/schemas/mycover-webhook';
+const supabaseUrl = getSupabaseUrl();
+const supabaseServiceKey = getSupabaseServiceRoleKey();
+const myCoverWebhookSecret = getMyCoverWebhookSecret();
 
 /**
  * Verify MyCover webhook signature using HMAC-SHA512
@@ -265,14 +269,20 @@ async function handleClaimUpdate(
       claimStatus = 'unknown';
   }
 
+  // 2026 Best Practice: Explicit conditional updates for clarity and to avoid unintentional field omissions
+  const updateData: Record<string, unknown> = {
+    claim_status: claimStatus,
+    claim_id: data.claim_id,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (event === 'claim.approved') {
+    updateData.status = 'claimed';
+  }
+
   const { error } = await supabase
     .from('order_insurance_policies')
-    .update({
-      claim_status: claimStatus,
-      claim_id: data.claim_id,
-      status: event === 'claim.approved' ? 'claimed' : undefined,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('mycover_policy_id', data.policy_id);
 
   if (error) {

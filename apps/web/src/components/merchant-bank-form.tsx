@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 const bankSchema = z.object({
   accountNumber: z
     .string()
-    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
+    .regex(/^\d+$/, 'Account number must contain only digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
   payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),

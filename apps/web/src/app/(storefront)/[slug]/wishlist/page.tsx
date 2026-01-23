@@ -392,6 +392,7 @@ export default function WishListPage() {
                     alt={item.products.name}
                     fill
                     className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">

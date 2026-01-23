@@ -56,7 +56,7 @@ async function fetchWithTimeout(
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       if (!orders || orders.length === 0) continue;
 
       // Calculate Total Logic (with NaN protection)
-      const totalAmount = orders.reduce((sum, order) => {
+      const totalAmount = orders.reduce((sum: number, order: any) => {
         const amount = Number(order.total_amount);
         return sum + (Number.isFinite(amount) ? amount : 0);
       }, 0);
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
       if (!Number.isFinite(totalAmount) || totalAmount < 100) continue;
 
       // Define orderIds before try block so it's accessible in catch for rollback
-      const orderIds = orders.map((o) => o.id);
+      const orderIds = orders.map((o: any) => o.id);
 
       // 3. Initiate Transfer with Paystack
       try {
@@ -200,8 +200,7 @@ Deno.serve(async (req) => {
           transferAmountKobo
         );
 
-        // 2026 Best Practice: Check for existing payout with same reference
-        // This prevents duplicate transfers if the function runs multiple times
+        let payoutRecord: { id: string } | null = null;
         const { data: existingPayout } = await supabase
           .from('payouts')
           .select('id, status, reference')
@@ -244,32 +243,45 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // If it failed, we might want to try again with a DIFFERENT reference or handle it
-          // For now, we'll continue to the catch/retry logic
+          // 2026 Best Practice: Reuse failed payout records to avoid UNIQUE constraint violations on retry
+          if (existingPayout.status === 'failed') {
+            const { error: reviveError } = await supabase
+              .from('payouts')
+              .update({
+                status: 'processing',
+                error_message: null,
+                initiated_at: new Date().toISOString(),
+              })
+              .eq('id', existingPayout.id);
+            if (reviveError) throw reviveError;
+            payoutRecord = existingPayout;
+          }
         }
 
-        // 2026 Best Practice: Create payout record BEFORE Paystack transfer
-        // This ensures we have a record of the attempt even if transfer fails
-        const { data: payout, error: payoutError } = await supabase
-          .from('payouts')
-          .insert({
-            merchant_id: merchant.id,
-            amount: totalAmount,
-            currency: 'NGN',
-            status: 'processing', // Mark as processing before transfer
-            reference: idempotencyRef, // Use idempotency ref as our reference
-            payout_mode: merchant.payout_mode,
-            initiated_at: new Date().toISOString(), // Set when initiated, not when processed
-          })
-          .select()
-          .single();
+        if (!payoutRecord) {
+          // 2026 Best Practice: Create payout record BEFORE Paystack transfer
+          const { data: insertedPayout, error: payoutError } = await supabase
+            .from('payouts')
+            .insert({
+              merchant_id: merchant.id,
+              amount: totalAmount,
+              currency: 'NGN',
+              status: 'processing', // Mark as processing before transfer
+              reference: idempotencyRef, // Use idempotency ref as our reference
+              payout_mode: merchant.payout_mode,
+              initiated_at: new Date().toISOString(), // Set when initiated, not when processed
+            })
+            .select()
+            .single();
 
-        if (payoutError) throw payoutError;
+          if (payoutError) throw payoutError;
+          payoutRecord = insertedPayout;
+        }
 
         // Link orders to payout immediately
         const { error: linkError } = await supabase
           .from('orders')
-          .update({ payout_id: payout.id })
+          .update({ payout_id: payoutRecord!.id })
           .in('id', orderIds);
 
         if (linkError) {
@@ -281,7 +293,7 @@ Deno.serve(async (req) => {
               status: 'failed',
               error_message: 'Failed to link orders to payout',
             })
-            .eq('id', payout.id);
+            .eq('id', payoutRecord!.id);
           throw linkError;
         }
 
@@ -328,7 +340,7 @@ Deno.serve(async (req) => {
             paystack_transfer_code: transferCode,
             processed_at: new Date().toISOString(), // Set when transfer actually succeeds
           })
-          .eq('id', payout.id);
+          .eq('id', payoutRecord!.id);
 
         // Update orders status to pending
         const { error: updateError } = await supabase

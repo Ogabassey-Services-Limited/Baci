@@ -103,8 +103,11 @@ export async function generateMetadata({
     | Record<string, unknown>
     | undefined;
 
-  const verificationCode = (featureSettings?.google_site_verification ||
-    publishedConfig?.google_site_verification) as string | undefined;
+  const rawVerification =
+    featureSettings?.google_site_verification ||
+    publishedConfig?.google_site_verification;
+  const verificationCode =
+    typeof rawVerification === 'string' ? rawVerification : undefined;
 
   // Build icons configuration for merchant favicon
   // Fall back to logo_url if no dedicated favicon exists

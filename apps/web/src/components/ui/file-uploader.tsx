@@ -45,6 +45,16 @@ export function FileUploader({
     entriesRef.current = entries;
   }, [entries]);
 
+  // 2026 Best Practice: Separate state updates from side effects to ensure purity in Strict Mode
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    onFilesSelected(getFiles(entries));
+  }, [entries, onFilesSelected]);
+
   // Cleanup object URLs to avoid memory leaks
   // Runs only on unmount to ensure URLs remain valid while the component is active
   useEffect(() => {
@@ -95,8 +105,6 @@ export function FileUploader({
         }));
 
         const updatedEntries = [...prev, ...newEntries];
-        // Propagate current files to parent
-        onFilesSelected(getFiles(updatedEntries));
         return updatedEntries;
       });
     }
@@ -110,7 +118,6 @@ export function FileUploader({
         URL.revokeObjectURL(entryToRemove.src);
       }
       const updated = prev.filter((_, i) => i !== index);
-      onFilesSelected(getFiles(updated));
       return updated;
     });
   };
