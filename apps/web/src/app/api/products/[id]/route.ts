@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCountryByCode } from '@/lib/countries';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-core';
 import {
   generateMetaDescription,
@@ -200,6 +201,11 @@ export async function PUT(
 
     if (fetchError || !existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    // Sanitize description to prevent Stored XSS
+    if (body.description) {
+      body.description = sanitizeHtml(body.description);
     }
 
     // Prepare updates
