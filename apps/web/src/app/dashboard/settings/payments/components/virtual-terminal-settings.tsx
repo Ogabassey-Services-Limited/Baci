@@ -418,7 +418,7 @@ export function VirtualTerminalSettings({
                               className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-primary"
                               onClick={() =>
                                 copyToClipboard(
-                                  account.account_number!,
+                                  account.account_number || '',
                                   'Account Number'
                                 )
                               }
@@ -453,7 +453,10 @@ export function VirtualTerminalSettings({
                             size="sm"
                             className="w-full justify-start text-xs h-7 px-2"
                             onClick={() =>
-                              copyToClipboard(account.payment_link!, 'Link')
+                              copyToClipboard(
+                                account.payment_link || '',
+                                'Link'
+                              )
                             }
                           >
                             <Copy className="h-3 w-3 mr-1" />
