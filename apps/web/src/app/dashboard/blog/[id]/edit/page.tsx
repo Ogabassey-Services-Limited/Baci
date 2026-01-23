@@ -888,7 +888,7 @@ export default function EditBlogPostPage() {
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
                     {merchant?.custom_domain
-                      ? `${merchant.custom_domain}/blog/`
+                      ? `${merchant.custom_domain.replace(/\/$/, '')}/blog/`
                       : `${merchant?.slug}.usebaci.com/blog/`}
                     {formData.slug || 'post-slug'}
                   </div>

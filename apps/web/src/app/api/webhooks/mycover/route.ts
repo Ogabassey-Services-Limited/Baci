@@ -112,7 +112,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse payload after signature verification
-    const payload: MyCoverWebhookPayload = JSON.parse(rawBody);
+    // 2026 Best Practice: Return 400 for malformed JSON (client error, not server error)
+    let payload: MyCoverWebhookPayload;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      console.warn('[MyCover Webhook] Invalid JSON payload');
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');

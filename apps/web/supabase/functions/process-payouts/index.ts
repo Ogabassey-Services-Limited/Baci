@@ -26,6 +26,23 @@ function generateIdempotencyRef(
   return `baci-payout-${merchantId}-${date.toISOString().slice(0, 10)}-${orderCount}-${amountKobo}`;
 }
 
+// Helper for fetch with explicit timeout error context (2026 best practice)
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit & { signal?: AbortSignal },
+  operationName: string
+): Promise<Response> {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    // Provide better error context for timeout errors
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new Error(`${operationName} timed out after 10s`);
+    }
+    throw err;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -119,7 +136,7 @@ Deno.serve(async (req) => {
         // A. Create/Fetch Transfer Recipient
         // We create it every time to be safe (idempotent if same details)
         // 2026 best practice: Add timeout to prevent edge function hangs
-        const recipientResponse = await fetch(
+        const recipientResponse = await fetchWithTimeout(
           'https://api.paystack.co/transferrecipient',
           {
             method: 'POST',
@@ -134,8 +151,9 @@ Deno.serve(async (req) => {
               bank_code: merchant.bank_code,
               currency: 'NGN',
             }),
-            signal: AbortSignal.timeout(10000), // 10s timeout
-          }
+            signal: AbortSignal.timeout(10000),
+          },
+          'Paystack recipient API call'
         );
 
         if (!recipientResponse.ok) {
@@ -218,7 +236,7 @@ Deno.serve(async (req) => {
           console.error('Failed to link orders to payout:', linkError);
         }
 
-        const transferResponse = await fetch(
+        const transferResponse = await fetchWithTimeout(
           'https://api.paystack.co/transfer',
           {
             method: 'POST',
@@ -233,8 +251,9 @@ Deno.serve(async (req) => {
               reason: `Payout for ${orders.length} orders`,
               reference: idempotencyRef, // Same reference for Paystack idempotency
             }),
-            signal: AbortSignal.timeout(10000), // 10s timeout
-          }
+            signal: AbortSignal.timeout(10000),
+          },
+          'Paystack transfer API call'
         );
 
         if (!transferResponse.ok) {

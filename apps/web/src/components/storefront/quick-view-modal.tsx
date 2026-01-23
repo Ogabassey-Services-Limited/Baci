@@ -206,7 +206,9 @@ export function QuickViewModal({
                           : 'border-transparent hover:border-muted-foreground/30'
                       )}
                       aria-label={`View image ${idx + 1} of ${allImages.length}`}
-                      aria-current={selectedImage === img.url}
+                      aria-current={
+                        selectedImage === img.url ? 'true' : undefined
+                      }
                     >
                       <Image
                         src={img.url}
@@ -261,9 +263,10 @@ export function QuickViewModal({
             {/* Variant Selection */}
             {product.has_variants && attributeOptions.length > 0 && (
               <div className="space-y-4 mb-6">
-                {attributeOptions.map(({ key, values }) => {
+                {attributeOptions.map(({ key, values }, idx) => {
                   // Sanitize key for valid HTML id (lowercase, alphanumeric + hyphens only)
-                  const labelId = `variant-label-${key
+                  // Include index for guaranteed uniqueness even if keys differ only in special chars
+                  const labelId = `variant-label-${idx}-${key
                     .toLowerCase()
                     .replace(/[^a-z0-9]+/g, '-')
                     .replace(/^-|-$/g, '')}`;

@@ -7,6 +7,13 @@ import { type FileRejection, useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+// 2026 Best Practice: Track whether preview is from initialFiles or new upload
+// This prevents index mismatch when removing files
+interface PreviewEntry {
+  src: string;
+  file: File | null; // null for initialFiles URLs
+}
+
 interface FileUploaderProps {
   onFilesSelected: (files: File[]) => void;
   maxFiles?: number;
@@ -26,27 +33,38 @@ export function FileUploader({
   className,
   initialFiles = [],
 }: FileUploaderProps) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>(initialFiles);
+  // Use unified entries to track both initialFiles (URLs) and new uploads (File objects)
+  // This prevents index mismatch when removing files
+  const [entries, setEntries] = useState<PreviewEntry[]>(() =>
+    initialFiles.map((src) => ({ src, file: null }))
+  );
   const [errors, setErrors] = useState<string[]>([]);
 
   // Cleanup object URLs to avoid memory leaks
   useEffect(() => {
     return () => {
-      files.forEach((file) => {
-        if (typeof file === 'object' && 'preview' in file) {
-          URL.revokeObjectURL((file as File & { preview: string }).preview);
+      entries.forEach((entry) => {
+        // Only revoke blob URLs (new uploads), not external URLs (initialFiles)
+        if (entry.file && entry.src.startsWith('blob:')) {
+          URL.revokeObjectURL(entry.src);
         }
       });
     };
-  }, [files]);
+  }, [entries]);
+
+  // Extract just the File objects for the callback
+  const getFiles = useCallback(
+    (entryList: PreviewEntry[]): File[] =>
+      entryList.filter((e) => e.file !== null).map((e) => e.file as File),
+    []
+  );
 
   const onDrop = useCallback(
     (acceptedFiles: File[], fileRejections: FileRejection[]) => {
       // Handle errors
       const newErrors: string[] = [];
-      fileRejections.forEach(({ file, errors }) => {
-        errors.forEach((e) => {
+      fileRejections.forEach(({ file, errors: fileErrors }) => {
+        fileErrors.forEach((e) => {
           if (e.code === 'file-too-large') {
             newErrors.push(
               `${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB`
@@ -62,45 +80,46 @@ export function FileUploader({
 
       // Handle accepted files
       if (acceptedFiles?.length) {
-        // Calculate remaining slots accounting for initial previews
-        const remainingSlots = Math.max(0, maxFiles - previews.length);
+        // Calculate remaining slots accounting for current entries
+        const remainingSlots = Math.max(0, maxFiles - entries.length);
         const filesToAdd = acceptedFiles.slice(0, remainingSlots);
 
         if (filesToAdd.length === 0) return;
 
-        const newFiles = filesToAdd.map((file) =>
-          Object.assign(file, {
-            preview: URL.createObjectURL(file),
-          })
-        );
+        // Create new entries with File objects
+        const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
+          src: URL.createObjectURL(file),
+          file,
+        }));
 
-        const updatedFiles = [...files, ...newFiles];
-        setFiles(updatedFiles);
-        onFilesSelected(updatedFiles);
-
-        // Update previews for display
-        const newPreviews = newFiles.map(
-          (f) => (f as File & { preview: string }).preview
-        );
-        setPreviews((prev) => [...prev, ...newPreviews]);
+        const updatedEntries = [...entries, ...newEntries];
+        setEntries(updatedEntries);
+        onFilesSelected(getFiles(updatedEntries));
       }
     },
-    [maxFiles, maxSize, onFilesSelected, files, previews]
+    [maxFiles, maxSize, onFilesSelected, entries, getFiles]
   );
 
   const removeFile = (index: number) => {
-    setFiles((prev) => {
+    setEntries((prev) => {
+      const entryToRemove = prev[index];
+      // Revoke blob URL for new uploads
+      if (entryToRemove?.file && entryToRemove.src.startsWith('blob:')) {
+        URL.revokeObjectURL(entryToRemove.src);
+      }
       const updated = prev.filter((_, i) => i !== index);
-      onFilesSelected(updated);
+      onFilesSelected(getFiles(updated));
       return updated;
     });
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // For compatibility with existing code that uses previews.length
+  const previews = entries.map((e) => e.src);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    // Account for both new files AND initial previews when enforcing maxFiles limit
-    maxFiles: Math.max(0, maxFiles - previews.length),
+    // Account for all entries when enforcing maxFiles limit
+    maxFiles: Math.max(0, maxFiles - entries.length),
     maxSize,
     accept,
   });
@@ -114,7 +133,7 @@ export function FileUploader({
           isDragActive
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',
-          files.length + (initialFiles?.length || 0) >= maxFiles &&
+          entries.length >= maxFiles &&
             'opacity-50 cursor-not-allowed pointer-events-none'
         )}
       >
