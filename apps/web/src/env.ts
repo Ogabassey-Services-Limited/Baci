@@ -32,8 +32,10 @@ const serverSchema = z.object({
   // BNPL
   CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
 
-  // Insurance
-  MYCOVER_SECRET_KEY: z.string().optional(),
+  // Insurance Webhooks
+  MYCOVER_SECRET_KEY: z
+    .string()
+    .min(1, 'MYCOVER_SECRET_KEY is required for webhook verification'),
 
   // Node Env
   NODE_ENV: z
@@ -197,7 +199,14 @@ export const getGeminiApiKey = () =>
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
 
-export const getMyCoverSecretKey = () => env?.MYCOVER_SECRET_KEY;
+// Required Getters
+export const getMyCoverSecretKey = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('MYCOVER_SECRET_KEY cannot be accessed on the client');
+  if (!env?.MYCOVER_SECRET_KEY)
+    throw new Error('MYCOVER_SECRET_KEY is not defined');
+  return env.MYCOVER_SECRET_KEY;
+};
 
 // Blog - The Fix for "Invalid Token"
 // Now guaranteed to have a value (defaulting to dev-preview-secret if missing)

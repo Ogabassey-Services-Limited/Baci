@@ -1,7 +1,5 @@
-import crypto from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMyCoverSecretKey } from '@/env';
 
 /**
  * MyCover.ai Webhook Handler
@@ -39,111 +37,100 @@ interface MyCoverWebhookPayload {
 }
 
 /**
- * Verify MyCover webhook signature
- * Note: Checks both SHA512 and SHA256 as algorithm wasn't explicitly documented
+ * Verifies webhook signature using HMAC-SHA256
  */
-function verifySignature(
+async function verifySignature(
   rawBody: string,
   signature: string,
   secret: string
-): boolean {
+): Promise<boolean> {
   try {
-    const signatureBuffer = Buffer.from(signature);
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(rawBody);
 
-    // Try HMAC-SHA512 (Common in fintech)
-    const hash512 = crypto
-      .createHmac('sha512', secret)
-      .update(rawBody)
-      .digest('hex');
-    const buffer512 = Buffer.from(hash512);
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
 
-    if (
-      signatureBuffer.length === buffer512.length &&
-      crypto.timingSafeEqual(signatureBuffer, buffer512)
-    ) {
-      return true;
-    }
+    const signatureBuffer = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      messageData
+    );
 
-    // Try HMAC-SHA256 (Standard)
-    const hash256 = crypto
-      .createHmac('sha256', secret)
-      .update(rawBody)
-      .digest('hex');
-    const buffer256 = Buffer.from(hash256);
+    const computedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
 
-    if (
-      signatureBuffer.length === buffer256.length &&
-      crypto.timingSafeEqual(signatureBuffer, buffer256)
-    ) {
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error('[MyCover Webhook] Signature verification error:', err);
+    return computedSignature === signature.toLowerCase();
+  } catch (error) {
+    console.error('[MyCover Webhook] Signature verification error:', error);
     return false;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const rawBody = await request.text();
-    let payload: MyCoverWebhookPayload;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
+    const secret = process.env.MYCOVER_SECRET_KEY;
 
-    // Security: Verify Signature
-    const secretKey = getMyCoverSecretKey();
-    if (secretKey) {
-      const signature =
-        request.headers.get('x-mycover-signature') ||
-        request.headers.get('x-signature');
-
-      if (signature) {
-        const isValid = verifySignature(rawBody, signature, secretKey);
-        if (!isValid) {
-          console.error(
-            '[MyCover Webhook] 🚨 Signature verification FAILED. Possible spoofing attempt.',
-            {
-              headers: Object.fromEntries(request.headers.entries()),
-              bodyLength: rawBody.length,
-            }
-          );
-          // SECURITY: Enforce signature verification (hardened in 2026 best practices)
-          return NextResponse.json(
-            {
-              error: 'Invalid signature',
-              message: 'Webhook signature verification failed',
-            },
-            { status: 401 }
-          );
-        }
-        console.log('[MyCover Webhook] ✅ Signature verified.');
-      } else {
-        console.error(
-          '[MyCover Webhook] ⚠️ No signature header found (x-mycover-signature or x-signature). Rejecting webhook.',
-          {
-            headers: Object.fromEntries(request.headers.entries()),
-          }
-        );
-        // SECURITY: Require signature header (2026 best practice)
-        return NextResponse.json(
-          {
-            error: 'Missing signature',
-            message: 'Webhook signature header required',
-          },
-          { status: 401 }
-        );
-      }
-    } else if (process.env.NODE_ENV === 'production') {
-      // In production, we should probably warn louder if secret is missing
-      console.warn(
-        '[MyCover Webhook] ⚠️ MYCOVER_SECRET_KEY not configured. Cannot verify webhook authenticity.'
+    // CRITICAL: Fail-closed - reject if secret missing
+    if (!secret) {
+      console.error(
+        '[MyCover Webhook] MYCOVER_SECRET_KEY not configured. Rejecting webhook.'
+      );
+      return NextResponse.json(
+        {
+          error: 'Configuration error',
+          message: 'Webhook verification secret not configured',
+        },
+        { status: 500 }
       );
     }
+
+    // Get signature from headers
+    const signature =
+      request.headers.get('x-mycover-signature') ||
+      request.headers.get('x-signature');
+
+    if (!signature) {
+      console.error('[MyCover Webhook] No signature header found.');
+      return NextResponse.json(
+        {
+          error: 'Missing signature',
+          message: 'Webhook signature header required',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Read raw body for signature verification
+    const rawBody = await request.text();
+
+    // Verify signature
+    const isValid = await verifySignature(rawBody, signature, secret);
+
+    if (!isValid) {
+      console.error(
+        '[MyCover Webhook] Signature verification FAILED. Possible spoofing attempt.'
+      );
+      return NextResponse.json(
+        {
+          error: 'Invalid signature',
+          message: 'Webhook signature verification failed',
+        },
+        { status: 401 }
+      );
+    }
+
+    console.log('[MyCover Webhook] ✅ Signature verified.');
+
+    // Now parse payload and continue processing
+    const payload: MyCoverWebhookPayload = JSON.parse(rawBody);
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
