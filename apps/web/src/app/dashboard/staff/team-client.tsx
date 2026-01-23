@@ -192,11 +192,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   // Use Action State for better form handling
   const [state, formAction, isBasePending] = useActionState(
     async (
-      _prevState: {
-        success?: boolean;
-        message?: string;
-        error?: string;
-      } | null,
+      _prevState: { success: boolean; message?: string; error?: string } | null,
       formData: FormData
     ) => {
       const data = {

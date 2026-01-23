@@ -191,6 +191,7 @@ export function QuickViewModal({
 
             {/* Thumbnail Gallery */}
             {allImages.length > 1 && (
+              // biome-ignore lint/a11y/useSemanticElements: Flexbox layout
               <div className="flex gap-2 mt-4 overflow-x-auto pb-2" role="list">
                 {allImages.map((img, idx) => (
                   <button
@@ -285,6 +286,7 @@ export function QuickViewModal({
                         );
 
                         return (
+                          // biome-ignore lint/a11y/useSemanticElements: Custom styled button-based radio controls for better visual design
                           <button
                             type="button"
                             key={value}
