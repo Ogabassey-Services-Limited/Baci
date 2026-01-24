@@ -6,7 +6,7 @@ export const blogPostSchema = z.object({
         .string()
         .min(1, 'Slug is required')
         .max(200, 'Slug is too long')
-        .refine((val) => /^[a-z0-9-]+$/.test(val), {
+        .refine((val) => !val || /^[a-z0-9-]+$/.test(val), {
             message: 'Slug must contain only lowercase letters, numbers, and hyphens',
         })
         .optional(),
@@ -25,7 +25,7 @@ export const blogPostSchema = z.object({
     category: z.string().max(100).optional().nullable(),
     tags: z.array(z.string()).optional(),
     keywords: z.array(z.string()).optional(),
-    author_name: z.string().min(1).max(100).optional(),
+    author_name: z.string().min(1, 'Author name is required').max(100).optional(),
     author_title: z.string().max(100).optional().nullable(),
     author_image_url: z
         .string()
@@ -34,7 +34,8 @@ export const blogPostSchema = z.object({
             try { new URL(val); return true; } catch { return false; }
         }, { message: 'Must be a valid URL' })
         .optional()
-        .nullable(),
+        .nullable()
+        .or(z.literal('')),
     author_bio: z.string().max(500).optional().nullable(),
     status: z.enum(['draft', 'published', 'archived']).optional(),
     seo_title: z.string().max(70).optional().nullable(),
@@ -44,13 +45,47 @@ export const blogPostSchema = z.object({
 
 export type BlogPostInput = z.infer<typeof blogPostSchema>;
 
-// Sanitizer function to clean data before sending to API/Zod
-export function sanitizeBlogPostData(data: Partial<BlogPostInput>) {
-    const sanitized = { ...data };
+/**
+ * Sanitizes blog post data for API consumption.
+ * 2026 Best Practice: Centralized data cleaning before validation.
+ */
+export function sanitizeBlogPostData(data: Record<string, any>): Record<string, any> {
+    const sanitized: Record<string, any> = {};
 
-    // Convert empty strings to null or undefined based on what the API expects
-    if (sanitized.featured_image_url === '') sanitized.featured_image_url = null;
-    if (sanitized.slug === '') sanitized.slug = undefined;
+    for (const [key, value] of Object.entries(data)) {
+        // Handle strings: convert empty to null (for DB) or undefined (for optional)
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed === '') {
+                // Fields that should be null when empty
+                const nullableFields = [
+                    'featured_image_url',
+                    'featured_image_alt',
+                    'excerpt',
+                    'category',
+                    'author_title',
+                    'author_bio',
+                    'author_image_url',
+                    'seo_title',
+                    'seo_description',
+                    'focus_keyword'
+                ];
+                sanitized[key] = nullableFields.includes(key) ? null : undefined;
+            } else {
+                sanitized[key] = trimmed;
+            }
+        }
+        // Handle arrays (tags, keywords): remove empty/whitespace items
+        else if (Array.isArray(value)) {
+            sanitized[key] = value
+                .map(item => (typeof item === 'string' ? item.trim() : item))
+                .filter(item => item !== '');
+        }
+        // Passthrough other types
+        else {
+            sanitized[key] = value;
+        }
+    }
 
     return sanitized;
 }

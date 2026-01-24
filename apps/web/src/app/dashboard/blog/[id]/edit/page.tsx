@@ -362,16 +362,8 @@ export default function EditBlogPostPage() {
         featured_image_url: formData.featured_image_url,
         featured_image_alt: formData.featured_image_alt,
         category: formData.category,
-        tags: formData.tags
-          ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-          : [],
-        keywords: formData.keywords
-          ? formData.keywords
-            .split(',')
-            .map((k) => k.trim())
-          : [],
+        tags: formData.tags ? formData.tags.split(',') : [],
+        keywords: formData.keywords ? formData.keywords.split(',') : [],
         author_name: formData.author_name,
         author_title: formData.author_title,
         author_bio: formData.author_bio,
@@ -392,6 +384,12 @@ export default function EditBlogPostPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        if (data.details) {
+          console.error('Validation details:', data.details);
+          // Show the first validation error if it exists
+          const firstError = Object.values(data.details.fieldErrors || {})[0]?.[0];
+          throw new Error(firstError || data.error || 'Validation failed');
+        }
         throw new Error(data.error || 'Failed to update post');
       }
 
