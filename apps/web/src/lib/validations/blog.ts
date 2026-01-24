@@ -14,7 +14,10 @@ export const blogPostSchema = z.object({
     excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
     featured_image_url: z
         .string()
-        .url('Must be a valid URL')
+        .refine((val) => {
+            if (!val) return true;
+            try { new URL(val); return true; } catch { return false; }
+        }, { message: 'Must be a valid URL' })
         .optional()
         .nullable()
         .or(z.literal('')), // Allow empty string to be sanitized later or handled
@@ -24,7 +27,14 @@ export const blogPostSchema = z.object({
     keywords: z.array(z.string()).optional(),
     author_name: z.string().min(1).max(100).optional(),
     author_title: z.string().max(100).optional().nullable(),
-    author_image_url: z.string().url().optional().nullable(),
+    author_image_url: z
+        .string()
+        .refine((val) => {
+            if (!val) return true;
+            try { new URL(val); return true; } catch { return false; }
+        }, { message: 'Must be a valid URL' })
+        .optional()
+        .nullable(),
     author_bio: z.string().max(500).optional().nullable(),
     status: z.enum(['draft', 'published', 'archived']).optional(),
     seo_title: z.string().max(70).optional().nullable(),
