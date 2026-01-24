@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (fbError) {
-        console.error('Facebook CAPI error:', fbError);
+        console.error('Facebook CAPI error:', String(fbError).replace(/[\r\n]/g, ' '));
         results.facebook = { success: false, error: String(fbError) };
       }
     }
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (ttError) {
-        console.error('TikTok Events API error:', ttError);
+        console.error('TikTok Events API error:', String(ttError).replace(/[\r\n]/g, ' '));
         results.tiktok = { success: false, error: String(ttError) };
       }
     }
@@ -385,7 +385,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (snapError) {
-        console.error('Snapchat CAPI error:', snapError);
+        console.error('Snapchat CAPI error:', String(snapError).replace(/[\r\n]/g, ' '));
         results.snapchat = { success: false, error: String(snapError) };
       }
     }
@@ -436,7 +436,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Unified conversion endpoint error:', error);
+    console.error('Unified conversion endpoint error:', String(error).replace(/[\r\n]/g, ' '));
     // Never fail the request - analytics errors shouldn't block the user
     return NextResponse.json({
       success: false,

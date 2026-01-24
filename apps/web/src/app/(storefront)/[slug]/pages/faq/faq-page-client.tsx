@@ -2,6 +2,7 @@
 
 import { HelpCircle, Search } from 'lucide-react';
 import { useState } from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -51,10 +52,10 @@ export function FAQPageClient({
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-        (faq) =>
-          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (faq) =>
+        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : faqItems;
 
   // Group FAQs by category
@@ -133,10 +134,10 @@ export function FAQPageClient({
                             <AccordionContent className="text-muted-foreground pb-4">
                               <div
                                 className="prose prose-sm dark:prose-invert max-w-none"
-                                // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                                // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized
                                 dangerouslySetInnerHTML={{
-                                  __html: faq.answer,
-                                }} // nosemgrep
+                                  __html: DOMPurify.sanitize(faq.answer),
+                                }}
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -170,10 +171,10 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized
                                       dangerouslySetInnerHTML={{
-                                        __html: faq.answer,
-                                      }} // nosemgrep
+                                        __html: DOMPurify.sanitize(faq.answer),
+                                      }}
                                     />
                                   </AccordionContent>
                                 </AccordionItem>
@@ -191,8 +192,8 @@ export function FAQPageClient({
                       className="prose prose-lg dark:prose-invert max-w-none"
                       // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
                       dangerouslySetInnerHTML={{
-                        __html: sanitizedLegacyContent || legacyContent || '',
-                      }} // nosemgrep
+                        __html: DOMPurify.sanitize(sanitizedLegacyContent || legacyContent || ''),
+                      }}
                     />
                   </div>
                 ) : null}
