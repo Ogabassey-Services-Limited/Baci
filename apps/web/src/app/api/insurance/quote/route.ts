@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { estimateInsurancePremium } from '@/lib/mycover';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/insurance/quote
  *

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { setCsrfToken } from '@/lib/csrf';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/csrf
  * Initialize or refresh CSRF token
