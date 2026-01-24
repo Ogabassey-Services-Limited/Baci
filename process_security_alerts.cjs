@@ -51,7 +51,7 @@ try {
 
         md += `## ${icon} ${group.name} (${group.alerts.length})\n`;
         md += `- **Rule ID**: \`${ruleId}\`\n`;
-        md += `- **Severity**: ${group.severity}\n`;
+        md += `- **Severity**: ${normalizedSeverity}\n`;
         md += `- **Tool**: ${group.tool}\n\n`;
 
         md += `| File | Line | Message | Link |\n`;
