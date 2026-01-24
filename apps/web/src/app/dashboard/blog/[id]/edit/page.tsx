@@ -265,6 +265,22 @@ export default function EditBlogPostPage() {
     []
   );
 
+  const optimizeSEO = useCallback(
+    (field: 'seo_title' | 'seo_description') => {
+      const limit = field === 'seo_title' ? 70 : 160;
+      const currentValue =
+        formData[field] ||
+        (field === 'seo_title' ? formData.title : formData.excerpt);
+      const optimized = currentValue.slice(0, limit);
+      handleChange(field, optimized);
+      toast({
+        title: 'SEO Optimized',
+        description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
+      });
+    },
+    [formData, handleChange, toast]
+  );
+
   const [isUploading, setIsUploading] = useState(false);
 
   // Handle featured image selection and upload
@@ -394,8 +410,9 @@ export default function EditBlogPostPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        const errorMessage = data.details?.fieldErrors
-          ? Object.values(data.details.fieldErrors)[0]?.[0]
+        const fieldErrors = data.details?.fieldErrors as Record<string, string[]> | undefined;
+        const errorMessage = fieldErrors
+          ? Object.values(fieldErrors)[0]?.[0]
           : data.error;
 
         throw new Error(errorMessage || 'Failed to update post');
@@ -833,9 +850,19 @@ export default function EditBlogPostPage() {
                     </Badge>
                   )}
                   {titleLength > 70 && (
-                    <Badge variant="destructive" className="animate-pulse">
-                      Too Long
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive" className="animate-pulse">
+                        Too Long
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => optimizeSEO('seo_title')}
+                      >
+                        Fix for me
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -853,7 +880,7 @@ export default function EditBlogPostPage() {
                 />
                 <div className="flex justify-between items-center text-xs">
                   <span className={descriptionLength > 150 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-                    {descriptionLength}/150 characters (recommended)
+                    {descriptionLength}/150 characters {!formData.seo_description && formData.excerpt && '(using excerpt)'}
                   </span>
                   {descriptionLength >= 120 && descriptionLength <= 150 && (
                     <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
@@ -861,9 +888,19 @@ export default function EditBlogPostPage() {
                     </Badge>
                   )}
                   {descriptionLength > 160 && (
-                    <Badge variant="destructive" className="animate-pulse">
-                      Exceeds Limit
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive" className="animate-pulse">
+                        Exceeds Limit
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => optimizeSEO('seo_description')}
+                      >
+                        Fix for me
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
