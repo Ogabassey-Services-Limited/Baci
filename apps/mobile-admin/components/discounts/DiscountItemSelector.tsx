@@ -128,24 +128,15 @@ export function DiscountItemSelector({
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    // 1. Remove HTML tags (Global, Multiline) - strict pattern
-    // codeql[js/incomplete-multi-character-sanitization]
-    const textInfo = html.replace(/<[^>]+>/gm, '');
-
-    // 2. Remove any residual script-like tags or sequences defensively
-    // This is a safeguard in case malformed input causes `<script` fragments
-    // to survive the initial tag-stripping pass.
-    const safeText = textInfo
-      // Remove explicit script open/close tags that might remain
-      .replace(/<\/?script[^>]*>/gi, '')
-      // Remove suspicious sequences of `<` followed by "script"
-      .replace(/<+script/gi, '')
-      .replace(/<+\/script/gi, '');
-
-    // 3. Decode common entities (Safe for React Native Text)
-    // Note: We intentionally do not decode &lt; or &gt; to avoid reintroducing tags.
-    // lgtm[js/double-escaping] Safe for React Native Text component
-    return safeText
+    return html
+      // 1. Replace known tags with space to preserve word separation
+      .replace(/<[^>]+>/g, ' ')
+      // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
+      // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
+      // lgtm[js/incomplete-multi-character-sanitization]
+      .replace(/[<>]/g, '')
+      // 3. Decode harmless entities (excluding < and >)
+      // lgtm[js/double-escaping]
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
