@@ -28,14 +28,17 @@ const getFiles = (entryList: PreviewEntry[]): File[] =>
   entryList.flatMap((e) => (e.file ? [e.file] : []));
 
 // Helper to create a stable reference based on content
-// 2026 Best Practice: Prevent unnecessary effect re-runs when passing arrays from parent components
+// 2026 Best Practice: Prevent unnecessary effect re-runs using shallow comparison instead of heavy JSON.stringify
 function useStableArray<T>(arr: T[]): T[] {
   const ref = useRef<T[]>(arr);
-  const serialized = JSON.stringify(arr);
-  const prevSerialized = useRef(serialized);
+  const prevArr = useRef<T[]>(arr);
 
-  if (prevSerialized.current !== serialized) {
-    prevSerialized.current = serialized;
+  const changed =
+    arr.length !== prevArr.current.length ||
+    arr.some((item, i) => item !== prevArr.current[i]);
+
+  if (changed) {
+    prevArr.current = arr;
     ref.current = arr;
   }
 
@@ -64,14 +67,29 @@ export function FileUploader({
     entriesRef.current = entries;
   }, [entries]);
 
+  // 2026 Best Practice: Use a ref to track previous files to avoid spurious callback triggers
+  const prevFilesRef = useRef<File[]>([]);
+
   // 2026 Best Practice: Separate state updates from side effects to ensure purity in Strict Mode
   const didMountRef = useRef(false);
   useEffect(() => {
+    const currentFiles = getFiles(entries);
+
     if (!didMountRef.current) {
       didMountRef.current = true;
+      prevFilesRef.current = currentFiles;
       return;
     }
-    onFilesSelected(getFiles(entries));
+
+    // Only trigger callback if the File list has actually changed (prevents loops/dirty forms on URL-only sync)
+    const isSame =
+      currentFiles.length === prevFilesRef.current.length &&
+      currentFiles.every((f, i) => f === prevFilesRef.current[i]);
+
+    if (!isSame) {
+      prevFilesRef.current = currentFiles;
+      onFilesSelected(currentFiles);
+    }
   }, [entries, onFilesSelected]);
 
   const stableInitialFiles = useStableArray(initialFiles);
@@ -122,20 +140,30 @@ export function FileUploader({
 
     // Handle accepted files
     if (acceptedFiles?.length) {
+      // 2026 Best Practice: Create blob URLs outside state updater to avoid orphans in Strict Mode
+      const potentialEntries: PreviewEntry[] = acceptedFiles.map((file) => ({
+        src: URL.createObjectURL(file), // Side effect happens once
+        file,
+      }));
+
       setEntries((prev) => {
         const remainingSlots = Math.max(0, maxFiles - prev.length);
-        const filesToAdd = acceptedFiles.slice(0, remainingSlots);
+        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
 
-        if (filesToAdd.length === 0) return prev;
+        if (entriesToAdd.length === 0) {
+          // Immediately revoke all as none will be used
+          for (const e of potentialEntries) URL.revokeObjectURL(e.src);
+          return prev;
+        }
 
-        // Create new entries with File objects
-        const newEntries: PreviewEntry[] = filesToAdd.map((file) => ({
-          src: URL.createObjectURL(file),
-          file,
-        }));
+        // Revoke URLs for files that didn't fit the limit
+        if (potentialEntries.length > remainingSlots) {
+          for (const e of potentialEntries.slice(remainingSlots)) {
+            URL.revokeObjectURL(e.src);
+          }
+        }
 
-        const updatedEntries = [...prev, ...newEntries];
-        return updatedEntries;
+        return [...prev, ...entriesToAdd];
       });
     }
   };
@@ -230,12 +258,13 @@ export function FileUploader({
                   variant="destructive"
                   size="icon"
                   className="h-8 w-8"
+                  aria-label={`Remove image ${index + 1}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     removeFile(index);
                   }}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>
