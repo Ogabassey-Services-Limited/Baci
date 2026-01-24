@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCountryByCode } from '@/lib/countries';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-core';
@@ -161,6 +162,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -416,9 +420,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const { id } = await params;
     const cookieStore = await cookies();

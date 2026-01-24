@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCountryByCode } from '@/lib/countries';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
 import {
@@ -326,6 +327,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

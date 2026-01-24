@@ -2,10 +2,14 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import type { Change } from '@/app/dashboard/products/actions';
 import { getCountryByCode } from '@/lib/countries';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
