@@ -32,7 +32,7 @@ on:
   # Triggers the workflow on push events but only for the "main" branch
   # Customize trigger events based on your DevSecOps processes.
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   schedule:
     - cron: '15 13 * * 2'
 
@@ -64,6 +64,6 @@ jobs:
           # The name of the sarif format result file The file is written only if this property is provided.
           sarif-result-file: "apisec-results.sarif"
        - name: Import results
-         uses: github/codeql-action/upload-sarif@v3
+         uses: github/codeql-action/upload-sarif@45c373516f557556c15d420e3f5e0aa3d64366bc # v3
          with:
           sarif_file: ./apisec-results.sarif
