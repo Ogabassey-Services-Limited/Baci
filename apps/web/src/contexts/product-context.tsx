@@ -11,6 +11,7 @@ import {
 } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
+import { apiDelete, apiPost, apiPut } from '@/lib/api-client';
 import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
 
@@ -233,16 +234,7 @@ export const ProductProvider: React.FC<{
 
   const addProduct = async (product: Product) => {
     try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add product');
-      }
+      await apiPost('/api/products', product);
 
       await fetchProducts(true);
     } catch (error) {
@@ -259,15 +251,7 @@ export const ProductProvider: React.FC<{
 
   const updateProduct = async (product: Product) => {
     try {
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update product');
-      }
+      await apiPut(`/api/products/${product.id}`, product);
 
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? product : p))
@@ -286,13 +270,7 @@ export const ProductProvider: React.FC<{
 
   const deleteProduct = async (productId: string) => {
     try {
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete product');
-      }
+      await apiDelete(`/api/products/${productId}`);
 
       setProducts((prev) => prev.filter((p) => p.id !== productId));
       await fetchProducts(true);
@@ -309,17 +287,14 @@ export const ProductProvider: React.FC<{
 
   const applyChanges = async (changesToApply: Change[]) => {
     try {
-      const response = await fetch('/api/products/bulk-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ changes: changesToApply }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to apply changes');
-      }
-
-      const result = await response.json();
+      const result = await apiPost<{
+        results: {
+          updated: number;
+          created: number;
+          removed: number;
+          errors: unknown[];
+        };
+      }>('/api/products/bulk-update', { changes: changesToApply });
 
       toast({
         title: 'Catalog Updated!',
