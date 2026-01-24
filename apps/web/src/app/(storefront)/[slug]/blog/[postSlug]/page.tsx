@@ -201,14 +201,18 @@ export default async function BlogPostPage({ params }: PageProps) {
       )}
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
         dangerouslySetInnerHTML={{
           __html: safeJsonLdStringify(breadcrumbSchema),
         }}
@@ -325,8 +329,10 @@ export default async function BlogPostPage({ params }: PageProps) {
               ) : (
                 <div
                   className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
-                  // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                  /*
+                    biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
+                    nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                  */
                   dangerouslySetInnerHTML={{ __html: legacyHtml }}
                 />
               )}

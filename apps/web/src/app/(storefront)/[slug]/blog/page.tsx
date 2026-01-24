@@ -255,16 +255,20 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             <>
               <script
                 type="application/ld+json"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                /*
+                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                */
                 dangerouslySetInnerHTML={{
                   __html: safeJsonLdStringify(blogSchema),
                 }}
               />
               <script
                 type="application/ld+json"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                /*
+                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                */
                 dangerouslySetInnerHTML={{
                   __html: safeJsonLdStringify(breadcrumbSchema),
                 }}
@@ -296,14 +300,18 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
         dangerouslySetInnerHTML={{
           __html: safeJsonLdStringify(breadcrumbSchema),
         }}
