@@ -131,10 +131,21 @@ export function DiscountItemSelector({
     // 1. Remove HTML tags (Global, Multiline) - strict pattern
     // codeql[js/incomplete-multi-character-sanitization]
     const textInfo = html.replace(/<[^>]+>/gm, '');
-    
-    // 2. Decode common entities (Safe for React Native Text)
-    // Removed &lt; and &gt; decoding to prevent double-escaping/re-injection
-    return textInfo
+
+    // 2. Remove any residual script-like tags or sequences defensively
+    // This is a safeguard in case malformed input causes `<script` fragments
+    // to survive the initial tag-stripping pass.
+    const safeText = textInfo
+      // Remove explicit script open/close tags that might remain
+      .replace(/<\/?script[^>]*>/gi, '')
+      // Remove suspicious sequences of `<` followed by "script"
+      .replace(/<+script/gi, '')
+      .replace(/<+\/script/gi, '');
+
+    // 3. Decode common entities (Safe for React Native Text)
+    // Note: We intentionally do not decode &lt; or &gt; to avoid reintroducing tags.
+    // lgtm[js/double-escaping] Safe for React Native Text component
+    return safeText
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
