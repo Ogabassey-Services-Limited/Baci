@@ -198,9 +198,9 @@ export function FAQPageClient({
                         nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
                       */
                       dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(
-                          sanitizedLegacyContent || legacyContent || ''
-                        ),
+                        __html:
+                          sanitizedLegacyContent ||
+                          sanitizeHtml(legacyContent || ''),
                       }}
                     />
                   </div>
