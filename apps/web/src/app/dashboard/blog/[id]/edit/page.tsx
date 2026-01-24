@@ -47,6 +47,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+import { sanitizeBlogPostData } from '@/lib/validations/blog';
 import { getPreviewUrl } from '../../actions';
 
 interface Product {
@@ -350,35 +351,38 @@ export default function EditBlogPostPage() {
 
     setIsSaving(true);
     try {
-      const postData = {
+      const rawPostData = {
         title: formData.title.trim(),
-        slug: formData.slug || undefined,
+        slug:
+          formData.slug && formData.slug !== originalPost?.slug
+            ? formData.slug
+            : undefined,
         content: formData.content,
-        excerpt: formData.excerpt || undefined,
-        featured_image_url: formData.featured_image_url || null,
-        featured_image_alt: formData.featured_image_alt || undefined,
-        category: formData.category || undefined,
+        excerpt: formData.excerpt,
+        featured_image_url: formData.featured_image_url,
+        featured_image_alt: formData.featured_image_alt,
+        category: formData.category,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
           : [],
         keywords: formData.keywords
           ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((k) => k.trim())
           : [],
         author_name: formData.author_name,
-        author_title: formData.author_title || undefined,
-        author_bio: formData.author_bio || undefined,
-        seo_title: formData.seo_title || undefined,
-        seo_description: formData.seo_description || undefined,
-        focus_keyword: formData.focus_keyword || undefined,
+        author_title: formData.author_title,
+        author_bio: formData.author_bio,
+        seo_title: formData.seo_title,
+        seo_description: formData.seo_description,
+        focus_keyword: formData.focus_keyword,
         status: newStatus || formData.status,
         embedded_products: embeddedProducts.map((p) => p.id),
       };
+
+      const postData = sanitizeBlogPostData(rawPostData);
 
       const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
         method: 'PATCH',
