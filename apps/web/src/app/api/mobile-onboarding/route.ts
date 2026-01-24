@@ -169,6 +169,8 @@ export async function POST(req: NextRequest) {
       merchant = newMerchant;
     }
 
+    if (!merchant) throw new Error('Failed to create merchant');
+
     // Create Domain
     // Check if domain exists first? Unique constraint should handle it, but allow failure if we are updating.
     await adminSupabase

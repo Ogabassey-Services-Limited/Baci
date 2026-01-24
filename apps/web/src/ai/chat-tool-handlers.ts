@@ -5,6 +5,7 @@
  * These handlers are called when the AI invokes a tool.
  */
 
+import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   AddToCartParams,
