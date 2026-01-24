@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
-import { POST } from './route';
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as csrf from '@/lib/csrf';
+import { POST } from './route';
 
 // Mock env
 vi.mock('@/env', () => ({
@@ -26,7 +26,11 @@ const createChainableMock = () => {
     eq: vi.fn(() => mock),
     in: vi.fn(() => mock),
     single: vi.fn().mockResolvedValue({
-      data: { id: 'merchant-id', business_name: 'Test Merchant', country: 'NG' },
+      data: {
+        id: 'merchant-id',
+        business_name: 'Test Merchant',
+        country: 'NG',
+      },
       error: null,
     }),
     maybeSingle: vi.fn().mockResolvedValue({ data: null }),

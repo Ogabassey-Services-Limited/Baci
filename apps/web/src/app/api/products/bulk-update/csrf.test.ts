@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
-import { POST } from './route';
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as csrf from '@/lib/csrf';
+import { POST } from './route';
 
 // Mock env
 vi.mock('@/env', () => ({
@@ -25,7 +25,11 @@ const createChainableMock = () => {
     select: vi.fn(() => mock),
     eq: vi.fn(() => mock),
     single: vi.fn().mockResolvedValue({
-      data: { id: 'merchant-id', business_name: 'Test Merchant', country: 'NG' },
+      data: {
+        id: 'merchant-id',
+        business_name: 'Test Merchant',
+        country: 'NG',
+      },
       error: null,
     }),
     insert: vi.fn(() => mock),
@@ -65,12 +69,15 @@ describe('POST /api/products/bulk-update', () => {
     checkCsrfMock.mockResolvedValue({ valid: true });
 
     // Create a mock request
-    const request = new NextRequest('http://localhost:3000/api/products/bulk-update', {
-      method: 'POST',
-      body: JSON.stringify({
-        changes: [],
-      }),
-    });
+    const request = new NextRequest(
+      'http://localhost:3000/api/products/bulk-update',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          changes: [],
+        }),
+      }
+    );
 
     // Call the handler
     await POST(request);
