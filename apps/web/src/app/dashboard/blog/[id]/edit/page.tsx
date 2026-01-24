@@ -47,7 +47,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
-import { sanitizeBlogPostData } from '@/lib/validations/blog';
+import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { getPreviewUrl } from '../../actions';
 
 interface Product {
@@ -341,7 +341,7 @@ export default function EditBlogPostPage() {
     const result = blogPostSchema.safeParse(sanitizedData);
 
     if (!result.success) {
-      const firstError = result.error.errors[0];
+      const firstError = result.error.issues?.[0];
       return firstError?.message || 'Invalid form data';
     }
 
