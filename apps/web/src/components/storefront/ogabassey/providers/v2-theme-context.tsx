@@ -22,6 +22,7 @@ function getCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
   // Escape special characters in cookie name to prevent ReDoS
   const safeName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const match = document.cookie.match(new RegExp(`(^| )${safeName}=([^;]+)`));
   return match ? match[2] : undefined;
 }
