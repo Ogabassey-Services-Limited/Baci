@@ -1,0 +1,27 @@
+name: API Discovery
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: API Discovery
+        uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.0
+        with:
+          api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }}
+          api-token: ${{ secrets.API_DISCOVERY_TOKEN }}
+          repo-path: "."
+          dry-run: false
