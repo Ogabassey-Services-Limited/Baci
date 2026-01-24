@@ -18,6 +18,8 @@ import { MerchantProvider } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
+import { JsonLd } from '@/components/seo/json-ld';
+import type { FAQPage, WithContext } from 'schema-dts';
 
 interface FAQPageClientProps {
   merchant: {
@@ -52,15 +54,29 @@ export function FAQPageClient({
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-        (faq) =>
-          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (faq) =>
+        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : faqItems;
 
   // Group FAQs by category
   const groupedFAQs = groupFAQsByCategory(filteredFAQs);
   const categories = Object.keys(groupedFAQs);
+
+  // JSON-LD Structured Data
+  const jsonLd: WithContext<FAQPage> = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: filteredFAQs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.answer, // sanitizeHtml removes dangerous tags but keeps text
+      },
+    })),
+  };
 
   return (
     <MerchantProvider slug={merchant.slug}>
@@ -90,19 +106,23 @@ export function FAQPageClient({
 
                   {/* Search */}
                   {hasStructuredFAQs && (
-                    <div className="max-w-md mx-auto relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <div className="max-w-md mx-auto relative" role="search">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" aria-hidden="true" />
                       <Input
                         type="search"
                         placeholder="Search questions..."
                         className="pl-10 h-12 text-lg"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        aria-label="Search frequently asked questions"
                       />
                     </div>
                   )}
                 </div>
               </section>
+
+              {/* Structured Data Injection */}
+              {hasStructuredFAQs && <JsonLd data={jsonLd} />}
 
               {/* FAQ Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
@@ -150,9 +170,9 @@ export function FAQPageClient({
                       /* Multiple categories */
                       <div className="space-y-10">
                         {categories.map((category) => (
-                          <section key={category}>
+                          <section key={category} aria-labelledby={`category-${category}`}>
                             <div className="flex items-center gap-3 mb-4">
-                              <h2 className="text-2xl font-bold">{category}</h2>
+                              <h2 id={`category-${category}`} className="text-2xl font-bold">{category}</h2>
                               <Badge variant="secondary">
                                 {groupedFAQs[category].length}
                               </Badge>
@@ -174,10 +194,6 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      /*
-                                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
-                                        nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                                      */
                                       dangerouslySetInnerHTML={{
                                         __html: sanitizeHtml(faq.answer),
                                       }}

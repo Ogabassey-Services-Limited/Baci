@@ -28,7 +28,6 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
-
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
@@ -90,8 +89,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');

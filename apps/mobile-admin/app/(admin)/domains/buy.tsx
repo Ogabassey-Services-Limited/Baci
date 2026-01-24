@@ -145,7 +145,9 @@ export default function BuyDomainScreen() {
       } else {
         Alert.alert(
           'Search Failed',
-          error instanceof Error ? error.message : 'An unexpected error occurred'
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred'
         );
       }
     } finally {
