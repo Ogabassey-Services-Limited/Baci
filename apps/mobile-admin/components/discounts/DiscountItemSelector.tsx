@@ -128,15 +128,15 @@ export function DiscountItemSelector({
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    // Use a more robust regex to strip tags (Global, Multiline) - mandatory closing >
-    const textInfo = html.replace(/<[^>]+>/gm, '');
-    // Decode common entities (incomplete list but covers basics for display)
+    // 1. Remove HTML tags (Global, Multiline)
+    let textInfo = html.replace(/<[^>]+>/gm, '');
+    // 2. Ensure no stray angle brackets remain that could form tags
+    textInfo = textInfo.replace(/[<>]/g, '');
+    // 3. Decode common entities (excluding < and > to prevent reintroduction)
     // lgtm[js/double-escaping] Safe for React Native Text component
     return textInfo
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
   };
