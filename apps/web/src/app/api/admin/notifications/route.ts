@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     const { data: notifications, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching notifications:', String(error).replace(/[\r\n]/g, ' '));
+      console.error('Error fetching notifications:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
       return NextResponse.json(
         { error: 'Failed to fetch notifications' },
         { status: 500 }
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       if (batchError) {
         console.warn(
           'Batch stats RPC unavailable, falling back to individual queries:',
-          batchError.message.replace(/[\r\n]/g, ' ')
+          JSON.stringify(batchError).replace(/[\r\n]/g, ' ')
         );
       }
 
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Admin notifications GET error:', String(error).replace(/[\r\n]/g, ' '));
+    console.error('Admin notifications GET error:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
     return NextResponse.json(
       { error: 'Failed to fetch notifications' },
       { status: 500 }
@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating notification:', String(createError).replace(/[\r\n]/g, ' '));
+      console.error('Error creating notification:', JSON.stringify(createError).replace(/[\r\n]/g, ' '));
       return NextResponse.json(
         { error: 'Failed to create notification' },
         { status: 500 }
@@ -510,7 +510,7 @@ async function broadcastNotification(
     }
   } catch (error) {
     // Don't fail the request if broadcast fails
-    console.error('Error broadcasting notification:', String(error).replace(/[\r\n]/g, ' '));
+    console.error('Error broadcasting notification:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
   }
 }
 
@@ -533,7 +533,7 @@ async function sendPushNotificationsToMerchants(
       .eq('app_type', 'admin');
 
     if (error) {
-      console.error('[Push] Error fetching push tokens:', String(error).replace(/[\r\n]/g, ' '));
+      console.error('[Push] Error fetching push tokens:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
       return;
     }
 
@@ -589,6 +589,6 @@ async function sendPushNotificationsToMerchants(
       );
     }
   } catch (error) {
-    console.error('[Push] Error sending push notifications:', String(error).replace(/[\r\n]/g, ' '));
+    console.error('[Push] Error sending push notifications:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
   }
 }

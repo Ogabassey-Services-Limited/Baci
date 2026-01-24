@@ -647,7 +647,7 @@ export async function POST(request: NextRequest) {
       message: 'Payment processed successfully',
     });
   } catch (error) {
-    logger.error({ message: 'Payment webhook error', error: String(error).replace(/[\r\n]/g, ' ') });
+    logger.error({ message: 'Payment webhook error', error: JSON.stringify(error).replace(/[\r\n]/g, ' ') });
     return NextResponse.json(
       {
         error: 'Webhook processing failed',
@@ -686,7 +686,7 @@ export async function GET(request: NextRequest) {
       payment: paymentData,
     });
   } catch (error) {
-    logger.error({ message: 'Payment verification error', error: String(error).replace(/[\r\n]/g, ' ') });
+    logger.error({ message: 'Payment verification error', error: JSON.stringify(error).replace(/[\r\n]/g, ' ') });
     return NextResponse.json(
       {
         error: 'Verification failed',

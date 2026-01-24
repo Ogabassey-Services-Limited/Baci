@@ -134,7 +134,7 @@ export async function POST(
     if (transactionError) {
       console.error(
         `[RecordPayment] Transaction insert error:`,
-        String(transactionError).replace(/[\r\n]/g, ' ')
+        JSON.stringify(transactionError).replace(/[\r\n]/g, ' ')
       );
       return NextResponse.json(
         { error: 'Failed to record payment' },
@@ -307,7 +307,7 @@ export async function POST(
         .eq('id', id);
 
       if (updateError) {
-        console.error('Failed to update order status:', String(updateError).replace(/[\r\n]/g, ' '));
+        console.error('Failed to update order status:', JSON.stringify(updateError).replace(/[\r\n]/g, ' '));
         // Note: Transaction was already created, so we don't fail the request entirely,
         // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
       }
@@ -322,7 +322,7 @@ export async function POST(
     });
     // biome-ignore lint/suspicious/noExplicitAny: Catch error type
   } catch (error: any) {
-    console.error('Error in record-payment:', String(error).replace(/[\r\n]/g, ' '));
+    console.error('Error in record-payment:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
     return NextResponse.json(
       { error: error.message || 'Internal Error' },
       { status: 500 }

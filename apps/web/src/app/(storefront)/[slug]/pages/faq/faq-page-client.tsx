@@ -2,7 +2,7 @@
 
 import { HelpCircle, Search } from 'lucide-react';
 import { useState } from 'react';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -134,9 +134,9 @@ export function FAQPageClient({
                             <AccordionContent className="text-muted-foreground pb-4">
                               <div
                                 className="prose prose-sm dark:prose-invert max-w-none"
-                                // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized
+                                // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
                                 dangerouslySetInnerHTML={{
-                                  __html: DOMPurify.sanitize(faq.answer),
+                                  __html: sanitizeHtml(faq.answer),
                                 }}
                               />
                             </AccordionContent>
@@ -171,9 +171,9 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized
+                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
                                       dangerouslySetInnerHTML={{
-                                        __html: DOMPurify.sanitize(faq.answer),
+                                        __html: sanitizeHtml(faq.answer),
                                       }}
                                     />
                                   </AccordionContent>
@@ -190,9 +190,9 @@ export function FAQPageClient({
                   <div className="max-w-3xl mx-auto">
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
                       dangerouslySetInnerHTML={{
-                        __html: DOMPurify.sanitize(sanitizedLegacyContent || legacyContent || ''),
+                        __html: sanitizeHtml(sanitizedLegacyContent || legacyContent || ''),
                       }}
                     />
                   </div>
