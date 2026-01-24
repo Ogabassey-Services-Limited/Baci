@@ -6,7 +6,9 @@ export const blogPostSchema = z.object({
         .string()
         .min(1, 'Slug is required')
         .max(200, 'Slug is too long')
-        .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
+        .refine((val) => /^[a-z0-9-]+$/.test(val), {
+            message: 'Slug must contain only lowercase letters, numbers, and hyphens',
+        })
         .optional(),
     content: z.string().min(1, 'Content is required').optional(), // Content might be partial in some updates
     excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
