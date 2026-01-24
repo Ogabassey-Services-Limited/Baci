@@ -159,7 +159,7 @@ export default function CompleteProfileScreen() {
             <View style={{ flex: 1, backgroundColor: DARK_COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color={DARK_COLORS.primary} />
             </View>
-        )
+        );
     }
 
     return (

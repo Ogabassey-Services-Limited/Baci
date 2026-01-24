@@ -20,7 +20,9 @@ const THEME_COOKIE_NAME = 'storefront-theme-v2';
  */
 function getCookie(name: string): string | undefined {
   if (typeof document === 'undefined') return undefined;
-  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  // Escape special characters in cookie name to prevent ReDoS
+  const safeName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(^| )${safeName}=([^;]+)`));
   return match ? match[2] : undefined;
 }
 

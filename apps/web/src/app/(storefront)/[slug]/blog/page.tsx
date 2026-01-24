@@ -14,10 +14,10 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
 import { BlogList } from './blog-list';
 
@@ -198,9 +198,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       name: merchant.business_name,
       logo: merchant.logo_url
         ? {
-          '@type': 'ImageObject',
-          url: merchant.logo_url,
-        }
+            '@type': 'ImageObject',
+            url: merchant.logo_url,
+          }
         : undefined,
     },
     blogPost: posts.slice(0, 10).map((post) => ({
@@ -256,7 +256,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
               <script
                 type="application/ld+json"
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
+                dangerouslySetInnerHTML={{
+                  __html: safeJsonLdStringify(blogSchema),
+                }}
               />
               <script
                 type="application/ld+json"
@@ -298,7 +300,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(breadcrumbSchema),
+        }}
       />
       <div className="min-h-screen bg-background">
         {/* Page Header */}

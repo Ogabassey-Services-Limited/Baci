@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
 
     // Jumia may return an error
     if (error) {
-      console.error('[Jumia Callback] OAuth error:', JSON.stringify(error).replace(/[\r\n]/g, ' '));
+      const safeError = String(error)
+        .replace(/[\r\n]/g, ' ')
+        .slice(0, 200);
+      console.error('[Jumia Callback] OAuth error:', safeError);
       return NextResponse.redirect(
         new URL(
           `/dashboard/channels?error=${encodeURIComponent(error)}`,

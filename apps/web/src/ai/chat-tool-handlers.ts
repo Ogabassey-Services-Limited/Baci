@@ -188,7 +188,7 @@ export async function handleCreateVirtualAccount(
 
     // Simulated virtual account (replace with real Kuda integration)
     const virtualAccount = {
-      accountNumber: `999${Math.random().toString().slice(2, 9)}`,
+      accountNumber: `999${crypto.randomInt(1000000, 9999999)}`,
       bankName: 'Kuda Bank',
       accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
     };

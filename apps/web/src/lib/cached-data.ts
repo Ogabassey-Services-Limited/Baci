@@ -179,18 +179,16 @@ export const getCachedMerchant = unstable_cache(
       return null;
     }
 
-    if (data) {
-      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-      const settings = data.feature_settings;
-      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-    }
-
     if (!data) {
       const safeSlug = String(slug || '')
         .replace(/[\r\n]/g, '')
         .substring(0, 100);
       console.warn('No merchant data found for slug:', safeSlug);
     } else {
+      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+      const settings = data.feature_settings;
+      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+
       const safeSlug = String(slug || '')
         .replace(/[\r\n]/g, '')
         .substring(0, 100);
@@ -301,11 +299,9 @@ export const getCachedMerchantByDomain = unstable_cache(
       return null;
     }
 
-    if (data) {
-      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-      const settings = data.feature_settings;
-      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-    }
+    // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+    const settings = data.feature_settings;
+    data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
 
     if (!data) {
       console.warn('No merchant data found for domain', {
@@ -812,7 +808,7 @@ export async function getCachedCategoryPageData(
   categorySlug: string,
   _storeSlug: string
 ) {
-  'use cache';
+  // 'use cache'; // Disabled to prevent unknown directive warning
   cacheTag('category-page-data', 'products', 'categories');
 
   // Added storeSlug for logic if needed

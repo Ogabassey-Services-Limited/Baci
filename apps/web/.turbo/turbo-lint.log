@@ -1,6 +1,692 @@
 
-
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-[0m[34mChecked [0m[0m[34m858[0m[0m[34m [0m[0m[34mfiles[0m[0m[34m in [0m[0m[34m724[0m[0m[2m[34mms[0m[0m[34m.[0m[0m[34m No fixes applied.[0m
+src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+   > 1 │ import {
+       │ ^^^^^^^^
+   > 2 │   AlertTriangle,
+   > 3 │   ArrowLeft,
+   > 4 │   Calendar,
+   > 5 │   Clock,
+   > 6 │   Tag,
+   > 7 │   User,
+   > 8 │ } from 'lucide-react';
+       │ ^^^^^^^^^^^^^^^^^^^^^^
+     9 │ import { marked } from 'marked';
+    10 │ import type { Metadata, Route } from 'next';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     19  19 │   import { getCachedBlogPost } from '@/lib/cached-data';
+     20  20 │   import { asRoute } from '@/lib/routes';
+     21     │ - import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+     22     │ - import·{·sanitizeHtml·}·from·'@/lib/sanitize';
+         21 │ + import·{·sanitizeHtml·}·from·'@/lib/sanitize';
+         22 │ + import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+     23  23 │   import {
+     24  24 │     generateBlogPostSchema,
+  
+
+src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     75  75 │         images: post.featured_image_url
+     76  76 │           ? [
+     77     │ - ··········{
+     78     │ - ············url:·post.featured_image_url,
+     79     │ - ············alt:·post.featured_image_alt·||·post.title,
+     80     │ - ··········},
+     81     │ - ········]
+         77 │ + ············{
+         78 │ + ··············url:·post.featured_image_url,
+         79 │ + ··············alt:·post.featured_image_alt·||·post.title,
+         80 │ + ············},
+         81 │ + ··········]
+     82  82 │           : [],
+     83  83 │       },
+    ······· │ 
+    208 208 │           type="application/ld+json"
+    209 209 │           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+    210     │ - ········dangerouslySetInnerHTML={{·__html:·safeJsonLdStringify(breadcrumbSchema)·}}
+        210 │ + ········dangerouslySetInnerHTML={{
+        211 │ + ··········__html:·safeJsonLdStringify(breadcrumbSchema),
+        212 │ + ········}}
+    211 213 │         />
+    212 214 │   
+  
+
+src/app/(storefront)/[slug]/blog/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { Rss } from 'lucide-react';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import type { Metadata } from 'next';
+    3 │ import { cookies, headers } from 'next/headers';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     15  15 │   } from '@/lib/cached-data';
+     16  16 │   import { asRoute } from '@/lib/routes';
+     17     │ - import·{·generateBreadcrumbSchema·}·from·'@/lib/seo-utils';
+     18     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+     19     │ - import·{·isDomainIdentifier·}·from·'@/lib/validation';
+     20     │ - import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+         17 │ + import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+         18 │ + import·{·generateBreadcrumbSchema·}·from·'@/lib/seo-utils';
+         19 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+         20 │ + import·{·isDomainIdentifier·}·from·'@/lib/validation';
+     21  21 │   import { type BlogPostData, getTemplate } from '@/templates/registry';
+     22  22 │   import { BlogList } from './blog-list';
+  
+
+src/app/(storefront)/[slug]/blog/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    199 199 │         logo: merchant.logo_url
+    200 200 │           ? {
+    201     │ - ··········'@type':·'ImageObject',
+    202     │ - ··········url:·merchant.logo_url,
+    203     │ - ········}
+        201 │ + ············'@type':·'ImageObject',
+        202 │ + ············url:·merchant.logo_url,
+        203 │ + ··········}
+    204 204 │           : undefined,
+    205 205 │       },
+    ······· │ 
+    257 257 │                   type="application/ld+json"
+    258 258 │                   // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+    259     │ - ················dangerouslySetInnerHTML={{·__html:·safeJsonLdStringify(blogSchema)·}}
+        259 │ + ················dangerouslySetInnerHTML={{
+        260 │ + ··················__html:·safeJsonLdStringify(blogSchema),
+        261 │ + ················}}
+    260 262 │                 />
+    261 263 │                 <script
+    ······· │ 
+    299 301 │           type="application/ld+json"
+    300 302 │           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+    301     │ - ········dangerouslySetInnerHTML={{·__html:·safeJsonLdStringify(breadcrumbSchema)·}}
+        303 │ + ········dangerouslySetInnerHTML={{
+        304 │ + ··········__html:·safeJsonLdStringify(breadcrumbSchema),
+        305 │ + ········}}
+    302 306 │         />
+    303 307 │         <div className="min-h-screen bg-background">
+  
+
+src/app/(storefront)/[slug]/page.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import type { Metadata } from 'next';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { cookies, headers } from 'next/headers';
+    3 │ import { notFound } from 'next/navigation';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     10  10 │     getCachedMerchantByDomain,
+     11  11 │   } from '@/lib/cached-data';
+     12     │ - import·{
+     13     │ - ··generateLocalBusinessSchema,
+     14     │ - ··generateServiceSchema,
+     15     │ - ··generateWebSiteSchema,
+     16     │ - ··type·LocalBusinessData,
+     17     │ - }·from·'@/lib/seo-utils';
+         12 │ + import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+     18  13 │   import {
+     19     │ - ··isDomainIdentifier,
+     20     │ - ··isValidMerchantIdentifier,
+     21     │ - }·from·'@/lib/validation';
+     22     │ - import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+         14 │ + ··generateLocalBusinessSchema,
+         15 │ + ··generateServiceSchema,
+         16 │ + ··generateWebSiteSchema,
+         17 │ + ··type·LocalBusinessData,
+         18 │ + }·from·'@/lib/seo-utils';
+         19 │ + import·{
+         20 │ + ··isDomainIdentifier,
+         21 │ + ··isValidMerchantIdentifier,
+         22 │ + }·from·'@/lib/validation';
+     23  23 │   import { StorefrontContent } from './storefront-content';
+     24  24 │   
+  
+
+src/app/(storefront)/[slug]/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    237 237 │             type="application/ld+json"
+    238 238 │             // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
+    239     │ - ··········dangerouslySetInnerHTML={{·__html:·safeJsonLdStringify(webSiteSchema)·}}
+        239 │ + ··········dangerouslySetInnerHTML={{
+        240 │ + ············__html:·safeJsonLdStringify(webSiteSchema),
+        241 │ + ··········}}
+    240 242 │           />
+    241 243 │         )}
+  
+
+src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx:3:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    1 │ 'use client';
+    2 │ 
+  > 3 │ import { HelpCircle, Search } from 'lucide-react';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    4 │ import { useState } from 'react';
+    5 │ import { sanitizeHtml } from '@/lib/sanitize';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      3   3 │   import { HelpCircle, Search } from 'lucide-react';
+      4   4 │   import { useState } from 'react';
+      5     │ - import·{·sanitizeHtml·}·from·'@/lib/sanitize';
+      6     │ - import·AppBody·from·'@/components/app-body';
+      7     │ - import·{·StorefrontFooter·}·from·'@/components/storefront/footer';
+      8     │ - import·{·StorefrontHeader·}·from·'@/components/storefront/header';
+      9     │ - import·{
+     10     │ - ··Accordion,
+     11     │ - ··AccordionContent,
+     12     │ - ··AccordionItem,
+     13     │ - ··AccordionTrigger,
+     14     │ - }·from·'@/components/ui/accordion';
+     15     │ - import·{·Badge·}·from·'@/components/ui/badge';
+     16     │ - import·{·Input·}·from·'@/components/ui/input';
+     17     │ - import·{·StorefrontProvider·}·from·'@/contexts/storefront-context';
+     18     │ - import·{·MerchantProvider·}·from·'@/hooks/use-merchant';
+          5 │ + import·AppBody·from·'@/components/app-body';
+          6 │ + import·{·StorefrontFooter·}·from·'@/components/storefront/footer';
+          7 │ + import·{·StorefrontHeader·}·from·'@/components/storefront/header';
+          8 │ + import·{
+          9 │ + ··Accordion,
+         10 │ + ··AccordionContent,
+         11 │ + ··AccordionItem,
+         12 │ + ··AccordionTrigger,
+         13 │ + }·from·'@/components/ui/accordion';
+         14 │ + import·{·Badge·}·from·'@/components/ui/badge';
+         15 │ + import·{·Input·}·from·'@/components/ui/input';
+         16 │ + import·{·StorefrontProvider·}·from·'@/contexts/storefront-context';
+         17 │ + import·{·MerchantProvider·}·from·'@/hooks/use-merchant';
+         18 │ + import·{·sanitizeHtml·}·from·'@/lib/sanitize';
+     19  19 │   
+     20  20 │   import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
+  
+
+src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     53  53 │     const filteredFAQs = searchQuery
+     54  54 │       ? faqItems.filter(
+     55     │ - ······(faq)·=>
+     56     │ - ········faq.question.toLowerCase().includes(searchQuery.toLowerCase())·||
+     57     │ - ········faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+     58     │ - ····)
+         55 │ + ········(faq)·=>
+         56 │ + ··········faq.question.toLowerCase().includes(searchQuery.toLowerCase())·||
+         57 │ + ··········faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+         58 │ + ······)
+     59  59 │       : faqItems;
+     60  60 │   
+    ······· │ 
+    193 193 │                         // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+    194 194 │                         dangerouslySetInnerHTML={{
+    195     │ - ························__html:·sanitizeHtml(sanitizedLegacyContent·||·legacyContent·||·''),
+        195 │ + ························__html:·sanitizeHtml(
+        196 │ + ··························sanitizedLegacyContent·||·legacyContent·||·''
+        197 │ + ························),
+    196 198 │                         }}
+    197 199 │                       />
+  
+
+src/app/api/admin/notifications/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    107 107 │   
+    108 108 │       if (error) {
+    109     │ - ······const·safeError·=·JSON.stringify(error).replace(/[\r\n]/g,·'·').slice(0,·500);
+        109 │ + ······const·safeError·=·JSON.stringify(error)
+        110 │ + ········.replace(/[\r\n]/g,·'·')
+        111 │ + ········.slice(0,·500);
+    110 112 │         console.error('Error fetching notifications:', safeError);
+    111 113 │         return NextResponse.json(
+    ······· │ 
+    189 191 │       });
+    190 192 │     } catch (error) {
+    191     │ - ····console.error('Admin·notifications·GET·error:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        193 │ + ····console.error(
+        194 │ + ······'Admin·notifications·GET·error:',
+        195 │ + ······JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        196 │ + ····);
+    192 197 │       return NextResponse.json(
+    193 198 │         { error: 'Failed to fetch notifications' },
+    ······· │ 
+    299 304 │   
+    300 305 │       if (createError) {
+    301     │ - ······console.error('Error·creating·notification:',·JSON.stringify(createError).replace(/[\r\n]/g,·'·'));
+        306 │ + ······console.error(
+        307 │ + ········'Error·creating·notification:',
+        308 │ + ········JSON.stringify(createError).replace(/[\r\n]/g,·'·')
+        309 │ + ······);
+    302 310 │         return NextResponse.json(
+    303 311 │           { error: 'Failed to create notification' },
+    ······· │ 
+    512 520 │     } catch (error) {
+    513 521 │       // Don't fail the request if broadcast fails
+    514     │ - ····console.error('Error·broadcasting·notification:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        522 │ + ····console.error(
+        523 │ + ······'Error·broadcasting·notification:',
+        524 │ + ······JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        525 │ + ····);
+    515 526 │     }
+    516 527 │   }
+    ······· │ 
+    535 546 │   
+    536 547 │       if (error) {
+    537     │ - ······console.error('[Push]·Error·fetching·push·tokens:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        548 │ + ······console.error(
+        549 │ + ········'[Push]·Error·fetching·push·tokens:',
+        550 │ + ········JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        551 │ + ······);
+    538 552 │         return;
+    539 553 │       }
+    ······· │ 
+    591 605 │       }
+    592 606 │     } catch (error) {
+    593     │ - ····console.error('[Push]·Error·sending·push·notifications:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        607 │ + ····console.error(
+        608 │ + ······'[Push]·Error·sending·push·notifications:',
+        609 │ + ······JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        610 │ + ····);
+    594 611 │     }
+    595 612 │   }
+  
+
+src/app/api/analytics/conversion/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    253 253 │           }
+    254 254 │         } catch (fbError) {
+    255     │ - ········console.error('Facebook·CAPI·error:',·String(fbError).replace(/[\r\n]/g,·'·'));
+        255 │ + ········console.error(
+        256 │ + ··········'Facebook·CAPI·error:',
+        257 │ + ··········String(fbError).replace(/[\r\n]/g,·'·')
+        258 │ + ········);
+    256 259 │           results.facebook = { success: false, error: String(fbError) };
+    257 260 │         }
+    ······· │ 
+    317 320 │           }
+    318 321 │         } catch (ttError) {
+    319     │ - ········console.error('TikTok·Events·API·error:',·String(ttError).replace(/[\r\n]/g,·'·'));
+        322 │ + ········console.error(
+        323 │ + ··········'TikTok·Events·API·error:',
+        324 │ + ··········String(ttError).replace(/[\r\n]/g,·'·')
+        325 │ + ········);
+    320 326 │           results.tiktok = { success: false, error: String(ttError) };
+    321 327 │         }
+    ······· │ 
+    386 392 │           }
+    387 393 │         } catch (snapError) {
+    388     │ - ········console.error('Snapchat·CAPI·error:',·String(snapError).replace(/[\r\n]/g,·'·'));
+        394 │ + ········console.error(
+        395 │ + ··········'Snapchat·CAPI·error:',
+        396 │ + ··········String(snapError).replace(/[\r\n]/g,·'·')
+        397 │ + ········);
+    389 398 │           results.snapchat = { success: false, error: String(snapError) };
+    390 399 │         }
+    ······· │ 
+    427 436 │           value: custom_data.value,
+    428 437 │           currency: String(currency).replace(/[\r\n]/g, ''),
+    429     │ - ········resultsStatus:·Object.keys(results).map(k·=>·`${k}:${results[k].success·?·'ok'·:·'fail'}`)
+        438 │ + ········resultsStatus:·Object.keys(results).map(
+        439 │ + ··········(k)·=>·`${k}:${results[k].success·?·'ok'·:·'fail'}`
+        440 │ + ········),
+    430 441 │         }).replace(/[\r\n]/g, ' ')
+    431 442 │       );
+    ······· │ 
+    437 448 │       });
+    438 449 │     } catch (error) {
+    439     │ - ····console.error('Unified·conversion·endpoint·error:',·String(error).replace(/[\r\n]/g,·'·'));
+        450 │ + ····console.error(
+        451 │ + ······'Unified·conversion·endpoint·error:',
+        452 │ + ······String(error).replace(/[\r\n]/g,·'·')
+        453 │ + ····);
+    440 454 │       // Never fail the request - analytics errors shouldn't block the user
+    441 455 │       return NextResponse.json({
+  
+
+src/app/api/chat/santa/product/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     40  40 │       console.log(
+     41  41 │         '[Santa Product] Found match:',
+     42     │ - ······matchingProduct.name.slice(0,·100).replace(/[\r\n]/g,·'·').replace(/[^\x20-\x7E]/g,·'')
+         42 │ + ······matchingProduct.name
+         43 │ + ········.slice(0,·100)
+         44 │ + ········.replace(/[\r\n]/g,·'·')
+         45 │ + ········.replace(/[^\x20-\x7E]/g,·'')
+     43  46 │       );
+     44  47 │   
+  
+
+src/app/api/marketplace/jumia/callback/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     23  23 │       // Jumia may return an error
+     24  24 │       if (error) {
+     25     │ - ······const·safeError·=·String(error).replace(/[\r\n]/g,·'·').slice(0,·200);
+         25 │ + ······const·safeError·=·String(error)
+         26 │ + ········.replace(/[\r\n]/g,·'·')
+         27 │ + ········.slice(0,·200);
+     26  28 │         console.error('[Jumia Callback] OAuth error:', safeError);
+     27  29 │         return NextResponse.redirect(
+  
+
+src/app/api/mobile-onboarding/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    203 203 │         );
+    204 204 │       if (staffError) {
+    205     │ - ······console.error(
+    206     │ - ········'Failed·to·create/update·staff·member·profile',
+    207     │ - ········staffError
+    208     │ - ······);
+        205 │ + ······console.error('Failed·to·create/update·staff·member·profile',·staffError);
+    209 206 │         // Don't fail the whole request, but log it
+    210 207 │       }
+  
+
+src/app/api/orders/[id]/record-payment/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    310 310 │   
+    311 311 │         if (updateError) {
+    312     │ - ········console.error('Failed·to·update·order·status:',·JSON.stringify(updateError).replace(/[\r\n]/g,·'·'));
+        312 │ + ········console.error(
+        313 │ + ··········'Failed·to·update·order·status:',
+        314 │ + ··········JSON.stringify(updateError).replace(/[\r\n]/g,·'·')
+        315 │ + ········);
+    313 316 │           // Note: Transaction was already created, so we don't fail the request entirely,
+    314 317 │           // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
+    ······· │ 
+    325 328 │       // biome-ignore lint/suspicious/noExplicitAny: Catch error type
+    326 329 │     } catch (error: any) {
+    327     │ - ····console.error('Error·in·record-payment:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        330 │ + ····console.error(
+        331 │ + ······'Error·in·record-payment:',
+        332 │ + ······JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        333 │ + ····);
+    328 334 │       return NextResponse.json(
+    329 335 │         { error: error.message || 'Internal Error' },
+  
+
+src/app/api/payments/webhook/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    648 648 │       });
+    649 649 │     } catch (error) {
+    650     │ - ····logger.error({·message:·'Payment·webhook·error',·error:·JSON.stringify(error).replace(/[\r\n]/g,·'·')·});
+        650 │ + ····logger.error({
+        651 │ + ······message:·'Payment·webhook·error',
+        652 │ + ······error:·JSON.stringify(error).replace(/[\r\n]/g,·'·'),
+        653 │ + ····});
+    651 654 │       return NextResponse.json(
+    652 655 │         {
+    ······· │ 
+    687 690 │       });
+    688 691 │     } catch (error) {
+    689     │ - ····logger.error({·message:·'Payment·verification·error',·error:·JSON.stringify(error).replace(/[\r\n]/g,·'·')·});
+        692 │ + ····logger.error({
+        693 │ + ······message:·'Payment·verification·error',
+        694 │ + ······error:·JSON.stringify(error).replace(/[\r\n]/g,·'·'),
+        695 │ + ····});
+    690 696 │       return NextResponse.json(
+    691 697 │         {
+  
+
+src/app/api/storefront/auth/verify-code/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     80  80 │   
+     81  81 │       if (verifyError || !authData.user) {
+     82     │ - ······console.error('OTP·verification·error:',·JSON.stringify(verifyError).replace(/[\r\n]/g,·'·'));
+         82 │ + ······console.error(
+         83 │ + ········'OTP·verification·error:',
+         84 │ + ········JSON.stringify(verifyError).replace(/[\r\n]/g,·'·')
+         85 │ + ······);
+     83  86 │   
+     84  87 │         if (verifyError?.message?.includes('expired')) {
+    ······· │ 
+    126 129 │   
+    127 130 │       if (customerError) {
+    128     │ - ······console.error('Customer·upsert·error:',·JSON.stringify(customerError).replace(/[\r\n]/g,·'·'));
+        131 │ + ······console.error(
+        132 │ + ········'Customer·upsert·error:',
+        133 │ + ········JSON.stringify(customerError).replace(/[\r\n]/g,·'·')
+        134 │ + ······);
+    129 135 │         // Don't fail the login, just log the error
+    130 136 │       }
+    ······· │ 
+    158 164 │       });
+    159 165 │     } catch (error) {
+    160     │ - ····console.error('Verify·code·error:',·JSON.stringify(error).replace(/[\r\n]/g,·'·'));
+        166 │ + ····console.error(
+        167 │ + ······'Verify·code·error:',
+        168 │ + ······JSON.stringify(error).replace(/[\r\n]/g,·'·')
+        169 │ + ····);
+    161 170 │       return NextResponse.json(
+    162 171 │         { error: 'Internal server error' },
+  
+
+src/app/dashboard/client-layout.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     86  86 │       ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
+     87  87 │       : cn(
+     88     │ - ······'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
+     89     │ - ······isCollapsed·&&·'justify-center'
+     90     │ - ····);
+         88 │ + ········'flex·items-center·gap-3·rounded-lg·px-3·py-2·text-muted-foreground',
+         89 │ + ········isCollapsed·&&·'justify-center'
+         90 │ + ······);
+     91  91 │   
+     92  92 │     const isReady = !merchantLoading && storeUrl !== '#';
+    ······· │ 
+    309 309 │     };
+    310 310 │   
+    311     │ - 
+    312     │ - 
+    313 311 │     const navItems: {
+    314 312 │       href: Route;
+    ······· │ 
+    318 316 │       badgeVariant?: 'default' | 'destructive';
+    319 317 │     }[] = [
+    320     │ - ······{
+    321     │ - ········href:·'/dashboard'·as·Route,
+    322     │ - ········icon:·LayoutDashboard,
+    323     │ - ········label:·'Dashboard',
+    324     │ - ······},
+    325     │ - ······{
+    326     │ - ········href:·'/dashboard/analytics'·as·Route,
+    327     │ - ········icon:·BarChart3,
+    328     │ - ········label:·'Analytics',
+    329     │ - ······},
+    330     │ - ······{
+    331     │ - ········href:·'/dashboard/orders'·as·Route,
+    332     │ - ········icon:·ShoppingCart,
+    333     │ - ········label:·'Orders',
+    334     │ - ········badge:·ordersCount·>·0·?·ordersCount·:·undefined,
+    335     │ - ······},
+    336     │ - ······{
+    337     │ - ········href:·'/dashboard/products'·as·Route,
+    338     │ - ········icon:·Package,
+    339     │ - ········label:·'Products',
+    340     │ - ······},
+    341     │ - ······{
+    342     │ - ········href:·'/dashboard/customers'·as·Route,
+    343     │ - ········icon:·Users,
+    344     │ - ········label:·'Customers',
+    345     │ - ······},
+    346     │ - ······{
+    347     │ - ········href:·'/dashboard/staff'·as·Route,
+    348     │ - ········icon:·UserCog,
+    349     │ - ········label:·'Staff',
+    350     │ - ······},
+    351     │ - ······{
+    352     │ - ········href:·'/dashboard/loyalty'·as·Route,
+    353     │ - ········icon:·Gift,
+    354     │ - ········label:·'Loyalty',
+    355     │ - ······},
+    356     │ - ······{
+    357     │ - ········href:·'/dashboard/santa'·as·Route,
+    358     │ - ········icon:·MessageCircle,
+    359     │ - ········label:·'Santa·Campaign',
+    360     │ - ······},
+    361     │ - ······{
+    362     │ - ········href:·'/dashboard/wallet'·as·Route,
+    363     │ - ········icon:·Wallet,
+    364     │ - ········label:·'Wallet',
+    365     │ - ······},
+    366     │ - ······{
+    367     │ - ········href:·'/dashboard/seo'·as·Route,
+    368     │ - ········icon:·Search,
+    369     │ - ········label:·'SEO',
+    370     │ - ······},
+    371     │ - ······{
+    372     │ - ········href:·'/dashboard/domains'·as·Route,
+    373     │ - ········icon:·Globe,
+    374     │ - ········label:·'Domains',
+    375     │ - ······},
+    376     │ - ······{
+    377     │ - ········href:·'/dashboard/pages'·as·Route,
+    378     │ - ········icon:·FileText,
+    379     │ - ········label:·'Pages',
+    380     │ - ········//·Badge·disabled·temporarily
+    381     │ - ······},
+    382     │ - ······{
+    383     │ - ········href:·'/dashboard/blog'·as·Route,
+    384     │ - ········icon:·Newspaper,
+    385     │ - ········label:·'Blog',
+    386     │ - ······},
+    387     │ - ······{
+    388     │ - ········href:·'/dashboard/templates'·as·Route,
+    389     │ - ········icon:·LayoutTemplate,
+    390     │ - ········label:·'Templates',
+    391     │ - ······},
+    392     │ - ······{
+    393     │ - ········icon:·Paintbrush,
+    394     │ - ········label:·'Customize·Website',
+    395     │ - ········href:·'/builder'·as·Route,
+    396     │ - ······},
+    397     │ - ······{
+    398     │ - ········href:·'/dashboard/integrations'·as·Route,
+    399     │ - ········icon:·Plug,
+    400     │ - ········label:·'Integrations',
+    401     │ - ······},
+    402     │ - ······{
+    403     │ - ········href:·'/dashboard/settings'·as·Route,
+    404     │ - ········icon:·Settings,
+    405     │ - ········label:·'Settings',
+    406     │ - ······},
+    407     │ - ····];
+        318 │ + ····{
+        319 │ + ······href:·'/dashboard'·as·Route,
+        320 │ + ······icon:·LayoutDashboard,
+        321 │ + ······label:·'Dashboard',
+        322 │ + ····},
+        323 │ + ····{
+        324 │ + ······href:·'/dashboard/analytics'·as·Route,
+        325 │ + ······icon:·BarChart3,
+        326 │ + ······label:·'Analytics',
+        327 │ + ····},
+        328 │ + ····{
+        329 │ + ······href:·'/dashboard/orders'·as·Route,
+        330 │ + ······icon:·ShoppingCart,
+        331 │ + ······label:·'Orders',
+        332 │ + ······badge:·ordersCount·>·0·?·ordersCount·:·undefined,
+        333 │ + ····},
+        334 │ + ····{
+        335 │ + ······href:·'/dashboard/products'·as·Route,
+        336 │ + ······icon:·Package,
+        337 │ + ······label:·'Products',
+        338 │ + ····},
+        339 │ + ····{
+        340 │ + ······href:·'/dashboard/customers'·as·Route,
+        341 │ + ······icon:·Users,
+        342 │ + ······label:·'Customers',
+        343 │ + ····},
+        344 │ + ····{
+        345 │ + ······href:·'/dashboard/staff'·as·Route,
+        346 │ + ······icon:·UserCog,
+        347 │ + ······label:·'Staff',
+        348 │ + ····},
+        349 │ + ····{
+        350 │ + ······href:·'/dashboard/loyalty'·as·Route,
+        351 │ + ······icon:·Gift,
+        352 │ + ······label:·'Loyalty',
+        353 │ + ····},
+        354 │ + ····{
+        355 │ + ······href:·'/dashboard/santa'·as·Route,
+        356 │ + ······icon:·MessageCircle,
+        357 │ + ······label:·'Santa·Campaign',
+        358 │ + ····},
+        359 │ + ····{
+        360 │ + ······href:·'/dashboard/wallet'·as·Route,
+        361 │ + ······icon:·Wallet,
+  46 more lines truncated
+  
+
+src/app/root-dynamic-head.tsx:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { headers } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+    3 │ import {
+  
+  i Safe fix: Organize Imports (Biome)
+  
+     1  1 │   import { headers } from 'next/headers';
+     2  2 │   import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+     3    │ - import·{
+     4    │ - ··generateOrganizationSchema,
+     5    │ - ··generateSoftwareApplicationSchema,
+     6    │ - ··generateWebSiteSchema,
+     7    │ - ··type·OrganizationData,
+     8    │ - }·from·'@/lib/seo-utils';
+     9    │ - import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+        3 │ + import·{·safeJsonLdStringify·}·from·'@/lib/sanitize-core';
+        4 │ + import·{
+        5 │ + ··generateOrganizationSchema,
+        6 │ + ··generateSoftwareApplicationSchema,
+        7 │ + ··generateWebSiteSchema,
+        8 │ + ··type·OrganizationData,
+        9 │ + }·from·'@/lib/seo-utils';
+    10 10 │   
+    11 11 │   export async function RootDynamicHead() {
+  
+
+Checked 858 files in 1001ms. No fixes applied.
+Found 18 errors.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

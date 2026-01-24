@@ -2,7 +2,6 @@
 
 import { HelpCircle, Search } from 'lucide-react';
 import { useState } from 'react';
-import { sanitizeHtml } from '@/lib/sanitize';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -16,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
@@ -52,10 +52,10 @@ export function FAQPageClient({
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-      (faq) =>
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+        (faq) =>
+          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : faqItems;
 
   // Group FAQs by category
@@ -192,7 +192,9 @@ export function FAQPageClient({
                       className="prose prose-lg dark:prose-invert max-w-none"
                       // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
                       dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(sanitizedLegacyContent || legacyContent || ''),
+                        __html: sanitizeHtml(
+                          sanitizedLegacyContent || legacyContent || ''
+                        ),
                       }}
                     />
                   </div>

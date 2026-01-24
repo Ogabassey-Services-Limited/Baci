@@ -9,6 +9,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,
@@ -19,7 +20,6 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { StorefrontContent } from './storefront-content';
 
 export async function generateMetadata({
@@ -236,7 +236,9 @@ export default async function StorefrontPage({
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(webSiteSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(webSiteSchema),
+          }}
         />
       )}
 

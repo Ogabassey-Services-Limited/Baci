@@ -5,14 +5,12 @@ import {
   ArrowRightLeft,
   Check,
   ChevronRight,
-  HandCoins,
   Heart,
   Info,
   MapPin,
   Minus,
   Plus,
   RotateCcw,
-  Search,
   Share2,
   ShieldCheck,
   ShieldPlus,
@@ -55,7 +53,6 @@ interface ProductDetailsPageProps {
 export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product: serverProduct }) => {
   const params = useParams();
   const searchParams = useSearchParams();
-  const id = serverProduct?.id?.toString() || (params?.id as string); // Use prop id or URL param
   const router = useRouter(); // Use Next.js router
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
@@ -65,13 +62,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     cart,
     updateQuantity,
     removeFromCart,
-    setIsCartOpen,
     applyNegotiatedPrice,
   } = useCart();
   const { toast } = useToast();
   const { toggleSaved, isSaved } = useV2Saved();
-  const { compareItems, addToCompare, removeFromCompare, isInCompare } =
-    useV2Comparison();
+  const { compareItems, addToCompare } = useV2Comparison();
 
   // Handle ?action=buy from ChatGPT widget - auto add to cart and go to checkout
   const buyActionHandled = useRef(false);
@@ -238,7 +233,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const [deliveryLocation, setDeliveryLocation] = useState<
     'Lagos' | 'Outside Lagos'
   >('Lagos');
-  const [showColorToast, setShowColorToast] = useState(false);
+  const [showColorToast] = useState(false);
 
   // Negotiation Logic
   const [isNegotiationOpen, setIsNegotiationOpen] = useState(false);
@@ -257,21 +252,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const handleAnimationComplete = () => {
     setAnimatingParticles((prev) => prev.slice(1));
   };
-
-
-  // Comparison Logic - Compute comparable items
-  const comparableProducts = useMemo(() => {
-    // Get items from context that match category AND are NOT the current product
-    const categoryToMatch = productData.categories?.name || (productData as any).category;
-    return compareItems
-      .filter(
-        (p) => {
-          const pCategory = (p as any).categories?.name || (p as any).category;
-          return pCategory === categoryToMatch && String(p.id) !== String(productData.id);
-        }
-      )
-      .slice(0, 3); // Max 3 competitors
-  }, [compareItems, productData.categories?.name, productData.id]);
 
   // Scroll to top on load - Optional in Next.js but kept for component mount reset
   useEffect(() => {
@@ -582,10 +562,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       // storage: productData.storage[0],
     };
     toggleSaved(productForSaved as any);
-  };
-
-  const handleAddToCompare = (product: Product) => {
-    addToCompare(product as any);
   };
 
   return (

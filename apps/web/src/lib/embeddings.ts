@@ -25,7 +25,7 @@ export async function generateEmbedding(
 
   // Skip if text is too short to be meaningful
   if (!text || text.trim().length < 20) {
-    console.log(`Skipping embedding for ${type} ${id}: text too short`);
+    console.log('Skipping embedding for', type, id, ': text too short');
     return false;
   }
 
@@ -54,11 +54,11 @@ export async function generateEmbedding(
 
     if (!response.ok) {
       const error = await response.text();
-      console.error(`Failed to generate embedding for ${type} ${id}:`, error);
+      console.error('Failed to generate embedding for', type, id, ':', error);
       return false;
     }
 
-    console.log(`Successfully generated embedding for ${type} ${id}`);
+    console.log('Successfully generated embedding for', type, id);
     return true;
   } catch (error) {
     console.error(`Error generating embedding for ${type} ${id}:`, error);

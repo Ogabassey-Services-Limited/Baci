@@ -526,7 +526,7 @@ interface VirtualAccountResponse {
 export async function createVirtualBankAccount(
   data: VirtualAccountRequest
 ): Promise<KorapayResult<VirtualAccountResponse>> {
-  const reference = `VA-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  const reference = `VA-${Date.now()}-${crypto.randomUUID().split('-')[0]}`;
 
   const result = await korapayRequest<{
     account_number: string;

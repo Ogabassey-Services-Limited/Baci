@@ -219,7 +219,15 @@ export default function ProductEditScreen() {
   // Helper to strip HTML tags
   const stripHtml = useCallback((html: string) => {
     if (!html) return '';
-    return html.replace(/<[^>]*>?/gm, '');
+    const text = html.replace(/<[^>]*>?/gm, '');
+    // Basic entity decoding for common chars
+    return text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
   }, []);
 
   const [isInitialized, setIsInitialized] = useState(false);

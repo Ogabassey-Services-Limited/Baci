@@ -128,7 +128,16 @@ export function DiscountItemSelector({
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    return html.replace(/<[^>]+>/g, '');
+    // Use a more robust regex to strip tags (Global, Multiline)
+    const textInfo = html.replace(/<[^>]*>?/gm, '');
+    // Decode common entities (incomplete list but covers basics for display)
+    return textInfo
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
   };
 
   return (

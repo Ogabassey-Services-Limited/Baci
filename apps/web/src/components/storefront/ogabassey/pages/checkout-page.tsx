@@ -1534,32 +1534,7 @@ export const CheckoutPage: React.FC = () => {
   // Empty cart check - only show after hydration confirms cart is genuinely empty
   // Skip this check when resuming an order (cart is empty during order resumption)
 
-  // Empty cart check - only show after hydration confirms cart is genuinely empty
-  // Skip this check when resuming an order (cart is empty during order resumption)
-  // 2025 FIX: Ensure resumedOrder is fully loaded before showing "Cart Empty"
-  if (isHydrated && cart.length === 0 && !resumeOrderId && !resumedOrder && !isLoadingResumedOrder) {
-    return (
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center pb-20">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShieldCheck className="w-10 h-10 text-gray-400" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Your cart is empty</h1>
-          <p className="text-gray-500 mb-6">
-            Add some items to your cart before checking out.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push(asRoute(getHref('/')))}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--store-primary)] text-white font-semibold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors"
-          >
-            Continue Shopping
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </div>
-    );
-  }
+
 
 
   // Chain display names and explorer URLs

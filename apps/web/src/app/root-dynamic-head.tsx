@@ -1,12 +1,12 @@
 import { headers } from 'next/headers';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   generateOrganizationSchema,
   generateSoftwareApplicationSchema,
   generateWebSiteSchema,
   type OrganizationData,
 } from '@/lib/seo-utils';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 export async function RootDynamicHead() {
   const headersList = await headers();
