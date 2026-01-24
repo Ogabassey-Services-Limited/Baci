@@ -2,6 +2,7 @@
 
 import { Eye, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { memo } from 'react';
 import { ProductCardImage } from '@/components/optimized-image';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
@@ -30,7 +31,7 @@ interface StorefrontProductCardProps {
  * Product Card for Storefront Grid
  * Relying on React Compiler for automatic memoization and performance optimizations.
  */
-export function StorefrontProductCard({
+export const StorefrontProductCard = memo(function StorefrontProductCard({
   product,
   cartItem,
   staggerClass,
@@ -218,4 +219,4 @@ export function StorefrontProductCard({
       </CardContent>
     </ThemedCard>
   );
-}
+});
