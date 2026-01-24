@@ -3,7 +3,7 @@
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import {
   Dialog,
@@ -516,21 +516,25 @@ function isVariantAvailable(
 
 /**
  * Hook to manage quick view state
+ *
+ * 2026 Best Practice: Use useCallback for stable function references
+ * This prevents unnecessary re-renders in components that receive
+ * these callbacks as props (e.g., ProductCard grid items).
  */
 export function useQuickView() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  const openQuickView = (p: Product) => {
+  const openQuickView = useCallback((p: Product) => {
     setProduct(p);
     setIsOpen(true);
-  };
+  }, []);
 
-  const closeQuickView = () => {
+  const closeQuickView = useCallback(() => {
     setIsOpen(false);
     // Delay clearing product to allow close animation
     setTimeout(() => setProduct(null), 300);
-  };
+  }, []);
 
   return {
     product,
