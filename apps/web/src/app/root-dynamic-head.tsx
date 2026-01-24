@@ -6,6 +6,7 @@ import {
   generateWebSiteSchema,
   type OrganizationData,
 } from '@/lib/seo-utils';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 export async function RootDynamicHead() {
   const headersList = await headers();
@@ -43,7 +44,7 @@ export async function RootDynamicHead() {
         suppressHydrationWarning
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(organizationSchema),
+          __html: safeJsonLdStringify(organizationSchema),
         }}
       />
       <script
@@ -51,7 +52,7 @@ export async function RootDynamicHead() {
         nonce={nonce}
         suppressHydrationWarning
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteSchema) }}
       />
       <script
         type="application/ld+json"
@@ -59,7 +60,7 @@ export async function RootDynamicHead() {
         suppressHydrationWarning
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(softwareApplicationSchema),
+          __html: safeJsonLdStringify(softwareApplicationSchema),
         }}
       />
     </>

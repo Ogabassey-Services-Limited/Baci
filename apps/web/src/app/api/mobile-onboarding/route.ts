@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       const { data: signUpData, error: signUpError } =
         await supabase.auth.signUp({
           email,
-          password: password || '', // Password is required for this flow
+          password: password,
           options: {
             data: {
               full_name: fullName,
@@ -189,28 +189,26 @@ export async function POST(req: NextRequest) {
 
     // Upsert Staff Member (Profile Data)
     // This ensures the "Profile" screen is populated
-    if (user && merchant) {
-      const { error: staffError } = await adminSupabase
-        .from('staff_members')
-        .upsert(
-          {
-            user_id: user.id,
-            merchant_id: merchant.id,
-            name: fullName || null,
-            phone: phone || null,
-            email: user.email || email,
-            role: 'owner',
-            status: 'active',
-          },
-          { onConflict: 'user_id, merchant_id' }
-        );
-      if (staffError) {
-        console.error(
-          'Failed to create/update staff member profile',
-          staffError
-        );
-        // Don't fail the whole request, but log it
-      }
+    const { error: staffError } = await adminSupabase
+      .from('staff_members')
+      .upsert(
+        {
+          user_id: user.id,
+          merchant_id: merchant.id,
+          name: fullName || null,
+          phone: phone || null,
+          email: user.email || email,
+          role: 'owner',
+          status: 'active',
+        },
+        { onConflict: 'user_id, merchant_id' }
+      );
+    if (staffError) {
+      console.error(
+        'Failed to create/update staff member profile',
+        staffError
+      );
+      // Don't fail the whole request, but log it
     }
 
     // --- 4. Template & Assets ---

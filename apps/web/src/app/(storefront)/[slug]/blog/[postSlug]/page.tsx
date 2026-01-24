@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { sanitizeHtml } from '@/lib/sanitize';
 import {
   generateBlogPostSchema,
@@ -73,11 +74,11 @@ export async function generateMetadata({
       tags: post.tags,
       images: post.featured_image_url
         ? [
-            {
-              url: post.featured_image_url,
-              alt: post.featured_image_alt || post.title,
-            },
-          ]
+          {
+            url: post.featured_image_url,
+            alt: post.featured_image_alt || post.title,
+          },
+        ]
         : [],
     },
     twitter: {
@@ -201,12 +202,12 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
       />
 
       <ViewCounter postId={post.id} />
