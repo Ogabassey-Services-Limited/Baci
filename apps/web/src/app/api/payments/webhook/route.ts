@@ -58,8 +58,8 @@ function verifyKorapayWebhookSignature(
       .digest('hex');
 
     // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(signature, 'hex');
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    const signatureBuffer = Buffer.from(String(signature), 'hex');
+    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
 
     if (signatureBuffer.length !== expectedBuffer.length) {
       return false;
@@ -647,7 +647,7 @@ export async function POST(request: NextRequest) {
       message: 'Payment processed successfully',
     });
   } catch (error) {
-    logger.error({ message: 'Payment webhook error', error });
+    logger.error({ message: 'Payment webhook error', error: String(error).replace(/[\r\n]/g, ' ') });
     return NextResponse.json(
       {
         error: 'Webhook processing failed',
@@ -686,7 +686,7 @@ export async function GET(request: NextRequest) {
       payment: paymentData,
     });
   } catch (error) {
-    logger.error({ message: 'Payment verification error', error });
+    logger.error({ message: 'Payment verification error', error: String(error).replace(/[\r\n]/g, ' ') });
     return NextResponse.json(
       {
         error: 'Verification failed',

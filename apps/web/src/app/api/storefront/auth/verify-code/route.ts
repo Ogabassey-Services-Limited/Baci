@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       });
 
     if (verifyError || !authData.user) {
-      console.error('OTP verification error:', verifyError);
+      console.error('OTP verification error:', String(verifyError).replace(/[\r\n]/g, ' '));
 
       if (verifyError?.message?.includes('expired')) {
         return NextResponse.json(
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     );
 
     if (customerError) {
-      console.error('Customer upsert error:', customerError);
+      console.error('Customer upsert error:', String(customerError).replace(/[\r\n]/g, ' '));
       // Don't fail the login, just log the error
     }
 
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Verify code error:', error);
+    console.error('Verify code error:', String(error).replace(/[\r\n]/g, ' '));
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

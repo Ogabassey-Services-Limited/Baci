@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       if (batchError) {
         console.warn(
           'Batch stats RPC unavailable, falling back to individual queries:',
-          batchError.message
+          batchError.message.replace(/[\r\n]/g, ' ')
         );
       }
 
