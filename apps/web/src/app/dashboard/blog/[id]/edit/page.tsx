@@ -329,12 +329,22 @@ export default function EditBlogPostPage() {
   }, []);
 
   const validateForm = (): string | null => {
-    if (!formData.title.trim()) return 'Title is required';
-    if (!formData.content.trim()) return 'Content is required';
-    if (!formData.author_name.trim()) return 'Author name is required';
-    if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
-      return 'Slug can only contain lowercase letters, numbers, and hyphens';
+    // Sanitize data first
+    const sanitizedData = sanitizeBlogPostData({
+      ...formData,
+      slug:
+        formData.slug && formData.slug !== originalPost?.slug
+          ? formData.slug
+          : undefined,
+    });
+
+    const result = blogPostSchema.safeParse(sanitizedData);
+
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      return firstError?.message || 'Invalid form data';
     }
+
     return null;
   };
 
@@ -384,13 +394,11 @@ export default function EditBlogPostPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        if (data.details) {
-          console.error('Validation details:', data.details);
-          // Show the first validation error if it exists
-          const firstError = Object.values(data.details.fieldErrors || {})[0]?.[0];
-          throw new Error(firstError || data.error || 'Validation failed');
-        }
-        throw new Error(data.error || 'Failed to update post');
+        const errorMessage = data.details?.fieldErrors
+          ? Object.values(data.details.fieldErrors)[0]?.[0]
+          : data.error;
+
+        throw new Error(errorMessage || 'Failed to update post');
       }
 
       const updatedPost = await response.json();
@@ -814,7 +822,6 @@ export default function EditBlogPostPage() {
                   placeholder={formData.title || 'Custom SEO title'}
                   value={formData.seo_title}
                   onChange={(e) => handleChange('seo_title', e.target.value)}
-                  maxLength={70}
                 />
                 <div className="flex justify-between items-center text-xs">
                   <span className={titleLength > 60 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
@@ -843,7 +850,6 @@ export default function EditBlogPostPage() {
                     handleChange('seo_description', e.target.value)
                   }
                   rows={3}
-                  maxLength={160}
                 />
                 <div className="flex justify-between items-center text-xs">
                   <span className={descriptionLength > 150 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
