@@ -292,7 +292,10 @@ export default function WishListPage() {
         <Card className="glass-themed">
           <CardContent className="pt-6">
             <div className="text-center mb-6">
-              <Heart className="mx-auto h-12 w-12 text-red-500 mb-4" />
+              <Heart
+                className="mx-auto h-12 w-12 text-red-500 mb-4"
+                aria-hidden="true"
+              />
               <h1 className="text-2xl font-bold mb-2">Your Wish List</h1>
               <p className="text-muted-foreground">
                 Enter your email to view and manage your saved items.
@@ -336,9 +339,9 @@ export default function WishListPage() {
             {wishListItems.length > 0 && (
               <Button variant="outline" onClick={handleShareWishlist}>
                 {shareUrlCopied ? (
-                  <Check className="mr-2 h-4 w-4" />
+                  <Check className="mr-2 h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <Share2 className="mr-2 h-4 w-4" />
+                  <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
                 )}
                 {shareUrlCopied ? 'Copied!' : 'Share'}
               </Button>
@@ -359,13 +362,20 @@ export default function WishListPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+          <Loader2
+            className="h-8 w-8 motion-safe:animate-spin"
+            aria-hidden="true"
+          />
+          <span className="sr-only">Loading your wish list...</span>
         </div>
       ) : wishListItems.length === 0 ? (
         <Card className="glass-themed">
           <CardContent className="py-12">
             <div className="text-center">
-              <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <Package
+                className="mx-auto h-12 w-12 text-muted-foreground mb-4"
+                aria-hidden="true"
+              />
               <h3 className="text-lg font-semibold mb-2">
                 Your wish list is empty
               </h3>
@@ -392,10 +402,14 @@ export default function WishListPage() {
                     alt={item.products.name}
                     fill
                     className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <Package className="h-12 w-12 text-muted-foreground" />
+                    <Package
+                      className="h-12 w-12 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                   </div>
                 )}
               </div>
@@ -420,9 +434,15 @@ export default function WishListPage() {
                       disabled={movingToCartId === item.id}
                     >
                       {movingToCartId === item.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2
+                          className="mr-2 h-4 w-4 motion-safe:animate-spin"
+                          aria-hidden="true"
+                        />
                       ) : (
-                        <ShoppingCart className="mr-2 h-4 w-4" />
+                        <ShoppingCart
+                          className="mr-2 h-4 w-4"
+                          aria-hidden="true"
+                        />
                       )}
                       Move to Cart
                     </Button>
@@ -441,11 +461,15 @@ export default function WishListPage() {
                           handleRemoveItem(item.id, item.products.name)
                         }
                         disabled={removingItemId === item.id}
+                        aria-label={`Remove ${item.products.name} from wishlist`}
                       >
                         {removingItemId === item.id ? (
-                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                          <Loader2
+                            className="h-4 w-4 motion-safe:animate-spin"
+                            aria-hidden="true"
+                          />
                         ) : (
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         )}
                       </Button>
                     </div>
@@ -462,11 +486,15 @@ export default function WishListPage() {
                         handleRemoveItem(item.id, item.products.name)
                       }
                       disabled={removingItemId === item.id}
+                      aria-label={`Remove ${item.products.name} from wishlist`}
                     >
                       {removingItemId === item.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                        <Loader2
+                          className="mr-2 h-4 w-4 motion-safe:animate-spin"
+                          aria-hidden="true"
+                        />
                       ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
                       )}
                       Remove
                     </Button>

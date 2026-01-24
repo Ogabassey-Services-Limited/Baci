@@ -111,21 +111,44 @@ export function VirtualTerminalSettings({
         fetch('/api/branches'),
       ]);
 
+      // Handle accounts response with user-facing error
       if (accountsRes.ok) {
         const data = await accountsRes.json();
         setAccounts(data.terminals || []);
+      } else {
+        console.error('Failed to fetch accounts:', accountsRes.status);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load accounts',
+          description:
+            'Unable to fetch staff accounts. Please refresh the page.',
+        });
       }
 
+      // Handle branches response with user-facing error
       if (branchesRes.ok) {
         const data = await branchesRes.json();
         setBranches(data.branches || []);
+      } else {
+        console.error('Failed to fetch branches:', branchesRes.status);
+        toast({
+          variant: 'destructive',
+          title: 'Failed to load branches',
+          description: 'Unable to fetch branch data. Please refresh the page.',
+        });
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Connection error',
+        description:
+          'Unable to connect to the server. Please check your connection.',
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchData();
@@ -609,9 +632,12 @@ export function VirtualTerminalSettings({
           </TabsContent>
         </Tabs>
 
-        <div className="mt-6 p-4 rounded-lg bg-blue-50 border border-blue-200 flex gap-3">
-          <QrCode className="h-5 w-5 text-blue-600 shrink-0" />
-          <p className="text-xs text-blue-700 leading-relaxed">
+        <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 flex gap-3">
+          <QrCode
+            className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0"
+            aria-hidden="true"
+          />
+          <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
             <strong>Pro Tip:</strong> Download printable QR codes from your
             Paystack Dashboard for each account to display at physical
             locations.

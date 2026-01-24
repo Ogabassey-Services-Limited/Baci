@@ -92,10 +92,10 @@ export const viewport: Viewport = {
   userScalable: true, // Never disable zoom - accessibility requirement
   // Enable safe area support for notched devices (iPhone, etc.)
   viewportFit: 'cover',
-  // Theme color for browser chrome
+  // Theme color for browser chrome (neutral for dashboard/platform)
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#3F51B5' },
-    { media: '(prefers-color-scheme: dark)', color: '#1a1f4e' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F0F0F' },
   ],
   // Color scheme support
   colorScheme: 'light dark',

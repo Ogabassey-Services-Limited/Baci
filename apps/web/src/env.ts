@@ -39,6 +39,7 @@ const serverSchema = z.object({
 
   // Internal
   JUICYWAY_BASE_URL: z.string().default('https://api-sandbox.spendjuice.com'),
+  MYCOVER_WEBHOOK_SECRET: z.string().optional(),
 });
 
 const clientSchema = z.object({
@@ -106,6 +107,7 @@ const getEnv = () => {
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
+        MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
       }
     : {};
 
@@ -202,6 +204,14 @@ export const getBlogPreviewSecret = (): string => {
 export const getRootDomain = () => env?.NEXT_PUBLIC_ROOT_DOMAIN;
 export const getAppUrl = () =>
   env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+export const getMyCoverWebhookSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('MYCOVER_WEBHOOK_SECRET cannot be accessed on the client');
+  if (!env?.MYCOVER_WEBHOOK_SECRET)
+    throw new Error('MYCOVER_WEBHOOK_SECRET is not defined');
+  return env.MYCOVER_WEBHOOK_SECRET;
+};
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 

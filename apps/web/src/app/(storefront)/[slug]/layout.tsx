@@ -1,3 +1,4 @@
+import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
@@ -67,11 +68,24 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
+/**
+ * Shared helper to resolve merchant by identifier (slug or custom domain)
+ * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior
+ */
+async function getMerchantByIdentifier(identifier: string) {
+  if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isDomainIdentifier(identifier)) {
+    return await getCachedMerchantByDomain(identifier.toLowerCase());
+  }
+  return await getCachedMerchant(identifier.toLowerCase());
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
 
   // Validate identifier format
@@ -80,12 +94,7 @@ export async function generateMetadata({
   }
 
   // Fetch merchant data (returns CachedMerchant | null)
-  let merchant = null as Awaited<ReturnType<typeof getCachedMerchant>> | null;
-  if (isDomainIdentifier(slug)) {
-    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
-  } else {
-    merchant = await getCachedMerchant(slug.toLowerCase());
-  }
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return { title: 'Store Not Found' };
@@ -102,9 +111,11 @@ export async function generateMetadata({
     | Record<string, unknown>
     | undefined;
 
-  const verificationCode =
+  const rawVerification =
     featureSettings?.google_site_verification ||
     publishedConfig?.google_site_verification;
+  const verificationCode =
+    typeof rawVerification === 'string' ? rawVerification : undefined;
 
   // Build icons configuration for merchant favicon
   // Fall back to logo_url if no dedicated favicon exists
@@ -161,6 +172,35 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Modern Next.js 15+ Viewport Configuration
+ * 2026 Best Practice: Separate viewport configuration for optimized browser rendering
+ */
+export async function generateViewport({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Viewport> {
+  const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) return {};
+
+  // biome-ignore lint/suspicious/noExplicitAny: Theme color logic
+  const merchantWithConfig = merchant as any;
+  if (merchantWithConfig.theme_color) {
+    return { themeColor: merchantWithConfig.theme_color };
+  }
+
+  const isDarkTemplate =
+    merchant.template_id === 'ogabassey' ||
+    merchant.template_id === 'classic-elegant';
+
+  return {
+    themeColor: isDarkTemplate ? '#0F0F0F' : '#ffffff',
+  };
+}
+
 export default async function StorefrontLayout({
   children,
   params,
@@ -176,16 +216,7 @@ export default async function StorefrontLayout({
   }
 
   // Use appropriate lookup method based on identifier type
-  type MerchantResult = Awaited<ReturnType<typeof getCachedMerchant>>;
-  let merchant: MerchantResult;
-
-  if (isDomainIdentifier(slug)) {
-    // Custom domain access (e.g., ogabassey.com) - normalize to lowercase
-    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
-  } else {
-    // Standard slug access (e.g., ogabassey) - normalize to lowercase
-    merchant = await getCachedMerchant(slug.toLowerCase());
-  }
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

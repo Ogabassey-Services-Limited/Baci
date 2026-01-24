@@ -1,5 +1,11 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMyCoverWebhookSecret } from '@/env';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  type MyCoverWebhookPayload,
+  myCoverWebhookSchema,
+} from '@/schemas/mycover-webhook';
 
 /**
  * MyCover.ai Webhook Handler
@@ -8,44 +14,137 @@ import { type NextRequest, NextResponse } from 'next/server';
  * - Policy purchases
  * - Policy renewals
  * - Claim status updates
+ *
+ * Security: Verifies HMAC-SHA512 signature using x-mycoverai-signature header
  */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+/**
+ * Verify MyCover webhook signature using HMAC-SHA512
+ * Uses Web Crypto API (SubtleCrypto) for Edge Runtime compatibility
+ * Implements constant-time comparison to prevent timing attacks
+ */
+async function verifyWebhookSignature(
+  rawBody: string,
+  signature: string | null,
+  secret: string
+): Promise<boolean> {
+  if (!signature) {
+    console.warn('[MyCover Webhook] Missing signature header');
+    return false;
+  }
 
-interface MyCoverWebhookPayload {
-  event: string;
-  data: {
-    policy_id?: string;
-    policy_number?: string;
-    status?: string;
-    customer?: {
-      email?: string;
-      phone?: string;
-      first_name?: string;
-      last_name?: string;
-    };
-    start_date?: string;
-    expiration_date?: string;
-    genius_price?: number;
-    market_price?: number;
-    claim_id?: string;
-    claim_status?: string;
-    [key: string]: unknown;
-  };
-  timestamp?: string;
+  try {
+    // Encode the secret and body for Web Crypto API
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(rawBody);
+
+    // Import the secret as an HMAC key
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-512' },
+      false,
+      ['sign']
+    );
+
+    // Generate the expected signature
+    const signatureBuffer = await crypto.subtle.sign(
+      'HMAC',
+      cryptoKey,
+      messageData
+    );
+    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Constant-time comparison to prevent timing attacks
+    // We iterate exactly the length of the expected signature to ensure consistent timing
+    const expectedLen = expectedSignature.length;
+    let result = signature.length ^ expectedLen;
+
+    for (let i = 0; i < expectedLen; i++) {
+      // Use logical OR with 0 for out-of-bounds to keep type numeric and prevent early returns
+      const charA = signature.charCodeAt(i) || 0;
+      const charB = expectedSignature.charCodeAt(i);
+      result |= charA ^ charB;
+    }
+
+    return result === 0;
+  } catch (error) {
+    console.error('[MyCover Webhook] Signature verification error:', error);
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const payload: MyCoverWebhookPayload = await request.json();
+    // Read raw body for signature verification
+    const rawBody = await request.text();
+
+    // Verify webhook environment configuration (2026 Best Practice: Check dependencies early)
+    let myCoverWebhookSecret: string;
+    try {
+      myCoverWebhookSecret = getMyCoverWebhookSecret();
+    } catch (error) {
+      console.error(
+        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET is not configured in environment variables',
+        error
+      );
+      return NextResponse.json(
+        { error: 'Webhook configuration error' },
+        { status: 500 }
+      );
+    }
+
+    // Verify webhook signature (2026 security best practice)
+    const signature = request.headers.get('x-mycoverai-signature');
+    const isValid = await verifyWebhookSignature(
+      rawBody,
+      signature,
+      myCoverWebhookSecret
+    );
+
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid or missing webhook signature' },
+        { status: 401 }
+      );
+    }
+
+    // Parse payload after signature verification
+    // 2026 Best Practice: Return 400 for malformed JSON or schema failure (client error)
+    let jsonPayload: unknown;
+    try {
+      jsonPayload = JSON.parse(rawBody);
+    } catch {
+      console.warn('[MyCover Webhook] Invalid JSON payload');
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 }
+      );
+    }
+
+    const parseResult = myCoverWebhookSchema.safeParse(jsonPayload);
+    if (!parseResult.success) {
+      console.warn(
+        '[MyCover Webhook] Invalid payload structure:',
+        parseResult.error.format()
+      );
+      return NextResponse.json(
+        { error: 'Invalid payload structure' },
+        { status: 400 }
+      );
+    }
+
+    const payload = parseResult.data;
 
     // Log incoming webhook for debugging (sanitize to prevent log injection)
     const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
     console.log('[MyCover Webhook] Received:', safeEvent);
 
-    // Create admin Supabase client
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create admin Supabase client (2026 Best Practice: Use centralized factory)
+    const supabase = createAdminClient();
 
     switch (payload.event) {
       case 'policy.purchased':
@@ -172,14 +271,25 @@ async function handleClaimUpdate(
       claimStatus = 'unknown';
   }
 
+  // 2026 Best Practice: Explicit conditional updates for clarity and type safety
+  const updateData: {
+    claim_status: string;
+    claim_id: string | undefined;
+    updated_at: string;
+    status?: string;
+  } = {
+    claim_status: claimStatus,
+    claim_id: data.claim_id,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (event === 'claim.approved') {
+    updateData.status = 'claimed';
+  }
+
   const { error } = await supabase
     .from('order_insurance_policies')
-    .update({
-      claim_status: claimStatus,
-      claim_id: data.claim_id,
-      status: event === 'claim.approved' ? 'claimed' : undefined,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('mycover_policy_id', data.policy_id);
 
   if (error) {

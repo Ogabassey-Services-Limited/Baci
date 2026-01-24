@@ -2,10 +2,17 @@
 
 import { AlertCircle, Upload, X } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// 2026 Best Practice: Track whether preview is from initialFiles or new upload
+// This prevents index mismatch when removing files
+interface PreviewEntry {
+  src: string;
+  file: File | null; // null for initialFiles URLs
+}
 
 interface FileUploaderProps {
   onFilesSelected: (files: File[]) => void;
@@ -14,6 +21,28 @@ interface FileUploaderProps {
   accept?: Record<string, string[]>;
   className?: string;
   initialFiles?: string[]; // URLs of existing files
+}
+
+// Extract just the File objects for the callback
+const getFiles = (entryList: PreviewEntry[]): File[] =>
+  entryList.flatMap((e) => (e.file ? [e.file] : []));
+
+// Helper to create a stable reference based on content
+// 2026 Best Practice: Prevent unnecessary effect re-runs using shallow comparison instead of heavy JSON.stringify
+function useStableArray<T>(arr: T[]): T[] {
+  const ref = useRef<T[]>(arr);
+  const prevArr = useRef<T[]>(arr);
+
+  const changed =
+    arr.length !== prevArr.current.length ||
+    arr.some((item, i) => item !== prevArr.current[i]);
+
+  if (changed) {
+    prevArr.current = arr;
+    ref.current = arr;
+  }
+
+  return ref.current;
 }
 
 export function FileUploader({
@@ -26,74 +55,138 @@ export function FileUploader({
   className,
   initialFiles = [],
 }: FileUploaderProps) {
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>(initialFiles);
+  // Use unified entries to track both initialFiles (URLs) and new uploads (File objects)
+  const [entries, setEntries] = useState<PreviewEntry[]>(() =>
+    initialFiles.map((src) => ({ src, file: null }))
+  );
   const [errors, setErrors] = useState<string[]>([]);
 
+  // 2026 Best Practice: Use a ref to track the latest entries for safe revocation on unmount
+  const entriesRef = useRef(entries);
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  // 2026 Best Practice: Use a ref to track previous files to avoid spurious callback triggers
+  const prevFilesRef = useRef<File[]>([]);
+
+  // 2026 Best Practice: Separate state updates from side effects to ensure purity in Strict Mode
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    const currentFiles = getFiles(entries);
+
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      prevFilesRef.current = currentFiles;
+      return;
+    }
+
+    // Only trigger callback if the File list has actually changed (prevents loops/dirty forms on URL-only sync)
+    const isSame =
+      currentFiles.length === prevFilesRef.current.length &&
+      currentFiles.every((f, i) => f === prevFilesRef.current[i]);
+
+    if (!isSame) {
+      prevFilesRef.current = currentFiles;
+      onFilesSelected(currentFiles);
+    }
+  }, [entries, onFilesSelected]);
+
+  const stableInitialFiles = useStableArray(initialFiles);
+
+  // Sync initialFiles prop changes to state while preserving new uploads
+  // This allows parent forms to update (e.g. from DB) without losing work
+  useEffect(() => {
+    setEntries((prev) => {
+      const newInitialEntries = stableInitialFiles.map((src) => ({
+        src,
+        file: null,
+      }));
+      const fileEntries = prev.filter((e) => e.file !== null);
+      return [...newInitialEntries, ...fileEntries];
+    });
+  }, [stableInitialFiles]);
+
   // Cleanup object URLs to avoid memory leaks
+  // Runs only on unmount to ensure URLs remain valid while the component is active
   useEffect(() => {
     return () => {
-      files.forEach((file) => {
-        if (typeof file === 'object' && 'preview' in file) {
-          URL.revokeObjectURL((file as File & { preview: string }).preview);
+      for (const entry of entriesRef.current) {
+        // Only revoke blob URLs (new uploads), not external URLs (initialFiles)
+        if (entry.file && entry.src.startsWith('blob:')) {
+          URL.revokeObjectURL(entry.src);
+        }
+      }
+    };
+  }, []);
+
+  const onDrop = (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+    // Handle errors
+    const newErrors: string[] = [];
+    fileRejections.forEach(({ file, errors: fileErrors }) => {
+      fileErrors.forEach((e) => {
+        if (e.code === 'file-too-large') {
+          newErrors.push(
+            `${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB`
+          );
+        } else if (e.code === 'file-invalid-type') {
+          newErrors.push(`${file.name} has an invalid file type.`);
+        } else {
+          newErrors.push(`${file.name}: ${e.message}`);
         }
       });
-    };
-  }, [files]);
+    });
+    setErrors(newErrors);
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[], fileRejections: FileRejection[]) => {
-      // Handle errors
-      const newErrors: string[] = [];
-      fileRejections.forEach(({ file, errors }) => {
-        errors.forEach((e) => {
-          if (e.code === 'file-too-large') {
-            newErrors.push(
-              `${file.name} is too large. Max size is ${maxSize / 1024 / 1024}MB`
-            );
-          } else if (e.code === 'file-invalid-type') {
-            newErrors.push(`${file.name} has an invalid file type.`);
-          } else {
-            newErrors.push(`${file.name}: ${e.message}`);
+    // Handle accepted files
+    if (acceptedFiles?.length) {
+      // 2026 Best Practice: Create blob URLs outside state updater to avoid orphans in Strict Mode
+      const potentialEntries: PreviewEntry[] = acceptedFiles.map((file) => ({
+        src: URL.createObjectURL(file), // Side effect happens once
+        file,
+      }));
+
+      setEntries((prev) => {
+        const remainingSlots = Math.max(0, maxFiles - prev.length);
+        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+
+        if (entriesToAdd.length === 0) {
+          // Immediately revoke all as none will be used
+          for (const e of potentialEntries) URL.revokeObjectURL(e.src);
+          return prev;
+        }
+
+        // Revoke URLs for files that didn't fit the limit
+        if (potentialEntries.length > remainingSlots) {
+          for (const e of potentialEntries.slice(remainingSlots)) {
+            URL.revokeObjectURL(e.src);
           }
-        });
+        }
+
+        return [...prev, ...entriesToAdd];
       });
-      setErrors(newErrors);
-
-      // Handle accepted files
-      if (acceptedFiles?.length) {
-        const newFiles = acceptedFiles.map((file) =>
-          Object.assign(file, {
-            preview: URL.createObjectURL(file),
-          })
-        );
-
-        const updatedFiles = [...files, ...newFiles].slice(0, maxFiles);
-        setFiles(updatedFiles);
-        onFilesSelected(updatedFiles);
-
-        // Update previews for display
-        const newPreviews = newFiles.map(
-          (f) => (f as File & { preview: string }).preview
-        );
-        setPreviews((prev) => [...prev, ...newPreviews].slice(0, maxFiles));
-      }
-    },
-    [maxFiles, maxSize, onFilesSelected, files]
-  );
+    }
+  };
 
   const removeFile = (index: number) => {
-    setFiles((prev) => {
+    setEntries((prev) => {
+      const entryToRemove = prev[index];
+      // Revoke blob URL for new uploads
+      if (entryToRemove?.file && entryToRemove.src.startsWith('blob:')) {
+        URL.revokeObjectURL(entryToRemove.src);
+      }
       const updated = prev.filter((_, i) => i !== index);
-      onFilesSelected(updated);
       return updated;
     });
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // For compatibility with existing code that uses previews.length
+  const previews = entries.map((e) => e.src);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    maxFiles: maxFiles - files.length, // Adjust max files based on what's already selected
+    // Account for all entries when enforcing maxFiles limit
+    maxFiles: Math.max(0, maxFiles - entries.length),
     maxSize,
     accept,
   });
@@ -107,7 +200,7 @@ export function FileUploader({
           isDragActive
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',
-          files.length + (initialFiles?.length || 0) >= maxFiles &&
+          entries.length >= maxFiles &&
             'opacity-50 cursor-not-allowed pointer-events-none'
         )}
       >
@@ -165,12 +258,13 @@ export function FileUploader({
                   variant="destructive"
                   size="icon"
                   className="h-8 w-8"
+                  aria-label={`Remove image ${index + 1}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     removeFile(index);
                   }}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
             </div>

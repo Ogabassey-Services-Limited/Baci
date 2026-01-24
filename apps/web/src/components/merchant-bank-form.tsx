@@ -22,7 +22,9 @@ import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
 
 const bankSchema = z.object({
-  accountNumber: z.string().length(10, 'Account number must be 10 digits'),
+  accountNumber: z
+    .string()
+    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
   payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
@@ -327,7 +329,10 @@ export function MerchantBankForm({
                   />
                   {isLoadingBanks && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <Loader2
+                        className="h-4 w-4 animate-spin text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     </div>
                   )}
                 </div>
@@ -354,8 +359,8 @@ export function MerchantBankForm({
                         key={bank.code}
                         id={`bank-option-${index}`}
                         role="option"
-                        aria-selected={field.value === bank.code}
                         tabIndex={0}
+                        aria-selected={field.value === bank.code}
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                           field.value === bank.code && 'bg-accent/50',
@@ -391,13 +396,18 @@ export function MerchantBankForm({
                               ? 'opacity-100'
                               : 'opacity-0'
                           )}
+                          aria-hidden="true"
                         />
                         {bank.name}
                       </div>
                     ))}
                   {/* Empty state for search */}
-                  {banks.filter((b) =>
-                    b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())
+                  {banks.filter(
+                    (b) =>
+                      b.name
+                        .toLowerCase()
+                        .includes(bankSearchTerm.toLowerCase()) ||
+                      b.code.includes(bankSearchTerm)
                   ).length === 0 && (
                     <div className="py-6 text-center text-sm text-muted-foreground">
                       No bank found.
@@ -414,14 +424,17 @@ export function MerchantBankForm({
         {/* Verification Status */}
         {isVerifying && (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Verifying account...
           </div>
         )}
 
         {verifiedName && (
           <div className="rounded-md bg-green-50 dark:bg-green-950/50 p-4 flex items-start gap-3 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
-            <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
+            <CheckCircle2
+              className="h-5 w-5 shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
             <div className="space-y-1">
               <p className="font-medium">Account Verified</p>
               <p className="text-sm">{verifiedName}</p>
@@ -431,7 +444,7 @@ export function MerchantBankForm({
 
         {verificationError && (
           <div className="rounded-md bg-red-50 dark:bg-red-950/50 p-4 flex items-center gap-3 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-            <AlertCircle className="h-5 w-5 shrink-0" />
+            <AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
             <div>
               <p className="font-medium">Verification Failed</p>
               <p className="text-sm">{verificationError}</p>
@@ -485,7 +498,11 @@ export function MerchantBankForm({
                       Settlement Frequency
                     </FormLabel>
                     <FormControl>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div
+                        role="radiogroup"
+                        aria-label="Settlement frequency"
+                        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                      >
                         <label
                           className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'instant' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
                         >
@@ -535,7 +552,9 @@ export function MerchantBankForm({
           className="w-full"
           disabled={isSubmitting || isVerifying || !verifiedName}
         >
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {isSubmitting && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          )}
           {isSubmitting ? 'Saving...' : 'Save Bank Details'}
         </Button>
       </form>

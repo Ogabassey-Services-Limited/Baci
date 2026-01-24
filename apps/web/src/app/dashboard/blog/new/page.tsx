@@ -738,7 +738,9 @@ export default function NewBlogPostPage() {
                     {formData.seo_title || formData.title || 'Post Title'}
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
-                    {merchant?.slug}.usebaci.com/blog/
+                    {merchant?.custom_domain
+                      ? `${merchant.custom_domain.replace(/\/$/, '')}/blog/`
+                      : `/${merchant?.slug}/blog/`}
                     {formData.slug || 'post-slug'}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-2">

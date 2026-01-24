@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -537,7 +538,11 @@ export default function EditBlogPostPage() {
             isSafeSlug(merchant.slug) && (
               <Button variant="outline" asChild>
                 <a
-                  href={`/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`}
+                  href={
+                    merchant.custom_domain
+                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/${encodeURIComponent(formData.slug)}`
+                      : `/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -883,7 +888,11 @@ export default function EditBlogPostPage() {
                     {formData.seo_title || formData.title || 'Post Title'}
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
-                    {merchant?.slug}.usebaci.com/blog/
+                    {merchant?.custom_domain
+                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/`
+                      : merchant?.slug
+                        ? `https://${getRootDomain() ?? 'usebaci.com'}/${merchant.slug}/blog/`
+                        : '/blog/'}
                     {formData.slug || 'post-slug'}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-2">
