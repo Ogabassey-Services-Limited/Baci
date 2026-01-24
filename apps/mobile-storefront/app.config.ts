@@ -88,10 +88,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         merchantSlug: "ogabassey",
         businessType: "electronics",
         templateId: "default",
-        supabaseUrl: "https://aivqthbxdshhltbwipbr.supabase.co",
-        // Use env var or fallback for local dev if desired, but NOT hardcoded in source
-        supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "",
-        apiUrl: "https://ogabassey.com/api",
+        supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+        supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+        apiUrl: process.env.EXPO_PUBLIC_API_URL,
         eas: {
             projectId: "c6c1897b-cac8-49b0-85f9-3d277aecc379"
         }
