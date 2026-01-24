@@ -2,4 +2,320 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 859 files in 731ms. No fixes applied.
+src/app/api/merchant/blog/posts/[id]/route.ts:3:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    1 │ import { cookies } from 'next/headers';
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+  > 3 │ import { z } from 'zod';
+      │        ^^^^^
+    4 │ import {
+    5 │   authenticateApiRequest,
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+      1   1 │   import { cookies } from 'next/headers';
+      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
+      3     │ - import·{·z·}·from·'zod';
+      4   3 │   import {
+      5   4 │     authenticateApiRequest,
+  
+
+src/lib/cached-data.ts:303:31 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    302 │     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+  > 303 │     const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
+        │                               ^^^
+    304 │     data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+    305 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/lib/validations/blog.ts:52:59 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    50 │  * 2026 Best Practice: Centralized data cleaning before validation.
+    51 │  */
+  > 52 │ export function sanitizeBlogPostData(data: Record<string, any>): Record<string, any> {
+       │                                                           ^^^
+    53 │     const sanitized: Record<string, any> = {};
+    54 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/lib/validations/blog.ts:52:81 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    50 │  * 2026 Best Practice: Centralized data cleaning before validation.
+    51 │  */
+  > 52 │ export function sanitizeBlogPostData(data: Record<string, any>): Record<string, any> {
+       │                                                                                 ^^^
+    53 │     const sanitized: Record<string, any> = {};
+    54 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/lib/validations/blog.ts:53:37 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    51 │  */
+    52 │ export function sanitizeBlogPostData(data: Record<string, any>): Record<string, any> {
+  > 53 │     const sanitized: Record<string, any> = {};
+       │                                     ^^^
+    54 │ 
+    55 │     for (const [key, value] of Object.entries(data)) {
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     53  53 │     const filteredFAQs = searchQuery
+     54  54 │       ? faqItems.filter(
+     55     │ - ······(faq)·=>
+     56     │ - ········faq.question.toLowerCase().includes(searchQuery.toLowerCase())·||
+     57     │ - ········faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+     58     │ - ····)
+         55 │ + ········(faq)·=>
+         56 │ + ··········faq.question.toLowerCase().includes(searchQuery.toLowerCase())·||
+         57 │ + ··········faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+         58 │ + ······)
+     59  59 │       : faqItems;
+     60  60 │   
+    ······· │ 
+    203 203 │                         dangerouslySetInnerHTML={{
+    204 204 │                           __html:
+    205     │ - ··························sanitizedLegacyContent·||
+    206     │ - ··························sanitizeHtml(legacyContent),
+        205 │ + ··························sanitizedLegacyContent·||·sanitizeHtml(legacyContent),
+    207 206 │                         }}
+    208 207 │                       />
+  
+
+src/app/dashboard/blog/[id]/edit/page.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    825  825 │                   />
+    826  826 │                   <div className="flex justify-between items-center text-xs">
+    827      │ - ··················<span·className={titleLength·>·60·?·'text-destructive·font-medium'·:·'text-muted-foreground'}>
+         827 │ + ··················<span
+         828 │ + ····················className={
+         829 │ + ······················titleLength·>·60
+         830 │ + ························?·'text-destructive·font-medium'
+         831 │ + ························:·'text-muted-foreground'
+         832 │ + ····················}
+         833 │ + ··················>
+    828  834 │                       {titleLength}/60 characters (recommended)
+    829  835 │                     </span>
+    830  836 │                     {titleLength >= 50 && titleLength <= 60 && (
+    831      │ - ····················<Badge·variant="secondary"·className="bg-green-100·text-green-700·hover:bg-green-100·border-none">
+         837 │ + ····················<Badge
+         838 │ + ······················variant="secondary"
+         839 │ + ······················className="bg-green-100·text-green-700·hover:bg-green-100·border-none"
+         840 │ + ····················>
+    832  841 │                         Optimized for SEO
+    833  842 │                       </Badge>
+    ········ │ 
+    853  862 │                   />
+    854  863 │                   <div className="flex justify-between items-center text-xs">
+    855      │ - ··················<span·className={descriptionLength·>·150·?·'text-destructive·font-medium'·:·'text-muted-foreground'}>
+         864 │ + ··················<span
+         865 │ + ····················className={
+         866 │ + ······················descriptionLength·>·150
+         867 │ + ························?·'text-destructive·font-medium'
+         868 │ + ························:·'text-muted-foreground'
+         869 │ + ····················}
+         870 │ + ··················>
+    856  871 │                       {descriptionLength}/150 characters (recommended)
+    857  872 │                     </span>
+    858  873 │                     {descriptionLength >= 120 && descriptionLength <= 150 && (
+    859      │ - ····················<Badge·variant="secondary"·className="bg-green-100·text-green-700·hover:bg-green-100·border-none">
+         874 │ + ····················<Badge
+         875 │ + ······················variant="secondary"
+         876 │ + ······················className="bg-green-100·text-green-700·hover:bg-green-100·border-none"
+         877 │ + ····················>
+    860  878 │                         Optimized for Google/Social
+    861  879 │                       </Badge>
+  
+
+src/lib/validations/blog.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     2   2 │   
+     3   3 │   export const blogPostSchema = z.object({
+     4     │ - ····title:·z.string().min(1,·'Title·is·required').max(200,·'Title·is·too·long'),
+     5     │ - ····slug:·z
+     6     │ - ········.string()
+     7     │ - ········.min(1,·'Slug·is·required')
+     8     │ - ········.max(200,·'Slug·is·too·long')
+     9     │ - ········.refine((val)·=>·!val·||·/^[a-z0-9-]+$/.test(val),·{
+    10     │ - ············message:·'Slug·must·contain·only·lowercase·letters,·numbers,·and·hyphens',
+    11     │ - ········})
+    12     │ - ········.optional(),
+    13     │ - ····content:·z.string().min(1,·'Content·is·required').optional(),·//·Content·might·be·partial·in·some·updates
+    14     │ - ····excerpt:·z.string().max(300,·'Excerpt·is·too·long').optional().nullable(),
+    15     │ - ····featured_image_url:·z
+    16     │ - ········.string()
+    17     │ - ········.refine((val)·=>·{
+    18     │ - ············if·(!val)·return·true;
+    19     │ - ············try·{·new·URL(val);·return·true;·}·catch·{·return·false;·}
+    20     │ - ········},·{·message:·'Must·be·a·valid·URL'·})
+    21     │ - ········.optional()
+    22     │ - ········.nullable()
+    23     │ - ········.or(z.literal('')),·//·Allow·empty·string·to·be·sanitized·later·or·handled
+    24     │ - ····featured_image_alt:·z.string().max(200).optional().nullable(),
+    25     │ - ····category:·z.string().max(100).optional().nullable(),
+    26     │ - ····tags:·z.array(z.string()).optional(),
+    27     │ - ····keywords:·z.array(z.string()).optional(),
+    28     │ - ····author_name:·z.string().min(1,·'Author·name·is·required').max(100).optional(),
+    29     │ - ····author_title:·z.string().max(100).optional().nullable(),
+    30     │ - ····author_image_url:·z
+    31     │ - ········.string()
+    32     │ - ········.refine((val)·=>·{
+    33     │ - ············if·(!val)·return·true;
+    34     │ - ············try·{·new·URL(val);·return·true;·}·catch·{·return·false;·}
+    35     │ - ········},·{·message:·'Must·be·a·valid·URL'·})
+    36     │ - ········.optional()
+    37     │ - ········.nullable()
+    38     │ - ········.or(z.literal('')),
+    39     │ - ····author_bio:·z.string().max(500).optional().nullable(),
+    40     │ - ····status:·z.enum(['draft',·'published',·'archived']).optional(),
+    41     │ - ····seo_title:·z.string().max(70,·'SEO·title·must·be·70·characters·or·less').optional().nullable(),
+    42     │ - ····seo_description:·z.string().max(160,·'Meta·description·must·be·160·characters·or·less').optional().nullable(),
+    43     │ - ····focus_keyword:·z.string().max(50,·'Focus·keyword·must·be·50·characters·or·less').optional().nullable(),
+         4 │ + ··title:·z.string().min(1,·'Title·is·required').max(200,·'Title·is·too·long'),
+         5 │ + ··slug:·z
+         6 │ + ····.string()
+         7 │ + ····.min(1,·'Slug·is·required')
+         8 │ + ····.max(200,·'Slug·is·too·long')
+         9 │ + ····.refine((val)·=>·!val·||·/^[a-z0-9-]+$/.test(val),·{
+        10 │ + ······message:·'Slug·must·contain·only·lowercase·letters,·numbers,·and·hyphens',
+        11 │ + ····})
+        12 │ + ····.optional(),
+        13 │ + ··content:·z.string().min(1,·'Content·is·required').optional(),·//·Content·might·be·partial·in·some·updates
+        14 │ + ··excerpt:·z.string().max(300,·'Excerpt·is·too·long').optional().nullable(),
+        15 │ + ··featured_image_url:·z
+        16 │ + ····.string()
+        17 │ + ····.refine(
+        18 │ + ······(val)·=>·{
+        19 │ + ········if·(!val)·return·true;
+        20 │ + ········try·{
+        21 │ + ··········new·URL(val);
+        22 │ + ··········return·true;
+        23 │ + ········}·catch·{
+        24 │ + ··········return·false;
+        25 │ + ········}
+        26 │ + ······},
+        27 │ + ······{·message:·'Must·be·a·valid·URL'·}
+        28 │ + ····)
+        29 │ + ····.optional()
+        30 │ + ····.nullable()
+        31 │ + ····.or(z.literal('')),·//·Allow·empty·string·to·be·sanitized·later·or·handled
+        32 │ + ··featured_image_alt:·z.string().max(200).optional().nullable(),
+        33 │ + ··category:·z.string().max(100).optional().nullable(),
+        34 │ + ··tags:·z.array(z.string()).optional(),
+        35 │ + ··keywords:·z.array(z.string()).optional(),
+        36 │ + ··author_name:·z.string().min(1,·'Author·name·is·required').max(100).optional(),
+        37 │ + ··author_title:·z.string().max(100).optional().nullable(),
+        38 │ + ··author_image_url:·z
+        39 │ + ····.string()
+        40 │ + ····.refine(
+        41 │ + ······(val)·=>·{
+        42 │ + ········if·(!val)·return·true;
+        43 │ + ········try·{
+        44 │ + ··········new·URL(val);
+        45 │ + ··········return·true;
+        46 │ + ········}·catch·{
+        47 │ + ··········return·false;
+        48 │ + ········}
+        49 │ + ······},
+        50 │ + ······{·message:·'Must·be·a·valid·URL'·}
+        51 │ + ····)
+        52 │ + ····.optional()
+        53 │ + ····.nullable()
+        54 │ + ····.or(z.literal('')),
+        55 │ + ··author_bio:·z.string().max(500).optional().nullable(),
+        56 │ + ··status:·z.enum(['draft',·'published',·'archived']).optional(),
+        57 │ + ··seo_title:·z
+        58 │ + ····.string()
+        59 │ + ····.max(70,·'SEO·title·must·be·70·characters·or·less')
+        60 │ + ····.optional()
+        61 │ + ····.nullable(),
+        62 │ + ··seo_description:·z
+        63 │ + ····.string()
+        64 │ + ····.max(160,·'Meta·description·must·be·160·characters·or·less')
+        65 │ + ····.optional()
+        66 │ + ····.nullable(),
+        67 │ + ··focus_keyword:·z
+        68 │ + ····.string()
+        69 │ + ····.max(50,·'Focus·keyword·must·be·50·characters·or·less')
+        70 │ + ····.optional()
+        71 │ + ····.nullable(),
+    44  72 │   });
+    45  73 │   
+    ······ │ 
+    50  78 │    * 2026 Best Practice: Centralized data cleaning before validation.
+    51  79 │    */
+    52     │ - export·function·sanitizeBlogPostData(data:·Record<string,·any>):·Record<string,·any>·{
+    53     │ - ····const·sanitized:·Record<string,·any>·=·{};
+        80 │ + export·function·sanitizeBlogPostData(
+        81 │ + ··data:·Record<string,·any>
+        82 │ + ):·Record<string,·any>·{
+        83 │ + ··const·sanitized:·Record<string,·any>·=·{};
+    54  84 │   
+    55     │ - ····for·(const·[key,·value]·of·Object.entries(data))·{
+    56     │ - ········//·Handle·strings:·convert·empty·to·null·(for·DB)·or·undefined·(for·optional)
+    57     │ - ········if·(typeof·value·===·'string')·{
+    58     │ - ············const·trimmed·=·value.trim();
+    59     │ - ············if·(trimmed·===·'')·{
+    60     │ - ················//·Fields·that·should·be·null·when·empty
+    61     │ - ················const·nullableFields·=·[
+    62     │ - ····················'featured_image_url',
+    63     │ - ····················'featured_image_alt',
+    64     │ - ····················'excerpt',
+    65     │ - ····················'category',
+    66     │ - ····················'author_title',
+    67     │ - ····················'author_bio',
+    68     │ - ····················'author_image_url',
+    69     │ - ····················'seo_title',
+    70     │ - ····················'seo_description',
+    71     │ - ····················'focus_keyword'
+    72     │ - ················];
+    73     │ - ················sanitized[key]·=·nullableFields.includes(key)·?·null·:·undefined;
+    74     │ - ············}·else·{
+    75     │ - ················sanitized[key]·=·trimmed;
+    76     │ - ············}
+    77     │ - ········}
+    78     │ - ········//·Handle·arrays·(tags,·keywords):·remove·empty/whitespace·items
+    79     │ - ········else·if·(Array.isArray(value))·{
+    80     │ - ············sanitized[key]·=·value
+    81     │ - ················.map(item·=>·(typeof·item·===·'string'·?·item.trim()·:·item))
+    82     │ - ················.filter(item·=>·item·!==·'');
+    83     │ - ········}
+  44 more lines truncated
+  
+
+Checked 862 files in 846ms. No fixes applied.
+Found 3 errors.
+Found 5 warnings.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

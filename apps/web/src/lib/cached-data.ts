@@ -300,15 +300,8 @@ export const getCachedMerchantByDomain = unstable_cache(
     }
 
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-    const settings = data.feature_settings;
+    const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
     data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-
-    if (!data) {
-      console.warn('No merchant data found for domain', {
-        domain: normalizedDomain,
-      });
-      return null;
-    }
 
     console.log('Successfully fetched merchant by domain', {
       domain: normalizedDomain,
@@ -319,7 +312,7 @@ export const getCachedMerchantByDomain = unstable_cache(
     // SECURITY: If the store is NOT published, mask sensitive contact info.
     // This allows the "Coming Soon" page to render the business name/logo
     // without leaking the owner's private phone/email/address to the public.
-    if (data && !data.is_published) {
+    if (!data.is_published) {
       data.email = ''; // Redacted
       data.phone = ''; // Redacted
       data.business_address = ''; // Redacted
