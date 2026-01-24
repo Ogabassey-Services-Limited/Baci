@@ -300,6 +300,7 @@ export const getCachedMerchantByDomain = unstable_cache(
     }
 
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase returns loose types for joined data
     const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
     data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
 

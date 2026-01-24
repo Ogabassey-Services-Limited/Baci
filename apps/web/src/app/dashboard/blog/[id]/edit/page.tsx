@@ -1,5 +1,6 @@
 'use client';
 
+import { format } from 'date-fns';
 import {
   Archive,
   ArrowLeft,
@@ -7,13 +8,11 @@ import {
   Clock,
   ExternalLink,
   Eye,
-  // Loader2,
   Save,
   Send,
   Sparkles,
   X,
 } from 'lucide-react';
-import { format } from 'date-fns';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -33,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
@@ -43,15 +43,13 @@ import {
 import { FileUploader } from '@/components/ui/file-uploader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -420,7 +418,12 @@ export default function EditBlogPostPage() {
         seo_description: formData.seo_description,
         focus_keyword: formData.focus_keyword,
         status: newStatus || formData.status,
-        published_at: newStatus === 'scheduled' ? scheduledDate?.toISOString() : (newStatus === 'published' ? new Date().toISOString() : formData.published_at),
+        published_at:
+          newStatus === 'scheduled'
+            ? scheduledDate?.toISOString()
+            : newStatus === 'published'
+              ? new Date().toISOString()
+              : formData.published_at,
         embedded_products: embeddedProducts.map((p) => p.id),
       };
 
@@ -434,7 +437,9 @@ export default function EditBlogPostPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        const fieldErrors = data.details?.fieldErrors as Record<string, string[]> | undefined;
+        const fieldErrors = data.details?.fieldErrors as
+          | Record<string, string[]>
+          | undefined;
         const errorMessage = fieldErrors
           ? Object.values(fieldErrors)[0]?.[0]
           : data.error;
@@ -631,7 +636,10 @@ export default function EditBlogPostPage() {
 
           {/* Schedule Button & Popover */}
           {(formData.status === 'draft' || formData.status === 'scheduled') && (
-            <Popover open={isSchedulePopoverOpen} onOpenChange={setIsSchedulePopoverOpen}>
+            <Popover
+              open={isSchedulePopoverOpen}
+              onOpenChange={setIsSchedulePopoverOpen}
+            >
               <PopoverTrigger asChild>
                 <Button variant="outline" disabled={isSaving}>
                   <CalendarIcon className="w-4 h-4 mr-2" />
@@ -643,7 +651,9 @@ export default function EditBlogPostPage() {
               <PopoverContent className="w-auto p-0" align="end">
                 <div className="p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Publish Date & Time</Label>
+                    <Label className="text-xs font-semibold">
+                      Publish Date & Time
+                    </Label>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -656,7 +666,9 @@ export default function EditBlogPostPage() {
                   </div>
                   <Calendar
                     selected={scheduledDate || null}
-                    onSelect={(date: Date | null) => setScheduledDate(date || undefined)}
+                    onSelect={(date: Date | null) =>
+                      setScheduledDate(date || undefined)
+                    }
                     minDate={new Date()}
                   />
                   <div className="flex items-center gap-2 border-t pt-4">
@@ -664,11 +676,18 @@ export default function EditBlogPostPage() {
                     <Input
                       type="time"
                       className="h-8 py-1"
-                      value={scheduledDate ? format(scheduledDate, 'HH:mm') : ''}
+                      value={
+                        scheduledDate ? format(scheduledDate, 'HH:mm') : ''
+                      }
                       onChange={(e) => {
                         const [hours, minutes] = e.target.value.split(':');
-                        const newDate = scheduledDate ? new Date(scheduledDate) : new Date();
-                        newDate.setHours(parseInt(hours), parseInt(minutes));
+                        const newDate = scheduledDate
+                          ? new Date(scheduledDate)
+                          : new Date();
+                        newDate.setHours(
+                          Number.parseInt(hours, 10),
+                          Number.parseInt(minutes, 10)
+                        );
                         setScheduledDate(newDate);
                       }}
                     />
@@ -940,11 +959,20 @@ export default function EditBlogPostPage() {
                   onChange={(e) => handleChange('seo_title', e.target.value)}
                 />
                 <div className="flex justify-between items-center text-xs">
-                  <span className={titleLength > 60 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                  <span
+                    className={
+                      titleLength > 60
+                        ? 'text-destructive font-medium'
+                        : 'text-muted-foreground'
+                    }
+                  >
                     {titleLength}/60 characters (recommended)
                   </span>
                   {titleLength >= 50 && titleLength <= 60 && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
+                    >
                       Optimized for SEO
                     </Badge>
                   )}
@@ -978,11 +1006,23 @@ export default function EditBlogPostPage() {
                   rows={3}
                 />
                 <div className="flex justify-between items-center text-xs">
-                  <span className={descriptionLength > 150 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-                    {descriptionLength}/150 characters {!formData.seo_description && formData.excerpt && '(using excerpt)'}
+                  <span
+                    className={
+                      descriptionLength > 150
+                        ? 'text-destructive font-medium'
+                        : 'text-muted-foreground'
+                    }
+                  >
+                    {descriptionLength}/150 characters{' '}
+                    {!formData.seo_description &&
+                      formData.excerpt &&
+                      '(using excerpt)'}
                   </span>
                   {descriptionLength >= 120 && descriptionLength <= 150 && (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
+                    >
                       Optimized for Google/Social
                     </Badge>
                   )}

@@ -3,7 +3,7 @@
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import {
   Dialog,
@@ -517,24 +517,42 @@ function isVariantAvailable(
 /**
  * Hook to manage quick view state
  *
- * 2026 Best Practice: Use useCallback for stable function references
- * This prevents unnecessary re-renders in components that receive
- * these callbacks as props (e.g., ProductCard grid items).
+ * 2026 Best Practice: With React Compiler enabled, manual memoization via
+ * useCallback is unnecessary - the compiler handles this automatically.
+ * We use useRef + useEffect cleanup to prevent setTimeout memory leaks.
  */
 export function useQuickView() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const openQuickView = useCallback((p: Product) => {
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  const openQuickView = (p: Product) => {
+    // Clear any pending timeout from previous close
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     setProduct(p);
     setIsOpen(true);
-  }, []);
+  };
 
-  const closeQuickView = useCallback(() => {
+  const closeQuickView = () => {
     setIsOpen(false);
     // Delay clearing product to allow close animation
-    setTimeout(() => setProduct(null), 300);
-  }, []);
+    timeoutRef.current = setTimeout(() => {
+      setProduct(null);
+      timeoutRef.current = null;
+    }, 300);
+  };
 
   return {
     product,

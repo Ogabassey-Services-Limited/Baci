@@ -407,24 +407,17 @@ const ProductCardBase: React.FC<ProductCardProps> = ({
 };
 
 /**
- * Memoized ProductCard with custom comparison
+ * Memoized ProductCard
  *
- * 2026 Best Practice: Use shallow comparison for primitive props,
- * and identity comparison for objects/callbacks. This avoids deep
- * comparison overhead while still preventing unnecessary re-renders.
+ * 2026 Best Practice: Use React.memo with default shallow comparison.
+ * This correctly handles all props including callbacks - if parent doesn't
+ * stabilize callbacks, re-renders occur (correct behavior to avoid stale closures).
+ * If parent uses useCallback or React Compiler stabilizes them, re-renders
+ * are prevented (optimal performance).
+ *
+ * Note: Custom comparators are error-prone (missing properties, stale callbacks)
+ * and React Compiler makes them largely unnecessary.
  */
-export const ProductCard = memo(ProductCardBase, (prevProps, nextProps) => {
-  // Compare product by id (stable identifier)
-  if (prevProps.product.id !== nextProps.product.id) return false;
-  // Compare product price/stock for cart-related updates
-  if (prevProps.product.price !== nextProps.product.price) return false;
-  if (prevProps.product.stock !== nextProps.product.stock) return false;
-  // Compare display-affecting props
-  if (prevProps.isAdded !== nextProps.isAdded) return false;
-  if (prevProps.viewMode !== nextProps.viewMode) return false;
-  // Callbacks are compared by reference - if parent uses useCallback, this will be stable
-  // If not, the component will still re-render, which is the correct behavior
-  return true;
-});
+export const ProductCard = memo(ProductCardBase);
 
 ProductCard.displayName = 'ProductCard';
