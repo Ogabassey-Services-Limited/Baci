@@ -45,7 +45,9 @@ try {
 
     sortedRuleIds.forEach(ruleId => {
         const group = byRule[ruleId];
-        const icon = group.severity === 'error' ? '🔴' : group.severity === 'warning' ? '🟠' : '🔵';
+        // Normalize severity once for consistent comparison
+        const normalizedSeverity = (group.severity || 'none').toLowerCase();
+        const icon = normalizedSeverity === 'error' ? '🔴' : normalizedSeverity === 'warning' ? '🟠' : '🔵';
 
         md += `## ${icon} ${group.name} (${group.alerts.length})\n`;
         md += `- **Rule ID**: \`${ruleId}\`\n`;

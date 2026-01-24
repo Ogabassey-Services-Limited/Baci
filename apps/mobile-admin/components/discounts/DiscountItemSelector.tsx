@@ -133,14 +133,14 @@ export function DiscountItemSelector({
       .replace(/<[^>]+>/g, ' ')
       // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
       // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
-      // lgtm[js/incomplete-multi-character-sanitization]
       .replace(/[<>]/g, '')
       // 3. Decode harmless entities (excluding < and >)
-      // lgtm[js/double-escaping]
+      // IMPORTANT: Decode &amp; LAST to prevent double-unescaping patterns
+      // like &amp;quot; → &quot; → " (which would be a security issue)
       .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
   };
 
   return (

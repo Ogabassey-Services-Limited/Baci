@@ -174,7 +174,10 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                                      /*
+                                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                                        nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                                      */
                                       dangerouslySetInnerHTML={{
                                         __html: sanitizeHtml(faq.answer),
                                       }}
