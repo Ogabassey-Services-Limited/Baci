@@ -169,10 +169,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Set published_at if status is changing to published
+    // Set published_at if status is changing to published and no date provided
     if (
       updateData.status === 'published' &&
-      existingPost.status !== 'published'
+      existingPost.status !== 'published' &&
+      !updateData.published_at
     ) {
       updateData.published_at = new Date().toISOString();
     }

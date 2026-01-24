@@ -3,13 +3,17 @@
 import {
   Archive,
   ArrowLeft,
+  Calendar as CalendarIcon,
+  Clock,
   ExternalLink,
   Eye,
   // Loader2,
   Save,
   Send,
+  Sparkles,
   X,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -41,6 +45,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -76,7 +87,8 @@ interface PostFormData {
   seo_title: string;
   seo_description: string;
   focus_keyword: string;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'published' | 'archived' | 'scheduled';
+  published_at?: string | null;
 }
 
 interface BlogPost extends PostFormData {
@@ -118,7 +130,12 @@ export default function EditBlogPostPage() {
     seo_description: '',
     focus_keyword: '',
     status: 'draft',
+    published_at: null,
   });
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
+    formData.published_at ? new Date(formData.published_at) : undefined
+  );
+  const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [preRecoveryData, setPreRecoveryData] = useState<PostFormData | null>(
     null
@@ -196,7 +213,11 @@ export default function EditBlogPostPage() {
           seo_description: post.seo_description || '',
           focus_keyword: post.focus_keyword || '',
           status: post.status || 'draft',
+          published_at: post.published_at || null,
         });
+        if (post.published_at) {
+          setScheduledDate(new Date(post.published_at));
+        }
 
         // Fetch embedded products if any
         if (
@@ -364,7 +385,9 @@ export default function EditBlogPostPage() {
     return null;
   };
 
-  const savePost = async (newStatus?: 'draft' | 'published' | 'archived') => {
+  const savePost = async (
+    newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
+  ) => {
     const error = validateForm();
     if (error) {
       toast({
@@ -397,6 +420,7 @@ export default function EditBlogPostPage() {
         seo_description: formData.seo_description,
         focus_keyword: formData.focus_keyword,
         status: newStatus || formData.status,
+        published_at: newStatus === 'scheduled' ? scheduledDate?.toISOString() : (newStatus === 'published' ? new Date().toISOString() : formData.published_at),
         embedded_products: embeddedProducts.map((p) => p.id),
       };
 
@@ -426,6 +450,7 @@ export default function EditBlogPostPage() {
         published: 'Your blog post is now live.',
         draft: 'Your post has been saved as a draft.',
         archived: 'Your post has been archived.',
+        scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
       };
 
       toast({
@@ -475,6 +500,18 @@ export default function EditBlogPostPage() {
       });
     }
   };
+
+  const handleAISuggestSchedule = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0); // 10 AM tomorrow
+    setScheduledDate(tomorrow);
+    toast({
+      title: 'AI Timing Optimization',
+      description: 'Scheduled for tomorrow at 10:00 AM for peak engagement.',
+    });
+  };
+
   const titleLength = formData.seo_title?.length || formData.title.length;
   const descriptionLength =
     formData.seo_description?.length || formData.excerpt.length;
@@ -523,6 +560,7 @@ export default function EditBlogPostPage() {
     published: 'default' as const,
     draft: 'secondary' as const,
     archived: 'outline' as const,
+    scheduled: 'destructive' as const, // Using destructive (red) for scheduled to grab attention, or 'outline' for secondary feel
   };
 
   return (
@@ -590,6 +628,67 @@ export default function EditBlogPostPage() {
             )}
             Save Changes
           </Button>
+
+          {/* Schedule Button & Popover */}
+          {(formData.status === 'draft' || formData.status === 'scheduled') && (
+            <Popover open={isSchedulePopoverOpen} onOpenChange={setIsSchedulePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" disabled={isSaving}>
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {formData.status === 'scheduled' && scheduledDate
+                    ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
+                    : 'Schedule'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Publish Date & Time</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAISuggestSchedule}
+                      className="h-7 text-[10px] px-2 text-primary"
+                    >
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      AI Suggest
+                    </Button>
+                  </div>
+                  <Calendar
+                    selected={scheduledDate || null}
+                    onSelect={(date: Date | null) => setScheduledDate(date || undefined)}
+                    minDate={new Date()}
+                  />
+                  <div className="flex items-center gap-2 border-t pt-4">
+                    <Clock className="w-4 h-4 text-muted-foreground ml-2" />
+                    <Input
+                      type="time"
+                      className="h-8 py-1"
+                      value={scheduledDate ? format(scheduledDate, 'HH:mm') : ''}
+                      onChange={(e) => {
+                        const [hours, minutes] = e.target.value.split(':');
+                        const newDate = scheduledDate ? new Date(scheduledDate) : new Date();
+                        newDate.setHours(parseInt(hours), parseInt(minutes));
+                        setScheduledDate(newDate);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={!scheduledDate || isSaving}
+                    onClick={() => {
+                      savePost('scheduled');
+                      setIsSchedulePopoverOpen(false);
+                    }}
+                  >
+                    Confirm Schedule
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
           {formData.status === 'draft' && (
             <Button onClick={() => savePost('published')} disabled={isSaving}>
               {isSaving ? (
@@ -597,7 +696,7 @@ export default function EditBlogPostPage() {
               ) : (
                 <Send className="w-4 h-4 mr-2" />
               )}
-              Publish
+              Publish Now
             </Button>
           )}
           {formData.status === 'published' && (

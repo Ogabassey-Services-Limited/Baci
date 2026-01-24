@@ -37,7 +37,8 @@ export const blogPostSchema = z.object({
         .nullable()
         .or(z.literal('')),
     author_bio: z.string().max(500).optional().nullable(),
-    status: z.enum(['draft', 'published', 'archived']).optional(),
+    status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
+    published_at: z.string().datetime().optional().nullable(),
     seo_title: z.string().max(70, 'SEO title must be 70 characters or less').optional().nullable(),
     seo_description: z.string().max(160, 'Meta description must be 160 characters or less').optional().nullable(),
     focus_keyword: z.string().max(50, 'Focus keyword must be 50 characters or less').optional().nullable(),
