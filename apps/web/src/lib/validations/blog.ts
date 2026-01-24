@@ -38,9 +38,9 @@ export const blogPostSchema = z.object({
         .or(z.literal('')),
     author_bio: z.string().max(500).optional().nullable(),
     status: z.enum(['draft', 'published', 'archived']).optional(),
-    seo_title: z.string().max(70).optional().nullable(),
-    seo_description: z.string().max(160).optional().nullable(),
-    focus_keyword: z.string().max(50).optional().nullable(),
+    seo_title: z.string().max(70, 'SEO title must be 70 characters or less').optional().nullable(),
+    seo_description: z.string().max(160, 'Meta description must be 160 characters or less').optional().nullable(),
+    focus_keyword: z.string().max(50, 'Focus keyword must be 50 characters or less').optional().nullable(),
 });
 
 export type BlogPostInput = z.infer<typeof blogPostSchema>;

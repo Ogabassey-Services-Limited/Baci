@@ -816,18 +816,19 @@ export default function EditBlogPostPage() {
                   onChange={(e) => handleChange('seo_title', e.target.value)}
                   maxLength={70}
                 />
-                <div className="flex justify-between text-xs">
-                  <span
-                    className={
-                      titleLength > 60
-                        ? 'text-destructive'
-                        : 'text-muted-foreground'
-                    }
-                  >
+                <div className="flex justify-between items-center text-xs">
+                  <span className={titleLength > 60 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
                     {titleLength}/60 characters (recommended)
                   </span>
                   {titleLength >= 50 && titleLength <= 60 && (
-                    <span className="text-green-600">Good length!</span>
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                      Optimized for SEO
+                    </Badge>
+                  )}
+                  {titleLength > 70 && (
+                    <Badge variant="destructive" className="animate-pulse">
+                      Too Long
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -844,18 +845,19 @@ export default function EditBlogPostPage() {
                   rows={3}
                   maxLength={160}
                 />
-                <div className="flex justify-between text-xs">
-                  <span
-                    className={
-                      descriptionLength > 160
-                        ? 'text-destructive'
-                        : 'text-muted-foreground'
-                    }
-                  >
-                    {descriptionLength}/160 characters (recommended)
+                <div className="flex justify-between items-center text-xs">
+                  <span className={descriptionLength > 150 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                    {descriptionLength}/150 characters (recommended)
                   </span>
-                  {descriptionLength >= 120 && descriptionLength <= 160 && (
-                    <span className="text-green-600">Good length!</span>
+                  {descriptionLength >= 120 && descriptionLength <= 150 && (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 border-none">
+                      Optimized for Google/Social
+                    </Badge>
+                  )}
+                  {descriptionLength > 160 && (
+                    <Badge variant="destructive" className="animate-pulse">
+                      Exceeds Limit
+                    </Badge>
                   )}
                 </div>
               </div>
