@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/publish-scheduled-posts",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/15 * * * *"
     }
   ]
 }

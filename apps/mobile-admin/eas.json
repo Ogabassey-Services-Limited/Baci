@@ -36,15 +36,13 @@
   },
   "submit": {
     "production": {
-      "ios": {
-        "appleId": "basseybjohn@yahoo.co.uk",
-        "appleTeamId": "6QLNK7TXM3",
-        "ascAppId": "6757810806"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-play-service-account.json",
-        "track": "internal"
-      }
+      "appleId": "YOUR_APPLE_ID",
+      "appleTeamId": "6QLNK7TXM3",
+      "ascAppId": "6757810806"
+    },
+    "android": {
+      "serviceAccountKeyPath": "./google-play-service-account.json",
+      "track": "internal"
     }
   }
 }

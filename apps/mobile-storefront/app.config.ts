@@ -99,4 +99,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   updates: {
     url: 'https://u.expo.dev/c6c1897b-cac8-49b0-85f9-3d277aecc379',
   },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
 });

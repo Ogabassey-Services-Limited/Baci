@@ -71,14 +71,8 @@ async function fetchBranches(merchantId: string): Promise<Branch[]> {
     throw new Error(error.message);
   }
 
-  // Validate with Zod
-  const result = z.array(BranchSchema).safeParse(data);
-  if (!result.success) {
-    console.error('[Branches] Validation error:', result.error);
-    return [];
-  }
-
-  return result.data;
+  // Validate with Zod - THROW if invalid to catch schema drift early
+  return z.array(BranchSchema).parse(data);
 }
 
 /**
@@ -136,8 +130,13 @@ export function useActiveBranch() {
   const { data: branches = [] } = useBranches();
   const queryClient = useQueryClient();
 
-  // Get persisted branch ID or default to first branch
-  const persistedId = getPersistedBranchId();
+  // Get persisted branch ID (Reactive via Query)
+  const { data: persistedId } = useQuery({
+    queryKey: ['active-branch-id'],
+    queryFn: () => getPersistedBranchId(),
+    initialData: getPersistedBranchId(),
+    staleTime: 0, // Always check
+  });
 
   // Find active branch: persisted > default > first
   const activeBranch =
@@ -148,8 +147,8 @@ export function useActiveBranch() {
 
   const setActiveBranch = (branchId: string | null) => {
     persistBranchId(branchId);
-    // Force re-render by invalidating a simple query
-    queryClient.invalidateQueries({ queryKey: ['active-branch'] });
+    // Invalidate the active-branch-id query to trigger re-render
+    queryClient.invalidateQueries({ queryKey: ['active-branch-id'] });
   };
 
   return {

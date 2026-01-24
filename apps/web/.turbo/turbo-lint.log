@@ -2,4 +2,19 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 863 files in 747ms. No fixes applied.
+src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx:212:39 lint/security/noDangerouslySetInnerHtml ━━━━━━━━━━
+
+  ! Avoid passing content using the dangerouslySetInnerHTML prop.
+  
+    210 │                                     <div
+    211 │                                       className="prose prose-sm dark:prose-invert max-w-none"
+  > 212 │                                       dangerouslySetInnerHTML={{
+        │                                       ^^^^^^^^^^^^^^^^^^^^^^^
+    213 │                                         __html: sanitizeHtml(faq.answer),
+    214 │                                       }}
+  
+  ! Setting content using code can expose users to cross-site scripting (XSS) attacks
+  
+
+Checked 864 files in 877ms. No fixes applied.
+Found 1 warning.

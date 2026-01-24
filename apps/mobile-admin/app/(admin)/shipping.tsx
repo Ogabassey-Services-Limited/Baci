@@ -177,7 +177,13 @@ export default function ShippingScreen() {
         options={{
           title: 'Shipping',
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Pressable
+              onPress={() => router.back()}
+              style={styles.backButton}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
           ),
@@ -430,6 +436,9 @@ export default function ShippingScreen() {
           <Pressable
             style={[styles.manageButton, { backgroundColor: colors.primary }]}
             onPress={handleManageShipping}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Open Advanced Settings in browser"
           >
             <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
             <Text style={styles.manageButtonText}>Advanced Settings</Text>

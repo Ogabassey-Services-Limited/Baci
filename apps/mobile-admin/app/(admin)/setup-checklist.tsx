@@ -100,7 +100,7 @@ export default function SetupChecklistScreen() {
         onPress={() =>
           item.href.startsWith('/')
             ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              router.push(item.href as any)
+              router.push(item.href as import('expo-router').Href)
             : undefined
         }
         style={[

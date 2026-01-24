@@ -126,10 +126,12 @@ export default function RegisterScreen() {
         logoUrl: 'https://via.placeholder.com/150',
       },
       {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onSuccess: (data: any) => {
+        onSuccess: (data: unknown) => {
+          const response = data as {
+            user?: { email_confirmed_at?: string | null };
+          };
           // Check if verifying
-          if (data.user?.email_confirmed_at) {
+          if (response.user?.email_confirmed_at) {
             Alert.alert('Success', 'Account created!', [
               { text: 'Continue', onPress: () => router.push('/(auth)/login') },
             ]);
@@ -320,7 +322,7 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                {formData.businessType === 'Other' && (
+                {formData.businessType === 'other' && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Please specify</Text>
                     <TextInput

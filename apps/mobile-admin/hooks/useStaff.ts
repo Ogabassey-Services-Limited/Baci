@@ -158,8 +158,9 @@ export function useInviteStaff() {
               : `${params.email.split('@')[0]}'s Account`;
 
             // We use fetch to call our own API
-            const apiUrl =
-              process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
+            const apiUrl = (
+              process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com'
+            ).replace(/\/$/, '');
             const response = await fetch(
               `${apiUrl}/api/paystack/virtual-terminal`,
               {

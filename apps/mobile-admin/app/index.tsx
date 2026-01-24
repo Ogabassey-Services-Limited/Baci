@@ -49,7 +49,7 @@ export default function Index() {
       '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return <Redirect href={'/(auth)/complete-profile' as any} />;
+    return <Redirect href="/(auth)/complete-profile" />;
   }
 
   // 4. Authenticated & Merchant -> Dashboard

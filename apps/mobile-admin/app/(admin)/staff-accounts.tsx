@@ -3,6 +3,7 @@
  * Manage payment accounts for staff and branch locations
  */
 
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -206,8 +207,8 @@ export default function StaffAccountsScreen() {
   });
 
   const copyToClipboard = async (text: string) => {
-    // React Native clipboard handling
-    Alert.alert('Copied!', text);
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied!', 'Account number copied to clipboard.');
   };
 
   const isLoading = accountsLoading || branchesLoading;
@@ -278,6 +279,7 @@ export default function StaffAccountsScreen() {
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === 'branches' }}
             accessibilityLabel="Branches Tab"
+            accessibilityHint="Switch to view and manage branch locations"
           >
             <Ionicons
               name="business-outline"

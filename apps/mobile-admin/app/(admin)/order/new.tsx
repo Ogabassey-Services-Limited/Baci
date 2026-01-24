@@ -27,6 +27,14 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+interface ShippingAddress {
+  name: string;
+  phone: string;
+  address: string;
+  city?: string;
+  state?: string;
+}
+
 interface CustomerRecord {
   id: string;
   first_name?: string;
@@ -452,16 +460,14 @@ export default function NewOrderScreen() {
                 name: customer.name,
                 phone: customer.phone,
                 address: customer.address,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } as any)
+              } as ShippingAddress)
             : ({
                 name: deliveryInfo.name,
                 phone: deliveryInfo.phone,
                 address: deliveryInfo.address,
                 city: deliveryInfo.city,
                 state: deliveryInfo.state,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } as any),
+              } as ShippingAddress),
         })
         .select()
         .single();

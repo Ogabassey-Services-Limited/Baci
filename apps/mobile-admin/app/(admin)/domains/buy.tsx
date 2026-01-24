@@ -191,7 +191,10 @@ export default function BuyDomainScreen() {
       // We assume user completed or cancelled when they close the browser.
       setPurchasing(null);
     } catch (error: unknown) {
-      Alert.alert('Purchase Failed', (error as Error).message);
+      Alert.alert(
+        'Purchase Failed',
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      );
     } finally {
       setPurchasing(null);
     }

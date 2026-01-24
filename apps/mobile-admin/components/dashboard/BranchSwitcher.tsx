@@ -144,6 +144,7 @@ export function BranchSwitcher() {
               onPress={() => handleBranchPress(branch.id)}
               accessibilityRole="button"
               accessibilityLabel={`Switch to ${branch.name} branch`}
+              accessibilityHint="Double tap to set as active branch"
               accessibilityState={{ selected: isActive }}
             >
               <Ionicons

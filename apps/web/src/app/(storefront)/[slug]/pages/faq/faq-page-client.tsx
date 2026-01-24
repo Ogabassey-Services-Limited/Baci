@@ -1,8 +1,10 @@
 'use client';
 
 import { HelpCircle, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { FAQPage, WithContext } from 'schema-dts';
 import AppBody from '@/components/app-body';
+import { JsonLd } from '@/components/seo/json-ld';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import {
@@ -16,10 +18,7 @@ import { Input } from '@/components/ui/input';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
-
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
-import { JsonLd } from '@/components/seo/json-ld';
-import type { FAQPage, WithContext } from 'schema-dts';
 
 interface FAQPageClientProps {
   merchant: {
@@ -52,17 +51,22 @@ export function FAQPageClient({
   const hasStructuredFAQs = faqItems.length > 0;
 
   // Filter FAQs based on search
-  const filteredFAQs = searchQuery
-    ? faqItems.filter(
-      (faq) =>
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    : faqItems;
+  const filteredFAQs = useMemo(() => {
+    return searchQuery
+      ? faqItems.filter(
+          (faq) =>
+            faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : faqItems;
+  }, [faqItems, searchQuery]);
 
   // Group FAQs by category
-  const groupedFAQs = groupFAQsByCategory(filteredFAQs);
-  const categories = Object.keys(groupedFAQs);
+  const groupedFAQs = useMemo(
+    () => groupFAQsByCategory(filteredFAQs),
+    [filteredFAQs]
+  );
+  const categories = useMemo(() => Object.keys(groupedFAQs), [groupedFAQs]);
 
   // JSON-LD Structured Data
   const jsonLd: WithContext<FAQPage> = {
@@ -106,8 +110,11 @@ export function FAQPageClient({
 
                   {/* Search */}
                   {hasStructuredFAQs && (
-                    <div className="max-w-md mx-auto relative" role="search">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" aria-hidden="true" />
+                    <search className="max-w-md mx-auto relative">
+                      <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                       <Input
                         type="search"
                         placeholder="Search questions..."
@@ -116,7 +123,7 @@ export function FAQPageClient({
                         onChange={(e) => setSearchQuery(e.target.value)}
                         aria-label="Search frequently asked questions"
                       />
-                    </div>
+                    </search>
                   )}
                 </div>
               </section>
@@ -144,7 +151,7 @@ export function FAQPageClient({
                       >
                         {filteredFAQs.map((faq, index) => (
                           <AccordionItem
-                            key={faq.id || index}
+                            key={faq.id || `faq-${index}`}
                             value={`faq-${index}`}
                             className="border rounded-lg px-6"
                           >
@@ -170,9 +177,17 @@ export function FAQPageClient({
                       /* Multiple categories */
                       <div className="space-y-10">
                         {categories.map((category) => (
-                          <section key={category} aria-labelledby={`category-${category}`}>
+                          <section
+                            key={category}
+                            aria-labelledby={`category-${category}`}
+                          >
                             <div className="flex items-center gap-3 mb-4">
-                              <h2 id={`category-${category}`} className="text-2xl font-bold">{category}</h2>
+                              <h2
+                                id={`category-${category}`}
+                                className="text-2xl font-bold"
+                              >
+                                {category}
+                              </h2>
                               <Badge variant="secondary">
                                 {groupedFAQs[category].length}
                               </Badge>

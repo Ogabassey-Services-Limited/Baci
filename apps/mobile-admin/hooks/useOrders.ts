@@ -181,9 +181,10 @@ export function useUpdateOrderStatus() {
       const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
 
       // Optimistically update list
-      queryClient.setQueryData(
-        ['orders', merchant?.id],
-        (old: { pages: OrdersPage[] } | undefined) => {
+      // Optimistically update list - Match ALL order queries
+      queryClient.setQueriesData(
+        { queryKey: ['orders', merchant?.id] },
+        (old: any) => {
           if (!old?.pages) return old;
           return {
             ...old,
@@ -215,6 +216,8 @@ export function useUpdateOrderStatus() {
           ['orders', merchant?.id],
           context.previousOrders
         );
+        // Also invalidate to be safe
+        queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
       }
       if (context?.previousOrder) {
         queryClient.setQueryData(

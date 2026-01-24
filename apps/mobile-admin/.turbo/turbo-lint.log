@@ -5,8 +5,15 @@
 env: load .env
 env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL
 
-/Users/mac/Baci-app/apps/mobile-admin/components/dashboard/BranchSwitcher.tsx
-  276:15  warning  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  jsx-a11y/no-autofocus
+/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/setup-checklist.tsx
+  102:15  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
 
-✖ 1 problem (0 errors, 1 warning)
+/Users/mac/Baci-app/apps/mobile-admin/app/index.tsx
+  51:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/Users/mac/Baci-app/apps/mobile-admin/components/dashboard/BranchSwitcher.tsx
+  277:15  warning  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  jsx-a11y/no-autofocus
+
+✖ 3 problems (0 errors, 3 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
 

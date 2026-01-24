@@ -127,14 +127,12 @@ export default function PayoutSettingsScreen() {
             );
             setVerifiedName(null);
           },
+          onSettled: () => {
+            setIsVerifying(false);
+          },
         }
       );
     } catch (_error) {
-      // Should be handled in onError, but keeping try/catch block structure for safety if needed
-      // Actually, react-query mutation is async but verifyAccount logic was try/catch.
-      // The mutation call itself is synchronous unless we await mutateAsync.
-      // Let's rely on onError callback.
-    } finally {
       setIsVerifying(false);
     }
   }, [accountnumber, selectedBank, resolveAccount, session]);
@@ -192,9 +190,6 @@ export default function PayoutSettingsScreen() {
         businessName: merchant?.business_name || 'My Store',
       },
       {
-        onSuccess: () => {
-          // Invalidations handled in hook
-        },
         onError: (error) => {
           Alert.alert('Error', error.message || 'Failed to update details');
         },

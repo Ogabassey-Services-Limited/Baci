@@ -8,9 +8,9 @@
 module.exports = {
   dependencies: {
     'react-native-reanimated': {
-      root: require
-        .resolve('react-native-reanimated/package.json')
-        .replace('/package.json', ''),
+      root: require('path').dirname(
+        require.resolve('react-native-reanimated/package.json')
+      ),
     },
   },
   // Ensure codegen is generated for Reanimated

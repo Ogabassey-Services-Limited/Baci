@@ -80,12 +80,12 @@ export default function StoreSettingsScreen() {
 
       // Social Media
 
-      const initialCountry = merchant.country || COUNTRIES[0].name;
+      const initialCountry = merchant.country || COUNTRIES[0].code;
       setCountry(initialCountry);
 
       // Prioritize saved payout_currency, then fallback to country's default currency, then default DZD
       const defaultCurrencyForCountry = COUNTRIES.find(
-        (c) => c.name === initialCountry
+        (c) => c.code === initialCountry || c.name === initialCountry
       )?.currency;
       setCurrency(
         merchant.payout_currency ||

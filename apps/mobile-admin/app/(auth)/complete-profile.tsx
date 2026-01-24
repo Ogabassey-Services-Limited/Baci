@@ -62,7 +62,6 @@ export default function CompleteProfileScreen() {
           data: { user },
         } = await supabase.auth.getUser();
         if (user) {
-          console.log('User metadata:', user.user_metadata);
           const metadata = user.user_metadata || {};
           const metadataFullName = metadata.full_name || metadata.name || '';
           const avatarUrl = metadata.avatar_url || metadata.picture || '';
@@ -100,7 +99,10 @@ export default function CompleteProfileScreen() {
     prefillData();
   }, []);
 
-  const updateForm = (key: string, value: string) => {
+  const updateForm = <K extends keyof typeof formData>(
+    key: K,
+    value: (typeof formData)[K]
+  ) => {
     setFormData((prev) => {
       const updates: Partial<typeof formData> = { [key]: value };
 
@@ -125,9 +127,9 @@ export default function CompleteProfileScreen() {
 
   const handleCompleteSetup = async () => {
     if (
-      !formData.businessName ||
-      !formData.businessType ||
-      !formData.fullName
+      !formData.businessName.trim() ||
+      !formData.businessType.trim() ||
+      !formData.fullName.trim()
     ) {
       Alert.alert(
         'Error',
@@ -299,6 +301,12 @@ export default function CompleteProfileScreen() {
                   {BUSINESS_TYPES.map((type) => (
                     <Pressable
                       key={type.id}
+                      accessible={true}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${type.label} business type`}
+                      accessibilityState={{
+                        selected: formData.businessType === type.id,
+                      }}
                       style={[
                         styles.typeCard,
                         formData.businessType === type.id &&
@@ -339,6 +347,10 @@ export default function CompleteProfileScreen() {
                 style={[styles.button, isLoading && { opacity: 0.7 }]}
                 onPress={handleCompleteSetup}
                 disabled={isLoading}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Launch Store"
+                accessibilityState={{ disabled: isLoading }}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#FFF" />

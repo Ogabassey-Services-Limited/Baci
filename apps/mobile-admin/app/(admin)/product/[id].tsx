@@ -275,45 +275,6 @@ export default function ProductEditScreen() {
       setIsInitialized(true);
     }
   }, [product, isInitialized, stripHtml]);
-  // Update local state when data is fetched
-  // 2026 Best Practice: Prevent background refetches from overwriting user input by only initializing once.
-  useEffect(() => {
-    if (product && !isInitialized) {
-      setFormData({
-        name: product.name || '',
-        sku: product.sku || '',
-        price: product.price || 0,
-        cost_price: product.cost_price || 0,
-        stock_quantity: product.stock_quantity || 0,
-        low_stock_threshold: product.low_stock_threshold || 3,
-        description: stripHtml(product.description || ''),
-        category: product.category || '',
-        category_id: product.category_id || '',
-        color: product.color || '',
-        variant_attributes: product.variant_attributes
-          ? Object.entries(product.variant_attributes).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
-          : [],
-        fulfillment_details:
-          product.fulfillment_details && 'items' in product.fulfillment_details
-            ? (product.fulfillment_details as {
-                items: Array<{ imei: string; serial_number: string }>;
-              })
-            : {
-                items: Array(product.stock_quantity || 0).fill({
-                  imei: '',
-                  serial_number: '',
-                }),
-              },
-        images: product.images || [],
-        manage_stock: product.manage_stock ?? true,
-        status: product.status || 'active',
-      });
-      setIsInitialized(true);
-    }
-  }, [product, isInitialized, stripHtml]);
 
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();
