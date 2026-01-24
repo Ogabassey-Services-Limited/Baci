@@ -66,7 +66,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   } = useCart();
   const { toast } = useToast();
   const { toggleSaved, isSaved } = useV2Saved();
-  const { compareItems, addToCompare } = useV2Comparison();
 
   // Handle ?action=buy from ChatGPT widget - auto add to cart and go to checkout
   const buyActionHandled = useRef(false);

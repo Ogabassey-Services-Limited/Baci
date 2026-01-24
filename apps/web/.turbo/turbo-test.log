@@ -5,15 +5,15 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.17 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 2[2mms[22m[39m
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 33[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 106[2mms[22m[39m
- [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 528[2mms[22m[39m
-     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 523[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 109[2mms[22m[39m
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 524[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 519[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
 [2m      Tests [22m [1m[32m20 passed[39m[22m[90m (20)[39m
-[2m   Start at [22m 14:13:57
-[2m   Duration [22m 1.62s[2m (transform 379ms, setup 536ms, import 769ms, tests 673ms, environment 3.47s)[22m
+[2m   Start at [22m 14:19:42
+[2m   Duration [22m 1.81s[2m (transform 392ms, setup 559ms, import 788ms, tests 673ms, environment 4.31s)[22m
 

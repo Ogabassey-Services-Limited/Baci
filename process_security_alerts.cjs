@@ -60,7 +60,7 @@ try {
             const instance = alert.most_recent_instance;
             const path = instance.location.path;
             const line = instance.location.start_line;
-            const msg = instance.message.text.replace(/\n/g, ' ').replace(/\|/g, '\\|');
+            const msg = instance.message.text.replace(/\\/g, '\\\\').replace(/\n/g, ' ').replace(/\|/g, '\\|');
             const url = alert.html_url;
 
             md += `| \`${path}\` | ${line} | ${msg} | [View](${url}) |\n`;

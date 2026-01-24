@@ -22,9 +22,7 @@ export async function GET(request: NextRequest) {
 
     // Jumia may return an error
     if (error) {
-      const safeError = String(error)
-        .replace(/[\r\n]/g, ' ')
-        .slice(0, 200);
+      const safeError = encodeURIComponent(String(error).slice(0, 200));
       console.error('[Jumia Callback] OAuth error:', safeError);
       return NextResponse.redirect(
         new URL(

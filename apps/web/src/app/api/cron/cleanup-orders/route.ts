@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
-export const dynamic = 'force-dynamic';
-
 // Cron job to clean up abandoned/unpaid orders
 // Runs daily via Vercel Cron
 export async function GET(request: NextRequest) {
