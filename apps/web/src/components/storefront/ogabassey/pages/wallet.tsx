@@ -8,7 +8,7 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 
 export function OgabasseyV2Wallet() {
-  const { customer, isAuthenticated } = useCustomerAuth();
+  const { isAuthenticated } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
   const [wallet, setWallet] = useState<{

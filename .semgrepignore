@@ -13,12 +13,22 @@ supabase/functions/
 
 # Verified safe patterns (documented in codebase)
 # URL validation implemented - see header.tsx:41-53, client-layout.tsx
-src/components/storefront/header.tsx
-src/app/dashboard/client-layout.tsx
+apps/web/src/components/storefront/header.tsx
+apps/web/src/app/dashboard/client-layout.tsx
 
 # DOMPurify sanitization in place - XSS safe
-# All dangerouslySetInnerHTML usage sanitized with DOMPurify
-src/app/(storefront)/[slug]/pages/about/page.tsx
-src/app/(storefront)/[slug]/pages/contact/page.tsx
-src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx
-src/app/(storefront)/[slug]/pages/about/about-page-client.tsx
+# All dangerouslySetInnerHTML usage sanitized with DOMPurify or sanitize-html
+apps/web/src/app/(storefront)/[slug]/pages/about/page.tsx
+apps/web/src/app/(storefront)/[slug]/pages/contact/page.tsx
+apps/web/src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx
+apps/web/src/app/(storefront)/[slug]/pages/about/about-page-client.tsx
+
+# JSON-LD schemas - uses safeJsonLdStringify which escapes all HTML entities
+apps/web/src/app/(storefront)/[slug]/blog/page.tsx
+apps/web/src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx
+
+# FAQ page - uses sanitizeHtml from sanitize-html library (allowlist-based)
+apps/web/src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx
+
+# Theme context - RegExp input is escaped with replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+apps/web/src/components/storefront/ogabassey/providers/v2-theme-context.tsx

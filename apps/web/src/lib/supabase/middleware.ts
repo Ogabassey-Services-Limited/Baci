@@ -20,6 +20,10 @@ export async function updateSession(
     });
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookieOptions: {
+      sameSite: 'lax',
+      secure: true,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();

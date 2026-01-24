@@ -14,6 +14,7 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
@@ -254,14 +255,22 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             <>
               <script
                 type="application/ld+json"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+                /*
+                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                */
+                dangerouslySetInnerHTML={{
+                  __html: safeJsonLdStringify(blogSchema),
+                }}
               />
               <script
                 type="application/ld+json"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+                /*
+                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                */
                 dangerouslySetInnerHTML={{
-                  __html: JSON.stringify(breadcrumbSchema),
+                  __html: safeJsonLdStringify(breadcrumbSchema),
                 }}
               />
               <BlogComponent
@@ -291,13 +300,21 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(breadcrumbSchema),
+        }}
       />
       <div className="min-h-screen bg-background">
         {/* Page Header */}

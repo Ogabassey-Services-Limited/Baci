@@ -55,18 +55,7 @@ function sanitizeUrl(url: string): string | null {
   }
 }
 
-/**
- * Escapes HTML entities to prevent XSS when rendering user/AI text.
- * This ensures text content is safe before being placed in React nodes.
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+
 
 /**
  * Enhanced markdown renderer for chat messages (2025 standards).
@@ -100,8 +89,8 @@ function renderMarkdown(text: string): React.ReactNode {
         if (imgMatch) {
           // Sanitize URL to prevent XSS - returns encoded URL or null
           const safeSrc = sanitizeUrl(imgMatch[2]);
-          // Escape alt text
-          const altText = escapeHtml(imgMatch[1] || 'Image');
+          // Alt text doesn't need escaping in React
+          const altText = imgMatch[1] || 'Image';
           if (safeSrc) {
             elements.push(
               <img
@@ -122,7 +111,7 @@ function renderMarkdown(text: string): React.ReactNode {
         if (linkMatch) {
           // Sanitize URL to prevent XSS - returns encoded URL or null
           const safeHref = sanitizeUrl(linkMatch[2]);
-          const linkText = escapeHtml(linkMatch[1]);
+          const linkText = linkMatch[1];
           if (safeHref) {
             elements.push(
               <a
@@ -136,7 +125,7 @@ function renderMarkdown(text: string): React.ReactNode {
               </a>
             );
           } else {
-            // Fallback to escaped text if unsafe URL
+            // Fallback to text if unsafe URL
             elements.push(linkText);
           }
           remaining = remaining.slice(linkMatch[0].length);
@@ -148,7 +137,7 @@ function renderMarkdown(text: string): React.ReactNode {
         if (boldMatch) {
           elements.push(
             <strong key={`${lineIndex}-bold-${keyIndex++}`} className="font-semibold">
-              {escapeHtml(boldMatch[1])}
+              {boldMatch[1]}
             </strong>
           );
           remaining = remaining.slice(boldMatch[0].length);
@@ -158,16 +147,16 @@ function renderMarkdown(text: string): React.ReactNode {
         // Find next special pattern
         const nextPattern = remaining.search(/!\[|\[|\*\*/);
         if (nextPattern === -1) {
-          // No more patterns, escape and push remaining text
-          if (remaining) elements.push(escapeHtml(remaining));
+          // No more patterns, push remaining text
+          if (remaining) elements.push(remaining);
           break;
         } else if (nextPattern > 0) {
-          // Push escaped text before the pattern
-          elements.push(escapeHtml(remaining.slice(0, nextPattern)));
+          // Push text before the pattern
+          elements.push(remaining.slice(0, nextPattern));
           remaining = remaining.slice(nextPattern);
         } else {
-          // Pattern at start but didn't match, push first char escaped
-          elements.push(escapeHtml(remaining[0]));
+          // Pattern at start but didn't match, push first char
+          elements.push(remaining[0]);
           remaining = remaining.slice(1);
         }
       }

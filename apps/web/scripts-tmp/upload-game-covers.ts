@@ -113,7 +113,7 @@ async function processImages() {
         console.log(`   ✨ Database updated for product: "${productName}"`);
       }
     } catch (err) {
-      console.error(`   ❌ Error processing ${file}:`, err);
+      console.error('   ❌ Error processing', file, ':', err);
     }
   }
 

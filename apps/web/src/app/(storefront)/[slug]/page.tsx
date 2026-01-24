@@ -9,6 +9,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,
@@ -227,7 +228,7 @@ export default async function StorefrontPage({
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(localBusinessSchema),
+            __html: safeJsonLdStringify(localBusinessSchema),
           }}
         />
       )}
@@ -235,7 +236,9 @@ export default async function StorefrontPage({
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(webSiteSchema),
+          }}
         />
       )}
 
@@ -244,7 +247,7 @@ export default async function StorefrontPage({
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLdStringify(
             generateServiceSchema({
               name: 'Showmax Subscription Payment',
               description:
@@ -265,7 +268,7 @@ export default async function StorefrontPage({
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLdStringify(
             generateServiceSchema({
               name: 'Instant Airtime Top-up',
               description:
@@ -286,7 +289,7 @@ export default async function StorefrontPage({
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLdStringify(
             generateServiceSchema({
               name: 'Cheap Data Bundles',
               description:

@@ -5,6 +5,7 @@
  * These handlers are called when the AI invokes a tool.
  */
 
+import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   AddToCartParams,
@@ -188,7 +189,7 @@ export async function handleCreateVirtualAccount(
 
     // Simulated virtual account (replace with real Kuda integration)
     const virtualAccount = {
-      accountNumber: `999${Math.random().toString().slice(2, 9)}`,
+      accountNumber: `999${crypto.randomInt(1000000, 9999999)}`,
       bankName: 'Kuda Bank',
       accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
     };

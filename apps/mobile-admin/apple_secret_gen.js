@@ -5,9 +5,9 @@ const jwt = require('jsonwebtoken');
 // ⬇️ STEP 1: FILL IN THESE 3 VALUES found in Apple Developer Portal
 // ==========================================
 
-const TEAM_ID = '6QLNK7TXM3';
-const KEY_ID = 'H97N9FQY69';
-const PRIVATE_KEY_PATH = './AuthKey_H97N9FQY69.p8';
+const TEAM_ID = process.env.TEAM_ID || 'YOUR_TEAM_ID';
+const KEY_ID = process.env.KEY_ID || 'YOUR_KEY_ID';
+const PRIVATE_KEY_PATH = process.env.PRIVATE_KEY_PATH || './AuthKey_YOURKEY.p8';
 
 // The Service ID is already set for you:
 const SERVICE_ID = 'com.ogabassey.baci.service';

@@ -37,6 +37,11 @@ services:
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
     command: http ogabassey-mcp:8787 --log stdout
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
     depends_on:
       - ogabassey-mcp
     profiles:

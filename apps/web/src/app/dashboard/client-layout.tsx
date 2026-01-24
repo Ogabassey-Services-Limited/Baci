@@ -308,21 +308,6 @@ export default function DashboardClientLayout({
     window.location.href = '/login';
   };
 
-  const unfilledPagesCount = (() => {
-    // TEMPORARY: Disable alert badge for pages to avoid false positives/confusion
-    return 0;
-    /*
-    // If merchant is an array (unexpected but possible from join) or missing pages, return default
-    if (Array.isArray(merchant) || !merchant?.pages) return 0;
-    const pages = merchant.pages as Record<string, string>;
-    const keys = ['about', 'contact', 'privacy', 'terms', 'faq', 'legal'];
-    return keys.filter((key) => {
-      const val = pages[key];
-      return !val || (typeof val === 'string' && val.trim().length === 0);
-    }).length;
-    */
-  })();
-
   const navItems: {
     href: Route;
     icon: typeof LayoutDashboard;
@@ -390,8 +375,7 @@ export default function DashboardClientLayout({
       href: '/dashboard/pages' as Route,
       icon: FileText,
       label: 'Pages',
-      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-      badgeVariant: 'destructive',
+      // Badge disabled temporarily
     },
     {
       href: '/dashboard/blog' as Route,

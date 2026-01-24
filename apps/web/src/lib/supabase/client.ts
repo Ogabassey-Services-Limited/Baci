@@ -25,7 +25,7 @@ export async function calculateCommerce(
   );
 
   if (error) {
-    console.error(`Commerce Brain Error [${action}]:`, error);
+    console.error('Commerce Brain Error', action, ':', error);
     throw error;
   }
 

@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
@@ -133,10 +134,13 @@ export function FAQPageClient({
                             <AccordionContent className="text-muted-foreground pb-4">
                               <div
                                 className="prose prose-sm dark:prose-invert max-w-none"
-                                // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                                /*
+                                  biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                                */
                                 dangerouslySetInnerHTML={{
-                                  __html: faq.answer,
-                                }} // nosemgrep
+                                  __html: sanitizeHtml(faq.answer),
+                                }}
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -170,10 +174,13 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                                      /*
+                                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                                        nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                                      */
                                       dangerouslySetInnerHTML={{
-                                        __html: faq.answer,
-                                      }} // nosemgrep
+                                        __html: sanitizeHtml(faq.answer),
+                                      }}
                                     />
                                   </AccordionContent>
                                 </AccordionItem>
@@ -189,10 +196,15 @@ export function FAQPageClient({
                   <div className="max-w-3xl mx-auto">
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
+                      /*
+                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                        nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                      */
                       dangerouslySetInnerHTML={{
-                        __html: sanitizedLegacyContent || legacyContent || '',
-                      }} // nosemgrep
+                        __html:
+                          sanitizedLegacyContent ||
+                          sanitizeHtml(legacyContent || ''),
+                      }}
                     />
                   </div>
                 ) : null}

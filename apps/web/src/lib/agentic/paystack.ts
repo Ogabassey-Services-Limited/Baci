@@ -27,6 +27,11 @@ async function paystackRequest(
   // Build-time safety: If key is missing during build, don't crash, but fail at runtime
   const secretKey = PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
 
+  // SSRF Protection: Ensure endpoint is relative and safe
+  if (!endpoint.startsWith('/') || endpoint.includes('://')) {
+    throw new Error(`Invalid Paystack endpoint: ${endpoint}`);
+  }
+
   const res = await fetch(`https://api.paystack.co${endpoint}`, {
     method,
     headers: {

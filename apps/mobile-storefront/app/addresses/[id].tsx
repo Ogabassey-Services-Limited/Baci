@@ -97,12 +97,6 @@ export default function AddressFormScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<AddressForm>>({});
 
-  useEffect(() => {
-    if (!isNewAddress && id) {
-      fetchAddress();
-    }
-  }, [id, isNewAddress, fetchAddress]);
-
   const fetchAddress = async () => {
     try {
       const { data, error } = await supabase
@@ -133,6 +127,12 @@ export default function AddressFormScreen() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isNewAddress && id) {
+      fetchAddress();
+    }
+  }, [id, isNewAddress]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<AddressForm> = {};

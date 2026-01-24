@@ -89,6 +89,7 @@ function generateEmailHtml(
   const safeUrl = escapeHtml(confirmationUrl);
   const safeLogo = escapeHtml(LOGO_URL);
 
+  // nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format
   return `<!DOCTYPE html>
 <html>
 <head>

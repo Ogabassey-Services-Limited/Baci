@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
@@ -200,13 +201,21 @@ export default async function BlogPostPage({ params }: PageProps) {
       )}
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        /*
+          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+        */
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(breadcrumbSchema),
+        }}
       />
 
       <ViewCounter postId={post.id} />
@@ -320,7 +329,10 @@ export default async function BlogPostPage({ params }: PageProps) {
               ) : (
                 <div
                   className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
+                  /*
+                    biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
+                    nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                  */
                   dangerouslySetInnerHTML={{ __html: legacyHtml }}
                 />
               )}

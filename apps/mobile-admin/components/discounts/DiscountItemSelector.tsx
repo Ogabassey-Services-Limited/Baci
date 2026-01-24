@@ -128,7 +128,19 @@ export function DiscountItemSelector({
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    return html.replace(/<[^>]+>/g, '');
+    return html
+      // 1. Replace known tags with space to preserve word separation
+      .replace(/<[^>]+>/g, ' ')
+      // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
+      // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
+      .replace(/[<>]/g, '')
+      // 3. Decode harmless entities (excluding < and >)
+      // IMPORTANT: Decode &amp; LAST to prevent double-unescaping patterns
+      // like &amp;quot; → &quot; → " (which would be a security issue)
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
   };
 
   return (

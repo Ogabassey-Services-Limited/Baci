@@ -138,6 +138,8 @@ export async function GET() {
       merchant = merchantData as typeof ownedMerchant;
     }
 
+    // TypeScript cannot infer that merchant is defined here despite the logic above,
+    // so we keep this check. It also serves as a final safety guard.
     if (!merchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },

@@ -17,8 +17,18 @@ src/components/storefront/header.tsx
 src/app/dashboard/client-layout.tsx
 
 # DOMPurify sanitization in place - XSS safe
-# All dangerouslySetInnerHTML usage sanitized with DOMPurify
+# All dangerouslySetInnerHTML usage sanitized with DOMPurify or sanitize-html
 src/app/(storefront)/[slug]/pages/about/page.tsx
 src/app/(storefront)/[slug]/pages/contact/page.tsx
 src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx
 src/app/(storefront)/[slug]/pages/about/about-page-client.tsx
+
+# JSON-LD schemas - uses safeJsonLdStringify which escapes all HTML entities
+src/app/(storefront)/[slug]/blog/page.tsx
+src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx
+
+# FAQ page - uses sanitizeHtml from sanitize-html library (allowlist-based)
+src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx
+
+# Theme context - RegExp input is escaped with replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+src/components/storefront/ogabassey/providers/v2-theme-context.tsx
