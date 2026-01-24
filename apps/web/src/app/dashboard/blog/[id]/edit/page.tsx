@@ -41,6 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -888,9 +889,9 @@ export default function EditBlogPostPage() {
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
                     {merchant?.custom_domain
-                      ? `${merchant.custom_domain.replace(/\/$/, '')}/blog/`
+                      ? `https://${merchant.custom_domain.replace(/\/$/, '')}/blog/`
                       : merchant?.slug
-                        ? `${process.env.NEXT_PUBLIC_ROOT_DOMAIN}/${merchant.slug}/blog/`
+                        ? `https://${getRootDomain() ?? 'usebaci.com'}/${merchant.slug}/blog/`
                         : '/blog/'}
                     {formData.slug || 'post-slug'}
                   </div>

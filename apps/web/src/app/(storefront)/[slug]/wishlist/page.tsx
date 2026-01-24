@@ -366,6 +366,7 @@ export default function WishListPage() {
             className="h-8 w-8 motion-safe:animate-spin"
             aria-hidden="true"
           />
+          <span className="sr-only">Loading your wish list...</span>
         </div>
       ) : wishListItems.length === 0 ? (
         <Card className="glass-themed">

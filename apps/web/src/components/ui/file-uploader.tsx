@@ -27,6 +27,21 @@ interface FileUploaderProps {
 const getFiles = (entryList: PreviewEntry[]): File[] =>
   entryList.flatMap((e) => (e.file ? [e.file] : []));
 
+// Helper to create a stable reference based on content
+// 2026 Best Practice: Prevent unnecessary effect re-runs when passing arrays from parent components
+function useStableArray<T>(arr: T[]): T[] {
+  const ref = useRef<T[]>(arr);
+  const serialized = JSON.stringify(arr);
+  const prevSerialized = useRef(serialized);
+
+  if (prevSerialized.current !== serialized) {
+    prevSerialized.current = serialized;
+    ref.current = arr;
+  }
+
+  return ref.current;
+}
+
 export function FileUploader({
   onFilesSelected,
   maxFiles = 5,
@@ -59,18 +74,20 @@ export function FileUploader({
     onFilesSelected(getFiles(entries));
   }, [entries, onFilesSelected]);
 
+  const stableInitialFiles = useStableArray(initialFiles);
+
   // Sync initialFiles prop changes to state while preserving new uploads
   // This allows parent forms to update (e.g. from DB) without losing work
   useEffect(() => {
     setEntries((prev) => {
-      const newInitialEntries = initialFiles.map((src) => ({
+      const newInitialEntries = stableInitialFiles.map((src) => ({
         src,
         file: null,
       }));
       const fileEntries = prev.filter((e) => e.file !== null);
       return [...newInitialEntries, ...fileEntries];
     });
-  }, [initialFiles]);
+  }, [stableInitialFiles]);
 
   // Cleanup object URLs to avoid memory leaks
   // Runs only on unmount to ensure URLs remain valid while the component is active

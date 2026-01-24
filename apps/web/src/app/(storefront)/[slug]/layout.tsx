@@ -72,13 +72,13 @@ import {
  * Shared helper to resolve merchant by identifier (slug or custom domain)
  * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior
  */
-function getMerchantByIdentifier(identifier: string) {
+async function getMerchantByIdentifier(identifier: string) {
   if (!isValidMerchantIdentifier(identifier)) return null;
 
   if (isDomainIdentifier(identifier)) {
-    return getCachedMerchantByDomain(identifier.toLowerCase());
+    return await getCachedMerchantByDomain(identifier.toLowerCase());
   }
-  return getCachedMerchant(identifier.toLowerCase());
+  return await getCachedMerchant(identifier.toLowerCase());
 }
 
 export async function generateMetadata({
