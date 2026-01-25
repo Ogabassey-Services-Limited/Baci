@@ -888,6 +888,16 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
+  planBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textTransform: 'uppercase',
+  },
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
   card: {

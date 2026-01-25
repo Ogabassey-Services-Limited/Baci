@@ -1,8 +1,6 @@
 # Lychee configuration file
 # See https://lychee.cli.rs/guides/config/ for all options
 
-verbose = true
-no_progress = true
 
 # Exclude paths from being scanned
 exclude_path = [
