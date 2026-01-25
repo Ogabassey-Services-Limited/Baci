@@ -16,7 +16,9 @@ export function JsonLd<T extends Thing>({ data }: JsonLdProps<T>) {
       dangerouslySetInnerHTML={{
         __html: JSON.stringify(data)
           .replace(/</g, '\\u003c')
-          .replace(/>/g, '\\u003e'),
+          .replace(/>/g, '\\u003e')
+          .replace(/\u2028/g, '\\u2028')
+          .replace(/\u2029/g, '\\u2029'),
       }}
     />
   );

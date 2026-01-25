@@ -322,6 +322,10 @@ const nextConfig: NextConfig = {
     }
     return [
       {
+        source: '/blog/sitemap.xml',
+        destination: '/sitemap/blog.xml',
+      },
+      {
         source: '/mcp/sse',
         destination: `${mcpServerUrl}/sse`,
       },
