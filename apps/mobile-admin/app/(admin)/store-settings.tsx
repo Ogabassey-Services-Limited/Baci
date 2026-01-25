@@ -27,12 +27,15 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
+  const { isPro } = useRevenueCat();
   const [isUploading, setIsUploading] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
@@ -537,15 +540,23 @@ export default function StoreSettingsScreen() {
           <View
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
           >
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Subscription Plan
-            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
+              <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 0 }]}>
+                Subscription Plan
+              </Text>
+              <View style={[styles.planBadge, { backgroundColor: isPro ? colors.primary + '20' : colors.cardHover }]}>
+                <Text style={[styles.planBadgeText, { color: isPro ? colors.primary : colors.textSecondary }]}>
+                  {SubscriptionManagement.getPlanLabel(isPro)}
+                </Text>
+              </View>
+            </View>
+
             <Pressable
               style={[
                 styles.inputContainer,
                 {
                   backgroundColor: colors.cardHover,
-                  marginBottom: 0,
+                  marginBottom: SPACING.sm,
                   borderWidth: 0,
                   justifyContent: 'space-between',
                   paddingRight: SPACING.md,
@@ -576,7 +587,7 @@ export default function StoreSettingsScreen() {
                       fontSize: TYPOGRAPHY.size.md,
                     }}
                   >
-                    Baci Pro
+                    {isPro ? 'Baci Pro' : 'Upgrade to Pro'}
                   </Text>
                   <Text
                     style={{
@@ -585,7 +596,7 @@ export default function StoreSettingsScreen() {
                       fontSize: TYPOGRAPHY.size.sm,
                     }}
                   >
-                    Manage your subscription
+                    {isPro ? 'View plan features' : 'Unlock premium features'}
                   </Text>
                 </View>
               </View>
@@ -595,6 +606,64 @@ export default function StoreSettingsScreen() {
                 color={colors.textSecondary}
               />
             </Pressable>
+
+            {isPro && (
+              <Pressable
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHover,
+                    marginBottom: 0,
+                    borderWidth: 0,
+                    justifyContent: 'space-between',
+                    paddingRight: SPACING.md,
+                  },
+                ]}
+                onPress={() => SubscriptionManagement.openNativeManagement()}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: RADIUS.md,
+                      backgroundColor: colors.textSecondary + '20',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginLeft: SPACING.sm,
+                      marginVertical: SPACING.sm,
+                    }}
+                  >
+                    <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+                  </View>
+                  <View style={{ marginLeft: SPACING.md }}>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+                        fontSize: TYPOGRAPHY.size.md,
+                      }}
+                    >
+                      Manage in App Store
+                    </Text>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontFamily: TYPOGRAPHY.fontFamily.regular,
+                        fontSize: TYPOGRAPHY.size.sm,
+                      }}
+                    >
+                      Cancel or change tiers
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            )}
           </View>
 
           {/* Store URL (Read-only) */}
