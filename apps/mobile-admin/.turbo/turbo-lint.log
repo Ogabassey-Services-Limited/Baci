@@ -4,23 +4,3 @@
 
 env: load .env
 env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL EXPO_PUBLIC_REVENUECAT_API_KEY_IOS EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID
-
-/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/domains/buy.tsx
-  139:4  error  Parsing error: 'catch' or 'finally' expected
-
-/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/product/[id].tsx
-  7:10  error  'useQueryClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
-
-/Users/mac/Baci-app/apps/mobile-admin/app/(admin)/staff-accounts.tsx
-  213:14  error  'error' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
-
-/Users/mac/Baci-app/apps/mobile-admin/app/index.tsx
-  51:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
-
-/Users/mac/Baci-app/apps/mobile-admin/components/paywall/Paywall.tsx
-  1:10  error  'Ionicons' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
-
-✖ 5 problems (4 errors, 1 warning)
-  0 errors and 1 warning potentially fixable with the `--fix` option.
-
- ELIFECYCLE  Command failed with exit code 1.

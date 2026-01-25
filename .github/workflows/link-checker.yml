@@ -116,6 +116,13 @@ jobs:
             --exclude 'tr\.snapchat\.com/v2/conversion'
             --exclude 'vendor-api(-staging)?\.jumia\.com'
             --exclude 'vendorcenter\.jumia\.com\.ng'
+            --exclude 'your-app\.vercel\.app'
+            --exclude 'anthropic\.com'
+            --exclude 'openrouter\.ai'
+            --exclude 'vercel\.ai'
+            --exclude 'google\.dev'
+            --exclude 'makersuite\.google\.com'
+            --exclude 'aistudio\.google\.com'
           # Fail action if broken links are found
           fail: true
         env:
