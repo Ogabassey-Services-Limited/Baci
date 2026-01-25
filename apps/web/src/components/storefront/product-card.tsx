@@ -2,6 +2,7 @@
 
 import { Eye, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { memo } from 'react';
 import { ProductCardImage } from '@/components/optimized-image';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import { getProductUrl } from '@/lib/seo-utils';
 // 2026 Best Practice: Extend Product type to include joined category data
 // This avoids 'any' casts and provides type safety for the categories join
 interface ProductWithCategory extends Product {
-  categories?: { name: string } | null;
+  categories?: { name?: string } | null;
 }
 
 interface StorefrontProductCardProps {
@@ -30,7 +31,7 @@ interface StorefrontProductCardProps {
  * Product Card for Storefront Grid
  * Relying on React Compiler for automatic memoization and performance optimizations.
  */
-export function StorefrontProductCard({
+export const StorefrontProductCard = memo(function StorefrontProductCard({
   product,
   cartItem,
   staggerClass,
@@ -218,4 +219,4 @@ export function StorefrontProductCard({
       </CardContent>
     </ThemedCard>
   );
-}
+});

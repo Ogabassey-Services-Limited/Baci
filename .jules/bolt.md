@@ -1,0 +1,3 @@
+## 2024-05-23 - React List Virtualization and Memoization
+**Learning:** In list rendering (like product grids), relying solely on React Compiler or implicit memoization is insufficient when callback props are unstable. Hooks like `useQuickView` that return new functions on every render defeat memoization of child components, causing O(n) re-renders for O(1) state changes (like updating one cart item).
+**Action:** Always wrap callback functions (passed to lists) in `useCallback` and consider explicit `React.memo` for list items, especially when the parent component re-renders frequently (e.g., on every cart update).
