@@ -337,6 +337,7 @@ export default function ShippingScreen() {
                       onChangeText={setTempThreshold}
                       keyboardType="numeric"
                       placeholder="Min amount"
+                      accessibilityLabel="Free shipping threshold amount"
                     />
                     <Pressable
                       onPress={() =>
@@ -346,6 +347,8 @@ export default function ShippingScreen() {
                       }
                       disabled={updateThresholdMutation.isPending}
                       style={styles.actionIcon}
+                      accessibilityRole="button"
+                      accessibilityLabel="Save threshold"
                     >
                       {updateThresholdMutation.isPending ? (
                         <ActivityIndicator
@@ -363,6 +366,8 @@ export default function ShippingScreen() {
                     <Pressable
                       onPress={() => setIsEditingThreshold(false)}
                       style={styles.actionIcon}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel editing"
                     >
                       <Ionicons
                         name="close-circle"

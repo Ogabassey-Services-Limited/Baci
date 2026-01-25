@@ -102,39 +102,35 @@ export default function PayoutSettingsScreen() {
       return;
     }
 
-    try {
-      resolveAccount.mutate(
-        {
-          account_number: accountnumber,
-          bank_code: selectedBank.code,
+    resolveAccount.mutate(
+      {
+        account_number: accountnumber,
+        bank_code: selectedBank.code,
+      },
+      {
+        onSuccess: (data) => {
+          setVerifiedName(data.account_name);
+          setVerifyError(null);
         },
-        {
-          onSuccess: (data) => {
-            setVerifiedName(data.account_name);
+        onError: (error) => {
+          console.error('Resolution error:', error);
+          // Fallback for test account - Restricted to DEV
+          if (__DEV__ && accountnumber === '0000000000') {
+            setVerifiedName('Test Account');
             setVerifyError(null);
-          },
-          onError: (error) => {
-            console.error('Resolution error:', error);
-            // Fallback for test account
-            if (accountnumber === '0000000000') {
-              setVerifiedName('Test Account');
-              setVerifyError(null);
-              return;
-            }
+            return;
+          }
 
-            setVerifyError(
-              (error as Error).message || 'Network error checking account'
-            );
-            setVerifiedName(null);
-          },
-          onSettled: () => {
-            setIsVerifying(false);
-          },
-        }
-      );
-    } catch (_error) {
-      setIsVerifying(false);
-    }
+          setVerifyError(
+            (error as Error).message || 'Network error checking account'
+          );
+          setVerifiedName(null);
+        },
+        onSettled: () => {
+          setIsVerifying(false);
+        },
+      }
+    );
   }, [accountnumber, selectedBank, resolveAccount, session]);
 
   useEffect(() => {
@@ -276,6 +272,9 @@ export default function PayoutSettingsScreen() {
                   },
                 ]}
                 onPress={() => setShowBankModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Select bank"
+                accessibilityHint="Opens a modal to search and select your bank"
               >
                 <Text
                   style={{

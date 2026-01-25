@@ -207,8 +207,12 @@ export default function StaffAccountsScreen() {
   });
 
   const copyToClipboard = async (text: string) => {
-    await Clipboard.setStringAsync(text);
-    Alert.alert('Copied!', 'Account number copied to clipboard.');
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied!', 'Account number copied to clipboard.');
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
   };
 
   const isLoading = accountsLoading || branchesLoading;
@@ -580,6 +584,10 @@ export default function StaffAccountsScreen() {
             activeTab === 'accounts'
               ? setShowAccountModal(true)
               : setShowBranchModal(true)
+          }
+          accessibilityRole="button"
+          accessibilityLabel={
+            activeTab === 'accounts' ? 'Create staff account' : 'Create new branch'
           }
         >
           <Ionicons name="add" size={28} color="#FFF" />

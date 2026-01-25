@@ -57,8 +57,13 @@ const AdminLightTheme = {
   },
 };
 
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Initialize RevenueCat (IAP)
+  useRevenueCat();
+
   const [loaded, error] = useFonts({
     Inter_400Regular,
     Inter_500Medium,

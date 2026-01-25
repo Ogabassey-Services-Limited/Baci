@@ -4,7 +4,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,9 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -142,10 +139,9 @@ export default function ProductEditScreen() {
   const isEditing = id !== 'new';
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const _queryClient = useQueryClient();
-  const { merchant } = useMerchant();
+  const { merchant, isLoading } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
-  const router = useRouter(); // Use useRouter instead of router
+  const router = useRouter();
 
   const generateSKU = () => {
     return `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -190,8 +186,7 @@ export default function ProductEditScreen() {
   const { data: categories = [] } = useCategories();
 
   // Create Category Mutation
-  // Create Category Mutation
-  const createCategoryMutation = useCreateCategory(); // Use hook
+  const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
     createCategoryMutation.mutate(newCategoryName, {
@@ -214,7 +209,7 @@ export default function ProductEditScreen() {
   };
 
   // Fetch product details using the new hook
-  const { data: product, isLoading, error } = useProduct(id);
+  const { data: product, error } = useProduct(id);
 
   // Helper to strip HTML tags
   const stripHtml = useCallback((html: string) => {
@@ -249,25 +244,28 @@ export default function ProductEditScreen() {
         color: product.color || '',
         variant_attributes: product.variant_attributes
           ? Object.entries(
-              product.variant_attributes as Record<string, unknown>
-            ).map(([key, value]) => ({
-              key,
-              value: String(value),
-            }))
+            product.variant_attributes as Record<string, unknown>
+          ).map(([key, value]) => ({
+            key,
+            value: String(value),
+          }))
           : [],
         fulfillment_details:
           product.fulfillment_details &&
-          typeof product.fulfillment_details === 'object' &&
-          'items' in product.fulfillment_details
+            typeof product.fulfillment_details === 'object' &&
+            'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-                items: Array<{ imei: string; serial_number: string }>;
-              })
+              items: Array<{ imei: string; serial_number: string }>;
+            })
             : {
-                items: Array(product.stock_quantity || 0).fill({
+              items: Array.from(
+                { length: product.stock_quantity || 0 },
+                () => ({
                   imei: '',
                   serial_number: '',
-                }),
-              },
+                })
+              ),
+            },
         images: (product.images as string[]) || [],
         manage_stock: product.manage_stock ?? true,
         status: (product.status as 'active' | 'draft' | 'archived') || 'active',
@@ -319,7 +317,10 @@ export default function ProductEditScreen() {
       const itemsToAdd = newStock - currentItems.length;
       newItems = [
         ...newItems,
-        ...Array(itemsToAdd).fill({ imei: '', serial_number: '' }),
+        ...Array.from({ length: itemsToAdd }, () => ({
+          imei: '',
+          serial_number: '',
+        })),
       ];
     } else if (newStock < currentItems.length) {
       // Remove last items
@@ -523,12 +524,12 @@ export default function ProductEditScreen() {
             >
               {(updateProductMutation.isPending ||
                 createProductMutation.isPending) && (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                  style={{ marginRight: 8 }}
-                />
-              )}
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ marginRight: 8 }}
+                  />
+                )}
               <Text
                 style={{
                   color: colors.primary,
@@ -552,6 +553,9 @@ export default function ProductEditScreen() {
           ]}
           onPress={handleImagePick}
           disabled={isUploading}
+          accessibilityRole="button"
+          accessibilityLabel="Product image"
+          accessibilityHint="Double tap to upload or change product image"
         >
           {isUploading ? (
             <View
@@ -1207,8 +1211,8 @@ export default function ProductEditScreen() {
                           formData.stock_quantity === 0
                             ? ''
                             : new Intl.NumberFormat().format(
-                                formData.stock_quantity
-                              )
+                              formData.stock_quantity
+                            )
                         }
                         onChangeText={(text) => {
                           const num = Number.parseInt(

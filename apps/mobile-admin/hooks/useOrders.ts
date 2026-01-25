@@ -174,16 +174,19 @@ export function useUpdateOrderStatus() {
       status: ShippingStatus;
     }) => updateOrderStatus(orderId, status),
     onMutate: async ({ orderId, status }) => {
+      if (!merchant?.id) return { previousOrders: [], previousOrder: undefined };
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['orders', merchant?.id] });
+      await queryClient.cancelQueries({ queryKey: ['orders', merchant.id] });
 
       // Snapshot previous value
-      const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
+      const previousOrders = queryClient.getQueriesData<OrdersPage>({
+        queryKey: ['orders', merchant.id],
+      });
 
       // Optimistically update list
       // Optimistically update list - Match ALL order queries
       queryClient.setQueriesData(
-        { queryKey: ['orders', merchant?.id] },
+        { queryKey: ['orders', merchant.id] },
         (old: any) => {
           if (!old?.pages) return old;
           return {
@@ -212,11 +215,9 @@ export function useUpdateOrderStatus() {
     onError: (_err, vars, context) => {
       // Rollback on error
       if (context?.previousOrders) {
-        queryClient.setQueryData(
-          ['orders', merchant?.id],
-          context.previousOrders
-        );
-        // Also invalidate to be safe
+        context.previousOrders.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
         queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
       }
       if (context?.previousOrder) {

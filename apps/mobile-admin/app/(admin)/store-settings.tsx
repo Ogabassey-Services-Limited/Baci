@@ -89,8 +89,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -530,6 +530,71 @@ export default function StoreSettingsScreen() {
                 </View>
               </View>
             </View>
+          </View>
+
+
+          {/* Subscription Plan */}
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          >
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Subscription Plan
+            </Text>
+            <Pressable
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: colors.cardHover,
+                  marginBottom: 0,
+                  borderWidth: 0,
+                  justifyContent: 'space-between',
+                  paddingRight: SPACING.md,
+                },
+              ]}
+              onPress={() => router.push('/(admin)/subscribe')}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: RADIUS.md,
+                    backgroundColor: colors.primary + '20',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginLeft: SPACING.sm,
+                    marginVertical: SPACING.sm,
+                  }}
+                >
+                  <Ionicons name="star" size={20} color={colors.primary} />
+                </View>
+                <View style={{ marginLeft: SPACING.md }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+                      fontSize: TYPOGRAPHY.size.md,
+                    }}
+                  >
+                    Baci Pro
+                  </Text>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontFamily: TYPOGRAPHY.fontFamily.regular,
+                      fontSize: TYPOGRAPHY.size.sm,
+                    }}
+                  >
+                    Manage your subscription
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
           </View>
 
           {/* Store URL (Read-only) */}

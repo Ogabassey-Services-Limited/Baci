@@ -15,14 +15,29 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const revalidate = 21600; // Cache sitemap for 6 hours
 
+interface ProductWithCategory {
+  id: string;
+  slug: string | null;
+  category: string | null;
+  images: Array<string | { url: string }> | null;
+  updated_at: string | null;
+  category_id: string | null;
+  categories: { slug: string | null } | null;
+}
+
 /**
  * 2026 Best Practice: Sitemap Indexing
  * Generates multiple specialized sitemaps for easier SEO reporting in Google Search Console.
  */
-export async function generateSitemaps() {
+export function generateSitemaps() {
   // Fetch merchant list is not needed here because this is already in the (storefront)/[slug] layout.
   // We specify the IDs of the sitemaps we want to generate.
-  return [{ id: 'static' }, { id: 'products' }, { id: 'categories' }, { id: 'blog' }];
+  return [
+    { id: 'static' },
+    { id: 'products' },
+    { id: 'categories' },
+    { id: 'blog' },
+  ];
 }
 
 export default async function sitemap({
@@ -67,28 +82,40 @@ export default async function sitemap({
       ];
 
     case 'products': {
-      const { data: products } = await supabase
+      const { data: products } = (await supabase
         .from('products')
-        .select('id, slug, category, images, updated_at, category_id, categories:category_id(slug)')
+        .select(
+          'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
+        )
         .eq('merchant_id', merchant.id)
-        .eq('status', 'active');
+        .eq('status', 'active')) as { data: ProductWithCategory[] | null };
 
       return (products || []).map((product) => {
         const productSlug = product.slug || product.id;
-        const catSlug = product.categories?.slug || (product.category ? generateSlug(product.category) : null);
-        const url = catSlug ? `${storeUrl}/${catSlug}/${productSlug}` : `${storeUrl}/products/${productSlug}`;
+        const catSlug =
+          product.categories?.slug ||
+          (product.category ? generateSlug(product.category) : null);
+        const url = catSlug
+          ? `${storeUrl}/${catSlug}/${productSlug}`
+          : `${storeUrl}/products/${productSlug}`;
 
         const images: string[] = [];
         if (Array.isArray(product.images)) {
-          product.images.forEach((img: any) => {
-            const url = typeof img === 'string' ? img : img?.url;
-            if (url?.startsWith('http')) images.push(url);
+          product.images.forEach((img: unknown) => {
+            const url =
+              typeof img === 'string'
+                ? img
+                : (img as Record<string, unknown>)?.url;
+            if (typeof url === 'string' && url.startsWith('http'))
+              images.push(url);
           });
         }
 
         return {
           url,
-          lastModified: product.updated_at ? new Date(product.updated_at) : undefined,
+          lastModified: product.updated_at
+            ? new Date(product.updated_at)
+            : undefined,
           changeFrequency: 'weekly',
           priority: 0.8,
           ...(images.length > 0 && { images }),
@@ -102,7 +129,7 @@ export default async function sitemap({
         .select('slug, updated_at')
         .eq('merchant_id', merchant.id);
 
-      return (categories || []).map((cat: any) => ({
+      return (categories || []).map((cat) => ({
         url: `${storeUrl}/${cat.slug}`,
         lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
         changeFrequency: 'daily',
@@ -119,10 +146,14 @@ export default async function sitemap({
 
       const entries = (posts || []).map((post) => ({
         url: `${storeUrl}/blog/${post.slug}`,
-        lastModified: post.updated_at ? new Date(post.updated_at) : new Date(post.published_at || Date.now()),
+        lastModified: post.updated_at
+          ? new Date(post.updated_at)
+          : new Date(post.published_at || Date.now()),
         changeFrequency: 'monthly',
         priority: 0.8,
-        ...(post.featured_image_url?.startsWith('http') && { images: [post.featured_image_url] }),
+        ...(post.featured_image_url?.startsWith('http') && {
+          images: [post.featured_image_url],
+        }),
       }));
 
       if (entries.length > 0) {
@@ -131,7 +162,7 @@ export default async function sitemap({
           lastModified: new Date(),
           changeFrequency: 'daily',
           priority: 0.7,
-        } as any);
+        } as MetadataRoute.Sitemap[0]);
       }
       return entries;
     }

@@ -15,7 +15,7 @@ export default function Index() {
   const isLoading =
     authLoading ||
     onboardingLoading ||
-    (isAuthenticated && merchantLoading && merchant === undefined);
+    (isAuthenticated && merchantLoading && merchant === null);
 
   if (isLoading) {
     return (
@@ -48,7 +48,6 @@ export default function Index() {
     console.log(
       '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return <Redirect href="/(auth)/complete-profile" />;
   }
 

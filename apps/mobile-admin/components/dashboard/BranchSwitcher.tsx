@@ -103,20 +103,7 @@ export function BranchSwitcher() {
           <Ionicons name="add-circle" size={20} color={colors.primary} />
         </Pressable>
 
-        {/* Create Modal */}
-        <CreateBranchModal
-          visible={isModalVisible}
-          onClose={handleCloseModal}
-          branchName={branchName}
-          setBranchName={setBranchName}
-          branchAddress={branchAddress}
-          setBranchAddress={setBranchAddress}
-          nameError={nameError}
-          setNameError={setNameError}
-          onSubmit={handleCreateBranch}
-          isLoading={createBranch.isPending}
-          colors={colors}
-        />
+        {/* Create Modal moved to bottom */}
       </View>
     );
   }
@@ -274,7 +261,6 @@ function CreateBranchModal({
               }}
               placeholder="e.g. Lagos Main, Lekki Branch"
               placeholderTextColor={colors.textMuted}
-              autoFocus
               accessibilityLabel="Branch name input"
             />
             {nameError && (

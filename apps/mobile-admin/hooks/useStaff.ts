@@ -160,7 +160,9 @@ export function useInviteStaff() {
             // We use fetch to call our own API
             const apiUrl = (
               process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com'
-            ).replace(/\/$/, '');
+            )
+              .trim()
+              .replace(/\/+$/, '');
             const response = await fetch(
               `${apiUrl}/api/paystack/virtual-terminal`,
               {
@@ -177,7 +179,8 @@ export function useInviteStaff() {
 
             if (!response.ok) {
               console.warn(
-                '[InviteStaff] Failed to auto-create account number via API'
+                '[InviteStaff] Failed to auto-create account number via API',
+                { status: response.status, statusText: response.statusText }
               );
             }
           }

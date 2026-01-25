@@ -2,9 +2,7 @@
 
 import { HelpCircle, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { FAQPage, WithContext } from 'schema-dts';
 import AppBody from '@/components/app-body';
-import { JsonLd } from '@/components/seo/json-ld';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import {
@@ -51,36 +49,30 @@ export function FAQPageClient({
   const hasStructuredFAQs = faqItems.length > 0;
 
   // Filter FAQs based on search
-  const filteredFAQs = useMemo(() => {
-    return searchQuery
-      ? faqItems.filter(
-          (faq) =>
-            faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      : faqItems;
-  }, [faqItems, searchQuery]);
+  const filteredFAQs = useMemo(
+    () =>
+      searchQuery
+        ? faqItems.filter(
+            (faq) =>
+              faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : faqItems,
+    [faqItems, searchQuery]
+  );
 
   // Group FAQs by category
+
   const groupedFAQs = useMemo(
     () => groupFAQsByCategory(filteredFAQs),
     [filteredFAQs]
   );
   const categories = useMemo(() => Object.keys(groupedFAQs), [groupedFAQs]);
 
-  // JSON-LD Structured Data
-  const jsonLd: WithContext<FAQPage> = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: filteredFAQs.map((faq) => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer, // sanitizeHtml removes dangerous tags but keeps text
-      },
-    })),
-  };
+  /* 
+     JSON-LD is handled server-side in page.tsx using generateFAQSchema.
+     Client-side injection is removed to prevent duplication and SEO confusion.
+  */
 
   return (
     <MerchantProvider slug={merchant.slug}>
@@ -127,9 +119,6 @@ export function FAQPageClient({
                   )}
                 </div>
               </section>
-
-              {/* Structured Data Injection */}
-              {hasStructuredFAQs && <JsonLd data={jsonLd} />}
 
               {/* FAQ Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
@@ -209,6 +198,9 @@ export function FAQPageClient({
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
+                                      /*
+                                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
+                                      */
                                       dangerouslySetInnerHTML={{
                                         __html: sanitizeHtml(faq.answer),
                                       }}

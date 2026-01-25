@@ -33,6 +33,13 @@ const BUSINESS_TYPES = [
 ];
 
 // Construct API URL: Ensure we append the path to the base URL
+interface RegisterResponse {
+  user?: { email_confirmed_at?: string | null };
+}
+
+function isRegisterResponse(data: unknown): data is RegisterResponse {
+  return typeof data === 'object' && data !== null;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -127,9 +134,8 @@ export default function RegisterScreen() {
       },
       {
         onSuccess: (data: unknown) => {
-          const response = data as {
-            user?: { email_confirmed_at?: string | null };
-          };
+          if (!isRegisterResponse(data)) return;
+          const response = data;
           // Check if verifying
           if (response.user?.email_confirmed_at) {
             Alert.alert('Success', 'Account created!', [
@@ -142,7 +148,7 @@ export default function RegisterScreen() {
             });
           }
         },
-        onError: (error) => {
+        onError: (error: Error) => {
           console.error('Registration error:', error);
           Alert.alert(
             'Registration Failed',
@@ -222,6 +228,8 @@ export default function RegisterScreen() {
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
@@ -304,7 +312,7 @@ export default function RegisterScreen() {
                         style={[
                           styles.typeCard,
                           formData.businessType === type.id &&
-                            styles.typeCardSelected,
+                          styles.typeCardSelected,
                         ]}
                         onPress={() => updateForm('businessType', type.id)}
                       >
@@ -312,7 +320,7 @@ export default function RegisterScreen() {
                           style={[
                             styles.typeText,
                             formData.businessType === type.id &&
-                              styles.typeTextSelected,
+                            styles.typeTextSelected,
                           ]}
                         >
                           {type.label}

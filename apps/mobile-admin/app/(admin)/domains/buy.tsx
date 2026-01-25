@@ -143,12 +143,13 @@ export default function BuyDomainScreen() {
           'Domain search took too long. Please try again.'
         );
       } else {
-        Alert.alert(
-          'Search Failed',
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred'
-        );
+        const rawMessage =
+          error instanceof Error ? error.message : 'An unexpected error occurred';
+        console.error('[Diagnostic] Search failed:', error);
+        const userMessage = __DEV__
+          ? rawMessage
+          : 'Please try again in a moment.';
+        Alert.alert('Search Failed', userMessage);
       }
     } finally {
       setLoading(false);
