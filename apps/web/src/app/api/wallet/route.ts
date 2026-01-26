@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -155,7 +156,10 @@ export async function GET() {
  * PATCH /api/wallet
  * Update wallet settings (auto-payout preferences)
  */
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
