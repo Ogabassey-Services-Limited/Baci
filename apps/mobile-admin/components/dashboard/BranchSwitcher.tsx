@@ -81,9 +81,8 @@ export function BranchSwitcher() {
     }
   };
 
-  // Don't render if no branches and loading
+  // Show "Add first branch" state when no branches exist
   if (!hasBranches && branches.length === 0) {
-    // Show "Add first branch" state
     return (
       <View style={[styles.container, { paddingHorizontal: SPACING.lg }]}>
         <Pressable
@@ -103,7 +102,20 @@ export function BranchSwitcher() {
           <Ionicons name="add-circle" size={20} color={colors.primary} />
         </Pressable>
 
-        {/* Create Modal moved to bottom */}
+        {/* Create Modal - must be rendered for the modal to work */}
+        <CreateBranchModal
+          visible={isModalVisible}
+          onClose={handleCloseModal}
+          branchName={branchName}
+          setBranchName={setBranchName}
+          branchAddress={branchAddress}
+          setBranchAddress={setBranchAddress}
+          nameError={nameError}
+          setNameError={setNameError}
+          onSubmit={handleCreateBranch}
+          isLoading={createBranch.isPending}
+          colors={colors}
+        />
       </View>
     );
   }

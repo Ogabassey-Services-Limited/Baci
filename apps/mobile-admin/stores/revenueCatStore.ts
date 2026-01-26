@@ -23,7 +23,7 @@ interface RevenueCatState {
     restorePurchases: () => Promise<boolean>;
 }
 
-export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
+export const useRevenueCatStore = create<RevenueCatState>((set) => ({
     currentOffering: null,
     customerInfo: null,
     isPro: false,
@@ -35,16 +35,19 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
             if (Platform.OS === 'ios') {
                 if (!API_KEY_IOS) {
                     console.warn('RevenueCat iOS API Key not found');
+                    set({ isLoading: false, error: 'Configuration Error: iOS API Key missing' });
                     return;
                 }
                 Purchases.configure({ apiKey: API_KEY_IOS });
             } else if (Platform.OS === 'android') {
                 if (!API_KEY_ANDROID) {
                     console.warn('RevenueCat Android API Key not found');
+                    set({ isLoading: false, error: 'Configuration Error: Android API Key missing' });
                     return;
                 }
                 Purchases.configure({ apiKey: API_KEY_ANDROID });
             } else {
+                set({ isLoading: false, error: 'Platform not supported' });
                 return;
             }
 
@@ -91,9 +94,11 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
             });
 
             return isPro;
-        } catch (e: any) {
-            if (!e.userCancelled) {
-                set({ error: e.message || 'Purchase failed', isLoading: false });
+        } catch (e: unknown) {
+            // RevenueCat errors have a userCancelled property
+            const error = e as { userCancelled?: boolean; message?: string };
+            if (!error.userCancelled) {
+                set({ error: error.message || 'Purchase failed', isLoading: false });
             } else {
                 set({ isLoading: false });
             }

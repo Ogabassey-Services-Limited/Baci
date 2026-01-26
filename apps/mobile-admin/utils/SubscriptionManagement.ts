@@ -1,4 +1,4 @@
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 
 /**
  * Utility to help manage subscriptions natively
@@ -6,24 +6,46 @@ import { Linking, Platform } from 'react-native';
 export const SubscriptionManagement = {
     /**
      * Opens the native subscription management page for the current platform
+     * @returns true if successful, false if failed
      */
-    openNativeManagement: async () => {
+    openNativeManagement: async (): Promise<boolean> => {
+        const iosUrl = 'https://apps.apple.com/account/subscriptions';
+        const androidPackage = 'com.ogabassey.baci';
+        const androidUrl = `https://play.google.com/store/account/subscriptions?package=${androidPackage}`;
+
         try {
             if (Platform.OS === 'ios') {
-                // Direct link to Apple Subscriptions management
-                await Linking.openURL('https://apps.apple.com/account/subscriptions');
+                await Linking.openURL(iosUrl);
+                return true;
             } else if (Platform.OS === 'android') {
-                // Direct link to Google Play Subscriptions (using package name)
-                // Note: In production you'd use your actual package name
-                const packageName = 'com.ogabassey.baci';
-                await Linking.openURL(`https://play.google.com/store/account/subscriptions?package=${packageName}`);
+                await Linking.openURL(androidUrl);
+                return true;
             }
+            return false;
         } catch (error) {
             console.error('Failed to open subscription management:', error);
-            // Fallback to general store if deep link fails
-            if (Platform.OS === 'ios') {
-                await Linking.openURL('https://apps.apple.com/account/subscriptions');
+
+            // Try fallback URLs
+            try {
+                if (Platform.OS === 'ios') {
+                    await Linking.openURL(iosUrl);
+                    return true;
+                } else if (Platform.OS === 'android') {
+                    // Fallback to general Play Store subscriptions page
+                    await Linking.openURL('https://play.google.com/store/account/subscriptions');
+                    return true;
+                }
+            } catch (fallbackError) {
+                console.error('Fallback also failed:', fallbackError);
             }
+
+            // Show user feedback if all attempts failed
+            Alert.alert(
+                'Unable to Open',
+                'Could not open subscription management. Please manage your subscription directly in the App Store or Google Play Store.',
+                [{ text: 'OK' }]
+            );
+            return false;
         }
     },
 

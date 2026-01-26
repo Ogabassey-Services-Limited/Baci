@@ -55,14 +55,22 @@ export default function Paywall({ onClose }: PaywallProps) {
         }
     };
 
-    const openTerms = () => {
-        // Replace with actual Baci terms URL
-        Linking.openURL('https://usebaci.com/legal/terms');
+    const openTerms = async () => {
+        try {
+            await Linking.openURL('https://usebaci.com/legal/terms');
+        } catch (error) {
+            console.error('Failed to open terms:', error);
+            Alert.alert('Error', 'Could not open Terms of Service');
+        }
     };
 
-    const openPrivacy = () => {
-        // Replace with actual Baci privacy URL
-        Linking.openURL('https://usebaci.com/legal/privacy');
+    const openPrivacy = async () => {
+        try {
+            await Linking.openURL('https://usebaci.com/legal/privacy');
+        } catch (error) {
+            console.error('Failed to open privacy:', error);
+            Alert.alert('Error', 'Could not open Privacy Policy');
+        }
     };
 
     const renderPackage = ({ item }: { item: PurchasesPackage }) => {
@@ -81,6 +89,9 @@ export default function Paywall({ onClose }: PaywallProps) {
                     shadows.md,
                     isMonthly && styles.featuredCard
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.product.title} subscription for ${item.product.priceString}`}
+                accessibilityHint={isPro ? 'Manage your subscription' : 'Subscribe to this plan'}
             >
                 {isMonthly && (
                     <View style={[styles.badge, { backgroundColor: colors.primary }]}>
@@ -144,18 +155,32 @@ export default function Paywall({ onClose }: PaywallProps) {
 
             {/* Footer / Legal */}
             <View style={styles.footer}>
-                <Pressable onPress={onRestore} style={styles.linkButton}>
+                <Pressable
+                    onPress={onRestore}
+                    style={styles.linkButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Restore purchases"
+                    accessibilityHint="Restore previously purchased subscriptions"
+                >
                     <Text style={[styles.linkText, { color: colors.textSecondary }]}>
                         Restore Purchases
                     </Text>
                 </Pressable>
 
                 <View style={styles.legalRow}>
-                    <Pressable onPress={openTerms}>
+                    <Pressable
+                        onPress={openTerms}
+                        accessibilityRole="link"
+                        accessibilityLabel="Terms of Service"
+                    >
                         <Text style={[styles.legalText, { color: colors.textMuted }]}>Terms of Service</Text>
                     </Pressable>
                     <Text style={[styles.legalText, { color: colors.textMuted }]}>•</Text>
-                    <Pressable onPress={openPrivacy}>
+                    <Pressable
+                        onPress={openPrivacy}
+                        accessibilityRole="link"
+                        accessibilityLabel="Privacy Policy"
+                    >
                         <Text style={[styles.legalText, { color: colors.textMuted }]}>Privacy Policy</Text>
                     </Pressable>
                 </View>

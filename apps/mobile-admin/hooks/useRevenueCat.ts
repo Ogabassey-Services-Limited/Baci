@@ -5,16 +5,13 @@ export function useRevenueCat() {
     const store = useRevenueCatStore();
 
     useEffect(() => {
-        // Initialize on mount if not already done or if needed
-        // The store keeps state, but we might want to ensure freshness
-        // For now, we rely on the implementation where app calls initialize() once usually.
-        // However, to make it robust, we can check if it's uninitialized.
-        if (!store.currentOffering && !store.isLoading && !store.error) {
+        // Initialize on mount if not already done
+        // Note: isLoading starts as true, so we check if we have no data AND no error
+        // to determine if initialization is needed
+        const needsInit = !store.currentOffering && !store.error;
+        if (needsInit) {
             store.initialize();
         }
-        // Or strictly rely on a root provider to call initialize().
-        // Let's stick to the store having an initialize method that components can call if needed,
-        // but typically we'll call it in the Root Layout.
     }, []);
 
     return store;
