@@ -1,6 +1,6 @@
 import type { Data } from '@puckeditor/core';
 import { generateObject } from 'ai';
-import { z } from 'zod';
+import z from 'zod';
 import { activeTextModel } from '@/ai/provider';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ThemeConfiguration } from '@/lib/theme-config';

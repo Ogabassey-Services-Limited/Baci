@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { z } from 'zod';
+import z from 'zod';
 import { processFavicon } from '@/lib/favicon-processor';
 import { createClient } from '@/lib/supabase/server';
 

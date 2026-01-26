@@ -25,7 +25,7 @@ import {
   type Country as CountryCode,
   isValidPhoneNumber,
 } from 'react-phone-number-input';
-import { z } from 'zod';
+import z from 'zod';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
 import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';

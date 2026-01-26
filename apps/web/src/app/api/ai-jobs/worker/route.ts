@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import z from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
 
 // Use environment variable to configure job process limit, defaulting to 5

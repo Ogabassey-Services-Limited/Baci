@@ -17,7 +17,7 @@ import {
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import z from 'zod';
 import { FaviconUpload } from '@/app/dashboard/settings/favicon-upload';
 import { ColorPicker } from '@/components/color-picker';
 import { DashboardAdUnit } from '@/components/dashboard/dashboard-ad-unit';

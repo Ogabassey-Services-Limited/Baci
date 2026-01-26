@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
+import z from 'zod';
 import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 

@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import z from 'zod';
 
 export const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
@@ -13,22 +13,10 @@ export const blogPostSchema = z.object({
   content: z.string().min(1, 'Content is required').optional(), // Content might be partial in some updates
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
   featured_image_url: z
-    .string()
-    .refine(
-      (val) => {
-        if (!val) return true;
-        try {
-          new URL(val);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Must be a valid URL' }
-    )
+    .url({ message: 'Must be a valid URL' })
     .optional()
     .nullable()
-    .or(z.literal('')), // Allow empty string to be sanitized later or handled
+    .or(z.literal('')),
   featured_image_alt: z.string().max(200).optional().nullable(),
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
@@ -36,25 +24,13 @@ export const blogPostSchema = z.object({
   author_name: z.string().min(1, 'Author name is required').max(100).optional(),
   author_title: z.string().max(100).optional().nullable(),
   author_image_url: z
-    .string()
-    .refine(
-      (val) => {
-        if (!val) return true;
-        try {
-          new URL(val);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: 'Must be a valid URL' }
-    )
+    .url({ message: 'Must be a valid URL' })
     .optional()
     .nullable()
     .or(z.literal('')),
   author_bio: z.string().max(500).optional().nullable(),
   status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
-  published_at: z.string().datetime().optional().nullable(),
+  published_at: z.iso.datetime().nullable().optional(),
   seo_title: z
     .string()
     .max(70, 'SEO title must be 70 characters or less')

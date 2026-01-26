@@ -12,7 +12,7 @@
  * - Type-safe API responses
  */
 
-import { z } from 'zod';
+import z from 'zod';
 import { withRetry } from '@/ai/provider';
 import { createAdminClient } from '@/lib/supabase/admin';
 

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 // import type { UpdatePreferencesInput } from '@/types/notifications';
-import { z } from 'zod';
+import z from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 const timeStringSchema = z
