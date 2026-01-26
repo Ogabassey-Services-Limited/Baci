@@ -65,7 +65,14 @@ export function BranchSwitcher() {
 
     const result = CreateBranchSchema.safeParse(input);
     if (!result.success) {
-      setNameError(result.error.issues[0]?.message ?? 'Invalid input');
+      // Route errors to the correct field to avoid misleading UX
+      const nameIssue = result.error.issues.find((i) => i.path[0] === 'name');
+      if (nameIssue) {
+        setNameError(nameIssue.message);
+      } else {
+        // Show other field errors (e.g., address) in a generic alert
+        Alert.alert('Error', result.error.issues[0]?.message ?? 'Invalid input');
+      }
       return;
     }
 
