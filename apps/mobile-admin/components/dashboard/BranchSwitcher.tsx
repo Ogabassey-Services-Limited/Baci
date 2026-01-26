@@ -220,7 +220,7 @@ interface CreateBranchModalProps {
   setBranchAddress: (address: string) => void;
   nameError: string;
   setNameError: (error: string) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   isLoading: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
 }
@@ -318,6 +318,8 @@ function CreateBranchModal({
               ]}
               onPress={onClose}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel branch creation"
             >
               <Text style={[styles.cancelButtonText, { color: colors.text }]}>
                 Cancel
@@ -331,6 +333,8 @@ function CreateBranchModal({
               ]}
               onPress={onSubmit}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel={isLoading ? 'Creating branch' : 'Create branch'}
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
