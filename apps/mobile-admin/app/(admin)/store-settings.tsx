@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -64,7 +65,7 @@ export default function StoreSettingsScreen() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [country, setCountry] = useState(COUNTRIES[0].name);
+  const [country, setCountry] = useState(COUNTRIES[0].code);
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
 
   // Social & Analytics State
@@ -92,8 +93,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -535,17 +536,42 @@ export default function StoreSettingsScreen() {
             </View>
           </View>
 
-
           {/* Subscription Plan */}
           <View
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
           >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md }}>
-              <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 0 }]}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: SPACING.md,
+              }}
+            >
+              <Text
+                style={[
+                  styles.label,
+                  { color: colors.textSecondary, marginBottom: 0 },
+                ]}
+              >
                 Subscription Plan
               </Text>
-              <View style={[styles.planBadge, { backgroundColor: isPro ? colors.primary + '20' : colors.cardHover }]}>
-                <Text style={[styles.planBadgeText, { color: isPro ? colors.primary : colors.textSecondary }]}>
+              <View
+                style={[
+                  styles.planBadge,
+                  {
+                    backgroundColor: isPro
+                      ? colors.primary + '20'
+                      : colors.cardHover,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.planBadgeText,
+                    { color: isPro ? colors.primary : colors.textSecondary },
+                  ]}
+                >
                   {SubscriptionManagement.getPlanLabel(isPro)}
                 </Text>
               </View>
@@ -564,37 +590,26 @@ export default function StoreSettingsScreen() {
               ]}
               onPress={() => router.push('/(admin)/subscribe')}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={styles.subscriptionButton}>
                 <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: RADIUS.md,
-                    backgroundColor: colors.primary + '20',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: SPACING.sm,
-                    marginVertical: SPACING.sm,
-                  }}
+                  style={[
+                    styles.subscriptionIconContainer,
+                    { backgroundColor: colors.primary + '20' },
+                  ]}
                 >
                   <Ionicons name="star" size={20} color={colors.primary} />
                 </View>
-                <View style={{ marginLeft: SPACING.md }}>
+                <View style={styles.subscriptionTextContainer}>
                   <Text
-                    style={{
-                      color: colors.text,
-                      fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                      fontSize: TYPOGRAPHY.size.md,
-                    }}
+                    style={[styles.subscriptionTitle, { color: colors.text }]}
                   >
                     {isPro ? 'Baci Pro' : 'Upgrade to Pro'}
                   </Text>
                   <Text
-                    style={{
-                      color: colors.textSecondary,
-                      fontFamily: TYPOGRAPHY.fontFamily.regular,
-                      fontSize: TYPOGRAPHY.size.sm,
-                    }}
+                    style={[
+                      styles.subscriptionSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     {isPro ? 'View plan features' : 'Unlock premium features'}
                   </Text>
@@ -619,39 +634,46 @@ export default function StoreSettingsScreen() {
                     paddingRight: SPACING.md,
                   },
                 ]}
-                onPress={() => SubscriptionManagement.openNativeManagement()}
+                onPress={async () => {
+                  try {
+                    await SubscriptionManagement.openNativeManagement();
+                  } catch (error) {
+                    setStatusModal({
+                      visible: true,
+                      type: 'error',
+                      title: 'Unable to Open',
+                      message:
+                        'Could not open subscription management. Please try again.',
+                    });
+                  }
+                }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.subscriptionButton}>
                   <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: RADIUS.md,
-                      backgroundColor: colors.textSecondary + '20',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginLeft: SPACING.sm,
-                      marginVertical: SPACING.sm,
-                    }}
+                    style={[
+                      styles.subscriptionIconContainer,
+                      { backgroundColor: colors.textSecondary + '20' },
+                    ]}
                   >
-                    <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
+                    <Ionicons
+                      name="settings-outline"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
                   </View>
-                  <View style={{ marginLeft: SPACING.md }}>
+                  <View style={styles.subscriptionTextContainer}>
                     <Text
-                      style={{
-                        color: colors.text,
-                        fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                        fontSize: TYPOGRAPHY.size.md,
-                      }}
+                      style={[styles.subscriptionTitle, { color: colors.text }]}
                     >
-                      Manage in App Store
+                      {Platform.OS === 'ios'
+                        ? 'Manage in App Store'
+                        : 'Manage in Google Play'}
                     </Text>
                     <Text
-                      style={{
-                        color: colors.textSecondary,
-                        fontFamily: TYPOGRAPHY.fontFamily.regular,
-                        fontSize: TYPOGRAPHY.size.sm,
-                      }}
+                      style={[
+                        styles.subscriptionSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       Cancel or change tiers
                     </Text>
@@ -781,7 +803,7 @@ export default function StoreSettingsScreen() {
                     styles.countryItem,
                     {
                       backgroundColor:
-                        country === item.name
+                        country === item.code || country === item.name
                           ? colors.primaryLight
                           : colors.card,
                       borderColor: colors.border,
@@ -795,7 +817,10 @@ export default function StoreSettingsScreen() {
                         styles.countryName,
                         {
                           color: colors.text,
-                          fontWeight: country === item.name ? 'bold' : 'normal',
+                          fontWeight:
+                            country === item.code || country === item.name
+                              ? 'bold'
+                              : 'normal',
                         },
                       ]}
                     >
@@ -810,7 +835,7 @@ export default function StoreSettingsScreen() {
                       {item.currency} ({item.currencySymbol})
                     </Text>
                   </View>
-                  {country === item.name && (
+                  {(country === item.code || country === item.name) && (
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
@@ -1104,5 +1129,30 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.xs,
+  },
+  // Subscription button styles
+  subscriptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subscriptionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
+    marginVertical: SPACING.sm,
+  },
+  subscriptionTextContainer: {
+    marginLeft: SPACING.md,
+  },
+  subscriptionTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.md,
+  },
+  subscriptionSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });
