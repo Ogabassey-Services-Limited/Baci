@@ -5,7 +5,8 @@ interface RegisterPayload {
   email: string;
   password?: string;
   confirmPassword?: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
   businessName: string;
   businessType?: string;
   otherBusinessType?: string;
@@ -16,7 +17,8 @@ interface RegisterPayload {
 }
 
 interface CompleteProfilePayload {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phone?: string;
   email: string;
   businessName: string;

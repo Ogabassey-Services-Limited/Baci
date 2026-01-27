@@ -52,6 +52,8 @@ export default function RegisterScreen() {
     email: '',
     password: '',
     confirmPassword: '',
+    firstName: '',
+    lastName: '',
     businessName: '',
     businessType: '',
     otherBusinessType: '',
@@ -115,12 +117,14 @@ export default function RegisterScreen() {
       return;
     }
 
+    const email = formData.email.toLowerCase();
     register.mutate(
       {
-        email: formData.email.toLowerCase(),
+        email,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        fullName: formData.businessName.split(' ')[0],
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         businessName: formData.businessName,
         businessType: formData.businessType,
         otherBusinessType: formData.otherBusinessType,
@@ -130,11 +134,16 @@ export default function RegisterScreen() {
           background: '#ffffff',
           accent: '#F59E0B',
         }),
-        logoUrl: 'https://via.placeholder.com/150',
       },
       {
         onSuccess: (data: unknown) => {
-          if (!isRegisterResponse(data)) return;
+          if (!isRegisterResponse(data)) {
+            Alert.alert(
+              'Error',
+              'Unexpected response from server. Please try again.'
+            );
+            return;
+          }
           const response = data;
           // Check if verifying
           if (response.user?.email_confirmed_at) {
@@ -144,7 +153,7 @@ export default function RegisterScreen() {
           } else {
             router.push({
               pathname: '/(auth)/verify',
-              params: { email: formData.email },
+              params: { email },
             });
           }
         },
@@ -201,6 +210,31 @@ export default function RegisterScreen() {
                 <Text style={styles.sectionTitle}>Account Details</Text>
                 <Text style={styles.sectionValidation}>Required</Text>
 
+                <View style={styles.nameRow}>
+                  <View style={styles.nameInputGroup}>
+                    <Text style={styles.label}>First Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="John"
+                      placeholderTextColor="#6B7280"
+                      autoCapitalize="words"
+                      value={formData.firstName}
+                      onChangeText={(t) => updateForm('firstName', t)}
+                    />
+                  </View>
+                  <View style={styles.nameInputGroup}>
+                    <Text style={styles.label}>Last Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Doe"
+                      placeholderTextColor="#6B7280"
+                      autoCapitalize="words"
+                      value={formData.lastName}
+                      onChangeText={(t) => updateForm('lastName', t)}
+                    />
+                  </View>
+                </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Email Address</Text>
                   <TextInput
@@ -229,7 +263,9 @@ export default function RegisterScreen() {
                       onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
                       accessibilityRole="button"
-                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                      accessibilityLabel={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
@@ -252,8 +288,12 @@ export default function RegisterScreen() {
                       onChangeText={(t) => updateForm('confirmPassword', t)}
                     />
                     <Pressable
-                      onPress={() => setShowPassword(!showPassword)} // Shared toggle for simplicity, or could separate
+                      onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
@@ -312,7 +352,7 @@ export default function RegisterScreen() {
                         style={[
                           styles.typeCard,
                           formData.businessType === type.id &&
-                          styles.typeCardSelected,
+                            styles.typeCardSelected,
                         ]}
                         onPress={() => updateForm('businessType', type.id)}
                       >
@@ -320,7 +360,7 @@ export default function RegisterScreen() {
                           style={[
                             styles.typeText,
                             formData.businessType === type.id &&
-                            styles.typeTextSelected,
+                              styles.typeTextSelected,
                           ]}
                         >
                           {type.label}
@@ -425,6 +465,14 @@ const styles = StyleSheet.create({
     marginTop: -SPACING.lg, // Pull up closer to title
   },
   inputGroup: {
+    gap: SPACING.sm,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  nameInputGroup: {
+    flex: 1,
     gap: SPACING.sm,
   },
   label: {

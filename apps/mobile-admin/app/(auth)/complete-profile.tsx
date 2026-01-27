@@ -146,16 +146,22 @@ export default function CompleteProfileScreen() {
       return;
     }
 
+    // Split fullName into firstName and lastName for the API
+    const nameParts = formData.fullName.trim().split(/\s+/);
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     completeProfile.mutate(
       {
-        fullName: formData.fullName,
+        firstName,
+        lastName,
         phone: formData.phone,
         email: formData.email,
         businessName: formData.businessName,
         businessType: formData.businessType,
         otherBusinessType: formData.otherBusinessType,
         slug: formData.slug || undefined,
-        logoUrl: formData.logoUrl || 'https://via.placeholder.com/150',
+        logoUrl: formData.logoUrl || undefined,
         brandColors: JSON.stringify({
           primary: '#000000',
           background: '#ffffff',
