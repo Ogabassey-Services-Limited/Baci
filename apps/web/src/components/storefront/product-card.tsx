@@ -18,12 +18,12 @@ export interface ProductWithCategory extends Product {
 }
 
 interface StorefrontProductCardProps {
-  product: ProductWithCategory;
+  product: Product;
   cartItem?: CartItem;
   staggerClass: string;
-  onAddToCart: (product: ProductWithCategory) => void;
+  onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
-  onQuickView: (product: ProductWithCategory) => void;
+  onQuickView: (product: Product) => void;
 }
 
 /**

@@ -14,10 +14,7 @@ import { apiGet } from '@/lib/api-client';
 import { findDarkestColor } from '@/lib/color-utils';
 import { type Product, sampleProductsByCategory } from '@/lib/products';
 import { DidYouMeanBanner } from './did-you-mean-banner';
-import {
-  type ProductWithCategory,
-  StorefrontProductCard,
-} from './product-card';
+import { StorefrontProductCard } from './product-card';
 import { QuickViewModal, useQuickView } from './quick-view-modal';
 
 interface StorefrontProductGridProps {
@@ -375,7 +372,7 @@ export function StorefrontProductGrid({
   ]);
 
   // React Compiler handles memoization automatically - no manual useCallback needed
-  const handleAddToCart = (product: ProductWithCategory) => {
+  const handleAddToCart = (product: Product) => {
     // Store merchant slug for checkout
     if (merchant?.slug) {
       setMerchantSlug(merchant.slug);
@@ -531,7 +528,7 @@ export function StorefrontProductGrid({
               return (
                 <StorefrontProductCard
                   key={product.id}
-                  product={product as ProductWithCategory}
+                  product={product}
                   cartItem={cartItem}
                   staggerClass={staggerClass}
                   onAddToCart={handleAddToCart}
