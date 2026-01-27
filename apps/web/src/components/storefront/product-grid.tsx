@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
@@ -14,7 +14,10 @@ import { apiGet } from '@/lib/api-client';
 import { findDarkestColor } from '@/lib/color-utils';
 import { type Product, sampleProductsByCategory } from '@/lib/products';
 import { DidYouMeanBanner } from './did-you-mean-banner';
-import { StorefrontProductCard } from './product-card';
+import {
+  type ProductWithCategory,
+  StorefrontProductCard,
+} from './product-card';
 import { QuickViewModal, useQuickView } from './quick-view-modal';
 
 interface StorefrontProductGridProps {
@@ -371,21 +374,18 @@ export function StorefrontProductGrid({
     priceRanges,
   ]);
 
-  // Memoized callback for referential stability - prevents unnecessary re-renders of product cards
-  const handleAddToCart = useCallback(
-    (product: Product) => {
-      // Store merchant slug for checkout
-      if (merchant?.slug) {
-        setMerchantSlug(merchant.slug);
-      }
-      addToCart(product);
-      toast({
-        title: 'Added to cart',
-        description: `${product.name} has been added to your cart.`,
-      });
-    },
-    [merchant?.slug, setMerchantSlug, addToCart, toast]
-  );
+  // React Compiler handles memoization automatically - no manual useCallback needed
+  const handleAddToCart = (product: ProductWithCategory) => {
+    // Store merchant slug for checkout
+    if (merchant?.slug) {
+      setMerchantSlug(merchant.slug);
+    }
+    addToCart(product);
+    toast({
+      title: 'Added to cart',
+      description: `${product.name} has been added to your cart.`,
+    });
+  };
 
   const brandColors = merchant?.brand_colors
     ? [
@@ -531,8 +531,7 @@ export function StorefrontProductGrid({
               return (
                 <StorefrontProductCard
                   key={product.id}
-                  // biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join
-                  product={product as any}
+                  product={product as ProductWithCategory}
                   cartItem={cartItem}
                   staggerClass={staggerClass}
                   onAddToCart={handleAddToCart}

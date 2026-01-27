@@ -22,7 +22,7 @@ describe('Rate Limiting Logic', () => {
     expect(result.allowed).toBe(false);
   });
 
-  it('FIXED: should enforce rate limits across dynamic paths under the same prefix', () => {
+  it('should enforce rate limits across dynamic paths under the same prefix', () => {
     // This test verifies the fix
     // /api/products is limited to 30
     const LIMIT = 30;

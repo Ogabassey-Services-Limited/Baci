@@ -13,7 +13,7 @@ import { getProductUrl } from '@/lib/seo-utils';
 
 // 2026 Best Practice: Extend Product type to include joined category data
 // This avoids 'any' casts and provides type safety for the categories join
-interface ProductWithCategory extends Product {
+export interface ProductWithCategory extends Product {
   categories?: { name: string } | null;
 }
 

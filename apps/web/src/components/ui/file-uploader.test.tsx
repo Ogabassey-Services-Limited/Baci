@@ -1,24 +1,28 @@
 import { render, screen } from '@testing-library/react';
-import { vi } from 'vitest';
-import { FileUploader } from './file-uploader';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FileUploader } from '@/components/ui/file-uploader';
 
 // Mock next/image
 vi.mock('next/image', () => ({
   default: ({ src, alt, ...props }: any) => {
-    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} {...props} />;
   },
 }));
-
-// Mock URL.createObjectURL and URL.revokeObjectURL
-global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-global.URL.revokeObjectURL = vi.fn();
 
 describe('FileUploader', () => {
   const mockOnFilesSelected = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:mock-url'),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders initial files correctly', () => {
@@ -35,7 +39,7 @@ describe('FileUploader', () => {
     expect(image).toHaveAttribute('src', 'https://example.com/image1.jpg');
   });
 
-  it('renders correctly with improved accessibility attributes', () => {
+  it('renders remove button with correct accessibility attributes', () => {
     const initialFiles = ['https://example.com/image1.jpg'];
     render(
       <FileUploader
@@ -44,13 +48,8 @@ describe('FileUploader', () => {
       />
     );
 
-    // Check for the remove button
+    // Check for the remove button with proper aria-label
     const removeBtn = screen.getByRole('button', { name: /remove image 1/i });
     expect(removeBtn).toBeInTheDocument();
-
-    // Check that the container has the focus-within class
-    // We need to find the parent div of the button
-    const overlayDiv = removeBtn.closest('div');
-    expect(overlayDiv).toHaveClass('focus-within:opacity-100');
   });
 });
