@@ -12,7 +12,9 @@ import { z } from 'zod';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -69,10 +71,11 @@ export default function StaffAccountsScreen() {
   const { data: merchant } = useQuery({
     queryKey: ['merchant', user?.id],
     queryFn: async () => {
+      if (!user?.id) throw new Error('User not authenticated');
       const { data } = await supabase
         .from('merchants')
         .select('id, business_name')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .single();
       return data;
     },
@@ -80,7 +83,11 @@ export default function StaffAccountsScreen() {
   });
 
   // Fetch Staff Accounts
-  const { data: accounts, isLoading: accountsLoading } = useQuery({
+  const {
+    data: accounts,
+    isLoading: accountsLoading,
+    isError: accountsError,
+  } = useQuery({
     queryKey: ['staff-accounts', merchant?.id],
     queryFn: async () => {
       const { data } = await supabase
@@ -94,7 +101,11 @@ export default function StaffAccountsScreen() {
   });
 
   // Fetch Branches
-  const { data: branches, isLoading: branchesLoading } = useQuery({
+  const {
+    data: branches,
+    isLoading: branchesLoading,
+    isError: branchesError,
+  } = useQuery({
     queryKey: ['branches', merchant?.id],
     queryFn: async () => {
       const { data } = await supabase
@@ -149,8 +160,14 @@ export default function StaffAccountsScreen() {
         }
       );
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create account');
+        let errorMessage = 'Failed to create account';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(errorMessage);
       }
       return response.json();
     },
@@ -181,13 +198,14 @@ export default function StaffAccountsScreen() {
         throw new Error(validation.error.issues[0].message);
       }
 
+      // Let the server determine is_default via database trigger/default value
+      // to avoid race conditions from stale client-side cache
       const { data, error } = await supabase
         .from('branches')
         .insert({
           merchant_id: merchant?.id,
           name,
           city: city || null,
-          is_default: (branches?.length || 0) === 0,
         })
         .select()
         .single();
@@ -216,6 +234,7 @@ export default function StaffAccountsScreen() {
   };
 
   const isLoading = accountsLoading || branchesLoading;
+  const hasError = accountsError || branchesError;
 
   if (isLoading) {
     return (
@@ -224,6 +243,51 @@ export default function StaffAccountsScreen() {
       >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.loadingContainer}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.notification}
+          />
+          <Text
+            style={[
+              styles.emptyTitle,
+              { color: colors.text, marginTop: SPACING.md },
+            ]}
+          >
+            Failed to load data
+          </Text>
+          <Text
+            style={[styles.emptyDescription, { color: colors.textSecondary }]}
+          >
+            Please check your connection and try again.
+          </Text>
+          <Pressable
+            style={[
+              styles.modalButton,
+              { backgroundColor: colors.primary, marginTop: SPACING.lg },
+            ]}
+            onPress={() => {
+              queryClient.invalidateQueries({ queryKey: ['staff-accounts'] });
+              queryClient.invalidateQueries({ queryKey: ['branches'] });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading data"
+          >
+            <Text style={{ color: '#FFF', fontFamily: TYPOGRAPHY.fontFamily.semiBold }}>
+              Retry
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
     );
@@ -395,13 +459,14 @@ export default function StaffAccountsScreen() {
                         ]}
                       >
                         <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: '600',
-                            color: account.active
-                              ? colors.success
-                              : colors.textMuted,
-                          }}
+                          style={[
+                            styles.badgeText,
+                            {
+                              color: account.active
+                                ? colors.success
+                                : colors.textMuted,
+                            },
+                          ]}
                         >
                           {account.active ? 'ACTIVE' : 'INACTIVE'}
                         </Text>
@@ -539,13 +604,14 @@ export default function StaffAccountsScreen() {
                         ]}
                       >
                         <Text
-                          style={{
-                            fontSize: 10,
-                            fontWeight: '600',
-                            color: branch.active
-                              ? colors.success
-                              : colors.textMuted,
-                          }}
+                          style={[
+                            styles.badgeText,
+                            {
+                              color: branch.active
+                                ? colors.success
+                                : colors.textMuted,
+                            },
+                          ]}
                         >
                           {branch.active ? 'ACTIVE' : 'INACTIVE'}
                         </Text>
@@ -587,7 +653,9 @@ export default function StaffAccountsScreen() {
           }
           accessibilityRole="button"
           accessibilityLabel={
-            activeTab === 'accounts' ? 'Create staff account' : 'Create new branch'
+            activeTab === 'accounts'
+              ? 'Create staff account'
+              : 'Create new branch'
           }
         >
           <Ionicons name="add" size={28} color="#FFF" />
@@ -600,7 +668,10 @@ export default function StaffAccountsScreen() {
           animationType="slide"
           onRequestClose={() => setShowAccountModal(false)}
         >
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <View
               style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
@@ -647,12 +718,15 @@ export default function StaffAccountsScreen() {
                     },
                   ]}
                   onPress={() => setSelectedBranchId(null)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: !selectedBranchId }}
+                  accessibilityLabel="No branch assigned"
                 >
                   <Text
-                    style={{
-                      color: !selectedBranchId ? colors.primary : colors.text,
-                      fontSize: 12,
-                    }}
+                    style={[
+                      styles.pickerText,
+                      { color: !selectedBranchId ? colors.primary : colors.text },
+                    ]}
                   >
                     No Branch
                   </Text>
@@ -681,13 +755,15 @@ export default function StaffAccountsScreen() {
                     accessibilityLabel={`Branch: ${branch.name}`}
                   >
                     <Text
-                      style={{
-                        color:
-                          selectedBranchId === branch.id
-                            ? colors.primary
-                            : colors.text,
-                        fontSize: 12,
-                      }}
+                      style={[
+                        styles.pickerText,
+                        {
+                          color:
+                            selectedBranchId === branch.id
+                              ? colors.primary
+                              : colors.text,
+                        },
+                      ]}
                     >
                       {branch.name}
                     </Text>
@@ -725,10 +801,10 @@ export default function StaffAccountsScreen() {
                   accessibilityLabel="No staff assigned"
                 >
                   <Text
-                    style={{
-                      color: !selectedStaffId ? colors.primary : colors.text,
-                      fontSize: 12,
-                    }}
+                    style={[
+                      styles.pickerText,
+                      { color: !selectedStaffId ? colors.primary : colors.text },
+                    ]}
                   >
                     No Staff
                   </Text>
@@ -757,13 +833,15 @@ export default function StaffAccountsScreen() {
                     accessibilityLabel={`Staff: ${staff.name || staff.email}`}
                   >
                     <Text
-                      style={{
-                        color:
-                          selectedStaffId === staff.id
-                            ? colors.primary
-                            : colors.text,
-                        fontSize: 12,
-                      }}
+                      style={[
+                        styles.pickerText,
+                        {
+                          color:
+                            selectedStaffId === staff.id
+                              ? colors.primary
+                              : colors.text,
+                        },
+                      ]}
                     >
                       {staff.name || staff.email}
                     </Text>
@@ -778,7 +856,11 @@ export default function StaffAccountsScreen() {
                   ]}
                   onPress={() => setShowAccountModal(false)}
                 >
-                  <Text style={{ color: colors.text }}>Cancel</Text>
+                  <Text
+                    style={[styles.modalButtonText, { color: colors.text }]}
+                  >
+                    Cancel
+                  </Text>
                 </Pressable>
                 <Pressable
                   style={[
@@ -797,14 +879,14 @@ export default function StaffAccountsScreen() {
                   {createAccountMutation.isPending ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Text style={{ color: '#FFF', fontWeight: '600' }}>
+                    <Text style={[styles.modalButtonText, { color: '#FFF' }]}>
                       Create
                     </Text>
                   )}
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Create Branch Modal */}
@@ -814,7 +896,10 @@ export default function StaffAccountsScreen() {
           animationType="slide"
           onRequestClose={() => setShowBranchModal(false)}
         >
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <View
               style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
@@ -857,7 +942,11 @@ export default function StaffAccountsScreen() {
                   ]}
                   onPress={() => setShowBranchModal(false)}
                 >
-                  <Text style={{ color: colors.text }}>Cancel</Text>
+                  <Text
+                    style={[styles.modalButtonText, { color: colors.text }]}
+                  >
+                    Cancel
+                  </Text>
                 </Pressable>
                 <Pressable
                   style={[
@@ -875,14 +964,14 @@ export default function StaffAccountsScreen() {
                   {createBranchMutation.isPending ? (
                     <ActivityIndicator size="small" color="#FFF" />
                   ) : (
-                    <Text style={{ color: '#FFF', fontWeight: '600' }}>
+                    <Text style={[styles.modalButtonText, { color: '#FFF' }]}>
                       Create
                     </Text>
                   )}
                 </Pressable>
               </View>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
     </>
@@ -975,6 +1064,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
+  badgeText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
   accountDetail: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1012,7 +1105,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginTop: SPACING.md,
     marginBottom: SPACING.xs,
@@ -1026,6 +1119,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     borderWidth: 1,
     marginRight: SPACING.sm,
+  },
+  pickerText: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   fab: {
     position: 'absolute',
@@ -1075,5 +1172,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
+  },
+  modalButtonText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });
