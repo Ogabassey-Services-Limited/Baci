@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -317,7 +318,12 @@ export default function ProfileScreen() {
           </View>
 
           {/* Subscription Section */}
-          <View style={[styles.section, { borderTopColor: colors.border, paddingTop: 0 }]}>
+          <View
+            style={[
+              styles.section,
+              { borderTopColor: colors.border, paddingTop: 0 },
+            ]}
+          >
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
@@ -327,33 +333,58 @@ export default function ProfileScreen() {
             <Pressable
               style={[
                 styles.subscriptionCard,
-                { backgroundColor: colors.card, borderColor: colors.border }
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
               onPress={() => router.push('/(admin)/subscribe')}
             >
-              <View style={styles.subscriptionIconContainer}>
-                <Ionicons name="star" size={24} color={isPro ? colors.primary : colors.textMuted} />
+              <View style={[styles.subscriptionIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+                <Ionicons
+                  name="star"
+                  size={24}
+                  color={isPro ? colors.primary : colors.textMuted}
+                />
               </View>
               <View style={styles.subscriptionInfo}>
                 <Text style={[styles.planLabel, { color: colors.text }]}>
                   {SubscriptionManagement.getPlanLabel(isPro)}
                 </Text>
-                <Text style={[styles.planStatus, { color: colors.textSecondary }]}>
-                  {isPro ? 'You have full access to pro features' : 'Individual Store Builder'}
+                <Text
+                  style={[styles.planStatus, { color: colors.textSecondary }]}
+                >
+                  {isPro
+                    ? 'You have full access to pro features'
+                    : 'Individual Store Builder'}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textSecondary}
+              />
             </Pressable>
 
             {isPro && (
               <Pressable
                 style={[styles.manageButton, { marginTop: SPACING.md }]}
-                onPress={() => SubscriptionManagement.openNativeManagement()}
+                onPress={async () => {
+                  try {
+                    await SubscriptionManagement.openNativeManagement();
+                  } catch (error) {
+                    Alert.alert('Error', 'Unable to open subscription management');
+                  }
+                }}
               >
-                <Text style={[styles.manageButtonText, { color: colors.primary }]}>
-                  Manage in App Store
+                <Text
+                  style={[styles.manageButtonText, { color: colors.primary }]}
+                >
+                  {Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play'}
                 </Text>
-                <Ionicons name="open-outline" size={16} color={colors.primary} style={{ marginLeft: 4 }} />
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                  style={{ marginLeft: SPACING.xs }}
+                />
               </Pressable>
             )}
           </View>
@@ -485,7 +516,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(0,0,0,0.03)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,

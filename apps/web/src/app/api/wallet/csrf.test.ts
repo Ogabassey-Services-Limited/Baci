@@ -82,6 +82,7 @@ describe('Wallet API CSRF Protection', () => {
       // Create a mock request
       const request = new NextRequest('http://localhost:3000/api/wallet', {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           autoPayoutEnabled: false,
         }),
@@ -106,6 +107,7 @@ describe('Wallet API CSRF Protection', () => {
         'http://localhost:3000/api/wallet/withdraw',
         {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amount: 5000,
           }),
