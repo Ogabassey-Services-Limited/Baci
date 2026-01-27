@@ -1,0 +1,176 @@
+
+> @baci/web@0.1.0 dev /app/apps/web
+> next dev
+
+▲ Next.js 16.1.3 (Turbopack, Cache Components)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Experiments (use with caution):
+  ✓ inlineCss
+  · optimizePackageImports
+  · serverActions
+  ✓ viewTransition
+
+✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+✓ Ready in 2.7s
+○ Compiling /verify-ux ...
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+ GET /verify-ux 200 in 23.8s (compile: 21.6s, proxy.ts: 365ms, render: 1840ms)
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+ GET /verify-ux 200 in 714ms (compile: 131ms, proxy.ts: 18ms, render: 565ms)
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+ GET /verify-ux 200 in 221ms (compile: 7ms, proxy.ts: 8ms, render: 207ms)
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+ GET /verify-ux 200 in 242ms (compile: 10ms, proxy.ts: 8ms, render: 224ms)
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+[ProductGrid] Debug Priority: {
+  priorityList: [],
+  availableCategories: [ 'Fashion' ],
+  merchantContextCats: undefined
+}
+[ProductGrid] Debug Categories: {
+  availableCategories: [ 'Fashion' ],
+  sorted: [ 'Fashion' ],
+  priorityList: []
+}
+ GET /verify-ux 200 in 245ms (compile: 6ms, proxy.ts: 6ms, render: 233ms)
