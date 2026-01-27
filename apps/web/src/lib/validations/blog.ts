@@ -23,7 +23,11 @@ export const blogPostSchema = z.object({
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
-  author_name: z.string().min(1, 'Author name cannot be empty').max(100).optional(),
+  author_name: z
+    .string()
+    .min(1, 'Author name cannot be empty')
+    .max(100)
+    .optional(),
   author_title: z.string().max(100).optional().nullable(),
   author_image_url: z
     .string()

@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -92,7 +92,10 @@ export async function POST(request: Request) {
     try {
       revalidatePath('/blog');
     } catch (revalError) {
-      console.warn('Cron Warning: Global blog revalidation failed:', revalError);
+      console.warn(
+        'Cron Warning: Global blog revalidation failed:',
+        revalError
+      );
     }
 
     return NextResponse.json({
