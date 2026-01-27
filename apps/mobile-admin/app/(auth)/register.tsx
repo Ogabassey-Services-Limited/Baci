@@ -38,7 +38,13 @@ interface RegisterResponse {
 }
 
 function isRegisterResponse(data: unknown): data is RegisterResponse {
-  return typeof data === 'object' && data !== null;
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  // Valid if no user property, or user is an object with optional email_confirmed_at
+  if ('user' in obj && obj.user !== null && typeof obj.user !== 'object') {
+    return false;
+  }
+  return true;
 }
 
 export default function RegisterScreen() {
@@ -123,8 +129,8 @@ export default function RegisterScreen() {
         email,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
         businessName: formData.businessName,
         businessType: formData.businessType,
         otherBusinessType: formData.otherBusinessType,
