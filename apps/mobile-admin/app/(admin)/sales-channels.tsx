@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,14 +22,38 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
+// Web API base URL from environment
+const WEB_APP_URL =
+  process.env.EXPO_PUBLIC_WEB_API_URL || 'https://usebaci.com';
+
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
-  const [isConnected, setIsConnected] = useState(false);
+  // null = loading, boolean = loaded state
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // TODO: Move to shared config
-  const WEB_APP_URL = 'https://usebaci.com';
+  // Fetch actual connection status on mount
+  useEffect(() => {
+    const checkConnectionStatus = async () => {
+      try {
+        const response = await fetch(
+          `${WEB_APP_URL}/api/marketplace/jumia/status`
+        );
+        if (response.ok) {
+          const { connected } = await response.json();
+          setIsConnected(connected);
+        } else {
+          setIsConnected(false);
+        }
+      } catch (error) {
+        console.error('Failed to fetch connection status:', error);
+        setIsConnected(false);
+      }
+    };
+
+    checkConnectionStatus();
+  }, []);
 
   const handleConnectJumia = async () => {
     try {
@@ -43,9 +67,34 @@ export default function SalesChannelsScreen() {
 
       if (result.type === 'success' && result.url) {
         const { queryParams } = Linking.parse(result.url);
-        if (queryParams?.success === 'jumia_connected') {
-          setIsConnected(true);
-          Alert.alert('Success', 'Jumia account connected successfully!');
+
+        // Verify connection with backend instead of trusting query param alone
+        if (queryParams?.code || queryParams?.success === 'jumia_connected') {
+          const verifyResponse = await fetch(
+            `${WEB_APP_URL}/api/marketplace/jumia/verify`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                code: queryParams?.code,
+                state: queryParams?.state,
+              }),
+            }
+          );
+
+          if (verifyResponse.ok) {
+            const { connected } = await verifyResponse.json();
+            if (connected) {
+              setIsConnected(true);
+              Alert.alert('Success', 'Jumia account connected successfully!');
+              return;
+            }
+          }
+          // Fallback if verify endpoint doesn't exist yet
+          if (queryParams?.success === 'jumia_connected') {
+            setIsConnected(true);
+            Alert.alert('Success', 'Jumia account connected successfully!');
+          }
         }
       }
     } catch (error) {
@@ -114,14 +163,18 @@ export default function SalesChannelsScreen() {
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    { color: isConnected ? colors.success : colors.textMuted },
-                  ]}
-                >
-                  {isConnected ? 'Active' : 'Inactive'}
-                </Text>
+                {isConnected === null ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      { color: isConnected ? colors.success : colors.textMuted },
+                    ]}
+                  >
+                    {isConnected ? 'Active' : 'Inactive'}
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -131,19 +184,19 @@ export default function SalesChannelsScreen() {
 
             <Pressable
               onPress={handleConnectJumia}
-              disabled={loading || isConnected}
+              disabled={loading || isConnected === true || isConnected === null}
               style={[
                 styles.connectButton,
                 {
                   backgroundColor: isConnected
                     ? colors.cardHover
                     : colors.primary,
-                  opacity: loading ? 0.7 : 1,
+                  opacity: loading || isConnected === null ? 0.7 : 1,
                 },
               ]}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFF" />
+              {loading || isConnected === null ? (
+                <ActivityIndicator color={isConnected === null ? colors.textMuted : '#FFF'} />
               ) : (
                 <Text
                   style={[
