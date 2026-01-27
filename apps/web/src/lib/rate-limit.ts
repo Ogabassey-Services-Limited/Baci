@@ -51,9 +51,11 @@ function isValidIP(ip: string): boolean {
 class TrieNode {
   children: Map<string, TrieNode>;
   config: RateLimitConfig | null;
+  pattern: string | null;
   constructor() {
     this.children = new Map();
     this.config = null;
+    this.pattern = null;
   }
 }
 
@@ -74,6 +76,7 @@ function buildTrie(patterns: Record<string, RateLimitConfig>): TrieNode {
       if (childNode) node = childNode;
     }
     node.config = config;
+    node.pattern = pattern;
   }
   return root;
 }
@@ -118,23 +121,36 @@ function getClientIdentifier(request: NextRequest): string {
 /**
  * Get rate limit config for the endpoint using Trie lookup
  * O(k) where k is the path depth, instead of O(n) pattern iteration
+ *
+ * Returns both the config and the matched pattern to use as the rate limit key.
+ * This prevents bypass via dynamic path parameters (e.g., /api/products/1 vs /api/products/2).
  */
-function getRateLimitConfig(pathname: string): RateLimitConfig {
+function getRateLimitConfig(pathname: string): {
+  config: RateLimitConfig;
+  pattern: string;
+} {
   const segments = pathname.split('/').filter(Boolean);
   let node = rateLimitTrie;
   let lastConfig: RateLimitConfig | null = null;
+  let lastPattern: string | null = null;
 
   for (const segment of segments) {
     const childNode = node.children.get(segment);
     if (childNode) {
       node = childNode;
-      if (node.config) lastConfig = node.config;
+      if (node.config) {
+        lastConfig = node.config;
+        lastPattern = node.pattern;
+      }
     } else {
       break;
     }
   }
 
-  return lastConfig ?? RATE_LIMITS.default;
+  return {
+    config: lastConfig ?? RATE_LIMITS.default,
+    pattern: lastPattern ?? 'default',
+  };
 }
 
 /**
@@ -165,9 +181,12 @@ export function checkRateLimit(request: NextRequest): {
 } {
   const identifier = getClientIdentifier(request);
   const pathname = request.nextUrl.pathname;
-  const config = getRateLimitConfig(pathname);
+  // Use the pattern (bucket) instead of exact pathname to prevent bypass via path params
+  const { config, pattern } = getRateLimitConfig(pathname);
 
-  const key = `${identifier}:${pathname}`;
+  // Group requests by identifier AND pattern (e.g. IP + /api/products)
+  // This ensures /api/products/1 and /api/products/2 share the same limit
+  const key = `${identifier}:${pattern}`;
   const now = Date.now();
 
   // Incremental pruning on each request
