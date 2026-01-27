@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
-import { checkRateLimit } from './rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 describe('Rate Limiting Logic', () => {
   it('should enforce rate limits on the same path', () => {
-    const req = new NextRequest('http://localhost/api/products');
-    // Use unique IP to isolate test
-    req.headers.set('x-forwarded-for', '10.0.0.1');
+    // Use unique IP to isolate test - pass headers via constructor
+    const req = new NextRequest('http://localhost/api/products', {
+      headers: { 'x-forwarded-for': '10.0.0.1' },
+    });
 
     // Config for /api/products is 30 requests per minute
     const LIMIT = 30;
@@ -28,9 +29,10 @@ describe('Rate Limiting Logic', () => {
     const LIMIT = 30;
     const IP = '10.0.0.2'; // Different IP from first test
 
-    // Request /api/products/1 30 times
-    const req1 = new NextRequest('http://localhost/api/products/1');
-    req1.headers.set('x-forwarded-for', IP);
+    // Request /api/products/1 30 times - pass headers via constructor
+    const req1 = new NextRequest('http://localhost/api/products/1', {
+      headers: { 'x-forwarded-for': IP },
+    });
 
     for (let i = 0; i < LIMIT; i++) {
       expect(checkRateLimit(req1).allowed).toBe(true);
@@ -39,8 +41,9 @@ describe('Rate Limiting Logic', () => {
     expect(checkRateLimit(req1).allowed).toBe(false);
 
     // Request to /api/products/2 SHOULD BE BLOCKED because they share the same bucket (/api/products)
-    const req2 = new NextRequest('http://localhost/api/products/2');
-    req2.headers.set('x-forwarded-for', IP); // Same IP
+    const req2 = new NextRequest('http://localhost/api/products/2', {
+      headers: { 'x-forwarded-for': IP }, // Same IP
+    });
 
     const result = checkRateLimit(req2);
 

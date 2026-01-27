@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -12,9 +13,14 @@ import { createServiceClient } from '@/lib/supabase/service';
  */
 export async function POST(request: Request) {
   try {
-    // 1. Security Check
+    // 1. Security Check - use constant-time comparison to prevent timing attacks
     const cronSecret = request.headers.get('x-cron-secret');
-    if (cronSecret !== process.env.CRON_SECRET) {
+    const expectedSecret = process.env.CRON_SECRET;
+    if (
+      !cronSecret ||
+      !expectedSecret ||
+      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+    ) {
       console.warn('Unauthorized cron attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -49,31 +55,23 @@ export async function POST(request: Request) {
 
     console.log(`📦 Cron: Found ${scheduledPosts.length} posts to publish`);
 
-    const results = {
-      successful: 0,
-      failed: 0,
-      details: [] as string[],
-    };
+    // 3. Batch update status to 'published'
+    const postIds = scheduledPosts.map((post) => post.id);
+    const { error: updateError } = await supabase
+      .from('blog_posts')
+      .update({ status: 'published' })
+      .in('id', postIds);
 
-    // 3. Update status to 'published'
+    if (updateError) {
+      console.error('Cron Error: Batch update failed:', updateError);
+      return NextResponse.json(
+        { error: 'Batch update failed' },
+        { status: 500 }
+      );
+    }
+
+    // 4. Revalidate paths for all posts
     for (const post of scheduledPosts) {
-      const { error: updateError } = await supabase
-        .from('blog_posts')
-        .update({ status: 'published' })
-        .eq('id', post.id);
-
-      if (updateError) {
-        console.error(
-          `Cron Error: Failed to publish post ${post.id}:`,
-          updateError
-        );
-        results.failed++;
-        results.details.push(`Failed: ${post.id}`);
-        continue;
-      }
-
-      // 4. On-Demand Revalidation
-      // We revalidate the main blog page and the post page itself
       try {
         const merchantSlug = (post.merchants as unknown as { slug: string })
           ?.slug;
@@ -82,22 +80,25 @@ export async function POST(request: Request) {
           revalidatePath(`/${merchantSlug}/blog/${post.slug}`);
           console.log(`🔄 Cron: Revalidated paths for ${merchantSlug}`);
         }
-        revalidatePath('/blog'); // Global blog list
       } catch (revalError) {
         console.warn(
           `Cron Warning: Revalidation failed for post ${post.id}:`,
           revalError
         );
       }
+    }
 
-      results.successful++;
-      results.details.push(`Published: ${post.id} (${post.slug})`);
+    // Revalidate global blog list once after all updates
+    try {
+      revalidatePath('/blog');
+    } catch (revalError) {
+      console.warn('Cron Warning: Global blog revalidation failed:', revalError);
     }
 
     return NextResponse.json({
       success: true,
       processed: scheduledPosts.length,
-      results,
+      published: postIds,
     });
   } catch (error) {
     console.error('Cron Job Failed:', error);
