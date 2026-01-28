@@ -157,8 +157,8 @@ function PrivacyPageSkeleton() {
     <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
       <div className="h-10 w-64 bg-muted rounded mb-8" />
       <div className="space-y-4">
+        {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
         {Array.from({ length: 6 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder
           <div
             key={`privacy-skeleton-${i}`}
             className="h-4 bg-muted rounded w-full"

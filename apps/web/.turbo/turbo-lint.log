@@ -79,5 +79,92 @@ src/components/ui/file-uploader.test.tsx:135:20 lint/style/noNonNullAssertion �
     137 │         files: [oversizedFile],
   
 
-Checked 867 files in 586ms. No fixes applied.
+src/app/api/merchant/blog/posts/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+Checked 867 files in 1435ms. No fixes applied.
+Found 2 errors.
+  
 Found 5 warnings.
+     37  37 │     content: z.string().min(1, 'Content is required'),
+     38  38 │     excerpt: z.string().max(300).optional(),
+     39     │ - ··featured_image_url:·z.string().refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·}).optional().nullable(),
+         39 │ + ··featured_image_url:·z
+         40 │ + ····.string()
+         41 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+         42 │ + ······message:·'Must·be·a·valid·URL',
+         43 │ + ····})
+         44 │ + ····.optional()
+         45 │ + ····.nullable(),
+     40  46 │     featured_image_alt: z.string().max(200).optional(),
+     41  47 │     category: z.string().max(100).optional(),
+    ······· │ 
+     44  50 │     author_name: z.string().min(1, 'Author name is required').max(100),
+     45  51 │     author_title: z.string().max(100).optional(),
+     46     │ - ··author_image_url:·z.string().refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·}).optional().nullable(),
+         52 │ + ··author_image_url:·z
+         53 │ + ····.string()
+         54 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+         55 │ + ······message:·'Must·be·a·valid·URL',
+         56 │ + ····})
+         57 │ + ····.optional()
+         58 │ + ····.nullable(),
+     47  59 │     author_bio: z.string().max(500).optional(),
+     48  60 │     status: z.enum(['draft', 'published', 'archived']).optional(),
+  
+
+src/lib/validations/blog.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     26  26 │     featured_image_url: z
+     27  27 │       .string()
+     28     │ - ····.refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·})
+         28 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+         29 │ + ······message:·'Must·be·a·valid·URL',
+         30 │ + ····})
+     29  31 │       .optional()
+     30  32 │       .nullable()
+    ······· │ 
+     42  44 │     author_image_url: z
+     43  45 │       .string()
+     44     │ - ····.refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·})
+         46 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+         47 │ + ······message:·'Must·be·a·valid·URL',
+         48 │ + ····})
+     45  49 │       .optional()
+     46  50 │       .nullable()
+    ······· │ 
+     79  83 │     content: z.string().min(1, 'Content is required'),
+     80  84 │     excerpt: z.string().max(300).optional(),
+     81     │ - ··featured_image_url:·z.string().refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·}).optional().nullable(),
+         85 │ + ··featured_image_url:·z
+         86 │ + ····.string()
+         87 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+         88 │ + ······message:·'Must·be·a·valid·URL',
+         89 │ + ····})
+         90 │ + ····.optional()
+         91 │ + ····.nullable(),
+     82  92 │     featured_image_alt: z.string().max(200).optional(),
+     83  93 │     category: z.string().max(100).optional(),
+    ······· │ 
+     86  96 │     author_name: z.string().min(1, 'Author name is required').max(100),
+     87  97 │     author_title: z.string().max(100).optional(),
+     88     │ - ··author_image_url:·z.string().refine((val)·=>·!val·||·isValidUrl(val),·{·message:·'Must·be·a·valid·URL'·}).optional().nullable(),
+         98 │ + ··author_image_url:·z
+         99 │ + ····.string()
+        100 │ + ····.refine((val)·=>·!val·||·isValidUrl(val),·{
+        101 │ + ······message:·'Must·be·a·valid·URL',
+        102 │ + ····})
+        103 │ + ····.optional()
+        104 │ + ····.nullable(),
+     89 105 │     author_bio: z.string().max(500).optional(),
+     90 106 │     status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
+  
+
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

@@ -16,6 +16,16 @@ import { createClient } from '@/lib/supabase/server';
  * POST: Create a new blog post
  */
 
+// Helper to validate URLs without using z.url() which has Turbopack compatibility issues
+const isValidUrl = (val: string) => {
+  try {
+    new URL(val);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Validation schema for creating a blog post
 const createPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
@@ -26,14 +36,14 @@ const createPostSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().url().optional().nullable(),
+  featured_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
   featured_image_alt: z.string().max(200).optional(),
   category: z.string().max(100).optional(),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   author_name: z.string().min(1, 'Author name is required').max(100),
   author_title: z.string().max(100).optional(),
-  author_image_url: z.string().url().optional().nullable(),
+  author_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
   author_bio: z.string().max(500).optional(),
   status: z.enum(['draft', 'published', 'archived']).optional(),
   seo_title: z.string().max(70).optional(),

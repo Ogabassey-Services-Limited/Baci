@@ -1,6 +1,16 @@
 import z from 'zod';
 import { sanitizeHtml } from '@/lib/sanitize';
 
+// Helper to validate URLs without using z.url() which has Turbopack compatibility issues
+const isValidUrl = (val: string) => {
+  try {
+    new URL(val);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   slug: z
@@ -15,7 +25,7 @@ export const blogPostSchema = z.object({
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
   featured_image_url: z
     .string()
-    .url('Must be a valid URL')
+    .refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' })
     .optional()
     .nullable()
     .or(z.literal('')),
@@ -31,7 +41,7 @@ export const blogPostSchema = z.object({
   author_title: z.string().max(100).optional().nullable(),
   author_image_url: z
     .string()
-    .url('Must be a valid URL')
+    .refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' })
     .optional()
     .nullable()
     .or(z.literal('')),
@@ -68,14 +78,14 @@ export const createPostSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().url().optional().nullable(),
+  featured_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
   featured_image_alt: z.string().max(200).optional(),
   category: z.string().max(100).optional(),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   author_name: z.string().min(1, 'Author name is required').max(100),
   author_title: z.string().max(100).optional(),
-  author_image_url: z.string().url().optional().nullable(),
+  author_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
   author_bio: z.string().max(500).optional(),
   status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
   seo_title: z.string().max(70).optional(),
