@@ -3,7 +3,7 @@
 > @baci/web@0.1.0 build /Users/mac/Baci-app/apps/web
 > NODE_ENV=production next build
 
-[1m[38;2;173;127;168m▲ Next.js 16.1.3[39m[22m (Turbopack, Cache Components)
+[1m[38;2;173;127;168m▲ Next.js 16.1.4[39m[22m (Turbopack, Cache Components)
 - Environments: .env.local, .env
 - Experiments (use with caution):
   [1m✓[22m inlineCss
@@ -12,32 +12,10 @@
   [1m✓[22m viewTransition
 
 [37m[1m [22m[39m Creating an optimized production build ...
-[32m[1m✓[22m[39m Compiled successfully in 34.3s
-[?25l[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[?25h[?25l[37m[1m [22m[39m Finished TypeScript in 102s  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finished TypeScript in 102s    [32m[1m✓[22m[39m Finished TypeScript in 102s 
-[?25l[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m...[39m[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 9 workers in 1125.6ms    [32m[1m✓[22m[39m Collecting page data using 9 workers in 1125.6ms 
-[?25l[37m[1m [22m[39m Generating static pages using 9 workers (0/298)  [36m[    ][39m[2K[1G[?25h[2m[Places API] Autocomplete error: Error: Route /api/places/autocomplete needs to bail out of prerendering at this point because it used nextUrl.searchParams.
-    at A (src/app/api/places/autocomplete/route.ts:51:42)
-[0m [90m 49 |[39m     }
- [90m 50 |[39m
-[31m[1m>[22m[39m[90m 51 |[39m     [36mconst[39m searchParams [33m=[39m request[33m.[39mnextUrl[33m.[39msearchParams[33m;[39m
- [90m    |[39m                                          [31m[1m^[22m[39m
- [90m 52 |[39m     [36mconst[39m input [33m=[39m searchParams[33m.[39m[36mget[39m([32m'input'[39m) [33m||[39m [32m''[39m[33m;[39m
- [90m 53 |[39m     [36mconst[39m sessionToken [33m=[39m searchParams[33m.[39m[36mget[39m([32m'sessionToken'[39m) [33m||[39m undefined[33m;[39m
- [90m 54 |[39m     [36mconst[39m country [33m=[39m searchParams[33m.[39m[36mget[39m([32m'country'[39m) [33m||[39m undefined[33m;[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError fetching ad analytics: Error: Route /api/analytics/ads needs to bail out of prerendering at this point because it used request.url.
-    at k (src/app/api/analytics/ads/route.ts:29:46)
-[0m [90m 27 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 28 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 29 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 30 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
- [90m 31 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
- [90m 32 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2m[Places API] Details error: Error: Route /api/places/details needs to bail out of prerendering at this point because it used nextUrl.searchParams.
+[32m[1m✓[22m[39m Compiled successfully in 47s
+[?25l[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m...[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m.[39m[2K[1G[37m[1m [22m[39m Running TypeScript  [36m..[39m[2K[1G[?25h[?25l[37m[1m [22m[39m Finished TypeScript in 2.0min  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finished TypeScript in 2.0min    [32m[1m✓[22m[39m Finished TypeScript in 2.0min 
+[?25l[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m...[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m.[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m..[39m[2K[1G[37m[1m [22m[39m Collecting page data using 9 workers  [36m...[39m[2K[1G[?25h[37m[1m [22m[39m Collecting page data using 9 workers in 1624.2ms    [32m[1m✓[22m[39m Collecting page data using 9 workers in 1624.2ms 
+[?25l[37m[1m [22m[39m Generating static pages using 9 workers (0/301)  [36m[    ][39m[2K[1G[1A[2K[1G[37m[1m [22m[39m Generating static pages using 9 workers (37/301)  [36m[=   ][39m[2K[1G[1A[2K[1G[?25h[2m[Places API] Details error: Error: Route /api/places/details needs to bail out of prerendering at this point because it used nextUrl.searchParams.
     at _ (src/app/api/places/details/route.ts:50:42)
 [0m [90m 48 |[39m     }
  [90m 49 |[39m
@@ -48,15 +26,26 @@
  [90m 53 |[39m     [36mif[39m ([33m![39mplaceId) {[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-[2mError in loyalty status: Error: Route /api/storefront/loyalty needs to bail out of prerendering at this point because it used request.url.
-    at b (src/app/api/storefront/loyalty/route.ts:8:46)
-[0m [90m  6 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m  7 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m  8 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+[2mError tracking order: Error: Route /api/storefront/orders/track-order needs to bail out of prerendering at this point because it used request.url.
+    at R (src/app/api/storefront/orders/track-order/route.ts:38:46)
+[0m [90m 36 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 37 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 38 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
  [90m    |[39m                                              [31m[1m^[22m[39m
- [90m  9 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant_id'[39m)[33m;[39m
- [90m 10 |[39m     [36mconst[39m customerId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'customer_id'[39m)[33m;[39m
- [90m 11 |[39m[0m {
+ [90m 39 |[39m     [36mconst[39m orderNumber [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_number'[39m)[33m;[39m
+ [90m 40 |[39m     [36mconst[39m orderId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_id'[39m)[33m;[39m
+ [90m 41 |[39m     [36mconst[39m email [33m=[39m searchParams[33m.[39m[36mget[39m([32m'email'[39m)[33m;[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mError fetching ad analytics: Error: Route /api/analytics/ads needs to bail out of prerendering at this point because it used request.url.
+    at m (src/app/api/analytics/ads/route.ts:29:46)
+[0m [90m 27 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 28 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 29 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 30 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
+ [90m 31 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
+ [90m 32 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mFailed to fetch platform analytics config: {
@@ -82,87 +71,15 @@
   hint: [32m''[39m,
   code: [32m''[39m
 }[22m[2m[22m
-[2mDashboard reviews GET error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/dashboard/reviews".
-    at new Promise (<anonymous>)
-    at _ (src/app/api/dashboard/reviews/route.ts:24:31)
-[0m [90m 22 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 23 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 24 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
- [90m    |[39m                               [31m[1m^[22m[39m
- [90m 25 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
- [90m 26 |[39m
- [90m 27 |[39m     [90m// Check authentication[39m[0m {
-  route: [32m'/api/dashboard/reviews'[39m,
-  expression: [32m'`cookies()`'[39m,
-  digest: [32m'HANGING_PROMISE_REJECTION'[39m
-}[22m[2m[22m
-[2mNotifications GET CRITICAL error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/notifications".
-    at new Promise (<anonymous>)
-    at R (src/app/api/notifications/route.ts:21:31)
-[0m [90m 19 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 20 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 21 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
- [90m    |[39m                               [31m[1m^[22m[39m
- [90m 22 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
- [90m 23 |[39m
- [90m 24 |[39m     [90m// Authentication check[39m[0m {
-  route: [32m'/api/notifications'[39m,
-  expression: [32m'`cookies()`'[39m,
-  digest: [32m'HANGING_PROMISE_REJECTION'[39m
-}[22m[2m[22m
-[2mOrders API error: Error: Route /api/storefront/orders needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/orders/route.ts:13:46)
-[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 12 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+[2mSocial proof API error: Error: Route /api/storefront/social-proof needs to bail out of prerendering at this point because it used request.url.
+    at m (src/app/api/storefront/social-proof/route.ts:62:46)
+[0m [90m 60 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 61 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 62 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
  [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
- [90m 15 |[39m
- [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2m[Places API] Autocomplete error: Error: Route /api/places/autocomplete needs to bail out of prerendering at this point because it used nextUrl.searchParams.
-    at A (src/app/api/places/autocomplete/route.ts:51:42)
-[0m [90m 49 |[39m     }
- [90m 50 |[39m
-[31m[1m>[22m[39m[90m 51 |[39m     [36mconst[39m searchParams [33m=[39m request[33m.[39mnextUrl[33m.[39msearchParams[33m;[39m
- [90m    |[39m                                          [31m[1m^[22m[39m
- [90m 52 |[39m     [36mconst[39m input [33m=[39m searchParams[33m.[39m[36mget[39m([32m'input'[39m) [33m||[39m [32m''[39m[33m;[39m
- [90m 53 |[39m     [36mconst[39m sessionToken [33m=[39m searchParams[33m.[39m[36mget[39m([32m'sessionToken'[39m) [33m||[39m undefined[33m;[39m
- [90m 54 |[39m     [36mconst[39m country [33m=[39m searchParams[33m.[39m[36mget[39m([32m'country'[39m) [33m||[39m undefined[33m;[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError fetching ad analytics: Error: Route /api/analytics/ads needs to bail out of prerendering at this point because it used request.url.
-    at k (src/app/api/analytics/ads/route.ts:29:46)
-[0m [90m 27 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 28 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 29 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 30 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
- [90m 31 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
- [90m 32 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError tracking order: Error: Route /api/storefront/orders/track-order needs to bail out of prerendering at this point because it used request.url.
-    at x (src/app/api/storefront/orders/track-order/route.ts:38:46)
-[0m [90m 36 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 37 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 38 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 39 |[39m     [36mconst[39m orderNumber [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_number'[39m)[33m;[39m
- [90m 40 |[39m     [36mconst[39m orderId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_id'[39m)[33m;[39m
- [90m 41 |[39m     [36mconst[39m email [33m=[39m searchParams[33m.[39m[36mget[39m([32m'email'[39m)[33m;[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mPayment status check error: Error: Route /api/payments/status needs to bail out of prerendering at this point because it used request.url.
-    at A (src/app/api/payments/status/route.ts:28:46)
-[0m [90m 26 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 27 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 28 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 29 |[39m     [90m// Note: searchParams.get() returns null for missing params,[39m
- [90m 30 |[39m     [90m// but Zod's .optional() expects undefined. Use ?? undefined to convert.[39m
- [90m 31 |[39m     [36mconst[39m query [33m=[39m {[0m {
+ [90m 63 |[39m     [36mconst[39m productId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'productId'[39m)[33m;[39m
+ [90m 64 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantId'[39m)[33m;[39m
+ [90m 65 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mGoogle Places API error: Error: Route /api/google-places/reviews needs to bail out of prerendering at this point because it used request.url.
@@ -176,6 +93,29 @@
  [90m 126 |[39m     [36mif[39m ([33m![39mplaceId) {[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
+Testing Kuda API connection...
+[2mGoogle Places API error: Error: Route /api/google-places/reviews needs to bail out of prerendering at this point because it used request.url.
+    at R (src/app/api/google-places/reviews/route.ts:123:46)
+[0m [90m 121 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 122 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 123 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m     |[39m                                              [31m[1m^[22m[39m
+ [90m 124 |[39m     [36mconst[39m placeId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'placeId'[39m)[33m;[39m
+ [90m 125 |[39m
+ [90m 126 |[39m     [36mif[39m ([33m![39mplaceId) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mError fetching ad analytics: Error: Route /api/analytics/ads needs to bail out of prerendering at this point because it used request.url.
+    at m (src/app/api/analytics/ads/route.ts:29:46)
+[0m [90m 27 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 28 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 29 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 30 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
+ [90m 31 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
+ [90m 32 |[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
 [2m[Places API] Details error: Error: Route /api/places/details needs to bail out of prerendering at this point because it used nextUrl.searchParams.
     at _ (src/app/api/places/details/route.ts:50:42)
 [0m [90m 48 |[39m     }
@@ -185,17 +125,6 @@
  [90m 51 |[39m     [36mconst[39m placeId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'placeId'[39m)[33m;[39m
  [90m 52 |[39m
  [90m 53 |[39m     [36mif[39m ([33m![39mplaceId) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mSocial proof API error: Error: Route /api/storefront/social-proof needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/social-proof/route.ts:62:46)
-[0m [90m 60 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 61 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 62 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 63 |[39m     [36mconst[39m productId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'productId'[39m)[33m;[39m
- [90m 64 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantId'[39m)[33m;[39m
- [90m 65 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mFailed to fetch platform analytics config: {
@@ -224,126 +153,8 @@
   hint: [32m''[39m,
   code: [32m''[39m
 }[22m[2m[22m
-[2mError fetching analytics: Error: Route /api/analytics needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/analytics/route.ts:12:46)
-[0m [90m 10 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 11 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 13 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
- [90m 14 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
- [90m 15 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2m[Insurance Quote] Error: Error: Route /api/insurance/quote needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/insurance/quote/route.ts:12:46)
-[0m [90m 10 |[39m [36mexport[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 11 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 13 |[39m     [36mconst[39m orderValueStr [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_value'[39m)[33m;[39m
- [90m 14 |[39m
- [90m 15 |[39m     [36mif[39m ([33m![39morderValueStr) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError fetching analytics: Error: Route /api/analytics needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/analytics/route.ts:12:46)
-[0m [90m 10 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 11 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 13 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
- [90m 14 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
- [90m 15 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mPayment status check error: Error: Route /api/payments/status needs to bail out of prerendering at this point because it used request.url.
-    at A (src/app/api/payments/status/route.ts:28:46)
-[0m [90m 26 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 27 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 28 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 29 |[39m     [90m// Note: searchParams.get() returns null for missing params,[39m
- [90m 30 |[39m     [90m// but Zod's .optional() expects undefined. Use ?? undefined to convert.[39m
- [90m 31 |[39m     [36mconst[39m query [33m=[39m {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2m[2026-01-19T19:20:49.525Z] [ERROR] Paystack request failed {
-  message: [32m'Paystack request failed'[39m,
-  error: [32m'During prerendering, fetch() rejects when the prerender is complete. Typically these errors are handled by React but if you move fetch() to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/paystack/banks".'[39m
-}[22m[2m[22m
-[2m[2026-01-19T19:20:49.528Z] [ERROR] Failed to fetch banks {
-  message: [32m'Failed to fetch banks'[39m,
-  error: [32m'During prerendering, fetch() rejects when the prerender is complete. Typically these errors are handled by React but if you move fetch() to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/paystack/banks".'[39m
-}[22m[2m[22m
-[2mError getting locations: Error: Route /api/shipping/locations needs to bail out of prerendering at this point because it used request.url.
-    at b (src/app/api/shipping/locations/route.ts:150:46)
-[0m [90m 148 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 149 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 150 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m     |[39m                                              [31m[1m^[22m[39m
- [90m 151 |[39m     [36mconst[39m state [33m=[39m searchParams[33m.[39m[36mget[39m([32m'state'[39m)[33m;[39m
- [90m 152 |[39m     [36mconst[39m search [33m=[39m searchParams[33m.[39m[36mget[39m([32m'search'[39m)[33m;[39m
- [90m 153 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError in loyalty status: Error: Route /api/storefront/loyalty needs to bail out of prerendering at this point because it used request.url.
-    at b (src/app/api/storefront/loyalty/route.ts:8:46)
-[0m [90m  6 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m  7 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m  8 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m  9 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant_id'[39m)[33m;[39m
- [90m 10 |[39m     [36mconst[39m customerId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'customer_id'[39m)[33m;[39m
- [90m 11 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mGoogle Places API error: Error: Route /api/google-places/reviews needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/google-places/reviews/route.ts:123:46)
-[0m [90m 121 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 122 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 123 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m     |[39m                                              [31m[1m^[22m[39m
- [90m 124 |[39m     [36mconst[39m placeId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'placeId'[39m)[33m;[39m
- [90m 125 |[39m
- [90m 126 |[39m     [36mif[39m ([33m![39mplaceId) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mError getting locations: Error: Route /api/shipping/locations needs to bail out of prerendering at this point because it used request.url.
-    at b (src/app/api/shipping/locations/route.ts:150:46)
-[0m [90m 148 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 149 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 150 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m     |[39m                                              [31m[1m^[22m[39m
- [90m 151 |[39m     [36mconst[39m state [33m=[39m searchParams[33m.[39m[36mget[39m([32m'state'[39m)[33m;[39m
- [90m 152 |[39m     [36mconst[39m search [33m=[39m searchParams[33m.[39m[36mget[39m([32m'search'[39m)[33m;[39m
- [90m 153 |[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mOrders API error: Error: Route /api/storefront/orders needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/orders/route.ts:13:46)
-[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 12 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
- [90m 15 |[39m
- [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2m[Insurance Quote] Error: Error: Route /api/insurance/quote needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/insurance/quote/route.ts:12:46)
-[0m [90m 10 |[39m [36mexport[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 11 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 13 |[39m     [36mconst[39m orderValueStr [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_value'[39m)[33m;[39m
- [90m 14 |[39m
- [90m 15 |[39m     [36mif[39m ([33m![39morderValueStr) {[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
 [2mError tracking order: Error: Route /api/storefront/orders/track-order needs to bail out of prerendering at this point because it used request.url.
-    at x (src/app/api/storefront/orders/track-order/route.ts:38:46)
+    at R (src/app/api/storefront/orders/track-order/route.ts:38:46)
 [0m [90m 36 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
  [90m 37 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 38 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
@@ -353,19 +164,33 @@
  [90m 41 |[39m     [36mconst[39m email [33m=[39m searchParams[33m.[39m[36mget[39m([32m'email'[39m)[33m;[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-[2mBlog posts GET error: Error: Route /api/blog/posts needs to bail out of prerendering at this point because it used request.url.
-    at b (src/app/api/blog/posts/route.ts:26:46)
-[0m [90m 24 |[39m
- [90m 25 |[39m     [90m// Parse query params[39m
-[31m[1m>[22m[39m[90m 26 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+[2mNotifications GET CRITICAL error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/notifications".
+    at new Promise (<anonymous>)
+    at C (src/app/api/notifications/route.ts:21:31)
+[0m [90m 19 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 20 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 21 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
+ [90m    |[39m                               [31m[1m^[22m[39m
+ [90m 22 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
+ [90m 23 |[39m
+ [90m 24 |[39m     [90m// Authentication check[39m[0m {
+  route: [32m'/api/notifications'[39m,
+  expression: [32m'`cookies()`'[39m,
+  digest: [32m'HANGING_PROMISE_REJECTION'[39m
+}[22m[2m[22m
+[2mError fetching analytics: Error: Route /api/analytics needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/analytics/route.ts:12:46)
+[0m [90m 10 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 11 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
  [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 27 |[39m     [36mconst[39m category [33m=[39m searchParams[33m.[39m[36mget[39m([32m'category'[39m)[33m;[39m
- [90m 28 |[39m     [36mconst[39m tag [33m=[39m searchParams[33m.[39m[36mget[39m([32m'tag'[39m)[33m;[39m
- [90m 29 |[39m     [90m// Validate numeric params: clamp to safe range, default on NaN[39m[0m {
+ [90m 13 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
+ [90m 14 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
+ [90m 15 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mSocial proof API error: Error: Route /api/storefront/social-proof needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/social-proof/route.ts:62:46)
+    at m (src/app/api/storefront/social-proof/route.ts:62:46)
 [0m [90m 60 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
  [90m 61 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 62 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
@@ -375,6 +200,40 @@
  [90m 65 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
+Testing Kuda API connection...
+[2m[Insurance Quote] Error: Error: Route /api/insurance/quote needs to bail out of prerendering at this point because it used request.url.
+    at R (src/app/api/insurance/quote/route.ts:12:46)
+[0m [90m 10 |[39m [36mexport[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 11 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 13 |[39m     [36mconst[39m orderValueStr [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_value'[39m)[33m;[39m
+ [90m 14 |[39m
+ [90m 15 |[39m     [36mif[39m ([33m![39morderValueStr) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mPayment status check error: Error: Route /api/payments/status needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/payments/status/route.ts:28:46)
+[0m [90m 26 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 27 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 28 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 29 |[39m     [90m// Note: searchParams.get() returns null for missing params,[39m
+ [90m 30 |[39m     [90m// but Zod's .optional() expects undefined. Use ?? undefined to convert.[39m
+ [90m 31 |[39m     [36mconst[39m query [33m=[39m {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mError getting locations: Error: Route /api/shipping/locations needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/shipping/locations/route.ts:150:46)
+[0m [90m 148 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 149 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 150 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m     |[39m                                              [31m[1m^[22m[39m
+ [90m 151 |[39m     [36mconst[39m state [33m=[39m searchParams[33m.[39m[36mget[39m([32m'state'[39m)[33m;[39m
+ [90m 152 |[39m     [36mconst[39m search [33m=[39m searchParams[33m.[39m[36mget[39m([32m'search'[39m)[33m;[39m
+ [90m 153 |[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
 [2mBlog posts GET error: Error: Route /api/blog/posts needs to bail out of prerendering at this point because it used request.url.
     at b (src/app/api/blog/posts/route.ts:26:46)
 [0m [90m 24 |[39m
@@ -386,10 +245,9 @@
  [90m 29 |[39m     [90m// Validate numeric params: clamp to safe range, default on NaN[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-Testing Kuda API connection...
 [2mInventory forecast error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/inventory/forecast".
     at new Promise (<anonymous>)
-    at w (src/app/api/inventory/forecast/route.ts:42:31)
+    at v (src/app/api/inventory/forecast/route.ts:42:31)
 [0m [90m 40 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
  [90m 41 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 42 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
@@ -401,38 +259,26 @@ Testing Kuda API connection...
   expression: [32m'`cookies()`'[39m,
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
-Testing Kuda API connection...
-[2mSession check error: Error: Route /api/storefront/auth/session needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/auth/session/route.ts:13:46)
-[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 12 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
- [90m 15 |[39m
- [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+[2mError getting locations: Error: Route /api/shipping/locations needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/shipping/locations/route.ts:150:46)
+[0m [90m 148 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 149 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 150 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m     |[39m                                              [31m[1m^[22m[39m
+ [90m 151 |[39m     [36mconst[39m state [33m=[39m searchParams[33m.[39m[36mget[39m([32m'state'[39m)[33m;[39m
+ [90m 152 |[39m     [36mconst[39m search [33m=[39m searchParams[33m.[39m[36mget[39m([32m'search'[39m)[33m;[39m
+ [90m 153 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-[2mUnexpected error in cleanup cron: Error: Route /api/cron/cleanup-orders needs to bail out of prerendering at this point because it used request.headers.
-    at y (src/app/api/cron/cleanup-orders/route.ts:9:32)
-[0m [90m  7 |[39m   [36mtry[39m {
- [90m  8 |[39m     [90m// Verify authentication from Vercel Cron[39m
-[31m[1m>[22m[39m[90m  9 |[39m     [36mconst[39m authHeader [33m=[39m request[33m.[39mheaders[33m.[39m[36mget[39m([32m'authorization'[39m)[33m;[39m
- [90m    |[39m                                [31m[1m^[22m[39m
- [90m 10 |[39m     [36mif[39m (authHeader [33m!==[39m [32m`Bearer ${process.env.CRON_SECRET}`[39m) {
- [90m 11 |[39m       [90m// Allow local development testing if needed, or stick to strict checking[39m
- [90m 12 |[39m       [90m// For now, we return 401 if unauthorized[39m[0m {
-  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
-}[22m[2m[22m
-[2mCustomer wallet fetch error: Error: Route /api/storefront/customer/wallet needs to bail out of prerendering at this point because it used request.url.
-    at _ (src/app/api/storefront/customer/wallet/route.ts:17:46)
-[0m [90m 15 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
- [90m 16 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 17 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+[2mError fetching analytics: Error: Route /api/analytics needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/analytics/route.ts:12:46)
+[0m [90m 10 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 11 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
  [90m    |[39m                                              [31m[1m^[22m[39m
- [90m 18 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant'[39m)[33m;[39m
- [90m 19 |[39m
- [90m 20 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+ [90m 13 |[39m     [36mconst[39m startDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'startDate'[39m)[33m;[39m
+ [90m 14 |[39m     [36mconst[39m endDateParam [33m=[39m searchParams[33m.[39m[36mget[39m([32m'endDate'[39m)[33m;[39m
+ [90m 15 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mKuda API test failed: Error: During prerendering, fetch() rejects when the prerender is complete. Typically these errors are handled by React but if you move fetch() to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/vtu/test".
@@ -452,34 +298,75 @@ Testing Kuda API connection...
   expression: [32m'fetch()'[39m,
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
-[2mCustomer loyalty GET error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/loyalty/customers".
-    at new Promise (<anonymous>)
-    at R (src/app/api/loyalty/customers/route.ts:19:31)
-[0m [90m 17 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 18 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 19 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
- [90m    |[39m                               [31m[1m^[22m[39m
- [90m 20 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
- [90m 21 |[39m
- [90m 22 |[39m     [36mconst[39m {[0m {
-  route: [32m'/api/loyalty/customers'[39m,
-  expression: [32m'`cookies()`'[39m,
-  digest: [32m'HANGING_PROMISE_REJECTION'[39m
+[2mError checking wish list: {
+  message: [32m'Route /api/wishlist/check needs to bail out of prerendering at this point because it used request.url.'[39m
 }[22m[2m[22m
-[2mStorefront features GET error: Error: Route /api/storefront/features needs to bail out of prerendering at this point because it used request.url.
-    at w (src/app/api/storefront/features/route.ts:128:46)
-[0m [90m 126 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
- [90m 127 |[39m   [36mtry[39m {
-[31m[1m>[22m[39m[90m 128 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
- [90m     |[39m                                              [31m[1m^[22m[39m
- [90m 129 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantId'[39m)[33m;[39m
- [90m 130 |[39m     [36mconst[39m slug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'slug'[39m)[33m;[39m
- [90m 131 |[39m[0m {
+[2mPayment status check error: Error: Route /api/payments/status needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/payments/status/route.ts:28:46)
+[0m [90m 26 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 27 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 28 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 29 |[39m     [90m// Note: searchParams.get() returns null for missing params,[39m
+ [90m 30 |[39m     [90m// but Zod's .optional() expects undefined. Use ?? undefined to convert.[39m
+ [90m 31 |[39m     [36mconst[39m query [33m=[39m {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2m[Insurance Quote] Error: Error: Route /api/insurance/quote needs to bail out of prerendering at this point because it used request.url.
+    at R (src/app/api/insurance/quote/route.ts:12:46)
+[0m [90m 10 |[39m [36mexport[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 11 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 13 |[39m     [36mconst[39m orderValueStr [33m=[39m searchParams[33m.[39m[36mget[39m([32m'order_value'[39m)[33m;[39m
+ [90m 14 |[39m
+ [90m 15 |[39m     [36mif[39m ([33m![39morderValueStr) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2m[2026-01-24T22:50:53.755Z] [ERROR] Paystack request failed {
+  message: [32m'Paystack request failed'[39m,
+  error: [32m'During prerendering, fetch() rejects when the prerender is complete. Typically these errors are handled by React but if you move fetch() to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/paystack/banks".'[39m
+}[22m[2m[22m
+[2m[2026-01-24T22:50:53.756Z] [ERROR] Failed to fetch banks {
+  message: [32m'Failed to fetch banks'[39m,
+  error: [32m'During prerendering, fetch() rejects when the prerender is complete. Typically these errors are handled by React but if you move fetch() to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/paystack/banks".'[39m
+}[22m[2m[22m
+[2mBlog posts GET error: Error: Route /api/blog/posts needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/blog/posts/route.ts:26:46)
+[0m [90m 24 |[39m
+ [90m 25 |[39m     [90m// Parse query params[39m
+[31m[1m>[22m[39m[90m 26 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 27 |[39m     [36mconst[39m category [33m=[39m searchParams[33m.[39m[36mget[39m([32m'category'[39m)[33m;[39m
+ [90m 28 |[39m     [36mconst[39m tag [33m=[39m searchParams[33m.[39m[36mget[39m([32m'tag'[39m)[33m;[39m
+ [90m 29 |[39m     [90m// Validate numeric params: clamp to safe range, default on NaN[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mSession check error: Error: Route /api/storefront/auth/session needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/auth/session/route.ts:13:46)
+[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 12 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
+ [90m 15 |[39m
+ [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2m[Places API] Autocomplete error: Error: Route /api/places/autocomplete needs to bail out of prerendering at this point because it used nextUrl.searchParams.
+    at A (src/app/api/places/autocomplete/route.ts:51:42)
+[0m [90m 49 |[39m     }
+ [90m 50 |[39m
+[31m[1m>[22m[39m[90m 51 |[39m     [36mconst[39m searchParams [33m=[39m request[33m.[39mnextUrl[33m.[39msearchParams[33m;[39m
+ [90m    |[39m                                          [31m[1m^[22m[39m
+ [90m 52 |[39m     [36mconst[39m input [33m=[39m searchParams[33m.[39m[36mget[39m([32m'input'[39m) [33m||[39m [32m''[39m[33m;[39m
+ [90m 53 |[39m     [36mconst[39m sessionToken [33m=[39m searchParams[33m.[39m[36mget[39m([32m'sessionToken'[39m) [33m||[39m undefined[33m;[39m
+ [90m 54 |[39m     [36mconst[39m country [33m=[39m searchParams[33m.[39m[36mget[39m([32m'country'[39m) [33m||[39m undefined[33m;[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mVTU transactions error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/vtu/transactions".
     at new Promise (<anonymous>)
-    at b (src/app/api/vtu/transactions/route.ts:8:31)
+    at C (src/app/api/vtu/transactions/route.ts:8:31)
 [0m [90m  6 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
  [90m  7 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m  8 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
@@ -492,7 +379,7 @@ Testing Kuda API connection...
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
 [2mSession check error: Error: Route /api/storefront/auth/session needs to bail out of prerendering at this point because it used request.url.
-    at R (src/app/api/storefront/auth/session/route.ts:13:46)
+    at C (src/app/api/storefront/auth/session/route.ts:13:46)
 [0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
  [90m 12 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
@@ -502,9 +389,23 @@ Testing Kuda API connection...
  [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
+[2mCustomer loyalty GET error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/loyalty/customers".
+    at new Promise (<anonymous>)
+    at C (src/app/api/loyalty/customers/route.ts:19:31)
+[0m [90m 17 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 18 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 19 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
+ [90m    |[39m                               [31m[1m^[22m[39m
+ [90m 20 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
+ [90m 21 |[39m
+ [90m 22 |[39m     [36mconst[39m {[0m {
+  route: [32m'/api/loyalty/customers'[39m,
+  expression: [32m'`cookies()`'[39m,
+  digest: [32m'HANGING_PROMISE_REJECTION'[39m
+}[22m[2m[22m
 [2mWallet transactions error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/wallet/transactions".
     at new Promise (<anonymous>)
-    at R (src/app/api/wallet/transactions/route.ts:11:31)
+    at C (src/app/api/wallet/transactions/route.ts:11:31)
 [0m [90m  9 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
  [90m 10 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 11 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
@@ -516,8 +417,33 @@ Testing Kuda API connection...
   expression: [32m'`cookies()`'[39m,
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
+[2mError checking wish list: {
+  message: [32m'Route /api/wishlist/check needs to bail out of prerendering at this point because it used request.url.'[39m
+}[22m[2m[22m
+[2m[Places API] Autocomplete error: Error: Route /api/places/autocomplete needs to bail out of prerendering at this point because it used nextUrl.searchParams.
+    at A (src/app/api/places/autocomplete/route.ts:51:42)
+[0m [90m 49 |[39m     }
+ [90m 50 |[39m
+[31m[1m>[22m[39m[90m 51 |[39m     [36mconst[39m searchParams [33m=[39m request[33m.[39mnextUrl[33m.[39msearchParams[33m;[39m
+ [90m    |[39m                                          [31m[1m^[22m[39m
+ [90m 52 |[39m     [36mconst[39m input [33m=[39m searchParams[33m.[39m[36mget[39m([32m'input'[39m) [33m||[39m [32m''[39m[33m;[39m
+ [90m 53 |[39m     [36mconst[39m sessionToken [33m=[39m searchParams[33m.[39m[36mget[39m([32m'sessionToken'[39m) [33m||[39m undefined[33m;[39m
+ [90m 54 |[39m     [36mconst[39m country [33m=[39m searchParams[33m.[39m[36mget[39m([32m'country'[39m) [33m||[39m undefined[33m;[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mUnexpected error in cleanup cron: Error: Route /api/cron/cleanup-orders needs to bail out of prerendering at this point because it used request.headers.
+    at g (src/app/api/cron/cleanup-orders/route.ts:9:32)
+[0m [90m  7 |[39m   [36mtry[39m {
+ [90m  8 |[39m     [90m// Verify authentication from Vercel Cron[39m
+[31m[1m>[22m[39m[90m  9 |[39m     [36mconst[39m authHeader [33m=[39m request[33m.[39mheaders[33m.[39m[36mget[39m([32m'authorization'[39m)[33m;[39m
+ [90m    |[39m                                [31m[1m^[22m[39m
+ [90m 10 |[39m     [36mif[39m (authHeader [33m!==[39m [32m`Bearer ${process.env.CRON_SECRET}`[39m) {
+ [90m 11 |[39m       [90m// Allow local development testing if needed, or stick to strict checking[39m
+ [90m 12 |[39m       [90m// For now, we return 401 if unauthorized[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
 [2mCustomer wallet fetch error: Error: Route /api/storefront/customer/wallet needs to bail out of prerendering at this point because it used request.url.
-    at _ (src/app/api/storefront/customer/wallet/route.ts:17:46)
+    at C (src/app/api/storefront/customer/wallet/route.ts:17:46)
 [0m [90m 15 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
  [90m 16 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 17 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
@@ -527,11 +453,8 @@ Testing Kuda API connection...
  [90m 20 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-[2mError checking wish list: {
-  message: [32m'Route /api/wishlist/check needs to bail out of prerendering at this point because it used request.url.'[39m
-}[22m[2m[22m
 [2mStorefront features GET error: Error: Route /api/storefront/features needs to bail out of prerendering at this point because it used request.url.
-    at w (src/app/api/storefront/features/route.ts:128:46)
+    at b (src/app/api/storefront/features/route.ts:128:46)
 [0m [90m 126 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
  [90m 127 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 128 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
@@ -541,11 +464,74 @@ Testing Kuda API connection...
  [90m 131 |[39m[0m {
   digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
-[2mError checking wish list: {
-  message: [32m'Route /api/wishlist/check needs to bail out of prerendering at this point because it used request.url.'[39m
+[2mCustomer wallet fetch error: Error: Route /api/storefront/customer/wallet needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/customer/wallet/route.ts:17:46)
+[0m [90m 15 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 16 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 17 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 18 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant'[39m)[33m;[39m
+ [90m 19 |[39m
+ [90m 20 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mStorefront features GET error: Error: Route /api/storefront/features needs to bail out of prerendering at this point because it used request.url.
+    at b (src/app/api/storefront/features/route.ts:128:46)
+[0m [90m 126 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 127 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 128 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m     |[39m                                              [31m[1m^[22m[39m
+ [90m 129 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantId'[39m)[33m;[39m
+ [90m 130 |[39m     [36mconst[39m slug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'slug'[39m)[33m;[39m
+ [90m 131 |[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mError in loyalty status: Error: Route /api/storefront/loyalty needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/loyalty/route.ts:8:46)
+[0m [90m  6 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m  7 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m  8 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m  9 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant_id'[39m)[33m;[39m
+ [90m 10 |[39m     [36mconst[39m customerId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'customer_id'[39m)[33m;[39m
+ [90m 11 |[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mOrders API error: Error: Route /api/storefront/orders needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/orders/route.ts:13:46)
+[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 12 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
+ [90m 15 |[39m
+ [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mError in loyalty status: Error: Route /api/storefront/loyalty needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/loyalty/route.ts:8:46)
+[0m [90m  6 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m  7 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m  8 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m  9 |[39m     [36mconst[39m merchantId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchant_id'[39m)[33m;[39m
+ [90m 10 |[39m     [36mconst[39m customerId [33m=[39m searchParams[33m.[39m[36mget[39m([32m'customer_id'[39m)[33m;[39m
+ [90m 11 |[39m[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
+}[22m[2m[22m
+[2mOrders API error: Error: Route /api/storefront/orders needs to bail out of prerendering at this point because it used request.url.
+    at C (src/app/api/storefront/orders/route.ts:13:46)
+[0m [90m 11 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mRequest[39m) {
+ [90m 12 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 13 |[39m     [36mconst[39m { searchParams } [33m=[39m [36mnew[39m [33mURL[39m(request[33m.[39murl)[33m;[39m
+ [90m    |[39m                                              [31m[1m^[22m[39m
+ [90m 14 |[39m     [36mconst[39m merchantSlug [33m=[39m searchParams[33m.[39m[36mget[39m([32m'merchantSlug'[39m)[33m;[39m
+ [90m 15 |[39m
+ [90m 16 |[39m     [36mif[39m ([33m![39mmerchantSlug) {[0m {
+  digest: [32m'NEXT_PRERENDER_INTERRUPTED'[39m
 }[22m[2m[22m
 [2mUnexpected error in cleanup cron: Error: Route /api/cron/cleanup-orders needs to bail out of prerendering at this point because it used request.headers.
-    at y (src/app/api/cron/cleanup-orders/route.ts:9:32)
+    at g (src/app/api/cron/cleanup-orders/route.ts:9:32)
 [0m [90m  7 |[39m   [36mtry[39m {
  [90m  8 |[39m     [90m// Verify authentication from Vercel Cron[39m
 [31m[1m>[22m[39m[90m  9 |[39m     [36mconst[39m authHeader [33m=[39m request[33m.[39mheaders[33m.[39m[36mget[39m([32m'authorization'[39m)[33m;[39m
@@ -557,8 +543,8 @@ Testing Kuda API connection...
 }[22m[2m[22m
 [2mError initializing CSRF token: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/csrf".
     at new Promise (<anonymous>)
-    at b (src/lib/csrf.ts:61:29)
-    at w (src/app/api/csrf/route.ts:10:25)
+    at o (src/lib/csrf.ts:61:29)
+    at R (src/app/api/csrf/route.ts:10:25)
 [0m [90m 59 |[39m [90m */[39m
  [90m 60 |[39m [36mexport[39m [36masync[39m [36mfunction[39m setCsrfToken()[33m:[39m [33mPromise[39m[33m<[39m[33mstring[39m[33m>[39m {
 [31m[1m>[22m[39m[90m 61 |[39m   [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
@@ -570,9 +556,39 @@ Testing Kuda API connection...
   expression: [32m'`cookies()`'[39m,
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
+[2mDashboard reviews GET error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/dashboard/reviews".
+    at new Promise (<anonymous>)
+    at v (src/app/api/dashboard/reviews/route.ts:24:31)
+[0m [90m 22 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m(request[33m:[39m [33mNextRequest[39m) {
+ [90m 23 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 24 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
+ [90m    |[39m                               [31m[1m^[22m[39m
+ [90m 25 |[39m     [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
+ [90m 26 |[39m
+ [90m 27 |[39m     [90m// Check authentication[39m[0m {
+  route: [32m'/api/dashboard/reviews'[39m,
+  expression: [32m'`cookies()`'[39m,
+  digest: [32m'HANGING_PROMISE_REJECTION'[39m
+}[22m[2m[22m
+[2mKYC Page Error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/dashboard/settings/kyc".
+    at new Promise (<anonymous>)
+    at <unknown> (src/lib/merchant-server.ts:20:29)
+    at f (src/app/dashboard/settings/kyc/page.tsx:7:32)
+    at stringify (<anonymous>)
+[0m [90m 18 |[39m [90m// This means layout.tsx and page.tsx will share the same result[39m
+ [90m 19 |[39m [36mexport[39m [36mconst[39m getMerchantForUser [33m=[39m cache([36masync[39m () [33m=>[39m {
+[31m[1m>[22m[39m[90m 20 |[39m   [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
+ [90m    |[39m                             [31m[1m^[22m[39m
+ [90m 21 |[39m   [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
+ [90m 22 |[39m   [36mconst[39m {
+ [90m 23 |[39m     data[33m:[39m { user }[33m,[39m[0m {
+  route: [32m'/dashboard/settings/kyc'[39m,
+  expression: [32m'`cookies()`'[39m,
+  digest: [32m'HANGING_PROMISE_REJECTION'[39m
+}[22m[2m[22m
 [2mDB health check error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/api/admin/db-health".
     at new Promise (<anonymous>)
-    at R (src/app/api/admin/db-health/route.ts:12:31)
+    at C (src/app/api/admin/db-health/route.ts:12:31)
 [0m [90m 10 |[39m [36mexport[39m [36masync[39m [36mfunction[39m [33mGET[39m() {
  [90m 11 |[39m   [36mtry[39m {
 [31m[1m>[22m[39m[90m 12 |[39m     [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
@@ -600,24 +616,8 @@ Testing Kuda API connection...
   expression: [32m'`cookies()`'[39m,
   digest: [32m'HANGING_PROMISE_REJECTION'[39m
 }[22m[2m[22m
-[2mKYC Page Error: Error: During prerendering, `cookies()` rejects when the prerender is complete. Typically these errors are handled by React but if you move `cookies()` to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route "/dashboard/settings/kyc".
-    at new Promise (<anonymous>)
-    at <unknown> (src/lib/merchant-server.ts:20:29)
-    at f (src/app/dashboard/settings/kyc/page.tsx:7:32)
-    at stringify (<anonymous>)
-[0m [90m 18 |[39m [90m// This means layout.tsx and page.tsx will share the same result[39m
- [90m 19 |[39m [36mexport[39m [36mconst[39m getMerchantForUser [33m=[39m cache([36masync[39m () [33m=>[39m {
-[31m[1m>[22m[39m[90m 20 |[39m   [36mconst[39m cookieStore [33m=[39m [36mawait[39m cookies()[33m;[39m
- [90m    |[39m                             [31m[1m^[22m[39m
- [90m 21 |[39m   [36mconst[39m supabase [33m=[39m createClient(cookieStore)[33m;[39m
- [90m 22 |[39m   [36mconst[39m {
- [90m 23 |[39m     data[33m:[39m { user }[33m,[39m[0m {
-  route: [32m'/dashboard/settings/kyc'[39m,
-  expression: [32m'`cookies()`'[39m,
-  digest: [32m'HANGING_PROMISE_REJECTION'[39m
-}[22m[2m[22m
-[?25h[32m[1m✓[22m[39m Generating static pages using 9 workers (298/298) in 2.2s
-[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 23.5ms    [32m[1m✓[22m[39m Finalizing page optimization in 23.5ms 
+[?25h[32m[1m✓[22m[39m Generating static pages using 9 workers (301/301) in 3.9s
+[?25l[37m[1m [22m[39m Finalizing page optimization  [36m.[39m[2K[1G[?25h[37m[1m [22m[39m Finalizing page optimization in 68.5ms    [32m[1m✓[22m[39m Finalizing page optimization in 68.5ms 
 
 [4mRoute (app)[24m                                                  [4mRevalidate[24m  [4mExpire[24m
 ┌ ◐ /                                                                1h      1y
@@ -754,6 +754,8 @@ Testing Kuda API connection...
 ├ ƒ /api/blog/feed/[merchantSlug]
 ├ ƒ /api/blog/posts
 ├ ƒ /api/blog/preview
+├ ƒ /api/branches
+├ ƒ /api/branches/[id]
 ├ ƒ /api/builder
 ├ ƒ /api/builder/gemini
 ├ ƒ /api/cart/validate
@@ -763,6 +765,7 @@ Testing Kuda API connection...
 ├ ƒ /api/copilotkit
 ├ ƒ /api/cron/cleanup-orders
 ├ ƒ /api/cron/process-settlements
+├ ƒ /api/cron/publish-scheduled-posts
 ├ ƒ /api/cron/wallet-payouts
 ├ ƒ /api/csrf
 ├ ƒ /api/customers
@@ -838,7 +841,7 @@ Testing Kuda API connection...
 ├ ƒ /api/notifications/preferences
 ├ ƒ /api/orders
 ├ ƒ /api/orders/[id]
-├ ƒ /api/orders/[id]/cancelled
+├ ƒ /api/orders/[id]/cancelled
 ├ ƒ /api/orders/[id]/confirm
 ├ ƒ /api/orders/[id]/delivered
 ├ ƒ /api/orders/[id]/invoice
@@ -858,6 +861,9 @@ Testing Kuda API connection...
 ├ ƒ /api/paystack/resolve
 ├ ƒ /api/paystack/subaccount
 ├ ƒ /api/paystack/verify-account
+├ ƒ /api/paystack/virtual-terminal
+├ ƒ /api/paystack/virtual-terminal/[code]
+├ ƒ /api/paystack/virtual-terminal/[code]/destination
 ├ ƒ /api/places/autocomplete
 ├ ƒ /api/places/details
 ├ ƒ /api/platform/analytics-config
@@ -960,7 +966,7 @@ Testing Kuda API connection...
 ├ ◐ /dashboard/pages
 ├ ◐ /dashboard/products
 ├ ◐ /dashboard/reviews
-├ ◐ /dashboard/santa
+├ ◐ /dashboard/santa
 ├ ◐ /dashboard/seo
 ├ ◐ /dashboard/settings
 ├ ◐ /dashboard/settings/faq

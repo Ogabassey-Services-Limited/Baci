@@ -5,7 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import z from 'zod';
 import { shippingService } from '@/lib/shipping';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';

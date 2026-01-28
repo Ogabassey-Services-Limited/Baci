@@ -8,7 +8,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import z from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 const RegisterTokenSchema = z.object({

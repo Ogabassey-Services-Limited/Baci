@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import z from 'zod';
 import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**
@@ -8,16 +8,16 @@ const step1BaseSchema = z.object({
   businessName: z
     .string()
     .trim()
-    .min(2, { error: 'Business name must be at least 2 characters.' }),
+    .min(2, { message: 'Business name must be at least 2 characters.' }),
   businessType: z
     .string()
     .trim()
-    .min(1, { error: 'Please select a business type.' }),
+    .min(1, { message: 'Please select a business type.' }),
   otherBusinessType: z.string().trim().optional(),
   slug: z
     .string()
     .trim()
-    .min(3, { error: 'Store link must be at least 3 characters.' })
+    .min(3, { message: 'Store link must be at least 3 characters.' })
     .optional(),
 });
 
@@ -48,11 +48,11 @@ export const step2Schema = z.object({
   logoUrl: z
     .string()
     .trim()
-    .min(1, { error: 'Logo is required. Please upload or generate one.' }),
+    .min(1, { message: 'Logo is required. Please upload or generate one.' }),
   brandColors: z
     .string()
     .trim()
-    .min(1, { error: 'Brand colors are required.' }),
+    .min(1, { message: 'Brand colors are required.' }),
   brandPreferences: z.string().trim().optional(),
 });
 
@@ -63,7 +63,7 @@ const step3BaseSchema = z.object({
   email: z
     .string()
     .trim()
-    .email({ error: 'Please enter a valid email address.' }),
+    .email({ message: 'Please enter a valid email address.' }),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
   fullName: z.string().trim().optional(),

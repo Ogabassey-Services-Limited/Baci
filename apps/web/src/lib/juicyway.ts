@@ -11,7 +11,7 @@
  * - Web Crypto API for HMAC
  */
 
-import { z } from 'zod';
+import z from 'zod';
 import { logger } from './logger';
 
 // =============================================================================

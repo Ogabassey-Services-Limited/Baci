@@ -1,0 +1,130 @@
+# Lychee configuration file
+# See https://lychee.cli.rs/guides/config/ for all options
+
+
+# Exclude paths from being scanned
+exclude_path = [
+  "apps/web/src/**/*.test.ts",
+  "apps/web/src/**/*.test.tsx",
+  "apps/web/scripts",
+  "apps/web/supabase",
+  "apps/web/mcp-server",
+  "apps/web/node_modules",
+  "apps/web/.next",
+  "apps/web/out",
+  "apps/web/build"
+]
+
+# Exclude specific URLs/patterns
+# Rationale: Prevents failures for local development URLs, placeholders, 
+# dynamic variables, and external APIs with restricted access.
+exclude = [
+  # Merchant & Local URLs
+  "ogabassey",
+  "localhost|127\\.0\\.0\\.1",
+  "github\\.com",
+  
+  # Placeholder & Example Domains
+  "via\\.placeholder\\.com|example\\.com|yourcdn\\.com|yoursite\\.com",
+  
+  # Template & Dynamic Variables
+  "\\$\\{|%7B|%7D",
+  "VIDEO_ID|spreadsheetId|project_ref",
+  
+  # CDNs & Static Assets
+  "base\\.google\\.com/ns",
+  "puckeditor\\.com/demo",
+  "martinfowler\\.com",
+  "supabase\\.co/",
+  "fonts\\.googleapis\\.com/|fonts\\.gstatic\\.com/|www\\.gstatic\\.com/",
+  "generativelanguage\\.googleapis\\.com/",
+  "google-analytics\\.com/mp/collect",
+  
+  # APIs (Restricted/Dynamic)
+  "api\\.pwnedpasswords\\.com",
+  "api\\.supabase\\.com",
+  "firebase\\.google\\.com/docs/genkit",
+  "unsplash\\.com/photo-",
+  "facebook\\.com/sharer",
+  "ogabassey\\.com",
+  "topship-staging\\.africa|api-topship\\.com",
+  "whogohost\\.com",
+  "docs\\.google\\.com",
+  "api\\.korapay\\.com",
+  "store\\.com",
+  "developers\\.facebook\\.com",
+  "baci\\.app",
+  "theagilitysystems\\.com",
+  "graph\\.facebook\\.com",
+  "apiideraos\\.com",
+  "res\\.cloudinary\\.com/",
+  "linkedin\\.com/company",
+  "instagram\\.com",
+  "medium\\.com",
+  "openai\\.com",
+  "npmjs\\.com",
+  "paystack\\.com/docs",
+  "business-api\\.tiktok\\.com",
+  "places\\.googleapis\\.com/v1",
+  "kuda-openapi\\.kuda\\.com",
+  "creditdirect\\.ng",
+  "dashboard\\.\\$\\{rootDomain\\}",
+  "^https://dashboard/",
+  "transparenttextures\\.com",
+  "upload\\.wikimedia\\.org",
+  "ssl-product-images\\.www8-hp\\.com",
+  "adis\\.ws",
+  "api\\.zeptomail\\.com",
+  "store\\.storeimages\\.cdn-apple\\.com",
+  "korapay\\.com",
+  "api\\.mycover\\.ai",
+  "image-us\\.samsung\\.com",
+  "p4-ofp\\.static\\.pub",
+  "i\\.dell\\.com",
+  "spendjuice\\.com|api-sandbox\\.spendjuice\\.com",
+  "api\\.vercel\\.com",
+  "api\\.paystack\\.co",
+  "tronscan\\.org",
+  "snowtrace\\.io",
+  "supabase\\.com/docs",
+  "exp\\.host",
+  "usebaci\\.com",
+  "developer\\.mozilla\\.org",
+  "schema\\.org",
+  "w3\\.org",
+  "https://api\\.credpal\\.com/.*",
+  "https://www\\.googletagservices\\.com/.*",
+  "googlesyndication\\.com",
+  "doubleclick\\.net",
+  "ep2\\.adtrafficquality\\.google",
+  "cdn\\.ampproject\\.org",
+  "tr\\.snapchat\\.com/v2/conversion",
+  "vendor-api(-staging)?\\.jumia\\.com",
+  "vendorcenter\\.jumia\\.com\\.ng",
+  
+  # CodeRabbit Feedback: Anchored New Exclusions
+  "^https?://your-app\\.vercel\\.app",
+  "^https?://(www\\.)?anthropic\\.com",
+  "^https?://(www\\.)?openrouter\\.ai",
+  "^https?://(www\\.)?vercel\\.ai",
+  "^https?://([a-z0-9-]+\\.)?google\\.dev",
+  "^https?://makersuite\\.google\\.com",
+  "^https?://aistudio\\.google\\.com",
+  "^https?://yourstore\\.com",
+  "^https?://\\.\\.\\.",
+  "^https?://([a-z0-9-]+\\.)?nextjs\\.org",
+  "^https?://([a-z0-9-]+\\.)?web\\.dev",
+  "^https?://([a-z0-9-]+\\.)?chrome\\.com",
+  "^https?://([a-z0-9-]+\\.)?medium\\.com",
+  "^https?://([a-z0-9-]+\\.)?stackoverflow\\.com",
+  "^https?://([a-z0-9-]+\\.)?sourcegraph\\.com",
+  "^https?://([a-z0-9-]+\\.)?postgresql\\.org",
+  "^https?://([a-z0-9-]+\\.)?cockroachlabs\\.com",
+  "^https?://([a-z0-9-]+\\.)?react\\.dev",
+  "^https?://([a-z0-9-]+\\.)?zod\\.dev",
+  "^https?://([a-z0-9-]+\\.)?shadcn\\.com",
+  "^https?://([a-z0-9-]+\\.)?tailwindcss\\.com",
+  "^https?://([a-z0-9-]+\\.)?jumia\\.com\\.ng",
+  "^https?://([a-z0-9-]+\\.)?typescriptlang\\.org",
+  "^https?://([a-z0-9-]+\\.)?firebase\\.google\\.com"
+]

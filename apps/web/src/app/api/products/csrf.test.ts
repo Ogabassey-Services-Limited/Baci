@@ -85,6 +85,7 @@ describe('POST /api/products', () => {
     // Create a mock request
     const request = new NextRequest('http://localhost:3000/api/products', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'Test Product',
         price: 100,

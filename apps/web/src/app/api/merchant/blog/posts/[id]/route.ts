@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -18,30 +17,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 
 // Validation schema for updating a blog post
-const updatePostSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  slug: z
-    .string()
-    .min(1)
-    .max(200)
-    .regex(/^[a-z0-9-]+$/)
-    .optional(),
-  content: z.string().min(1).optional(),
-  excerpt: z.string().max(300).optional().nullable(),
-  featured_image_url: z.string().url().optional().nullable(),
-  featured_image_alt: z.string().max(200).optional().nullable(),
-  category: z.string().max(100).optional().nullable(),
-  tags: z.array(z.string()).optional(),
-  keywords: z.array(z.string()).optional(),
-  author_name: z.string().min(1).max(100).optional(),
-  author_title: z.string().max(100).optional().nullable(),
-  author_image_url: z.string().url().optional().nullable(),
-  author_bio: z.string().max(500).optional().nullable(),
-  status: z.enum(['draft', 'published', 'archived']).optional(),
-  seo_title: z.string().max(70).optional().nullable(),
-  seo_description: z.string().max(160).optional().nullable(),
-  focus_keyword: z.string().max(50).optional().nullable(),
-});
+import { blogPostSchema } from '@/lib/validations/blog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -155,7 +131,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Parse and validate body
     const body = await request.json();
-    const validated = updatePostSchema.safeParse(body);
+    const validated = blogPostSchema.safeParse(body);
 
     if (!validated.success) {
       return NextResponse.json(
@@ -192,10 +168,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Set published_at if status is changing to published
+    // Set published_at if status is changing to published and no date provided
     if (
       updateData.status === 'published' &&
-      existingPost.status !== 'published'
+      existingPost.status !== 'published' &&
+      !updateData.published_at
     ) {
       updateData.published_at = new Date().toISOString();
     }

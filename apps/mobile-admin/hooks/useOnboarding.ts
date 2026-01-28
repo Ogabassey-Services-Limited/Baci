@@ -1,62 +1,79 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
+const ONBOARDING_ENDPOINT = '/api/mobile-onboarding';
+
 interface RegisterPayload {
-    email: string;
-    password?: string;
-    confirmPassword?: string;
-    fullName: string;
-    businessName: string;
-    businessType?: string;
-    otherBusinessType?: string;
-    slug?: string;
-    phone?: string;
-    brandColors?: string;
-    logoUrl?: string;
+  email: string;
+  password?: string;
+  confirmPassword?: string;
+  firstName: string;
+  lastName: string;
+  businessName: string;
+  businessType?: string;
+  otherBusinessType?: string;
+  slug?: string;
+  phone?: string;
+  brandColors?: string;
+  logoUrl?: string;
 }
 
 interface CompleteProfilePayload {
-    fullName: string;
-    phone?: string;
-    email: string;
-    businessName: string;
-    businessType: string;
-    otherBusinessType?: string;
-    slug?: string;
-    logoUrl?: string;
-    brandColors?: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  email: string;
+  businessName: string;
+  businessType: string;
+  otherBusinessType?: string;
+  slug?: string;
+  logoUrl?: string;
+  brandColors?: string;
+}
+
+// Response type for onboarding API (registration and profile completion)
+interface OnboardingResponse {
+  success: boolean;
+  message?: string;
+  merchantId?: string;
 }
 
 export function useOnboarding() {
-    const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-    // Register Mutation
-    const registerMutation = useMutation({
-        mutationFn: (data: RegisterPayload) =>
-            apiClient('/api/mobile-onboarding', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-        onSuccess: () => {
-            // Invalidate auth/merchant queries if needed
-        },
-    });
+  // Register Mutation
+  const registerMutation = useMutation({
+    mutationFn: (data: RegisterPayload): Promise<OnboardingResponse> =>
+      apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      // Invalidate auth/merchant queries if needed
+    },
+    onError: (error) => {
+      console.error('Registration failed:', error);
+    },
+  });
 
-    // Complete Profile Mutation
-    const completeProfileMutation = useMutation({
-        mutationFn: (data: CompleteProfilePayload) =>
-            apiClient('/api/mobile-onboarding', {
-                method: 'POST',
-                body: JSON.stringify(data),
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['merchant'] });
-        },
-    });
+  // Complete Profile Mutation
+  const completeProfileMutation = useMutation({
+    mutationFn: (data: CompleteProfilePayload): Promise<OnboardingResponse> =>
+      apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    },
+    onError: (error) => {
+      console.error('Profile completion failed:', error);
+    },
+  });
 
-    return {
-        register: registerMutation,
-        completeProfile: completeProfileMutation,
-        isLoading: registerMutation.isPending || completeProfileMutation.isPending,
-    };
+  return {
+    register: registerMutation,
+    completeProfile: completeProfileMutation,
+    isLoading: registerMutation.isPending || completeProfileMutation.isPending,
+  };
 }

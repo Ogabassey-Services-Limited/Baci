@@ -5,7 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import z from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/server';
 
 const SelfFulfillmentSchema = z.object({
   // Order ID (required)
-  orderId: z.string().refine(isValidUuid, { error: 'Invalid order ID' }),
+  orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
   // Tracking number (optional but recommended)
   trackingNumber: z.string().min(1).optional(),
   // Dispatch phone number (required for self-fulfillment)

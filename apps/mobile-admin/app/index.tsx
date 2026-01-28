@@ -12,7 +12,10 @@ export default function Index() {
   const { merchant, isLoading: merchantLoading } = useMerchant();
 
   // Wait for all necessary checks
-  const isLoading = authLoading || onboardingLoading || (isAuthenticated && merchantLoading && merchant === undefined);
+  const isLoading =
+    authLoading ||
+    onboardingLoading ||
+    (isAuthenticated && merchantLoading && merchant === null);
 
   if (isLoading) {
     return (
@@ -42,9 +45,10 @@ export default function Index() {
   // 3. Authenticated but No Merchant -> Complete Profile
   // We check !merchantLoading to ensure we don't redirect prematurely
   if (!merchant) {
-    console.log('[Index] Authenticated default redirect to Complete Profile (No Merchant)');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return <Redirect href={"/(auth)/complete-profile" as any} />;
+    console.log(
+      '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
+    );
+    return <Redirect href="/(auth)/complete-profile" />;
   }
 
   // 4. Authenticated & Merchant -> Dashboard

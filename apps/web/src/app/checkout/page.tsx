@@ -25,7 +25,7 @@ import {
   type Country as CountryCode,
   isValidPhoneNumber,
 } from 'react-phone-number-input';
-import { z } from 'zod';
+import z from 'zod';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
 import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
@@ -63,24 +63,24 @@ const DEFAULT_SHIPPING_FEE = Number.parseFloat(
 const shippingSchema = z.object({
   firstName: z
     .string()
-    .min(2, { error: 'First name must be at least 2 characters.' }),
+    .min(2, { message: 'First name must be at least 2 characters.' }),
   lastName: z
     .string()
-    .min(2, { error: 'Last name must be at least 2 characters.' }),
-  email: z.string().email({ error: 'Please enter a valid email address.' }),
+    .min(2, { message: 'Last name must be at least 2 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
   phone: z.string().refine(isValidPhoneNumber, {
-    error: 'Please enter a valid phone number.',
+    message: 'Please enter a valid phone number.',
   }),
-  address: z.string().min(5, { error: 'Please enter a valid address.' }),
-  city: z.string().min(2, { error: 'Please enter a city.' }),
-  state: z.string().min(2, { error: 'Please enter a state.' }),
+  address: z.string().min(5, { message: 'Please enter a valid address.' }),
+  city: z.string().min(2, { message: 'Please enter a city.' }),
+  state: z.string().min(2, { message: 'Please enter a state.' }),
 });
 
 type ShippingFormValues = z.infer<typeof shippingSchema>;
 
 // OTP Auth schema for customer authentication
 const otpAuthSchema = z.object({
-  email: z.string().email({ error: 'Please enter a valid email address.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
 });
 
 type OtpAuthFormValues = z.infer<typeof otpAuthSchema>;

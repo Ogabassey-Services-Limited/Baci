@@ -134,3 +134,50 @@ export const getMerchantForUser = cache(async () => {
     return { merchant: null, staffAccess: defaultStaffAccess, user };
   }
 });
+
+/**
+ * Ensure the current user has a specific permission for a resource.
+ * Throws an error if:
+ * - User is not authenticated
+ * - User has no merchant access
+ * - User lacks the required permission
+ *
+ * @param resource - The resource to check (e.g., 'staff', 'products', 'orders')
+ * @param action - The action to check (e.g., 'view', 'edit', 'invite', 'remove')
+ * @returns The merchant and staff access if authorized
+ * @throws Error if not authorized
+ */
+export async function ensurePermission(
+  resource: string,
+  action: string
+): Promise<{ merchant: MerchantData; staffAccess: StaffAccess }> {
+  const { merchant, staffAccess, user } = await getMerchantForUser();
+
+  if (!user) {
+    throw new Error('Authentication required');
+  }
+
+  if (!merchant) {
+    throw new Error('No merchant access');
+  }
+
+  // Owners have full access
+  if (staffAccess.isOwner) {
+    return { merchant, staffAccess };
+  }
+
+  // Check full_access permission
+  if (staffAccess.permissions?.full_access?.all) {
+    return { merchant, staffAccess };
+  }
+
+  // Check specific permission
+  const resourcePermissions = staffAccess.permissions?.[resource];
+  if (!resourcePermissions?.[action] && !resourcePermissions?.all) {
+    throw new Error(
+      `Permission denied: ${action} access to ${resource} is required`
+    );
+  }
+
+  return { merchant, staffAccess };
+}

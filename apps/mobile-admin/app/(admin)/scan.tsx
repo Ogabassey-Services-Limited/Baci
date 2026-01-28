@@ -42,12 +42,18 @@ export default function ScanScreen() {
   }) => {
     setScanned(true);
 
+    if (!merchant?.id) {
+      Alert.alert('Error', 'Merchant not loaded. Please try again.');
+      setScanned(false);
+      return;
+    }
+
     try {
       // Query product by barcode/sku
       const { data: product, error } = await supabase
         .from('products')
         .select('id, name')
-        .eq('merchant_id', merchant?.id)
+        .eq('merchant_id', merchant.id)
         .eq('sku', data)
         .single();
 
@@ -63,7 +69,7 @@ export default function ScanScreen() {
             {
               text: 'Add New Product',
               onPress: () =>
-                router.push(`/product/new?sku=${data}`),
+                router.push(`/product/new?sku=${encodeURIComponent(data)}`),
             },
           ]
         );

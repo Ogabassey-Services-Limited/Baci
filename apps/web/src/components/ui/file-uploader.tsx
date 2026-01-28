@@ -180,9 +180,6 @@ export function FileUploader({
     });
   };
 
-  // For compatibility with existing code that uses previews.length
-  const previews = entries.map((e) => e.src);
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     // Account for all entries when enforcing maxFiles limit
@@ -237,28 +234,36 @@ export function FileUploader({
         </div>
       )}
 
-      {previews.length > 0 && (
+      {entries.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {previews.map((src, index) => (
+          {entries.map((entry, index) => (
             <div
-              key={src}
+              key={`${entry.src}-${index}`}
               className="relative group aspect-square rounded-md overflow-hidden border bg-muted"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <Image
-                src={src}
-                alt={`Preview ${index + 1}`}
+                src={entry.src}
+                alt={
+                  entry.file
+                    ? `Preview of ${entry.file.name}`
+                    : `Preview ${index + 1}`
+                }
                 fill
                 className="object-cover transition-transform group-hover:scale-105"
                 unoptimized
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              {/* 2026 Accessibility: focus-within:opacity-100 ensures keyboard users can see the remove button */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center">
                 <Button
                   type="button"
                   variant="destructive"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Remove image ${index + 1}`}
+                  aria-label={
+                    entry.file
+                      ? `Remove ${entry.file.name}`
+                      : `Remove image ${index + 1}`
+                  }
                   onClick={(e) => {
                     e.stopPropagation();
                     removeFile(index);

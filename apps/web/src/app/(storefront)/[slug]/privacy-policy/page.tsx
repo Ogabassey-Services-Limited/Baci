@@ -1,37 +1,33 @@
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(slug: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const { data: merchant, error } = await supabase
-    .from('merchants')
-    .select('*')
-    .eq('slug', slug)
-    .single();
-
-  if (error || !merchant) {
-    return null;
-  }
-
-  return merchant;
+/**
+ * Normalize domain by stripping protocol and trailing slashes
+ * Defense-in-depth: guards against malformed data in database
+ */
+function normalizeDomain(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  return domain
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+    .trim()
+    .toLowerCase();
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return {
@@ -39,10 +35,10 @@ export async function generateMetadata({
     };
   }
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  // Derive canonical URL from merchant data (no headers() for PPR compatibility)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const normalizedDomain = normalizeDomain(merchant.custom_domain);
+  const host = normalizedDomain || `${slug}.usebaci.com`;
   const canonicalUrl = `${protocol}://${host}/privacy-policy`;
 
   return {
@@ -61,27 +57,32 @@ export async function generateMetadata({
   };
 }
 
-export default async function PrivacyPolicyPage({ params }: PageProps) {
-  const { slug } = await params;
-  const merchant = await getMerchant(slug);
+/**
+ * Privacy Policy page content - wrapped in Suspense for PPR compatibility
+ */
+async function PrivacyPolicyContent({ slug }: { slug: string }) {
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();
   }
 
   // Check if privacy policy content exists OR template has Privacy component
-  const hasPrivacyContent = merchant.pages?.privacy;
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant pages structure
+  const merchantPages = (merchant as any).pages;
+  const hasPrivacyContent = merchantPages?.privacy;
   const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
 
   if (!hasPrivacyContent && !templateHasPrivacyPage) {
     notFound();
   }
 
-  // Generate base URL for JSON-LD (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  // For JSON-LD, use merchant slug-based URL (custom domain handled by middleware)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const normalizedDomain = normalizeDomain(merchant.custom_domain);
+  const baseUrl = normalizedDomain
+    ? `${protocol}://${normalizedDomain}`
+    : `${protocol}://${slug}.usebaci.com`;
 
   // Generate WebPage JSON-LD schema for Privacy Policy
   const privacySchema = {
@@ -102,7 +103,12 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
       ...(merchant.logo_url && { logo: merchant.logo_url }),
     },
     inLanguage: 'en',
-    dateModified: merchant.updated_at || new Date().toISOString(),
+    // Only include dateModified when a real timestamp exists (avoid unstable "now" fallback)
+    ...(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type doesn't include updated_at
+      const m = merchant as any;
+      return m.updated_at ? { dateModified: m.updated_at as string } : {};
+    })(),
   };
 
   return (
@@ -120,11 +126,45 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
         merchant={merchant}
         fallback={
           <PrivacyPageClient
-            merchant={merchant}
-            content={merchant.pages?.privacy}
+            // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type differs from PrivacyPageClient prop type
+            merchant={merchant as any}
+            content={merchantPages?.privacy}
           />
         }
       />
     </>
+  );
+}
+
+/**
+ * Privacy Policy Page - 2026 PPR Pattern
+ * Uses cached merchant data and Suspense boundary for optimal streaming
+ */
+export default async function PrivacyPolicyPage({ params }: PageProps) {
+  const { slug } = await params;
+
+  return (
+    <Suspense fallback={<PrivacyPageSkeleton />}>
+      <PrivacyPolicyContent slug={slug} />
+    </Suspense>
+  );
+}
+
+/**
+ * Loading skeleton for privacy policy page
+ */
+// Static skeleton line IDs for stable React keys
+const SKELETON_LINES = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
+
+function PrivacyPageSkeleton() {
+  return (
+    <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
+      <div className="h-10 w-64 bg-muted rounded mb-8" />
+      <div className="space-y-4">
+        {SKELETON_LINES.map((id) => (
+          <div key={id} className="h-4 bg-muted rounded w-full" />
+        ))}
+      </div>
+    </div>
   );
 }

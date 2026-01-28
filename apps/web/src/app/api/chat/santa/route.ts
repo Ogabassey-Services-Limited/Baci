@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { streamText } from 'ai';
 import { headers } from 'next/headers';
-import { z } from 'zod';
+import z from 'zod';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
 import { AI_RATE_LIMITS, activeTextModel, checkRateLimit } from '@/ai/provider';
 import { getCachedSantaProducts } from '@/ai/santa-data';

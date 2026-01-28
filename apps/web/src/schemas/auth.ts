@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import z from 'zod';
 
 export const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -12,7 +12,7 @@ export const signupSchema = z
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    error: "Passwords don't match",
+    message: "Passwords don't match",
     path: ['confirmPassword'],
   });
 

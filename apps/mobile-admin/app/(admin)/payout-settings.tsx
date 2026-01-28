@@ -102,21 +102,20 @@ export default function PayoutSettingsScreen() {
       return;
     }
 
-
-
-    try {
-      resolveAccount.mutate({
+    resolveAccount.mutate(
+      {
         account_number: accountnumber,
         bank_code: selectedBank.code,
-      }, {
+      },
+      {
         onSuccess: (data) => {
           setVerifiedName(data.account_name);
           setVerifyError(null);
         },
         onError: (error) => {
           console.error('Resolution error:', error);
-          // Fallback for test account
-          if (accountnumber === '0000000000') {
+          // Fallback for test account - Restricted to DEV
+          if (__DEV__ && accountnumber === '0000000000') {
             setVerifiedName('Test Account');
             setVerifyError(null);
             return;
@@ -126,16 +125,12 @@ export default function PayoutSettingsScreen() {
             (error as Error).message || 'Network error checking account'
           );
           setVerifiedName(null);
-        }
-      });
-    } catch (_error) {
-      // Should be handled in onError, but keeping try/catch block structure for safety if needed
-      // Actually, react-query mutation is async but verifyAccount logic was try/catch.
-      // The mutation call itself is synchronous unless we await mutateAsync.
-      // Let's rely on onError callback.
-    } finally {
-      setIsVerifying(false);
-    }
+        },
+        onSettled: () => {
+          setIsVerifying(false);
+        },
+      }
+    );
   }, [accountnumber, selectedBank, resolveAccount, session]);
 
   useEffect(() => {
@@ -161,8 +156,6 @@ export default function PayoutSettingsScreen() {
     }
   }, [merchant, banks]);
 
-
-
   // Filter banks
   const filteredBanks =
     banks?.filter((bank) =>
@@ -186,18 +179,23 @@ export default function PayoutSettingsScreen() {
       Alert.alert('Error', 'Please wait for account verification');
       return;
     }
-    savePayoutSettings.mutate({
-      bankCode: selectedBank.code,
-      accountNumber: accountnumber,
-      businessName: merchant?.business_name || 'My Store',
-    }, {
-      onSuccess: () => {
-        // Invalidations handled in hook
+    savePayoutSettings.mutate(
+      {
+        bankCode: selectedBank.code,
+        accountNumber: accountnumber,
+        businessName: merchant?.business_name || 'My Store',
       },
-      onError: (error) => {
-        Alert.alert('Error', error.message || 'Failed to update details');
+      {
+        onSuccess: () => {
+          Alert.alert('Success', 'Payout settings saved successfully', [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+        },
+        onError: (error) => {
+          Alert.alert('Error', error.message || 'Failed to update details');
+        },
       }
-    });
+    );
   };
 
   if (isLoadingMerchant) {
@@ -279,6 +277,9 @@ export default function PayoutSettingsScreen() {
                   },
                 ]}
                 onPress={() => setShowBankModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Select bank"
+                accessibilityHint="Opens a modal to search and select your bank"
               >
                 <Text
                   style={{
@@ -409,6 +410,8 @@ export default function PayoutSettingsScreen() {
               <Pressable
                 onPress={() => setShowBankModal(false)}
                 style={styles.closeButton}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>

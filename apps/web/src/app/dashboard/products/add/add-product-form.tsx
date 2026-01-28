@@ -6,7 +6,7 @@ import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
+import z from 'zod';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';

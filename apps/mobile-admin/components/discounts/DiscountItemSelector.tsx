@@ -68,21 +68,8 @@ export function DiscountItemSelector({
           .limit(50);
       }
 
-      console.log(
-        '[DiscountItemSelector] Fetching items for merchant:',
-        merchant?.id,
-        'Type:',
-        type,
-        'Search:',
-        search
-      );
       const { data, error } = await query;
-      console.log(
-        '[DiscountItemSelector] Data:',
-        data?.length,
-        'Error:',
-        error
-      );
+
       if (error) throw error;
       setItems(
         (data as Item[])?.map((item: Item) => ({
@@ -128,19 +115,21 @@ export function DiscountItemSelector({
 
   const stripHtml = (html: string) => {
     if (!html) return '';
-    return html
-      // 1. Replace known tags with space to preserve word separation
-      .replace(/<[^>]+>/g, ' ')
-      // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
-      // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
-      .replace(/[<>]/g, '')
-      // 3. Decode harmless entities (excluding < and >)
-      // IMPORTANT: Decode &amp; LAST to prevent double-unescaping patterns
-      // like &amp;quot; → &quot; → " (which would be a security issue)
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&amp;/g, '&');
+    return (
+      html
+        // 1. Replace known tags with space to preserve word separation
+        .replace(/<[^>]+>/g, ' ')
+        // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
+        // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
+        .replace(/[<>]/g, '')
+        // 3. Decode harmless entities (excluding < and >)
+        // IMPORTANT: Decode &amp; LAST to prevent double-unescaping patterns
+        // like &amp;quot; → &quot; → " (which would be a security issue)
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+    );
   };
 
   return (
@@ -154,13 +143,25 @@ export function DiscountItemSelector({
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.header}>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
+          <Pressable
+            onPress={onClose}
+            style={styles.closeBtn}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
           <Text style={[styles.title, { color: colors.text }]}>
             Select {type === 'product' ? 'Products' : 'Categories'}
           </Text>
-          <Pressable onPress={handleSave} style={styles.saveBtn}>
+          <Pressable
+            onPress={handleSave}
+            style={styles.saveBtn}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
+          >
             <Text style={[styles.saveText, { color: colors.primary }]}>
               Done
             </Text>
@@ -204,6 +205,10 @@ export function DiscountItemSelector({
                 <Pressable
                   style={[styles.itemRow, { borderBottomColor: colors.border }]}
                   onPress={() => toggleSelection(item.id)}
+                  accessible={true}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${item.name}`}
+                  accessibilityState={{ checked: isSelected }}
                 >
                   {item.images && item.images.length > 0 && (
                     <Image

@@ -173,31 +173,14 @@ export async function generateMetadata({
 }
 
 /**
- * Modern Next.js 15+ Viewport Configuration
- * 2026 Best Practice: Separate viewport configuration for optimized browser rendering
+ * Next.js 16+ Viewport Configuration
+ * 2026 Best Practice: Static viewport for PPR compatibility
+ * Dynamic theme colors are applied via meta tag in the layout component
  */
-export async function generateViewport({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Viewport> {
-  const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
-
-  if (!merchant) return {};
-
-  // biome-ignore lint/suspicious/noExplicitAny: Theme color logic
-  const merchantWithConfig = merchant as any;
-  if (merchantWithConfig.theme_color) {
-    return { themeColor: merchantWithConfig.theme_color };
-  }
-
-  const isDarkTemplate =
-    merchant.template_id === 'ogabassey' ||
-    merchant.template_id === 'classic-elegant';
-
+export function generateViewport(): Viewport {
   return {
-    themeColor: isDarkTemplate ? '#0F0F0F' : '#ffffff',
+    width: 'device-width',
+    initialScale: 1,
   };
 }
 

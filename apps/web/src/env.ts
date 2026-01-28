@@ -1,5 +1,5 @@
 // src/env.ts
-import { z } from 'zod';
+import z from 'zod';
 
 /**
  * A type-safe and validated way to access environment variables.
