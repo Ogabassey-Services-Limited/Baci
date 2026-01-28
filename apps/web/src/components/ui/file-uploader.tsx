@@ -288,9 +288,9 @@ export function FileUploader({
           ))}
         </div>
       )}
-      <div className="sr-only" role="status" aria-live="polite">
+      <output className="sr-only" aria-live="polite">
         {announcement}
-      </div>
+      </output>
     </div>
   );
 }
