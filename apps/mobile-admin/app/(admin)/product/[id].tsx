@@ -244,28 +244,28 @@ export default function ProductEditScreen() {
         color: product.color || '',
         variant_attributes: product.variant_attributes
           ? Object.entries(
-            product.variant_attributes as Record<string, unknown>
-          ).map(([key, value]) => ({
-            key,
-            value: String(value),
-          }))
+              product.variant_attributes as Record<string, unknown>
+            ).map(([key, value]) => ({
+              key,
+              value: String(value),
+            }))
           : [],
         fulfillment_details:
           product.fulfillment_details &&
-            typeof product.fulfillment_details === 'object' &&
-            'items' in product.fulfillment_details
+          typeof product.fulfillment_details === 'object' &&
+          'items' in product.fulfillment_details
             ? (product.fulfillment_details as {
-              items: Array<{ imei: string; serial_number: string }>;
-            })
+                items: Array<{ imei: string; serial_number: string }>;
+              })
             : {
-              items: Array.from(
-                { length: product.stock_quantity || 0 },
-                () => ({
-                  imei: '',
-                  serial_number: '',
-                })
-              ),
-            },
+                items: Array.from(
+                  { length: product.stock_quantity || 0 },
+                  () => ({
+                    imei: '',
+                    serial_number: '',
+                  })
+                ),
+              },
         images: (product.images as string[]) || [],
         manage_stock: product.manage_stock ?? true,
         status: (product.status as 'active' | 'draft' | 'archived') || 'active',
@@ -524,12 +524,12 @@ export default function ProductEditScreen() {
             >
               {(updateProductMutation.isPending ||
                 createProductMutation.isPending) && (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                    style={{ marginRight: 8 }}
-                  />
-                )}
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={{ marginRight: 8 }}
+                />
+              )}
               <Text
                 style={{
                   color: colors.primary,
@@ -1211,8 +1211,8 @@ export default function ProductEditScreen() {
                           formData.stock_quantity === 0
                             ? ''
                             : new Intl.NumberFormat().format(
-                              formData.stock_quantity
-                            )
+                                formData.stock_quantity
+                              )
                         }
                         onChangeText={(text) => {
                           const num = Number.parseInt(

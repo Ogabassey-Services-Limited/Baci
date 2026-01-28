@@ -46,7 +46,10 @@ export default function Paywall({ onClose }: PaywallProps) {
       }
     } catch (err) {
       console.error('Purchase failed:', err);
-      Alert.alert('Error', 'Purchase could not be completed. Please try again.');
+      Alert.alert(
+        'Error',
+        'Purchase could not be completed. Please try again.'
+      );
     }
   };
 
@@ -88,7 +91,7 @@ export default function Paywall({ onClose }: PaywallProps) {
     // Direct users to platform subscription management
     Alert.alert(
       'Manage Subscription',
-      'To manage your subscription, please visit your device\'s subscription settings.',
+      "To manage your subscription, please visit your device's subscription settings.",
       [
         { text: 'Cancel', style: 'cancel' },
         {

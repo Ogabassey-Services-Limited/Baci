@@ -337,7 +337,16 @@ export default function ProfileScreen() {
               ]}
               onPress={() => router.push('/(admin)/subscribe')}
             >
-              <View style={[styles.subscriptionIconContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}>
+              <View
+                style={[
+                  styles.subscriptionIconContainer,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.05)'
+                      : 'rgba(0,0,0,0.03)',
+                  },
+                ]}
+              >
                 <Ionicons
                   name="star"
                   size={24}
@@ -370,14 +379,19 @@ export default function ProfileScreen() {
                   try {
                     await SubscriptionManagement.openNativeManagement();
                   } catch {
-                    Alert.alert('Error', 'Unable to open subscription management');
+                    Alert.alert(
+                      'Error',
+                      'Unable to open subscription management'
+                    );
                   }
                 }}
               >
                 <Text
                   style={[styles.manageButtonText, { color: colors.primary }]}
                 >
-                  {Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play'}
+                  {Platform.OS === 'ios'
+                    ? 'Manage in App Store'
+                    : 'Manage in Google Play'}
                 </Text>
                 <Ionicons
                   name="open-outline"

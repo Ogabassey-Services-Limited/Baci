@@ -169,7 +169,9 @@ export default function SalesChannelsScreen() {
                   <Text
                     style={[
                       styles.badgeText,
-                      { color: isConnected ? colors.success : colors.textMuted },
+                      {
+                        color: isConnected ? colors.success : colors.textMuted,
+                      },
                     ]}
                   >
                     {isConnected ? 'Active' : 'Inactive'}
@@ -196,7 +198,9 @@ export default function SalesChannelsScreen() {
               ]}
             >
               {loading || isConnected === null ? (
-                <ActivityIndicator color={isConnected === null ? colors.textMuted : '#FFF'} />
+                <ActivityIndicator
+                  color={isConnected === null ? colors.textMuted : '#FFF'}
+                />
               ) : (
                 <Text
                   style={[

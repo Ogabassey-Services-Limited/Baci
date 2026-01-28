@@ -5,6 +5,7 @@ import { FileUploader } from '@/components/ui/file-uploader';
 // Mock next/image
 vi.mock('next/image', () => ({
   default: ({ src, alt, ...props }: { src: string; alt: string }) => {
+    // biome-ignore lint/performance/noImgElement: Using native img in test mock is intentional
     return <img src={src} alt={alt} {...props} />;
   },
 }));
@@ -132,6 +133,7 @@ describe('FileUploader', () => {
 
     // Simulate drop with oversized file using react-dropzone's onDrop callback
     // Note: react-dropzone handles validation internally, so we simulate the rejection
+    // biome-ignore lint/style/noNonNullAssertion: Test assertion - input element is guaranteed to exist
     fireEvent.drop(input!, {
       dataTransfer: {
         files: [oversizedFile],

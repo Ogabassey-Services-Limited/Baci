@@ -284,7 +284,12 @@ export default function StaffAccountsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Retry loading data"
           >
-            <Text style={{ color: '#FFF', fontFamily: TYPOGRAPHY.fontFamily.semiBold }}>
+            <Text
+              style={{
+                color: '#FFF',
+                fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+              }}
+            >
               Retry
             </Text>
           </Pressable>
@@ -725,7 +730,9 @@ export default function StaffAccountsScreen() {
                   <Text
                     style={[
                       styles.pickerText,
-                      { color: !selectedBranchId ? colors.primary : colors.text },
+                      {
+                        color: !selectedBranchId ? colors.primary : colors.text,
+                      },
                     ]}
                   >
                     No Branch
@@ -803,7 +810,9 @@ export default function StaffAccountsScreen() {
                   <Text
                     style={[
                       styles.pickerText,
-                      { color: !selectedStaffId ? colors.primary : colors.text },
+                      {
+                        color: !selectedStaffId ? colors.primary : colors.text,
+                      },
                     ]}
                   >
                     No Staff

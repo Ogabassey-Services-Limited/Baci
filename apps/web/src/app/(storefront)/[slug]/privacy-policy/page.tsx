@@ -104,10 +104,11 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
     },
     inLanguage: 'en',
     // Only include dateModified when a real timestamp exists (avoid unstable "now" fallback)
-    // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant may not have updated_at
-    ...((merchant as any).updated_at
-      ? { dateModified: (merchant as any).updated_at as string }
-      : {}),
+    ...(() => {
+      // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type doesn't include updated_at
+      const m = merchant as any;
+      return m.updated_at ? { dateModified: m.updated_at as string } : {};
+    })(),
   };
 
   return (
@@ -152,17 +153,16 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
 /**
  * Loading skeleton for privacy policy page
  */
+// Static skeleton line IDs for stable React keys
+const SKELETON_LINES = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
+
 function PrivacyPageSkeleton() {
   return (
     <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
       <div className="h-10 w-64 bg-muted rounded mb-8" />
       <div className="space-y-4">
-        {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={`privacy-skeleton-${i}`}
-            className="h-4 bg-muted rounded w-full"
-          />
+        {SKELETON_LINES.map((id) => (
+          <div key={id} className="h-4 bg-muted rounded w-full" />
         ))}
       </div>
     </div>

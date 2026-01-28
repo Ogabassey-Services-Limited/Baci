@@ -1,39 +1,20 @@
 import z from 'zod';
 import { sanitizeHtml } from '@/lib/sanitize';
 
-// Helpers to validate without using z.url()/z.datetime() which have Turbopack compatibility issues
-const isValidUrl = (val: string) => {
-  try {
-    new URL(val);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const isValidDatetime = (val: string) => {
-  const date = new Date(val);
-  return !isNaN(date.getTime());
-};
-
 export const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   slug: z
     .string()
     .min(1, 'Slug cannot be empty')
     .max(200, 'Slug is too long')
-    .refine((val) => /^[a-z0-9-]+$/.test(val), {
-      message: 'Slug must contain only lowercase letters, numbers, and hyphens',
-    })
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Slug must contain only lowercase letters, numbers, and hyphens'
+    )
     .optional(),
   content: z.string().min(1, 'Content cannot be empty').optional(),
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
-  featured_image_url: z
-    .string()
-    .refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' })
-    .optional()
-    .nullable()
-    .or(z.literal('')),
+  featured_image_url: z.string().url().optional().nullable().or(z.literal('')),
   featured_image_alt: z.string().max(200).optional().nullable(),
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
@@ -44,15 +25,10 @@ export const blogPostSchema = z.object({
     .max(100)
     .optional(),
   author_title: z.string().max(100).optional().nullable(),
-  author_image_url: z
-    .string()
-    .refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' })
-    .optional()
-    .nullable()
-    .or(z.literal('')),
+  author_image_url: z.string().url().optional().nullable().or(z.literal('')),
   author_bio: z.string().max(500).optional().nullable(),
   status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
-  published_at: z.string().refine((val) => !val || isValidDatetime(val), { message: 'Must be a valid datetime' }).nullable().optional(),
+  published_at: z.string().datetime().nullable().optional(),
   seo_title: z
     .string()
     .max(70, 'SEO title must be 70 characters or less')
@@ -83,14 +59,14 @@ export const createPostSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
+  featured_image_url: z.string().url().optional().nullable(),
   featured_image_alt: z.string().max(200).optional(),
   category: z.string().max(100).optional(),
   tags: z.array(z.string()).optional(),
   keywords: z.array(z.string()).optional(),
   author_name: z.string().min(1, 'Author name is required').max(100),
   author_title: z.string().max(100).optional(),
-  author_image_url: z.string().refine((val) => !val || isValidUrl(val), { message: 'Must be a valid URL' }).optional().nullable(),
+  author_image_url: z.string().url().optional().nullable(),
   author_bio: z.string().max(500).optional(),
   status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
   seo_title: z.string().max(70).optional(),
