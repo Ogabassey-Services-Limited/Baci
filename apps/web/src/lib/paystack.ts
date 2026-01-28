@@ -10,7 +10,7 @@
  * - Input validation with SSRF prevention
  */
 
-import z from 'zod';
+import { z } from 'zod';
 import { logger } from './logger';
 
 // =============================================================================

@@ -192,21 +192,14 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   // Use Action State for better form handling
   const [state, formAction, isBasePending] = useActionState<
     { success: boolean; message?: string; error?: string } | null,
-    FormData
+    InviteStaffData
   >(
     async (
       _prevState: { success: boolean; message?: string; error?: string } | null,
-      formData: FormData
+      data: InviteStaffData
     ) => {
-      const data = {
-        email: formData.get('email') as string,
-        name: formData.get('name') as string,
-        role: formData.get('role') as StaffRole,
-        autoCreateAccount: formData.get('autoCreateAccount') === 'on',
-      };
-
       try {
-        const result = await inviteStaffMember(data as InviteStaffData);
+        const result = await inviteStaffMember(data);
         return { success: true, message: result.message };
       } catch (error) {
         return {
@@ -217,6 +210,12 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
     },
     null
   );
+
+  const onSubmit = (data: InviteStaffData) => {
+    startTransition(() => {
+      formAction(data);
+    });
+  };
 
   useEffect(() => {
     if (state?.success) {
@@ -413,7 +412,10 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                  <form action={formAction} className="grid gap-4 py-4">
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="grid gap-4 py-4"
+                  >
                     <FormField<z.infer<typeof InviteStaffSchema>>
                       control={form.control}
                       name="email"

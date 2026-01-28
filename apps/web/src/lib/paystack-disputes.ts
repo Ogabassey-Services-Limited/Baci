@@ -3,10 +3,10 @@
  * Programmatic handling of chargebacks and evidence submission
  */
 
-import z from 'zod';
+import { z } from 'zod';
+import { getPaystackSecretKey } from '@/env';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 
 // =============================================================================
 // Schemas
@@ -45,12 +45,17 @@ export type Dispute = z.infer<typeof DisputeSchema>;
 // =============================================================================
 
 async function paystackRequest<T>(endpoint: string, options: RequestInit = {}) {
+  const secretKey = getPaystackSecretKey();
+  if (!secretKey) {
+    throw new Error('PAYSTACK_SECRET_KEY is not configured');
+  }
+
   const url = `${PAYSTACK_BASE_URL}${endpoint}`;
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+      Authorization: `Bearer ${secretKey}`,
       ...options.headers,
     },
   });

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import { JumiaClient, JumiaCreateProductSchema } from '@/lib/jumia/client';
 import { createAdminClient } from '@/lib/supabase/admin';
 

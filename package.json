@@ -21,9 +21,9 @@
     "@biomejs/biome": "^2.3.8",
     "knip": "^5.73.4",
     "lefthook": "^2.0.12",
-    "next": "^16.1.1",
+    "next": "^16.1.5",
     "patch-package": "^8.0.0",
-    "turbo": "^2.3.4",
+    "turbo": "^2.7.6",
     "typescript": "^5.5.4"
   },
   "pnpm": {
@@ -36,7 +36,6 @@
       "@modelcontextprotocol/sdk": "^1.25.2",
       "react-native-worklets": "0.8.0-nightly-20260109-6efa4b2a4",
       "hono": "^4.11.4",
-      "zod": "4.4.0-canary.20251231T230035",
       "h3": "^1.15.5",
       "tar": "^7.5.3",
       "diff": "^8.0.3",

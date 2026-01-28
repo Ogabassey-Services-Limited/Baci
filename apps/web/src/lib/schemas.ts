@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 
 /**
  * Zod Schema for normalizing merchant feature settings (2026 Core Pillar)

@@ -179,13 +179,14 @@ export const MerchantProvider = ({
     routingMode === 'domain' ? '' : `/${merchant?.slug || slug || ''}`;
 
   const supabase = useMemo(() => createClient(), []);
-  // Initialize ref with prop value to avoid race condition
-  const hasHydrated = useRef(!!initialMerchant);
+  // Initialize ref as false to capture the FIRST loadData call
+  const hasHydrated = useRef(false);
 
   const loadData = useCallback(async () => {
     // If we provided initial data, skip the first automatic fetch
     if (!hasHydrated.current && initialMerchant && !slug) {
       hasHydrated.current = true;
+      // Already set loading to false in useState initializer
       return;
     }
 

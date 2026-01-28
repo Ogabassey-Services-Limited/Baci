@@ -2,7 +2,7 @@
 // These functions are safe to use in Server Components without triggering jsdom loading
 // For HTML sanitization that requires DOMPurify, use sanitize.ts instead
 
-import z from 'zod';
+import { z } from 'zod';
 
 /**
  * Strips HTML tags from a string by iteratively applying the regex until no more matches.

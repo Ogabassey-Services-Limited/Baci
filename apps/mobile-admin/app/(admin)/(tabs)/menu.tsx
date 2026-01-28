@@ -20,7 +20,9 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 interface MenuItem {
   id: string;
@@ -43,6 +45,7 @@ export default function MenuScreen() {
   const { signOut } = useAuth();
   const { merchant, storeUrl, isLive } = useMerchant();
   const { resetOnboarding } = useOnboarding();
+  const { isPro } = useRevenueCat();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -333,6 +336,53 @@ export default function MenuScreen() {
           )}
         </Pressable>
 
+        {/* Subscription Plan Card */}
+        <Pressable
+          style={[
+            styles.subscriptionCard,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+          onPress={() => router.push('/(admin)/subscribe')}
+        >
+          <View
+            style={[
+              styles.subscriptionIconContainer,
+              {
+                backgroundColor: isPro
+                  ? `${colors.primary}20`
+                  : colors.cardHover,
+              },
+            ]}
+          >
+            <Ionicons
+              name={isPro ? 'star' : 'star-outline'}
+              size={24}
+              color={isPro ? colors.primary : colors.textSecondary}
+            />
+          </View>
+          <View style={styles.subscriptionInfo}>
+            <Text style={[styles.subscriptionTitle, { color: colors.text }]}>
+              {SubscriptionManagement.getPlanLabel(isPro)}
+            </Text>
+            <Text
+              style={[
+                styles.subscriptionSubtitle,
+                { color: isPro ? colors.primary : colors.textSecondary },
+              ]}
+            >
+              {isPro
+                ? 'Manage your subscription'
+                : 'Upgrade to unlock all features'}
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+
         {/* Menu Sections */}
         {menuSections.map((section) => (
           <View key={section.title} style={styles.section}>
@@ -533,5 +583,32 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: SPACING.lg,
     marginBottom: SPACING['3xl'],
+  },
+  subscriptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.xl,
+  },
+  subscriptionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  subscriptionInfo: {
+    flex: 1,
+  },
+  subscriptionTitle: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: 2,
+  },
+  subscriptionSubtitle: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 });

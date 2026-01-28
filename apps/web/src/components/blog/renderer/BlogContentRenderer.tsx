@@ -21,11 +21,9 @@ const TEXT_ALIGN_CLASSES: Record<string, string> = {
 
 interface TipTapNode {
   type: string;
-  // biome-ignore lint/suspicious/noExplicitAny: TipTap library
-  attrs?: Record<string, any>;
+  attrs?: Record<string, unknown>;
   content?: TipTapNode[];
-  // biome-ignore lint/suspicious/noExplicitAny: TipTap library
-  marks?: Array<{ type: string; attrs?: Record<string, any> }>;
+  marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
   text?: string;
 }
 
@@ -67,7 +65,7 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
           break;
         case 'link': {
           // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
-          const rawHref = mark.attrs?.href ?? '';
+          const rawHref = String(mark.attrs?.href ?? '');
           const isRelative =
             rawHref.startsWith('/') && !rawHref.startsWith('//');
           const isAnchor = rawHref.startsWith('#');
@@ -83,7 +81,9 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
             <a
               key={mark.type}
               href={safeHref}
-              target={isExternal ? mark.attrs?.target || '_blank' : undefined}
+              target={
+                isExternal ? String(mark.attrs?.target) || '_blank' : undefined
+              }
               rel={isExternal ? 'noopener noreferrer' : undefined}
               className="text-primary underline underline-offset-4 decoration-primary/30 hover:text-primary/80"
             >
@@ -98,7 +98,10 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'textStyle':
           if (mark.attrs?.color) {
             content = (
-              <span key={mark.type} style={{ color: mark.attrs.color }}>
+              <span
+                key={mark.type}
+                style={{ color: mark.attrs.color as string }}
+              >
                 {content}
               </span>
             );
@@ -120,9 +123,8 @@ const NodeRenderer = ({
   ));
 
   // Use explicit mapping for Tailwind tree-shaking (avoids dynamic class generation)
-  const textAlignClass = node.attrs?.textAlign
-    ? TEXT_ALIGN_CLASSES[node.attrs.textAlign] || ''
-    : '';
+  const textAlign = String(node.attrs?.textAlign ?? '');
+  const textAlignClass = textAlign ? TEXT_ALIGN_CLASSES[textAlign] || '' : '';
 
   switch (node.type) {
     case 'doc':
@@ -167,11 +169,14 @@ const NodeRenderer = ({
 
     case 'image': {
       // Guard against missing src to prevent runtime errors
-      const rawSrc = node.attrs?.src;
+      const rawSrc = String(node.attrs?.src ?? '');
       const imageSrc = rawSrc ? sanitizeUrl(rawSrc) : '';
 
-      // Only allow http/https protocols for blog images in 2026 for security and CDN stability
-      if (!imageSrc || !imageSrc.startsWith('http')) {
+      // 2026 Security Best Practice: Sanitize URLs and allow safe relative/CDN paths
+      const isRelative = rawSrc.startsWith('/') && !rawSrc.startsWith('//');
+      const isHttp = rawSrc.startsWith('http');
+
+      if (!imageSrc || (!isHttp && !isRelative)) {
         console.warn('Blog image node missing or invalid src attribute');
         return null;
       }
@@ -180,7 +185,7 @@ const NodeRenderer = ({
         <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image
             src={imageSrc}
-            alt={node.attrs?.alt || 'Blog image'}
+            alt={String(node.attrs?.alt ?? 'Blog image')}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 800px"
@@ -221,7 +226,7 @@ const NodeRenderer = ({
 
     case 'codeBlock':
       return (
-        <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
+        <pre className="bg-primary/95 text-primary-foreground p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
           <code>{children}</code>
         </pre>
       );
@@ -241,8 +246,7 @@ const NodeRenderer = ({
   }
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
-export const BlogContentRenderer = ({ json }: { json: any }) => {
+export const BlogContentRenderer = ({ json }: { json: unknown }) => {
   if (!json) return null;
 
   try {

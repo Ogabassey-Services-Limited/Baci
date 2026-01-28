@@ -47,7 +47,9 @@ export async function apiClient<T = unknown>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
 
-  console.log(`[API] ${config.method} ${url}`);
+  if (__DEV__) {
+    console.log(`[API] ${config.method} ${url}`);
+  }
 
   try {
     const response = await fetch(url, config);
@@ -78,7 +80,9 @@ export async function apiClient<T = unknown>(
     return data as T;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[API Error] ${url}:`, message);
+    if (__DEV__) {
+      console.error(`[API Error] ${url}:`, message);
+    }
     throw error;
   }
 }

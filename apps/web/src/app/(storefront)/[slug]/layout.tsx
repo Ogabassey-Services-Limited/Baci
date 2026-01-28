@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
@@ -9,38 +8,37 @@ import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
+import { getCachedNavigationCategories } from '@/lib/cached-categories';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import {
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
+
+/**
+ * Static shell for storefront - renders immediately while dynamic content loads
+ * 2026 Best Practice: Static shell outside Suspense for PPR (Partial Pre-Rendering)
+ */
+function StorefrontShell({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
- * Currently supports 'ogabassey' template with persistent layout.
+ * Now uses client-side theme detection to avoid cookies() in server component.
  */
-async function StorefrontLayoutRenderer({
+function StorefrontLayoutRenderer({
   merchant,
   children,
-  hideNavigation,
 }: {
   merchant: MerchantData;
-  slug: string; // identifier used
+  slug: string;
   children: React.ReactNode;
-  hideNavigation: boolean;
 }) {
-  // Read theme cookie server-side for SSR consistency
-  // CRITICAL: Always provide a theme value to avoid hydration mismatch
-  const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme-v2')?.value;
-
+  // Theme detection moved to client-side in OgabasseyLayout for PPR compatibility
   // Dynamic default based on date to match client-side logic in v2-theme-context.tsx
   const isDecember = new Date().getMonth() === 11;
   const defaultTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
-
-  const initialTheme: V2ThemeMode =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? (themeCookie as V2ThemeMode)
-      : defaultTheme;
 
   const templateId = merchant.template_id;
 
@@ -48,8 +46,9 @@ async function StorefrontLayoutRenderer({
     return (
       <OgabasseyLayout
         merchant={merchant}
-        initialTheme={initialTheme}
-        hideNavigation={hideNavigation}
+        initialTheme={defaultTheme}
+        // Navigation hiding now handled client-side via usePathname()
+        hideNavigation={false}
       >
         {children}
       </OgabasseyLayout>
@@ -58,27 +57,6 @@ async function StorefrontLayoutRenderer({
 
   // Default / other templates: No global layout wrapper (layout handled per page)
   return <>{children}</>;
-}
-
-// Valid slug/domain patterns and reserved paths are now imported from @/lib/validation
-
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
-import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
-
-/**
- * Shared helper to resolve merchant by identifier (slug or custom domain)
- * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior
- */
-async function getMerchantByIdentifier(identifier: string) {
-  if (!isValidMerchantIdentifier(identifier)) return null;
-
-  if (isDomainIdentifier(identifier)) {
-    return await getCachedMerchantByDomain(identifier.toLowerCase());
-  }
-  return await getCachedMerchant(identifier.toLowerCase());
 }
 
 export async function generateMetadata({
@@ -101,7 +79,6 @@ export async function generateMetadata({
   }
 
   // Extract verification code from feature settings or published config
-  // Prioritize feature_settings, check published_config fallback
   // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant config structure
   const merchantConfig = merchant as any;
   const featureSettings = merchantConfig.feature_settings as
@@ -118,13 +95,10 @@ export async function generateMetadata({
     typeof rawVerification === 'string' ? rawVerification : undefined;
 
   // Build icons configuration for merchant favicon
-  // Fall back to logo_url if no dedicated favicon exists
   const faviconSvg = merchant.favicon_svg_url;
   const faviconPng32 = merchant.favicon_png_32_url;
   const faviconAppleTouch = merchant.favicon_apple_touch_url;
 
-  // Build icons array only if merchant has custom favicons
-  // Build icons array only if merchant has custom favicons
   const icons =
     faviconSvg || faviconPng32 || faviconAppleTouch
       ? {
@@ -145,7 +119,6 @@ export async function generateMetadata({
           }
         : undefined;
 
-  // Build SEO-friendly description with proper fallbacks
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
@@ -167,40 +140,26 @@ export async function generateMetadata({
       description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
-    // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
   };
 }
 
 /**
- * Modern Next.js 15+ Viewport Configuration
- * 2026 Best Practice: Separate viewport configuration for optimized browser rendering
+ * Viewport Configuration
+ * 2026 Best Practice: Static viewport to avoid blocking page prerendering.
+ * Dynamic theme color is handled client-side via meta tag updates if needed.
  */
-export async function generateViewport({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Viewport> {
-  const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0F0F0F' },
+  ],
+};
 
-  if (!merchant) return {};
-
-  // biome-ignore lint/suspicious/noExplicitAny: Theme color logic
-  const merchantWithConfig = merchant as any;
-  if (merchantWithConfig.theme_color) {
-    return { themeColor: merchantWithConfig.theme_color };
-  }
-
-  const isDarkTemplate =
-    merchant.template_id === 'ogabassey' ||
-    merchant.template_id === 'classic-elegant';
-
-  return {
-    themeColor: isDarkTemplate ? '#0F0F0F' : '#ffffff',
-  };
-}
-
+/**
+ * Storefront Layout - 2026 PPR Pattern
+ * Uses cached merchant data, defers dynamic operations to client-side
+ */
 export default async function StorefrontLayout({
   children,
   params,
@@ -215,7 +174,7 @@ export default async function StorefrontLayout({
     notFound();
   }
 
-  // Use appropriate lookup method based on identifier type
+  // Use cached merchant lookup
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
@@ -223,62 +182,39 @@ export default async function StorefrontLayout({
   }
 
   // Check if store is published - show "coming soon" page if not
-  // In development, allow viewing unpublished stores for testing
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!merchant.is_published && !isDevelopment) {
     return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
-  // Use the merchant's actual slug for internal routing, not the domain
   const merchantSlug = merchant.slug;
 
-  // Determine routing mode and checkout state based on headers (set by middleware)
-  const headersList = await headers();
-  const hasSubdomain = headersList.has('x-merchant-slug');
-  const hasCustomDomain = headersList.has('x-custom-domain');
+  // Derive routing mode from slug format (no headers() needed)
+  // If slug looks like a domain, use domain mode; otherwise use path mode
+  const routingMode = isDomainIdentifier(slug) ? 'domain' : 'path';
 
-  // Use headers but fall back to slug format checking if headers are missing (e.g. some SSR scenarios)
-  const routingMode =
-    hasSubdomain || hasCustomDomain || isDomainIdentifier(slug)
-      ? 'domain'
-      : 'path';
-
-  // Detect key pages where navigation should be hidden (Checkout, Auth, Account Login)
-  const pathname = headersList.get('x-pathname') || '';
-  const isCheckout = pathname.includes('/checkout');
-  const isAuthPage =
-    pathname.includes('/account/login') ||
-    pathname.includes('/track-order') || // Tracking often minimal
-    pathname.includes('/auth/'); // Future proofing
-
-  const hideNavigation = isCheckout || isAuthPage;
-
-  // Fetch navigation categories server-side (cached)
+  // Fetch navigation categories (cached)
   const navigationCategories = await getCachedNavigationCategories(merchant.id);
 
   return (
-    <MerchantProvider
-      slug={merchantSlug}
-      initialMerchant={merchant as unknown as MerchantData}
-      initialRoutingMode={routingMode}
-      navigationCategories={navigationCategories}
-    >
-      <CartProvider enableSmartCartPro merchantSlug={merchantSlug}>
-        <MerchantSlugSync slug={merchantSlug} />
-        <PageViewTracker merchantId={merchant.id} />
-        {/*
-          Global Layout Wrapper logic:
-          - Keeps layout persistent across route changes (seamless navigation)
-          - Prevents header flashing/re-rendering
-        */}
-        <StorefrontLayoutRenderer
-          merchant={merchant as unknown as MerchantData}
-          slug={slug}
-          hideNavigation={hideNavigation}
-        >
-          {children}
-        </StorefrontLayoutRenderer>
-      </CartProvider>
-    </MerchantProvider>
+    <StorefrontShell>
+      <MerchantProvider
+        slug={merchantSlug}
+        initialMerchant={merchant as unknown as MerchantData}
+        initialRoutingMode={routingMode}
+        navigationCategories={navigationCategories}
+      >
+        <CartProvider enableSmartCartPro merchantSlug={merchantSlug}>
+          <MerchantSlugSync slug={merchantSlug} />
+          <PageViewTracker merchantId={merchant.id} />
+          <StorefrontLayoutRenderer
+            merchant={merchant as unknown as MerchantData}
+            slug={slug}
+          >
+            {children}
+          </StorefrontLayoutRenderer>
+        </CartProvider>
+      </MerchantProvider>
+    </StorefrontShell>
   );
 }

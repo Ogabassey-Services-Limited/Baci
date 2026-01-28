@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject } from 'ai';
-import z from 'zod';
+import { z } from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
 
 // Schema for the batch response

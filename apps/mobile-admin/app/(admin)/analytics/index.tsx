@@ -701,7 +701,7 @@ export default function AnalyticsScreen() {
             label="Average Order Value"
             value={formatCompactCurrency(analytics?.avgTicketSize ?? 0)}
             subtitle={`Best month: ${analytics?.bestMonthAOV ?? 'N/A'}`}
-            sparklineData={analytics?.monthlyRevenue.map(
+            sparklineData={analytics?.monthlyRevenue?.map(
               (rev: number, i: number) =>
                 analytics?.monthlySales[i] ? rev / analytics.monthlySales[i] : 0
             )}

@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const blogPostSchema = z.object({

@@ -2,7 +2,7 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { createClient } from '@/lib/supabase/server';

@@ -1,7 +1,7 @@
 'use server';
 
 import { generateText } from 'ai';
-import z from 'zod';
+import { z } from 'zod';
 import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 

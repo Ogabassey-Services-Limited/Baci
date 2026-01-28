@@ -12,7 +12,11 @@ export async function RootDynamicBody({ children }: { children: ReactNode }) {
   const nonce = headersList.get('x-nonce') || undefined;
 
   return (
-    <>
+    <div
+      id="root-dynamic-wrapper"
+      className="contents"
+      suppressHydrationWarning
+    >
       <NonceProvider nonce={nonce}>
         <Providers>
           {children}
@@ -22,6 +26,6 @@ export async function RootDynamicBody({ children }: { children: ReactNode }) {
       <WebVitalsReporter />
       <Analytics />
       <SpeedInsights />
-    </>
+    </div>
   );
 }

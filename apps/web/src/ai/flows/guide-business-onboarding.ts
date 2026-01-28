@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject, generateText } from 'ai';
-import z from 'zod';
+import { z } from 'zod';
 import {
   activeImageModel,
   activeTextModel,

@@ -127,14 +127,17 @@ export default async function sitemap({
       const { data: categories } = await supabase
         .from('categories')
         .select('slug, updated_at')
-        .eq('merchant_id', merchant.id);
+        .eq('merchant_id', merchant.id)
+        .not('slug', 'is', null);
 
-      return (categories || []).map((cat) => ({
-        url: `${storeUrl}/${cat.slug}`,
-        lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
-        changeFrequency: 'daily',
-        priority: 0.7,
-      }));
+      return (categories || [])
+        .filter((cat) => cat.slug)
+        .map((cat) => ({
+          url: `${storeUrl}/${cat.slug}`,
+          lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
+          changeFrequency: 'daily',
+          priority: 0.7,
+        }));
     }
 
     case 'blog': {
@@ -142,19 +145,22 @@ export default async function sitemap({
         .from('blog_posts')
         .select('slug, published_at, updated_at, featured_image_url')
         .eq('merchant_id', merchant.id)
-        .eq('status', 'published');
+        .eq('status', 'published')
+        .not('slug', 'is', null);
 
-      const entries = (posts || []).map((post) => ({
-        url: `${storeUrl}/blog/${post.slug}`,
-        lastModified: post.updated_at
-          ? new Date(post.updated_at)
-          : new Date(post.published_at || Date.now()),
-        changeFrequency: 'monthly',
-        priority: 0.8,
-        ...(post.featured_image_url?.startsWith('http') && {
-          images: [post.featured_image_url],
-        }),
-      }));
+      const entries = (posts || [])
+        .filter((post) => post.slug)
+        .map((post) => ({
+          url: `${storeUrl}/blog/${post.slug}`,
+          lastModified: post.updated_at
+            ? new Date(post.updated_at)
+            : new Date(post.published_at || Date.now()),
+          changeFrequency: 'monthly',
+          priority: 0.8,
+          ...(post.featured_image_url?.startsWith('http') && {
+            images: [post.featured_image_url],
+          }),
+        }));
 
       if (entries.length > 0) {
         entries.unshift({

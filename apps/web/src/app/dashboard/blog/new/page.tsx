@@ -34,6 +34,7 @@ import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
+import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { getPreviewUrl } from '../actions';
 
 interface Product {
@@ -60,6 +61,7 @@ interface PostFormData {
   author_bio: string;
   seo_title: string;
   seo_description: string;
+  keywords: string;
 }
 
 export default function NewBlogPostPage() {
@@ -81,6 +83,7 @@ export default function NewBlogPostPage() {
     author_bio: '',
     seo_title: '',
     seo_description: '',
+    keywords: '',
   });
 
   // Update author name when merchant loads
@@ -134,6 +137,7 @@ export default function NewBlogPostPage() {
                   author_bio: '',
                   seo_title: '',
                   seo_description: '',
+                  keywords: '',
                 });
                 clearSavedData();
                 toast({
@@ -261,11 +265,14 @@ export default function NewBlogPostPage() {
   }, []);
 
   const validateForm = (): string | null => {
-    if (!formData.title.trim()) return 'Title is required';
-    if (!formData.content.trim()) return 'Content is required';
-    if (!formData.author_name.trim()) return 'Author name is required';
-    if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
-      return 'Slug can only contain lowercase letters, numbers, and hyphens';
+    const sanitizedData = sanitizeBlogPostData(
+      formData as unknown as Record<string, unknown>
+    );
+    const result = blogPostSchema.safeParse(sanitizedData);
+
+    if (!result.success) {
+      const firstError = result.error.issues?.[0];
+      return firstError?.message || 'Invalid form data';
     }
     return null;
   };
@@ -296,6 +303,12 @@ export default function NewBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [],
+        keywords: formData.keywords
+          ? formData.keywords
               .split(',')
               .map((t) => t.trim())
               .filter(Boolean)
@@ -396,11 +409,12 @@ export default function NewBlogPostPage() {
       const json = JSON.parse(jsonString);
       let text = '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap JSON content
-      const traverse = (node: any) => {
-        if (node.text) text += `${node.text} `;
-        if (node.content && Array.isArray(node.content)) {
-          node.content.forEach(traverse);
+      const traverse = (node: unknown) => {
+        if (typeof node !== 'object' || node === null) return;
+        const n = node as Record<string, unknown>;
+        if (typeof n.text === 'string') text += `${n.text} `;
+        if (Array.isArray(n.content)) {
+          n.content.forEach(traverse);
         }
       };
       traverse(json);
@@ -656,9 +670,19 @@ export default function NewBlogPostPage() {
                 <Label htmlFor="tags">Tags</Label>
                 <Input
                   id="tags"
-                  placeholder="Separate with commas"
+                  placeholder="e.g. apple, repair, screen (separate with commas)"
                   value={formData.tags}
                   onChange={(e) => handleChange('tags', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="keywords">Keywords (SEO)</Label>
+                <Input
+                  id="keywords"
+                  placeholder="e.g. screen repair local, iphone 13 fix (separate with commas)"
+                  value={formData.keywords}
+                  onChange={(e) => handleChange('keywords', e.target.value)}
                 />
               </div>
             </CardContent>

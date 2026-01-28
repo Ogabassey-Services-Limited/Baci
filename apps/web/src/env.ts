@@ -1,5 +1,5 @@
 // src/env.ts
-import z from 'zod';
+import { z } from 'zod';
 
 /**
  * A type-safe and validated way to access environment variables.
@@ -187,6 +187,7 @@ export const getSupabaseServiceRoleKey = (): string => {
 // Optional Getters
 export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
 export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
+export const getPaystackSecretKey = () => env?.PAYSTACK_SECRET_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;

@@ -9,7 +9,7 @@
  * - Get upsell/cross-sell recommendations
  */
 
-import z from 'zod';
+import { z } from 'zod';
 
 // ============================================
 // TOOL SCHEMAS (Zod)

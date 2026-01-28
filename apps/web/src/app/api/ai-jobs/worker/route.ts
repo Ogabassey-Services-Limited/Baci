@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Use environment variable to configure job process limit, defaulting to 5
 const DEFAULT_JOB_PROCESS_LIMIT = (() => {
@@ -10,20 +10,6 @@ const DEFAULT_JOB_PROCESS_LIMIT = (() => {
   const parsed = Number(limitStr);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 5;
 })();
-
-// Initialize clients lazily at runtime to avoid build-time errors
-function getSupabaseClient() {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error(
-      'Missing required Supabase credentials: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set'
-    );
-  }
-
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-}
 
 // Zod schema for price list processing response
 const ChangeDetailsSchema = z.object({
@@ -72,7 +58,7 @@ const PriceListResponseSchema = z.object({
 // POST /api/ai-jobs/worker - Process pending AI jobs (called by cron or manually)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createAdminClient();
 
     // Verify authorization (you might want to use a secret token here)
     const authHeader = request.headers.get('authorization');

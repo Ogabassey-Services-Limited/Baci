@@ -5,7 +5,7 @@ import { AlertCircle, CheckCircle2, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import z from 'zod';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Card,

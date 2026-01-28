@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -8,6 +7,7 @@ import {
 } from '@/lib/api-auth';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { createClient } from '@/lib/supabase/server';
+import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
 /**
  * Blog Posts API - List and Create
@@ -15,31 +15,6 @@ import { createClient } from '@/lib/supabase/server';
  * GET: List all blog posts for the authenticated merchant
  * POST: Create a new blog post
  */
-
-// Validation schema for creating a blog post
-const createPostSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
-  slug: z
-    .string()
-    .min(1)
-    .max(200)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
-  content: z.string().min(1, 'Content is required'),
-  excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().url().optional().nullable(),
-  featured_image_alt: z.string().max(200).optional(),
-  category: z.string().max(100).optional(),
-  tags: z.array(z.string()).optional(),
-  keywords: z.array(z.string()).optional(),
-  author_name: z.string().min(1, 'Author name is required').max(100),
-  author_title: z.string().max(100).optional(),
-  author_image_url: z.string().url().optional().nullable(),
-  author_bio: z.string().max(500).optional(),
-  status: z.enum(['draft', 'published', 'archived']).optional(),
-  seo_title: z.string().max(70).optional(),
-  seo_description: z.string().max(160).optional(),
-  focus_keyword: z.string().max(50).optional(),
-});
 
 // Calculate reading time based on word count
 function calculateReadingTime(content: string): number {
@@ -392,6 +367,7 @@ export async function POST(request: NextRequest) {
       body.author_name = merchant.business_name;
     }
 
+    // Validate first, then sanitize (project standard: validate-then-sanitize)
     const validated = createPostSchema.safeParse(body);
     if (!validated.success) {
       return NextResponse.json(
@@ -400,7 +376,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const postData = validated.data;
+    const postData = sanitizeBlogPostData(
+      validated.data
+    ) as typeof validated.data;
 
     // Check if slug already exists for this merchant
     const { data: existingPost } = await supabase

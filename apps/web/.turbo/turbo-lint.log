@@ -2,4 +2,82 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 864 files in 1138ms. No fixes applied.
+src/app/(storefront)/[slug]/privacy-policy/page.tsx:145:38 lint/suspicious/noArrayIndexKey ━━━━━━━━━━
+
+  ! Avoid using the index of an array as key property in an element.
+  
+    143 │         {Array.from({ length: 6 }).map((_, i) => (
+    144 │           <div
+  > 145 │             key={`privacy-skeleton-${i}`}
+        │                                      ^
+    146 │             className="h-4 bg-muted rounded w-full"
+    147 │           />
+  
+  i This is the source of the key value.
+  
+    141 │       <div className="space-y-4">
+    142 │         {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
+  > 143 │         {Array.from({ length: 6 }).map((_, i) => (
+        │                                            ^
+    144 │           <div
+    145 │             key={`privacy-skeleton-${i}`}
+  
+  i The order of the items may change, and this also affects performances and component state.
+  
+  i Check the React documentation. 
+  
+
+src/app/(storefront)/[slug]/privacy-policy/page.tsx:142:10 suppressions/unused ━━━━━━━━━━━━━━━━━━━━━
+
+  ! Suppression comment has no effect. Remove the suppression or make sure you are suppressing the correct rule.
+  
+    140 │       <div className="h-10 w-64 bg-muted rounded mb-8" />
+    141 │       <div className="space-y-4">
+  > 142 │         {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
+        │          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    143 │         {Array.from({ length: 6 }).map((_, i) => (
+    144 │           <div
+  
+
+src/components/ui/file-uploader.test.tsx:8:12 lint/performance/noImgElement ━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Don't use <img> element.
+  
+     6 │ vi.mock('next/image', () => ({
+     7 │   default: ({ src, alt, ...props }: { src: string; alt: string }) => {
+   > 8 │     return <img src={src} alt={alt} {...props} />;
+       │            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     9 │   },
+    10 │ }));
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider using <Image /> from next/image to automatically optimize images.
+  
+
+src/components/ui/file-uploader.test.tsx:135:20 lint/style/noNonNullAssertion ━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Forbidden non-null assertion.
+  
+    133 │     // Simulate drop with oversized file using react-dropzone's onDrop callback
+    134 │     // Note: react-dropzone handles validation internally, so we simulate the rejection
+  > 135 │     fireEvent.drop(input!, {
+        │                    ^^^^^^
+    136 │       dataTransfer: {
+    137 │         files: [oversizedFile],
+  
+
+src/lib/cached-data.ts:324:29 lint/suspicious/noExplicitAny ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Unexpected any. Specify a different type.
+  
+    322 │   }
+    323 │ 
+  > 324 │   const settings = (data as any).feature_settings;
+        │                             ^^^
+    325 │   data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+    326 │ 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+Checked 868 files in 588ms. No fixes applied.
+Found 5 warnings.

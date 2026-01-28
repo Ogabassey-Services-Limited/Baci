@@ -134,3 +134,37 @@ export const getMerchantForUser = cache(async () => {
     return { merchant: null, staffAccess: defaultStaffAccess, user };
   }
 });
+
+/**
+ * Server-side version of hasPermission that throws if check fails
+ * Use this in Server Actions and Page components
+ */
+export async function ensurePermission(resource: string, action: string) {
+  const { merchant, staffAccess, user } = await getMerchantForUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  if (!merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  // Owners have full access
+  if (staffAccess.isOwner) {
+    return { merchant, user, staffAccess };
+  }
+
+  // Check staff permissions
+  if (staffAccess.isStaff) {
+    const hasAccess = staffAccess.permissions[resource]?.[action] === true;
+    if (!hasAccess) {
+      throw new Error(
+        `Access denied: Missing ${action} permission for ${resource}`
+      );
+    }
+    return { merchant, user, staffAccess };
+  }
+
+  throw new Error('Forbidden');
+}

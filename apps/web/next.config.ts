@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
   // Note: Increases build size slightly but helps with error tracking
   productionBrowserSourceMaps: true,
 
-  // Enable 'use cache' directive for Dynamic IO (Next.js 16)
+  // Enable Cache Components with Dynamic IO (Next.js 16)
+  // Pages using cookies()/headers() must be wrapped in Suspense boundaries
+  // See: https://github.com/vercel/next.js/discussions/87123
   cacheComponents: true,
 
   // Fix Vercel middleware tracing issue with Next.js 16
@@ -138,9 +140,8 @@ const nextConfig: NextConfig = {
     //   algorithm: 'sha256',
     // },
 
-    // Inline CSS to eliminate render-blocking CSS requests
-    // Replaces <link> tags with <style> tags for faster FCP/LCP
-    inlineCss: true,
+    // Inline CSS temporarily disabled - causing reconciliation errors with Turbopack in Next.js 16.1.4
+    inlineCss: false,
 
     // Note: optimizeCss is disabled as it relies on Critters and is
     // incompatible with App Router streaming. Use stable CSS pipeline instead.
@@ -162,6 +163,8 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-icons',
       'lodash-es',
       '@supabase/supabase-js',
+      'zod',
+      'zod/v4',
     ],
 
     // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16)

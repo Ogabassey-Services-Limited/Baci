@@ -93,8 +93,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -637,7 +637,7 @@ export default function StoreSettingsScreen() {
                 onPress={async () => {
                   try {
                     await SubscriptionManagement.openNativeManagement();
-                  } catch (error) {
+                  } catch (_error) {
                     setStatusModal({
                       visible: true,
                       type: 'error',

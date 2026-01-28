@@ -121,11 +121,12 @@ export default function RootLayout({
           Note: Supabase URL is handled via env vars, no hardcoding needed
         */}
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+        {/* RootDynamicHead uses headers() - wrap in Suspense for PPR */}
         <Suspense fallback={null}>
           <RootDynamicHead />
         </Suspense>
       </head>
-      <body className={inter.variable} suppressHydrationWarning>
+      <body className={inter.variable}>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
         <a
           href="#main-content"

@@ -1,7 +1,7 @@
 import { generateObject } from 'ai';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import {
   AI_RATE_LIMITS,
   checkRateLimit,

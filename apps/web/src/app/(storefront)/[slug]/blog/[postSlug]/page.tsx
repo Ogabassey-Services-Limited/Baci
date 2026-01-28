@@ -328,7 +328,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 <BlogContentRenderer json={content} />
               ) : (
                 <div
-                  className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
+                  className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600"
                   /*
                     biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
                     nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml

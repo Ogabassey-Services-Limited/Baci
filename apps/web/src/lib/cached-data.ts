@@ -1,10 +1,11 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { cacheTag, unstable_cache } from 'next/cache';
+import { cacheLife, cacheTag, unstable_cache } from 'next/cache';
 import {
   getSupabaseAnonKey,
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
+import { isDomainIdentifier, isValidMerchantIdentifier } from './validation';
 
 /**
  * Create a Supabase client for cached queries.
@@ -128,16 +129,42 @@ export interface CachedMerchant {
 }
 
 /**
- * Cached merchant data by slug
- * Uses 60 second cache with tags for invalidation
+ * Shared helper to resolve merchant by identifier (slug or custom domain)
+ * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior.
+ * Uses 'use cache' to satisfy generateViewport requirements in Next.js 16.
  */
-export const getCachedMerchant = unstable_cache(
-  async (slug: string): Promise<CachedMerchant | null> => {
-    const supabase = getServiceRoleSupabaseClient();
+export async function getMerchantByIdentifier(
+  identifier: string
+): Promise<CachedMerchant | null> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('merchants');
 
-    const { data, error } = await supabase
-      .from('merchants')
-      .select(`
+  if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isDomainIdentifier(identifier)) {
+    return await getCachedMerchantByDomain(identifier.toLowerCase());
+  }
+  return await getCachedMerchant(identifier.toLowerCase());
+}
+
+/**
+ * Retrieves a merchant by their slug.
+ * Uses the Next.js 16 'use cache' directive for optimal performance and Dynamic IO compatibility.
+ */
+export async function getCachedMerchant(
+  slug: string
+): Promise<CachedMerchant | null> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('merchants');
+
+  const supabase = getServiceRoleSupabaseClient();
+
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(
+      `
         id,
         business_name,
         site_title,
@@ -162,69 +189,55 @@ export const getCachedMerchant = unstable_cache(
         favicon_png_32_url,
         favicon_apple_touch_url,
         feature_settings:merchant_feature_settings(*)
-      `)
-      .eq('slug', slug)
-      .maybeSingle();
+      `
+    )
+    .eq('slug', slug)
+    .maybeSingle();
 
-    if (error) {
-      // Sanitize user-controlled slug to prevent log injection
-      const safeSlug = String(slug || '')
-        .replace(/[\r\n]/g, '')
-        .substring(0, 100);
-      console.error(
-        'Error fetching merchant for slug:',
-        safeSlug,
-        JSON.stringify(error, null, 2)
-      );
-      return null;
-    }
-
-    if (!data) {
-      const safeSlug = String(slug || '')
-        .replace(/[\r\n]/g, '')
-        .substring(0, 100);
-      console.warn('No merchant data found for slug:', safeSlug);
-    } else {
-      // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-      const settings = data.feature_settings;
-      data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-
-      const safeSlug = String(slug || '')
-        .replace(/[\r\n]/g, '')
-        .substring(0, 100);
-      console.log('Successfully fetched merchant:', safeSlug, data.id);
-    }
-
-    // Fetch primary domain
-    if (data) {
-      // SECURITY: If the store is NOT published, mask sensitive contact info.
-      if (!data.is_published) {
-        data.email = ''; // Redacted
-        data.phone = ''; // Redacted
-        data.business_address = ''; // Redacted
-      }
-
-      const { data: primaryDomain } = await supabase
-        .from('domains')
-        .select('domain')
-        .eq('merchant_id', data.id)
-        .eq('is_primary', true)
-        .eq('status', 'active')
-        .single();
-
-      if (primaryDomain) {
-        return { ...data, custom_domain: primaryDomain.domain };
-      }
-    }
-
-    return data;
-  },
-  ['merchant-by-slug'],
-  {
-    revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchants'],
+  if (error) {
+    const safeSlug = String(slug || '')
+      .replace(/[\r\n]/g, '')
+      .substring(0, 100);
+    console.error(
+      'Error fetching merchant for slug:',
+      safeSlug,
+      JSON.stringify(error, null, 2)
+    );
+    return null;
   }
-);
+
+  if (!data) {
+    const safeSlug = String(slug || '')
+      .replace(/[\r\n]/g, '')
+      .substring(0, 100);
+    console.warn('No merchant data found for slug:', safeSlug);
+  } else {
+    const settings = data.feature_settings;
+    data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+  }
+
+  if (data) {
+    if (!data.is_published) {
+      data.email = ''; // Redacted
+      data.phone = ''; // Redacted
+      data.business_address = ''; // Redacted
+    }
+
+    const { data: primaryDomain } = await supabase
+      .from('domains')
+      .select('domain')
+      .eq('merchant_id', data.id)
+      .eq('is_primary', true)
+      .eq('status', 'active')
+      .single();
+
+    if (primaryDomain) {
+      return { ...data, custom_domain: primaryDomain.domain };
+    }
+  }
+
+  return data;
+}
 
 /**
  * Cached merchant data by custom domain
@@ -237,32 +250,40 @@ export const getCachedMerchant = unstable_cache(
  * @param domain The custom domain (e.g., "store.com").
  * @returns The merchant object with `custom_domain` property, or null if not found.
  */
-export const getCachedMerchantByDomain = unstable_cache(
-  async (domain: string): Promise<CachedMerchant | null> => {
-    const normalizedDomain = domain.toLowerCase();
-    // Use Service Role to allow lookup of unpublished merchants (for "Coming Soon" page)
-    const supabase = getServiceRoleSupabaseClient();
+/**
+ * Retrieves a merchant using their custom domain.
+ * Normalizes the domain to lowercase before lookup.
+ * Uses the Next.js 16 'use cache' directive for optimal performance and Dynamic IO compatibility.
+ */
+export async function getCachedMerchantByDomain(
+  domain: string
+): Promise<CachedMerchant | null> {
+  'use cache';
+  cacheLife('hours');
+  cacheTag('merchants', 'domains');
 
-    // First, find the merchant_id from the domains table
-    const { data: domainData, error: domainError } = await supabase
-      .from('domains')
-      .select('merchant_id, domain')
-      .eq('domain', normalizedDomain)
-      .eq('status', 'active')
-      .single();
+  const normalizedDomain = domain.toLowerCase();
+  const supabase = getServiceRoleSupabaseClient();
 
-    if (domainError || !domainData) {
-      console.error('Error fetching domain', {
-        domain: normalizedDomain,
-        error: domainError ?? 'No data found',
-      });
-      return null;
-    }
+  const { data: domainData, error: domainError } = await supabase
+    .from('domains')
+    .select('merchant_id, domain')
+    .eq('domain', normalizedDomain)
+    .eq('status', 'active')
+    .single();
 
-    // Now fetch the merchant using the merchant_id
-    const { data, error } = await supabase
-      .from('merchants')
-      .select(`
+  if (domainError || !domainData) {
+    console.error('Error fetching domain', {
+      domain: normalizedDomain,
+      error: domainError ?? 'No data found',
+    });
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(
+      `
         id,
         business_name,
         site_title,
@@ -287,47 +308,30 @@ export const getCachedMerchantByDomain = unstable_cache(
         favicon_png_32_url,
         favicon_apple_touch_url,
         feature_settings:merchant_feature_settings(*)
-      `)
-      .eq('id', domainData.merchant_id)
-      .single();
+      `
+    )
+    .eq('id', domainData.merchant_id)
+    .single();
 
-    if (error) {
-      console.error('Error fetching merchant for domain', {
-        domain: normalizedDomain,
-        error: error,
-      });
-      return null;
-    }
-
-    // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-    // biome-ignore lint/suspicious/noExplicitAny: Supabase returns loose types for joined data
-    const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
-    data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-
-    console.log('Successfully fetched merchant by domain', {
+  if (error) {
+    console.error('Error fetching merchant for domain', {
       domain: normalizedDomain,
-      slug: data.slug,
-      merchantId: data.id,
+      error: error,
     });
-
-    // SECURITY: If the store is NOT published, mask sensitive contact info.
-    // This allows the "Coming Soon" page to render the business name/logo
-    // without leaking the owner's private phone/email/address to the public.
-    if (!data.is_published) {
-      data.email = ''; // Redacted
-      data.phone = ''; // Redacted
-      data.business_address = ''; // Redacted
-    }
-
-    // Return with the custom_domain set
-    return { ...data, custom_domain: domainData.domain };
-  },
-  ['merchant-by-domain'],
-  {
-    revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchants', 'domains'],
+    return null;
   }
-);
+
+  const settings = (data as any).feature_settings;
+  data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+
+  if (!data.is_published) {
+    data.email = ''; // Redacted
+    data.phone = ''; // Redacted
+    data.business_address = ''; // Redacted
+  }
+
+  return { ...data, custom_domain: domainData.domain };
+}
 
 /**
  * Cached merchant data by ID

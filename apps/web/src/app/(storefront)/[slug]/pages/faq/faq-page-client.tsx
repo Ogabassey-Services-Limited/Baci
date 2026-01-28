@@ -18,6 +18,17 @@ import { MerchantProvider } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
+/**
+ * Creates a valid HTML id from a category name.
+ * HTML5 ids cannot contain spaces or special characters.
+ */
+function getCategoryId(category: string): string {
+  return `category-${category
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}`;
+}
+
 interface FAQPageClientProps {
   merchant: {
     id: string;
@@ -168,11 +179,11 @@ export function FAQPageClient({
                         {categories.map((category) => (
                           <section
                             key={category}
-                            aria-labelledby={`category-${category}`}
+                            aria-labelledby={getCategoryId(category)}
                           >
                             <div className="flex items-center gap-3 mb-4">
                               <h2
-                                id={`category-${category}`}
+                                id={getCategoryId(category)}
                                 className="text-2xl font-bold"
                               >
                                 {category}

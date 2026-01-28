@@ -6,7 +6,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import { verifyPayment as verifyJuicywayPayment } from '@/lib/juicyway';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 

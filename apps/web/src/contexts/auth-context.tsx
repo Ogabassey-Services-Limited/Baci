@@ -29,11 +29,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // we get fresh auth state after server-side login redirects.
     // getUser() validates the JWT with Supabase's server, preventing stale states.
     const initializeAuth = async () => {
-      const {
-        data: { user: initialUser },
-      } = await supabase.auth.getUser();
-      setUser(initialUser ?? null);
-      setLoading(false);
+      try {
+        // Set a 5-second timeout for the initial auth check
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Auth init timeout')), 5000)
+        );
+
+        const {
+          data: { user: initialUser },
+        } = (await Promise.race([supabase.auth.getUser(), timeoutPromise])) as {
+          data: { user: User | null };
+        };
+
+        setUser(initialUser ?? null);
+      } catch (error) {
+        console.error('[Auth] Initialization failed or timed out:', error);
+        // On error or timeout, we still proceed but without a user
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
     initializeAuth();

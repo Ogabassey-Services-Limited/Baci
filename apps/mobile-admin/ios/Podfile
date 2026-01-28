@@ -62,5 +62,14 @@ target 'Baci' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+    
+    # Fix for "The iOS deployment target is set to X, but range is Y-Z" errors
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+        # Silence the 800+ warnings from "Recommended Settings" (Swift 6 strictness)
+        config.build_settings['SWIFT_STRICT_CONCURRENCY'] = 'minimal'
+      end
+    end
   end
 end

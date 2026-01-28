@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject } from 'ai';
-import z from 'zod';
+import { z } from 'zod';
 import { activeTextModel, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 import { logger } from '@/lib/logger';

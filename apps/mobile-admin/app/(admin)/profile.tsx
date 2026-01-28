@@ -158,10 +158,10 @@ export default function ProfileScreen() {
                           },
                         ]
                       );
-                    } catch (error: unknown) {
+                    } catch (_error: unknown) {
                       Alert.alert(
                         'Error',
-                        (error as Error).message || 'Failed to delete account'
+                        (_error as Error).message || 'Failed to delete account'
                       );
                     }
                   },
@@ -369,7 +369,7 @@ export default function ProfileScreen() {
                 onPress={async () => {
                   try {
                     await SubscriptionManagement.openNativeManagement();
-                  } catch (error) {
+                  } catch (_error) {
                     Alert.alert('Error', 'Unable to open subscription management');
                   }
                 }}

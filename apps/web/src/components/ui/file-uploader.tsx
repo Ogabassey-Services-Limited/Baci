@@ -181,7 +181,7 @@ export function FileUploader({
   };
 
   // For compatibility with existing code that uses previews.length
-  const previews = entries.map((e) => e.src);
+  const _previews = entries.map((e) => e.src);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

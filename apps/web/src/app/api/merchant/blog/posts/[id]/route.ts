@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 
 // Validation schema for updating a blog post
-import { blogPostSchema } from '@/lib/validations/blog';
+import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -131,7 +131,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Parse and validate body
     const body = await request.json();
-    const validated = blogPostSchema.safeParse(body);
+    const sanitizedBody = sanitizeBlogPostData(body);
+    const validated = blogPostSchema.safeParse(sanitizedBody);
 
     if (!validated.success) {
       return NextResponse.json(

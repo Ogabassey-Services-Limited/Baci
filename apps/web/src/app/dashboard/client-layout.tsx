@@ -352,9 +352,9 @@ export default function DashboardClientLayout({
       label: 'Loyalty',
     },
     {
-      href: '/dashboard/santa' as Route,
-      icon: MessageCircle,
-      label: 'Santa Campaign',
+      href: '/dashboard/blog' as Route,
+      icon: Newspaper,
+      label: 'Blog',
     },
     {
       href: '/dashboard/wallet' as Route,
@@ -378,9 +378,9 @@ export default function DashboardClientLayout({
       // Badge disabled temporarily
     },
     {
-      href: '/dashboard/blog' as Route,
-      icon: Newspaper,
-      label: 'Blog',
+      href: '/dashboard/santa' as Route,
+      icon: MessageCircle,
+      label: 'Santa Campaign',
     },
     {
       href: '/dashboard/templates' as Route,

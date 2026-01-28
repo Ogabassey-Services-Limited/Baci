@@ -10,7 +10,7 @@
  * - Type-safe currency handling
  */
 
-import z from 'zod';
+import { z } from 'zod';
 import { logger } from './logger';
 
 // =============================================================================

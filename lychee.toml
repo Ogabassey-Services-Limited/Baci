@@ -22,7 +22,9 @@ exclude = [
   # Merchant & Local URLs
   "ogabassey",
   "localhost|127\\.0\\.0\\.1",
-  "github\\.com",
+  # GitHub API endpoints that cause rate-limiting (keep regular github.com URLs to catch broken links)
+  "api\\.github\\.com",
+  "raw\\.githubusercontent\\.com",
   
   # Placeholder & Example Domains
   "via\\.placeholder\\.com|example\\.com|yourcdn\\.com|yoursite\\.com",
@@ -60,7 +62,7 @@ exclude = [
   "res\\.cloudinary\\.com/",
   "linkedin\\.com/company",
   "instagram\\.com",
-  "medium\\.com",
+  # Removed unanchored medium\.com - covered by anchored pattern on line 118
   "openai\\.com",
   "npmjs\\.com",
   "paystack\\.com/docs",

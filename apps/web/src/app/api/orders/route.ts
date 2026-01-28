@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
+import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
