@@ -266,9 +266,15 @@ export function cleanupRateLimitStore(): void {
 
 /**
  * Reset the rate limit store - FOR TESTING ONLY
- * This function clears all rate limit entries to ensure test isolation
+ * This function clears all rate limit entries to ensure test isolation.
+ * Throws an error if called in production to prevent accidental usage.
  */
 export function __resetRateLimitStoreForTesting(): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '__resetRateLimitStoreForTesting should only be called in test environment'
+    );
+  }
   rateLimitStore.clear();
 }
 

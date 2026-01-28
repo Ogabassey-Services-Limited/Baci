@@ -1,11 +1,16 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetRateLimitStoreForTesting, checkRateLimit } from './rate-limit';
 
 describe('Rate Limit Logic', () => {
   // Reset the in-memory store before each test to ensure proper isolation
   beforeEach(() => {
     __resetRateLimitStoreForTesting();
+  });
+
+  // Ensure fake timers are always restored even if a test fails
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('should enforce default limit for unknown paths', () => {
@@ -105,8 +110,6 @@ describe('Rate Limit Logic', () => {
 
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(4); // 5 - 1 = 4 remaining
-
-    vi.useRealTimers();
   });
 
   it('should enforce rate limits on the same path', () => {
