@@ -20,7 +20,7 @@ export const repairBookingSchema = z
         'Smartwatch',
         'Other',
       ] as const,
-      { error: 'Please select a device type' }
+      { message: 'Please select a device type' }
     ),
     deviceModel: z
       .string()
@@ -31,7 +31,7 @@ export const repairBookingSchema = z
     preferredDate: z.string().optional(), // ISO date string
     serviceType: z
       .enum(['dropoff', 'pickup'] as const, {
-        error: 'Please select how you want to proceed',
+        message: 'Please select how you want to proceed',
       })
       .default('dropoff'),
     pickupAddress: z.string().optional(), // Required if serviceType is 'pickup'
@@ -48,7 +48,7 @@ export const repairBookingSchema = z
       return true;
     },
     {
-      error: 'Please enter a valid pickup address',
+      message: 'Please enter a valid pickup address',
       path: ['pickupAddress'],
     }
   );
