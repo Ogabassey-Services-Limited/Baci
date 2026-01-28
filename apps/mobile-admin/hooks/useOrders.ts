@@ -174,7 +174,8 @@ export function useUpdateOrderStatus() {
       status: ShippingStatus;
     }) => updateOrderStatus(orderId, status),
     onMutate: async ({ orderId, status }) => {
-      if (!merchant?.id) return { previousOrders: [], previousOrder: undefined };
+      if (!merchant?.id)
+        return { previousOrders: [], previousOrder: undefined };
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders', merchant.id] });
 
@@ -218,7 +219,7 @@ export function useUpdateOrderStatus() {
         context.previousOrders.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
-        queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
+        // Note: onSettled already invalidates orders query, no need to do it here
       }
       if (context?.previousOrder) {
         queryClient.setQueryData(

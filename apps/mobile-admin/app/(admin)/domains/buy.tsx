@@ -144,8 +144,9 @@ export default function BuyDomainScreen() {
         );
       } else {
         const rawMessage =
-          error instanceof Error ? error.message : 'An unexpected error occurred';
-        console.error('[Diagnostic] Search failed:', error);
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred';
         const userMessage = __DEV__
           ? rawMessage
           : 'Please try again in a moment.';

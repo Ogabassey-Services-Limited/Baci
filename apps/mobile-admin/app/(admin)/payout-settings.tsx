@@ -186,6 +186,11 @@ export default function PayoutSettingsScreen() {
         businessName: merchant?.business_name || 'My Store',
       },
       {
+        onSuccess: () => {
+          Alert.alert('Success', 'Payout settings saved successfully', [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+        },
         onError: (error) => {
           Alert.alert('Error', error.message || 'Failed to update details');
         },
@@ -405,6 +410,8 @@ export default function PayoutSettingsScreen() {
               <Pressable
                 onPress={() => setShowBankModal(false)}
                 style={styles.closeButton}
+                accessibilityLabel="Close"
+                accessibilityRole="button"
               >
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>

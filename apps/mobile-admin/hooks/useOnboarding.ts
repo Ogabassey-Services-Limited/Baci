@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
+const ONBOARDING_ENDPOINT = '/api/mobile-onboarding';
+
 interface RegisterPayload {
   email: string;
   password?: string;
@@ -35,24 +37,30 @@ export function useOnboarding() {
   // Register Mutation
   const registerMutation = useMutation({
     mutationFn: (data: RegisterPayload) =>
-      apiClient('/api/mobile-onboarding', {
+      apiClient(ONBOARDING_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
       // Invalidate auth/merchant queries if needed
     },
+    onError: (error) => {
+      console.error('Registration failed:', error);
+    },
   });
 
   // Complete Profile Mutation
   const completeProfileMutation = useMutation({
     mutationFn: (data: CompleteProfilePayload) =>
-      apiClient('/api/mobile-onboarding', {
+      apiClient(ONBOARDING_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    },
+    onError: (error) => {
+      console.error('Profile completion failed:', error);
     },
   });
 

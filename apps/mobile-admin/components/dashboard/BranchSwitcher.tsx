@@ -71,7 +71,10 @@ export function BranchSwitcher() {
         setNameError(nameIssue.message);
       } else {
         // Show other field errors (e.g., address) in a generic alert
-        Alert.alert('Error', result.error.issues[0]?.message ?? 'Invalid input');
+        Alert.alert(
+          'Error',
+          result.error.issues[0]?.message ?? 'Invalid input'
+        );
       }
       return;
     }
@@ -153,6 +156,7 @@ export function BranchSwitcher() {
               accessibilityHint="Double tap to set as active branch"
               accessibilityState={{ selected: isActive }}
             >
+              {/* Design assumption: primary color is always dark, ensuring white text contrast */}
               <Ionicons
                 name="location"
                 size={14}
@@ -334,7 +338,9 @@ function CreateBranchModal({
               onPress={onSubmit}
               disabled={isLoading}
               accessibilityRole="button"
-              accessibilityLabel={isLoading ? 'Creating branch' : 'Create branch'}
+              accessibilityLabel={
+                isLoading ? 'Creating branch' : 'Create branch'
+              }
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -470,6 +476,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    // Design assumption: primary color is always dark, ensuring white text contrast
     color: '#FFFFFF',
   },
   buttonDisabled: {

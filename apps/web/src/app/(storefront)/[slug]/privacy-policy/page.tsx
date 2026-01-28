@@ -1,37 +1,20 @@
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(slug: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const { data: merchant, error } = await supabase
-    .from('merchants')
-    .select('*')
-    .eq('slug', slug)
-    .single();
-
-  if (error || !merchant) {
-    return null;
-  }
-
-  return merchant;
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return {
@@ -39,10 +22,9 @@ export async function generateMetadata({
     };
   }
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  // Derive canonical URL from merchant data (no headers() for PPR compatibility)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const host = merchant.custom_domain || `${slug}.usebaci.com`;
   const canonicalUrl = `${protocol}://${host}/privacy-policy`;
 
   return {
@@ -61,27 +43,31 @@ export async function generateMetadata({
   };
 }
 
-export default async function PrivacyPolicyPage({ params }: PageProps) {
-  const { slug } = await params;
-  const merchant = await getMerchant(slug);
+/**
+ * Privacy Policy page content - wrapped in Suspense for PPR compatibility
+ */
+async function PrivacyPolicyContent({ slug }: { slug: string }) {
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();
   }
 
   // Check if privacy policy content exists OR template has Privacy component
-  const hasPrivacyContent = merchant.pages?.privacy;
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant pages structure
+  const merchantPages = (merchant as any).pages;
+  const hasPrivacyContent = merchantPages?.privacy;
   const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
 
   if (!hasPrivacyContent && !templateHasPrivacyPage) {
     notFound();
   }
 
-  // Generate base URL for JSON-LD (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
+  // For JSON-LD, use merchant slug-based URL (custom domain handled by middleware)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = merchant.custom_domain
+    ? `${protocol}://${merchant.custom_domain}`
+    : `${protocol}://${slug}.usebaci.com`;
 
   // Generate WebPage JSON-LD schema for Privacy Policy
   const privacySchema = {
@@ -102,7 +88,8 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
       ...(merchant.logo_url && { logo: merchant.logo_url }),
     },
     inLanguage: 'en',
-    dateModified: merchant.updated_at || new Date().toISOString(),
+    // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant may not have updated_at
+    dateModified: (merchant as any).updated_at || new Date().toISOString(),
   };
 
   return (
@@ -120,11 +107,46 @@ export default async function PrivacyPolicyPage({ params }: PageProps) {
         merchant={merchant}
         fallback={
           <PrivacyPageClient
-            merchant={merchant}
-            content={merchant.pages?.privacy}
+            // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type differs from PrivacyPageClient prop type
+            merchant={merchant as any}
+            content={merchantPages?.privacy}
           />
         }
       />
     </>
+  );
+}
+
+/**
+ * Privacy Policy Page - 2026 PPR Pattern
+ * Uses cached merchant data and Suspense boundary for optimal streaming
+ */
+export default async function PrivacyPolicyPage({ params }: PageProps) {
+  const { slug } = await params;
+
+  return (
+    <Suspense fallback={<PrivacyPageSkeleton />}>
+      <PrivacyPolicyContent slug={slug} />
+    </Suspense>
+  );
+}
+
+/**
+ * Loading skeleton for privacy policy page
+ */
+function PrivacyPageSkeleton() {
+  return (
+    <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
+      <div className="h-10 w-64 bg-muted rounded mb-8" />
+      <div className="space-y-4">
+        {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={`privacy-skeleton-${i}`}
+            className="h-4 bg-muted rounded w-full"
+          />
+        ))}
+      </div>
+    </div>
   );
 }

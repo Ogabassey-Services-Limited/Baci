@@ -18,6 +18,13 @@ interface CreateSubaccountPayload {
   businessName: string;
 }
 
+interface CreateSubaccountResponse {
+  subaccount_code?: string;
+  business_name?: string;
+  settlement_bank?: string;
+  account_number?: string;
+}
+
 export function usePayouts() {
   const queryClient = useQueryClient();
 
@@ -33,7 +40,7 @@ export function usePayouts() {
   // Create Subaccount (Save Payout Settings)
   const savePayoutSettingsMutation = useMutation({
     mutationFn: (data: CreateSubaccountPayload) =>
-      apiClient('/api/paystack/subaccount', {
+      apiClient<CreateSubaccountResponse>('/api/paystack/subaccount', {
         method: 'POST',
         body: JSON.stringify(data),
       }),

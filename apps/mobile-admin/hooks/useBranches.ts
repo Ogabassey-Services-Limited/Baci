@@ -135,7 +135,7 @@ export function useActiveBranch() {
     queryKey: ['active-branch-id'],
     queryFn: () => getPersistedBranchId(),
     initialData: getPersistedBranchId(),
-    staleTime: 0, // Always check
+    staleTime: Infinity, // Only update via manual invalidation in setActiveBranch
   });
 
   // Find active branch: persisted > default > first
