@@ -245,6 +245,14 @@ export function cleanupRateLimitStore(): void {
   }
 }
 
+/**
+ * Reset the rate limit store - FOR TESTING ONLY
+ * This function clears all rate limit entries to ensure test isolation
+ */
+export function __resetRateLimitStoreForTesting(): void {
+  rateLimitStore.clear();
+}
+
 // Cleanup every 5 minutes (only in environments that support setInterval)
 if (typeof setInterval !== 'undefined') {
   setInterval(cleanupRateLimitStore, 5 * 60 * 1000);

@@ -1,17 +1,12 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it } from 'vitest';
-import { checkRateLimit } from './rate-limit';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { __resetRateLimitStoreForTesting, checkRateLimit } from './rate-limit';
 
 describe('Rate Limit Logic', () => {
-  // Clear the in-memory store before each test to prevent state leaking
-  // Since checkRateLimit uses a module-level 'rateLimitStore', we need a way to reset it.
-  // However, checkRateLimit cleans up expired entries.
-  // Ideally, we should export a reset function for testing, but let's try to use unique IPs
-  // or rely on the fact that we can't easily reset it without modifying the source.
-
-  // "Unit tests for the middleware rate limiter are located in `apps/web/src/lib/rate-limit.test.ts`
-  // and require unique `x-forwarded-for` headers for each test case to isolate the shared
-  // in-memory token bucket store."
+  // Reset the in-memory store before each test to ensure proper isolation
+  beforeEach(() => {
+    __resetRateLimitStoreForTesting();
+  });
 
   it('should enforce default limit for unknown paths', () => {
     const req = new NextRequest('http://localhost:3000/api/unknown');
@@ -74,5 +69,43 @@ describe('Rate Limit Logic', () => {
     const result = checkRateLimit(req);
     expect(result.allowed).toBe(false);
     expect(result.remaining).toBe(0);
+  });
+
+  it('should allow requests after window reset', () => {
+    vi.useFakeTimers();
+
+    const ip = '6.6.6.6';
+    const NEWSLETTER_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+    // Exhaust limit (5)
+    for (let i = 0; i < 5; i++) {
+      const req = new NextRequest(
+        'http://localhost:3000/api/newsletter/subscribe'
+      );
+      req.headers.set('x-forwarded-for', ip);
+      checkRateLimit(req);
+    }
+
+    // Verify blocked
+    const blockedReq = new NextRequest(
+      'http://localhost:3000/api/newsletter/subscribe'
+    );
+    blockedReq.headers.set('x-forwarded-for', ip);
+    expect(checkRateLimit(blockedReq).allowed).toBe(false);
+
+    // Advance time past the window (15 minutes)
+    vi.advanceTimersByTime(NEWSLETTER_WINDOW_MS + 1000);
+
+    // Now requests should be allowed again
+    const newReq = new NextRequest(
+      'http://localhost:3000/api/newsletter/subscribe'
+    );
+    newReq.headers.set('x-forwarded-for', ip);
+    const result = checkRateLimit(newReq);
+
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(4); // 5 - 1 = 4 remaining
+
+    vi.useRealTimers();
   });
 });
