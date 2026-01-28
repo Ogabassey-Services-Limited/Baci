@@ -31,13 +31,20 @@ interface CompleteProfilePayload {
   brandColors?: string;
 }
 
+// Response type for onboarding API (registration and profile completion)
+interface OnboardingResponse {
+  success: boolean;
+  message?: string;
+  merchantId?: string;
+}
+
 export function useOnboarding() {
   const queryClient = useQueryClient();
 
   // Register Mutation
   const registerMutation = useMutation({
-    mutationFn: (data: RegisterPayload) =>
-      apiClient(ONBOARDING_ENDPOINT, {
+    mutationFn: (data: RegisterPayload): Promise<OnboardingResponse> =>
+      apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -51,8 +58,8 @@ export function useOnboarding() {
 
   // Complete Profile Mutation
   const completeProfileMutation = useMutation({
-    mutationFn: (data: CompleteProfilePayload) =>
-      apiClient(ONBOARDING_ENDPOINT, {
+    mutationFn: (data: CompleteProfilePayload): Promise<OnboardingResponse> =>
+      apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify(data),
       }),

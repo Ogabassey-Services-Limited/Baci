@@ -10,6 +10,19 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Normalize domain by stripping protocol and trailing slashes
+ * Defense-in-depth: guards against malformed data in database
+ */
+function normalizeDomain(domain: string | null | undefined): string | null {
+  if (!domain) return null;
+  return domain
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '')
+    .trim()
+    .toLowerCase();
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -24,7 +37,8 @@ export async function generateMetadata({
 
   // Derive canonical URL from merchant data (no headers() for PPR compatibility)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const host = merchant.custom_domain || `${slug}.usebaci.com`;
+  const normalizedDomain = normalizeDomain(merchant.custom_domain);
+  const host = normalizedDomain || `${slug}.usebaci.com`;
   const canonicalUrl = `${protocol}://${host}/privacy-policy`;
 
   return {
@@ -65,8 +79,9 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
 
   // For JSON-LD, use merchant slug-based URL (custom domain handled by middleware)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = merchant.custom_domain
-    ? `${protocol}://${merchant.custom_domain}`
+  const normalizedDomain = normalizeDomain(merchant.custom_domain);
+  const baseUrl = normalizedDomain
+    ? `${protocol}://${normalizedDomain}`
     : `${protocol}://${slug}.usebaci.com`;
 
   // Generate WebPage JSON-LD schema for Privacy Policy
@@ -88,8 +103,11 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
       ...(merchant.logo_url && { logo: merchant.logo_url }),
     },
     inLanguage: 'en',
+    // Only include dateModified when a real timestamp exists (avoid unstable "now" fallback)
     // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant may not have updated_at
-    dateModified: (merchant as any).updated_at || new Date().toISOString(),
+    ...((merchant as any).updated_at
+      ? { dateModified: (merchant as any).updated_at as string }
+      : {}),
   };
 
   return (
@@ -139,8 +157,8 @@ function PrivacyPageSkeleton() {
     <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
       <div className="h-10 w-64 bg-muted rounded mb-8" />
       <div className="space-y-4">
-        {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder */}
         {Array.from({ length: 6 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton placeholders never reorder
           <div
             key={`privacy-skeleton-${i}`}
             className="h-4 bg-muted rounded w-full"

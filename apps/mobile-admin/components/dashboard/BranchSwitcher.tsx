@@ -92,7 +92,7 @@ export function BranchSwitcher() {
   };
 
   // Show "Add first branch" state when no branches exist
-  if (!hasBranches && branches.length === 0) {
+  if (!hasBranches) {
     return (
       <View style={[styles.container, { paddingHorizontal: SPACING.lg }]}>
         <Pressable
@@ -250,7 +250,10 @@ function CreateBranchModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+        <View
+          style={[styles.modalContent, { backgroundColor: colors.card }]}
+          accessibilityViewIsModal={true}
+        >
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>
               Create Branch

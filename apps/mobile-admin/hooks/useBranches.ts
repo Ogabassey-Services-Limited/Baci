@@ -132,7 +132,7 @@ export function useActiveBranch() {
 
   // Get persisted branch ID (Reactive via Query)
   const { data: persistedId } = useQuery({
-    queryKey: ['active-branch-id'],
+    queryKey: [ACTIVE_BRANCH_KEY],
     queryFn: () => getPersistedBranchId(),
     initialData: getPersistedBranchId(),
     staleTime: Infinity, // Only update via manual invalidation in setActiveBranch
@@ -148,7 +148,7 @@ export function useActiveBranch() {
   const setActiveBranch = (branchId: string | null) => {
     persistBranchId(branchId);
     // Invalidate the active-branch-id query to trigger re-render
-    queryClient.invalidateQueries({ queryKey: ['active-branch-id'] });
+    queryClient.invalidateQueries({ queryKey: [ACTIVE_BRANCH_KEY] });
   };
 
   return {

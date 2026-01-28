@@ -180,9 +180,6 @@ export function FileUploader({
     });
   };
 
-  // For compatibility with existing code that uses previews.length
-  const previews = entries.map((e) => e.src);
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     // Account for all entries when enforcing maxFiles limit

@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -83,12 +84,34 @@ export default function Paywall({ onClose }: PaywallProps) {
     }
   };
 
+  const handleManageSubscription = () => {
+    // Direct users to platform subscription management
+    Alert.alert(
+      'Manage Subscription',
+      'To manage your subscription, please visit your device\'s subscription settings.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Settings',
+          onPress: () => {
+            // iOS: App Store subscriptions, Android: Play Store subscriptions
+            const url =
+              Platform.OS === 'ios'
+                ? 'https://apps.apple.com/account/subscriptions'
+                : 'https://play.google.com/store/account/subscriptions';
+            Linking.openURL(url);
+          },
+        },
+      ]
+    );
+  };
+
   const renderPackage = ({ item }: { item: PurchasesPackage }) => {
     const isMonthly = item.packageType === 'MONTHLY';
 
     return (
       <Pressable
-        onPress={() => onPurchase(item)}
+        onPress={() => (isPro ? handleManageSubscription() : onPurchase(item))}
         style={({ pressed }) => [
           styles.packageCard,
           {
@@ -156,7 +179,7 @@ export default function Paywall({ onClose }: PaywallProps) {
       <FlashList
         data={currentOffering?.availablePackages || []}
         renderItem={renderPackage}
-        estimatedItemSize={200}
+        keyExtractor={(item) => item.identifier}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
