@@ -369,7 +369,7 @@ export default function ProfileScreen() {
                 onPress={async () => {
                   try {
                     await SubscriptionManagement.openNativeManagement();
-                  } catch (error) {
+                  } catch {
                     Alert.alert('Error', 'Unable to open subscription management');
                   }
                 }}

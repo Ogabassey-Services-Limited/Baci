@@ -637,7 +637,7 @@ export default function StoreSettingsScreen() {
                 onPress={async () => {
                   try {
                     await SubscriptionManagement.openNativeManagement();
-                  } catch (error) {
+                  } catch {
                     setStatusModal({
                       visible: true,
                       type: 'error',
