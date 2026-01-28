@@ -27,3 +27,7 @@ https://etherscan.io/address/
 # Placeholder/dummy URLs in code examples
 http://dummy.com/
 https://dummy.com/
+
+# Social media domains that rate-limit CI requests
+https://linkedin.com/
+http://linkedin.com/

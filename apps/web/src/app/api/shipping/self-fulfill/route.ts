@@ -5,26 +5,9 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
-
-// =============================================================================
-// REQUEST VALIDATION
-// =============================================================================
-
-const SelfFulfillmentSchema = z.object({
-  // Order ID (required)
-  orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
-  // Tracking number (optional but recommended)
-  trackingNumber: z.string().min(1).optional(),
-  // Dispatch phone number (required for self-fulfillment)
-  dispatchPhone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  // Carrier name (optional)
-  carrierName: z.string().optional(),
-  // Notes for dispatch/rider
-  dispatchNotes: z.string().optional(),
-});
+import { SelfFulfillmentSchema } from '@/schemas/shipping';
 
 // =============================================================================
 // POST /api/shipping/self-fulfill - Mark order as self-fulfilled

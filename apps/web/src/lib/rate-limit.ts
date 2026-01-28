@@ -19,6 +19,7 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/products': { maxRequests: 30, windowMs: 60000 }, // 30 requests per minute
   '/api/storefront': { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
   '/api/customers': { maxRequests: 20, windowMs: 60000 }, // 20 requests per minute
+  '/api/newsletter': { maxRequests: 5, windowMs: 900000 }, // 5 requests per 15 minutes
   default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
 };
 
@@ -261,6 +262,20 @@ export function cleanupRateLimitStore(): void {
       rateLimitStore.delete(key);
     }
   }
+}
+
+/**
+ * Reset the rate limit store - FOR TESTING ONLY
+ * This function clears all rate limit entries to ensure test isolation.
+ * Throws an error if called in production to prevent accidental usage.
+ */
+export function __resetRateLimitStoreForTesting(): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '__resetRateLimitStoreForTesting should only be called in test environment'
+    );
+  }
+  rateLimitStore.clear();
 }
 
 // Cleanup every 5 minutes (only in environments that support setInterval)
