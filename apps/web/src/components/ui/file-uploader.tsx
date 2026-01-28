@@ -60,6 +60,7 @@ export function FileUploader({
     initialFiles.map((src) => ({ src, file: null }))
   );
   const [errors, setErrors] = useState<string[]>([]);
+  const [announcement, setAnnouncement] = useState('');
 
   // 2026 Best Practice: Use a ref to track the latest entries for safe revocation on unmount
   const entriesRef = useRef(entries);
@@ -146,29 +147,40 @@ export function FileUploader({
         file,
       }));
 
-      setEntries((prev) => {
-        const remainingSlots = Math.max(0, maxFiles - prev.length);
-        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+      // Calculate based on current state to ensure pure state updates
+      const remainingSlots = Math.max(0, maxFiles - entries.length);
+      const entriesToAdd = potentialEntries.slice(0, remainingSlots);
 
-        if (entriesToAdd.length === 0) {
-          // Immediately revoke all as none will be used
-          for (const e of potentialEntries) URL.revokeObjectURL(e.src);
-          return prev;
+      if (entriesToAdd.length === 0) {
+        // Immediately revoke all as none will be used
+        for (const e of potentialEntries) URL.revokeObjectURL(e.src);
+        return;
+      }
+
+      // Revoke URLs for files that didn't fit the limit
+      if (potentialEntries.length > remainingSlots) {
+        for (const e of potentialEntries.slice(remainingSlots)) {
+          URL.revokeObjectURL(e.src);
         }
+      }
 
-        // Revoke URLs for files that didn't fit the limit
-        if (potentialEntries.length > remainingSlots) {
-          for (const e of potentialEntries.slice(remainingSlots)) {
-            URL.revokeObjectURL(e.src);
-          }
-        }
+      // Announce successful addition
+      setAnnouncement(
+        `${entriesToAdd.length} file${entriesToAdd.length !== 1 ? 's' : ''} added`
+      );
 
-        return [...prev, ...entriesToAdd];
-      });
+      setEntries((prev) => [...prev, ...entriesToAdd]);
     }
   };
 
   const removeFile = (index: number) => {
+    // Announce removal before state update (since we need the current list)
+    const entry = entries[index];
+    if (entry) {
+      const name = entry.file?.name || `Image ${index + 1}`;
+      setAnnouncement(`${name} removed`);
+    }
+
     setEntries((prev) => {
       const entryToRemove = prev[index];
       // Revoke blob URL for new uploads
@@ -276,6 +288,9 @@ export function FileUploader({
           ))}
         </div>
       )}
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </div>
     </div>
   );
 }
