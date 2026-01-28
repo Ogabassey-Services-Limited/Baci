@@ -30,6 +30,10 @@ const COUNTRY_LOCALES: Record<string, string> = {
   ZA: 'en-ZA',
 };
 
+// Cache for Intl.NumberFormat instances to prevent expensive re-creation
+// This significantly improves performance when rendering lists of prices (e.g. product grids)
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
 /**
  * Get currency configuration for a country
  * Defaults to USD if country not found
@@ -81,14 +85,26 @@ export function formatCurrency(
   const config = getCurrencyConfig(countryCode);
 
   try {
-    return new Intl.NumberFormat(config.locale, {
+    const finalOptions: Intl.NumberFormatOptions = {
       style: 'currency',
       currency: config.code,
       currencyDisplay: 'symbol',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
       ...options,
-    }).format(amount);
+    };
+
+    // Create a cache key based on locale, currency, and options
+    // JSON.stringify is fast enough for small option objects vs Intl instantiation
+    const cacheKey = `${config.locale}-${config.code}-${JSON.stringify(options || {})}`;
+
+    let formatter = formatterCache.get(cacheKey);
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(config.locale, finalOptions);
+      formatterCache.set(cacheKey, formatter);
+    }
+
+    return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
     return `${config.symbol}${amount.toFixed(2)}`;
