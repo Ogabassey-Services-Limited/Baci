@@ -158,20 +158,39 @@ export function useInviteStaff() {
               : `${params.email.split('@')[0]}'s Account`;
 
             // We use fetch to call our own API
-            const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
-            const response = await fetch(`${apiUrl}/api/paystack/virtual-terminal`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                name: accountName,
-                staffId: newStaff.id,
-              }),
-            });
+            const apiUrl = (
+              process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com'
+            )
+              .trim()
+              .replace(/\/+$/, '');
+
+            // Get the current session for auth
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+
+            const response = await fetch(
+              `${apiUrl}/api/paystack/virtual-terminal`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(session?.access_token && {
+                    Authorization: `Bearer ${session.access_token}`,
+                  }),
+                },
+                body: JSON.stringify({
+                  name: accountName,
+                  staffId: newStaff.id,
+                }),
+              }
+            );
 
             if (!response.ok) {
-              console.warn('[InviteStaff] Failed to auto-create account number via API');
+              console.warn(
+                '[InviteStaff] Failed to auto-create account number via API',
+                { status: response.status, statusText: response.statusText }
+              );
             }
           }
         } catch (err) {

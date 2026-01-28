@@ -300,15 +300,9 @@ export const getCachedMerchantByDomain = unstable_cache(
     }
 
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-    const settings = data.feature_settings;
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase returns loose types for joined data
+    const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
     data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
-
-    if (!data) {
-      console.warn('No merchant data found for domain', {
-        domain: normalizedDomain,
-      });
-      return null;
-    }
 
     console.log('Successfully fetched merchant by domain', {
       domain: normalizedDomain,
@@ -319,7 +313,7 @@ export const getCachedMerchantByDomain = unstable_cache(
     // SECURITY: If the store is NOT published, mask sensitive contact info.
     // This allows the "Coming Soon" page to render the business name/logo
     // without leaking the owner's private phone/email/address to the public.
-    if (data && !data.is_published) {
+    if (!data.is_published) {
       data.email = ''; // Redacted
       data.phone = ''; // Redacted
       data.business_address = ''; // Redacted
@@ -334,6 +328,40 @@ export const getCachedMerchantByDomain = unstable_cache(
     tags: ['merchants', 'domains'],
   }
 );
+
+/**
+ * Check if a string looks like a domain (contains a dot but isn't a UUID)
+ */
+function isDomainIdentifier(identifier: string): boolean {
+  // UUIDs contain dashes but no dots
+  // Domains contain dots
+  return identifier.includes('.') && !identifier.includes('-');
+}
+
+/**
+ * Validate merchant identifier format
+ * Prevents injection attacks and invalid lookups
+ */
+function isValidMerchantIdentifier(identifier: string): boolean {
+  if (!identifier || typeof identifier !== 'string') return false;
+  // Allow slugs (alphanumeric, hyphens) and domains (alphanumeric, dots, hyphens)
+  return /^[a-z0-9][a-z0-9.-]{0,252}[a-z0-9]$/i.test(identifier);
+}
+
+/**
+ * Get merchant by identifier (slug or custom domain)
+ * Automatically detects whether the identifier is a domain or slug
+ */
+export async function getMerchantByIdentifier(
+  identifier: string
+): Promise<CachedMerchant | null> {
+  if (!isValidMerchantIdentifier(identifier)) return null;
+
+  if (isDomainIdentifier(identifier)) {
+    return await getCachedMerchantByDomain(identifier.toLowerCase());
+  }
+  return await getCachedMerchant(identifier.toLowerCase());
+}
 
 /**
  * Cached merchant data by ID

@@ -28,6 +28,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { OnboardingProvider } from '@/context/OnboardingContext';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -59,6 +60,9 @@ const AdminLightTheme = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Initialize RevenueCat (IAP)
+  useRevenueCat();
+
   const [loaded, error] = useFonts({
     Inter_400Regular,
     Inter_500Medium,

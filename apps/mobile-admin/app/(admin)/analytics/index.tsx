@@ -341,9 +341,9 @@ export default function AnalyticsScreen() {
       )[0];
       const topPaymentMethod = topMethod
         ? {
-          method: topMethod[0],
-          percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
-        }
+            method: topMethod[0],
+            percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
+          }
         : { method: 'N/A', percentage: 0 };
 
       // Top product, Top Brand & Profit Calculation
@@ -667,7 +667,7 @@ export default function AnalyticsScreen() {
               size={24}
               color={
                 dateFilter === 'this_year' &&
-                  selectedYear < new Date().getFullYear()
+                selectedYear < new Date().getFullYear()
                   ? colors.text
                   : colors.textMuted
               }
@@ -701,8 +701,9 @@ export default function AnalyticsScreen() {
             label="Average Order Value"
             value={formatCompactCurrency(analytics?.avgTicketSize ?? 0)}
             subtitle={`Best month: ${analytics?.bestMonthAOV ?? 'N/A'}`}
-            sparklineData={analytics?.monthlyRevenue.map((rev: number, i: number) =>
-              analytics?.monthlySales[i] ? rev / analytics.monthlySales[i] : 0
+            sparklineData={analytics?.monthlyRevenue.map(
+              (rev: number, i: number) =>
+                analytics?.monthlySales[i] ? rev / analytics.monthlySales[i] : 0
             )}
             onPress={() => router.push('/analytics/aov')}
           />

@@ -3,7 +3,7 @@
  * Programmatic handling of chargebacks and evidence submission
  */
 
-import { z } from 'zod';
+import z from 'zod';
 
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';

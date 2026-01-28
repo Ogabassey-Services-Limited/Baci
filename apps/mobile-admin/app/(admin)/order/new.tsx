@@ -27,6 +27,14 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+interface ShippingAddress {
+  name: string;
+  phone: string;
+  address: string;
+  city?: string;
+  state?: string;
+}
+
 interface CustomerRecord {
   id: string;
   first_name?: string;
@@ -80,61 +88,75 @@ interface CustomerInfo {
   address: string;
 }
 
+/**
+ * Formats a price string with thousand separators while preserving decimal input
+ */
+function formatPriceInput(value: string | undefined): string {
+  if (!value) return '';
+  const parts = value.split('.');
+  const rawInt = parts[0].replace(/,/g, '');
+  const formattedInt =
+    !Number.isNaN(Number(rawInt)) && rawInt !== ''
+      ? Number(rawInt).toLocaleString('en-US')
+      : parts[0];
+  return parts.length > 1 ? `${formattedInt}.${parts[1]}` : formattedInt;
+}
+
 const CHANNELS: {
   id: OrderSource;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }[] = [
-    {
-      id: 'physical',
-      label: 'Physical sales',
-      icon: 'storefront',
-      color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
-    },
-    {
-      id: 'instagram',
-      label: 'Instagram',
-      icon: 'logo-instagram',
-      color: BRAND_COLORS?.instagram || '#E4405F',
-    },
-    {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      icon: 'logo-whatsapp',
-      color: BRAND_COLORS?.whatsapp || '#25D366',
-    },
-    {
-      id: 'facebook',
-      label: 'Facebook',
-      icon: 'logo-facebook',
-      color: BRAND_COLORS?.facebook || '#1877F2',
-    },
-    {
-      id: 'tiktok',
-      label: 'Tiktok',
-      icon: 'logo-tiktok',
-      color: BRAND_COLORS?.tiktok || '#000000',
-    },
-    {
-      id: 'jumia',
-      label: 'Jumia',
-      icon: 'cart',
-      color: BRAND_COLORS?.jumia || '#F68B1E',
-    },
-    {
-      id: 'jiji',
-      label: 'Jiji',
-      icon: 'pricetag',
-      color: BRAND_COLORS?.jiji || '#3DB83A',
-    },
-    {
-      id: 'konga',
-      label: 'Konga',
-      icon: 'bag',
-      color: BRAND_COLORS?.konga || '#ED017F',
-    },
-  ];
+  {
+    id: 'physical',
+    label: 'Physical sales',
+    icon: 'storefront',
+    color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    icon: 'logo-instagram',
+    color: BRAND_COLORS?.instagram || '#E4405F',
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: 'logo-whatsapp',
+    color: BRAND_COLORS?.whatsapp || '#25D366',
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    icon: 'logo-facebook',
+    color: BRAND_COLORS?.facebook || '#1877F2',
+  },
+  {
+    id: 'tiktok',
+    label: 'Tiktok',
+    icon: 'logo-tiktok',
+    color: BRAND_COLORS?.tiktok || '#000000',
+  },
+  {
+    id: 'jumia',
+    label: 'Jumia',
+    icon: 'cart',
+    color: BRAND_COLORS?.jumia || '#F68B1E',
+  },
+  {
+    id: 'jiji',
+    label: 'Jiji',
+    icon: 'pricetag',
+    color: BRAND_COLORS?.jiji || '#3DB83A',
+  },
+  {
+    id: 'konga',
+    label: 'Konga',
+    icon: 'bag',
+    color: BRAND_COLORS?.konga || '#ED017F',
+  },
+];
 
 const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer', icon: 'card-outline' },
@@ -238,7 +260,7 @@ export default function NewOrderScreen() {
   const formatPrice = (amount: number) =>
     new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'NGN',
+      currency: merchant?.payout_currency || 'NGN',
       minimumFractionDigits: 2,
     }).format(amount);
 
@@ -449,19 +471,17 @@ export default function NewOrderScreen() {
           notes: notes.trim() || null,
           shipping_address: sameAsCustomer
             ? ({
-              name: customer.name,
-              phone: customer.phone,
-              address: customer.address,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any)
+                name: customer.name,
+                phone: customer.phone,
+                address: customer.address,
+              } satisfies ShippingAddress)
             : ({
-              name: deliveryInfo.name,
-              phone: deliveryInfo.phone,
-              address: deliveryInfo.address,
-              city: deliveryInfo.city,
-              state: deliveryInfo.state,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any),
+                name: deliveryInfo.name,
+                phone: deliveryInfo.phone,
+                address: deliveryInfo.address,
+                city: deliveryInfo.city,
+                state: deliveryInfo.state,
+              } satisfies ShippingAddress),
         })
         .select()
         .single();
@@ -1560,18 +1580,7 @@ export default function NewOrderScreen() {
               placeholder="Amount (0.00)"
               placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
-              value={(() => {
-                if (!customItem.price) return '';
-                const parts = customItem.price.split('.');
-                const rawInt = parts[0].replace(/,/g, '');
-                const formattedInt =
-                  !Number.isNaN(Number(rawInt)) && rawInt !== ''
-                    ? Number(rawInt).toLocaleString('en-US')
-                    : parts[0];
-                return parts.length > 1
-                  ? `${formattedInt}.${parts[1]}`
-                  : formattedInt;
-              })()}
+              value={formatPriceInput(customItem.price)}
               onChangeText={(t) => {
                 const clean = t.replace(/[^0-9.]/g, '');
                 setCustomItem((p) => ({ ...p, price: clean }));
@@ -2362,18 +2371,7 @@ export default function NewOrderScreen() {
               value={
                 showFinancialModal.type === 'tax' && isVatApplied
                   ? formatPrice(calculatedVat)
-                  : (() => {
-                    if (!financialValue) return '';
-                    const parts = financialValue.split('.');
-                    const rawInt = parts[0].replace(/,/g, '');
-                    const formattedInt =
-                      !Number.isNaN(Number(rawInt)) && rawInt !== ''
-                        ? Number(rawInt).toLocaleString('en-US')
-                        : parts[0];
-                    return parts.length > 1
-                      ? `${formattedInt}.${parts[1]}`
-                      : formattedInt;
-                  })()
+                  : formatPriceInput(financialValue)
               }
               onChangeText={(text) => {
                 const clean = text.replace(/[^0-9.]/g, '');
@@ -2544,18 +2542,7 @@ export default function NewOrderScreen() {
                         fontWeight: '600',
                       }}
                       keyboardType="decimal-pad"
-                      value={(() => {
-                        if (!editPriceValue) return '';
-                        const parts = editPriceValue.split('.');
-                        const rawInt = parts[0].replace(/,/g, '');
-                        const formattedInt =
-                          !Number.isNaN(Number(rawInt)) && rawInt !== ''
-                            ? Number(rawInt).toLocaleString('en-US')
-                            : parts[0];
-                        return parts.length > 1
-                          ? `${formattedInt}.${parts[1]}`
-                          : formattedInt;
-                      })()}
+                      value={formatPriceInput(editPriceValue)}
                       onChangeText={(text) => {
                         const clean = text.replace(/[^0-9.]/g, '');
                         if ((clean.match(/\./g) || []).length > 1) return;
@@ -2668,11 +2655,11 @@ export default function NewOrderScreen() {
                       prev.map((item) =>
                         item.product_id === editingItem.product_id
                           ? {
-                            ...item,
-                            price: finalPrice,
-                            quantity: finalQty,
-                            details: editDetails,
-                          }
+                              ...item,
+                              price: finalPrice,
+                              quantity: finalQty,
+                              details: editDetails,
+                            }
                           : item
                       )
                     );

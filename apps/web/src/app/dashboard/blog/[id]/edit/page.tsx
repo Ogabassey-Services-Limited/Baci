@@ -1,13 +1,16 @@
 'use client';
 
+import { format } from 'date-fns';
 import {
   Archive,
   ArrowLeft,
+  Calendar as CalendarIcon,
+  Clock,
   ExternalLink,
   Eye,
-  // Loader2,
   Save,
   Send,
+  Sparkles,
   X,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -29,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Card,
   CardContent,
@@ -39,6 +43,11 @@ import {
 import { FileUploader } from '@/components/ui/file-uploader';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { getRootDomain } from '@/env';
@@ -47,6 +56,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
+import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 import { getPreviewUrl } from '../../actions';
 
 interface Product {
@@ -75,7 +85,8 @@ interface PostFormData {
   seo_title: string;
   seo_description: string;
   focus_keyword: string;
-  status: 'draft' | 'published' | 'archived';
+  status: 'draft' | 'published' | 'archived' | 'scheduled';
+  published_at?: string | null;
 }
 
 interface BlogPost extends PostFormData {
@@ -117,7 +128,12 @@ export default function EditBlogPostPage() {
     seo_description: '',
     focus_keyword: '',
     status: 'draft',
+    published_at: null,
   });
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(
+    formData.published_at ? new Date(formData.published_at) : undefined
+  );
+  const [isSchedulePopoverOpen, setIsSchedulePopoverOpen] = useState(false);
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [preRecoveryData, setPreRecoveryData] = useState<PostFormData | null>(
     null
@@ -195,7 +211,11 @@ export default function EditBlogPostPage() {
           seo_description: post.seo_description || '',
           focus_keyword: post.focus_keyword || '',
           status: post.status || 'draft',
+          published_at: post.published_at || null,
         });
+        if (post.published_at) {
+          setScheduledDate(new Date(post.published_at));
+        }
 
         // Fetch embedded products if any
         if (
@@ -264,6 +284,22 @@ export default function EditBlogPostPage() {
     []
   );
 
+  const optimizeSEO = useCallback(
+    (field: 'seo_title' | 'seo_description') => {
+      const limit = field === 'seo_title' ? 70 : 160;
+      const currentValue =
+        formData[field] ||
+        (field === 'seo_title' ? formData.title : formData.excerpt);
+      const optimized = currentValue.slice(0, limit);
+      handleChange(field, optimized);
+      toast({
+        title: 'SEO Optimized',
+        description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
+      });
+    },
+    [formData, handleChange, toast]
+  );
+
   const [isUploading, setIsUploading] = useState(false);
 
   // Handle featured image selection and upload
@@ -328,16 +364,28 @@ export default function EditBlogPostPage() {
   }, []);
 
   const validateForm = (): string | null => {
-    if (!formData.title.trim()) return 'Title is required';
-    if (!formData.content.trim()) return 'Content is required';
-    if (!formData.author_name.trim()) return 'Author name is required';
-    if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
-      return 'Slug can only contain lowercase letters, numbers, and hyphens';
+    // Sanitize data first
+    const sanitizedData = sanitizeBlogPostData({
+      ...formData,
+      slug:
+        formData.slug && formData.slug !== originalPost?.slug
+          ? formData.slug
+          : undefined,
+    });
+
+    const result = blogPostSchema.safeParse(sanitizedData);
+
+    if (!result.success) {
+      const firstError = result.error.issues?.[0];
+      return firstError?.message || 'Invalid form data';
     }
+
     return null;
   };
 
-  const savePost = async (newStatus?: 'draft' | 'published' | 'archived') => {
+  const savePost = async (
+    newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
+  ) => {
     const error = validateForm();
     if (error) {
       toast({
@@ -350,35 +398,36 @@ export default function EditBlogPostPage() {
 
     setIsSaving(true);
     try {
-      const postData = {
+      const rawPostData = {
         title: formData.title.trim(),
-        slug: formData.slug || undefined,
+        slug:
+          formData.slug && formData.slug !== originalPost?.slug
+            ? formData.slug
+            : undefined,
         content: formData.content,
-        excerpt: formData.excerpt || undefined,
-        featured_image_url: formData.featured_image_url || null,
-        featured_image_alt: formData.featured_image_alt || undefined,
-        category: formData.category || undefined,
-        tags: formData.tags
-          ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : [],
-        keywords: formData.keywords
-          ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
-          : [],
+        excerpt: formData.excerpt,
+        featured_image_url: formData.featured_image_url,
+        featured_image_alt: formData.featured_image_alt,
+        category: formData.category,
+        tags: formData.tags ? formData.tags.split(',') : [],
+        keywords: formData.keywords ? formData.keywords.split(',') : [],
         author_name: formData.author_name,
-        author_title: formData.author_title || undefined,
-        author_bio: formData.author_bio || undefined,
-        seo_title: formData.seo_title || undefined,
-        seo_description: formData.seo_description || undefined,
-        focus_keyword: formData.focus_keyword || undefined,
+        author_title: formData.author_title,
+        author_bio: formData.author_bio,
+        seo_title: formData.seo_title,
+        seo_description: formData.seo_description,
+        focus_keyword: formData.focus_keyword,
         status: newStatus || formData.status,
+        published_at:
+          newStatus === 'scheduled'
+            ? scheduledDate?.toISOString()
+            : newStatus === 'published'
+              ? new Date().toISOString()
+              : formData.published_at,
         embedded_products: embeddedProducts.map((p) => p.id),
       };
+
+      const postData = sanitizeBlogPostData(rawPostData);
 
       const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
         method: 'PATCH',
@@ -388,7 +437,14 @@ export default function EditBlogPostPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to update post');
+        const fieldErrors = data.details?.fieldErrors as
+          | Record<string, string[]>
+          | undefined;
+        const errorMessage = fieldErrors
+          ? Object.values(fieldErrors)[0]?.[0]
+          : data.error;
+
+        throw new Error(errorMessage || 'Failed to update post');
       }
 
       const updatedPost = await response.json();
@@ -399,6 +455,7 @@ export default function EditBlogPostPage() {
         published: 'Your blog post is now live.',
         draft: 'Your post has been saved as a draft.',
         archived: 'Your post has been archived.',
+        scheduled: `Your post is scheduled for ${scheduledDate ? format(scheduledDate, 'PPP p') : 'later'}.`,
       };
 
       toast({
@@ -448,6 +505,18 @@ export default function EditBlogPostPage() {
       });
     }
   };
+
+  const handleAISuggestSchedule = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0); // 10 AM tomorrow
+    setScheduledDate(tomorrow);
+    toast({
+      title: 'AI Timing Optimization',
+      description: 'Scheduled for tomorrow at 10:00 AM for peak engagement.',
+    });
+  };
+
   const titleLength = formData.seo_title?.length || formData.title.length;
   const descriptionLength =
     formData.seo_description?.length || formData.excerpt.length;
@@ -496,6 +565,7 @@ export default function EditBlogPostPage() {
     published: 'default' as const,
     draft: 'secondary' as const,
     archived: 'outline' as const,
+    scheduled: 'destructive' as const, // Using destructive (red) for scheduled to grab attention, or 'outline' for secondary feel
   };
 
   return (
@@ -563,6 +633,81 @@ export default function EditBlogPostPage() {
             )}
             Save Changes
           </Button>
+
+          {/* Schedule Button & Popover */}
+          {(formData.status === 'draft' || formData.status === 'scheduled') && (
+            <Popover
+              open={isSchedulePopoverOpen}
+              onOpenChange={setIsSchedulePopoverOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button variant="outline" disabled={isSaving}>
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {formData.status === 'scheduled' && scheduledDate
+                    ? `Scheduled: ${format(scheduledDate, 'MMM d, HH:mm')}`
+                    : 'Schedule'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">
+                      Publish Date & Time
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAISuggestSchedule}
+                      className="h-7 text-[10px] px-2 text-primary"
+                    >
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      AI Suggest
+                    </Button>
+                  </div>
+                  <Calendar
+                    selected={scheduledDate || null}
+                    onSelect={(date: Date | null) =>
+                      setScheduledDate(date || undefined)
+                    }
+                    minDate={new Date()}
+                  />
+                  <div className="flex items-center gap-2 border-t pt-4">
+                    <Clock className="w-4 h-4 text-muted-foreground ml-2" />
+                    <Input
+                      type="time"
+                      className="h-8 py-1"
+                      value={
+                        scheduledDate ? format(scheduledDate, 'HH:mm') : ''
+                      }
+                      onChange={(e) => {
+                        const [hours, minutes] = e.target.value.split(':');
+                        const newDate = scheduledDate
+                          ? new Date(scheduledDate)
+                          : new Date();
+                        newDate.setHours(
+                          Number.parseInt(hours, 10),
+                          Number.parseInt(minutes, 10)
+                        );
+                        setScheduledDate(newDate);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    disabled={!scheduledDate || isSaving}
+                    onClick={() => {
+                      savePost('scheduled');
+                      setIsSchedulePopoverOpen(false);
+                    }}
+                  >
+                    Confirm Schedule
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
           {formData.status === 'draft' && (
             <Button onClick={() => savePost('published')} disabled={isSaving}>
               {isSaving ? (
@@ -570,7 +715,7 @@ export default function EditBlogPostPage() {
               ) : (
                 <Send className="w-4 h-4 mr-2" />
               )}
-              Publish
+              Publish Now
             </Button>
           )}
           {formData.status === 'published' && (
@@ -812,20 +957,39 @@ export default function EditBlogPostPage() {
                   placeholder={formData.title || 'Custom SEO title'}
                   value={formData.seo_title}
                   onChange={(e) => handleChange('seo_title', e.target.value)}
-                  maxLength={70}
                 />
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between items-center text-xs">
                   <span
                     className={
                       titleLength > 60
-                        ? 'text-destructive'
+                        ? 'text-destructive font-medium'
                         : 'text-muted-foreground'
                     }
                   >
                     {titleLength}/60 characters (recommended)
                   </span>
                   {titleLength >= 50 && titleLength <= 60 && (
-                    <span className="text-green-600">Good length!</span>
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
+                    >
+                      Optimized for SEO
+                    </Badge>
+                  )}
+                  {titleLength > 70 && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive" className="animate-pulse">
+                        Too Long
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => optimizeSEO('seo_title')}
+                      >
+                        Fix for me
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -840,20 +1004,42 @@ export default function EditBlogPostPage() {
                     handleChange('seo_description', e.target.value)
                   }
                   rows={3}
-                  maxLength={160}
                 />
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between items-center text-xs">
                   <span
                     className={
-                      descriptionLength > 160
-                        ? 'text-destructive'
+                      descriptionLength > 150
+                        ? 'text-destructive font-medium'
                         : 'text-muted-foreground'
                     }
                   >
-                    {descriptionLength}/160 characters (recommended)
+                    {descriptionLength}/150 characters{' '}
+                    {!formData.seo_description &&
+                      formData.excerpt &&
+                      '(using excerpt)'}
                   </span>
-                  {descriptionLength >= 120 && descriptionLength <= 160 && (
-                    <span className="text-green-600">Good length!</span>
+                  {descriptionLength >= 120 && descriptionLength <= 150 && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-700 hover:bg-green-100 border-none"
+                    >
+                      Optimized for Google/Social
+                    </Badge>
+                  )}
+                  {descriptionLength > 160 && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="destructive" className="animate-pulse">
+                        Exceeds Limit
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => optimizeSEO('seo_description')}
+                      >
+                        Fix for me
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>

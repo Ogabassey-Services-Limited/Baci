@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -19,6 +20,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 interface UserProfile {
   id: string;
@@ -31,6 +34,7 @@ interface UserProfile {
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { unregisterPush } = usePushNotifications();
+  const { isPro } = useRevenueCat();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -118,8 +122,10 @@ export default function ProfileScreen() {
                   style: 'destructive',
                   onPress: async () => {
                     try {
-                      const { data: session } = await supabase.auth.getSession();
-                      if (!session.session) throw new Error('No active session');
+                      const { data: session } =
+                        await supabase.auth.getSession();
+                      if (!session.session)
+                        throw new Error('No active session');
 
                       const response = await fetch(
                         `${process.env.EXPO_PUBLIC_API_URL}/api/merchant/auth/account-deletion`,
@@ -133,7 +139,9 @@ export default function ProfileScreen() {
 
                       if (!response.ok) {
                         const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to delete account');
+                        throw new Error(
+                          errorData.error || 'Failed to delete account'
+                        );
                       }
 
                       Alert.alert(
@@ -151,7 +159,10 @@ export default function ProfileScreen() {
                         ]
                       );
                     } catch (error: unknown) {
-                      Alert.alert('Error', (error as Error).message || 'Failed to delete account');
+                      Alert.alert(
+                        'Error',
+                        (error as Error).message || 'Failed to delete account'
+                      );
                     }
                   },
                 },
@@ -306,6 +317,92 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Subscription Section */}
+          <View
+            style={[
+              styles.section,
+              { borderTopColor: colors.border, paddingTop: 0 },
+            ]}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              Subscription
+            </Text>
+
+            <Pressable
+              style={[
+                styles.subscriptionCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => router.push('/(admin)/subscribe')}
+            >
+              <View
+                style={[
+                  styles.subscriptionIconContainer,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.05)'
+                      : 'rgba(0,0,0,0.03)',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="star"
+                  size={24}
+                  color={isPro ? colors.primary : colors.textMuted}
+                />
+              </View>
+              <View style={styles.subscriptionInfo}>
+                <Text style={[styles.planLabel, { color: colors.text }]}>
+                  {SubscriptionManagement.getPlanLabel(isPro)}
+                </Text>
+                <Text
+                  style={[styles.planStatus, { color: colors.textSecondary }]}
+                >
+                  {isPro
+                    ? 'You have full access to pro features'
+                    : 'Individual Store Builder'}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+
+            {isPro && (
+              <Pressable
+                style={[styles.manageButton, { marginTop: SPACING.md }]}
+                onPress={async () => {
+                  try {
+                    await SubscriptionManagement.openNativeManagement();
+                  } catch {
+                    Alert.alert(
+                      'Error',
+                      'Unable to open subscription management'
+                    );
+                  }
+                }}
+              >
+                <Text
+                  style={[styles.manageButtonText, { color: colors.primary }]}
+                >
+                  {Platform.OS === 'ios'
+                    ? 'Manage in App Store'
+                    : 'Manage in Google Play'}
+                </Text>
+                <Ionicons
+                  name="open-outline"
+                  size={16}
+                  color={colors.primary}
+                  style={{ marginLeft: SPACING.xs }}
+                />
+              </Pressable>
+            )}
+          </View>
+
           {/* Actions */}
           <View style={styles.footer}>
             <Pressable
@@ -421,5 +518,41 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  subscriptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+  },
+  subscriptionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  subscriptionInfo: {
+    flex: 1,
+  },
+  planLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  planStatus: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    padding: SPACING.xs,
+  },
+  manageButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

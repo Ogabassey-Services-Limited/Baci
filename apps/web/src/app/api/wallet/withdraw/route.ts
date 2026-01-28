@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { payoutMerchantCommission } from '@/lib/kuda';
 import { createClient } from '@/lib/supabase/server';
 
@@ -9,7 +10,16 @@ const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
  * POST /api/wallet/withdraw
  * Manual withdrawal request - transfer to merchant's bank account
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // CSRF protection - prevents cross-site request forgery attacks
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

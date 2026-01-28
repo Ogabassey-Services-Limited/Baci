@@ -33,7 +33,19 @@ const BUSINESS_TYPES = [
 ];
 
 // Construct API URL: Ensure we append the path to the base URL
+interface RegisterResponse {
+  user?: { email_confirmed_at?: string | null };
+}
 
+function isRegisterResponse(data: unknown): data is RegisterResponse {
+  if (typeof data !== 'object' || data === null) return false;
+  const obj = data as Record<string, unknown>;
+  // Valid if no user property, or user is an object with optional email_confirmed_at
+  if ('user' in obj && obj.user !== null && typeof obj.user !== 'object') {
+    return false;
+  }
+  return true;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -46,6 +58,8 @@ export default function RegisterScreen() {
     email: '',
     password: '',
     confirmPassword: '',
+    firstName: '',
+    lastName: '',
     businessName: '',
     businessType: '',
     otherBusinessType: '',
@@ -109,44 +123,55 @@ export default function RegisterScreen() {
       return;
     }
 
-    register.mutate({
-      email: formData.email.toLowerCase(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword,
-      fullName: formData.businessName.split(' ')[0],
-      businessName: formData.businessName,
-      businessType: formData.businessType,
-      otherBusinessType: formData.otherBusinessType,
-      slug: formData.slug || undefined,
-      brandColors: JSON.stringify({
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#F59E0B',
-      }),
-      logoUrl: 'https://via.placeholder.com/150',
-    }, {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      onSuccess: (data: any) => {
-        // Check if verifying
-        if (data.user?.email_confirmed_at) {
-          Alert.alert('Success', 'Account created!', [
-            { text: 'Continue', onPress: () => router.push('/(auth)/login') },
-          ]);
-        } else {
-          router.push({
-            pathname: '/(auth)/verify',
-            params: { email: formData.email },
-          });
-        }
+    const email = formData.email.toLowerCase();
+    register.mutate(
+      {
+        email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        businessName: formData.businessName,
+        businessType: formData.businessType,
+        otherBusinessType: formData.otherBusinessType,
+        slug: formData.slug || undefined,
+        brandColors: JSON.stringify({
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        }),
       },
-      onError: (error) => {
-        console.error('Registration error:', error);
-        Alert.alert(
-          'Registration Failed',
-          error.message || 'Please try again later.'
-        );
+      {
+        onSuccess: (data: unknown) => {
+          if (!isRegisterResponse(data)) {
+            Alert.alert(
+              'Error',
+              'Unexpected response from server. Please try again.'
+            );
+            return;
+          }
+          const response = data;
+          // Check if verifying
+          if (response.user?.email_confirmed_at) {
+            Alert.alert('Success', 'Account created!', [
+              { text: 'Continue', onPress: () => router.push('/(auth)/login') },
+            ]);
+          } else {
+            router.push({
+              pathname: '/(auth)/verify',
+              params: { email },
+            });
+          }
+        },
+        onError: (error: Error) => {
+          console.error('Registration error:', error);
+          Alert.alert(
+            'Registration Failed',
+            error.message || 'Please try again later.'
+          );
+        },
       }
-    });
+    );
   };
 
   return (
@@ -191,6 +216,31 @@ export default function RegisterScreen() {
                 <Text style={styles.sectionTitle}>Account Details</Text>
                 <Text style={styles.sectionValidation}>Required</Text>
 
+                <View style={styles.nameRow}>
+                  <View style={styles.nameInputGroup}>
+                    <Text style={styles.label}>First Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="John"
+                      placeholderTextColor="#6B7280"
+                      autoCapitalize="words"
+                      value={formData.firstName}
+                      onChangeText={(t) => updateForm('firstName', t)}
+                    />
+                  </View>
+                  <View style={styles.nameInputGroup}>
+                    <Text style={styles.label}>Last Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Doe"
+                      placeholderTextColor="#6B7280"
+                      autoCapitalize="words"
+                      value={formData.lastName}
+                      onChangeText={(t) => updateForm('lastName', t)}
+                    />
+                  </View>
+                </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Email Address</Text>
                   <TextInput
@@ -218,6 +268,10 @@ export default function RegisterScreen() {
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
@@ -240,8 +294,12 @@ export default function RegisterScreen() {
                       onChangeText={(t) => updateForm('confirmPassword', t)}
                     />
                     <Pressable
-                      onPress={() => setShowPassword(!showPassword)} // Shared toggle for simplicity, or could separate
+                      onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       <Ionicons
                         name={showPassword ? 'eye-off' : 'eye'}
@@ -300,7 +358,7 @@ export default function RegisterScreen() {
                         style={[
                           styles.typeCard,
                           formData.businessType === type.id &&
-                          styles.typeCardSelected,
+                            styles.typeCardSelected,
                         ]}
                         onPress={() => updateForm('businessType', type.id)}
                       >
@@ -308,7 +366,7 @@ export default function RegisterScreen() {
                           style={[
                             styles.typeText,
                             formData.businessType === type.id &&
-                            styles.typeTextSelected,
+                              styles.typeTextSelected,
                           ]}
                         >
                           {type.label}
@@ -318,7 +376,7 @@ export default function RegisterScreen() {
                   </View>
                 </View>
 
-                {formData.businessType === 'Other' && (
+                {formData.businessType === 'other' && (
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Please specify</Text>
                     <TextInput
@@ -413,6 +471,14 @@ const styles = StyleSheet.create({
     marginTop: -SPACING.lg, // Pull up closer to title
   },
   inputGroup: {
+    gap: SPACING.sm,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  nameInputGroup: {
+    flex: 1,
     gap: SPACING.sm,
   },
   label: {

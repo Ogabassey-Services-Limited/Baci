@@ -1,7 +1,7 @@
 'use server';
 
 import { generateObject } from 'ai';
-import { z } from 'zod';
+import z from 'zod';
 import {
   gemini25FlashImage,
   geminiFlash,

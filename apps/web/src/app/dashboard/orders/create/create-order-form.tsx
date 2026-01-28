@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
+import z from 'zod';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';

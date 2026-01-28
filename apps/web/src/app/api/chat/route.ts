@@ -14,7 +14,7 @@
 import crypto from 'node:crypto';
 import { generateText } from 'ai';
 import { headers } from 'next/headers';
-import { z } from 'zod';
+import z from 'zod';
 import {
   handleAddToCart,
   handleCheckPaymentStatus,

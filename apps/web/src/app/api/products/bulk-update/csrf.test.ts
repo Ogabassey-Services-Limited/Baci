@@ -73,6 +73,7 @@ describe('POST /api/products/bulk-update', () => {
       'http://localhost:3000/api/products/bulk-update',
       {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           changes: [],
         }),

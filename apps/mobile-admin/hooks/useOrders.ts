@@ -174,27 +174,35 @@ export function useUpdateOrderStatus() {
       status: ShippingStatus;
     }) => updateOrderStatus(orderId, status),
     onMutate: async ({ orderId, status }) => {
+      if (!merchant?.id)
+        return { previousOrders: [], previousOrder: undefined };
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['orders', merchant?.id] });
+      await queryClient.cancelQueries({ queryKey: ['orders', merchant.id] });
 
       // Snapshot previous value
-      const previousOrders = queryClient.getQueryData(['orders', merchant?.id]);
+      const previousOrders = queryClient.getQueriesData<OrdersPage>({
+        queryKey: ['orders', merchant.id],
+      });
 
       // Optimistically update list
-      queryClient.setQueryData(['orders', merchant?.id], (old: { pages: OrdersPage[] } | undefined) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: OrdersPage) => ({
-            ...page,
-            orders: page.orders.map((order: Order) =>
-              order.id === orderId
-                ? { ...order, shipping_status: status }
-                : order
-            ),
-          })),
-        };
-      });
+      // Optimistically update list - Match ALL order queries
+      queryClient.setQueriesData(
+        { queryKey: ['orders', merchant.id] },
+        (old: any) => {
+          if (!old?.pages) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page: OrdersPage) => ({
+              ...page,
+              orders: page.orders.map((order: Order) =>
+                order.id === orderId
+                  ? { ...order, shipping_status: status }
+                  : order
+              ),
+            })),
+          };
+        }
+      );
 
       // KEY FIX: Optimistically update the single order detail view
       const previousOrder = queryClient.getQueryData(['order', orderId]);
@@ -208,10 +216,10 @@ export function useUpdateOrderStatus() {
     onError: (_err, vars, context) => {
       // Rollback on error
       if (context?.previousOrders) {
-        queryClient.setQueryData(
-          ['orders', merchant?.id],
-          context.previousOrders
-        );
+        context.previousOrders.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+        // Note: onSettled already invalidates orders query, no need to do it here
       }
       if (context?.previousOrder) {
         queryClient.setQueryData(

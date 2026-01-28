@@ -3,8 +3,8 @@
 import crypto from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { getAppUrl } from '@/env';
+import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
@@ -34,7 +34,7 @@ const VALID_ROLES: StaffRole[] = [
 
 // InviteStaffSchema imported from ./schema.ts
 
-// HTML escape function for email templates to prevent HTML injection
+// Helper to escape HTML for emails
 function escapeHtmlForEmail(str: string): string {
   if (!str) return '';
   return str
@@ -46,29 +46,12 @@ function escapeHtmlForEmail(str: string): string {
 }
 
 export async function getStaffMembers() {
+  // Check permission: 'staff.view'
+  const { merchant } = await ensurePermission('staff', 'view');
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
-
-  // Get staff members - select only fields needed by UI to avoid exposing sensitive data like invitation_token
+  // Get staff members
   const { data: staff, error: staffError } = await supabase
     .from('staff_members')
     .select(
@@ -87,6 +70,9 @@ export async function getStaffMembers() {
 }
 
 export async function inviteStaffMember(rawData: InviteStaffData) {
+  // Check permission: 'staff.invite'
+  const { merchant } = await ensurePermission('staff', 'invite');
+
   const validated = InviteStaffSchema.safeParse(rawData);
   if (!validated.success) {
     throw new Error(validated.error.issues[0].message);
@@ -95,25 +81,6 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
   const data = validated.data;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id, business_name')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
 
   const { email, name, role, autoCreateAccount } = data;
 
@@ -266,27 +233,11 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
 }
 
 export async function resendInvitation(id: string) {
+  // Check permission: 'staff.invite' (using invite permission for resend)
+  const { merchant } = await ensurePermission('staff', 'invite');
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id, business_name')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
 
   // Get staff member - only select fields needed for resending invitation
   const { data: staff } = await supabase
@@ -339,16 +290,11 @@ export async function updateStaffMember(
   id: string,
   data: { role?: StaffRole; status?: StaffStatus }
 ) {
+  // Check permission: 'staff.edit'
+  const { merchant } = await ensurePermission('staff', 'edit');
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
 
   // Validate status if provided
   if (data.status && !VALID_STATUSES.includes(data.status)) {
@@ -360,18 +306,7 @@ export async function updateStaffMember(
     throw new Error('Invalid role value');
   }
 
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
-
-  // Explicitly construct update object with only allowed fields to prevent prototype pollution
+  // Explicitly construct update object with only allowed fields
   const updateData: { role?: StaffRole; status?: StaffStatus } = {};
   if (data.role) updateData.role = data.role;
   if (data.status) updateData.status = data.status;
@@ -404,27 +339,11 @@ export async function updateStaffMember(
 }
 
 export async function removeStaffMember(id: string) {
+  // Check permission: 'staff.remove'
+  const { merchant } = await ensurePermission('staff', 'remove');
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
 
   // Soft delete - verify a row was actually updated
   const { data: removed, error } = await supabase

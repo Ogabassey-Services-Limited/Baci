@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -27,13 +28,15 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
+import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
+  const { isPro } = useRevenueCat();
   const [isUploading, setIsUploading] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
@@ -62,7 +65,7 @@ export default function StoreSettingsScreen() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [country, setCountry] = useState(COUNTRIES[0].name);
+  const [country, setCountry] = useState(COUNTRIES[0].code);
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
 
   // Social & Analytics State
@@ -81,17 +84,17 @@ export default function StoreSettingsScreen() {
 
       // Social Media
 
-      const initialCountry = merchant.country || COUNTRIES[0].name;
+      const initialCountry = merchant.country || COUNTRIES[0].code;
       setCountry(initialCountry);
 
       // Prioritize saved payout_currency, then fallback to country's default currency, then default DZD
       const defaultCurrencyForCountry = COUNTRIES.find(
-        (c) => c.name === initialCountry
+        (c) => c.code === initialCountry || c.name === initialCountry
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -533,6 +536,158 @@ export default function StoreSettingsScreen() {
             </View>
           </View>
 
+          {/* Subscription Plan */}
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: SPACING.md,
+              }}
+            >
+              <Text
+                style={[
+                  styles.label,
+                  { color: colors.textSecondary, marginBottom: 0 },
+                ]}
+              >
+                Subscription Plan
+              </Text>
+              <View
+                style={[
+                  styles.planBadge,
+                  {
+                    backgroundColor: isPro
+                      ? colors.primary + '20'
+                      : colors.cardHover,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.planBadgeText,
+                    { color: isPro ? colors.primary : colors.textSecondary },
+                  ]}
+                >
+                  {SubscriptionManagement.getPlanLabel(isPro)}
+                </Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={[
+                styles.inputContainer,
+                {
+                  backgroundColor: colors.cardHover,
+                  marginBottom: SPACING.sm,
+                  borderWidth: 0,
+                  justifyContent: 'space-between',
+                  paddingRight: SPACING.md,
+                },
+              ]}
+              onPress={() => router.push('/(admin)/subscribe')}
+            >
+              <View style={styles.subscriptionButton}>
+                <View
+                  style={[
+                    styles.subscriptionIconContainer,
+                    { backgroundColor: colors.primary + '20' },
+                  ]}
+                >
+                  <Ionicons name="star" size={20} color={colors.primary} />
+                </View>
+                <View style={styles.subscriptionTextContainer}>
+                  <Text
+                    style={[styles.subscriptionTitle, { color: colors.text }]}
+                  >
+                    {isPro ? 'Baci Pro' : 'Upgrade to Pro'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.subscriptionSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {isPro ? 'View plan features' : 'Unlock premium features'}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+
+            {isPro && (
+              <Pressable
+                style={[
+                  styles.inputContainer,
+                  {
+                    backgroundColor: colors.cardHover,
+                    marginBottom: 0,
+                    borderWidth: 0,
+                    justifyContent: 'space-between',
+                    paddingRight: SPACING.md,
+                  },
+                ]}
+                onPress={async () => {
+                  try {
+                    await SubscriptionManagement.openNativeManagement();
+                  } catch {
+                    setStatusModal({
+                      visible: true,
+                      type: 'error',
+                      title: 'Unable to Open',
+                      message:
+                        'Could not open subscription management. Please try again.',
+                    });
+                  }
+                }}
+              >
+                <View style={styles.subscriptionButton}>
+                  <View
+                    style={[
+                      styles.subscriptionIconContainer,
+                      { backgroundColor: colors.textSecondary + '20' },
+                    ]}
+                  >
+                    <Ionicons
+                      name="settings-outline"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </View>
+                  <View style={styles.subscriptionTextContainer}>
+                    <Text
+                      style={[styles.subscriptionTitle, { color: colors.text }]}
+                    >
+                      {Platform.OS === 'ios'
+                        ? 'Manage in App Store'
+                        : 'Manage in Google Play'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.subscriptionSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Cancel or change tiers
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name="open-outline"
+                  size={18}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            )}
+          </View>
+
           {/* Store URL (Read-only) */}
           {/* Store URL (Editable) */}
           <View
@@ -648,7 +803,7 @@ export default function StoreSettingsScreen() {
                     styles.countryItem,
                     {
                       backgroundColor:
-                        country === item.name
+                        country === item.code || country === item.name
                           ? colors.primaryLight
                           : colors.card,
                       borderColor: colors.border,
@@ -662,7 +817,10 @@ export default function StoreSettingsScreen() {
                         styles.countryName,
                         {
                           color: colors.text,
-                          fontWeight: country === item.name ? 'bold' : 'normal',
+                          fontWeight:
+                            country === item.code || country === item.name
+                              ? 'bold'
+                              : 'normal',
                         },
                       ]}
                     >
@@ -677,7 +835,7 @@ export default function StoreSettingsScreen() {
                       {item.currency} ({item.currencySymbol})
                     </Text>
                   </View>
-                  {country === item.name && (
+                  {(country === item.code || country === item.name) && (
                     <Ionicons
                       name="checkmark-circle"
                       size={20}
@@ -754,6 +912,16 @@ const styles = StyleSheet.create({
   saveText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  planBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    textTransform: 'uppercase',
   },
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
@@ -961,5 +1129,30 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.xs,
+  },
+  // Subscription button styles
+  subscriptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subscriptionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
+    marginVertical: SPACING.sm,
+  },
+  subscriptionTextContainer: {
+    marginLeft: SPACING.md,
+  },
+  subscriptionTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.md,
+  },
+  subscriptionSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });
