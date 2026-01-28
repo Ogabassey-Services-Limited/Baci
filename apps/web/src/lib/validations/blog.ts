@@ -15,7 +15,7 @@ export const blogPostSchema = z.object({
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
   featured_image_url: z
     .string()
-    .url({ message: 'Must be a valid URL' })
+    .url('Must be a valid URL')
     .optional()
     .nullable()
     .or(z.literal('')),
@@ -31,7 +31,7 @@ export const blogPostSchema = z.object({
   author_title: z.string().max(100).optional().nullable(),
   author_image_url: z
     .string()
-    .url({ message: 'Must be a valid URL' })
+    .url('Must be a valid URL')
     .optional()
     .nullable()
     .or(z.literal('')),
