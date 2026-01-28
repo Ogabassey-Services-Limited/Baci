@@ -1,7 +1,7 @@
 import z from 'zod';
 import { sanitizeHtml } from '@/lib/sanitize';
 
-// Helper to validate URLs without using z.url() which has Turbopack compatibility issues
+// Helpers to validate without using z.url()/z.datetime() which have Turbopack compatibility issues
 const isValidUrl = (val: string) => {
   try {
     new URL(val);
@@ -9,6 +9,11 @@ const isValidUrl = (val: string) => {
   } catch {
     return false;
   }
+};
+
+const isValidDatetime = (val: string) => {
+  const date = new Date(val);
+  return !isNaN(date.getTime());
 };
 
 export const blogPostSchema = z.object({
@@ -47,7 +52,7 @@ export const blogPostSchema = z.object({
     .or(z.literal('')),
   author_bio: z.string().max(500).optional().nullable(),
   status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
-  published_at: z.string().datetime().nullable().optional(),
+  published_at: z.string().refine((val) => !val || isValidDatetime(val), { message: 'Must be a valid datetime' }).nullable().optional(),
   seo_title: z
     .string()
     .max(70, 'SEO title must be 70 characters or less')
