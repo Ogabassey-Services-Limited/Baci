@@ -26,14 +26,33 @@ export const CATEGORY_BLUR_COLORS: Record<string, string> = {
   default: '#f4f4f5', // Neutral gray
 };
 
+// Cache for generated blur data URLs to avoid re-encoding
+const colorBlurCache: Record<string, string> = {};
+
 /**
  * Generate a solid color blur data URL
  * Faster than image-based blur, good for product cards
  */
 export function generateColorBlur(color: string = '#f4f4f5'): string {
+  // Return cached result if available
+  if (colorBlurCache[color]) {
+    return colorBlurCache[color];
+  }
+
   // Create a 1x1 pixel SVG and encode as data URL
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="${color}" width="1" height="1"/></svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+
+  // Optimization: Use btoa in browser environment to avoid Buffer polyfill overhead
+  const base64 =
+    typeof window !== 'undefined' && typeof window.btoa === 'function'
+      ? window.btoa(svg)
+      : Buffer.from(svg).toString('base64');
+
+  const result = `data:image/svg+xml;base64,${base64}`;
+
+  // Cache the result
+  colorBlurCache[color] = result;
+  return result;
 }
 
 /**
