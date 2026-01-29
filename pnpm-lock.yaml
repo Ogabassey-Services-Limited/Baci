@@ -94,8 +94,8 @@ importers:
         specifier: ^2.89.0
         version: 2.90.1
       '@tanstack/query-sync-storage-persister':
-        specifier: ^5.90.14
-        version: 5.90.18
+        specifier: ^5.90.22
+        version: 5.90.22
       '@tanstack/react-query':
         specifier: ^5.90.12
         version: 5.90.16(react@19.1.0)
@@ -311,8 +311,8 @@ importers:
         specifier: ^5.90.14
         version: 5.90.18
       '@tanstack/query-sync-storage-persister':
-        specifier: ^5.90.14
-        version: 5.90.18
+        specifier: ^5.90.22
+        version: 5.90.22
       '@tanstack/react-query':
         specifier: ^5.90.12
         version: 5.90.16(react@19.1.0)
@@ -5225,11 +5225,17 @@ packages:
   '@tanstack/query-core@5.90.16':
     resolution: {integrity: sha512-MvtWckSVufs/ja463/K4PyJeqT+HMlJWtw6PrCpywznd2NSgO3m4KwO9RqbFqGg6iDE8vVMFWMeQI4Io3eEYww==}
 
+  '@tanstack/query-core@5.90.20':
+    resolution: {integrity: sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg==}
+
   '@tanstack/query-persist-client-core@5.91.15':
     resolution: {integrity: sha512-vnPSfQVo41EKJN8v20nkhWNZPyB1dMJIy5icOvCGzcCJzsmRefYY1owtr63ICOcjOiPPTuNEfPsdjdBhkzYnmA==}
 
-  '@tanstack/query-sync-storage-persister@5.90.18':
-    resolution: {integrity: sha512-tKngFopz/TuAe7LBDg7IOhWPh9blxdQ6QG/vVL2dFzRmlPNcSo4WdCSONqSDioJkcyTwh1YCSlcikmJ1WnSb3Q==}
+  '@tanstack/query-persist-client-core@5.91.19':
+    resolution: {integrity: sha512-whrASqbVq8261Ue+/ZzpHsrLDYVfRaENs4HTdLuYKxawkGWzdMfV7BmOdWl8ZF0mEBEbrQR8V6oE3R635JF2Fw==}
+
+  '@tanstack/query-sync-storage-persister@5.90.22':
+    resolution: {integrity: sha512-QoOHewbI9a/7hezbVXlZOOCkF4oTnOpAGNMYiObUZm+jpEoLF5YqGMg0iDv3laSEymz81Zw8HJ8UFxP7mwEmqw==}
 
   '@tanstack/react-query-persist-client@5.90.18':
     resolution: {integrity: sha512-ToVRTVpjzTrd9S/p7JIvGdLs+Xtz9aDMM/7+TQGSV9notY8Jt64irfAAAkZ05syftLKS+3KPgyKAnHcVeKVbWQ==}
@@ -15162,8 +15168,8 @@ snapshots:
 
   '@babel/generator@7.28.5':
     dependencies:
-      '@babel/parser': 7.28.5
-      '@babel/types': 7.28.5
+      '@babel/parser': 7.28.6
+      '@babel/types': 7.28.6
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
@@ -15291,8 +15297,8 @@ snapshots:
 
   '@babel/helpers@7.28.4':
     dependencies:
-      '@babel/template': 7.27.2
-      '@babel/types': 7.28.5
+      '@babel/template': 7.28.6
+      '@babel/types': 7.28.6
 
   '@babel/highlight@7.25.9':
     dependencies:
@@ -15750,9 +15756,9 @@ snapshots:
 
   '@babel/template@7.27.2':
     dependencies:
-      '@babel/code-frame': 7.27.1
-      '@babel/parser': 7.28.5
-      '@babel/types': 7.28.5
+      '@babel/code-frame': 7.28.6
+      '@babel/parser': 7.28.6
+      '@babel/types': 7.28.6
 
   '@babel/template@7.28.6':
     dependencies:
@@ -20253,14 +20259,20 @@ snapshots:
 
   '@tanstack/query-core@5.90.16': {}
 
+  '@tanstack/query-core@5.90.20': {}
+
   '@tanstack/query-persist-client-core@5.91.15':
     dependencies:
       '@tanstack/query-core': 5.90.16
 
-  '@tanstack/query-sync-storage-persister@5.90.18':
+  '@tanstack/query-persist-client-core@5.91.19':
     dependencies:
-      '@tanstack/query-core': 5.90.16
-      '@tanstack/query-persist-client-core': 5.91.15
+      '@tanstack/query-core': 5.90.20
+
+  '@tanstack/query-sync-storage-persister@5.90.22':
+    dependencies:
+      '@tanstack/query-core': 5.90.20
+      '@tanstack/query-persist-client-core': 5.91.19
 
   '@tanstack/react-query-persist-client@5.90.18(@tanstack/react-query@5.90.16(react@19.1.0))(react@19.1.0)':
     dependencies:
@@ -20969,16 +20981,16 @@ snapshots:
 
   '@types/babel__generator@7.27.0':
     dependencies:
-      '@babel/types': 7.28.5
+      '@babel/types': 7.28.6
 
   '@types/babel__template@7.4.4':
     dependencies:
-      '@babel/parser': 7.28.5
-      '@babel/types': 7.28.5
+      '@babel/parser': 7.28.6
+      '@babel/types': 7.28.6
 
   '@types/babel__traverse@7.28.0':
     dependencies:
-      '@babel/types': 7.28.5
+      '@babel/types': 7.28.6
 
   '@types/body-parser@1.19.6':
     dependencies:
@@ -28633,7 +28645,7 @@ snapshots:
 
   parse-json@5.2.0:
     dependencies:
-      '@babel/code-frame': 7.27.1
+      '@babel/code-frame': 7.28.6
       error-ex: 1.3.4
       json-parse-even-better-errors: 2.3.1
       lines-and-columns: 1.2.4
@@ -31721,7 +31733,7 @@ snapshots:
     dependencies:
       '@babel/core': 7.28.5
       '@babel/standalone': 7.28.5
-      '@babel/types': 7.28.5
+      '@babel/types': 7.28.6
       citty: 0.1.6
       defu: 6.1.4
       jiti: 2.6.1
