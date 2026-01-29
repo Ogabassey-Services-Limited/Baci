@@ -1,10 +1,16 @@
 'use client';
 
-import { Copy, RefreshCw } from 'lucide-react';
+import { Check, Copy, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 
 interface FeedUrlSectionProps {
@@ -45,13 +51,16 @@ export function FeedUrlSection({
 }: FeedUrlSectionProps) {
   const { toast } = useToast();
   const [validating, setValidating] = useState(false);
+  const [hasCopied, setHasCopied] = useState(false);
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(feedUrl);
+    setHasCopied(true);
     toast({
       title: 'Copied!',
       description: 'Feed URL copied to clipboard',
     });
+    setTimeout(() => setHasCopied(false), 2000);
   };
 
   const validateFeed = async () => {
@@ -107,19 +116,46 @@ export function FeedUrlSection({
 
       <div className="flex gap-2">
         <Input id={id} value={feedUrl} readOnly className="font-mono text-sm" />
-        <Button variant="outline" size="icon" onClick={copyToClipboard}>
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={validateFeed}
-          disabled={validating}
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${validating ? 'motion-safe:animate-spin' : ''}`}
-          />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={copyToClipboard}
+                aria-label="Copy feed URL to clipboard"
+              >
+                {hasCopied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy to clipboard</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={validateFeed}
+                disabled={validating}
+                aria-label="Validate feed URL"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${validating ? 'motion-safe:animate-spin' : ''}`}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Validate feed URL</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
