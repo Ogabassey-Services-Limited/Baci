@@ -2,6 +2,7 @@
 
 import { Eye, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { memo } from 'react';
 import { ProductCardImage } from '@/components/optimized-image';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
@@ -28,9 +29,10 @@ interface StorefrontProductCardProps {
 
 /**
  * Product Card for Storefront Grid
- * Relying on React Compiler for automatic memoization and performance optimizations.
+ * Wrapped in React.memo to prevent unnecessary re-renders when parent (ProductGrid) updates.
+ * This is critical for performance when the grid contains many items and only one changes (e.g. cart update).
  */
-export function StorefrontProductCard({
+export const StorefrontProductCard = memo(function StorefrontProductCard({
   product,
   cartItem,
   staggerClass,
@@ -40,7 +42,7 @@ export function StorefrontProductCard({
 }: StorefrontProductCardProps) {
   const { formatCurrency } = useCurrency();
 
-  // Derived values - React Compiler handles memoization automatically
+  // Derived values
   const discountPercentage =
     product.compare_at_price && product.compare_at_price > product.price
       ? Math.round(
@@ -219,4 +221,4 @@ export function StorefrontProductCard({
       </CardContent>
     </ThemedCard>
   );
-}
+});

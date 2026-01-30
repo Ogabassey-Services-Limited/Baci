@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
@@ -371,18 +371,21 @@ export function StorefrontProductGrid({
     priceRanges,
   ]);
 
-  // React Compiler handles memoization automatically - no manual useCallback needed
-  const handleAddToCart = (product: Product) => {
-    // Store merchant slug for checkout
-    if (merchant?.slug) {
-      setMerchantSlug(merchant.slug);
-    }
-    addToCart(product);
-    toast({
-      title: 'Added to cart',
-      description: `${product.name} has been added to your cart.`,
-    });
-  };
+  // Manual memoization to ensure stable prop for React.memo in StorefrontProductCard
+  const handleAddToCart = useCallback(
+    (product: Product) => {
+      // Store merchant slug for checkout
+      if (merchant?.slug) {
+        setMerchantSlug(merchant.slug);
+      }
+      addToCart(product);
+      toast({
+        title: 'Added to cart',
+        description: `${product.name} has been added to your cart.`,
+      });
+    },
+    [merchant?.slug, setMerchantSlug, addToCart, toast]
+  );
 
   const brandColors = merchant?.brand_colors
     ? [
