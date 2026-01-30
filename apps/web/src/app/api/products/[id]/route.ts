@@ -4,7 +4,8 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
-import { sanitizeSchemaMarkup } from '@/lib/sanitize-core';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { sanitizeSchemaMarkup, sanitizeText } from '@/lib/sanitize-core';
 import {
   generateMetaDescription,
   generateProductSchema,
@@ -207,25 +208,38 @@ export async function PUT(
     }
 
     // Prepare updates
+    // Sanitize input
+    const sanitizedName = sanitizeText(body.name);
+    const sanitizedDescription = sanitizeHtml(body.description || '');
+    const sanitizedBrand = body.brand ? sanitizeText(body.brand) : undefined;
+    const sanitizedCategory = sanitizeText(body.category);
+    const sanitizedConditionDetail = body.condition_detail
+      ? sanitizeText(body.condition_detail)
+      : undefined;
+
     // Generate slug with condition if not 'new'
     const slug =
       body.slug ||
-      generateProductSlug(body.name, body.condition, body.condition_detail);
+      generateProductSlug(
+        sanitizedName,
+        body.condition,
+        sanitizedConditionDetail
+      );
     const sku =
       body.sku ||
       (body.name
-        ? generateSlug(body.name).toUpperCase().substring(0, 20)
+        ? generateSlug(sanitizedName).toUpperCase().substring(0, 20)
         : undefined);
 
     const meta_description =
-      body.meta_description || generateMetaDescription(body.description);
-    const meta_title = body.meta_title || body.name;
+      body.meta_description || generateMetaDescription(sanitizedDescription);
+    const meta_title = body.meta_title || sanitizedName;
 
     // Prepare product object for schema generation
     const productForSchema: Product = {
       id: id,
-      name: body.name,
-      description: body.description,
+      name: sanitizedName,
+      description: sanitizedDescription,
       price: body.price,
       stock: body.stock || 0,
       manage_stock: true,
@@ -233,7 +247,7 @@ export async function PUT(
       image: body.images?.[0]?.url || '',
       imageLarge: body.images?.[0]?.url || '',
       imageHint: '',
-      brand: body.brand || merchant.business_name,
+      brand: sanitizedBrand || merchant.business_name,
       sku: sku,
       gtin: body.gtin,
       mpn: body.mpn,
@@ -258,8 +272,8 @@ export async function PUT(
 
     // Update product
     const updates = {
-      name: body.name,
-      description: body.description,
+      name: sanitizedName,
+      description: sanitizedDescription,
       price: body.price,
       stock_quantity: body.stock,
 
@@ -286,7 +300,7 @@ export async function PUT(
       tax_code: body.tax_code,
 
       condition: body.condition,
-      condition_detail: body.condition_detail,
+      condition_detail: sanitizedConditionDetail,
 
       meta_title: meta_title,
       meta_description: meta_description,
@@ -297,11 +311,11 @@ export async function PUT(
       gtin: body.gtin,
       mpn: body.mpn,
       google_product_category: body.google_product_category,
-      brand: body.brand,
+      brand: sanitizedBrand,
 
       fulfillment_details: body.fulfillment_details,
       has_variants: body.has_variants,
-      category: body.category,
+      category: sanitizedCategory,
       color: body.color,
       updated_at: new Date().toISOString(),
     };
@@ -386,7 +400,7 @@ export async function PUT(
         name: updatedProduct.name,
         description: updatedProduct.description,
         brand: updatedProduct.brand,
-        category_name: body.category,
+        category_name: sanitizedCategory,
       });
 
       // Fire-and-forget: Call edge function to regenerate embedding

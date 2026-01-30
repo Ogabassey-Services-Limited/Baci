@@ -4,10 +4,12 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
+import { sanitizeHtml } from '@/lib/sanitize';
 import {
   sanitizeLikePattern,
   sanitizeSchemaMarkup,
   sanitizeSearchQuery,
+  sanitizeText,
 } from '@/lib/sanitize-core';
 import {
   generateMetaDescription,
@@ -367,11 +369,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize input
+    const sanitizedName = sanitizeText(body.name);
+    const sanitizedDescription = sanitizeHtml(body.description || '');
+    const sanitizedBrand = body.brand ? sanitizeText(body.brand) : undefined;
+    const sanitizedCategory = sanitizeText(body.category);
+    const sanitizedConditionDetail = body.condition_detail
+      ? sanitizeText(body.condition_detail)
+      : undefined;
+
     // Prepare data for insertion
     // Generate slug with condition if not 'new'
     const slug =
       body.slug ||
-      generateProductSlug(body.name, body.condition, body.condition_detail);
+      generateProductSlug(
+        sanitizedName,
+        body.condition,
+        sanitizedConditionDetail
+      );
     const sku =
       body.sku || generateSlug(body.name).toUpperCase().substring(0, 20); // Fallback SKU
 
@@ -435,8 +450,8 @@ export async function POST(request: NextRequest) {
       .from('products')
       .insert({
         merchant_id: merchant.id,
-        name: body.name,
-        description: body.description,
+        name: sanitizedName,
+        description: sanitizedDescription,
         price: body.price,
         stock_quantity: body.stock,
 
@@ -465,7 +480,7 @@ export async function POST(request: NextRequest) {
         tax_code: body.tax_code,
 
         condition: body.condition || 'new',
-        condition_detail: body.condition_detail,
+        condition_detail: sanitizedConditionDetail,
 
         meta_title: meta_title,
         meta_description: meta_description,
@@ -476,11 +491,11 @@ export async function POST(request: NextRequest) {
         gtin: body.gtin,
         mpn: body.mpn,
         google_product_category: body.google_product_category,
-        brand: body.brand,
+        brand: sanitizedBrand,
 
         fulfillment_details: body.fulfillment_details,
         has_variants: body.has_variants || false,
-        category: body.category,
+        category: sanitizedCategory,
         color: body.color,
       })
       .select()
@@ -522,10 +537,10 @@ export async function POST(request: NextRequest) {
     // Generate embedding asynchronously (non-blocking)
     if (product?.id) {
       const embeddingText = getProductEmbeddingText({
-        name: body.name,
-        description: body.description,
-        brand: body.brand,
-        category_name: body.category,
+        name: sanitizedName,
+        description: sanitizedDescription,
+        brand: sanitizedBrand,
+        category_name: sanitizedCategory,
       });
 
       // Fire-and-forget: Call edge function to generate embedding
