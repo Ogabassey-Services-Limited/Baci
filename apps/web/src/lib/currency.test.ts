@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { formatCurrency, formatCurrencyCompact, getCurrencySymbol } from './currency';
+import { describe, expect, it } from 'vitest';
+import {
+  formatCurrency,
+  formatCurrencyCompact,
+  getCurrencySymbol,
+} from './currency';
 
 describe('currency utils', () => {
   it('formats currency correctly for US', () => {
@@ -20,14 +24,22 @@ describe('currency utils', () => {
   });
 
   it('formats compact currency correctly', () => {
-    expect(formatCurrencyCompact(1000, 'US').replace(/\u00A0/g, ' ')).toBe('$1,000');
-    expect(formatCurrencyCompact(1000, 'NG').replace(/\u00A0/g, ' ')).toBe('₦1,000');
+    expect(formatCurrencyCompact(1000, 'US').replace(/\u00A0/g, ' ')).toBe(
+      '$1,000'
+    );
+    expect(formatCurrencyCompact(1000, 'NG').replace(/\u00A0/g, ' ')).toBe(
+      '₦1,000'
+    );
   });
 
   it('handles fallback for unknown country', () => {
     // defaults to US
-    expect(formatCurrency(1000, 'XX' as any).replace(/\u00A0/g, ' ')).toBe('$1,000.00');
-    expect(formatCurrency(1000, null).replace(/\u00A0/g, ' ')).toBe('$1,000.00');
+    expect(formatCurrency(1000, 'XX' as any).replace(/\u00A0/g, ' ')).toBe(
+      '$1,000.00'
+    );
+    expect(formatCurrency(1000, null).replace(/\u00A0/g, ' ')).toBe(
+      '$1,000.00'
+    );
   });
 
   it('returns correct currency symbol', () => {
