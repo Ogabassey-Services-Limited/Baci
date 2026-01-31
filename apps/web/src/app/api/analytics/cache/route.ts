@@ -51,23 +51,3 @@ export async function DELETE() {
     );
   }
 }
-
-/**
- * GET /api/analytics/cache
- * Get cache stats (for debugging)
- */
-export function GET() {
-  try {
-    return NextResponse.json({
-      size: cache.size(),
-      message:
-        'Cache is running with in-memory storage. For production, consider Redis.',
-    });
-  } catch (error) {
-    console.error('Error getting cache stats:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
