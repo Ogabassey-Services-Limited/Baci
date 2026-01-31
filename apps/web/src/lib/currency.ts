@@ -30,6 +30,9 @@ const COUNTRY_LOCALES: Record<string, string> = {
   ZA: 'en-ZA',
 };
 
+// Cache for Intl.NumberFormat instances to improve performance
+const numberFormatCache = new Map<string, Intl.NumberFormat>();
+
 /**
  * Get currency configuration for a country
  * Defaults to USD if country not found
@@ -61,6 +64,24 @@ export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
 }
 
 /**
+ * Get a cached Intl.NumberFormat instance
+ */
+function getCachedNumberFormat(
+  locale: string,
+  options: Intl.NumberFormatOptions
+): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+
+  let formatter = numberFormatCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, options);
+    numberFormatCache.set(key, formatter);
+  }
+
+  return formatter;
+}
+
+/**
  * Format a number as currency based on country code
  *
  * @param amount - The amount to format
@@ -81,14 +102,15 @@ export function formatCurrency(
   const config = getCurrencyConfig(countryCode);
 
   try {
-    return new Intl.NumberFormat(config.locale, {
+    const formatOptions: Intl.NumberFormatOptions = {
       style: 'currency',
       currency: config.code,
       currencyDisplay: 'symbol',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
       ...options,
-    }).format(amount);
+    };
+    return getCachedNumberFormat(config.locale, formatOptions).format(amount);
   } catch {
     // Fallback for unsupported locales
     return `${config.symbol}${amount.toFixed(2)}`;
