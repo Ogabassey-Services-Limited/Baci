@@ -403,6 +403,13 @@ export function StorefrontProductGrid({
 
   return (
     <section className="w-full py-8 md:py-12" id="products">
+      {/* Live region for accessibility updates */}
+      <output className="sr-only" aria-live="polite">
+        {isLoading || isSearching
+          ? 'Searching...'
+          : `${searchResults.length} products found`}
+      </output>
+
       <div className="container px-4 md:px-6">
         {showFilters ? (
           <div className="w-full mb-6">
@@ -426,6 +433,7 @@ export function StorefrontProductGrid({
                   <select
                     className="text-base font-medium border-0 bg-transparent focus:ring-0 cursor-pointer pr-8"
                     value={filterType}
+                    aria-label="Filter type"
                     onChange={(e) => {
                       setFilterType(
                         e.target.value as 'category' | 'brand' | 'price'
@@ -444,6 +452,7 @@ export function StorefrontProductGrid({
                       <button
                         type="button"
                         key={option}
+                        aria-pressed={selectedCategory === option}
                         onClick={() =>
                           handleSetSelectedCategory(
                             selectedCategory === option ? 'All' : option
@@ -488,6 +497,7 @@ export function StorefrontProductGrid({
                     colorRole={
                       selectedCategory === category ? 'primary' : 'accent'
                     }
+                    aria-pressed={selectedCategory === category}
                     onClick={() => handleSetSelectedCategory(category)}
                     size="sm"
                     className="capitalize"
