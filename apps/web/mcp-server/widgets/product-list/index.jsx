@@ -129,16 +129,6 @@ function App() {
     }
   };
 
-  const handleBuyNow = (product) => {
-    // Open checkout in external browser
-    const checkoutUrl = `https://ogabassey.com/cart?item_id=${product.id}`;
-    if (window.openai?.openExternal) {
-      window.openai.openExternal(checkoutUrl);
-    } else {
-      window.open(checkoutUrl, '_blank');
-    }
-  };
-
   return (
     <div className="ogabassey-widget">
       <header className="widget-header">

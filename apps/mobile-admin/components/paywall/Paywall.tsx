@@ -1,19 +1,25 @@
 import { FlashList } from '@shopify/flash-list';
-import React, { useEffect } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { PurchasesPackage } from 'react-native-purchases';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+
+const { width } = Dimensions.get('window');
 
 interface PaywallProps {
   onClose?: () => void;
@@ -30,26 +36,46 @@ export default function Paywall({ onClose }: PaywallProps) {
     error,
   } = useRevenueCat();
 
+  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+
   useEffect(() => {
     if (error) {
-      Alert.alert('Error', error);
+      Alert.alert('Configuration Note', error);
     }
   }, [error]);
 
-  const onPurchase = async (pack: PurchasesPackage) => {
+  useEffect(() => {
+    // Default to yearly if available, otherwise monthly
+    if (currentOffering?.availablePackages) {
+      const annual = currentOffering.availablePackages.find(p => p.packageType === 'ANNUAL');
+      const monthly = currentOffering.availablePackages.find(p => p.packageType === 'MONTHLY');
+      setSelectedPackage(annual || monthly || currentOffering.availablePackages[0] || null);
+    }
+  }, [currentOffering]);
+
+  const onPurchase = async () => {
+    if (!selectedPackage) return;
+
     try {
-      const success = await purchasePackage(pack);
-      if (success) {
+      const isNowPro = await purchasePackage(selectedPackage);
+
+      if (isNowPro) {
         Alert.alert('Success', 'You are now a Pro member!', [
           { text: 'OK', onPress: onClose },
         ]);
+      } else {
+        const { useRevenueCatStore } = require('@/stores/revenueCatStore');
+        const storeError = useRevenueCatStore.getState().error;
+        if (!storeError) {
+          Alert.alert(
+            'Purchase Complete',
+            'Your purchase was successful! If your features don\'t appear immediately, please try "Restore Purchases".',
+            [{ text: 'OK' }]
+          );
+        }
       }
     } catch (err) {
-      console.error('Purchase failed:', err);
-      Alert.alert(
-        'Error',
-        'Purchase could not be completed. Please try again.'
-      );
+      console.debug('[Paywall] Purchase interaction notice:', err);
     }
   };
 
@@ -64,101 +90,19 @@ export default function Paywall({ onClose }: PaywallProps) {
         Alert.alert('Notice', 'No active subscriptions found to restore.');
       }
     } catch (err) {
-      console.error('Restore failed:', err);
-      Alert.alert('Error', 'Could not restore purchases. Please try again.');
+      Alert.alert('Error', 'Could not restore purchases.');
     }
   };
 
-  const openTerms = async () => {
-    try {
-      await Linking.openURL('https://usebaci.com/legal/terms');
-    } catch (error) {
-      console.error('Failed to open terms:', error);
-      Alert.alert('Error', 'Could not open Terms of Service');
-    }
-  };
+  const PRO_FEATURES = [
+    { id: '1', title: 'Unlimited Storefronts', desc: 'Build as many shops as you need' },
+    { id: '2', title: 'Advanced AI Analytics', desc: 'Predict trends and customer behavior' },
+    { id: '3', title: 'Premium Themes', desc: 'Unlock all 2026 designer storefronts' },
+    { id: '4', title: 'Custom Domains', desc: 'Use your own .com or .shop domain' },
+    { id: '5', title: 'Priority Support', desc: '24/7 dedicated help from our team' },
+  ];
 
-  const openPrivacy = async () => {
-    try {
-      await Linking.openURL('https://usebaci.com/legal/privacy');
-    } catch (error) {
-      console.error('Failed to open privacy:', error);
-      Alert.alert('Error', 'Could not open Privacy Policy');
-    }
-  };
-
-  const handleManageSubscription = () => {
-    // Direct users to platform subscription management
-    Alert.alert(
-      'Manage Subscription',
-      "To manage your subscription, please visit your device's subscription settings.",
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Settings',
-          onPress: () => {
-            // iOS: App Store subscriptions, Android: Play Store subscriptions
-            const url =
-              Platform.OS === 'ios'
-                ? 'https://apps.apple.com/account/subscriptions'
-                : 'https://play.google.com/store/account/subscriptions';
-            Linking.openURL(url);
-          },
-        },
-      ]
-    );
-  };
-
-  const renderPackage = ({ item }: { item: PurchasesPackage }) => {
-    const isMonthly = item.packageType === 'MONTHLY';
-
-    return (
-      <Pressable
-        onPress={() => (isPro ? handleManageSubscription() : onPurchase(item))}
-        style={({ pressed }) => [
-          styles.packageCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: isMonthly ? colors.primary : colors.border,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          },
-          shadows.md,
-          isMonthly && styles.featuredCard,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.product.title} subscription for ${item.product.priceString}`}
-        accessibilityHint={
-          isPro ? 'Manage your subscription' : 'Subscribe to this plan'
-        }
-      >
-        {isMonthly && (
-          <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.badgeText}>MOST POPULAR</Text>
-          </View>
-        )}
-
-        <View style={styles.packageContent}>
-          <Text style={[styles.packageTitle, { color: colors.text }]}>
-            {item.product.title}
-          </Text>
-          <Text style={[styles.packageDesc, { color: colors.textSecondary }]}>
-            {item.product.description}
-          </Text>
-          <Text style={[styles.packagePrice, { color: colors.primary }]}>
-            {item.product.priceString}
-          </Text>
-        </View>
-
-        <View style={[styles.button, { backgroundColor: colors.primary }]}>
-          <Text style={styles.buttonText}>
-            {isPro ? 'Manage' : 'Subscribe'}
-          </Text>
-        </View>
-      </Pressable>
-    );
-  };
-
-  if (isLoading) {
+  if (isLoading && !currentOffering) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -168,62 +112,110 @@ export default function Paywall({ onClose }: PaywallProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Upgrade to Pro
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Unlock advanced analytics, custom themes, and more.
-        </Text>
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-      {/* Packages List */}
-      <FlashList
-        data={currentOffering?.availablePackages || []}
-        renderItem={renderPackage}
-        keyExtractor={(item) => item.identifier}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No subscriptions available at the moment.
-          </Text>
-        }
-      />
-
-      {/* Footer / Legal */}
-      <View style={styles.footer}>
-        <Pressable
-          onPress={onRestore}
-          style={styles.linkButton}
-          accessibilityRole="button"
-          accessibilityLabel="Restore purchases"
-          accessibilityHint="Restore previously purchased subscriptions"
+        {/* Premium Header */}
+        <LinearGradient
+          colors={[colors.primary, '#8B0000']} // Premium Baci Red Gradient
+          style={styles.header}
         >
-          <Text style={[styles.linkText, { color: colors.textSecondary }]}>
-            Restore Purchases
-          </Text>
+          <Pressable style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={24} color="#FFF" />
+          </Pressable>
+
+          <Ionicons name="diamond" size={48} color="#FFF" style={styles.headerIcon} />
+          <Text style={styles.headerTitle}>Baci Pro</Text>
+          <Text style={styles.headerSubtitle}>The ultimate toolkit for modern merchants</Text>
+        </LinearGradient>
+
+        <View style={styles.content}>
+          {/* Feature List */}
+          <View style={styles.featureList}>
+            {PRO_FEATURES.map((feature) => (
+              <View key={feature.id} style={styles.featureItem}>
+                <View style={[styles.checkCircle, { backgroundColor: colors.primary + '20' }]}>
+                  <Ionicons name="checkmark" size={16} color={colors.primary} />
+                </View>
+                <View style={styles.featureText}>
+                  <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
+                  <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>{feature.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Package Selection */}
+          <View style={styles.packageContainer}>
+            {currentOffering?.availablePackages.map((pack) => {
+              const isActive = selectedPackage?.identifier === pack.identifier;
+              const isAnnual = pack.packageType === 'ANNUAL';
+
+              return (
+                <Pressable
+                  key={pack.identifier}
+                  onPress={() => setSelectedPackage(pack)}
+                  style={[
+                    styles.tierCard,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: isActive ? colors.primary : colors.border,
+                      borderWidth: isActive ? 2 : 1
+                    },
+                  ]}
+                >
+                  <View style={styles.tierInfo}>
+                    <Text style={[styles.tierTitle, { color: colors.text }]}>
+                      {isAnnual ? 'Yearly Access' : 'Monthly Access'}
+                    </Text>
+                    {isAnnual && (
+                      <View style={[styles.savingsBadge, { backgroundColor: '#4CAF50' }]}>
+                        <Text style={styles.savingsText}>SAVE 20%</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.tierPricing}>
+                    <Text style={[styles.tierPrice, { color: colors.text }]}>{pack.product.priceString}</Text>
+                    <Text style={[styles.tierPeriod, { color: colors.textSecondary }]}>
+                      /{isAnnual ? 'year' : 'mo'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Sticky Bottom Actions */}
+      <View style={[styles.stickyFooter, { borderTopColor: colors.border }]}>
+        <Pressable
+          onPress={onPurchase}
+          disabled={!selectedPackage || isLoading}
+          style={({ pressed }) => [
+            styles.mainButton,
+            { backgroundColor: colors.primary, opacity: (pressed || !selectedPackage || isLoading) ? 0.8 : 1 }
+          ]}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.mainButtonText}>
+              {isPro ? 'Manage subscription' : `Continue with ${selectedPackage?.product.title || 'Pro'}`}
+            </Text>
+          )}
         </Pressable>
 
-        <View style={styles.legalRow}>
-          <Pressable
-            onPress={openTerms}
-            accessibilityRole="link"
-            accessibilityLabel="Terms of Service"
-          >
-            <Text style={[styles.legalText, { color: colors.textMuted }]}>
-              Terms of Service
-            </Text>
+        <View style={styles.footerLinks}>
+          <Pressable onPress={onRestore}>
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Restore Purchases</Text>
           </Pressable>
-          <Text style={[styles.legalText, { color: colors.textMuted }]}>•</Text>
-          <Pressable
-            onPress={openPrivacy}
-            accessibilityRole="link"
-            accessibilityLabel="Privacy Policy"
-          >
-            <Text style={[styles.legalText, { color: colors.textMuted }]}>
-              Privacy Policy
-            </Text>
+          <Text style={{ color: colors.textMuted }}>|</Text>
+          <Pressable onPress={() => Linking.openURL('https://usebaci.com/legal/terms')}>
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Terms</Text>
+          </Pressable>
+          <Text style={{ color: colors.textMuted }}>|</Text>
+          <Pressable onPress={() => Linking.openURL('https://usebaci.com/legal/privacy')}>
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Privacy</Text>
           </Pressable>
         </View>
       </View>
@@ -235,108 +227,153 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 160,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   header: {
-    padding: SPACING.xl,
+    paddingTop: Platform.OS === 'ios' ? 70 : 50, // Added 20px more room for better balance
+    paddingBottom: 25,
+    paddingHorizontal: SPACING.xl,
     alignItems: 'center',
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  title: {
-    fontSize: TYPOGRAPHY.size['2xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  listContent: {
-    padding: SPACING.lg,
-  },
-  packageCard: {
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginBottom: SPACING.lg,
-    borderWidth: 1.5,
-  },
-  featuredCard: {
-    // Additional styling for featured
-  },
-  badge: {
+  closeButton: {
     position: 'absolute',
-    top: -12,
-    alignSelf: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  badgeText: {
-    // Design assumption: primary color is always dark, ensuring white text contrast
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  packageContent: {
+    top: Platform.OS === 'ios' ? 55 : 30, // Also moved close button down slightly
+    right: 20,
+    width: 32,
+    height: 32,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
+  },
+  headerIcon: {
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+  },
+  content: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING['2xl'], // Added more space from the header curve
+    paddingBottom: SPACING.lg,
+  },
+  featureList: {
     marginBottom: SPACING.lg,
   },
-  packageTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+  },
+  checkCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+    marginTop: 2,
+  },
+  featureText: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 13,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  packageContainer: {
+    gap: SPACING.md,
+  },
+  tierCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.xl,
+  },
+  tierInfo: {
+    flex: 1,
+  },
+  tierTitle: {
+    fontSize: 18,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: 4,
   },
-  packageDesc: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
+  savingsBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  packagePrice: {
-    fontSize: TYPOGRAPHY.size['2xl'],
+  savingsText: {
+    color: '#FFF',
+    fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
-  button: {
-    height: 48,
+  tierPricing: {
+    alignItems: 'flex-end',
+  },
+  tierPrice: {
+    fontSize: 20,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  tierPeriod: {
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  stickyFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: SPACING.xl,
+    paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.xl,
+    backgroundColor: '#FFF', // Forcing white for sticky footer contrast
+    borderTopWidth: 1,
+  },
+  mainButton: {
+    height: 56,
     borderRadius: RADIUS.full,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: SPACING.lg,
   },
-  buttonText: {
-    // Design assumption: primary color is always dark, ensuring white text contrast
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  mainButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
-  emptyText: {
-    textAlign: 'center',
-    marginTop: SPACING.xl,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  footer: {
-    padding: SPACING.xl,
-    alignItems: 'center',
-    gap: SPACING.lg,
-  },
-  linkButton: {
-    padding: SPACING.sm,
-  },
-  linkText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    textDecorationLine: 'underline',
-  },
-  legalRow: {
+  footerLinks: {
     flexDirection: 'row',
+    justifyContent: 'center',
     gap: SPACING.sm,
+    alignItems: 'center',
   },
-  legalText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  smallLink: {
+    fontSize: 11,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 });

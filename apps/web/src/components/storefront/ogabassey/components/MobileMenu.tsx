@@ -34,7 +34,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme } = useV2Theme();
+  const { theme: _theme } = useV2Theme();
 
   // Extract store slug from pathname (first segment that's not a known page route)
   // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
@@ -90,8 +90,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 
       {/* Sidebar */}
       <div className="absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white shadow-2xl animate-in slide-in-from-left duration-300 flex flex-col">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <Logo className="h-6 w-auto text-gray-900" />
+        <div className="px-3 py-4 border-b border-gray-100 flex items-center justify-between">
+          <Logo className="h-7 w-auto text-gray-900" />
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
@@ -102,7 +102,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 
         <div className="flex-1 overflow-y-auto py-4 hide-scrollbar">
           {/* Account & Help */}
-          <div className="px-5">
+          <div className="px-3">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
               Account
             </h3>
@@ -133,7 +133,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="p-5 border-t border-gray-100 bg-gray-50">
+          <div className="px-3 py-4 border-t border-gray-100 bg-gray-50">
             <button
               onClick={() => handleNavigate('/account/login')}
               className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-95 transition-transform"
@@ -141,7 +141,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               Login / Register
             </button>
             <p className="text-center text-[10px] text-gray-400 mt-3">
-              v1.0.0 • © 2024 Ogabassey
+              v1.0.0 • © {new Date().getFullYear()} Ogabassey
             </p>
           </div>
         </div>

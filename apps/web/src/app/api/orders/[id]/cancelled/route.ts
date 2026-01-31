@@ -9,6 +9,7 @@ import {
   generateOrderCancellationText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { initiateRefund as initiatePaystackRefund } from '@/lib/paystack';
 import { sendEmail } from '@/lib/zeptomail';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -104,6 +105,77 @@ export async function POST(
     // For now, assume full refund of amount paid
     const refundAmount = amountPaid;
 
+    // Process actual refund if payment was made
+    let refundResult: { success: boolean; refundId?: number; error?: string } =
+      { success: false };
+    if (amountPaid > 0 && order.payment_status === 'paid') {
+      // Look up the transaction for this order
+      const { data: transaction } = await supabase
+        .from('transactions')
+        .select('gateway, gateway_reference')
+        .eq('order_id', id)
+        .eq('transaction_type', 'payment')
+        .eq('status', 'completed')
+        .single();
+
+      if (transaction?.gateway_reference) {
+        // Initiate refund based on payment gateway
+        if (transaction.gateway === 'paystack') {
+          const paystackRefund = await initiatePaystackRefund(
+            transaction.gateway_reference,
+            refundAmount * 100, // Convert to kobo
+            cancellationReason || 'Order cancelled'
+          );
+          refundResult = {
+            success: paystackRefund.success,
+            refundId: paystackRefund.data?.id,
+            error: paystackRefund.error,
+          };
+        } else if (transaction.gateway === 'korapay') {
+          // TODO: Implement Korapay refund
+          logger.warn({
+            message: 'Korapay refund not yet implemented',
+            orderId: id,
+            transactionRef: transaction.gateway_reference,
+          });
+          refundResult = {
+            success: false,
+            error: 'Korapay refund not yet implemented',
+          };
+        } else {
+          logger.warn({
+            message: 'Unsupported payment gateway for refund',
+            gateway: transaction.gateway,
+            orderId: id,
+          });
+          refundResult = {
+            success: false,
+            error: `Unsupported gateway: ${transaction.gateway}`,
+          };
+        }
+
+        // Create refund transaction record
+        if (refundResult.success) {
+          await supabase.from('transactions').insert({
+            merchant_id: order.merchant_id,
+            order_id: id,
+            transaction_type: 'refund',
+            amount: refundAmount,
+            currency: 'NGN',
+            status: 'completed',
+            gateway: transaction.gateway,
+            gateway_reference: String(refundResult.refundId),
+            description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
+          });
+        }
+      } else {
+        logger.warn({
+          message: 'No transaction found for refund',
+          orderId: id,
+        });
+      }
+    }
+
     // Prepare email data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
@@ -169,6 +241,19 @@ export async function POST(
       success: true,
       message: 'Cancellation notification sent',
       messageId: emailResult.messageId,
+      refund:
+        amountPaid > 0
+          ? {
+              attempted: true,
+              success: refundResult.success,
+              amount: refundAmount,
+              refundId: refundResult.refundId,
+              error: refundResult.error,
+            }
+          : {
+              attempted: false,
+              reason: 'No payment to refund',
+            },
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Error';

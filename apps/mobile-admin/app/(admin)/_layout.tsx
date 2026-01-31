@@ -122,6 +122,10 @@ export default function AdminLayout() {
           options={{ title: 'Payment Accounts' }}
         />
         <Stack.Screen
+          name="negotiations"
+          options={{ title: 'Negotiations' }}
+        />
+        <Stack.Screen
           name="store-settings"
           options={{ title: 'Store Settings' }}
         />

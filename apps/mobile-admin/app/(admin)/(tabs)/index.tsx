@@ -233,7 +233,7 @@ export default function HomeScreen() {
   };
 
   const handleBuyDomain = () => {
-    router.push('/domains');
+    router.push('/(admin)/domains');
   };
 
   return (
@@ -261,7 +261,7 @@ export default function HomeScreen() {
           }
           isLive={isLive}
           notificationCount={0}
-          onNotificationPress={() => router.push('/notifications')}
+          onNotificationPress={() => router.push('/(admin)/notifications')}
           onAvatarPress={handleAvatarPress}
         />
 
@@ -306,7 +306,7 @@ export default function HomeScreen() {
               title="Finish Setup"
               subtitle="Complete your store setup to start selling"
               progress={readiness.overallProgress}
-              onPress={() => router.push('/setup-checklist')}
+              onPress={() => router.push('/(admin)/setup-checklist')}
             />
           </View>
         )}
@@ -326,7 +326,7 @@ export default function HomeScreen() {
                       : 'Welcome back! Share your store link to get more customers.'
               }
               icon="sparkles"
-              onPress={() => router.push('/analytics')}
+              onPress={() => router.push('/(admin)/analytics')}
               onDismiss={handleDismissInsight}
             />
           </View>
@@ -434,28 +434,28 @@ export default function HomeScreen() {
               label="Add Order"
               iconColor={colors.primary}
               backgroundColor={colors.primaryLight}
-              onPress={() => router.push('/order/new')}
+              onPress={() => router.push('/(admin)/order/new')}
             />
             <QuickActionButton
               icon="mail-outline"
               label="Send Emails"
               iconColor={colors.gold}
               backgroundColor={colors.goldLight}
-              onPress={() => router.push('/customers')}
+              onPress={() => router.push('/(admin)/(tabs)/customers')}
             />
             <QuickActionButton
               icon="cube-outline"
               label="Add Product"
               iconColor={colors.orange}
               backgroundColor={colors.orangeLight}
-              onPress={() => router.push('/product/new')}
+              onPress={() => router.push('/(admin)/product/new')}
             />
             <QuickActionButton
               icon="newspaper-outline"
               label="Blog Manager"
               iconColor={colors.success}
               backgroundColor={colors.successLight}
-              onPress={() => router.push('/blog')}
+              onPress={() => router.push('/(admin)/blog')}
             />
           </View>
         </View>
@@ -541,7 +541,7 @@ export default function HomeScreen() {
                     )}
                     <Pressable
                       style={styles.productRow}
-                      onPress={() => router.push(`/order/${order.id}`)}
+                      onPress={() => router.push(`/(admin)/order/${order.id}`)}
                     >
                       <View
                         style={[

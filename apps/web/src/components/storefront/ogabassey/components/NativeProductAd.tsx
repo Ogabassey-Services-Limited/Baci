@@ -31,7 +31,7 @@ interface NativeProductAdProps {
 }
 
 // Network code from existing AdUnit
-const NETWORK_CODE = '/23331099951';
+const _NETWORK_CODE = '/23331099951';
 
 // Track defined slots globally to prevent duplicates
 const definedNativeSlots = new Set<string>();

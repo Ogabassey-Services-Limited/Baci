@@ -200,7 +200,7 @@ import {
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
-  const { merchant } = useMerchant();
+  const { merchant: _merchant } = useMerchant();
 
   return useMutation({
     mutationFn: async ({

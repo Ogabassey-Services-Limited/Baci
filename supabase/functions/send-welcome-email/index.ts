@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     let businessName = 'Merchant';
 
     // Try to fetch merchant
-    const { data: merchant, error } = await supabase
+    const { data: merchant } = await supabase
       .from('merchants')
       .select('business_name')
       .eq('user_id', record.id)

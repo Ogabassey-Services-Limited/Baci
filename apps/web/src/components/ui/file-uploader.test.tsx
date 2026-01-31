@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FileUploader } from '@/components/ui/file-uploader';
 
@@ -79,7 +79,9 @@ describe('FileUploader', () => {
 
     // Click remove button
     const removeBtn = screen.getByRole('button', { name: /remove image 1/i });
-    fireEvent.click(removeBtn);
+    act(() => {
+      fireEvent.click(removeBtn);
+    });
 
     // File should be removed from view
     expect(
@@ -133,12 +135,14 @@ describe('FileUploader', () => {
 
     // Simulate drop with oversized file using react-dropzone's onDrop callback
     // Note: react-dropzone handles validation internally, so we simulate the rejection
-    // biome-ignore lint/style/noNonNullAssertion: Test assertion - input element is guaranteed to exist
-    fireEvent.drop(input!, {
-      dataTransfer: {
-        files: [oversizedFile],
-        types: ['Files'],
-      },
+    act(() => {
+      if (!input) throw new Error('Input element not found');
+      fireEvent.drop(input, {
+        dataTransfer: {
+          files: [oversizedFile],
+          types: ['Files'],
+        },
+      });
     });
 
     // Note: Due to react-dropzone's async validation, the error might not appear immediately
@@ -217,5 +221,14 @@ describe('FileUploader', () => {
     expect(
       screen.getByRole('button', { name: /remove image 3/i })
     ).toBeInTheDocument();
+  });
+
+  it('provides a live region for accessibility announcements', () => {
+    render(<FileUploader onFilesSelected={mockOnFilesSelected} maxFiles={5} />);
+
+    const liveRegion = screen.getByTestId('uploader-announcement');
+    expect(liveRegion).toBeInTheDocument();
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    expect(liveRegion).toHaveAttribute('aria-atomic', 'true');
   });
 });

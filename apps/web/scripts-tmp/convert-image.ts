@@ -1,4 +1,3 @@
-import path from 'path';
 import sharp from 'sharp';
 
 const INPUT_FILE = 'scripts-tmp/macbook-blog.png';

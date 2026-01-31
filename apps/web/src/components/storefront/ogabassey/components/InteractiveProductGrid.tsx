@@ -8,9 +8,9 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
 // import { products } from '../data/products'; // REMOVED MOCK DATA
-import { useV2Saved } from '../providers/v2-saved-context';
+// Wishlist feature available via useV2Saved - uncomment when implementing
+// import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
-import { AdUnit } from './AdUnit';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
 import { NativeProductRow } from './NativeProductRow';
 import { FloatingParticles, type Particle } from './FloatingParticles';
@@ -39,8 +39,6 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
-  // Wishlist feature available via useV2Saved - uncomment when implementing
-  // const { savedItems, toggleSaved, isSaved } = useV2Saved();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 

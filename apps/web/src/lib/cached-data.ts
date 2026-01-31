@@ -304,7 +304,9 @@ export const getCachedMerchantByDomain = unstable_cache(
         domain: normalizedDomain,
         error: error,
       });
-      throw new Error(`Failed to fetch merchant for domain: ${normalizedDomain}`);
+      throw new Error(
+        `Failed to fetch merchant for domain: ${normalizedDomain}`
+      );
     }
 
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)

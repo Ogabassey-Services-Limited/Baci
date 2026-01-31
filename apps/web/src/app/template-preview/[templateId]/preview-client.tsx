@@ -5,7 +5,6 @@ import {
   CheckCircle,
   Info,
   Loader2,
-  Settings,
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';

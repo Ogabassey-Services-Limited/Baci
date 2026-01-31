@@ -254,7 +254,7 @@ export default function OnboardingScreen() {
                 styles.createAccountButton,
                 pressed && { opacity: 0.8 },
               ]}
-              onPress={() => router.push('/register')}
+              onPress={() => router.push('/(auth)/register')}
             >
               <Text style={styles.createAccountText}>Create an account</Text>
             </Pressable>

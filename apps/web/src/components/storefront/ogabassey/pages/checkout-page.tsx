@@ -5,27 +5,21 @@ import {
   Building2,
   ChevronRight,
   CreditCard,
-  FileText,
   Loader2,
   Plane,
-  Share2,
   ShieldCheck,
   Truck,
-  MapPin,
-  ChevronDown,
   Check,
-  Smartphone,
   Copy,
   Clock,
-  ExternalLink,
   User,
   X,
   Eye,
   EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
-import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo, PaymentTrustBadges } from '../components/PaymentLogos';
-import { MobileOrderSummary, MobileCheckoutActions } from '../components/MobileCheckoutComponents';
+import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
+import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -36,7 +30,7 @@ import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
-import { openCredPalCheckout, isCredPalEligible } from '@/lib/credpal';
+import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { asRoute } from '@/lib/routes';
 import { toast } from '@/hooks/use-toast';
@@ -261,6 +255,8 @@ export const CheckoutPage: React.FC = () => {
   const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState(!!resumeOrderId);
   const [resumeOrderError, setResumeOrderError] = useState<string | null>(null);
   const autoTriggerRef = useRef(false);
+  // Double-submit protection: prevents race conditions from rapid clicks
+  const isOrderInFlightRef = useRef(false);
 
   // Chain/currency compatibility
   const cryptoChainSupport: Record<'USDT' | 'USDC', Array<'TRX' | 'ETH' | 'MATIC' | 'AVAXC'>> = {
@@ -985,12 +981,19 @@ export const CheckoutPage: React.FC = () => {
   }, [resumedOrder, preferredGateway]);
 
   const handlePlaceOrder = async () => {
+    // Double-submit protection: prevent race conditions from rapid clicks
+    if (isOrderInFlightRef.current) {
+      return;
+    }
+    isOrderInFlightRef.current = true;
+
     if (!merchant?.id) {
       toast({
         title: 'Error',
         description: 'Merchant context not available. Please try again.',
         variant: 'destructive',
       });
+      isOrderInFlightRef.current = false;
       return;
     }
 
@@ -1000,6 +1003,7 @@ export const CheckoutPage: React.FC = () => {
         description: 'Please fill in your name and email.',
         variant: 'destructive',
       });
+      isOrderInFlightRef.current = false;
       return;
     }
 
@@ -1379,6 +1383,8 @@ export const CheckoutPage: React.FC = () => {
         variant: 'destructive',
       });
       setIsProcessing(false);
+      // Reset double-submit protection on error so user can retry
+      isOrderInFlightRef.current = false;
       // Keep user on payment step - don't reset their progress
       setCurrentStep('payment');
       // Ensure steps stay completed so user doesn't have to re-enter info

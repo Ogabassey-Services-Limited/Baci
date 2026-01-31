@@ -142,16 +142,55 @@ export async function POST(request: NextRequest) {
       );
     } catch (transferError) {
       console.error('Transfer execution error:', transferError);
-      // Complete withdrawal as failed - refund balance
-      await supabase.rpc('complete_wallet_withdrawal', {
-        p_transaction_id: transactionId,
-        p_success: false,
-        p_transfer_reference: null,
-        p_transfer_message:
-          transferError instanceof Error
-            ? transferError.message
-            : 'Transfer failed',
-      });
+      // Complete withdrawal as failed - refund balance with retry logic
+      // 2026 Best Practice: Retry rollback to prevent funds being stuck
+      const errorMessage =
+        transferError instanceof Error
+          ? transferError.message
+          : 'Transfer failed';
+
+      let rollbackSuccess = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { error: rollbackError } = await supabase.rpc(
+          'complete_wallet_withdrawal',
+          {
+            p_transaction_id: transactionId,
+            p_success: false,
+            p_transfer_reference: null,
+            p_transfer_message: errorMessage,
+          }
+        );
+
+        if (!rollbackError) {
+          rollbackSuccess = true;
+          break;
+        }
+
+        console.error(`Rollback attempt ${attempt} failed:`, rollbackError);
+        // Wait before retry (exponential backoff)
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+        }
+      }
+
+      if (!rollbackSuccess) {
+        // Critical: Log for manual intervention
+        console.error(
+          'CRITICAL: Failed to rollback wallet debit after transfer failure',
+          {
+            transactionId,
+            merchantId: merchant.id,
+            amount: withdrawAmount,
+          }
+        );
+        return NextResponse.json(
+          {
+            error:
+              'Transfer failed. Please contact support if your balance is not restored.',
+          },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json(
         { error: 'Transfer failed. Your balance has been restored.' },

@@ -40,7 +40,6 @@ import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductComparisonTable } from '../components/ProductComparisonTable';
 import { ProductVideo } from '../components/ProductVideo';
 import { FlyToCartAnimation } from '../components/FlyToCartAnimation'; // Added Animation
-import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
@@ -563,6 +562,51 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     toggleSaved(productForSaved as any);
   };
 
+  // 2026 Best Practice: Share product using Web Share API with clipboard fallback
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareTitle = productData.name;
+    const shareText = `Check out ${productData.name} on ${merchantContext?.merchant?.business_name || 'Ogabassey'}`;
+
+    // Try Web Share API first (works on mobile and some desktop browsers)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        return; // Share successful
+      } catch (err) {
+        // User cancelled or share failed - fall back to clipboard
+        if ((err as Error).name === 'AbortError') {
+          return; // User cancelled, don't show toast
+        }
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: 'Link copied!',
+        description: 'Product link has been copied to your clipboard.',
+      });
+    } catch {
+      // Final fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      toast({
+        title: 'Link copied!',
+        description: 'Product link has been copied to your clipboard.',
+      });
+    }
+  };
+
   return (
     <div className="bg-white pb-32 pt-4 relative">
       {/* SEO handled by App Router generateMetadata() - see [category]/[productSlug]/page.tsx */}
@@ -642,6 +686,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </h2>
               <div className="flex gap-3">
                 <button
+                  onClick={handleShare}
                   className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600"
                   aria-label="Share this product"
                 >

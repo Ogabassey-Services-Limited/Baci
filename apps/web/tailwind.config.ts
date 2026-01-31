@@ -182,6 +182,14 @@ export default {
             transform: 'translateY(-60px) scale(1.5)',
           },
         },
+        'slide-right': {
+          '0%, 100%': {
+            transform: 'translateX(0)',
+          },
+          '50%': {
+            transform: 'translateX(4px)',
+          },
+        },
       },
       // Named transition durations to avoid Tailwind "ambiguous class" warnings
       transitionDuration: {
@@ -194,6 +202,7 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'float-up': 'float-up 1s ease-out forwards',
+        'slide-right': 'slide-right 1.5s ease-in-out infinite',
       },
     },
   },

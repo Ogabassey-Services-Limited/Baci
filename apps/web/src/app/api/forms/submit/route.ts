@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { escapeHtml, isValidUuid, sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -15,6 +16,14 @@ export async function POST(request: NextRequest) {
     if (!merchantId || !formName || !formData) {
       return NextResponse.json(
         { error: 'Missing required fields: merchantId, formName, or formData' },
+        { status: 400 }
+      );
+    }
+
+    // Validate merchantId is a valid UUID to prevent injection
+    if (!isValidUuid(merchantId)) {
+      return NextResponse.json(
+        { error: 'Invalid merchant ID format' },
         { status: 400 }
       );
     }
@@ -51,13 +60,23 @@ export async function POST(request: NextRequest) {
       'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Insert form submission
+    // Sanitize form data before storing (prevent XSS and clean user input)
+    const sanitizedFormData: Record<string, string> = {};
+    for (const [key, value] of Object.entries(formData)) {
+      const sanitizedKey = sanitizeText(String(key), 100);
+      const sanitizedValue = sanitizeText(String(value ?? ''), 10000);
+      if (sanitizedKey) {
+        sanitizedFormData[sanitizedKey] = sanitizedValue;
+      }
+    }
+
+    // Insert form submission with sanitized data
     const { data: submission, error: submitError } = await supabase
       .from('form_submissions')
       .insert({
         merchant_id: merchantId,
-        form_name: formName,
-        form_data: formData,
+        form_name: sanitizeText(formName, 100),
+        form_data: sanitizedFormData,
         ip_address: ip,
         user_agent: userAgent,
         status: 'unread',
@@ -75,15 +94,19 @@ export async function POST(request: NextRequest) {
 
     // Send email notification to merchant (fire and forget)
     if (merchantEmail) {
+      // Escape HTML to prevent XSS in email content
       const formDataRows = Object.entries(formData)
         .map(
           ([key, value]) =>
-            `<tr><td style="padding: 8px; border: 1px solid #eee; font-weight: 500;">${key}</td><td style="padding: 8px; border: 1px solid #eee;">${value}</td></tr>`
+            `<tr><td style="padding: 8px; border: 1px solid #eee; font-weight: 500;">${escapeHtml(String(key))}</td><td style="padding: 8px; border: 1px solid #eee;">${escapeHtml(String(value ?? ''))}</td></tr>`
         )
         .join('');
 
       const textFormData = Object.entries(formData)
-        .map(([key, value]) => `${key}: ${value}`)
+        .map(
+          ([key, value]) =>
+            `${sanitizeText(String(key))}: ${sanitizeText(String(value ?? ''))}`
+        )
         .join('\n');
 
       sendEmail({

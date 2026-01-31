@@ -312,6 +312,22 @@ export function sanitizeSearchQuery(query: string): string {
 }
 
 /**
+ * Sanitize user-provided values for safe logging.
+ * Prevents log injection attacks by removing control characters
+ * (newlines, carriage returns, tabs) and non-printable characters.
+ *
+ * @param value - The value to sanitize (will be converted to string)
+ * @param maxLength - Maximum length of the output (default: 200)
+ * @returns A safe string suitable for logging
+ */
+export function sanitizeForLog(value: unknown, maxLength = 200): string {
+  if (value === undefined || value === null) return '';
+  const str = String(value).slice(0, maxLength);
+  // Remove control characters (CR, LF, TAB) and non-printable ASCII
+  return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+}
+
+/**
  * Sanitize SQL LIKE pattern
  */
 export function sanitizeLikePattern(pattern: string): string {

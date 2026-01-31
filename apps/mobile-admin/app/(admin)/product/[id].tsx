@@ -7,11 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +33,7 @@ import {
   useUpdateProduct,
 } from '@/hooks/useProducts';
 import { supabase } from '@/lib/supabase';
+import { stripHtmlTags } from '@/lib/utils';
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -211,20 +214,6 @@ export default function ProductEditScreen() {
   // Fetch product details using the new hook
   const { data: product, error } = useProduct(id);
 
-  // Helper to strip HTML tags
-  const stripHtml = useCallback((html: string) => {
-    if (!html) return '';
-    const text = html.replace(/<[^>]*>?/gm, '');
-    // Basic entity decoding for common chars
-    return text
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-  }, []);
-
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Update local state when data is fetched
@@ -238,7 +227,7 @@ export default function ProductEditScreen() {
         cost_price: product.cost_price || 0,
         stock_quantity: product.stock_quantity || 0,
         low_stock_threshold: product.low_stock_threshold || 3,
-        description: stripHtml(product.description || ''),
+        description: stripHtmlTags(product.description || ''),
         category: product.category || '',
         category_id: product.category_id || '',
         color: product.color || '',
@@ -272,7 +261,7 @@ export default function ProductEditScreen() {
       });
       setIsInitialized(true);
     }
-  }, [product, isInitialized, stripHtml]);
+  }, [product, isInitialized]);
 
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();

@@ -2,9 +2,7 @@
 // Template preview
 
 import {
-  ArrowRight,
   Bell,
-  BellOff,
   Check,
   ChevronDown,
   Gamepad2,
@@ -23,7 +21,6 @@ import {
   User,
   Wallet,
   Wrench,
-  X,
   Newspaper,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -265,6 +262,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                         placeholder="Search blog posts..."
                         maxLength={100}
                         aria-label="Search blog posts"
+                        id="blog-search-input"
+                        name="search"
                         className="w-full h-11 md:h-12 bg-white rounded-md border-0 text-gray-800 placeholder-gray-500 text-[15px] focus:ring-2 focus:ring-primary/50 pl-10 pr-4"
                       />
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

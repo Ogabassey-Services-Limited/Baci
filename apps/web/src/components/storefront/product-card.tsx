@@ -41,13 +41,14 @@ export function StorefrontProductCard({
   const { formatCurrency } = useCurrency();
 
   // Derived values - React Compiler handles memoization automatically
+  // Only show discount if compare_at_price > price AND percentage is at least 1%
   const discountPercentage =
     product.compare_at_price && product.compare_at_price > product.price
       ? Math.round(
           ((product.compare_at_price - product.price) /
             product.compare_at_price) *
             100
-        )
+        ) || null // Convert 0 to null to hide 0% badges
       : null;
 
   const isLowStock =

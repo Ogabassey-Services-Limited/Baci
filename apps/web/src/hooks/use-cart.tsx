@@ -110,10 +110,47 @@ export interface CartContextType {
 // ============================================================================
 
 const CART_STORAGE_KEY = 'baci-cart';
-const getCartStorageKey = (slug?: string | null) =>
-  slug ? `${CART_STORAGE_KEY}-${slug}` : CART_STORAGE_KEY;
+const GUEST_CART_SUFFIX = 'guest';
+/**
+ * Get cart storage key namespaced by merchant and optionally by user ID
+ * 2026 Best Practice: Separate guest carts from authenticated user carts
+ * to prevent cart data leakage between users on shared devices
+ */
+const getCartStorageKey = (slug?: string | null, userId?: string | null) => {
+  const userSuffix = userId || GUEST_CART_SUFFIX;
+  return slug
+    ? `${CART_STORAGE_KEY}-${slug}-${userSuffix}`
+    : `${CART_STORAGE_KEY}-${userSuffix}`;
+};
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
 const DEFAULT_ASSURANCE_RATE = 0.05; // 5%
+
+/**
+ * Clear cart from localStorage. Can be called outside React context.
+ * Used for logout to prevent cart data leakage between users.
+ * 2026 Best Practice: Clears both user-specific and guest carts
+ */
+export const clearCartStorage = (
+  merchantSlug?: string | null,
+  userId?: string | null
+): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    // Clear cart for specific merchant + user combination
+    if (merchantSlug) {
+      window.localStorage.removeItem(getCartStorageKey(merchantSlug, userId));
+      // Also clear guest cart for this merchant (prevents stale guest data)
+      window.localStorage.removeItem(
+        getCartStorageKey(merchantSlug, GUEST_CART_SUFFIX)
+      );
+    }
+    // Also clear the default cart keys (for legacy/fallback)
+    window.localStorage.removeItem(CART_STORAGE_KEY);
+    window.localStorage.removeItem(`${CART_STORAGE_KEY}-${GUEST_CART_SUFFIX}`);
+  } catch (error) {
+    console.error('Failed to clear cart from localStorage', error);
+  }
+};
 
 const generateCartItemId = (
   productId: string,
@@ -127,10 +164,13 @@ const generateCartItemId = (
   return parts.join('-');
 };
 
-const getCartFromStorage = (slug?: string | null): CartItem[] => {
+const getCartFromStorage = (
+  slug?: string | null,
+  userId?: string | null
+): CartItem[] => {
   if (typeof window === 'undefined') return [];
   try {
-    const item = window.localStorage.getItem(getCartStorageKey(slug));
+    const item = window.localStorage.getItem(getCartStorageKey(slug, userId));
     const parsed = item ? JSON.parse(item) : [];
 
     // Validate items structure to prevent NaN prices and ghost items
@@ -147,10 +187,13 @@ const getCartFromStorage = (slug?: string | null): CartItem[] => {
         // biome-ignore lint/suspicious/noExplicitAny: Safely casting unknown to CartItem
         .map((i: any) => ({
           ...i,
-          // Ensure price is a number
-          price: typeof i.price === 'number' ? i.price : Number(i.price) || 0,
+          // Ensure price is a number and not NaN
+          price:
+            typeof i.price === 'number' && !Number.isNaN(i.price)
+              ? i.price
+              : Number(i.price) || 0,
           quantity:
-            typeof i.quantity === 'number'
+            typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
               ? i.quantity
               : Number(i.quantity) || 1,
         })) as CartItem[]
@@ -164,10 +207,17 @@ const getCartFromStorage = (slug?: string | null): CartItem[] => {
   }
 };
 
-const saveCartToStorage = (cart: CartItem[], slug?: string | null) => {
+const saveCartToStorage = (
+  cart: CartItem[],
+  slug?: string | null,
+  userId?: string | null
+) => {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(getCartStorageKey(slug), JSON.stringify(cart));
+    window.localStorage.setItem(
+      getCartStorageKey(slug, userId),
+      JSON.stringify(cart)
+    );
   } catch (error) {
     logger.error({
       message: 'Failed to save cart to localStorage',
@@ -213,6 +263,8 @@ interface CartProviderProps {
   enableSmartCartPro?: boolean;
   /** Initial merchant slug to scope the cart */
   merchantSlug?: string | null;
+  /** User ID to scope cart to authenticated user (prevents guest cart leakage) */
+  userId?: string | null;
 }
 
 /**
@@ -226,11 +278,13 @@ export const CartProvider = ({
   children,
   enableSmartCartPro = false,
   merchantSlug: initialMerchantSlug = null,
+  userId: initialUserId = null,
 }: CartProviderProps) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
     initialMerchantSlug
   );
+  const [userId, setUserId] = useState<string | null>(initialUserId);
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Smart Cart Pro state
@@ -241,23 +295,43 @@ export const CartProvider = ({
   const [showUpsell, setShowUpsell] = useState(false);
   const upsellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 2026 Critical Fix: Track validation state to prevent infinite loops
+  const isValidatingRef = useRef(false);
+  const lastValidatedCartHashRef = useRef<string>('');
+
   // Hydrate from localStorage
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-    setCart(getCartFromStorage(slugToUse));
+    setCart(getCartFromStorage(slugToUse, initialUserId));
     setMerchantSlugState(slugToUse);
+    setUserId(initialUserId);
     setIsHydrated(true);
-  }, [initialMerchantSlug]);
+  }, [initialMerchantSlug, initialUserId]);
 
   // Background validation: Remove ghost products and update stale prices
   useEffect(() => {
     if (!isHydrated || cart.length === 0) return;
 
-    // Use a ref to access current cart state inside the effect without triggering re-runs on every item change
-    // We only want to run validation when hydration completes or potentially when significantly changed (e.g. length)
-    // But to follow lint rules strictly, we can use a ref or stable callback.
-    // However, the intention IS to debounce and not run on every keypress/update.
+    // 2026 Critical Fix: Create a stable hash of cart item IDs+prices to detect meaningful changes
+    // This prevents infinite loops when validation updates prices
+    const cartHash = cart
+      .map((item) => `${item.id}:${item.price}`)
+      .sort()
+      .join('|');
+
+    // Skip if already validating or cart hasn't meaningfully changed
+    if (
+      isValidatingRef.current ||
+      cartHash === lastValidatedCartHashRef.current
+    ) {
+      return;
+    }
+
     const validateCart = async () => {
+      // 2026 Critical Fix: Set validation lock
+      isValidatingRef.current = true;
+      lastValidatedCartHashRef.current = cartHash;
+
       // Limit batch size to prevent massive payloads
       const BATCH_SIZE = 50;
       const limitedCart = cart.slice(0, BATCH_SIZE);
@@ -294,39 +368,56 @@ export const CartProvider = ({
         // OPTIMIZATION: Use Set for O(1) lookup to remove ghost products
         const invalidIdsSet = new Set(invalidProductIds || []);
 
-        if (invalidIdsSet.size > 0) {
+        // 2026 Critical Fix: Only update if there are actual changes
+        const hasInvalidProducts = invalidIdsSet.size > 0;
+        const hasPriceChanges = priceChanges?.length > 0;
+
+        if (hasInvalidProducts || hasPriceChanges) {
           setCart((prev) => {
-            const filtered = prev.filter((item) => !invalidIdsSet.has(item.id));
-            if (filtered.length !== prev.length) {
-              logger.info({
-                message: 'Removed ghost products from cart',
-                count: prev.length - filtered.length,
-                removedIds: invalidProductIds,
+            let updated = prev;
+
+            // Remove ghost products
+            if (hasInvalidProducts) {
+              updated = updated.filter((item) => !invalidIdsSet.has(item.id));
+              if (updated.length !== prev.length) {
+                logger.info({
+                  message: 'Removed ghost products from cart',
+                  count: prev.length - updated.length,
+                  removedIds: invalidProductIds,
+                });
+              }
+            }
+
+            // Update stale prices
+            if (hasPriceChanges) {
+              const priceChangesMap = new Map(
+                priceChanges.map((pc) => [pc.id, pc])
+              );
+              updated = updated.map((item) => {
+                const priceChange = priceChangesMap.get(item.id);
+                if (priceChange) {
+                  logger.info({
+                    message: 'Updated stale price in cart',
+                    productId: item.id,
+                    oldPrice: priceChange.oldPrice,
+                    newPrice: priceChange.newPrice,
+                  });
+                  return { ...item, price: priceChange.newPrice };
+                }
+                return item;
               });
             }
-            return filtered;
+
+            // 2026 Critical Fix: Update the hash ref AFTER cart changes
+            // to prevent re-validation of the same corrected cart
+            const newHash = updated
+              .map((item) => `${item.id}:${item.price}`)
+              .sort()
+              .join('|');
+            lastValidatedCartHashRef.current = newHash;
+
+            return updated;
           });
-        }
-
-        // OPTIMIZATION: Use Map for O(1) lookup to update prices
-        const priceChangesMap = new Map(priceChanges?.map((pc) => [pc.id, pc]));
-
-        if (priceChangesMap.size > 0) {
-          setCart((prev) =>
-            prev.map((item) => {
-              const priceChange = priceChangesMap.get(item.id);
-              if (priceChange) {
-                logger.info({
-                  message: 'Updated stale price in cart',
-                  productId: item.id,
-                  oldPrice: priceChange.oldPrice,
-                  newPrice: priceChange.newPrice,
-                });
-                return { ...item, price: priceChange.newPrice };
-              }
-              return item;
-            })
-          );
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
@@ -339,20 +430,25 @@ export const CartProvider = ({
         }
       } finally {
         clearTimeout(timeoutId);
+        // 2026 Critical Fix: Release validation lock after a delay
+        // to prevent rapid re-validation
+        setTimeout(() => {
+          isValidatingRef.current = false;
+        }, 2000);
       }
     };
 
     // Run validation after a short delay to not block initial render
     const timer = setTimeout(validateCart, 500);
     return () => clearTimeout(timer);
-  }, [isHydrated, cart]); // Include cart as dependency, but effect logic relies on timeout debounce to be "safe enough".
+  }, [isHydrated, cart]);
 
   // Persist to localStorage
   useEffect(() => {
     if (isHydrated) {
-      saveCartToStorage(cart, merchantSlug);
+      saveCartToStorage(cart, merchantSlug, userId);
     }
-  }, [cart, isHydrated, merchantSlug]);
+  }, [cart, isHydrated, merchantSlug, userId]);
 
   // Cleanup upsell timer on unmount
   useEffect(() => {
@@ -367,6 +463,17 @@ export const CartProvider = ({
 
   const addToCart = useCallback(
     (product: Product, quantity: number = 1, options?: AddToCartOptions) => {
+      // Stock validation: Prevent adding out-of-stock items
+      if (product.manage_stock && (product.stock ?? 0) <= 0) {
+        logger.warn({
+          message: 'Attempted to add out-of-stock product to cart',
+          productId: product.id,
+          productName: product.name,
+          stock: product.stock,
+        });
+        return; // Silently reject - UI should show out of stock state
+      }
+
       setCart((prev) => {
         const cartItemId = generateCartItemId(product.id, options);
 
@@ -601,14 +708,27 @@ export const CartProvider = ({
   );
 
   const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => {
-      const price = item.negotiatedPrice ?? item.price;
-      const itemTotal = price * item.quantity;
-      const assuranceCost = item.hasAssurance
-        ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
-        : 0;
-      return total + itemTotal + assuranceCost;
-    }, 0);
+    try {
+      return cart.reduce((total, item) => {
+        const rawPrice = item.negotiatedPrice ?? item.price;
+        const price =
+          typeof rawPrice === 'number' && !Number.isNaN(rawPrice)
+            ? rawPrice
+            : 0;
+        const quantity =
+          typeof item.quantity === 'number' && !Number.isNaN(item.quantity)
+            ? item.quantity
+            : 0;
+        const itemTotal = price * quantity;
+        const assuranceCost = item.hasAssurance
+          ? itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE)
+          : 0;
+        return total + itemTotal + assuranceCost;
+      }, 0);
+    } catch (e) {
+      console.error('Error calculating cartTotal:', e);
+      return 0;
+    }
   }, [cart]);
 
   // Aliases for V2 compatibility

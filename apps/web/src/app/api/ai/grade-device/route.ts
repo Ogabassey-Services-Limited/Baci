@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     try {
       aiData = JSON.parse(cleanJson);
-    } catch (_e) {
+    } catch {
       console.error('Failed to parse Gemini response:', responseText);
       return NextResponse.json(
         { error: 'AI analysis failed to produce valid data' },

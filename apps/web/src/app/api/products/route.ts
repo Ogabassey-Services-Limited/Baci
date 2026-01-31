@@ -16,6 +16,7 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { createProductSchema, formatZodErrors } from '@/schemas/products';
 
 /**
  * Extract denormalized variant attributes for fast UI rendering
@@ -357,17 +358,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const rawBody = await request.json();
 
-    // Basic validation
-    if (!body.name || body.price === undefined) {
+    // Validate and sanitize input using Zod schema (2026 best practice)
+    const parseResult = createProductSchema.safeParse(rawBody);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'Name and Price are required' },
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
         { status: 400 }
       );
     }
 
-    // Prepare data for insertion
+    // Use sanitized data from Zod transform
+    const body = parseResult.data;
+
+    // Prepare data for insertion using sanitized values
     // Generate slug with condition if not 'new'
     const slug =
       body.slug ||
@@ -375,31 +383,31 @@ export async function POST(request: NextRequest) {
     const sku =
       body.sku || generateSlug(body.name).toUpperCase().substring(0, 20); // Fallback SKU
 
-    // Generate SEO data if missing
+    // Generate SEO data if missing (using sanitized values)
+    const description = body.description ?? '';
     const meta_description =
-      body.meta_description || generateMetaDescription(body.description);
+      body.meta_description || generateMetaDescription(description);
     const meta_title = body.meta_title || body.name;
 
-    // Prepare product object for schema generation
+    // Prepare product object for schema generation (using sanitized values)
     const productForSchema: Product = {
       id: '', // Placeholder
       name: body.name,
-      description: body.description,
+      description: description,
       price: body.price,
-      stock: body.stock || 0,
-      manage_stock: true,
-      status: body.status || 'draft',
+      stock: body.stock ?? 0,
+      manage_stock: body.manage_stock ?? true,
+      status: body.status ?? 'draft',
       image: body.images?.[0]?.url || '',
       imageLarge: body.images?.[0]?.url || '',
-      imageHint: '',
+      imageHint: body.imageHint || '',
       brand: body.brand || merchant.business_name,
       sku: sku,
-      gtin: body.gtin,
-      mpn: body.mpn,
+      gtin: body.gtin ?? '',
+      mpn: body.mpn ?? '',
       weight_value: body.weight_value,
       weight_unit: body.weight_unit,
       condition: body.condition,
-      images: body.images,
     };
 
     const country = merchant.country
@@ -436,7 +444,7 @@ export async function POST(request: NextRequest) {
       .insert({
         merchant_id: merchant.id,
         name: body.name,
-        description: body.description,
+        description: description,
         price: body.price,
         stock_quantity: body.stock,
 

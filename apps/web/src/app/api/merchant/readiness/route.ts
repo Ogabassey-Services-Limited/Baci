@@ -73,9 +73,13 @@ export async function GET() {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let merchant = ownedMerchant;
+    // Get merchant - either as owner or staff member
+    const validMerchant = await (async () => {
+      // First, check if user owns a merchant directly
+      if (!merchantError && ownedMerchant) {
+        return ownedMerchant;
+      }
 
-    if (merchantError || !merchant) {
       // User is not a merchant owner, check if they are staff
       const { data: staffMember, error: staffError } = await supabase
         .from('staff_members')
@@ -116,10 +120,7 @@ export async function GET() {
           merchantError,
           staffError,
         });
-        return NextResponse.json(
-          { error: 'Merchant not found' },
-          { status: 404 }
-        );
+        return null;
       }
 
       // Extract merchant from staff join (handling potential array)
@@ -128,19 +129,14 @@ export async function GET() {
         : staffMember.merchants;
 
       if (!merchantData) {
-        return NextResponse.json(
-          { error: 'Merchant not found' },
-          { status: 404 }
-        );
+        return null;
       }
 
-      // Use the staff member's merchant - cast to same type as direct merchant query
-      merchant = merchantData as typeof ownedMerchant;
-    }
+      // Cast to same type as direct merchant query
+      return merchantData as typeof ownedMerchant;
+    })();
 
-    // TypeScript cannot infer that merchant is defined here despite the logic above,
-    // so we keep this check. It also serves as a final safety guard.
-    if (!merchant) {
+    if (!validMerchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -150,7 +146,7 @@ export async function GET() {
     const { count: publishedProductCount } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', validMerchant.id)
       .eq('status', 'active');
 
     // Build checklist items
@@ -160,7 +156,11 @@ export async function GET() {
         id: 'verify_kyc',
         label: 'Verify your identity (KYC)',
         description: 'NIN, BVN, or CAC required for payments',
-        completed: !!(merchant.nin || merchant.bvn || merchant.cac_rc_number),
+        completed: !!(
+          validMerchant.nin ||
+          validMerchant.bvn ||
+          validMerchant.cac_rc_number
+        ),
         href: '/dashboard/settings/kyc',
         priority: 'required',
         category: 'payments',
@@ -170,9 +170,9 @@ export async function GET() {
         label: 'Add bank account',
         description: 'Required to receive payments via Paystack',
         completed: !!(
-          merchant.bank_code &&
-          merchant.bank_account_number &&
-          merchant.paystack_subaccount_code
+          validMerchant.bank_code &&
+          validMerchant.bank_account_number &&
+          validMerchant.paystack_subaccount_code
         ),
         href: '/dashboard/settings/payments',
         priority: 'required',
@@ -191,7 +191,7 @@ export async function GET() {
         id: 'country',
         label: 'Set your country/region',
         description: 'Determines currency, shipping options, and tax settings',
-        completed: !!merchant.country,
+        completed: !!validMerchant.country,
         href: '/dashboard/settings',
         priority: 'required',
         category: 'store',
@@ -200,7 +200,9 @@ export async function GET() {
         id: 'contact_info',
         label: 'Add contact information',
         description: 'Let customers know how to reach you',
-        completed: !!(merchant.support_email || merchant.support_phone),
+        completed: !!(
+          validMerchant.support_email || validMerchant.support_phone
+        ),
         href: '/dashboard/settings',
         priority: 'required',
         category: 'store',
@@ -211,7 +213,7 @@ export async function GET() {
         id: 'about_page',
         label: 'Fill in About Us page',
         description: 'Tell your story and build trust with customers',
-        completed: !!merchant.pages?.about,
+        completed: !!validMerchant.pages?.about,
         href: '/dashboard/pages/about',
         priority: 'recommended',
         category: 'legal',
@@ -220,7 +222,7 @@ export async function GET() {
         id: 'privacy_policy',
         label: 'Add Privacy Policy',
         description: 'Legal requirement for online stores',
-        completed: !!merchant.pages?.privacy,
+        completed: !!validMerchant.pages?.privacy,
         href: '/dashboard/pages/privacy',
         priority: 'recommended',
         category: 'legal',
@@ -229,7 +231,7 @@ export async function GET() {
         id: 'terms_conditions',
         label: 'Add Terms & Conditions',
         description: 'Protect your business with clear terms',
-        completed: !!merchant.pages?.terms,
+        completed: !!validMerchant.pages?.terms,
         href: '/dashboard/pages/terms',
         priority: 'recommended',
         category: 'legal',
@@ -238,7 +240,7 @@ export async function GET() {
         id: 'business_address',
         label: 'Add business address',
         description: 'Builds trust and may be legally required',
-        completed: !!merchant.business_address,
+        completed: !!validMerchant.business_address,
         href: '/dashboard/settings',
         priority: 'recommended',
         category: 'store',
@@ -249,8 +251,8 @@ export async function GET() {
         label: 'Set up hero carousel',
         description: 'Add eye-catching banners to your homepage',
         completed:
-          Array.isArray(merchant.hero_slides) &&
-          merchant.hero_slides.length > 0,
+          Array.isArray(validMerchant.hero_slides) &&
+          validMerchant.hero_slides.length > 0,
         href: '/dashboard/settings',
         priority: 'recommended',
         category: 'marketing',
@@ -262,10 +264,10 @@ export async function GET() {
         label: 'Connect social media',
         description: 'Link your social profiles for better engagement',
         completed: !!(
-          merchant.social_media?.instagram ||
-          merchant.social_media?.facebook ||
-          merchant.social_media?.twitter ||
-          merchant.social_media?.tiktok
+          validMerchant.social_media?.instagram ||
+          validMerchant.social_media?.facebook ||
+          validMerchant.social_media?.twitter ||
+          validMerchant.social_media?.tiktok
         ),
         href: '/dashboard/settings',
         priority: 'optional',
@@ -276,11 +278,11 @@ export async function GET() {
         label: 'Set up analytics',
         description: 'Track visitors and conversions',
         completed: !!(
-          merchant.google_analytics_id ||
-          merchant.facebook_pixel_id ||
-          merchant.tiktok_pixel_id ||
-          merchant.snapchat_pixel_id ||
-          merchant.twitter_pixel_id
+          validMerchant.google_analytics_id ||
+          validMerchant.facebook_pixel_id ||
+          validMerchant.tiktok_pixel_id ||
+          validMerchant.snapchat_pixel_id ||
+          validMerchant.twitter_pixel_id
         ),
         href: '/dashboard/integrations',
         priority: 'optional',
@@ -312,7 +314,7 @@ export async function GET() {
 
     const readiness: StoreReadiness = {
       isReady: completedRequired === requiredItems.length,
-      isPublished: merchant.is_published ?? false,
+      isPublished: validMerchant.is_published ?? false,
       completedRequired,
       totalRequired: requiredItems.length,
       completedRecommended,

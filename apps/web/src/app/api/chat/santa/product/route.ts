@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedSantaProductList } from '@/ai/santa-data';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
@@ -9,7 +10,7 @@ const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
  */
 async function handleProductLookup(productName: string): Promise<NextResponse> {
   // Sanitize for safe logging (prevent log injection)
-  const safeProductName = productName.replace(/[\r\n\t]/g, ' ').slice(0, 200);
+  const safeProductName = sanitizeForLog(productName);
   try {
     // Get products directly (bypass cache to ensure consistency)
     const santaProducts = await getCachedSantaProductList(

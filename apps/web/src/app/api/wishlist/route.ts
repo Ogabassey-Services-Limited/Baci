@@ -264,7 +264,7 @@ export async function DELETE(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ message: 'Item removed from wish list' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error removing from wish list:', error);
     return NextResponse.json(

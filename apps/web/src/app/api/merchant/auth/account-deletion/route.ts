@@ -39,7 +39,7 @@ export async function POST() {
       throw deleteError;
     }
 
-    return NextResponse.json({ message: 'Account deleted successfully' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Account deletion error:', error);
     return NextResponse.json(

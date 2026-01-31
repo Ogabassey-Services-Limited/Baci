@@ -92,12 +92,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate discount amount
+    // Calculate discount amount (rounded to avoid floating point errors)
     let discountAmount = 0;
     if (discountCode.discount_type === 'percentage') {
-      discountAmount = (cart_total * discountCode.discount_value) / 100;
+      discountAmount = Math.round(
+        (cart_total * discountCode.discount_value) / 100
+      );
     } else {
-      discountAmount = Number(discountCode.discount_value);
+      discountAmount = Math.round(Number(discountCode.discount_value));
     }
 
     // Apply maximum discount amount if set

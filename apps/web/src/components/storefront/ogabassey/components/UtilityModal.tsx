@@ -2,8 +2,6 @@
 
 import {
     Check,
-    ChevronDown,
-    CreditCard,
     Loader2,
     Smartphone,
     Tv,
@@ -12,10 +10,8 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { useCart } from '@/hooks/use-cart'; // Using for toast mainly, or generic hooks
-import { NetworkProvider, detectNetworkProvider } from '@/lib/kuda';
+import { detectNetworkProvider } from '@/lib/kuda';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 

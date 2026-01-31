@@ -4,6 +4,34 @@ if (!PAYSTACK_SECRET_KEY && process.env.NODE_ENV === 'production') {
   console.warn('PAYSTACK_SECRET_KEY is not set');
 }
 
+/**
+ * Validates that an email is in proper format to prevent SSRF attacks
+ * when used in URL paths. Returns the encoded email if valid.
+ */
+function validateAndEncodeEmail(email: string): string {
+  // Basic email format validation (RFC 5322 simplified)
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('Invalid email format');
+  }
+
+  // Ensure email doesn't contain path traversal or URL manipulation characters
+  if (
+    email.includes('/') ||
+    email.includes('\\') ||
+    email.includes('..') ||
+    email.includes('://') ||
+    email.includes('\n') ||
+    email.includes('\r') ||
+    email.includes('\0')
+  ) {
+    throw new Error('Email contains invalid characters');
+  }
+
+  // URL-encode the email to safely include in paths
+  return encodeURIComponent(email);
+}
+
 export interface PaystackCustomer {
   email: string;
   first_name: string;
@@ -53,17 +81,11 @@ export async function getOrCreatePaystackCustomer(
   customer: PaystackCustomer
 ): Promise<string> {
   try {
-    // 1. Try to create customer
-    const createRes = await fetch('https://api.paystack.co/customer', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY || 'sk_test_placeholder'}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(customer),
-    });
+    // Validate email early to prevent SSRF attacks
+    const encodedEmail = validateAndEncodeEmail(customer.email);
 
-    const createData = await createRes.json();
+    // 1. Try to create customer using the protected paystackRequest helper
+    const createData = await paystackRequest('/customer', 'POST', customer);
 
     if (createData.status) {
       return createData.data.customer_code;
@@ -76,16 +98,8 @@ export async function getOrCreatePaystackCustomer(
     ) {
       // Only fetch if it failed.
       // Note: Paystack unfortunately doesn't always return the code in error.
-      // We must query.
-      const secretKey = PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
-      const getRes = await fetch(
-        `https://api.paystack.co/customer/${customer.email}`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${secretKey}` },
-        }
-      );
-      const getData = await getRes.json();
+      // We must query using the validated and encoded email.
+      const getData = await paystackRequest(`/customer/${encodedEmail}`, 'GET');
       if (getData.status) {
         return getData.data.customer_code;
       }

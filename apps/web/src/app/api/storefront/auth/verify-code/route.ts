@@ -1,44 +1,30 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { verifyCodeSchema } from '@/schemas/auth';
 
 /**
  * Customer OTP Authentication - Verify Code
  *
  * Verifies the 6-digit OTP code and creates/links the customer record.
+ * Security: Uses Zod schema validation and server-validated email from auth response.
  */
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, token, merchantSlug } = body;
 
-    // Input validation - these checks are intentional guards, not bypasses
-    // lgtm[js/user-controlled-bypass]
-    // codeql[js/user-controlled-bypass-of-security-check]
-    if (!email || !token) {
+    // Validate input with Zod schema - this ensures proper types and formats
+    const validationResult = verifyCodeSchema.safeParse(body);
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       return NextResponse.json(
-        { error: 'Email and verification code are required' },
+        { error: firstError?.message || 'Invalid input' },
         { status: 400 }
       );
     }
 
-    // lgtm[js/user-controlled-bypass]
-    // codeql[js/user-controlled-bypass-of-security-check]
-    if (!merchantSlug) {
-      return NextResponse.json(
-        { error: 'Merchant slug is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate token format (6 digits)
-    if (!/^\d{6}$/.test(token)) {
-      return NextResponse.json(
-        { error: 'Invalid verification code format' },
-        { status: 400 }
-      );
-    }
+    const { email, token, merchantSlug } = validationResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -104,6 +90,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // SECURITY: Use server-validated email from auth response, not user input
+    // This ensures we trust data from Supabase Auth after successful verification
+    const verifiedEmail = authData.user.email;
+    if (!verifiedEmail) {
+      return NextResponse.json(
+        { error: 'Authentication failed: missing email' },
+        { status: 400 }
+      );
+    }
+
     // Set user metadata to mark as customer (if not already set)
     const currentMetadata = authData.user.user_metadata || {};
     if (currentMetadata.role !== 'customer') {
@@ -116,12 +112,13 @@ export async function POST(request: Request) {
     }
 
     // Upsert customer record using our database function
+    // Using verifiedEmail from auth response for security
     const { data: customerId, error: customerError } = await supabase.rpc(
       'upsert_customer_on_auth',
       {
         p_merchant_id: merchant.id,
         p_user_id: authData.user.id,
-        p_email: email,
+        p_email: verifiedEmail,
         p_full_name: authData.user.user_metadata?.full_name || null,
         p_phone: authData.user.user_metadata?.phone || null,
       }
@@ -150,12 +147,12 @@ export async function POST(request: Request) {
       message: 'Login successful',
       user: {
         id: authData.user.id,
-        email: authData.user.email,
+        email: verifiedEmail,
       },
       customer: customer || {
         id: customerId,
-        email,
-        full_name: email.split('@')[0],
+        email: verifiedEmail,
+        full_name: verifiedEmail.split('@')[0],
       },
       session: {
         access_token: authData.session?.access_token,

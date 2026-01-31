@@ -139,6 +139,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, warning: 'Order not found' });
     }
 
+    // Idempotency: If order is already paid, skip processing (webhook retry)
+    if (
+      order.payment_status === 'paid' &&
+      payload.eventType === 'Checkout_Merchant_Payment_Completed'
+    ) {
+      logger.info({
+        message: 'Credit Direct webhook already processed (order already paid)',
+        orderId: order.id,
+        transactionId: payload.checkoutTransactionId,
+      });
+      return NextResponse.json({
+        received: true,
+        message: 'Already processed',
+      });
+    }
+
     // Handle based on event type
     switch (payload.eventType) {
       case 'Checkout_Customer_Payment_Completed': {
@@ -209,27 +225,45 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Create transaction record
-        const { error: txError } = await supabase.from('transactions').insert({
-          merchant_id: order.merchant_id,
-          order_id: order.id,
-          transaction_type: 'payment',
-          amount: totalAmount,
-          currency: 'NGN',
-          status: 'completed',
-          gateway: 'credit_direct',
-          gateway_reference: payload.checkoutTransactionId,
-          gateway_response: payload,
-          platform_fee: platformFee,
-          merchant_amount: merchantAmount,
-        });
+        // Idempotency check: Skip if transaction already exists (webhook retry)
+        const { data: existingTx } = await supabase
+          .from('transactions')
+          .select('id')
+          .eq('gateway_reference', payload.checkoutTransactionId)
+          .eq('gateway', 'credit_direct')
+          .single();
 
-        if (txError) {
-          logger.error({
-            message: 'Failed to create transaction record',
-            error: txError,
+        if (existingTx) {
+          logger.info({
+            message: 'Credit Direct transaction already processed (idempotent)',
+            transactionId: payload.checkoutTransactionId,
+            existingTxId: existingTx.id,
           });
-          // Don't fail the webhook - order is already updated
+        } else {
+          // Create transaction record
+          const { error: txError } = await supabase
+            .from('transactions')
+            .insert({
+              merchant_id: order.merchant_id,
+              order_id: order.id,
+              transaction_type: 'payment',
+              amount: totalAmount,
+              currency: 'NGN',
+              status: 'completed',
+              gateway: 'credit_direct',
+              gateway_reference: payload.checkoutTransactionId,
+              gateway_response: payload,
+              platform_fee: platformFee,
+              merchant_amount: merchantAmount,
+            });
+
+          if (txError) {
+            logger.error({
+              message: 'Failed to create transaction record',
+              error: txError,
+            });
+            // Don't fail the webhook - order is already updated
+          }
         }
 
         // Send confirmation email

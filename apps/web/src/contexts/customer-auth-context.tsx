@@ -8,6 +8,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { clearCartStorage } from '@/hooks/use-cart';
 
 export interface CustomerUser {
   id: string;
@@ -197,8 +198,10 @@ export function CustomerAuthProvider({
       setUser(null);
       setCustomer(null);
       setOtpState(null);
+      // Clear cart on logout to prevent cart data leakage between users
+      clearCartStorage(merchantSlug);
     }
-  }, []);
+  }, [merchantSlug]);
 
   // Sign in with Google OAuth
   const signInWithGoogle = useCallback(async (): Promise<{

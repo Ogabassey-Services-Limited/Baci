@@ -19,36 +19,29 @@ import { useCart } from '@/hooks/use-cart';
 import { parseCartAction } from '@/components/storefront/santa-chat/types';
 import { useV2Theme } from '../providers/v2-theme-context';
 
-/**
- * Validates if a URL is safe for usage (http/https/mailto only)
- */
-function isSafeUrl(url: string): boolean {
-  try {
-    const protocol = new URL(url, 'http://dummy.com').protocol;
-    return ['http:', 'https:', 'mailto:'].includes(protocol);
-  } catch {
-    return false;
-  }
-}
+/** Allowed URL protocols for security (blocks javascript:, data:, vbscript:, etc.) */
+const SAFE_URL_PROTOCOLS = ['http:', 'https:', 'mailto:'] as const;
 
 /**
  * Sanitizes a URL for safe usage in href/src attributes.
  * Returns the sanitized URL or null if unsafe.
- * This explicitly validates and normalizes the URL to prevent XSS.
+ *
+ * Security: Prevents XSS via javascript:, data:, vbscript: and other dangerous protocols.
+ * Only allows http:, https:, and mailto: URLs.
  */
 function sanitizeUrl(url: string): string | null {
   try {
     // Parse the URL to validate it
     const parsed = new URL(url, 'http://dummy.com');
-    // Only allow safe protocols
-    if (!['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+    // Only allow safe protocols - explicitly blocks javascript:, data:, vbscript:, etc.
+    if (!SAFE_URL_PROTOCOLS.includes(parsed.protocol as typeof SAFE_URL_PROTOCOLS[number])) {
       return null;
     }
     // For mailto, return as-is (already validated)
     if (parsed.protocol === 'mailto:') {
       return url;
     }
-    // Return the normalized href (properly encoded)
+    // Return the normalized href (properly encoded by URL API)
     return parsed.href;
   } catch {
     return null;
@@ -58,9 +51,14 @@ function sanitizeUrl(url: string): string | null {
 
 
 /**
- * Enhanced markdown renderer for chat messages (2025 standards).
+ * Enhanced markdown renderer for chat messages (2026 standards).
  * Supports: **bold**, *list items, [links](url), ![images](url), and line breaks.
- * All text content is escaped to prevent XSS attacks.
+ *
+ * Security measures (XSS prevention):
+ * - All text content is rendered via React JSX, which automatically escapes HTML entities
+ * - URLs are validated via sanitizeUrl() which only allows http:, https:, mailto: protocols
+ * - No innerHTML, dangerouslySetInnerHTML, or direct DOM manipulation is used
+ * - All attribute values are escaped by React's rendering engine
  */
 function renderMarkdown(text: string): React.ReactNode {
   if (!text) return null;
@@ -224,39 +222,6 @@ const PROACTIVE_MESSAGES = [
   "Check out our daily deals! 🏷️",
   "Need a repair quote? 🔧"
 ];
-
-const SnowOverlay: React.FC = () => (
-  <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-    <style>{`
-      @keyframes snowfall {
-        0% { transform: translateY(-10px) translateX(0); opacity: 0; }
-        10% { opacity: 1; }
-        100% { transform: translateY(100vh) translateX(20px); opacity: 0; }
-      }
-      .snowflake {
-        position: absolute;
-        top: -10px;
-        color: #e2e8f0;
-        animation: snowfall linear infinite;
-      }
-    `}</style>
-    {[...Array(12)].map((_, i) => (
-      <div
-        key={i}
-        className="snowflake"
-        style={{
-          left: `${Math.random() * 100}%`,
-          animationDuration: `${5 + Math.random() * 5}s`,
-          animationDelay: `${Math.random() * 5}s`,
-          fontSize: `${10 + Math.random() * 10}px`,
-          opacity: 0.3 + Math.random() * 0.4
-        }}
-      >
-        ❄
-      </div>
-    ))}
-  </div>
-);
 
 const SantaIcon: React.FC<{ className?: string }> = ({ className }) => (
   <div className={`${className} bg-red-600 rounded-full flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-sm`}>
