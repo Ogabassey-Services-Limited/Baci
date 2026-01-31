@@ -1,19 +1,28 @@
 /**
- * Button Component
+ * Button Component - 2026 Best Practice Implementation
  * Design aligned with Baci web app button variants
  * Supports: default, secondary, outline, ghost, destructive
+ *
+ * Features:
+ * - Loading state with accessibility announcements
+ * - Proper disabled state styling
+ * - WCAG AA compliant focus states
+ * - Haptic feedback on press (iOS)
  */
 
 import { cssInterop } from 'nativewind';
-import type React from 'react';
+import React, { type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  Platform,
   Pressable,
   type PressableProps,
   Text,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 type ButtonVariant =
   | 'default'
@@ -26,12 +35,14 @@ type ButtonSize = 'sm' | 'default' | 'lg' | 'icon';
 interface ButtonProps extends Omit<PressableProps, 'style'> {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  children: React.ReactNode;
+  children: ReactNode;
   loading?: boolean;
+  loadingText?: string; // 2026: Accessible loading message
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
   className?: string;
+  haptic?: boolean; // 2026: Enable haptic feedback
 }
 
 // Enable styling for Pressable via className if needed externally
@@ -42,13 +53,35 @@ export function Button({
   size = 'default',
   children,
   loading = false,
+  loadingText,
   fullWidth = false,
   disabled,
   style,
   textStyle,
   className,
+  haptic = true,
+  onPress,
   ...props
 }: ButtonProps) {
+  // 2026 Best Practice: Announce loading state to screen readers
+  React.useEffect(() => {
+    if (loading && loadingText) {
+      AccessibilityInfo.announceForAccessibility(loadingText);
+    }
+  }, [loading, loadingText]);
+
+  // 2026 Best Practice: Haptic feedback on press
+  const handlePress = React.useCallback(
+    (event: any) => {
+      if (haptic && Platform.OS === 'ios') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+          // Ignore haptic errors (device may not support)
+        });
+      }
+      onPress?.(event);
+    },
+    [haptic, onPress]
+  );
   // Base classes
   let containerClasses =
     'flex-row items-center justify-center gap-2 rounded-md active:opacity-90 active:scale-95 disabled:opacity-50';
@@ -111,10 +144,31 @@ export function Button({
       className={`${containerClasses} ${className || ''}`}
       disabled={disabled || loading}
       style={style}
+      onPress={handlePress}
+      // 2026 Accessibility: Proper button semantics
+      accessibilityRole="button"
+      accessibilityState={{
+        disabled: disabled || loading,
+        busy: loading,
+      }}
+      accessibilityLabel={
+        loading && loadingText
+          ? loadingText
+          : typeof children === 'string'
+            ? children
+            : undefined
+      }
       {...props}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={indicatorColor} />
+        <>
+          <ActivityIndicator size="small" color={indicatorColor} />
+          {loadingText && (
+            <Text className={`${textClasses}`} style={textStyle}>
+              {loadingText}
+            </Text>
+          )}
+        </>
       ) : typeof children === 'string' ? (
         <Text className={`${textClasses}`} style={textStyle}>
           {children}

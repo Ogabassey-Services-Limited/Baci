@@ -7,13 +7,16 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
+import { SEASONAL } from '@/lib/seasonal';
 import { getTemplateConfig } from '@/lib/templates';
 import { useCartStore } from '@/stores/cart-store';
+import { useDrawerStore } from '@/stores/drawer-store';
 import { useThemeStore } from '@/stores/theme-store';
 
 interface HeaderProps {
@@ -28,6 +31,7 @@ const PATTERN_URI =
 export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
   const insets = useSafeAreaInsets();
   const itemCount = useCartStore((state) => state.itemCount());
+  const openDrawer = useDrawerStore((state) => state.openDrawer);
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const theme = useThemeStore((state) => state.theme);
 
@@ -40,7 +44,8 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
   };
 
   const storeName = Constants.expoConfig?.name || 'Baci Store';
-  const isSanta = theme === 'santa';
+  const isSanta = SEASONAL.shouldShowSanta(theme);
+  const seasonalTokens = useMemo(() => SEASONAL.getTokens(theme), [theme]);
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
@@ -49,30 +54,36 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
         style={[
           styles.eliteContainer,
           { paddingTop: insets.top + SPACING.sm },
-          isSanta && styles.santaContainer,
+          isSanta && { backgroundColor: seasonalTokens.holidayBg },
         ]}
       >
-        {/* Santa Mode Background */}
+        {/* Web Pattern Background - ONLY for the very top row if we want, but letting index.tsx handle foundation */}
+
+        {/* Santa Mode Overlay (if active) */}
         {isSanta && (
-          <Image
-            source={{ uri: PATTERN_URI }}
-            style={[StyleSheet.absoluteFillObject, { opacity: 0.1 }]}
-            contentFit="cover"
-            transition={500}
-          />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,0,0,0.1)' }]} />
         )}
 
         <View style={styles.eliteContent}>
           {/* Row 1: Nav, Logo, Actions */}
           <View style={styles.topRow}>
             <View style={styles.leftGroup}>
-              <Pressable onPress={() => {}} hitSlop={12} style={styles.menuBtn}>
+              {/* Navigation drawer trigger */}
+              <Pressable
+                onPress={openDrawer}
+                hitSlop={12}
+                style={styles.menuBtn}
+                accessibilityLabel="Open navigation menu"
+                accessibilityRole="button"
+              >
                 <Ionicons name="menu-outline" size={28} color="#FFF" />
               </Pressable>
 
               <Pressable
                 onPress={() => router.push('/(tabs)')}
                 style={styles.logoContainer}
+                accessibilityLabel={`${storeName}, go to home`}
+                accessibilityRole="button"
               >
                 <Logo width={140} height={25} color="white" />
               </Pressable>
@@ -89,10 +100,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
                 onPress={() => router.push('/(tabs)/cart')}
                 hitSlop={12}
                 style={styles.iconBtn}
+                accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+                accessibilityRole="button"
               >
                 <Ionicons name="cart-outline" size={26} color="#FFF" />
                 {itemCount > 0 && (
-                  <View style={styles.badge}>
+                  <View style={styles.badge} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
                     <Text style={styles.badgeText}>{itemCount}</Text>
                   </View>
                 )}
@@ -106,6 +119,8 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
               style={[styles.searchPill, isSanta && styles.santaSearchPill]}
               onPress={handleSearch}
               hitSlop={12}
+              accessibilityLabel="Search products, brands and categories"
+              accessibilityRole="search"
             >
               <Ionicons
                 name="search-outline"
@@ -124,6 +139,8 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
             </Pressable>
           )}
         </View>
+
+        {/* Removed extensionArea from here to allow Hero to sit on TOP */}
       </View>
     );
   }
@@ -147,6 +164,8 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
                 onPress={handleSearch}
                 hitSlop={12}
                 style={styles.iconBtn}
+                accessibilityLabel="Search products"
+                accessibilityRole="button"
               >
                 <Ionicons name="search-outline" size={24} color="#000" />
               </Pressable>
@@ -155,10 +174,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
               onPress={() => router.push('/(tabs)/cart')}
               hitSlop={12}
               style={styles.iconBtn}
+              accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+              accessibilityRole="button"
             >
               <Ionicons name="bag-outline" size={24} color="#000" />
               {itemCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: '#000' }]}>
+                <View style={[styles.badge, { backgroundColor: '#000' }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
                   <Text style={styles.badgeText}>{itemCount}</Text>
                 </View>
               )}
@@ -181,6 +202,8 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
             onPress={() => router.push('/notifications' as any)}
             hitSlop={12}
             style={styles.iconBtn}
+            accessibilityLabel="Notifications"
+            accessibilityRole="button"
           >
             <Ionicons
               name="notifications-outline"
@@ -192,10 +215,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
             onPress={() => router.push('/(tabs)/cart')}
             hitSlop={12}
             style={styles.iconBtn}
+            accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+            accessibilityRole="button"
           >
             <Ionicons name="cart-outline" size={24} color={BRAND.primary} />
             {itemCount > 0 && (
-              <View style={styles.badge}>
+              <View style={styles.badge} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
                 <Text style={styles.badgeText}>{itemCount}</Text>
               </View>
             )}
@@ -217,13 +242,10 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 const styles = StyleSheet.create({
   // Elite Styles
   eliteContainer: {
-    backgroundColor: '#000', // Deep black as per target
+    backgroundColor: 'transparent', // Transparent to allow Hero to sit ON TOP of index.tsx background
     paddingBottom: SPACING.md,
     borderBottomWidth: 0,
-  },
-  santaContainer: {
-    backgroundColor: '#0F0F0F',
-    overflow: 'hidden',
+    zIndex: 10,
   },
   santaText: {
     color: '#FFF',
@@ -248,8 +270,8 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   menuBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 4,
@@ -342,8 +364,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   iconBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -365,5 +387,10 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 9,
     fontWeight: '900',
+  },
+  extensionArea: {
+    height: 80, // Space for Hero overlap
+    backgroundColor: '#000',
+    width: '100%',
   },
 });

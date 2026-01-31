@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { SEASONAL } from '@/lib/seasonal';
 
 type ThemeMode = 'standard' | 'santa';
 
@@ -13,7 +14,8 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: 'santa', // Default to Santa mode for the holidays
+      // Initialize based on current date
+      theme: SEASONAL.isDecember() ? 'santa' : 'standard',
       setTheme: (theme) => set({ theme }),
       toggleTheme: () =>
         set((state) => ({
@@ -23,6 +25,16 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: 'app-theme-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: (state) => {
+        return (rehydratedState, error) => {
+          if (error || !rehydratedState) return;
+
+          // 2026 Standard: Force reset seasonal theme if out of season
+          if (rehydratedState.theme === 'santa' && !SEASONAL.isDecember()) {
+            rehydratedState.setTheme('standard');
+          }
+        };
+      },
     }
   )
 );

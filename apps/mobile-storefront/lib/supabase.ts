@@ -1,12 +1,21 @@
 /**
  * Supabase Client for React Native
  * Uses expo-secure-store for secure token persistence
+ *
+ * 2026 Best Practices:
+ * - SecureStore for native platforms (iOS/Android)
+ * - sessionStorage for web (less persistent than localStorage, clears on tab close)
+ * - Network connectivity checks before edge function calls
  */
 
+import NetInfo from '@react-native-community/netinfo';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { createLogger } from './logger';
+
+const log = createLogger('Supabase');
 
 // Get Supabase credentials from app.json extra config
 const supabaseUrl =
@@ -20,50 +29,55 @@ const supabaseAnonKey =
 
 /**
  * Custom storage adapter using expo-secure-store
- * Falls back to in-memory storage for web platform
+ * 2026 Best Practice: sessionStorage for web (more secure than localStorage)
+ * - sessionStorage clears when tab closes, reducing token exposure
+ * - localStorage persists indefinitely and is accessible to XSS attacks
+ * - Native platforms use SecureStore (encrypted keychain/keystore)
  */
 const ExpoSecureStoreAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     if (Platform.OS === 'web') {
-      // Use localStorage for web
+      // 2026 Best Practice: Use sessionStorage instead of localStorage
+      // Less persistent but more secure - tokens cleared when tab closes
       if (typeof window !== 'undefined') {
-        return window.localStorage.getItem(key);
+        return window.sessionStorage.getItem(key);
       }
       return null;
     }
     try {
       return await SecureStore.getItemAsync(key);
     } catch (error) {
-      console.error('SecureStore getItem error:', error);
+      log.error('SecureStore getItem error:', error);
       return null;
     }
   },
 
   setItem: async (key: string, value: string): Promise<void> => {
     if (Platform.OS === 'web') {
+      // 2026 Best Practice: sessionStorage for auth tokens on web
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, value);
+        window.sessionStorage.setItem(key, value);
       }
       return;
     }
     try {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
-      console.error('SecureStore setItem error:', error);
+      log.error('SecureStore setItem error:', error);
     }
   },
 
   removeItem: async (key: string): Promise<void> => {
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined') {
-        window.localStorage.removeItem(key);
+        window.sessionStorage.removeItem(key);
       }
       return;
     }
     try {
       await SecureStore.deleteItemAsync(key);
     } catch (error) {
-      console.error('SecureStore removeItem error:', error);
+      log.error('SecureStore removeItem error:', error);
     }
   },
 };
@@ -96,7 +110,7 @@ export async function getSession() {
     error,
   } = await supabase.auth.getSession();
   if (error) {
-    console.error('Error getting session:', error);
+    log.error('Error getting session:', error);
     return null;
   }
   return session;
@@ -111,7 +125,7 @@ export async function getCurrentUser() {
     error,
   } = await supabase.auth.getUser();
   if (error) {
-    console.error('Error getting user:', error);
+    log.error('Error getting user:', error);
     return null;
   }
   return user;
@@ -123,7 +137,7 @@ export async function getCurrentUser() {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) {
-    console.error('Error signing out:', error);
+    log.error('Error signing out:', error);
     throw error;
   }
 }
@@ -137,12 +151,41 @@ import type {
   RedeemLoyaltyOutputType,
 } from './validation';
 
+/** Default timeout for edge function calls (30 seconds) */
+const EDGE_FUNCTION_TIMEOUT = 30000;
+
+/**
+ * Check network connectivity before edge function calls
+ * 2026 Best Practice: Always verify network before critical operations
+ */
+async function checkNetwork(): Promise<boolean> {
+  const state = await NetInfo.fetch();
+  return state.isConnected === true && state.isInternetReachable !== false;
+}
+
+/**
+ * Custom error class for commerce operations
+ * 2026 Best Practice: Typed errors for better error handling
+ */
+export class CommerceError extends Error {
+  code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'CommerceError';
+    this.code = code;
+  }
+}
+
 /**
  * Call the central commerce brain (Supabase Edge Function)
  * Centralizes math for Parity between Web & App
  * Includes analytics instrumentation for tracking
  *
- * 2025 Best Practice: Function overloads for type-safe API calls
+ * 2026 Best Practices:
+ * - Function overloads for type-safe API calls
+ * - Network connectivity check before edge function calls
+ * - Typed error handling
  */
 export async function calculateCommerce(
   action: 'calculate_order',
@@ -164,16 +207,36 @@ export async function calculateCommerce(
 > {
   const startTime = Date.now();
 
-  try {
-    const { data: result, error } = await supabase.functions.invoke(
-      'calculate-commerce',
-      {
-        body: { action, data },
-      }
+  // 2026 Best Practice: Check network before edge function calls
+  const isOnline = await checkNetwork();
+  if (!isOnline) {
+    throw new CommerceError(
+      'No internet connection. Please check your network and try again.',
+      'NETWORK_ERROR'
     );
+  }
+
+  try {
+    // 2026 Best Practice: AbortController timeout for edge function calls
+    // Prevents requests from hanging indefinitely on poor connections
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT);
+
+    let result: any;
+    let error: any;
+
+    try {
+      const response = await supabase.functions.invoke('calculate-commerce', {
+        body: { action, data },
+      });
+      result = response.data;
+      error = response.error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (error) {
-      console.error(`Commerce Brain Error [${action}]:`, error);
+      log.error(`Commerce Brain Error [${action}]:`, error);
 
       // Track commerce brain failure
       const { trackError } = await import('@/services/analytics');

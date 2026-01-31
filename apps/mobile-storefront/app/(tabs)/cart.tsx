@@ -1,27 +1,107 @@
 /**
- * Cart Screen
- * Shopping cart with items, quantities, and checkout
+ * Cart Screen - Matching Web Design
+ * Beautiful card-based cart with condition tags, negotiations, and sticky checkout
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  FlatList,
-  Image,
+  Modal,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CheckoutIdentityModal } from '@/components/checkout/CheckoutIdentityModal';
+import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
+import { useUIStore } from '@/stores/ui-store';
+
+// Helper component for editable quantity in list (2026 Best Practice for performance)
+const CartQuantityInput = ({
+  value,
+  onChange,
+  style
+}: {
+  value: number,
+  onChange: (val: number) => void,
+  style: any
+}) => {
+  const [localValue, setLocalValue] = useState(value.toString());
+
+  useEffect(() => {
+    setLocalValue(value.toString());
+  }, [value]);
+
+  return (
+    <TextInput
+      style={style}
+      value={localValue}
+      textAlignVertical="center"
+      onChangeText={(text) => {
+        const cleanText = text.replace(/[^0-9]/g, '');
+        setLocalValue(cleanText);
+        const num = parseInt(cleanText, 10);
+        if (!isNaN(num) && num > 0) {
+          onChange(num);
+        }
+      }}
+      onBlur={() => {
+        const num = parseInt(localValue, 10);
+        if (isNaN(num) || num <= 0) {
+          setLocalValue(value.toString());
+        } else {
+          onChange(num);
+        }
+      }}
+      keyboardType="number-pad"
+      returnKeyType="done"
+    />
+  );
+};
 
 export default function CartScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
+  const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
+
+  const arrowTranslateX = useSharedValue(0);
+
+  useEffect(() => {
+    arrowTranslateX.value = withRepeat(
+      withSequence(
+        withTiming(6, { duration: 800 }),
+        withTiming(0, { duration: 800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedArrowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: arrowTranslateX.value }],
+  }));
+
+  const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
+  const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
+  const [pendingNegotiateItem, setPendingNegotiateItem] = useState<CartItem | null>(null);
+  const pendingOperations = useRef<Set<string>>(new Set());
 
   const items = useCartStore((state) => state.items);
   const itemCount = useCartStore((state) => state.itemCount());
@@ -30,30 +110,43 @@ export default function CartScreen() {
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
+  const toggleAssurance = useCartStore((state) => state.toggleAssurance);
+
+  const openNegotiation = useUIStore((state) => state.openNegotiation);
+  const openChat = useUIStore((state) => state.openChat);
+
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+    }
+  };
 
   const handleQuantityChange = (item: CartItem, delta: number) => {
+    if (pendingOperations.current.has(item.id)) return;
     const newQuantity = item.quantity + delta;
+    triggerHaptic();
+
     if (newQuantity <= 0) {
-      Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeItem(item.id),
-        },
-      ]);
+      handleRemoveItem(item);
     } else {
+      pendingOperations.current.add(item.id);
       updateQuantity(item.id, newQuantity);
+      setTimeout(() => pendingOperations.current.delete(item.id), 200);
     }
   };
 
   const handleRemoveItem = (item: CartItem) => {
+    if (pendingOperations.current.has(item.id)) return;
     Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => removeItem(item.id),
+        onPress: () => {
+          pendingOperations.current.add(item.id);
+          removeItem(item.id);
+          pendingOperations.current.delete(item.id);
+        },
       },
     ]);
   };
@@ -66,187 +159,443 @@ export default function CartScreen() {
   };
 
   const handleCheckout = () => {
-    router.push('/checkout');
+    triggerHaptic();
+    // Show identity modal instead of navigating directly
+    setIsIdentityModalOpen(true);
   };
 
-  const renderCartItem = ({ item }: { item: CartItem }) => (
-    <View
-      style={[
-        styles.cartItem,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <Image
-        source={{
-          uri:
-            item.image_url ||
-            'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image',
-        }}
-        style={styles.itemImage}
-        resizeMode="cover"
-      />
+  // Helper function to actually open item negotiation
+  const actuallyOpenItemNegotiation = (item: CartItem) => {
+    const priceToUse = item.negotiatedPrice ?? item.price;
+    openNegotiation({
+      type: 'single',
+      itemId: item.id,
+      productName: item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
+      currentPrice: priceToUse * item.quantity,
+    });
+    setShowNegotiateWarning(false);
+    setPendingNegotiateItem(null);
+  };
 
-      <View style={styles.itemDetails}>
-        <Text
-          style={[styles.itemName, { color: colors.text }]}
-          numberOfLines={2}
-        >
-          {item.name}
-        </Text>
+  // Open item negotiation with warning check
+  const openItemNegotiation = (item: CartItem) => {
+    // Check if any item already has individual negotiation
+    const hasAnyIndividualNegotiation = items.some(i => i.negotiatedPrice != null);
 
-        {item.variant_name && (
-          <Text style={[styles.itemVariant, { color: colors.textSecondary }]}>
-            {item.variant_name}
-          </Text>
-        )}
+    // Check if cart-wide discount is active
+    const hasBulkDiscount = items.some(i => (i as any).cartDiscount > 0);
 
-        <View style={styles.priceRow}>
-          <Text style={[styles.itemPrice, { color: BRAND.primary }]}>
-            {formatPrice(item.price)}
-          </Text>
-          {item.compare_at_price && item.compare_at_price > item.price && (
-            <Text
-              style={[styles.comparePrice, { color: colors.textSecondary }]}
-            >
-              {formatPrice(item.compare_at_price)}
-            </Text>
-          )}
-        </View>
+    if (hasBulkDiscount) {
+      Alert.alert(
+        'Bulk Discount Active',
+        'You already have a bulk discount applied. Remove it before negotiating items individually.'
+      );
+      return;
+    }
 
-        <View style={styles.quantityRow}>
-          <View
-            style={[styles.quantityControls, { borderColor: colors.border }]}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.quantityButton,
-                pressed && styles.quantityButtonPressed,
-              ]}
-              onPress={() => handleQuantityChange(item, -1)}
-            >
-              <Ionicons name="remove" size={18} color={colors.text} />
-            </Pressable>
+    if (hasAnyIndividualNegotiation) {
+      // Already using individual mode, proceed directly
+      actuallyOpenItemNegotiation(item);
+    } else {
+      // First negotiation - show warning modal
+      setPendingNegotiateItem(item);
+      setShowNegotiateWarning(true);
+    }
+  };
 
-            <Text style={[styles.quantityText, { color: colors.text }]}>
-              {item.quantity}
-            </Text>
+  // Open total/bulk negotiation
+  const openTotalNegotiation = () => {
+    if (items.some(i => i.negotiationStatus === 'accepted')) {
+      Alert.alert('Negotiation Active', 'Please reset individual item prices before negotiating the total cart.');
+      return;
+    }
+    triggerHaptic();
+    openNegotiation({
+      type: 'total',
+      productName: 'Total Cart',
+      currentPrice: grandTotal,
+    });
+    setShowNegotiateWarning(false);
+    setPendingNegotiateItem(null);
+  };
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.quantityButton,
-                pressed && styles.quantityButtonPressed,
-              ]}
-              onPress={() => handleQuantityChange(item, 1)}
-            >
-              <Ionicons name="add" size={18} color={colors.text} />
-            </Pressable>
-          </View>
+  // Calculate assurance total
+  const assuranceTotal = items.reduce((sum, item) => {
+    if (!item.hasAssurance) return sum;
+    const price = item.negotiatedPrice ?? item.price;
+    return sum + price * item.quantity * 0.05;
+  }, 0);
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.removeButton,
-              pressed && styles.removeButtonPressed,
-            ]}
-            onPress={() => handleRemoveItem(item)}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderEmptyCart = () => (
-    <View style={styles.emptyContainer}>
-      <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        Your cart is empty
-      </Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-        Browse our products and add items to your cart
-      </Text>
-      <Pressable
-        style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
-        onPress={() => router.push('/')}
-      >
-        <Text style={styles.shopButtonText}>Start Shopping</Text>
-      </Pressable>
-    </View>
-  );
+  const grandTotal = subtotal + assuranceTotal;
 
   if (items.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        {renderEmptyCart()}
+        <View style={styles.emptyContainer}>
+          <View style={[styles.emptyIconBg, { backgroundColor: palette.gray[100] }]}>
+            <Ionicons name="cart" size={56} color={BRAND.primary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Your cart is empty 🛒
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Browse our products and add items to your cart
+          </Text>
+          <Pressable
+            style={[styles.shopButton, { backgroundColor: '#000' }]}
+            onPress={() => router.push('/')}
+          >
+            <Text style={styles.shopButtonText}>Start Shopping</Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+          </Pressable>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Cart Items */}
-      <FlatList
-        data={items}
-        renderItem={renderCartItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <Text
-              style={[styles.itemCountText, { color: colors.textSecondary }]}
-            >
-              {itemCount} {itemCount === 1 ? 'item' : 'items'} in cart
-            </Text>
-            <Pressable onPress={handleClearCart}>
-              <Text style={[styles.clearText, { color: BRAND.primary }]}>
-                Clear All
-              </Text>
-            </Pressable>
-          </View>
-        }
-      />
-
-      {/* Checkout Summary */}
-      <SafeAreaView
-        edges={['bottom']}
-        style={[
-          styles.checkoutContainer,
-          { backgroundColor: colors.card, borderTopColor: colors.border },
-        ]}
-      >
-        {totalSavings > 0 && (
-          <View
-            style={[styles.savingsRow, { backgroundColor: BRAND.primaryLight }]}
-          >
-            <Ionicons name="pricetag" size={16} color={BRAND.primary} />
-            <Text style={[styles.savingsText, { color: BRAND.primary }]}>
-              You save {formatPrice(totalSavings)}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Subtotal
+    <View style={[styles.container, { backgroundColor: palette.gray[50] }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="cart" size={24} color={BRAND.primary} />
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Cart</Text>
+          <Text style={[styles.headerCount, { color: colors.textSecondary }]}>
+            ({itemCount})
           </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {formatPrice(subtotal)}
+        </View>
+        <Pressable onPress={handleClearCart} hitSlop={12}>
+          <Text style={[styles.clearText, { color: BRAND.primary }]}>Clear All</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 180 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {items.map((item) => {
+          const priceToUse = item.negotiatedPrice ?? item.price;
+          const itemTotal = priceToUse * item.quantity;
+          const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+
+          return (
+            <View key={item.id} style={styles.cartCard}>
+              {/* Top Row: Image & Info */}
+              <View style={styles.cardTop}>
+                <Pressable
+                  style={styles.imageContainer}
+                  onPress={() => router.push(`/product/${item.slug || item.product_id}`)}
+                >
+                  <SafeImage
+                    source={{ uri: item.image_url || 'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image' }}
+                    style={styles.productImage}
+                    contentFit="contain"
+                  />
+                </Pressable>
+
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+
+                  {/* Tags Row */}
+                  <View style={styles.tagsRow}>
+                    <View style={[
+                      styles.conditionTag,
+                      item.condition?.toLowerCase() === 'new'
+                        ? styles.conditionTagNew
+                        : styles.conditionTagUsed,
+                    ]}>
+                      <Text style={[
+                        styles.conditionTagText,
+                        item.condition?.toLowerCase() === 'new'
+                          ? styles.conditionTagTextNew
+                          : styles.conditionTagTextUsed,
+                      ]}>
+                        {item.condition || 'NEW'}
+                      </Text>
+                    </View>
+                    {item.color && (
+                      <View style={styles.colorTag}>
+                        <View
+                          style={[styles.colorDot, { backgroundColor: item.color }]}
+                        />
+                        <Text style={styles.colorTagText}>{item.color}</Text>
+                      </View>
+                    )}
+                    {item.storage && (
+                      <View style={styles.storageTag}>
+                        <Text style={styles.storageTagText}>{item.storage}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Remove Button */}
+                <Pressable
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveItem(item)}
+                  hitSlop={12}
+                >
+                  <Ionicons name="trash-outline" size={18} color={BRAND.primary} />
+                </Pressable>
+              </View>
+
+              {/* Dashed Separator */}
+              <View style={styles.dashedSeparator} />
+
+              {/* Quantity & Price Row */}
+              <View style={styles.controlsRow}>
+                <View style={styles.quantityControls}>
+                  <Pressable
+                    style={styles.quantityButton}
+                    onPress={() => handleQuantityChange(item, -1)}
+                    disabled={item.quantity <= 1}
+                  >
+                    <Ionicons name="remove" size={16} color={item.quantity <= 1 ? palette.gray[300] : palette.gray[600]} />
+                  </Pressable>
+                  <CartQuantityInput
+                    style={styles.quantityText}
+                    value={item.quantity}
+                    onChange={(newQty) => updateQuantity(item.id, newQty)}
+                  />
+                  <Pressable
+                    style={styles.quantityButton}
+                    onPress={() => handleQuantityChange(item, 1)}
+                  >
+                    <Ionicons name="add" size={16} color={palette.gray[600]} />
+                  </Pressable>
+                </View>
+
+                <View style={styles.priceContainer}>
+                  {item.negotiatedPrice ? (
+                    <>
+                      <Text style={styles.originalPrice}>
+                        {formatPrice(item.price * item.quantity)}
+                      </Text>
+                      <Text style={styles.negotiatedPrice}>
+                        {formatPrice(itemTotal)}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.currentPrice}>
+                      {formatPrice(itemTotal)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Separator */}
+              <View style={styles.solidSeparator} />
+
+              {/* Bottom Row: Assurance & Negotiate */}
+              <View style={styles.bottomRow}>
+                {/* Assurance Toggle */}
+                <Pressable
+                  style={styles.assuranceContainer}
+                  onPress={() => {
+                    triggerHaptic();
+                    toggleAssurance(item.id);
+                  }}
+                >
+                  <View style={[styles.toggle, item.hasAssurance && styles.toggleActive]}>
+                    <View style={[styles.toggleKnob, item.hasAssurance && styles.toggleKnobActive]} />
+                  </View>
+                  <View style={styles.assuranceInfo}>
+                    <View style={styles.assuranceHeader}>
+                      <Ionicons name="shield-checkmark" size={12} color={BRAND.primary} />
+                      <Text style={styles.assuranceTitle}>Ogabassey Assurance</Text>
+                    </View>
+                    <Text style={styles.assuranceDesc}>
+                      {item.hasAssurance
+                        ? `Screen & Liquid Damage +${formatPrice(assuranceCost)}`
+                        : 'Device Protection (+5%)'}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                {/* Negotiate Button */}
+                {item.negotiationStatus === 'accepted' ? (
+                  <View style={styles.negotiatedBadge}>
+                    <Ionicons name="checkmark" size={12} color="#10B981" />
+                    <Text style={styles.negotiatedBadgeText}>Matched</Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    style={styles.negotiateButton}
+                    onPress={() => {
+                      triggerHaptic();
+                      openItemNegotiation(item);
+                    }}
+                  >
+                    <Ionicons name="pricetag-outline" size={14} color={BRAND.primary} />
+                    <Text style={styles.negotiateButtonText}>Negotiate</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Order Summary - Now inside ScrollView */}
+
+        {/* Secure Checkout Badge */}
+        <View style={styles.secureBadgeInside}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={palette.gray[400]} />
+          <Text style={styles.secureBadgeText}>Secure Checkout</Text>
+        </View>
+      </ScrollView>
+
+      {/* Red Sticky Checkout Footer - HIGH VISIBILITY VERSION */}
+      <View style={styles.checkoutStickyFooter}>
+        {/* Row 1: Hint Message (Now relative and centered) */}
+        <View style={styles.bulkHint}>
+          <Ionicons name="information-circle-outline" size={14} color={palette.gray[500]} />
+          <Text style={styles.bulkHintText}>
+            Individual item negotiations take precedence over cart-wide discounts.
           </Text>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.checkoutButton,
-            { backgroundColor: BRAND.primary },
-            pressed && styles.checkoutButtonPressed,
-          ]}
-          onPress={handleCheckout}
-        >
-          <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-        </Pressable>
-      </SafeAreaView>
+        {/* Row 2: Action Buttons */}
+        <View style={styles.footerActions}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.bulkButton,
+              pressed && styles.bulkButtonPressed,
+              items.some(i => i.negotiationStatus === 'accepted') && styles.bulkButtonDisabled
+            ]}
+            onPress={openTotalNegotiation}
+          >
+            <Ionicons
+              name="cash-outline"
+              size={22}
+              color={items.some(i => i.negotiationStatus === 'accepted') ? palette.gray[400] : BRAND.primary}
+            />
+            <Text style={[
+              styles.bulkButtonText,
+              items.some(i => i.negotiationStatus === 'accepted') && { color: palette.gray[400] }
+            ]}>Negotiate</Text>
+          </Pressable>
+
+          {/* Checkout Button - Bulletproof Visibility Version */}
+          <Pressable
+            style={styles.checkoutButtonContainer}
+            onPress={handleCheckout}
+          >
+            {/* Forced Background Layer */}
+            <View style={[
+              StyleSheet.absoluteFill,
+              {
+                backgroundColor: '#DC2626',
+                borderRadius: RADIUS.xl,
+                borderWidth: 1.5,
+                borderColor: '#991B1B',
+              }
+            ]} />
+
+            {/* Content Layer */}
+            <View style={styles.checkoutButtonContent}>
+              <Text style={styles.checkoutBtnLabel}>
+                Checkout
+              </Text>
+              <View style={styles.checkoutBtnDot} />
+              <Text style={styles.checkoutBtnPrice}>
+                {formatPrice(grandTotal || 0)}
+              </Text>
+              <Animated.View style={animatedArrowStyle}>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </Animated.View>
+            </View>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Checkout Identity Modal */}
+      <CheckoutIdentityModal
+        isOpen={isIdentityModalOpen}
+        onClose={() => setIsIdentityModalOpen(false)}
+      />
+
+      {/* Negotiate Mode Warning Modal */}
+      <Modal
+        visible={showNegotiateWarning}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowNegotiateWarning(false);
+          setPendingNegotiateItem(null);
+        }}
+      >
+        <View style={styles.warningOverlay}>
+          <Pressable
+            style={styles.warningBackdrop}
+            onPress={() => {
+              setShowNegotiateWarning(false);
+              setPendingNegotiateItem(null);
+            }}
+          />
+          <View style={styles.warningModal}>
+            {/* Header */}
+            <View style={styles.warningHeader}>
+              <View style={styles.warningIconCircle}>
+                <Ionicons name="pricetag" size={24} color="#D97706" />
+              </View>
+              <Text style={styles.warningTitle}>Choose Negotiation Mode</Text>
+            </View>
+
+            {/* Description */}
+            <Text style={styles.warningDescription}>
+              Negotiating items individually will disable bulk cart negotiation.
+              <Text style={styles.warningDescriptionBold}> You can only use one approach.</Text>
+            </Text>
+
+            {/* Buttons */}
+            <View style={styles.warningButtons}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.warningPrimaryButton,
+                  pressed && styles.warningButtonPressed,
+                ]}
+                onPress={() => {
+                  if (pendingNegotiateItem) {
+                    triggerHaptic();
+                    actuallyOpenItemNegotiation(pendingNegotiateItem);
+                  }
+                }}
+              >
+                <Text style={styles.warningPrimaryButtonText}>Negotiate This Item</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.warningSecondaryButton,
+                  pressed && styles.warningButtonPressed,
+                ]}
+                onPress={() => {
+                  triggerHaptic();
+                  setShowNegotiateWarning(false);
+                  setPendingNegotiateItem(null);
+                  openTotalNegotiation();
+                }}
+              >
+                <Ionicons name="cash-outline" size={18} color={palette.gray[800]} />
+                <Text style={styles.warningSecondaryButtonText}>Bulk Negotiate Entire Cart</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.warningCancelButton}
+                onPress={() => {
+                  setShowNegotiateWarning(false);
+                  setPendingNegotiateItem(null);
+                }}
+              >
+                <Text style={styles.warningCancelButtonText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -255,171 +604,645 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 200,
-  },
-  listHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.gray[100],
   },
-  itemCountText: {
-    fontSize: 14,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+  },
+  headerCount: {
+    fontSize: 16,
+    fontFamily: 'Inter_500Medium',
   },
   clearText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
-  cartItem: {
-    flexDirection: 'row',
-    padding: 12,
-    borderRadius: 16,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  cartCard: {
+    backgroundColor: '#FFF',
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING.md,
+    ...SHADOWS.sm,
     borderWidth: 1,
-    marginBottom: 12,
+    borderColor: palette.gray[100],
   },
-  itemImage: {
+  cardTop: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  imageContainer: {
     width: 80,
     height: 80,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  itemDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  itemName: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  itemVariant: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  priceRow: {
-    flexDirection: 'row',
+    backgroundColor: palette.gray[50],
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    padding: 8,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productInfo: {
+    flex: 1,
+    paddingRight: 24,
+  },
+  productName: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+    lineHeight: 18,
     marginBottom: 8,
   },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: '700',
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
-  comparePrice: {
-    fontSize: 12,
-    textDecorationLine: 'line-through',
+  conditionTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
   },
-  quantityRow: {
+  conditionTagNew: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  conditionTagUsed: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  conditionTagText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  conditionTagTextNew: {
+    color: '#047857',
+  },
+  conditionTagTextUsed: {
+    color: '#B45309',
+  },
+  colorTag: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    backgroundColor: palette.gray[50],
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  colorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: palette.gray[300],
+  },
+  colorTagText: {
+    fontSize: 10,
+    color: palette.gray[600],
+  },
+  storageTag: {
+    backgroundColor: palette.gray[50],
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  storageTagText: {
+    fontSize: 10,
+    color: palette.gray[600],
+  },
+  removeButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 4,
+  },
+  dashedSeparator: {
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    marginVertical: SPACING.md,
+  },
+  controlsRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: palette.gray[50],
     borderWidth: 1,
-    borderRadius: 8,
+    borderColor: palette.gray[200],
+    borderRadius: RADIUS.lg,
+    height: 36,
   },
   quantityButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  quantityButtonPressed: {
-    opacity: 0.5,
   },
   quantityText: {
     fontSize: 14,
-    fontWeight: '600',
-    minWidth: 32,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+    minWidth: 28,
     textAlign: 'center',
   },
-  removeButton: {
-    padding: 8,
+  priceContainer: {
+    alignItems: 'flex-end',
   },
-  removeButtonPressed: {
-    opacity: 0.5,
+  originalPrice: {
+    fontSize: 10,
+    color: palette.gray[400],
+    textDecorationLine: 'line-through',
+    fontFamily: 'Inter_400Regular',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  negotiatedPrice: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: '#10B981',
+  },
+  currentPrice: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+  },
+  solidSeparator: {
+    height: 1,
+    backgroundColor: palette.gray[100],
+    marginTop: SPACING.md,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    marginTop: SPACING.md,
+    gap: SPACING.sm,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 8,
+  assuranceContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 24,
+  toggle: {
+    width: 36,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: palette.gray[200],
+    padding: 2,
+    justifyContent: 'center',
   },
-  shopButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 24,
+  toggleActive: {
+    backgroundColor: BRAND.primary,
   },
-  shopButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+  toggleKnob: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
   },
-  checkoutContainer: {
+  toggleKnobActive: {
+    alignSelf: 'flex-end',
+  },
+  assuranceInfo: {
+    flex: 1,
+  },
+  assuranceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  assuranceTitle: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[800],
+  },
+  assuranceDesc: {
+    fontSize: 10,
+    color: palette.gray[500],
+    marginTop: 2,
+  },
+  negotiateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: palette.red[100],
+  },
+  negotiateButtonText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: BRAND.primary,
+  },
+  negotiatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  negotiatedBadgeText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+    color: '#10B981',
+  },
+  checkoutStickyFooter: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    backgroundColor: '#FFF',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 20, // Increased for safe area and spacing
     borderTopWidth: 1,
+    borderTopColor: palette.gray[100],
+    ...SHADOWS.lg,
+    zIndex: 1000,
   },
-  savingsRow: {
+  bulkHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.gray[50], // Light background for the hint
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
+    alignSelf: 'stretch',
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+  },
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  bulkButton: {
+    width: 90, // Fixed width for negotiate button
+    height: 56,
+    backgroundColor: palette.gray[50],
+    borderRadius: RADIUS.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+    marginLeft: 8, // Shifted right as requested
+  },
+  checkoutButtonContainer: {
+    flex: 1,
+    height: 56,
+  },
+  checkoutButtonContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 12,
   },
-  savingsText: {
-    fontSize: 13,
-    fontWeight: '600',
+  checkoutBtnLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+  },
+  checkoutBtnDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  checkoutBtnPrice: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+  },
+  bulkHintText: {
+    fontSize: 9,
+    color: palette.gray[500],
+    fontFamily: 'Inter_500Medium',
+  },
+  bulkButtonDisabled: {
+    backgroundColor: palette.gray[50],
+    borderColor: palette.gray[100],
+    opacity: 0.8,
+  },
+  bulkButtonPressed: {
+    backgroundColor: palette.gray[100],
+    transform: [{ scale: 0.96 }],
+  },
+  bulkButtonText: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[700],
+    textAlign: 'center',
+  },
+  redCheckoutButton: {
+    height: 56,
+    borderRadius: RADIUS.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.md,
+    zIndex: 100,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  redCheckoutButtonPressed: {
+    backgroundColor: '#DC2626',
+    transform: [{ scale: 0.98 }],
+  },
+  checkoutButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  redCheckoutButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFF',
+  },
+  checkoutDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  redCheckoutPriceText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFF',
+  },
+  summaryCard: {
+    marginTop: SPACING.md,
+    backgroundColor: '#FFF',
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    marginBottom: SPACING.md,
+  },
+  secureBadgeInside: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: SPACING.xl,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+    marginBottom: SPACING.sm,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  summaryLabelWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    color: palette.gray[600],
   },
   summaryValue: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: palette.gray[900],
+  },
+  assurancePercentBadge: {
+    backgroundColor: palette.red[50],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.red[100],
+  },
+  assurancePercentText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: BRAND.primary,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: palette.gray[200],
+    marginVertical: 8,
+    borderStyle: 'dashed',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+  },
+  totalValue: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
   },
   checkoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    backgroundColor: '#000',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
+    ...SHADOWS.lg,
   },
   checkoutButtonPressed: {
     opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  checkoutButtonDisabled: {
+    opacity: 0.7,
   },
   checkoutButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    color: '#FFF',
+  },
+  secureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: SPACING.md,
+  },
+  secureBadgeText: {
+    fontSize: 12,
+    color: palette.gray[400],
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  emptyIconBg: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  emptyTitle: {
+    fontSize: 22,
+    fontFamily: 'Inter_700Bold',
+    marginBottom: SPACING.sm,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: SPACING.xl,
+  },
+  shopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    borderRadius: RADIUS.xl,
+    ...SHADOWS.lg,
+  },
+  shopButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFF',
+  },
+  // Warning Modal Styles
+  warningOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  warningBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  warningModal: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    ...SHADOWS.xl,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  warningIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  warningTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+  },
+  warningDescription: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: palette.gray[600],
+    marginBottom: 24,
+  },
+  warningDescriptionBold: {
+    fontFamily: 'Inter_600SemiBold',
+  },
+  warningButtons: {
+    gap: 12,
+  },
+  warningPrimaryButton: {
+    backgroundColor: BRAND.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  warningPrimaryButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFF',
+  },
+  warningSecondaryButton: {
+    backgroundColor: palette.gray[100],
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  warningSecondaryButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[800],
+  },
+  warningCancelButton: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  warningCancelButtonText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
+    color: palette.gray[500],
+  },
+  warningButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
 });

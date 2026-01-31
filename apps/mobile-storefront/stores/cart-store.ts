@@ -11,6 +11,7 @@ import { syncStorage } from '../lib/storage';
 export interface CartItem {
   id: string;
   product_id: string;
+  slug: string;
   variant_id?: string;
   name: string;
   price: number;
@@ -22,6 +23,12 @@ export interface CartItem {
   storage?: string;
   condition?: string;
   max_quantity?: number;
+  // Negotiation support (matches web feature parity)
+  negotiatedPrice?: number;
+  negotiationStatus?: 'pending' | 'accepted' | 'rejected';
+  // Device assurance support
+  hasAssurance?: boolean;
+  assuranceRate?: number;
 }
 
 interface CartState {
@@ -40,6 +47,12 @@ interface CartState {
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   getItem: (productId: string, variantId?: string) => CartItem | undefined;
+  // Negotiation actions (matches web feature parity)
+  applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
+  applyCartWideNegotiation: (newTotal: number) => void;
+  clearNegotiatedPrice: (id: string) => void;
+  // Device assurance actions
+  toggleAssurance: (id: string) => void;
 }
 
 export const useCartStore = create<CartState>()(
@@ -55,10 +68,16 @@ export const useCartStore = create<CartState>()(
       },
 
       subtotal: () => {
-        return get().items.reduce(
-          (total, item) => total + item.price * item.quantity,
-          0
-        );
+        return get().items.reduce((total, item) => {
+          // Use negotiated price if available (matches web behavior)
+          const effectivePrice = item.negotiatedPrice ?? item.price;
+          const itemTotal = effectivePrice * item.quantity;
+          // Add assurance cost if enabled (rounded to avoid floating point errors)
+          const assuranceCost = item.hasAssurance
+            ? Math.round(itemTotal * (item.assuranceRate ?? 0.05))
+            : 0;
+          return total + itemTotal + assuranceCost;
+        }, 0);
       },
 
       totalSavings: () => {
@@ -147,6 +166,74 @@ export const useCartStore = create<CartState>()(
           (item) =>
             item.product_id === productId && item.variant_id === variantId
         );
+      },
+
+      // Apply negotiated price to item (matches web feature parity)
+      applyNegotiatedPrice: (id, negotiatedPrice) => {
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === id
+              ? {
+                ...item,
+                negotiatedPrice,
+                negotiationStatus: 'accepted' as const,
+              }
+              : item
+          ),
+        }));
+      },
+
+      // Apply negotiation to the whole cart (matches web behavior)
+      applyCartWideNegotiation: (newTotal) => {
+        const { items } = get();
+        const currentTotal = items.reduce((sum, item) => {
+          const price = item.negotiatedPrice ?? item.price;
+          return sum + price * item.quantity;
+        }, 0);
+
+        if (currentTotal <= 0) return;
+        const ratio = newTotal / currentTotal;
+
+        set((state) => ({
+          items: state.items.map((item) => {
+            const currentPrice = item.negotiatedPrice ?? item.price;
+            return {
+              ...item,
+              negotiatedPrice: Math.round(currentPrice * ratio),
+              negotiationStatus: 'accepted' as const,
+            };
+          }),
+        }));
+      },
+
+      // Clear negotiated price from item
+      clearNegotiatedPrice: (id) => {
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === id
+              ? {
+                ...item,
+                negotiatedPrice: undefined,
+                negotiationStatus: undefined,
+              }
+              : item
+          ),
+        }));
+      },
+
+      // Toggle device assurance for item
+      toggleAssurance: (id) => {
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.id === id
+              ? {
+                ...item,
+                hasAssurance: !item.hasAssurance,
+                assuranceRate: 0.05, // 5% assurance rate
+              }
+              : item
+          ),
+        }));
       },
     }),
     {

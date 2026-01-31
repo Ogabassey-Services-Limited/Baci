@@ -28,6 +28,9 @@ import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Wallet');
 
 export default function WalletScreen() {
   const colorScheme = useColorScheme();
@@ -78,7 +81,7 @@ export default function WalletScreen() {
 
       setRedeemPoints('');
     } catch (error) {
-      console.error('Redemption error:', error);
+      log.error('Redemption error:', error);
 
       trackError(
         'loyalty_redemption_failed',
@@ -184,6 +187,8 @@ export default function WalletScreen() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}

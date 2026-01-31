@@ -20,6 +20,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Addresses');
 
 interface Address {
   id: string;
@@ -63,7 +66,7 @@ export default function AddressesScreen() {
       setAddresses(data || []);
       setError(null);
     } catch (err) {
-      console.error('Error fetching addresses:', err);
+      log.error('Error fetching addresses:', err);
       setError('Failed to load addresses');
     } finally {
       setIsLoading(false);
@@ -97,7 +100,7 @@ export default function AddressesScreen() {
       // Refresh the list
       fetchAddresses();
     } catch (err) {
-      console.error('Error setting default address:', err);
+      log.error('Error setting default address:', err);
       Alert.alert('Error', 'Failed to set default address');
     }
   };
@@ -122,7 +125,7 @@ export default function AddressesScreen() {
 
               setAddresses((prev) => prev.filter((a) => a.id !== address.id));
             } catch (err) {
-              console.error('Error deleting address:', err);
+              log.error('Error deleting address:', err);
               Alert.alert('Error', 'Failed to delete address');
             }
           },

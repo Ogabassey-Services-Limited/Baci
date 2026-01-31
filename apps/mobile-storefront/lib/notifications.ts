@@ -7,7 +7,10 @@ import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { createLogger } from './logger';
 import { supabase } from './supabase';
+
+const log = createLogger('Notifications');
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -32,7 +35,7 @@ export async function registerForPushNotificationsAsync(): Promise<
 > {
   // Push notifications only work on physical devices
   if (!Device.isDevice) {
-    console.warn('Push notifications require a physical device');
+    log.warn('Push notifications require a physical device');
     return null;
   }
 
@@ -47,7 +50,7 @@ export async function registerForPushNotificationsAsync(): Promise<
   }
 
   if (finalStatus !== 'granted') {
-    console.warn('Push notification permissions not granted');
+    log.warn('Push notification permissions not granted');
     return null;
   }
 
@@ -56,7 +59,7 @@ export async function registerForPushNotificationsAsync(): Promise<
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
-      console.warn('EAS projectId not configured in app.json');
+      log.warn('EAS projectId not configured in app.json');
       // Still try to get token without projectId for development
     }
 
@@ -66,7 +69,7 @@ export async function registerForPushNotificationsAsync(): Promise<
 
     return tokenData.data;
   } catch (error) {
-    console.error('Error getting push token:', error);
+    log.error('Error getting push token:', error);
     return null;
   }
 }
@@ -130,7 +133,7 @@ export async function registerPushTokenWithBackend(
     } = await supabase.auth.getUser();
 
     if (!user) {
-      console.error('No user logged in');
+      log.error('No user logged in');
       return false;
     }
 
@@ -154,13 +157,13 @@ export async function registerPushTokenWithBackend(
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('Failed to register push token:', error);
+      log.error('Failed to register push token:', error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error registering push token:', error);
+    log.error('Error registering push token:', error);
     return false;
   }
 }

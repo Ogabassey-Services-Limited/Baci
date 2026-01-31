@@ -1,29 +1,37 @@
 /**
  * Search Screen
  * Product search with filters and results
+ * 2026 Best Practice: Offline-aware with graceful degradation
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
-  type TextInput,
   View,
 } from 'react-native';
+import { syncStorage as storage } from '@/lib/storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { OfflineNotice } from '@/components/OfflineNotice';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks/use-products-query';
+import { useNetworkState } from '@/hooks/use-network-state';
+import { useCategories, useProducts } from '@/hooks/use-products';
 import type { Product } from '@/types/product';
 
-const RECENT_SEARCHES = [
+// 2026 Best Practice: Persist search history in storage
+const SEARCH_HISTORY_KEY = 'search_history';
+const MAX_SEARCH_HISTORY = 10;
+
+const DEFAULT_SEARCHES = [
   'iPhone 15 Pro',
   'Samsung Galaxy S24',
   'AirPods Pro',
@@ -49,9 +57,11 @@ export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // 2026 Best Practice: Network state monitoring for offline UX
+  const { isOnline } = useNetworkState();
+
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const inputRef = useRef<TextInput>(null);
 
   // Filter State
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -61,6 +71,47 @@ export default function SearchScreen() {
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // 2026 Best Practice: Persist search history
+  const [recentSearches, setRecentSearches] = useState<string[]>(DEFAULT_SEARCHES);
+
+  // Load search history from storage on mount
+  useEffect(() => {
+    const loadSearchHistory = async () => {
+      try {
+        const saved = storage.getString(SEARCH_HISTORY_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRecentSearches(parsed);
+          }
+        }
+      } catch {
+        // Use defaults on error
+      }
+    };
+    loadSearchHistory();
+  }, []);
+
+  // Save search to history
+  const saveToHistory = useCallback((searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) return;
+
+    setRecentSearches((prev) => {
+      // Remove duplicates and add to front
+      const filtered = prev.filter((s) => s.toLowerCase() !== searchTerm.toLowerCase());
+      const updated = [searchTerm, ...filtered].slice(0, MAX_SEARCH_HISTORY);
+
+      // Persist to storage
+      try {
+        storage.set(SEARCH_HISTORY_KEY, JSON.stringify(updated));
+      } catch {
+        // Ignore storage errors
+      }
+
+      return updated;
+    });
+  }, []);
 
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,
@@ -76,24 +127,10 @@ export default function SearchScreen() {
     new Set(products.map((p) => p.brand).filter(Boolean) as string[])
   ).slice(0, 10);
 
-  const _handleSearch = useCallback((text: string) => {
-    setQuery(text);
-    if (text.length >= 2) {
-      setIsSearching(true);
-    } else {
-      setIsSearching(false);
-    }
-  }, []);
-
-  const _handleClear = () => {
-    setQuery('');
-    setIsSearching(false);
-    inputRef.current?.focus();
-  };
-
   const handleRecentSearch = (search: string) => {
     setQuery(search);
     setIsSearching(true);
+    saveToHistory(search);
     Keyboard.dismiss();
   };
 
@@ -106,6 +143,25 @@ export default function SearchScreen() {
   };
 
   const renderSearchResults = () => {
+    // 2026 Best Practice: Show offline message when searching without internet
+    if (!isOnline && isSearching) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            You're offline
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Connect to the internet to search products
+          </Text>
+        </View>
+      );
+    }
+
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
@@ -157,6 +213,13 @@ export default function SearchScreen() {
         columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        // 2026 Best Practice: FlatList performance optimizations
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        initialNumToRender={6}
+        updateCellsBatchingPeriod={50}
       />
     );
   };
@@ -168,7 +231,7 @@ export default function SearchScreen() {
           Recent Searches
         </Text>
         <View style={styles.recentList}>
-          {RECENT_SEARCHES.map((search, index) => (
+          {recentSearches.map((search, index) => (
             <Pressable
               key={index}
               style={[styles.recentItem, { borderBottomColor: colors.border }]}

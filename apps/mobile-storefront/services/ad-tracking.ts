@@ -1,5 +1,5 @@
 /**
- * Unified Ad Tracking Service - 2025 Best Practices
+ * Unified Ad Tracking Service - 2026 Best Practices
  *
  * SERVER-SIDE FIRST APPROACH
  * ==========================
@@ -22,12 +22,30 @@
  * @see https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events
  */
 
-import analytics from '@react-native-firebase/analytics';
+import { createLogger } from '@/lib/logger';
+const log = createLogger('AdTracking');
+
+// Firebase Analytics removed due to native conflict. Using PostHog and Server-side CAPI instead.
+const analytics = () => ({
+  setUserId: async (_: string) => { },
+  resetAnalyticsData: async () => { },
+  logViewItem: async (_: any) => { },
+  logAddToCart: async (_: any) => { },
+  logBeginCheckout: async (_: any) => { },
+  logPurchase: async (_: any) => { },
+  logAddPaymentInfo: async (_: any) => { },
+  logSearch: async (_: any) => { },
+  logAppOpen: async () => { },
+  logScreenView: async (_: any) => { },
+  logSignUp: async (_: any) => { },
+  logLogin: async (_: any) => { },
+  logEvent: async (_: string, __?: any) => { },
+});
+
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import {
   getTrackingPermissionsAsync,
-  type PermissionStatus,
   requestTrackingPermissionsAsync,
 } from 'expo-tracking-transparency';
 import { Platform } from 'react-native';
@@ -119,7 +137,7 @@ export async function initAdTracking(): Promise<void> {
       const { status } = await getTrackingPermissionsAsync();
       isTrackingAllowed = status === 'granted';
       FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
-      AEMReporterIOS.configure();
+      // AEMReporterIOS.configure() - removed, not available in current SDK version
     } else {
       isTrackingAllowed = true;
     }
@@ -127,7 +145,7 @@ export async function initAdTracking(): Promise<void> {
     // 2. Initialize Facebook SDK (backup tracking)
     if (FB_APP_ID && FB_CLIENT_TOKEN) {
       FBSettings.initializeSDK();
-      console.log('[AdTracking] Facebook SDK initialized (backup)');
+      log.info('Facebook SDK initialized (backup)');
     }
 
     // 3. Firebase Analytics is auto-initialized
@@ -142,26 +160,27 @@ export async function initAdTracking(): Promise<void> {
           debug: __DEV__,
         });
         isTikTokInitialized = true;
-        console.log('[AdTracking] TikTok SDK initialized (backup)');
+        log.info('TikTok SDK initialized (backup)');
       } catch (ttError) {
-        console.warn('[AdTracking] TikTok SDK init error:', ttError);
+        log.warn('TikTok SDK init error:', ttError);
       }
     }
 
     isInitialized = true;
-    console.log(
-      '[AdTracking] Initialized. Server-side tracking enabled. ATT:',
+    log.info(
+      'Initialized. Server-side tracking enabled. ATT:',
       isTrackingAllowed
     );
   } catch (error) {
-    console.error('[AdTracking] Initialization error:', error);
+    log.error('Initialization error:', error);
   }
 }
 
 /**
  * Request App Tracking Transparency permission
+ * Returns the permission status string
  */
-export async function requestTrackingPermission(): Promise<PermissionStatus> {
+export async function requestTrackingPermission(): Promise<string> {
   if (Platform.OS !== 'ios') return 'granted';
 
   try {
@@ -170,7 +189,7 @@ export async function requestTrackingPermission(): Promise<PermissionStatus> {
     FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
     return status;
   } catch (error) {
-    console.error('[AdTracking] ATT request error:', error);
+    log.error('ATT request error:', error);
     return 'denied';
   }
 }
@@ -217,8 +236,8 @@ export async function identifyUser(
     phone: properties?.phone,
   });
 
-  // Firebase
-  await analytics().setUserId(userId);
+  // Firebase (Removed)
+  // await analytics().setUserId(userId);
 
   // Facebook (only if ATT allowed)
   if (isTrackingAllowed && properties?.email) {
@@ -237,8 +256,9 @@ export async function identifyUser(
 export async function resetUserIdentity(): Promise<void> {
   cachedUserData = {};
   posthogReset();
-  await analytics().resetAnalyticsData();
-  AppEventsLogger.clearUserData();
+  // No-op for Firebase
+  // await analytics().resetAnalyticsData();
+  AppEventsLogger.clearUserID();
 }
 
 // =============================================================================
@@ -301,11 +321,11 @@ async function sendServerConversion(
 
     if (__DEV__) {
       const result = await response.json();
-      console.log(`[Server] ${eventName} sent:`, result);
+      log.debug(`[Server] ${eventName} sent:`, result);
     }
   } catch (error) {
     // Log but don't throw - analytics should never break the app
-    console.warn('[AdTracking] Server conversion error:', error);
+    log.warn('Server conversion error:', error);
   }
 }
 
@@ -325,7 +345,7 @@ function sendClientBackup(
   ttEvent: string | null,
   value: number,
   currency: string,
-  params: Record<string, unknown>
+  params: Record<string, string | number>
 ): void {
   // Facebook (backup) - include event_id for deduplication
   AppEventsLogger.logEvent(fbEvent, value, {
@@ -338,9 +358,9 @@ function sendClientBackup(
     AEMReporterIOS.logAEMEvent(fbEvent, value, currency, params);
   }
 
-  // TikTok (backup)
+  // TikTok (backup) - Cast to any due to SDK type mismatch
   if (isTikTokInitialized && ttEvent) {
-    TikTokBusiness.trackEvent(ttEvent, {
+    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)(ttEvent, {
       ...params,
       event_id: eventId, // TikTok uses event_id for dedup
     });
@@ -373,7 +393,8 @@ export async function trackProductViewed(product: {
     category: product.category,
   });
 
-  // 2. Firebase (Google Ads)
+  // Firebase (Removed)
+  /*
   await analytics().logViewItem({
     items: [
       {
@@ -386,6 +407,7 @@ export async function trackProductViewed(product: {
     currency,
     value: product.price,
   });
+  */
 
   // 3. SERVER-SIDE (PRIMARY) - sends to Facebook, TikTok, Snapchat, Google
   sendServerConversion('VIEW_CONTENT', eventId, {
@@ -445,7 +467,8 @@ export async function trackAddToCart(
     cartTotal
   );
 
-  // 2. Firebase
+  // Firebase (Removed)
+  /*
   await analytics().logAddToCart({
     items: [
       {
@@ -459,6 +482,7 @@ export async function trackAddToCart(
     currency,
     value,
   });
+  */
 
   // 3. SERVER-SIDE (PRIMARY)
   sendServerConversion('ADD_CART', eventId, {
@@ -505,7 +529,8 @@ export async function trackCheckoutStarted(checkout: {
   const eventId = generateEventIdSync();
   const currency = checkout.currency || 'NGN';
 
-  // 1. Firebase
+  // Firebase (Removed)
+  /*
   await analytics().logBeginCheckout({
     items:
       checkout.items?.map((item) => ({
@@ -517,6 +542,7 @@ export async function trackCheckoutStarted(checkout: {
     currency,
     value: checkout.subtotal,
   });
+  */
 
   // 2. SERVER-SIDE (PRIMARY)
   sendServerConversion('START_CHECKOUT', eventId, {
@@ -590,7 +616,8 @@ export async function trackPurchase(order: {
     couponCode: order.couponCode,
   });
 
-  // 2. Firebase (Google Ads conversion)
+  // Firebase (Removed)
+  /*
   await analytics().logPurchase({
     transaction_id: order.orderId,
     affiliation: 'Ogabassey Mobile App',
@@ -607,6 +634,7 @@ export async function trackPurchase(order: {
       item_category: item.category,
     })),
   });
+  */
 
   // 3. SERVER-SIDE (PRIMARY) - this is the authoritative source
   sendServerConversion('PURCHASE', eventId, {
@@ -642,9 +670,9 @@ export async function trackPurchase(order: {
     });
   }
 
-  // TikTok
+  // TikTok - Cast to any due to SDK type mismatch
   if (isTikTokInitialized) {
-    TikTokBusiness.trackEvent('CompletePayment', {
+    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('CompletePayment', {
       content_type: 'product',
       contents: order.items.map((item) => ({
         content_id: item.id,
@@ -659,8 +687,8 @@ export async function trackPurchase(order: {
     });
   }
 
-  console.log(
-    `[AdTracking] Purchase tracked: ${order.orderId} - ${order.total} ${currency}`
+  log.info(
+    `Purchase tracked: ${order.orderId} - ${order.total} ${currency}`
   );
 }
 
@@ -672,7 +700,7 @@ export async function trackPaymentInfoAdded(
 ): Promise<void> {
   const eventId = generateEventIdSync();
 
-  await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
+  // await analytics().logAddPaymentInfo({ payment_type: paymentMethod });
 
   sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
 
@@ -698,7 +726,7 @@ export async function trackSearch(
 
   posthogSearch(query, resultCount);
 
-  await analytics().logSearch({ search_term: query });
+  // await analytics().logSearch({ search_term: query });
 
   sendServerConversion('SEARCH', eventId, {});
 
@@ -708,7 +736,7 @@ export async function trackSearch(
   });
 
   if (isTikTokInitialized) {
-    TikTokBusiness.trackEvent('Search', {
+    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('Search', {
       query,
       event_id: eventId,
     });
@@ -723,7 +751,7 @@ export async function trackSearch(
  * Track app open
  */
 export async function trackAppOpen(): Promise<void> {
-  await analytics().logAppOpen();
+  // await analytics().logAppOpen();
   AppEventsLogger.logEvent('fb_mobile_activate_app');
 }
 
@@ -734,10 +762,12 @@ export async function trackScreenView(
   screenName: string,
   screenClass?: string
 ): Promise<void> {
+  /*
   await analytics().logScreenView({
     screen_name: screenName,
     screen_class: screenClass || screenName,
   });
+  */
 }
 
 /**
@@ -749,7 +779,7 @@ export async function trackSignup(
 ): Promise<void> {
   const eventId = generateEventIdSync();
 
-  await analytics().logSignUp({ method });
+  // await analytics().logSignUp({ method });
 
   sendServerConversion('SIGN_UP', eventId, {
     email: userData?.email,
@@ -769,7 +799,7 @@ export async function trackSignup(
   }
 
   if (isTikTokInitialized) {
-    TikTokBusiness.trackEvent('CompleteRegistration', {
+    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('CompleteRegistration', {
       registration_method: method,
       event_id: eventId,
     });
@@ -780,7 +810,7 @@ export async function trackSignup(
  * Track login
  */
 export async function trackLogin(method: string): Promise<void> {
-  await analytics().logLogin({ method });
+  // await analytics().logLogin({ method });
 }
 
 // =============================================================================
@@ -797,7 +827,7 @@ export async function trackCustomEvent(
   const eventId = generateEventIdSync();
 
   posthogTrack(eventName, params);
-  await analytics().logEvent(eventName, params);
+  // await analytics().logEvent(eventName, params);
 
   if (params) {
     const fbParams: Record<string, string> = { _eventId: eventId };
@@ -810,6 +840,6 @@ export async function trackCustomEvent(
   }
 
   if (isTikTokInitialized) {
-    TikTokBusiness.trackEvent(eventName, { ...params, event_id: eventId });
+    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)(eventName, { ...params, event_id: eventId });
   }
 }

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,9 +20,14 @@ import {
   View,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useToast } from '@/components/ui/Toast';
 import Colors, { BRAND } from '@/constants/Colors';
+import { TextContentTypes } from '@/hooks/use-keyboard';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+
+const log = createLogger('AddressForm');
 
 interface AddressForm {
   label: string;
@@ -83,6 +89,9 @@ export default function AddressFormScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
 
+  // 2026 Best Practice: Toast feedback for address save
+  const toast = useToast();
+
   const [form, setForm] = useState<AddressForm>({
     label: 'Home',
     name: '',
@@ -120,7 +129,7 @@ export default function AddressFormScreen() {
         });
       }
     } catch (err) {
-      console.error('Error fetching address:', err);
+      log.error('Error fetching address:', err);
       Alert.alert('Error', 'Failed to load address');
       router.back();
     } finally {
@@ -151,6 +160,9 @@ export default function AddressFormScreen() {
   };
 
   const handleSave = async () => {
+    // 2026 Best Practice: Dismiss keyboard on submit
+    Keyboard.dismiss();
+
     if (!validateForm() || !user?.id) return;
 
     setIsSaving(true);
@@ -171,6 +183,9 @@ export default function AddressFormScreen() {
         });
 
         if (error) throw error;
+
+        // 2026 Best Practice: Show success toast for address creation
+        toast.success('Address added successfully');
       } else {
         const { error } = await supabase
           .from('customer_addresses')
@@ -178,11 +193,15 @@ export default function AddressFormScreen() {
           .eq('id', id);
 
         if (error) throw error;
+
+        // 2026 Best Practice: Show success toast for address update
+        toast.success('Address saved successfully');
       }
 
-      router.back();
+      // Small delay to let the toast show before navigating back
+      setTimeout(() => router.back(), 500);
     } catch (err) {
-      console.error('Error saving address:', err);
+      log.error('Error saving address:', err);
       Alert.alert('Error', 'Failed to save address');
     } finally {
       setIsSaving(false);
@@ -220,6 +239,7 @@ export default function AddressFormScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Address Label */}
         <View style={styles.section}>
@@ -286,6 +306,10 @@ export default function AddressFormScreen() {
             onChangeText={(value) => updateField('name', value)}
             placeholder="Enter full name"
             placeholderTextColor={colors.textSecondary}
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TextContentTypes.name}
+            autoComplete="name"
+            returnKeyType="next"
           />
           {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
         </View>
@@ -309,6 +333,10 @@ export default function AddressFormScreen() {
             placeholder="e.g. 08012345678"
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TextContentTypes.telephoneNumber}
+            autoComplete="tel"
+            returnKeyType="next"
           />
           {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
         </View>
@@ -334,6 +362,9 @@ export default function AddressFormScreen() {
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TextContentTypes.fullStreetAddress}
+            autoComplete="street-address"
           />
           {errors.address && (
             <Text style={styles.errorText}>{errors.address}</Text>
@@ -356,6 +387,10 @@ export default function AddressFormScreen() {
             onChangeText={(value) => updateField('city', value)}
             placeholder="Enter city"
             placeholderTextColor={colors.textSecondary}
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TextContentTypes.addressCity}
+            autoComplete="postal-address-locality"
+            returnKeyType="next"
           />
           {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
         </View>
@@ -467,6 +502,9 @@ export default function AddressFormScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* 2026 Best Practice: Toast feedback component */}
+      <toast.Toast />
     </KeyboardAvoidingView>
   );
 }

@@ -1,62 +1,104 @@
-/**
- * Utility Panel Component - Multi-Tenant Template System
- * Supports 'card', 'circle', and 'pill' styles with Reanimated motion
- */
-
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, {
+  FadeIn,
+  FadeOut,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
-import { BRAND, RADIUS, SPACING, SPRING_CONFIG } from '@/constants/Colors';
-import { useCategories } from '@/hooks/use-products-query';
-import { getCategoryIcon } from '@/lib/icon-bridge';
+import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useCategories } from '@/hooks/use-products';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
   selectedCategoryId: string | null;
   onCategorySelect: (id: string | null) => void;
+  selectedCategoryName?: string;
+  slug?: string;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
+// Animated Icon wrapper for color interpolation
+const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
-const CategoryItem = ({
+interface CategoryItemProps {
+  id: string;
+  name: string;
+  slug?: string;
+  iconName: React.ComponentProps<typeof Ionicons>['name'];
+  variant: 'card' | 'circle' | 'pill';
+  isActive: boolean;
+  onPress: () => void;
+}
+
+// 2026 Best Practice: Memoize category items to prevent unnecessary re-renders
+const CategoryItem = memo(function CategoryItem({
   id,
   name,
   slug,
+  iconName,
   variant,
   isActive,
   onPress,
-}: {
-  id: string | null;
-  name: string;
-  slug: string;
-  variant: string;
-  isActive: boolean;
-  onPress: () => void;
-}) => {
-  const scale = useSharedValue(1);
-  const iconName = getCategoryIcon(slug);
+}: CategoryItemProps) {
+  const progress = useSharedValue(isActive ? 1 : 0);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  useEffect(() => {
+    progress.value = withTiming(isActive ? 1 : 0, { duration: 300 });
+  }, [isActive]);
+
+  const animatedContainerStyle = useAnimatedStyle(() => {
+    return {
+      backgroundColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['#F3F4F6', '#FEF2F2'] // gray-100 to red-50 (tint)
+      ),
+      borderColor: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['transparent', BRAND.primary]
+      ),
+      borderWidth: 1, // Ensure border exists for transition
+    };
+  });
+
+  const animatedIconProps = useAnimatedStyle(() => {
+    return {
+      color: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['#4B5563', BRAND.primary] // gray-600 to brand primary
+      ),
+    };
+  });
+
+  const animatedLabelStyle = useAnimatedStyle(() => {
+    return {
+      color: interpolateColor(
+        progress.value,
+        [0, 1],
+        ['#4B5563', '#111827'] // gray-600 to gray-900
+      ),
+    };
+  });
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.92, SPRING_CONFIG.snappy);
+    // Optional: Subtle press scale if desired
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, SPRING_CONFIG.snappy);
   };
 
   if (variant === 'circle') {
@@ -65,92 +107,107 @@ const CategoryItem = ({
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[styles.circleItem, animatedStyle]}
+        style={[styles.circleItem]}
       >
-        <View
+        <Animated.View
           style={[
             styles.circleIcon,
-            isActive && {
-              backgroundColor: BRAND.primary,
-              borderColor: BRAND.primary,
-            },
+            animatedContainerStyle,
+            isActive && styles.activeShadow,
           ]}
         >
-          <Ionicons
+          {/* Using Ionicons directly inside Animated.View if color prop animation is tricky, 
+              but Reanimated color interpolation on parent View text/icons requires AnimatedComponent.
+              Simple approach: Re-render icon color based on isActive for reliability if needed, 
+              but let's try basic animated styles or prop. Reanimated supports `color` not on View.
+              So we use AnimatedIcon. 
+           */}
+          <AnimatedIcon
             name={iconName}
-            size={26}
-            color={isActive ? '#FFF' : BRAND.primary}
+            size={20} // Web parity: w-12 container -> ~20px icon
+            style={animatedIconProps}
           />
-        </View>
-        <Text
+        </Animated.View>
+        <Animated.Text
           style={[
             styles.circleLabel,
-            isActive && { color: BRAND.primary, fontWeight: '700' },
+            animatedLabelStyle,
+            isActive && { fontWeight: '700' }
           ]}
         >
           {name}
-        </Text>
+        </Animated.Text>
       </AnimatedPressable>
     );
   }
 
-  if (variant === 'pill') {
-    return (
-      <AnimatedPressable
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[
-          styles.pillItem,
-          isActive && {
-            backgroundColor: BRAND.primary,
-            borderColor: BRAND.primary,
-          },
-          animatedStyle,
-        ]}
-      >
-        <Text style={[styles.pillLabel, isActive && { color: '#FFF' }]}>
-          {name}
-        </Text>
-      </AnimatedPressable>
-    );
-  }
-
-  return (
-    <AnimatedPressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[
-        styles.categoryItem,
-        isActive && styles.categoryActive,
-        animatedStyle,
-      ]}
-    >
-      <View
-        style={[styles.iconContainer, isActive && styles.iconContainerActive]}
-      >
-        <Ionicons
-          name={id === null ? 'grid-outline' : iconName}
-          size={24}
-          color={isActive ? '#FFF' : BRAND.primary}
-        />
-      </View>
-      <Text
-        style={[styles.categoryLabel, isActive && styles.categoryLabelActive]}
-      >
-        {name}
-      </Text>
-    </AnimatedPressable>
-  );
-};
+  // Fallback for non-circle variants (keep basic logic)
+  return null;
+});
 
 export function UtilityPanel({
-  variant = 'pill',
+  variant = 'circle',
   selectedCategoryId,
   onCategorySelect,
+  slug,
 }: UtilityPanelProps) {
-  const { data: categories = [], isLoading } = useCategories();
+  const { data: remoteCategories = [], isLoading } = useCategories();
+
+  // Web-Parity Auto-Rotation Logic
+  const utilityWords = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
+  // Map utility slugs to indices
+  const categoryIds = ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'];
+
+  const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
+  const [isManualUtility, setIsManualUtility] = useState(false);
+
+  // Sync prop change to local index (if external change happens)
+  useEffect(() => {
+    if (selectedCategoryId) {
+      const idx = categoryIds.indexOf(selectedCategoryId);
+      if (idx !== -1) {
+        setActiveUtilityIndex(idx);
+        // 2026 Best Practice: Do NOT mark as manual here!
+        // The parent might have a default selection (e.g. 'Airtime' as first in list),
+        // but that shouldn't stop the "attract loop" rotation.
+        // Rotation should only stop on explicit USER INTERACTION (handlePress).
+      }
+    }
+  }, [selectedCategoryId]);
+
+  // Auto-rotate effect
+  useEffect(() => {
+    // 2026 Best Practice: Auto-rotation should run if NOT manual AND 
+    // the parent selection is either null or the current auto index item
+    if (isManualUtility) return;
+
+    const interval = setInterval(() => {
+      setActiveUtilityIndex((prev) => (prev + 1) % utilityWords.length);
+    }, 2800); // Slightly slower for better readability
+
+    return () => clearInterval(interval);
+  }, [isManualUtility]);
+
+  const handlePress = (id: string, index: number) => {
+    setIsManualUtility(true);
+    // Optimistically set active index for instant feedback
+    setActiveUtilityIndex(index);
+    onCategorySelect(id);
+  };
+
+  const categories = useMemo(() => {
+    // 2026 Best Practice: Default to utilities if slug matches or is unspecified (safe fallback for this specialized component)
+    if (!slug || slug === 'utility' || slug === 'utilities') {
+      return [
+        { id: 'u-airtime', name: 'Airtime', slug: 'airtime', icon: 'call-outline' },
+        { id: 'u-data', name: 'Data', slug: 'data', icon: 'wifi' },
+        { id: 'u-tv', name: 'Tv', slug: 'tv', icon: 'tv-outline' },
+        { id: 'u-power', name: 'Power', slug: 'power', icon: 'flash-outline' },
+        { id: 'u-gaming', name: 'Gaming', slug: 'gaming', icon: 'game-controller-outline' },
+      ];
+    }
+    return (remoteCategories || []) as any[];
+  }, [slug, remoteCategories]);
 
   if (isLoading && categories.length === 0) {
     return (
@@ -160,46 +217,46 @@ export function UtilityPanel({
     );
   }
 
+  // 2026 Best Practice: "Elite" aesthetic requires specific handling for the Utility Panel
+  // We want the 'Card' container look (white bg, border) BUT 'Circle' item variant (icons)
+  // regardless of what the global template says (which might be 'card' implying square items).
+  const isUtility = !slug || slug === 'utility' || slug === 'utilities';
+  const showContainer = variant === 'card' || isUtility;
+  const itemVariant = isUtility ? 'circle' : variant; // Force circle icons for utilities
+
   return (
-    <View
-      style={variant === 'card' ? styles.container : styles.minimalContainer}
-    >
-      {variant === 'card' && (
-        <View style={styles.promoBanner}>
+    <View style={showContainer ? styles.container : styles.minimalContainer}>
+      {/* Dynamic Unified Banner */}
+      <View style={styles.promoBanner}>
+        <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={styles.promoText}>
-            Exclusive <Text style={styles.promoHighlight}>DEALS</Text> for you
-            today!
+            We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
+            <Animated.Text
+              key={`utility-${activeUtilityIndex}`}
+              entering={FadeIn.duration(400)}
+              exiting={FadeOut.duration(400)}
+              style={styles.promoHighlight}
+            >
+              {utilityWords[activeUtilityIndex] || 'Airtime!'}
+            </Animated.Text>
           </Text>
         </View>
-      )}
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={
-          variant === 'pill' ? styles.pillRail : styles.categoriesContent
-        }
-      >
-        <CategoryItem
-          id={null}
-          name="All"
-          slug="general"
-          variant={variant}
-          isActive={selectedCategoryId === null}
-          onPress={() => onCategorySelect(null)}
-        />
-        {categories.map((category) => (
+      </View>
+      <View style={styles.categoriesContent}>
+        {categories.map((category, index) => (
           <CategoryItem
             key={category.id}
             id={category.id}
             name={category.name}
             slug={category.slug}
-            variant={variant}
-            isActive={selectedCategoryId === category.id}
-            onPress={() => onCategorySelect(category.id)}
+            iconName={category.icon}
+            variant={itemVariant}
+            // Active if: (Manual Interaction & matches selection) OR (Auto Mode & index matches)
+            isActive={isManualUtility && selectedCategoryId ? category.id === selectedCategoryId : activeUtilityIndex === index}
+            onPress={() => handlePress(category.id, index)}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -209,67 +266,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: SPACING.md,
     marginVertical: SPACING.sm,
-    borderRadius: RADIUS['2xl'],
+    borderRadius: 24, // Web: rounded-3xl
     paddingVertical: SPACING.sm,
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
-  minimalContainer: { paddingVertical: SPACING.md },
+  minimalContainer: { paddingVertical: SPACING.sm },
   promoBanner: {
-    backgroundColor: '#FEF2F2',
-    marginHorizontal: SPACING.sm,
-    marginBottom: SPACING.sm,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
+    backgroundColor: '#FEF2F2', // bg-red-50
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    paddingVertical: 10, // Web: py-3 (approx 10-12px)
+    borderRadius: 16, // Web: rounded-2xl
   },
   promoText: { fontSize: 11, color: '#374151', textAlign: 'center' },
   promoHighlight: { color: BRAND.primary, fontWeight: '700' },
-  categoriesContent: { paddingHorizontal: SPACING.md, gap: SPACING.md },
-
-  categoryItem: { alignItems: 'center', minWidth: 80 },
-  categoryActive: { opacity: 1 },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+  categoriesContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8, // Web: px-1 (approx 4-8px)
+    width: '100%',
   },
-  iconContainerActive: { backgroundColor: BRAND.primary },
-  categoryLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#4B5563',
-    textAlign: 'center',
-  },
-  categoryLabelActive: { color: BRAND.primary },
-
-  circleItem: { alignItems: 'center', gap: 8, marginRight: 8 },
+  circleItem: { alignItems: 'center', flex: 1 },
   circleIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEF2F2', // Light Red / Pink
+    width: 48, // Web: w-12
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6', // Web: bg-gray-100 (inactive)
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 6,
+  },
+  activeShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   circleLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    color: '#374151',
-    marginTop: 4,
+    color: '#4B5563',
+    textAlign: 'center',
+    marginTop: 2,
   },
-
-  pillRail: { paddingHorizontal: SPACING.md, gap: 8 },
-  pillItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#EEE',
-    backgroundColor: '#FFF',
-  },
-  pillLabel: { fontSize: 14, fontWeight: '600', color: '#666' },
+  // Keep pill styles just in case valid/used elsewhere, though variant is mostly circle here
+  pillItem: {},
+  pillLabel: {},
+  categoryItem: {},
+  categoryActive: {},
+  iconContainer: {},
+  iconContainerActive: {},
+  categoryLabel: {},
+  categoryLabelActive: {},
 });

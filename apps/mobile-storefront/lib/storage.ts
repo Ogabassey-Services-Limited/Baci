@@ -7,6 +7,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createLogger } from './logger';
+
+const log = createLogger('Storage');
 
 /**
  * AsyncStorage-based storage adapter for Zustand persist middleware
@@ -17,7 +20,7 @@ export const asyncStorage = {
     try {
       return await AsyncStorage.getItem(name);
     } catch (error) {
-      console.warn('[Storage] Failed to get item:', name, error);
+      log.warn('Failed to get item:', name, error);
       return null;
     }
   },
@@ -25,14 +28,14 @@ export const asyncStorage = {
     try {
       await AsyncStorage.setItem(name, value);
     } catch (error) {
-      console.warn('[Storage] Failed to set item:', name, error);
+      log.warn('Failed to set item:', name, error);
     }
   },
   removeItem: async (name: string): Promise<void> => {
     try {
       await AsyncStorage.removeItem(name);
     } catch (error) {
-      console.warn('[Storage] Failed to remove item:', name, error);
+      log.warn('Failed to remove item:', name, error);
     }
   },
 };
@@ -40,38 +43,99 @@ export const asyncStorage = {
 /**
  * Sync storage adapter (for compatibility with existing code)
  * Uses a simple in-memory cache with AsyncStorage backup
+ *
+ * 2026 Critical Fix: Added initialization tracking to prevent race conditions
  */
 const memoryCache: Record<string, string> = {};
+let isStorageInitialized = false;
+let initializationPromise: Promise<void> | null = null;
 
 export const syncStorage = {
   getItem: (name: string): string | null => {
+    // 2026 Critical Fix: Warn if accessed before initialization
+    if (!isStorageInitialized) {
+      log.warn(
+        `Accessing "${name}" before initialization complete. ` +
+        'Call initializeStorage() in _layout.tsx before stores are accessed.'
+      );
+    }
     // Return from memory cache (sync)
     return memoryCache[name] ?? null;
   },
   setItem: (name: string, value: string): void => {
     memoryCache[name] = value;
     // Also persist to AsyncStorage (async, fire and forget)
-    AsyncStorage.setItem(name, value).catch(console.warn);
+    AsyncStorage.setItem(name, value).catch((error) => log.warn('Failed to persist item:', name, error));
   },
   removeItem: (name: string): void => {
     delete memoryCache[name];
-    AsyncStorage.removeItem(name).catch(console.warn);
+    AsyncStorage.removeItem(name).catch((error) => log.warn('Failed to remove item:', name, error));
   },
 };
 
 /**
+ * Check if storage has been initialized
+ */
+export function isStorageReady(): boolean {
+  return isStorageInitialized;
+}
+
+/**
+ * Wait for storage initialization to complete
+ * Useful for components that need to ensure data is loaded
+ */
+export async function waitForStorageReady(): Promise<void> {
+  if (isStorageInitialized) return;
+  if (initializationPromise) {
+    await initializationPromise;
+    return;
+  }
+  // If no initialization in progress, wait a bit and check again
+  // This handles edge cases where the check happens between promise start and assignment
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (initializationPromise) {
+    await initializationPromise;
+  }
+}
+
+/**
  * Initialize storage by loading persisted data into memory cache
  * Call this at app startup before accessing stores
+ *
+ * 2026 Critical Fix: Added deduplication to prevent multiple concurrent initializations
  */
 export async function initializeStorage(keys: string[]): Promise<void> {
-  try {
-    const pairs = await AsyncStorage.multiGet(keys);
-    for (const [key, value] of pairs) {
-      if (value !== null) {
-        memoryCache[key] = value;
-      }
-    }
-  } catch (error) {
-    console.warn('[Storage] Failed to initialize:', error);
+  // Prevent multiple concurrent initializations
+  if (initializationPromise) {
+    log.debug('Initialization already in progress, waiting...');
+    return initializationPromise;
   }
+
+  if (isStorageInitialized) {
+    log.debug('Already initialized, skipping');
+    return;
+  }
+
+  initializationPromise = (async () => {
+    try {
+      log.debug('Initializing with keys:', keys);
+      const pairs = await AsyncStorage.multiGet(keys);
+      for (const [key, value] of pairs) {
+        if (value !== null) {
+          memoryCache[key] = value;
+          log.debug(`Loaded "${key}" from AsyncStorage`);
+        }
+      }
+      isStorageInitialized = true;
+      log.debug('Initialization complete');
+    } catch (error) {
+      log.warn('Failed to initialize:', error);
+      // Still mark as initialized to prevent blocking the app
+      isStorageInitialized = true;
+    } finally {
+      initializationPromise = null;
+    }
+  })();
+
+  return initializationPromise;
 }

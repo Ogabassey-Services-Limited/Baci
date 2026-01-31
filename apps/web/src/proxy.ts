@@ -257,34 +257,34 @@ function generateCSP(
   const directives =
     routeType === 'admin' || routeType === 'auth'
       ? {
-          ...baseDirectives,
-          // 2026 Next.js 16 Caveat: 'strict-dynamic' requires ALL scripts to be nonced.
-          // Since Next.js internal chunks are not easily nonced in App Router, we use a
-          // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
-          // but still nonces our own custom scripts.
-          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com`,
-          'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-          'connect-src':
-            "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
-          'frame-src': "'self' https://checkout.korapay.com",
-          'form-action': "'self'",
-        }
+        ...baseDirectives,
+        // 2026 Next.js 16 Caveat: 'strict-dynamic' requires ALL scripts to be nonced.
+        // Since Next.js internal chunks are not easily nonced in App Router, we use a
+        // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
+        // but still nonces our own custom scripts.
+        'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com`,
+        'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+        'connect-src':
+          "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
+        'frame-src': "'self' https://checkout.korapay.com",
+        'form-action': "'self'",
+      }
       : routeType === 'storefront'
         ? {
-            ...baseDirectives,
-            'script-src':
-              "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
-            'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-            'connect-src':
-              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
-            'frame-src':
-              "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
-          }
+          ...baseDirectives,
+          'script-src':
+            "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net",
+          'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+          'connect-src':
+            "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org https://cm.g.doubleclick.net",
+          'frame-src':
+            "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google https://cm.g.doubleclick.net https://securepubads.g.doubleclick.net",
+        }
         : {
-            'default-src': "'self'",
-            'object-src': "'none'",
-            'frame-ancestors': "'none'", // APIs usually don't need to be framed
-          };
+          'default-src': "'self'",
+          'object-src': "'none'",
+          'frame-ancestors': "'none'", // APIs usually don't need to be framed
+        };
 
   return Object.entries(directives)
     .map(([key, value]) => (value ? `${key} ${value}` : key).trim())
@@ -487,7 +487,8 @@ export async function proxy(request: NextRequest) {
       subdomain = null;
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
-      const domain = normalizeHostname(hostname);
+      // Normalize: lowercase, remove port, and strip 'www.' prefix for consistent lookup
+      const domain = normalizeHostname(hostname).replace(/^www\./, '');
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
@@ -744,11 +745,16 @@ function applySecurityHeaders(
   }
 
   // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
-  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
 
   // COEP: Cross-Origin Embedder Policy for SharedArrayBuffer support
-  // Note: 'credentialless' is more compatible than 'require-corp'
-  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  // Note: Google Ads/GPT don't support COEP yet, so we only apply it to admin/auth routes
+  // where third-party ad embeds aren't needed. Storefront routes skip COEP to allow ads.
+  // See: https://developers.google.com/publisher-tag/guides/cross-origin-embedder-policy
+  if (routeType === 'admin' || routeType === 'auth') {
+    response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  }
+  // Storefront and API routes: no COEP to allow Google Ads iframes
 
   // Detect bots/crawlers for optimized SEO caching
   const isBot =

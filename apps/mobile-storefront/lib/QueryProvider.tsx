@@ -9,7 +9,10 @@
 
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import type React from 'react';
+import { createLogger } from './logger';
 import { queryClient, queryPersister } from './query-client';
+
+const log = createLogger('QueryProvider');
 
 interface QueryProviderProps {
   children: React.ReactNode;
@@ -34,7 +37,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       // Show children immediately while hydrating (for instant UI)
       onSuccess={() => {
         // Cache hydration complete - queries will now use cached data
-        console.log('[QueryProvider] Cache hydrated from MMKV');
+        log.debug('Cache hydrated from MMKV');
       }}
     >
       {children}

@@ -27,6 +27,8 @@ export function ConnectivityBanner() {
   const insets = useSafeAreaInsets();
   const [bannerState, setBannerState] = useState<BannerState>('hidden');
   const wasOffline = useRef(false);
+  // Timer ref for auto-hide cleanup - prevents memory leaks (2026 Best Practice)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animation values
   const translateY = useSharedValue(-100);
@@ -72,17 +74,26 @@ export function ConnectivityBanner() {
       const isConnected = state.isConnected === true;
 
       if (!isConnected) {
-        // Going offline
+        // Going offline - clear any pending hide timer
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
         wasOffline.current = true;
         showBanner('offline');
       } else if (wasOffline.current) {
         // Coming back online after being offline
         showBanner('online');
 
+        // Clear any existing timer before setting a new one (2026 Best Practice)
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+        }
         // Auto-hide after 2 seconds
-        setTimeout(() => {
+        hideTimerRef.current = setTimeout(() => {
           hideBanner();
           wasOffline.current = false;
+          hideTimerRef.current = null;
         }, 2000);
       }
     });
@@ -97,7 +108,14 @@ export function ConnectivityBanner() {
       }
     });
 
-    return () => unsubscribe();
+    // Cleanup on unmount - prevents memory leaks
+    return () => {
+      unsubscribe();
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
   }, [hideBanner, showBanner]);
 
   const animatedStyle = useAnimatedStyle(() => ({

@@ -176,7 +176,9 @@ export const getCachedMerchant = unstable_cache(
         safeSlug,
         JSON.stringify(error, null, 2)
       );
-      return null;
+      // CRITICAL: Throwing instead of returning null prevents negative caching
+      // Next.js will not cache this error, allowing retries or stale data serving.
+      throw new Error(`Failed to fetch merchant for slug: ${safeSlug}`);
     }
 
     if (!data) {
@@ -251,11 +253,17 @@ export const getCachedMerchantByDomain = unstable_cache(
       .eq('status', 'active')
       .single();
 
-    if (domainError || !domainData) {
+    if (domainError) {
       console.error('Error fetching domain', {
         domain: normalizedDomain,
-        error: domainError ?? 'No data found',
+        error: domainError,
       });
+      // Throw on DB error to prevent negative caching
+      throw new Error(`Database error fetching domain: ${normalizedDomain}`);
+    }
+
+    if (!domainData) {
+      console.warn('No domain mapping found for:', normalizedDomain);
       return null;
     }
 
@@ -296,7 +304,7 @@ export const getCachedMerchantByDomain = unstable_cache(
         domain: normalizedDomain,
         error: error,
       });
-      return null;
+      throw new Error(`Failed to fetch merchant for domain: ${normalizedDomain}`);
     }
 
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)

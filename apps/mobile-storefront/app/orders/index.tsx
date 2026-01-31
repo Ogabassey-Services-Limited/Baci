@@ -1,6 +1,7 @@
 /**
  * Orders List Screen
  * Displays customer's order history
+ * 2026 Best Practice: Offline-aware with graceful degradation
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -12,13 +13,19 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { OfflineNotice, OfflineEmptyState } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useNetworkState } from '@/hooks/use-network-state';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+
+const log = createLogger('OrdersList');
 
 interface Order {
   id: string;
@@ -75,10 +82,14 @@ export default function OrdersScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
 
+  // 2026 Best Practice: Network state monitoring for offline UX
+  const { isOnline, onReconnect } = useNetworkState();
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) {
@@ -117,7 +128,7 @@ export default function OrdersScreen() {
       setOrders(formattedOrders);
       setError(null);
     } catch (err) {
-      console.error('Error fetching orders:', err);
+      log.error('Error fetching orders:', err);
       setError('Failed to load orders');
     } finally {
       setIsLoading(false);
@@ -128,6 +139,13 @@ export default function OrdersScreen() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // 2026 Best Practice: Auto-refetch when coming back online
+  useEffect(() => {
+    return onReconnect(() => {
+      fetchOrders();
+    });
+  }, [onReconnect, fetchOrders]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -154,6 +172,27 @@ export default function OrdersScreen() {
   const getStatusConfig = (status: string) => {
     return ORDER_STATUS_CONFIG[status] || ORDER_STATUS_CONFIG.pending;
   };
+
+  // Filter orders based on search query (matches web functionality)
+  const filteredOrders = orders.filter((order) => {
+    if (!searchQuery.trim()) return true;
+
+    const query = searchQuery.toLowerCase().trim();
+
+    // Search by order number
+    const orderNumberMatch = order.order_number?.toLowerCase().includes(query);
+
+    // Search by status
+    const statusConfig = getStatusConfig(order.status);
+    const statusMatch = statusConfig.label.toLowerCase().includes(query);
+
+    // Search by product names
+    const itemMatch = order.items?.some((item) =>
+      item.product_name?.toLowerCase().includes(query)
+    );
+
+    return orderNumberMatch || statusMatch || itemMatch;
+  });
 
   const renderOrderItem = ({ item }: { item: Order }) => {
     const statusConfig = getStatusConfig(item.status);
@@ -229,23 +268,48 @@ export default function OrdersScreen() {
     );
   };
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        No orders yet
-      </Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-        When you place orders, they'll appear here
-      </Text>
-      <TouchableOpacity
-        style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
-        onPress={() => router.push('/')}
-      >
-        <Text style={styles.shopButtonText}>Start Shopping</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderEmptyState = () => {
+    // Show different empty states based on context
+    if (orders.length > 0 && filteredOrders.length === 0) {
+      // Has orders but search returned no results
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="search-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            No matching orders
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Try searching with a different term
+          </Text>
+          <TouchableOpacity
+            style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
+            onPress={() => setSearchQuery('')}
+          >
+            <Text style={styles.shopButtonText}>Clear Search</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // No orders at all
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          No orders yet
+        </Text>
+        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+          When you place orders, they'll appear here
+        </Text>
+        <TouchableOpacity
+          style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
+          onPress={() => router.push('/')}
+        >
+          <Text style={styles.shopButtonText}>Start Shopping</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   if (!user) {
     return (
@@ -287,7 +351,29 @@ export default function OrdersScreen() {
     );
   }
 
+  // 2026 Best Practice: Different error states for offline vs online errors
   if (error) {
+    // Show offline-specific empty state when offline
+    if (!isOnline) {
+      return (
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <OfflineEmptyState
+            title="Orders Unavailable"
+            description="Connect to the internet to view your order history"
+            onRetry={fetchOrders}
+            isRetrying={isRefreshing}
+          />
+        </View>
+      );
+    }
+
+    // Show generic error state when online
     return (
       <View
         style={[
@@ -313,8 +399,51 @@ export default function OrdersScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* 2026 Best Practice: Show offline notice when viewing cached data */}
+      {!isOnline && orders.length > 0 && (
+        <OfflineNotice
+          variant="banner"
+          showCachedDataNotice
+          showRetry
+          onRetry={fetchOrders}
+          isRetrying={isRefreshing}
+        />
+      )}
+
+      {/* Search Bar - matches web functionality */}
+      {orders.length > 0 && (
+        <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.searchInputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="search-outline" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search orders, items or status..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {searchQuery.length > 0 && (
+            <Text style={[styles.searchResults, { color: colors.textSecondary }]}>
+              {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'} found
+            </Text>
+          )}
+        </View>
+      )}
+
       <FlatList
-        data={orders}
+        data={filteredOrders}
         renderItem={renderOrderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
@@ -331,6 +460,8 @@ export default function OrdersScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       />
     </View>
   );
@@ -462,5 +593,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  searchResults: {
+    fontSize: 13,
+    marginTop: 8,
+    marginLeft: 4,
   },
 });

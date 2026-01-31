@@ -2,6 +2,12 @@
  * Ogabassey Design System
  * Aligned with Baci Web App design tokens
  * Primary: Red (#DC2626)
+ *
+ * 2026 Best Practice: WCAG AA Accessibility Compliance
+ * - All text colors must meet 4.5:1 contrast ratio for normal text
+ * - Large text (18pt+) requires 3:1 contrast ratio
+ * - Interactive elements need distinct focus/hover states
+ * - Color alone should not convey meaning (use icons/text too)
  */
 
 import { Dimensions } from 'react-native';
@@ -41,6 +47,7 @@ export const RADIUS = {
   lg: 10,
   xl: 12,
   '2xl': 16,
+  '3xl': 24,
   full: 9999,
 } as const;
 
@@ -194,13 +201,13 @@ export default {
     input: palette.gray[200],
     ring: palette.red[600],
 
-    // Legacy compatibility
-    text: palette.gray[800],
-    textSecondary: palette.gray[500],
-    placeholder: palette.gray[100],
+    // Legacy compatibility - 2026 WCAG AA compliant values
+    text: palette.gray[900], // Improved: darker for better contrast (was gray[800])
+    textSecondary: palette.gray[600], // Improved: 4.5:1 contrast on white (was gray[500])
+    placeholder: palette.gray[500], // Improved: visible placeholder text (was gray[100])
     tint: palette.red[600],
-    icon: palette.gray[400],
-    tabIconDefault: palette.gray[400],
+    icon: palette.gray[600], // Improved: better visibility (was gray[400])
+    tabIconDefault: palette.gray[500], // Improved: better visibility (was gray[400])
     tabIconSelected: palette.red[600],
 
     // Semantic
@@ -243,13 +250,13 @@ export default {
     input: palette.gray[800],
     ring: palette.amber[500],
 
-    // Legacy compatibility
+    // Legacy compatibility - 2026 WCAG AA compliant values
     text: palette.gray[50],
-    textSecondary: palette.gray[400],
-    placeholder: palette.gray[900],
+    textSecondary: palette.gray[300], // Improved: 4.5:1 contrast on dark bg (was gray[400])
+    placeholder: palette.gray[400], // Improved: visible placeholder text (was gray[900])
     tint: palette.amber[500],
-    icon: palette.gray[500],
-    tabIconDefault: palette.gray[500],
+    icon: palette.gray[400], // Improved: better visibility (was gray[500])
+    tabIconDefault: palette.gray[400], // Improved: better visibility (was gray[500])
     tabIconSelected: palette.amber[500],
 
     // Semantic

@@ -10,21 +10,30 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Pressable,
   Share,
+  LayoutChangeEvent,
+  Linking,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ProductDetail');
 import Animated, {
+  Easing,
   Extrapolate,
   FadeIn,
   FadeInDown,
   interpolate,
+  LinearTransition,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -32,7 +41,17 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
+import { ConditionSelector } from '@/components/product/ConditionSelector';
+import { ReviewsList } from '@/components/product/ReviewsList';
+import { VariantSelector } from '@/components/product/VariantSelector';
+import { NegotiationModal } from '@/components/product/NegotiationModal';
+import { ImageZoomModal } from '@/components/product/ImageZoomModal';
+import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
+import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
+import { useNetworkState } from '@/hooks/use-network-state';
+import { useReviews, markReviewHelpful } from '@/hooks/use-reviews';
+import type { ProductCondition } from '@/types/product';
 import Colors, {
   BRAND,
   RADIUS,
@@ -41,7 +60,9 @@ import Colors, {
   TYPOGRAPHY,
 } from '@/constants/Colors';
 import { useProduct } from '@/hooks/use-products';
+import { useHaptics } from '@/hooks/use-haptics';
 import { useCartStore } from '@/stores/cart-store';
+import { useSavedStore } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -53,13 +74,193 @@ export default function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // 2026 Best Practice: Network state monitoring for offline UX
+  const { isOnline } = useNetworkState();
+
+  // 2026 Best Practice: Haptic feedback for tactile UX
+  const haptics = useHaptics();
+
   const { product, isLoading, error } = useProduct(slug || '');
-  const addItem = useCartStore((state) => state.addItem);
+  const { items, addItem, updateQuantity, removeItem } = useCartStore();
+  const toggleSaved = useSavedStore((state) => state.toggleSaved);
+  const isSaved = useSavedStore((state) => state.isSaved);
+  const savedToastState = useSavedStore((state) => state.toastState);
+  const dismissSavedToast = useSavedStore((state) => state.dismissToast);
+
+  // Fetch reviews for this product
+  const {
+    reviews,
+    stats: reviewStats,
+    isLoading: reviewsLoading,
+    hasMore: hasMoreReviews,
+    loadMore: loadMoreReviews,
+  } = useReviews({ productId: product?.id || '' });
 
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [selectedCondition, setSelectedCondition] =
+    useState<ProductCondition | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  const [colorImages, setColorImages] = useState<string[] | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [quantity, setQuantity] = useState(1);
   const [showAddedToast, setShowAddedToast] = useState(false);
+  const [showNegotiationModal, setShowNegotiationModal] = useState(false);
+  const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
+  const [showImageZoom, setShowImageZoom] = useState(false);
+
+  // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup toast timer on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 2026 Best Practice: Auto-dismiss saved items toast with cleanup
+  const savedToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (savedToastState.show) {
+      if (savedToastTimerRef.current) {
+        clearTimeout(savedToastTimerRef.current);
+      }
+      savedToastTimerRef.current = setTimeout(() => {
+        dismissSavedToast();
+        savedToastTimerRef.current = null;
+      }, 2000);
+    }
+    return () => {
+      if (savedToastTimerRef.current) {
+        clearTimeout(savedToastTimerRef.current);
+        savedToastTimerRef.current = null;
+      }
+    };
+  }, [savedToastState.show, dismissSavedToast]);
+
+  // Get condition display name for cart
+  const getConditionDisplay = (): string | undefined => {
+    if (selectedCondition) {
+      const conditionMap: Record<ProductCondition, string> = {
+        new: 'New',
+        used: 'Used',
+        uk_used: 'UK Used',
+        open_box: 'Open Box',
+        refurbished: 'Refurbished',
+      };
+      return conditionMap[selectedCondition];
+    }
+    return product?.condition;
+  };
+
+  // Sync quantity with cart store
+  const cartItem = useMemo(() => {
+    if (!product) return undefined;
+    return items.find(
+      (item) =>
+        item.product_id === product.id &&
+        (item.variant_id || null) === (selectedVariant || null) &&
+        (item.condition || null) === (getConditionDisplay() || null) &&
+        (item.color || null) === (selectedColor || null) &&
+        (item.storage || null) === (selectedStorage || null)
+    );
+  }, [product, items, selectedVariant, selectedColor, selectedStorage, selectedCondition]);
+
+  const quantityInCart = cartItem ? cartItem.quantity : 0;
+
+  // Local state for editable quantity input to allow smooth typing
+  const [localQty, setLocalQty] = useState(quantityInCart.toString());
+
+  // Sync local quantity when store changes
+  useEffect(() => {
+    setLocalQty(quantityInCart.toString());
+  }, [quantityInCart]);
+
+  const handleLocalQtyChange = (text: string) => {
+    // Only allow numeric input
+    const cleanText = text.replace(/[^0-9]/g, '');
+    setLocalQty(cleanText);
+
+    // Auto-update store if it's a valid positive number
+    const num = parseInt(cleanText, 10);
+    if (!isNaN(num) && num > 0 && cartItem) {
+      updateQuantity(cartItem.id, num);
+    }
+  };
+
+  const handleLocalQtyBlur = () => {
+    const num = parseInt(localQty, 10);
+    if (isNaN(num) || num <= 0) {
+      // Revert to current cart quantity if invalid
+      setLocalQty(quantityInCart.toString());
+    } else if (cartItem) {
+      updateQuantity(cartItem.id, num);
+    }
+  };
+
+  const [flyingParticles, setFlyingParticles] = useState<{ id: number; startX: number; startY: number }[]>([]);
+  const particleIdRef = useRef(0);
+
+  const triggerFlyToCart = (event: any) => {
+    // Get position from event (pageX/pageY) or fallback to center
+    const { pageX, pageY } = event?.nativeEvent || {};
+    const id = ++particleIdRef.current;
+
+    setFlyingParticles(prev => [...prev, {
+      id,
+      startX: pageX || Dimensions.get('window').width / 2,
+      startY: pageY || Dimensions.get('window').height - 100
+    }]);
+
+    // Cleanup particle after animation
+    setTimeout(() => {
+      setFlyingParticles(prev => prev.filter(p => p.id !== id));
+    }, 1000);
+  };
+
+  const FlyToCartParticle = ({ startX, startY }: { startX: number; startY: number }) => {
+    const progress = useSharedValue(0);
+    const insets = useSafeAreaInsets();
+    const window = Dimensions.get('window');
+    const targetX = window.width / 2; // Cart tab is in center
+    const targetY = window.height - (insets.bottom + 30); // Tab bar center
+
+    useEffect(() => {
+      progress.value = withTiming(1, {
+        duration: 800,
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1)
+      });
+    }, []);
+
+    const animatedStyle = useAnimatedStyle(() => {
+      const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
+      const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
+      const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
+      const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
+
+      return {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: BRAND.primary,
+        zIndex: 9999,
+        transform: [
+          { translateX: translateX - 20 },
+          { translateY: translateY - 20 },
+          { scale }
+        ],
+        opacity,
+      };
+    });
+
+    return <Animated.View style={animatedStyle} />;
+  };
 
   const scrollY = useSharedValue(0);
 
@@ -127,6 +328,21 @@ export default function ProductDetailScreen() {
   }
 
   if (error || !product) {
+    // 2026 Best Practice: Show offline-specific error when not connected
+    if (!isOnline) {
+      return (
+        <View
+          style={[styles.errorContainer, { backgroundColor: colors.background }]}
+        >
+          <OfflineEmptyState
+            title="Product Unavailable Offline"
+            description="Connect to the internet to view this product"
+            onRetry={() => router.back()}
+          />
+        </View>
+      );
+    }
+
     return (
       <View
         style={[styles.errorContainer, { backgroundColor: colors.background }]}
@@ -139,7 +355,7 @@ export default function ProductDetailScreen() {
         <Text style={[styles.errorTitle, { color: colors.text }]}>
           Product not found
         </Text>
-        <Text style={[styles.backButtonText, { color: colors.textSecondary }]}>
+        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
           {error || 'This product may no longer be available'}
         </Text>
         <Pressable
@@ -152,41 +368,152 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const images = product.images?.length ? product.images : [product.image];
+  // Use color-specific images if selected, otherwise default product images
+  const images = colorImages?.length
+    ? colorImages
+    : product.images?.length
+      ? product.images
+      : [product.image];
+
+  // Calculate effective price based on selected condition, storage, and variant
+  const calculateEffectivePrice = () => {
+    let price = product.price;
+    let comparePrice = product.compare_at_price;
+
+    // Apply condition price if different condition selected
+    if (selectedCondition && product.offers) {
+      const offer = product.offers.find(
+        (o) => o.condition === selectedCondition
+      );
+      if (offer) {
+        price = offer.price;
+        comparePrice = offer.compare_at_price;
+      }
+    }
+
+    // Apply storage-based variant price modifier
+    if (selectedStorage && product.variants) {
+      const variant = product.variants.find(
+        (v) =>
+          v.storage === selectedStorage ||
+          v.attributes?.storage === selectedStorage ||
+          v.name?.includes(selectedStorage)
+      );
+      if (variant) {
+        if (variant.price_override !== undefined) {
+          price = variant.price_override;
+        } else if (variant.price_modifier !== undefined) {
+          price += variant.price_modifier;
+        }
+      }
+    }
+
+    // Apply variant price modifier if variant selected (fallback for legacy)
+    if (selectedVariant && product.variants) {
+      const variant = product.variants.find((v) => v.id === selectedVariant);
+      if (variant) {
+        if (variant.price_override !== undefined) {
+          price = variant.price_override;
+        } else if (variant.price_modifier !== undefined) {
+          price += variant.price_modifier;
+        }
+      }
+    }
+
+    return { price, comparePrice };
+  };
+
+  const { price: calculatedPrice, comparePrice: effectiveComparePrice } =
+    calculateEffectivePrice();
+
+  // Use negotiated price if available, otherwise use calculated price
+  const effectivePrice = negotiatedPrice || calculatedPrice;
+
   const discountPercentage = getDiscountPercentage(
-    product.price,
-    product.compare_at_price
+    effectivePrice,
+    effectiveComparePrice
   );
 
-  const handleAddToCart = () => {
+
+
+  const handleAddToCart = (event?: any) => {
+    haptics.success(); // Haptic feedback for add to cart
+
+    if (event) triggerFlyToCart(event);
+
+    // Add item with quantity 1
     addItem({
       product_id: product.id,
+      slug: product.slug,
       variant_id: selectedVariant || undefined,
       name: product.name,
-      price: product.price,
-      compare_at_price: product.compare_at_price,
-      quantity,
-      image_url: product.image,
-      condition: product.condition,
+      price: effectivePrice,
+      compare_at_price: effectiveComparePrice,
+      quantity: 1,
+      image_url: images[0] || product.image,
+      color: selectedColor || undefined,
+      storage: selectedStorage || undefined,
+      condition: getConditionDisplay(),
     });
 
     setShowAddedToast(true);
-    setTimeout(() => setShowAddedToast(false), 2000);
+    // Clear any existing timer before setting a new one (2026 Best Practice)
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    toastTimerRef.current = setTimeout(() => {
+      setShowAddedToast(false);
+      toastTimerRef.current = null;
+    }, 2000);
   };
 
-  const _handleBuyNow = () => {
+  const handleUpdateQuantity = (newQuantity: number, event?: any) => {
+    haptics.light();
+
+    if (newQuantity > quantityInCart && event) {
+      triggerFlyToCart(event);
+    }
+
+    if (cartItem) {
+      if (newQuantity <= 0) {
+        removeItem(cartItem.id);
+      } else {
+        updateQuantity(cartItem.id, newQuantity);
+      }
+    } else if (newQuantity > 0) {
+      handleAddToCart();
+    }
+  };
+
+  // Buy Now handler - adds to cart and navigates directly to checkout
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Reserved for future Buy Now button
+  const handleBuyNow = () => {
     handleAddToCart();
     router.push('/checkout');
   };
 
   const handleShare = async () => {
     try {
-      await Share.share({
+      const result = await Share.share({
         message: `Check out the ${product.name} on Ogabassey: https://ogabassey.com/product/${product.slug}`,
         title: product.name,
       });
+
+      // 2026 Best Practice: Track share action for analytics
+      if (result.action === Share.sharedAction) {
+        log.info('Product shared successfully');
+      }
     } catch (err) {
-      console.error(err);
+      // 2026 Best Practice: User feedback on share failure
+      log.error('Share error:', err);
+      // On iOS, cancelled shares don't throw, but other errors should notify user
+      if (err instanceof Error && !err.message.includes('cancel')) {
+        Alert.alert(
+          'Unable to Share',
+          'There was a problem sharing this product. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
     }
   };
 
@@ -221,8 +548,12 @@ export default function ProductDetailScreen() {
         </Animated.View>
         <View style={styles.headerRight}>
           <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-            <Pressable onPress={() => {}} hitSlop={12}>
-              <Ionicons name="heart-outline" size={22} color="#FFF" />
+            <Pressable onPress={() => { haptics.light(); product && toggleSaved(product); }} hitSlop={12}>
+              <Ionicons
+                name={product && isSaved(product.id) ? 'heart' : 'heart-outline'}
+                size={22}
+                color={product && isSaved(product.id) ? '#EF4444' : '#FFF'}
+              />
             </Pressable>
           </Animated.View>
           <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
@@ -238,9 +569,17 @@ export default function ProductDetailScreen() {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Parallax Image Gallery */}
-        <View style={styles.imageContainer}>
+        <Pressable
+          style={styles.imageContainer}
+          onPress={() => setShowImageZoom(true)}
+          accessibilityLabel="Tap to zoom product image"
+          accessibilityRole="button"
+          accessibilityHint="Opens full-screen image viewer with zoom"
+        >
           <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
             <Image
               source={{ uri: images[selectedImageIndex] }}
@@ -262,7 +601,12 @@ export default function ProductDetailScreen() {
               <Text style={styles.discountText}>-{discountPercentage}%</Text>
             </View>
           )}
-        </View>
+
+          {/* Zoom Hint Icon */}
+          <View style={styles.zoomHint}>
+            <Ionicons name="expand-outline" size={20} color="#FFF" />
+          </View>
+        </Pressable>
 
         {/* Product Details Content */}
         <Animated.View
@@ -339,88 +683,167 @@ export default function ProductDetailScreen() {
 
           <View style={styles.ratingRow}>
             <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Ionicons
-                  key={s}
-                  name="star"
-                  size={14}
-                  color={s <= 4 ? colors.rating : colors.border}
-                />
-              ))}
+              {[1, 2, 3, 4, 5].map((s) => {
+                const rating = reviewStats?.average_rating || product.rating || 4.5;
+                return (
+                  <Ionicons
+                    key={s}
+                    name={s <= Math.round(rating) ? 'star' : 'star-outline'}
+                    size={14}
+                    color={s <= Math.round(rating) ? colors.rating : colors.border}
+                  />
+                );
+              })}
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
-              4.8 (120 reviews)
+              {reviewStats
+                ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count} reviews)`
+                : product.rating
+                  ? `${product.rating} (${product.review_count || 0} reviews)`
+                  : 'No reviews yet'}
             </Text>
           </View>
 
           {/* Pricing */}
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: BRAND.primary }]}>
-              {formatPrice(product.price)}
+              {formatPrice(effectivePrice)}
             </Text>
-            {product.compare_at_price && (
+            {effectiveComparePrice && effectiveComparePrice > effectivePrice && (
               <Text
                 style={[styles.comparePrice, { color: colors.textSecondary }]}
               >
-                {formatPrice(product.compare_at_price)}
+                {formatPrice(effectiveComparePrice)}
               </Text>
             )}
           </View>
 
+          {/* Negotiated Price Badge */}
+          {negotiatedPrice && (
+            <View style={styles.negotiatedBadge}>
+              <Ionicons name="pricetag" size={14} color="#10B981" />
+              <Text style={styles.negotiatedText}>
+                Your negotiated price!
+              </Text>
+            </View>
+          )}
+
+          {/* Make an Offer Button */}
+          {!negotiatedPrice && (
+            <Pressable
+              style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
+              onPress={() => setShowNegotiationModal(true)}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
+              <Text style={[styles.makeOfferText, { color: BRAND.primary }]}>
+                Make an Offer
+              </Text>
+            </Pressable>
+          )}
+
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-          {/* Variants */}
-          {product.variants && product.variants.length > 0 && (
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Select Color/Storage
-              </Text>
-              <View style={styles.variantGrid}>
-                {product.variants.map((v) => (
-                  <Pressable
-                    key={v.id}
-                    onPress={() => setSelectedVariant(v.id)}
-                    style={[
-                      styles.variantChip,
-                      {
-                        borderColor:
-                          selectedVariant === v.id
-                            ? BRAND.primary
-                            : colors.border,
-                      },
-                      selectedVariant === v.id && {
-                        backgroundColor: `${BRAND.primary}10`,
-                      },
-                    ]}
-                  >
-                    <Text
+          {/* Condition Selector */}
+          {product.has_condition_offers && product.offers && (
+            <ConditionSelector
+              currentCondition={product.condition}
+              offers={product.offers}
+              selectedCondition={selectedCondition}
+              onSelect={setSelectedCondition}
+              basePrice={product.price}
+            />
+          )}
+
+          {/* Advanced Variant Selection */}
+          {(product.colors ||
+            product.color_images ||
+            (product.variant_attributes?.storage ||
+              product.variants?.some((v) => v.storage))) && (
+              <View style={styles.section}>
+                <VariantSelector
+                  colors={product.colors}
+                  colorImages={product.color_images}
+                  storage={
+                    product.variant_attributes?.storage ||
+                    product.variants
+                      ?.map((v) => v.storage)
+                      .filter((s): s is string => !!s)
+                  }
+                  variants={product.variants}
+                  selectedColor={selectedColor}
+                  selectedStorage={selectedStorage}
+                  onSelectColor={(color, imgs) => {
+                    setSelectedColor(color);
+                    if (imgs?.length) {
+                      setColorImages(imgs);
+                      setSelectedImageIndex(0);
+                    }
+                  }}
+                  onSelectStorage={setSelectedStorage}
+                  basePrice={effectivePrice}
+                />
+              </View>
+            )}
+
+          {/* Legacy Variants (fallback for products without colors/storage) */}
+          {product.variants &&
+            product.variants.length > 0 &&
+            !product.colors &&
+            !product.color_images &&
+            !product.variants.some((v) => v.storage) && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  Options
+                </Text>
+                <View style={styles.variantGrid}>
+                  {product.variants.map((v) => (
+                    <Pressable
+                      key={v.id}
+                      onPress={() => setSelectedVariant(v.id)}
                       style={[
-                        styles.variantLabel,
+                        styles.variantChip,
                         {
-                          color:
+                          borderColor:
                             selectedVariant === v.id
                               ? BRAND.primary
-                              : colors.text,
+                              : colors.border,
+                        },
+                        selectedVariant === v.id && {
+                          backgroundColor: `${BRAND.primary}10`,
                         },
                       ]}
                     >
-                      {v.name}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={[
+                          styles.variantLabel,
+                          {
+                            color:
+                              selectedVariant === v.id
+                                ? BRAND.primary
+                                : colors.text,
+                          },
+                        ]}
+                      >
+                        {v.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
           {/* Description */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Description
             </Text>
-            <Text style={[styles.description, { color: colors.textSecondary }]}>
-              {product.description ||
-                'No description available for this product.'}
-            </Text>
+            {product.description ? (
+              <HTMLRenderer html={product.description} />
+            ) : (
+              <Text style={[styles.description, { color: colors.textSecondary }]}>
+                No description available for this product.
+              </Text>
+            )}
           </View>
 
           {/* Specs */}
@@ -464,6 +887,24 @@ export default function ProductDetailScreen() {
                 </View>
               </View>
             )}
+
+          {/* Reviews Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Customer Reviews
+            </Text>
+            <ReviewsList
+              reviews={reviews}
+              stats={reviewStats}
+              isLoading={reviewsLoading}
+              hasMore={hasMoreReviews}
+              onLoadMore={loadMoreReviews}
+              onMarkHelpful={(reviewId) => {
+                // Mark review as helpful
+                markReviewHelpful(reviewId, product.id).catch((err) => log.error('Failed to mark review helpful:', err));
+              }}
+            />
+          </View>
         </Animated.View>
       </Animated.ScrollView>
 
@@ -478,32 +919,85 @@ export default function ProductDetailScreen() {
           },
         ]}
       >
-        <View style={styles.quantityContainer}>
-          <Pressable
-            onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-            style={[styles.qtyBtn, { borderColor: colors.border }]}
-          >
-            <Ionicons name="remove" size={20} color={colors.text} />
-          </Pressable>
-          <Text style={[styles.qtyText, { color: colors.text }]}>
-            {quantity}
-          </Text>
-          <Pressable
-            onPress={() => setQuantity((q) => q + 1)}
-            style={[styles.qtyBtn, { borderColor: colors.border }]}
-          >
-            <Ionicons name="add" size={20} color={colors.text} />
-          </Pressable>
-        </View>
-        <Pressable
-          style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
-          onPress={handleAddToCart}
+        <Animated.View
+          layout={LinearTransition.springify().damping(18).stiffness(120)}
+          style={{ width: '100%' }}
         >
-          <Text style={styles.addToCartBtnText}>Add to Cart</Text>
-        </Pressable>
+          {quantityInCart > 0 ? (
+            <View key="cart-active" style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 0 }}>
+              {/* Quantity Controller */}
+              <View style={{ flex: 1.2, height: 56, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, borderWidth: 2, borderColor: BRAND.primary }}>
+                <Pressable
+                  onPress={(e) => handleUpdateQuantity(quantityInCart - 1, e)}
+                  style={{ width: 50, height: '100%', justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#FEE2E2' }}
+                  hitSlop={10}
+                >
+                  <Ionicons name={quantityInCart === 1 ? "trash-outline" : "remove"} size={22} color={BRAND.primary} />
+                </Pressable>
+
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: -2 }}>
+                    In Cart
+                  </Text>
+                  <TextInput
+                    style={{
+                      fontSize: 18,
+                      fontWeight: '800',
+                      color: '#111827',
+                      textAlign: 'center',
+                      minWidth: 40,
+                      padding: 0,
+                      margin: 0,
+                    }}
+                    value={localQty}
+                    onChangeText={handleLocalQtyChange}
+                    onBlur={handleLocalQtyBlur}
+                    keyboardType="number-pad"
+                    returnKeyType="done"
+                  />
+                </View>
+
+                <Pressable
+                  onPress={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
+                  style={{ width: 50, height: '100%', justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#FEE2E2' }}
+                  hitSlop={10}
+                >
+                  <Ionicons name="add" size={22} color={BRAND.primary} />
+                </Pressable>
+              </View>
+
+              {/* View Cart Button */}
+              <Pressable
+                onPress={() => router.push('/(tabs)/cart')}
+                style={{ flex: 1, height: 56, backgroundColor: BRAND.primary, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, ...SHADOWS.md }}
+              >
+                <Ionicons name="cart-outline" size={20} color="#FFF" />
+                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>View Cart</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              key="cart-empty"
+              style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
+              onPress={(e) => handleAddToCart(e)}
+            >
+              <Ionicons name="cart-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+              <Text style={styles.addToCartBtnText}>Add to Cart</Text>
+            </Pressable>
+          )}
+        </Animated.View>
       </View>
 
-      {/* Elite Toast */}
+      {/* Fly to Cart Particles */}
+      {flyingParticles.map(p => (
+        <FlyToCartParticle
+          key={p.id}
+          startX={p.startX}
+          startY={p.startY}
+        />
+      ))}
+
+      {/* Cart Added Toast */}
       {showAddedToast && (
         <Animated.View
           entering={FadeIn.duration(300)}
@@ -513,6 +1007,44 @@ export default function ProductDetailScreen() {
           <Text style={styles.toastText}>Added to your cart!</Text>
         </Animated.View>
       )}
+
+      {/* Saved Items Toast - 2026 Best Practice: User feedback for save actions */}
+      {savedToastState.show && (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={[styles.toast, { backgroundColor: colors.text }]}
+        >
+          <Ionicons
+            name={savedToastState.type === 'add' ? 'heart' : 'heart-dislike'}
+            size={20}
+            color={savedToastState.type === 'add' ? '#EF4444' : colors.textSecondary}
+          />
+          <Text style={styles.toastText}>{savedToastState.message}</Text>
+        </Animated.View>
+      )}
+
+      {/* Negotiation Modal */}
+      <NegotiationModal
+        visible={showNegotiationModal}
+        onClose={() => setShowNegotiationModal(false)}
+        productId={product.id}
+        merchantId={product.merchant_id || ''}
+        productName={product.name}
+        currentPrice={calculatedPrice}
+        onSuccess={(price) => {
+          setNegotiatedPrice(price);
+          setShowNegotiationModal(false);
+        }}
+      />
+
+      {/* Image Zoom Modal */}
+      <ImageZoomModal
+        visible={showImageZoom}
+        images={images}
+        initialIndex={selectedImageIndex}
+        onClose={() => setShowImageZoom(false)}
+        onIndexChange={(index) => setSelectedImageIndex(index)}
+      />
     </View>
   );
 }
@@ -541,6 +1073,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 16,
     marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
   },
   retryButton: {
     marginTop: 24,
@@ -619,6 +1156,17 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: '800',
+  },
+  zoomHint: {
+    position: 'absolute',
+    bottom: 40,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   detailsContainer: {
     borderTopLeftRadius: RADIUS['3xl'],
@@ -811,6 +1359,36 @@ const styles = StyleSheet.create({
   },
   toastText: {
     color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  negotiatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.md,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  negotiatedText: {
+    color: '#10B981',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  makeOfferButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    borderRadius: RADIUS.lg,
+    marginBottom: 16,
+  },
+  makeOfferText: {
     fontSize: 14,
     fontWeight: '600',
   },

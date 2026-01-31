@@ -2,10 +2,11 @@
  * Checkout Screen
  * Multi-step checkout: Address -> Payment -> Confirmation
  *
- * 2025 Best Practices:
+ * 2026 Best Practices:
  * - react-hook-form for form management
  * - Zod resolver for validation
  * - Analytics tracking and push notifications
+ * - Duplicate order prevention (ref-based lock)
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,8 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -29,6 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { TextContentTypes, type TextContentType } from '@/hooks/use-keyboard';
 import { calculateCommerce } from '@/lib/supabase';
 import { ShippingAddressSchema } from '@/lib/validation';
 import {
@@ -37,46 +41,30 @@ import {
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
+import { createOrder, OrderError } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
+import {
+  PaymentMethodSelector,
+  type PaymentMethodType,
+  type PaymentTab,
+} from '@/components/checkout/PaymentMethodSelector';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
 // Infer type from Zod schema
 type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
 
-interface PaymentMethod {
-  id: string;
-  type: 'card' | 'bank_transfer' | 'pay_on_delivery';
-  label: string;
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 'card',
-    type: 'card',
-    label: 'Card Payment',
-    description: 'Pay with Visa, Mastercard, or Verve',
-    icon: 'card-outline',
-  },
-  {
-    id: 'bank_transfer',
-    type: 'bank_transfer',
-    label: 'Bank Transfer',
-    description: 'Pay via direct bank transfer',
-    icon: 'business-outline',
-  },
-  {
-    id: 'pay_on_delivery',
-    type: 'pay_on_delivery',
-    label: 'Pay on Delivery',
-    description: 'Pay when you receive your order',
-    icon: 'cash-outline',
-  },
-];
+// Payment method labels for display
+const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
+  paystack: 'Card Payment (Paystack)',
+  korapay: 'Card Payment (Korapay)',
+  bank_transfer: 'Bank Transfer',
+  pay_on_delivery: 'Pay on Delivery',
+  credpal: 'CredPal (Buy Now Pay Later)',
+  credit_direct: 'Credit Direct (Installments)',
+};
 
 export default function CheckoutScreen() {
   const colorScheme = useColorScheme();
@@ -93,7 +81,9 @@ export default function CheckoutScreen() {
     total: number;
     taxAmount: number;
   } | null>(null);
-  const [selectedPayment, setSelectedPayment] = React.useState<string>('card');
+  const [selectedPayment, setSelectedPayment] =
+    React.useState<PaymentMethodType>('paystack');
+  const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
 
   // React Hook Form with Zod resolver
   const {
@@ -122,6 +112,10 @@ export default function CheckoutScreen() {
   // Track if checkout_started has been fired
   const hasTrackedStart = useRef(false);
 
+  // 2026 Best Practice: Ref-based lock to prevent duplicate order submissions
+  // This prevents race conditions from rapid button presses
+  const isOrderInFlight = useRef(false);
+
   // Track checkout started on mount
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -133,6 +127,38 @@ export default function CheckoutScreen() {
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
+
+  // 2026 Best Practice: Handle Android back button in checkout
+  // Prevents accidental exits during order processing
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // If order is being processed, block back button entirely
+      if (isOrderInFlight.current) {
+        return true; // Consume the event, don't go back
+      }
+
+      // If on first step, show confirmation before leaving checkout
+      if (step === 'address') {
+        Alert.alert(
+          'Leave Checkout?',
+          'Your cart items will be saved. Are you sure you want to leave?',
+          [
+            { text: 'Stay', style: 'cancel' },
+            { text: 'Leave', style: 'destructive', onPress: () => router.back() },
+          ]
+        );
+        return true; // Consume the event, handled with alert
+      }
+
+      // On other steps, go to previous step
+      handleBack();
+      return true; // Consume the event
+    });
+
+    return () => backHandler.remove();
+  }, [step]);
 
   // Calculate totals via Brain
   const deliveryFee = watchedState === 'Lagos' ? 2500 : 5000;
@@ -146,8 +172,8 @@ export default function CheckoutScreen() {
           taxRate: 0.075, // Nigeria Standard
         });
         setOrderTotals(result);
-      } catch (err) {
-        console.error('Failed to fetch totals from brain', err);
+      } catch {
+        // Silent fail - use fallback calculation
       }
     };
     fetchTotals();
@@ -165,6 +191,9 @@ export default function CheckoutScreen() {
   };
 
   const handleContinue = () => {
+    // 2026 Best Practice: Dismiss keyboard before continuing
+    Keyboard.dismiss();
+
     if (step === 'address') {
       handleSubmit(onAddressSubmit)();
     } else if (step === 'payment') {
@@ -187,23 +216,107 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
+    // 2026 Best Practice: Prevent duplicate order submission
+    // Ref check prevents race condition from rapid button presses
+    if (isOrderInFlight.current) {
+      return;
+    }
+
+    // Check for empty cart (e.g., if user navigated back after clearing cart)
+    if (items.length === 0) {
+      Alert.alert(
+        'Empty Cart',
+        'Your cart is empty. Please add items before checking out.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+      );
+      return;
+    }
+
+    isOrderInFlight.current = true;
     setIsProcessing(true);
 
     try {
       // Track review step completion
       trackCheckoutStep('review');
 
-      // Simulate order creation (replace with actual API call)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const address = getValues();
+      const customerEmail = customer?.email || '';
+      const customerPhone = address.phone;
+      const customerName = `${address.firstName} ${address.lastName}`;
 
-      // Generate mock order number for demo
-      const orderNumber = `OGA-${Date.now().toString().slice(-8)}`;
+      // Check if BNPL payment method selected
+      const isBNPL =
+        selectedPayment === 'credpal' || selectedPayment === 'credit_direct';
 
-      // Track order completed
+      if (isBNPL) {
+        // For BNPL, create order first then redirect to payment
+        const orderResponse = await createOrder({
+          customer_email: customerEmail,
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          items: items.map((item) => ({
+            id: item.id,
+            product_id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image_url: item.image_url,
+          })),
+          subtotal,
+          shipping_fee: deliveryFee,
+          tax_amount: orderTotals?.taxAmount || 0,
+          payment_method: selectedPayment,
+          shipping_address: address,
+          source: 'mobile_app',
+        });
+
+        // Navigate to BNPL checkout screen with real order ID
+        router.push({
+          pathname: '/bnpl-checkout',
+          params: {
+            orderId: orderResponse.order.id,
+            gateway: selectedPayment,
+            amount: String(orderResponse.amountDueToGateway),
+            customerEmail,
+            customerName,
+            customerPhone,
+            merchantSlug: 'ogabassey',
+          },
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2026 Best Practice: Create order via API (not simulated)
+      // Cart is only cleared AFTER successful order confirmation
+      const orderResponse = await createOrder({
+        customer_email: customerEmail,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        items: items.map((item) => ({
+          id: item.id,
+          product_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          image_url: item.image_url,
+        })),
+        subtotal,
+        shipping_fee: deliveryFee,
+        tax_amount: orderTotals?.taxAmount || 0,
+        payment_method: selectedPayment,
+        shipping_address: address,
+        source: 'mobile_app',
+      });
+
+      const { order } = orderResponse;
+      const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
+
+      // Track order completed with real order data
       trackOrderCompleted({
-        orderId: `order_${Date.now()}`,
+        orderId: order.id,
         orderNumber,
-        total: total,
+        total: order.total,
         subtotal,
         shipping: deliveryFee,
         tax: orderTotals?.taxAmount,
@@ -216,35 +329,103 @@ export default function CheckoutScreen() {
       await scheduleLocalNotification(
         'Order Received! 📦',
         `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
-        { type: 'order_update', orderNumber },
+        { type: 'order_update', orderNumber, orderId: order.id },
         1 // Trigger after 1 second
       );
 
-      // Clear cart after successful order
+      // 2026 Best Practice: Clear cart ONLY after successful order creation
+      // This is atomic - if order fails, cart is preserved
       clearCart();
 
-      // Navigate to success screen
-      router.replace('/order-success');
+      // Navigate to success screen with order details
+      router.replace({
+        pathname: '/order-success',
+        params: {
+          orderId: order.id,
+          orderNumber,
+        },
+      });
     } catch (error) {
-      // Track error
-      trackError(
-        'checkout_failed',
-        error instanceof Error ? error.message : 'Unknown error',
-        { step: 'place_order', paymentMethod: selectedPayment }
-      );
-      Alert.alert('Error', 'Failed to place order. Please try again.');
+      // Handle OrderError with user-friendly messages
+      if (error instanceof OrderError) {
+        trackError('checkout_failed', error.message, {
+          step: 'place_order',
+          paymentMethod: selectedPayment,
+          errorCode: error.code,
+        });
+
+        // Show specific error messages based on error code
+        switch (error.code) {
+          case 'NETWORK_ERROR':
+            Alert.alert(
+              'No Connection',
+              'Please check your internet connection and try again.',
+              [{ text: 'OK' }]
+            );
+            break;
+          case 'VALIDATION_ERROR':
+            Alert.alert(
+              'Invalid Information',
+              error.message || 'Please check your order details and try again.',
+              [{ text: 'OK' }]
+            );
+            break;
+          case 'AUTH_ERROR':
+            Alert.alert(
+              'Session Expired',
+              'Please sign in again to complete your order.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign In', onPress: () => router.push('/auth/login') },
+              ]
+            );
+            break;
+          default:
+            Alert.alert(
+              'Order Failed',
+              error.message || 'Something went wrong. Please try again.',
+              [{ text: 'OK' }]
+            );
+        }
+      } else {
+        // Track unknown error
+        trackError(
+          'checkout_failed',
+          error instanceof Error ? error.message : 'Unknown error',
+          { step: 'place_order', paymentMethod: selectedPayment }
+        );
+        Alert.alert(
+          'Error',
+          'Failed to place order. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setIsProcessing(false);
+      isOrderInFlight.current = false;
     }
+  };
+
+  // 2026 Accessibility: Step names for better screen reader experience
+  const STEP_NAMES = {
+    address: 'Delivery Address',
+    payment: 'Payment Method',
+    review: 'Review Order',
   };
 
   const renderStepIndicator = () => (
     <View
       style={styles.stepIndicator}
-      accessibilityRole="header"
-      accessibilityLabel={`Checkout progress: Step ${step === 'address' ? '1 of 3' : step === 'payment' ? '2 of 3' : '3 of 3'}`}
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Checkout progress: Step ${step === 'address' ? '1' : step === 'payment' ? '2' : '3'} of 3, ${STEP_NAMES[step]}`}
+      accessibilityValue={{
+        min: 1,
+        max: 3,
+        now: step === 'address' ? 1 : step === 'payment' ? 2 : 3,
+        text: STEP_NAMES[step],
+      }}
     >
-      {['address', 'payment', 'review'].map((s, index) => {
+      {(['address', 'payment', 'review'] as const).map((s, index) => {
         const isActive = s === step;
         const isCompleted =
           (s === 'address' && (step === 'payment' || step === 'review')) ||
@@ -260,7 +441,8 @@ export default function CheckoutScreen() {
                     isActive || isCompleted ? BRAND.primary : colors.border,
                 },
               ]}
-              accessibilityLabel={`Step ${index + 1}: ${s}`}
+              accessible={true}
+              accessibilityLabel={`Step ${index + 1}: ${STEP_NAMES[s]}${isCompleted ? ', completed' : isActive ? ', current step' : ''}`}
               accessibilityState={{ selected: isActive, checked: isCompleted }}
             >
               {isCompleted ? (
@@ -286,6 +468,7 @@ export default function CheckoutScreen() {
                       : colors.border,
                   },
                 ]}
+                importantForAccessibility="no"
               />
             )}
           </React.Fragment>
@@ -294,7 +477,28 @@ export default function CheckoutScreen() {
     </View>
   );
 
-  // Form field component with error handling
+  // 2026 Best Practice: Map field names to iOS textContentType for autofill
+  const TEXT_CONTENT_TYPE_MAP: Partial<Record<keyof ShippingAddressInput, TextContentType>> = {
+    firstName: TextContentTypes.givenName,
+    lastName: TextContentTypes.familyName,
+    phone: TextContentTypes.telephoneNumber,
+    address: TextContentTypes.fullStreetAddress,
+    city: TextContentTypes.addressCity,
+  };
+
+  // React Native TextInput autoComplete prop type
+  type TextInputAutoComplete = React.ComponentProps<typeof TextInput>['autoComplete'];
+
+  // 2026 Best Practice: Map field names to Android autoComplete for autofill
+  const AUTO_COMPLETE_MAP: Partial<Record<keyof ShippingAddressInput, TextInputAutoComplete>> = {
+    firstName: 'name-given',
+    lastName: 'name-family',
+    phone: 'tel',
+    address: 'street-address',
+    city: 'postal-address-locality', // Valid React Native autoComplete value for city
+  };
+
+  // Form field component with error handling and 2026 keyboard/autofill best practices
   const FormField = ({
     name,
     label,
@@ -302,6 +506,8 @@ export default function CheckoutScreen() {
     keyboardType = 'default',
     multiline = false,
     style,
+    returnKeyType = 'next',
+    onSubmitEditing,
   }: {
     name: keyof ShippingAddressInput;
     label: string;
@@ -309,6 +515,8 @@ export default function CheckoutScreen() {
     keyboardType?: 'default' | 'phone-pad' | 'email-address';
     multiline?: boolean;
     style?: object;
+    returnKeyType?: 'next' | 'done' | 'go';
+    onSubmitEditing?: () => void;
   }) => (
     <View style={[styles.inputGroup, style]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -335,6 +543,14 @@ export default function CheckoutScreen() {
             numberOfLines={multiline ? 2 : 1}
             accessibilityLabel={label}
             accessibilityHint={`Enter your ${label}`}
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TEXT_CONTENT_TYPE_MAP[name]}
+            // 2026 Best Practice: autoComplete for Android autofill
+            autoComplete={AUTO_COMPLETE_MAP[name]}
+            // 2026 Best Practice: Better keyboard UX
+            returnKeyType={multiline ? 'default' : returnKeyType}
+            blurOnSubmit={!multiline}
+            onSubmitEditing={onSubmitEditing}
           />
         )}
       />
@@ -350,6 +566,8 @@ export default function CheckoutScreen() {
     <ScrollView
       style={styles.formContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Delivery Address
@@ -422,62 +640,20 @@ export default function CheckoutScreen() {
     <ScrollView
       style={styles.formContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
     >
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Payment Method
       </Text>
 
-      {PAYMENT_METHODS.map((method) => (
-        <Pressable
-          key={method.id}
-          style={[
-            styles.paymentOption,
-            {
-              backgroundColor: colors.card,
-              borderColor:
-                selectedPayment === method.id ? BRAND.primary : colors.border,
-            },
-          ]}
-          onPress={() => setSelectedPayment(method.id)}
-        >
-          <View
-            style={[
-              styles.paymentIconContainer,
-              { backgroundColor: BRAND.primaryLight },
-            ]}
-          >
-            <Ionicons name={method.icon} size={24} color={BRAND.primary} />
-          </View>
-          <View style={styles.paymentInfo}>
-            <Text style={[styles.paymentLabel, { color: colors.text }]}>
-              {method.label}
-            </Text>
-            <Text
-              style={[
-                styles.paymentDescription,
-                { color: colors.textSecondary },
-              ]}
-            >
-              {method.description}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.radioOuter,
-              {
-                borderColor:
-                  selectedPayment === method.id ? BRAND.primary : colors.border,
-              },
-            ]}
-          >
-            {selectedPayment === method.id && (
-              <View
-                style={[styles.radioInner, { backgroundColor: BRAND.primary }]}
-              />
-            )}
-          </View>
-        </Pressable>
-      ))}
+      <PaymentMethodSelector
+        selectedMethod={selectedPayment}
+        onSelectMethod={setSelectedPayment}
+        selectedTab={paymentTab}
+        onSelectTab={setPaymentTab}
+        orderTotal={total}
+      />
     </ScrollView>
   );
 
@@ -488,6 +664,8 @@ export default function CheckoutScreen() {
       <ScrollView
         style={styles.formContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Order Review
@@ -539,7 +717,7 @@ export default function CheckoutScreen() {
             </Pressable>
           </View>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {PAYMENT_METHODS.find((m) => m.id === selectedPayment)?.label}
+            {PAYMENT_METHOD_LABELS[selectedPayment]}
           </Text>
         </View>
 
@@ -657,6 +835,9 @@ export default function CheckoutScreen() {
               style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
               onPress={handlePlaceOrder}
               disabled={isProcessing}
+              accessibilityRole="button"
+              accessibilityLabel={`Place order for ${formatPrice(total)}`}
+              accessibilityState={{ disabled: isProcessing, busy: isProcessing }}
             >
               {isProcessing ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -673,6 +854,8 @@ export default function CheckoutScreen() {
             <Pressable
               style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
               onPress={handleContinue}
+              accessibilityRole="button"
+              accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
             >
               <Text style={styles.actionButtonText}>Continue</Text>
               <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
@@ -689,7 +872,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backBtn: {
-    padding: 8,
+    padding: 10,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   stepIndicator: {
     flexDirection: 'row',
@@ -895,9 +1082,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     opacity: 0.9,
   },
+  // 2026 Best Practice: More visible error styling
   fieldError: {
-    color: '#EF4444',
-    fontSize: 12,
-    marginTop: 4,
+    color: '#DC2626', // Darker red for better contrast (WCAG AA)
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

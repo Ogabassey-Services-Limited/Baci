@@ -1,0 +1,6 @@
+
+> @baci/mobile-storefront@1.0.0 lint /Users/mac/Baci-app/apps/mobile-storefront
+> expo lint
+
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
