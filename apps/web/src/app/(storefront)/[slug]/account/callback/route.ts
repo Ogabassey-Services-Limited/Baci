@@ -23,9 +23,15 @@ export async function GET(
 
   // If there's an OAuth error from the provider
   if (error) {
-    // Sanitize log inputs to prevent injection
-    const safeError = String(error).replace(/[\n\r]/g, '');
-    const safeDesc = String(errorDescription).replace(/[\n\r]/g, '');
+    // Log sanitization: remove all control characters and limit length to prevent log injection
+    const safeError = String(error)
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      .slice(0, 200);
+    const safeDesc = String(errorDescription ?? '')
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      .slice(0, 500);
     console.error('OAuth error:', safeError, safeDesc);
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';
     return NextResponse.redirect(

@@ -95,8 +95,6 @@ jobs:
             AGPL-3.0-only, AGPL-3.0-or-later,
             CC-BY-3.0, CC-BY-4.0, Python-2.0, PSF-2.0, Artistic-2.0,
             OFL-1.1
-          # Allow packages with complex/dual licenses that are safe
-          allow-dependencies-licenses: true
 
   secrets-scan:
     name: Secret Scanning
