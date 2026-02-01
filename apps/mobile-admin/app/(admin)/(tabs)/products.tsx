@@ -370,21 +370,19 @@ export default function ProductsScreen() {
     }
   }, [activeTab, products, searchQuery]);
 
-  const totalCount = data?.pages[0]?.totalCount ?? 0;
+  const _totalCount = data?.pages[0]?.totalCount ?? 0;
 
   // Calculate stats
   const stats = useMemo(() => {
-    const active = products.filter(
-      (p) => p.stock > 0 || !p.manage_stock
-    ).length;
-    const lowStock = products.filter(
-      (p) => p.stock < 10 && p.stock > 0 && p.manage_stock
-    ).length;
-    const outOfStock = products.filter(
-      (p) => p.stock === 0 && p.manage_stock
-    ).length;
-    return { total: totalCount, active, lowStock, outOfStock };
-  }, [products, totalCount]);
+    // 2026 Best Practice: Use server-side stats for global counters
+    // Fallback to 0 if stats are still loading
+    return {
+      total: inventoryStats?.totalStock ?? 0,
+      active: inventoryStats?.activeCount ?? 0,
+      lowStock: inventoryStats?.lowStockCount ?? 0,
+      outOfStock: inventoryStats?.outOfStockCount ?? 0
+    };
+  }, [inventoryStats]);
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage && activeTab !== 'top_selling') {
@@ -525,12 +523,12 @@ export default function ProductsScreen() {
     label,
   }: {
     id:
-      | 'all'
-      | 'in_stock'
-      | 'low_stock'
-      | 'out_of_stock'
-      | 'categories'
-      | 'top_selling';
+    | 'all'
+    | 'in_stock'
+    | 'low_stock'
+    | 'out_of_stock'
+    | 'categories'
+    | 'top_selling';
     label: string;
   }) => {
     const isActive = activeTab === id;

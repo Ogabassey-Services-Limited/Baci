@@ -110,15 +110,20 @@ export async function getOrCreatePaystackCustomer(
       }
     }
 
+    // Sanitize API response message before including in error to prevent log injection
+    const sanitizedMessage = String(createData.message || 'Unknown error')
+      .replace(/[\r\n\t]/g, ' ')
+      .slice(0, 200);
     throw new Error(
-      `Could not create or retrieve customer: ${createData.message}`
+      `Could not create or retrieve customer: ${sanitizedMessage}`
     );
   } catch (error) {
-    // Use separate arguments to prevent log injection (codeql[js/log-injection])
-    console.error(
-      'Paystack Customer Error:',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+    // Sanitize error message to prevent log injection (remove newlines/carriage returns)
+    const safeMessage =
+      error instanceof Error
+        ? String(error.message).replace(/[\r\n]/g, ' ')
+        : 'Unknown error';
+    console.error('Paystack Customer Error:', safeMessage);
     throw error;
   }
 }

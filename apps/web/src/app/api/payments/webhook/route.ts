@@ -985,9 +985,8 @@ export async function GET(request: NextRequest) {
     const gateway: PaymentGateway =
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
-    // Input validation for reference parameter
-    // codeql[js/user-controlled-bypass]: This check only validates presence, not authorization.
-    // Authorization is enforced below by verifying transaction ownership (merchant_id check).
+    // Input validation for reference parameter - only checks presence
+    // lgtm[js/user-controlled-bypass] - Authorization enforced at line 1024 via merchant_id ownership check
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
