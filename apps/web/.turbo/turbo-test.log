@@ -5,16 +5,19 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m src/app/api/products/xss.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 6[2mms[22m[39m
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/app/api/products/xss.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 48[2mms[22m[39m
+ [32m✓[39m src/app/api/products/bulk-update/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
 [90mstderr[2m | src/app/api/wallet/csrf.test.ts[2m > [22m[2mWallet API CSRF Protection[2m > [22m[2mPOST /api/wallet/withdraw[2m > [22m[2mshould call checkCsrfProtection
 [22m[39mDebit failed: [1mnull[22m []
 
- [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 31[2mms[22m[39m
- [32m✓[39m src/app/api/wallet/csrf.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/app/api/products/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 130[2mms[22m[39m
+ [32m✓[39m src/app/api/wallet/csrf.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 145[2mms[22m[39m
+ [32m✓[39m src/app/api/products/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 598[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 591[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 800[2mms[22m[39m
+     [33m[2m✓[22m[39m should render the button with its children [33m 446[2mms[22m[39m
 [90mstderr[2m | src/components/ui/file-uploader.test.tsx[2m > [22m[2mFileUploader[2m > [22m[2mrenders initial files correctly
 [22m[39mReceived `true` for a non-boolean attribute `fill`.
 
@@ -45,80 +48,14 @@ act(() => {
 
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 
- [32m✓[39m src/components/ui/file-uploader.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 243[2mms[22m[39m
- [32m✓[39m src/app/api/products/bulk-update/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 38[2mms[22m[39m
- [32m✓[39m src/lib/sanitize-core.test.tsx [2m([22m[2m47 tests[22m[2m)[22m[32m 52[2mms[22m[39m
- [31m❯[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 4030[2mms[22m[39m
-[31m     [31m×[31m removes ghost products and updates prices[39m[33m 2020[2mms[22m[39m
-[31m     [31m×[31m handles empty or missing validation data safely[39m[33m 2006[2mms[22m[39m
+ [32m✓[39m src/components/ui/file-uploader.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1242[2mms[22m[39m
+     [33m[2m✓[22m[39m renders initial files correctly [33m 709[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/lib/sanitize-core.test.tsx [2m([22m[2m47 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
 
-[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[32m106 passed[39m[22m[90m (106)[39m
+[2m   Start at [22m 17:18:46
+[2m   Duration [22m 6.18s[2m (transform 7.40s, setup 2.90s, import 13.25s, tests 2.93s, environment 19.20s)[22m
 
-[41m[1m FAIL [22m[49m src/hooks/use-cart.test.tsx[2m > [22museCart - Validation[2m > [22mremoves ghost products and updates prices
-[31m[1mAssertionError[22m: expected undefined to be 150 // Object.is equality
-
-Ignored nodes: comments, script, style
-[36m<html>[31m
-  [36m<head />[31m
-  [36m<body>[31m
-    [36m<div />[31m
-  [36m</body>[31m
-[36m</html>[31m[39m
-
-[32m- Expected:[39m 
-150
-
-[31m+ Received:[39m 
-undefined
-
-[36m [2m❯[22m __vi_import_1__.waitFor.timeout src/hooks/use-cart.test.tsx:[2m108:32[22m[39m
-    [90m106| [39m          (i) [33m=>[39m i[33m.[39mid [33m===[39m [32m'price-change-product'[39m
-    [90m107| [39m        )[33m;[39m
-    [90m108| [39m        [34mexpect[39m(updated[33m?.[39mprice)[33m.[39m[34mtoBe[39m([34m150[39m)[33m;[39m
-    [90m   | [39m                               [31m^[39m
-    [90m109| [39m
-    [90m110| [39m        [90m// Valid product should remain[39m
-[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
-[90m [2m❯[22m checkCallback ../../node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
-[90m [2m❯[22m Timeout.checkRealTimersCallback ../../node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m src/hooks/use-cart.test.tsx[2m > [22museCart - Validation[2m > [22mhandles empty or missing validation data safely
-[31m[1mAssertionError[22m: expected [] to have a length of 1 but got +0
-
-Ignored nodes: comments, script, style
-[36m<html>[31m
-  [36m<head />[31m
-  [36m<body>[31m
-    [36m<div />[31m
-  [36m</body>[31m
-[36m</html>[31m[39m
-
-[32m- Expected[39m
-[31m+ Received[39m
-
-[32m- 1[39m
-[31m+ 0[39m
-
-[36m [2m❯[22m __vi_import_1__.waitFor.timeout src/hooks/use-cart.test.tsx:[2m143:37[22m[39m
-    [90m141| [39m    [35mawait[39m [34mwaitFor[39m(
-    [90m142| [39m      () [33m=>[39m {
-    [90m143| [39m        [34mexpect[39m(result[33m.[39mcurrent[33m.[39mcart)[33m.[39m[34mtoHaveLength[39m([34m1[39m)[33m;[39m
-    [90m   | [39m                                    [31m^[39m
-    [90m144| [39m      }[33m,[39m
-    [90m145| [39m      { timeout[33m:[39m [34m2000[39m }
-[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
-[90m [2m❯[22m checkCallback ../../node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
-[90m [2m❯[22m Timeout.checkRealTimersCallback ../../node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
-
-
-[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m11 passed[39m[22m[90m (12)[39m
-[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m104 passed[39m[22m[90m (106)[39m
-[2m   Start at [22m 17:15:23
-[2m   Duration [22m 6.52s[2m (transform 2.73s, setup 1.65s, import 5.40s, tests 4.57s, environment 12.66s)[22m
-
- ELIFECYCLE  Test failed. See above for more details.

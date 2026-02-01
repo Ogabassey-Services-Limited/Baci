@@ -78,13 +78,39 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   const handleExternalLink = async (url: string) => {
-    // Check if it's a social link to try deep linking first
-    const social = SOCIAL_LINKS.find(
-      (s) =>
-        url.includes(s.url) ||
-        (s.name === 'X' && url.includes('x.com')) ||
-        (s.name === 'YouTube' && url.includes('youtube.com'))
-    );
+    let social: (typeof SOCIAL_LINKS)[number] | undefined;
+    try {
+      const parsedUrl = new URL(url);
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      social = SOCIAL_LINKS.find((s) => {
+        try {
+          const socialHost = new URL(s.url).hostname.toLowerCase();
+          if (hostname === socialHost || hostname.endsWith(`.${socialHost}`)) {
+            return true;
+          }
+
+          if (s.name === 'X' && (hostname === 'x.com' || hostname.endsWith('.x.com'))) {
+            return true;
+          }
+
+          if (
+            s.name === 'YouTube' &&
+            (hostname === 'youtube.com' ||
+              hostname.endsWith('.youtube.com') ||
+              hostname === 'youtu.be')
+          ) {
+            return true;
+          }
+
+          return false;
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      social = undefined;
+    }
 
     if (social && social.scheme) {
       let appUrl = '';

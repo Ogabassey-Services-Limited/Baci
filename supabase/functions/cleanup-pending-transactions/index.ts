@@ -12,7 +12,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
  * 4. Log inconsistencies for manual review if necessary
  */
 
-Deno.serve(async (req) => {
+Deno.serve(async (_req) => {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       results.push({
         id: tx.id,
         gateway_reference: tx.gateway_reference,
-        error: err.message,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }

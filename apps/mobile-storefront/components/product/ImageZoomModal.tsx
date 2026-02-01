@@ -63,7 +63,6 @@ export function ImageZoomModal({
 
   // Reset transform values
   const resetTransform = useCallback(() => {
-    'worklet';
     scale.value = withSpring(1, SPRING_CONFIG.snappy);
     translateX.value = withSpring(0, SPRING_CONFIG.snappy);
     translateY.value = withSpring(0, SPRING_CONFIG.snappy);

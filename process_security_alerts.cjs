@@ -1,5 +1,18 @@
 const fs = require('fs');
 
+function escapeMarkdownCell(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    // Normalize whitespace
+    let result = text.replace(/\n/g, ' ');
+    // Escape backslashes first, then other Markdown table meta-characters
+    result = result.replace(/\\/g, '\\\\');
+    result = result.replace(/\|/g, '\\|');
+    result = result.replace(/`/g, '\\`');
+    return result;
+}
+
 const inputFile = 'security_alerts_raw.json';
 const outputFile = 'security_alerts_todo.md';
 
@@ -78,7 +91,7 @@ try {
             const loc = alert.most_recent_instance.location;
             const path = loc.path;
             const line = loc.start_line;
-            const msg = alert.most_recent_instance.message.text.replace(/\n/g, ' ').replace(/\|/g, '\\|');
+            const msg = escapeMarkdownCell(alert.most_recent_instance.message.text);
             const url = alert.html_url;
 
             md += `| \`${path}\` | ${line} | ${msg} | [View](${url}) |\n`;

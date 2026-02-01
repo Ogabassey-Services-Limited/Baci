@@ -17,8 +17,6 @@ import Constants from 'expo-constants';
 import { z } from 'zod';
 import {
   fetchWithRetry,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  withSupabaseRetry,
   DEFAULT_TIMEOUT,
   TimeoutError,
   NetworkError,

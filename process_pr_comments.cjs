@@ -58,10 +58,13 @@ try {
         const comment = thread.comments.nodes[0];
         if (!comment) return;
 
-        const body = comment.body.replace(/\n/g, ' ').substring(0, 80) + (comment.body.length > 80 ? '...' : '');
+        const fullBody = comment.body
+            .replace(/\n/g, ' ')   // Normalize line breaks
+            .replace(/\\/g, '\\\\') // Escape backslashes first
+            .replace(/\|/g, '\\|'); // Escape table pipes
+        const body = fullBody.substring(0, 80) + (fullBody.length > 80 ? '...' : '');
         const path = thread.path || 'General';
-        const safeBody = body.replace(/\|/g, '\\|');
-        md += `| \`${path}\` | ${comment.author?.login} | ${safeBody} | [View](${comment.url}) |\n`;
+        md += `| \`${path}\` | ${comment.author?.login} | ${body} | [View](${comment.url}) |\n`;
     });
 
     md += '\n</details>\n';

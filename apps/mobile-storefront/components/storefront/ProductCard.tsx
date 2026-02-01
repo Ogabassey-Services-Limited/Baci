@@ -29,6 +29,14 @@ import {
   type Product,
 } from '@/types/product';
 
+/**
+ * Safely sanitize product descriptions for display as plain text.
+ * Escapes angle brackets so HTML-like content cannot be interpreted as markup.
+ */
+function sanitizeDescriptionPlainText(input: string): string {
+  return input.replace(/[<>]/g, (ch) => (ch === '<' ? '&lt;' : '&gt;'));
+}
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
@@ -301,7 +309,7 @@ export const ProductCard = memo(
 
             {product.description && (
               <Text style={styles.listDescription} numberOfLines={2}>
-                {product.description.replace(/<[^>]*>/g, '').substring(0, 100)}
+                {sanitizeDescriptionPlainText(product.description || '').substring(0, 100)}
               </Text>
             )}
 

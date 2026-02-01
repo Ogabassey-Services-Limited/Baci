@@ -538,12 +538,6 @@ export default function ProductDetailScreen() {
     }
   };
 
-  // Buy Now handler - adds to cart and navigates directly to checkout
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Reserved for future Buy Now button
-  const handleBuyNow = () => {
-    handleAddToCart();
-    router.push('/checkout');
-  };
 
   const handleShare = async () => {
     try {
@@ -609,11 +603,9 @@ export default function ProductDetailScreen() {
               hitSlop={12}
             >
               <Ionicons
-                name={
-                  product && isSaved(product.id) ? 'heart' : 'heart-outline'
-                }
+                name={isSaved(product.id) ? 'heart' : 'heart-outline'}
                 size={22}
-                color={product && isSaved(product.id) ? '#EF4444' : '#FFF'}
+                color={isSaved(product.id) ? '#EF4444' : '#FFF'}
               />
             </Pressable>
           </Animated.View>

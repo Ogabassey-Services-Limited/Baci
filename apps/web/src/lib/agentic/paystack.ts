@@ -9,7 +9,12 @@ if (!PAYSTACK_SECRET_KEY && process.env.NODE_ENV === 'production') {
  * when used in URL paths. Returns the encoded email if valid.
  */
 function validateAndEncodeEmail(email: string): string {
-  // Basic email format validation (RFC 5322 simplified)
+  // Limit email length to prevent potential ReDoS attacks on the regex engine
+  if (!email || email.length > 320) {
+    throw new Error('Invalid email length');
+  }
+
+  // Use a simple, non-polynomial regex for basic format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error('Invalid email format');

@@ -23,7 +23,6 @@ import { SourceRequestModal } from './source-request-modal';
 // Mock useNotification for now
 const useNotification = () => ({
   notifications: [],
-  unreadCount: 0,
   _markAsRead: () => { },
   _markAllAsRead: () => { },
 });
@@ -34,7 +33,7 @@ export const Navbar: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
   const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
-  const { notifications, unreadCount, _markAsRead, _markAllAsRead } =
+  const { notifications, _markAsRead, _markAllAsRead } =
     useNotification();
   const [query, setQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);

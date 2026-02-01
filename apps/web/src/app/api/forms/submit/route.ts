@@ -61,11 +61,19 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Sanitize form data before storing (prevent XSS and clean user input)
-    const sanitizedFormData: Record<string, string> = {};
+    // Using Object.create(null) prevents prototype pollution
+    const sanitizedFormData: Record<string, string> = Object.create(null);
     for (const [key, value] of Object.entries(formData)) {
       const sanitizedKey = sanitizeText(String(key), 100);
       const sanitizedValue = sanitizeText(String(value ?? ''), 10000);
-      if (sanitizedKey) {
+
+      // Block keys that could be used for prototype pollution
+      if (
+        sanitizedKey &&
+        sanitizedKey !== '__proto__' &&
+        sanitizedKey !== 'constructor' &&
+        sanitizedKey !== 'prototype'
+      ) {
         sanitizedFormData[sanitizedKey] = sanitizedValue;
       }
     }
