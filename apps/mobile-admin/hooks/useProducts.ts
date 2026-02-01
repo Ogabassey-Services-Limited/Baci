@@ -10,7 +10,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { sanitizeSearchQuery } from '@/lib/sanitize';
+import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = 'active' | 'draft' | 'archived';
@@ -365,15 +365,17 @@ export function useCreateCategory() {
   return useMutation({
     mutationKey: ['createCategory'],
     mutationFn: async (name: string) => {
-      if (!name.trim()) throw new Error('Category name is required');
-      const slug = name
+      // Sanitize category name to prevent XSS
+      const sanitizedName = sanitizeText(name, 200);
+      if (!sanitizedName.trim()) throw new Error('Category name is required');
+      const slug = sanitizedName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
       const { data, error } = await supabase
         .from('categories')
-        .insert([{ name, slug, merchant_id: merchant?.id }])
+        .insert([{ name: sanitizedName, slug, merchant_id: merchant?.id }])
         .select()
         .single();
 

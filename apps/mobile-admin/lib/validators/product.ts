@@ -1,13 +1,22 @@
 import { z } from 'zod';
+import { sanitizeText, stripHtmlTags } from '@/lib/sanitize';
 
 export const ProductSchema = z.object({
-  name: z.string().min(1, 'Product name is required'),
+  // Sanitize name to prevent XSS - strip all HTML
+  name: z
+    .string()
+    .min(1, 'Product name is required')
+    .transform((val) => sanitizeText(val, 200)),
   sku: z.string().min(1, 'SKU is required'),
   price: z.number().min(0),
   cost_price: z.number().min(0).optional().default(0),
   stock_quantity: z.number().int().min(0),
   low_stock_threshold: z.number().int().min(0).optional(),
-  description: z.string().optional(),
+  // Sanitize description to prevent XSS - strip HTML tags
+  description: z
+    .string()
+    .optional()
+    .transform((val) => (val ? stripHtmlTags(val) : val)),
   // We only care about category_id for the database
   category_id: z
     .string()
