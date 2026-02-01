@@ -219,7 +219,7 @@ export default function OrdersScreen() {
             ]}
           >
             <Ionicons
-              name={statusConfig.icon as any}
+              name={statusConfig.icon as React.ComponentProps<typeof Ionicons>['name']}
               size={14}
               color={statusConfig.color}
             />

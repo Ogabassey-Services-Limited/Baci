@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import RenderHTML, { MixedStyleDeclaration } from 'react-native-render-html';
-import { TYPOGRAPHY } from '@/constants/Colors';
+
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -33,26 +33,26 @@ export const HTMLRenderer = ({ html, baseColor }: HTMLRendererProps) => {
       },
       h1: {
         fontSize: 24,
-        fontWeight: '800' as any,
+        fontWeight: '800',
         marginBottom: 16,
         color: colors.text,
       },
       h2: {
         fontSize: 20,
-        fontWeight: '700' as any,
+        fontWeight: '700' as MixedStyleDeclaration['fontWeight'],
         marginTop: 24,
         marginBottom: 12,
         color: colors.text,
       },
       h3: {
         fontSize: 18,
-        fontWeight: '600' as any,
+        fontWeight: '600',
         marginTop: 20,
         marginBottom: 10,
         color: colors.text,
       },
       strong: {
-        fontWeight: '700' as any,
+        fontWeight: '700' as MixedStyleDeclaration['fontWeight'],
         color: colors.text,
       },
       ul: {
@@ -67,7 +67,7 @@ export const HTMLRenderer = ({ html, baseColor }: HTMLRendererProps) => {
         marginBottom: 8,
       },
       em: {
-        fontStyle: 'italic' as any,
+        fontStyle: 'italic',
       },
       a: {
         color: colors.primary,

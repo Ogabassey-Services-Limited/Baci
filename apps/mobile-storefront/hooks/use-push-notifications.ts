@@ -53,7 +53,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           router.push(`/product/${params?.slug}`);
           break;
         case 'category':
-          router.push(`/category/${params?.slug}` as any);
+          router.push(`/category/${params?.slug}` as import('expo-router').Href);
           break;
         default:
           router.push('/');

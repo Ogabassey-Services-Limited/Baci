@@ -6,10 +6,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type React from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorFallback } from '@/components/ErrorBoundary';
-import { BRAND, RADIUS } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 

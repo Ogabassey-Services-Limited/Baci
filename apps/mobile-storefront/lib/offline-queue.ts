@@ -45,7 +45,7 @@ export interface OfflineQueueState {
   lastSyncAt: number | null;
 }
 
-type MutationHandler = (payload: any) => Promise<any>;
+type MutationHandler = (payload: unknown) => Promise<unknown>;
 
 /**
  * Offline Mutation Queue Manager

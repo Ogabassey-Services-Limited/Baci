@@ -26,20 +26,30 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('AdTracking');
 
 // Firebase Analytics removed due to native conflict. Using PostHog and Server-side CAPI instead.
-const analytics = () => ({
-  setUserId: async (_: string) => {},
-  resetAnalyticsData: async () => {},
-  logViewItem: async (_: any) => {},
-  logAddToCart: async (_: any) => {},
-  logBeginCheckout: async (_: any) => {},
-  logPurchase: async (_: any) => {},
-  logAddPaymentInfo: async (_: any) => {},
-  logSearch: async (_: any) => {},
-  logAppOpen: async () => {},
-  logScreenView: async (_: any) => {},
-  logSignUp: async (_: any) => {},
-  logLogin: async (_: any) => {},
-  logEvent: async (_: string, __?: any) => {},
+const _analytics = () => ({
+  setUserId: async (_: string) => { },
+  resetAnalyticsData: async () => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logViewItem: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logAddToCart: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logBeginCheckout: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logPurchase: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logAddPaymentInfo: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logSearch: async (_: any) => { },
+  logAppOpen: async () => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logScreenView: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logSignUp: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logLogin: async (_: any) => { },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  logEvent: async (_: string, __?: any) => { },
 });
 
 import Constants from 'expo-constants';
@@ -704,7 +714,7 @@ export async function trackPurchase(order: {
  * Track payment info added
  */
 export async function trackPaymentInfoAdded(
-  paymentMethod: string
+  _paymentMethod: string
 ): Promise<void> {
   const eventId = generateEventIdSync();
 
@@ -772,8 +782,8 @@ export async function trackAppOpen(): Promise<void> {
  * Track screen view
  */
 export async function trackScreenView(
-  screenName: string,
-  screenClass?: string
+  _screenName: string,
+  _screenClass?: string
 ): Promise<void> {
   /*
   await analytics().logScreenView({
@@ -827,7 +837,7 @@ export async function trackSignup(
 /**
  * Track login
  */
-export async function trackLogin(method: string): Promise<void> {
+export async function trackLogin(_method: string): Promise<void> {
   // await analytics().logLogin({ method });
 }
 

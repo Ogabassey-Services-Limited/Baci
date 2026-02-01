@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -106,7 +106,7 @@ export default function AddressFormScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<AddressForm>>({});
 
-  const fetchAddress = async () => {
+  const fetchAddress = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('customer_addresses')
@@ -135,13 +135,13 @@ export default function AddressFormScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (!isNewAddress && id) {
       fetchAddress();
     }
-  }, [id, isNewAddress]);
+  }, [id, isNewAddress, fetchAddress]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<AddressForm> = {};

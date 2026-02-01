@@ -26,7 +26,6 @@ import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
   formatPrice,
-  getDiscountPercentage,
   type Product,
 } from '@/types/product';
 
@@ -59,7 +58,7 @@ interface ProductCardProps {
 }
 
 // Scarcity threshold - show badge when stock below this number
-const LOW_STOCK_THRESHOLD = 5;
+
 
 /**
  * 2026 Best Practice: Memoize ProductCard to prevent unnecessary re-renders
@@ -104,7 +103,7 @@ export const ProductCard = memo(
     }, [cartItems, product.id]);
 
     // Real-time stock tracking
-    const [stockQuantity, setStockQuantity] = useState<number | undefined>(
+    const [, setStockQuantity] = useState<number | undefined>(
       product.stock_quantity
     );
     const channelRef = useRef<RealtimeChannel | null>(null);
@@ -145,13 +144,10 @@ export const ProductCard = memo(
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-subscribe when product.id changes, not stock_quantity
-    }, [product.id]);
+    }, [product.id, supabase]);
 
     // Determine if we should show scarcity badge
-    const showScarcityBadge =
-      stockQuantity !== undefined &&
-      stockQuantity > 0 &&
-      stockQuantity < LOW_STOCK_THRESHOLD;
+
 
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [{ scale: scale.value }],
@@ -205,10 +201,7 @@ export const ProductCard = memo(
     };
 
     // Calculate discount percentage for potential use in badges/promotions
-    const discountPercentage = getDiscountPercentage(
-      product.price,
-      product.compare_at_price
-    );
+
 
     // 2026 Best Practice: Track image load failures for fallback rendering
     const [imageError, setImageError] = useState(false);
@@ -234,8 +227,8 @@ export const ProductCard = memo(
     // Fallback to blurhash placeholder if image fails to load
     const imageSource = imageError
       ? {
-          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
-        }
+        uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
+      }
       : { uri: product.image };
 
     // --- RENDER: Editorial Variant (Fashion) ---

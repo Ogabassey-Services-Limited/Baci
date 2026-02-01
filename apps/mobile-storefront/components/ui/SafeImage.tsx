@@ -11,10 +11,10 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image, type ImageProps, type ImageSource } from 'expo-image';
+import { Image, type ImageProps } from 'expo-image';
 import { useState, useCallback } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { BRAND } from '@/constants/Colors';
+
 
 // Default blurhash for smooth loading placeholder
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';

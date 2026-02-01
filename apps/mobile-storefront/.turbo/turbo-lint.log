@@ -46,11 +46,12 @@ npm warn Unknown env config "node-linker". This will stop working in the next ma
 
 /Users/mac/Baci-app/apps/mobile-storefront/app/bnpl-checkout/index.tsx
   25:6  error  'BNPLGateway' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
-  72:5  error  'customerEmail' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
-  73:5  error  'customerName' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  74:5  error  'customerEmail' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  75:5  error  'customerName' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
 
 /Users/mac/Baci-app/apps/mobile-storefront/app/checkout.tsx
-  168:6  warning  React Hook useEffect has a missing dependency: 'handleBack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   97:52  error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  169:6   warning  React Hook useEffect has a missing dependency: 'handleBack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 /Users/mac/Baci-app/apps/mobile-storefront/app/orders/[id].tsx
   312:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -70,8 +71,9 @@ npm warn Unknown env config "node-linker". This will stop working in the next ma
 
 /Users/mac/Baci-app/apps/mobile-storefront/app/profile/edit.tsx
    18:3   error  'Alert' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
-   90:14  error  'error' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
-  137:49  error  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   66:44  error  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
+   91:14  error  'error' is defined but never used. Allowed unused caught errors must match /^_/u  @typescript-eslint/no-unused-vars
+  138:49  error  Unexpected any. Specify a different type                                          @typescript-eslint/no-explicit-any
 
 /Users/mac/Baci-app/apps/mobile-storefront/app/search.tsx
   22:10  error  'OfflineNotice' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
@@ -158,7 +160,7 @@ npm warn Unknown env config "node-linker". This will stop working in the next ma
 
 /Users/mac/Baci-app/apps/mobile-storefront/components/storefront/ProductCard.tsx
   151:11  error  'showScarcityBadge' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
-  207:11  error  'discountPercentage' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  208:11  error  'discountPercentage' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
 
 /Users/mac/Baci-app/apps/mobile-storefront/components/storefront/UtilityPanel.tsx
     2:10  error    'useRouter' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
@@ -197,6 +199,6 @@ npm warn Unknown env config "node-linker". This will stop working in the next ma
   14:47  error  'View' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
   22:10  error  'BRAND' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
 
-✖ 111 problems (92 errors, 19 warnings)
+✖ 113 problems (94 errors, 19 warnings)
 
  ELIFECYCLE  Command failed with exit code 1.

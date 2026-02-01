@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo } from 'react';
+import React, { memo, useCallback, useEffect, useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -31,17 +31,20 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   // 2026 Best Practice: Use index-based seeded values instead of Math.random()
   // This ensures stable values across re-renders and prevents animation recreation
   const seed = (index * 9301 + 49297) % 233280;
-  const seededRandom = (offset: number) => ((seed + offset) % 233280) / 233280;
+  const seededRandom = useCallback(
+    (offset: number) => ((seed + offset) % 233280) / 233280,
+    [seed]
+  );
 
   // Memoize all random-based values with stable seeds
-  const xPosition = useMemo(() => seededRandom(0) * SCREEN_WIDTH, []);
-  const startY = useMemo(() => -seededRandom(1) * 200, []);
+  const xPosition = useMemo(() => seededRandom(0) * SCREEN_WIDTH, [seededRandom]);
+  const startY = useMemo(() => -seededRandom(1) * 200, [seededRandom]);
   const duration = useMemo(
     () => (6000 + seededRandom(2) * 4000) / speedMultiplier,
-    [speedMultiplier]
+    [speedMultiplier, seededRandom]
   );
-  const delay = useMemo(() => seededRandom(3) * 8000, []);
-  const size = useMemo(() => (3 + seededRandom(4) * 4) * scale, [scale]);
+  const delay = useMemo(() => seededRandom(3) * 8000, [seededRandom]);
+  const size = useMemo(() => (3 + seededRandom(4) * 4) * scale, [scale, seededRandom]);
 
   // 2026 Best Practice: Initialize shared values with stable starting values
   const translateY = useSharedValue(startY);

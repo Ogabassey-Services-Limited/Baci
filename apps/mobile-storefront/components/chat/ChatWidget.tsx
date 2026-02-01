@@ -27,7 +27,6 @@ import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -152,8 +151,8 @@ export function ChatWidget({
         }
         // Set offset to current animated value
         pan.setOffset({
-          x: (pan.x as any)._value,
-          y: (pan.y as any)._value,
+          x: (pan.x as unknown as { _value: number })._value,
+          y: (pan.y as unknown as { _value: number })._value,
         });
         pan.setValue({ x: 0, y: 0 });
       },
@@ -169,13 +168,13 @@ export function ChatWidget({
           useNativeDriver: false,
         })(_, gestureState);
       },
-      onPanResponderRelease: (_, gestureState) => {
+      onPanResponderRelease: (_, _gestureState) => {
         pan.flattenOffset();
         setIsDragging(false);
 
         // Get current position
-        const currentX = (pan.x as any)._value;
-        const currentY = (pan.y as any)._value;
+        const currentX = (pan.x as unknown as { _value: number })._value;
+        const currentY = (pan.y as unknown as { _value: number })._value;
 
         // Snap to nearest edge (left or right)
         const snapToRight = currentX + FAB_SIZE / 2 > SNAP_THRESHOLD;
@@ -209,7 +208,7 @@ export function ChatWidget({
       if (!isChatOpen) {
         const randomMsg =
           PROACTIVE_MESSAGES[
-            Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
+          Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
           ];
         setProactiveMsg(randomMsg);
 
@@ -449,12 +448,12 @@ export function ChatWidget({
               isUser
                 ? [styles.userBubble, { backgroundColor: BRAND.primary }]
                 : [
-                    styles.aiBubble,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ],
+                  styles.aiBubble,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
+                ],
             ]}
           >
             <Text

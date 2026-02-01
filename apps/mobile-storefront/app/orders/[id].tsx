@@ -309,7 +309,7 @@ export default function OrderDetailsScreen() {
                       ]}
                     >
                       <Ionicons
-                        name={step.icon as any}
+                        name={step.icon as React.ComponentProps<typeof Ionicons>['name']}
                         size={16}
                         color={isCompleted ? '#FFF' : colors.textSecondary}
                       />

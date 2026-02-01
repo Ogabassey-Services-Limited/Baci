@@ -16,6 +16,13 @@ import { Hero } from './Hero';
 import { ProductCard } from './ProductCard';
 import { UtilityPanel } from './UtilityPanel';
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string;
+}
+
 interface BlockRendererProps {
   blocks: Block[];
   selectedCategoryId: string | null;
@@ -40,13 +47,13 @@ const ProductGrid = ({
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const { data: categoriesData = [] } = useCategories() as any;
+  const { data: categoriesData = [] } = useCategories();
 
   // Map category name to ID for API query
   const selectedCategoryIdFromFilter = useMemo(() => {
     if (selectedCategoryName === 'All') return undefined;
-    const cat = categoriesData.find(
-      (c: any) => c.name === selectedCategoryName
+    const cat = (categoriesData as Category[]).find(
+      (c) => c.name === selectedCategoryName
     );
     return cat?.id;
   }, [selectedCategoryName, categoriesData]);
@@ -76,7 +83,7 @@ const ProductGrid = ({
   // Derive categories and brands from data
   const categoryNames = useMemo(() => {
     if (categoriesData.length > 0) {
-      const allCats = categoriesData.map((c: any) => c.name);
+      const allCats = (categoriesData as Category[]).map((c) => c.name);
 
       const sorted = allCats.sort((a: string, b: string) => {
         const aName = a.toLowerCase().trim();
@@ -213,7 +220,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const selectedCategoryName = useMemo(() => {
     if (!selectedCategoryId) return 'Airtime';
     // Check remote categories
-    const cat = categories.find((c: any) => c.id === selectedCategoryId);
+    const cat = (categories as Category[]).find((c) => c.id === selectedCategoryId);
     if (cat) return cat.name;
     // Check hardcoded utility IDs
     if (selectedCategoryId === 'u-airtime') return 'Airtime';
@@ -244,7 +251,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 selectedCategoryId={selectedCategoryId}
                 onCategorySelect={onCategorySelect}
                 selectedCategoryName={selectedCategoryName}
-                slug={(block as any).props.slug}
+                slug={(block as Block & { props: { slug?: string } }).props.slug}
               />
             );
           case 'ProductGrid':

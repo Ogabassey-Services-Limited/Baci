@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { syncStorage as storage } from '@/lib/storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { OfflineNotice } from '@/components/OfflineNotice';
+// OfflineNotice removed as it was unused.
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';

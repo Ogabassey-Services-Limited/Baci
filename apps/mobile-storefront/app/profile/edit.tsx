@@ -15,7 +15,6 @@ import React, { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -62,7 +61,7 @@ export default function ProfileEditScreen() {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
-    // Cast to any for Zod 4 compatibility with @hookform/resolvers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cast to any for Zod 4 compatibility with @hookform/resolvers
     resolver: zodResolver(ProfileSchema as any),
     defaultValues: {
       first_name: customer?.first_name || '',
@@ -88,7 +87,7 @@ export default function ProfileEditScreen() {
       } else {
         toast.error(result.error || 'Failed to update profile');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -135,7 +134,7 @@ export default function ProfileEditScreen() {
             accessibilityLabel={label}
             accessibilityHint={`Enter your ${label.toLowerCase()}`}
             // 2026 Best Practice: textContentType for iOS autofill
-            textContentType={textContentType as any}
+            textContentType={textContentType as React.ComponentProps<typeof TextInput>['textContentType']}
           />
         )}
       />

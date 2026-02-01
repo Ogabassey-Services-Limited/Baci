@@ -75,7 +75,7 @@ export interface BusinessTypeConfig {
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
   // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
-  template: React.ComponentType<any>;
+  template: React.ComponentType<unknown>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */

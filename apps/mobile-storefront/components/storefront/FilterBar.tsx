@@ -8,8 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { BRAND, RADIUS } from '@/constants/Colors';
 
 interface FilterBarProps {
   categories: string[];
@@ -59,8 +58,7 @@ export function FilterBar({
   viewMode,
   onViewModeChange,
 }: FilterBarProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+
 
   const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -331,7 +329,7 @@ export function FilterBar({
                     ]}
                   >
                     <Feather
-                      name={item.icon as any}
+                      name={item.icon as keyof typeof Feather.glyphMap}
                       size={16}
                       color={
                         activeFilterType === item.id ? BRAND.primary : '#6B7280'
@@ -341,7 +339,7 @@ export function FilterBar({
                       style={[
                         styles.popoverText,
                         activeFilterType === item.id &&
-                          styles.popoverTextActive,
+                        styles.popoverTextActive,
                       ]}
                     >
                       {item.label}

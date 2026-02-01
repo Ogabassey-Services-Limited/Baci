@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useComparisonStore } from '@/stores/comparison-store';

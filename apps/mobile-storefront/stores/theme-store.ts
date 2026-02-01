@@ -25,7 +25,7 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: 'app-theme-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: (state) => {
+      onRehydrateStorage: (_state) => {
         return (rehydratedState, error) => {
           if (error || !rehydratedState) return;
 

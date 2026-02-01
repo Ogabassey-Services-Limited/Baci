@@ -23,7 +23,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';

@@ -12,7 +12,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router, Stack } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -94,6 +94,7 @@ export default function CheckoutScreen() {
     getValues,
   } = useForm<ShippingAddressInput>({
     // Cast to any for Zod 4 compatibility with @hookform/resolvers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ShippingAddressSchema as any),
     defaultValues: {
       firstName: customer?.first_name || '',
@@ -128,6 +129,16 @@ export default function CheckoutScreen() {
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
+
+  const handleBack = useCallback(() => {
+    if (step === 'payment') {
+      setStep('address');
+    } else if (step === 'review') {
+      setStep('payment');
+    } else {
+      router.back();
+    }
+  }, [step]);
 
   // 2026 Best Practice: Handle Android back button in checkout
   // Prevents accidental exits during order processing
@@ -166,7 +177,7 @@ export default function CheckoutScreen() {
     );
 
     return () => backHandler.remove();
-  }, [step]);
+  }, [step, handleBack]);
 
   // Calculate totals via Brain
   const deliveryFee = watchedState === 'Lagos' ? 2500 : 5000;
@@ -213,15 +224,7 @@ export default function CheckoutScreen() {
     }
   };
 
-  const handleBack = () => {
-    if (step === 'payment') {
-      setStep('address');
-    } else if (step === 'review') {
-      setStep('payment');
-    } else {
-      router.back();
-    }
-  };
+
 
   const handlePlaceOrder = async () => {
     // 2026 Critical Fix: Prevent duplicate order submission

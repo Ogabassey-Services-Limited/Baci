@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -19,7 +19,7 @@ import Animated, {
   SlideOutDown,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BRAND, RADIUS, SHADOWS } from '@/constants/Colors';
+import { RADIUS, SHADOWS } from '@/constants/Colors';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 

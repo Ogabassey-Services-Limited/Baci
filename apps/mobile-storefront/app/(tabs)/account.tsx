@@ -25,13 +25,16 @@ import Colors, { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
-interface MenuItem {
+interface AccountMenuItem {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   label: string;
-  route?: string;
-  action?: () => void;
+  subLabel: string;
+  color: string;
   badge?: number;
+  action?: () => void;
+  route?: string;
+  visible?: boolean;
 }
 
 export default function AccountScreen() {
@@ -242,7 +245,7 @@ export default function AccountScreen() {
     }
   };
 
-  const renderMenuItem = (item: any, isLast: boolean) => (
+  const renderMenuItem = (item: AccountMenuItem, isLast: boolean) => (
     <Pressable key={item.id} onPress={() => handleMenuPress(item)}>
       {({ pressed }) => (
         <View
@@ -262,7 +265,15 @@ export default function AccountScreen() {
                 { backgroundColor: item.color + '15' },
               ]}
             >
-              <Ionicons name={item.icon} size={22} color={item.color} />
+              <Ionicons
+                name={
+                  item.icon as unknown as React.ComponentProps<
+                    typeof Ionicons
+                  >['name']
+                }
+                size={22}
+                color={item.color}
+              />
             </View>
             <View style={styles.menuTextContainer}>
               <Text

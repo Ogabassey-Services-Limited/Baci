@@ -225,8 +225,8 @@ export async function calculateCommerce(
       EDGE_FUNCTION_TIMEOUT
     );
 
-    let result: any;
-    let error: any;
+    let result: unknown;
+    let error: unknown;
 
     try {
       const response = await supabase.functions.invoke('calculate-commerce', {
@@ -243,7 +243,8 @@ export async function calculateCommerce(
 
       // Track commerce brain failure
       const { trackError } = await import('@/services/analytics');
-      trackError('commerce_brain_error', error.message, {
+      const errorMessage = (error as { message?: string })?.message || 'Unknown error';
+      trackError('commerce_brain_error', errorMessage, {
         action,
         duration_ms: Date.now() - startTime,
       });
@@ -259,7 +260,8 @@ export async function calculateCommerce(
       duration_ms: Date.now() - startTime,
     });
 
-    return result;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return result as any;
   } catch (error) {
     // Track commerce brain failure for network errors
     const { trackError } = await import('@/services/analytics');

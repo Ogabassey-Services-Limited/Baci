@@ -102,7 +102,14 @@ export default function CategoriesScreen() {
     );
   }
 
-  const renderCategory = ({ item }: { item: any }) => (
+  interface Category {
+    id: string;
+    slug: string;
+    name: string;
+    image_url?: string;
+  }
+
+  const renderCategory = ({ item }: { item: Category }) => (
     <Pressable
       style={({ pressed }) => [
         styles.categoryCard,

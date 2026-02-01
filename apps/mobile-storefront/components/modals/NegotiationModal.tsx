@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import Colors, { BRAND, SHADOWS, palette } from '@/constants/Colors';
+import { BRAND, SHADOWS, palette } from '@/constants/Colors';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 import { supabase } from '@/lib/supabase';
@@ -73,7 +73,7 @@ export const NegotiationModal: React.FC = () => {
     style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light
   ) => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(style).catch(() => {});
+      Haptics.impactAsync(style).catch(() => { });
     }
   };
 
@@ -176,10 +176,10 @@ export const NegotiationModal: React.FC = () => {
         item_info:
           type === 'single'
             ? {
-                id: itemId,
-                name: productName,
-                current_price: currentPrice,
-              }
+              id: itemId,
+              name: productName,
+              current_price: currentPrice,
+            }
             : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
@@ -285,7 +285,6 @@ export const NegotiationModal: React.FC = () => {
                     placeholder="Enter amount..."
                     placeholderTextColor={palette.gray[400]}
                     keyboardType="numeric"
-                    autoFocus
                   />
                 </View>
                 <Pressable style={styles.submitButton} onPress={handleSubmit}>

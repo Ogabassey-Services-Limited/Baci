@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
 
-interface UseKeyboardOptions {
+interface _UseKeyboardOptions {
   /** Dismiss keyboard on submit */
   dismissOnSubmit?: boolean;
 }
@@ -24,7 +24,7 @@ interface UseKeyboardResult {
   /** Dismiss the keyboard programmatically */
   dismissKeyboard: () => void;
   /** Wrap a submit handler to dismiss keyboard before execution */
-  withKeyboardDismiss: <T extends (...args: any[]) => any>(handler: T) => T;
+  withKeyboardDismiss: <T extends (...args: unknown[]) => unknown>(handler: T) => T;
 }
 
 /**
@@ -39,9 +39,7 @@ interface UseKeyboardResult {
  * });
  * ```
  */
-export function useKeyboard(
-  options: UseKeyboardOptions = {}
-): UseKeyboardResult {
+export function useKeyboard(): UseKeyboardResult {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -77,7 +75,7 @@ export function useKeyboard(
    * This is a 2026 best practice for form submission UX
    */
   const withKeyboardDismiss = useCallback(
-    <T extends (...args: any[]) => any>(handler: T): T => {
+    <T extends (...args: unknown[]) => unknown>(handler: T): T => {
       return ((...args: Parameters<T>) => {
         Keyboard.dismiss();
         return handler(...args);

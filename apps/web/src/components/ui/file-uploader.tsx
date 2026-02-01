@@ -166,12 +166,12 @@ export function FileUploader({
         file,
       }));
 
+      // 2026 Best Practice: Separate state calculation from side effects
       setEntries((prev) => {
-        // Calculate based on current state to ensure pure state updates
         const remainingSlots = Math.max(0, maxFiles - prev.length);
         const entriesToAdd = potentialEntries.slice(0, remainingSlots);
 
-        // Revoke unused blob URLs to prevent memory leaks
+        // Revoke unused blob URLs immediately
         const unusedEntries = potentialEntries.slice(remainingSlots);
         for (const e of unusedEntries) {
           URL.revokeObjectURL(e.src);
@@ -182,15 +182,13 @@ export function FileUploader({
           return prev;
         }
 
-        // Announce successful addition
+        // Announce addition separately to maintain pure state updates
         const addedCount = entriesToAdd.length;
-        announce(
-          `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${
-            potentialEntries.length > remainingSlots
-              ? ` ${potentialEntries.length - remainingSlots} file(s) ignored due to limit.`
-              : ''
-          }`
-        );
+        const msg = `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${potentialEntries.length > remainingSlots
+            ? ` ${potentialEntries.length - remainingSlots} file(s) ignored due to limit.`
+            : ''
+          }`;
+        announce(msg);
 
         return [...prev, ...entriesToAdd];
       });
@@ -236,7 +234,7 @@ export function FileUploader({
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',
           entries.length >= maxFiles &&
-            'opacity-50 cursor-not-allowed pointer-events-none'
+          'opacity-50 cursor-not-allowed pointer-events-none'
         )}
       >
         <input {...getInputProps()} />

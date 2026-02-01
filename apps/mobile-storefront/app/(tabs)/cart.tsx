@@ -13,9 +13,11 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleProp,
   StyleSheet,
   Text,
   TextInput,
+  TextStyle,
   View,
 } from 'react-native';
 import Animated, {
@@ -25,7 +27,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// useSafeAreaInsets kept for future use
+// import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckoutIdentityModal } from '@/components/checkout/CheckoutIdentityModal';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -47,7 +50,7 @@ const CartQuantityInput = ({
 }: {
   value: number;
   onChange: (val: number) => void;
-  style: any;
+  style: StyleProp<TextStyle>;
 }) => {
   const [localValue, setLocalValue] = useState(value.toString());
 
@@ -85,7 +88,6 @@ const CartQuantityInput = ({
 export default function CartScreen() {
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
-  const insets = useSafeAreaInsets();
 
   const arrowTranslateX = useSharedValue(0);
 
@@ -98,7 +100,7 @@ export default function CartScreen() {
       -1,
       true
     );
-  }, []);
+  }, [arrowTranslateX]);
 
   const animatedArrowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: arrowTranslateX.value }],
@@ -113,18 +115,16 @@ export default function CartScreen() {
   const items = useCartStore((state) => state.items);
   const itemCount = useCartStore((state) => state.itemCount());
   const subtotal = useCartStore((state) => state.subtotal());
-  const totalSavings = useCartStore((state) => state.totalSavings());
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const clearCart = useCartStore((state) => state.clearCart);
   const toggleAssurance = useCartStore((state) => state.toggleAssurance);
 
   const openNegotiation = useUIStore((state) => state.openNegotiation);
-  const openChat = useUIStore((state) => state.openChat);
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
     }
   };
 
@@ -193,7 +193,10 @@ export default function CartScreen() {
     );
 
     // Check if cart-wide discount is active
-    const hasBulkDiscount = items.some((i) => (i as any).cartDiscount > 0);
+    const hasBulkDiscount = items.some((i) => {
+      const item = i as CartItem & { cartDiscount?: number };
+      return (item.cartDiscount ?? 0) > 0;
+    });
 
     if (hasBulkDiscount) {
       Alert.alert(
@@ -537,7 +540,7 @@ export default function CartScreen() {
               styles.bulkButton,
               pressed && styles.bulkButtonPressed,
               items.some((i) => i.negotiationStatus === 'accepted') &&
-                styles.bulkButtonDisabled,
+              styles.bulkButtonDisabled,
             ]}
             onPress={openTotalNegotiation}
           >

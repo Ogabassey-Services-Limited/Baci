@@ -22,8 +22,6 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 
-type BNPLGateway = 'credpal' | 'credit_direct';
-
 // 2026 Critical Fix: Zod schema for route parameter validation
 const BNPLParamsSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
@@ -71,8 +69,6 @@ export default function BNPLCheckoutScreen() {
     orderId,
     gateway,
     amount,
-    customerEmail,
-    customerName,
     merchantSlug,
   } = validatedParams.data || {};
 
@@ -144,7 +140,7 @@ export default function BNPLCheckoutScreen() {
       const urlParams = new URL(url);
       setErrorMessage(
         urlParams.searchParams.get('error') ||
-          'Payment failed. Please try again.'
+        'Payment failed. Please try again.'
       );
     }
   };

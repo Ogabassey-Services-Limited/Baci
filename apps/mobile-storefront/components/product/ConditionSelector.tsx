@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { RADIUS, SPACING } from '@/constants/Colors';
 import {
   formatPrice,
   type ProductCondition,
@@ -158,7 +158,7 @@ export function ConditionSelector({
                   ]}
                 >
                   <Ionicons
-                    name={config.icon as any}
+                    name={config.icon as React.ComponentProps<typeof Ionicons>['name']}
                     size={16}
                     color={config.color}
                   />

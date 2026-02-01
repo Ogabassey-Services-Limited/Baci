@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { withXcodeProject } = require('@expo/config-plugins');
 
 /**
@@ -10,7 +11,7 @@ const { withXcodeProject } = require('@expo/config-plugins');
 const withObjCLinkerFlag = (config) => {
   return withXcodeProject(config, (config) => {
     const project = config.modResults;
-    const targetName = 'Ogabassey';
+    const _targetName = 'Ogabassey';
 
     // Get the native target
     const nativeTarget = project.getTarget(
@@ -27,7 +28,7 @@ const withObjCLinkerFlag = (config) => {
     // Find configurations belonging to our target
     const targetConfigList =
       project.pbxXCConfigurationList()[
-        project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
+      project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
       ];
 
     if (targetConfigList?.buildConfigurations) {

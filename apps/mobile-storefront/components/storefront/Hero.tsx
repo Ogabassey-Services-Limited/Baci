@@ -5,7 +5,7 @@
 
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -26,7 +26,7 @@ interface HeroSlide {
   subtitle: string;
   image: string;
   ctaText: string;
-  ctaLink: string;
+  ctaLink: Href;
 }
 
 interface HeroProps {
@@ -77,7 +77,7 @@ const EliteSlide = ({ item }: { item: HeroSlide }) => {
             </Text>
             <Pressable
               style={styles.eliteCta}
-              onPress={() => router.push(item.ctaLink as any)}
+              onPress={() => router.push(item.ctaLink)}
             >
               <Text style={styles.eliteCtaText}>{item.ctaText}</Text>
             </Pressable>
@@ -114,7 +114,7 @@ const FashionSlide = ({ item }: { item: HeroSlide }) => (
       <Text style={styles.fashionTitle}>{item.title}</Text>
       <Pressable
         style={styles.fashionCta}
-        onPress={() => router.push(item.ctaLink as any)}
+        onPress={() => router.push(item.ctaLink)}
       >
         <Text style={styles.fashionCtaText}>{item.ctaText} →</Text>
       </Pressable>
@@ -141,7 +141,7 @@ const StandardSlide = ({ item }: { item: HeroSlide }) => (
       <Text style={styles.standardTitle}>{item.title}</Text>
       <Pressable
         style={styles.standardCta}
-        onPress={() => router.push(item.ctaLink as any)}
+        onPress={() => router.push(item.ctaLink)}
       >
         <Text style={styles.standardCtaText}>{item.ctaText}</Text>
       </Pressable>
@@ -179,7 +179,7 @@ export function Hero({
     return () => clearInterval(interval);
   }, [currentIndex, slides.length, autoplayDelay]);
 
-  const renderSlide = ({ item, index }: { item: HeroSlide; index: number }) => {
+  const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {
       case 'parallax':
         return <EliteSlide item={item} />;

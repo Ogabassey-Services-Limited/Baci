@@ -135,7 +135,7 @@ export function DrawerMenu() {
 
   const handleNavigate = (path: string) => {
     closeDrawer();
-    router.push(path as any);
+    router.push(path as import('expo-router').Href);
   };
 
   const handleSignOut = async () => {

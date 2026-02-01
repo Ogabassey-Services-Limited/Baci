@@ -30,7 +30,15 @@ const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 // Initial fallback
 const CONSTANT_MERCHANT_ID = CONFIG.MERCHANT_ID;
 
-interface UseProductsOptions {
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  image_url?: string;
+  icon?: string;
+}
+
+export interface UseProductsOptions {
   category?: string;
   limit?: number;
   sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'popular';
@@ -67,8 +75,8 @@ function transformProduct(item: unknown): Product {
     images: Array.isArray(product.images) ? product.images : [],
     brand: product.brand as string | undefined,
     category: Array.isArray(product.categories)
-      ? product.categories[0]?.name
-      : (product.categories as any)?.name,
+      ? (product.categories[0] as Category).name
+      : (product.categories as unknown as Category).name,
     condition: product.condition as Product['condition'],
     rating: 4.5,
     review_count: 0,
@@ -257,7 +265,7 @@ export function useCategories() {
       );
 
       if (error) throw error;
-      return (data as any[]) || [];
+      return (data as Category[]) || [];
     },
     staleTime: 1000 * 60 * 60, // 1 hour
     enabled: !!merchantId,
@@ -359,7 +367,7 @@ export function useProduct(slug: string) {
         log.error('Product validation failed:', validated.error.format());
       }
 
-      const item = validated.success ? validated.data : (data as any);
+      const item = validated.success ? validated.data : (data as Product);
 
       return {
         ...transformProduct(item),

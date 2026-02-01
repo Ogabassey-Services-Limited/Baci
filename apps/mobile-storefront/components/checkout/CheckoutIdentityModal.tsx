@@ -65,6 +65,7 @@ export function CheckoutIdentityModal({
       backdropOpacity.value = withTiming(0, { duration: 150 });
       translateY.value = withTiming(500, { duration: 200 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const animatedBackdrop = useAnimatedStyle(() => ({

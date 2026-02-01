@@ -5,7 +5,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
@@ -22,20 +21,13 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors, {
+import {
   BRAND,
-  RADIUS,
   SHADOWS,
-  SPACING,
   palette,
 } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
-import {
-  type NegotiationResult,
-  NegotiationResultSchema,
-  parseApiResponse,
-} from '@/lib/validation';
+
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -72,8 +64,7 @@ export function NegotiationModal({
   type = 'single',
   itemId,
 }: NegotiationModalProps) {
-  const colorScheme = useColorScheme();
-  const apiUrl = Constants.expoConfig?.extra?.apiUrl;
+
 
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [offer, setOffer] = useState('');
@@ -100,7 +91,7 @@ export function NegotiationModal({
     style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light
   ) => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(style).catch(() => {});
+      Haptics.impactAsync(style).catch(() => { });
     }
   };
 
@@ -181,10 +172,10 @@ export function NegotiationModal({
         item_info:
           type === 'single'
             ? {
-                id: itemId || productId,
-                name: productName,
-                current_price: currentPrice,
-              }
+              id: itemId || productId,
+              name: productName,
+              current_price: currentPrice,
+            }
             : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
@@ -302,7 +293,7 @@ export function NegotiationModal({
                     placeholder="Enter amount..."
                     placeholderTextColor={palette.gray[400]}
                     keyboardType="numeric"
-                    autoFocus
+                  // autoFocus removed for accessibility compliance (jsx-a11y/no-autofocus)
                   />
                 </View>
                 <Pressable

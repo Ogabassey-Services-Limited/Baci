@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+// router removed as it was unused.
 import React, { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,11 +14,10 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { useCategories } from '@/hooks/use-products';
+import { BRAND, SPACING } from '@/constants/Colors';
+import { useCategories, type Category } from '@/hooks/use-products';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -44,9 +43,7 @@ interface CategoryItemProps {
 
 // 2026 Best Practice: Memoize category items to prevent unnecessary re-renders
 const CategoryItem = memo(function CategoryItem({
-  id,
   name,
-  slug,
   iconName,
   variant,
   isActive,
@@ -56,7 +53,7 @@ const CategoryItem = memo(function CategoryItem({
 
   useEffect(() => {
     progress.value = withTiming(isActive ? 1 : 0, { duration: 300 });
-  }, [isActive]);
+  }, [isActive, progress]);
 
   const animatedContainerStyle = useAnimatedStyle(() => {
     return {
@@ -94,11 +91,9 @@ const CategoryItem = memo(function CategoryItem({
     };
   });
 
-  const handlePressIn = () => {
-    // Optional: Subtle press scale if desired
-  };
+  const handlePressIn = () => { };
 
-  const handlePressOut = () => {};
+  const handlePressOut = () => { };
 
   if (variant === 'circle') {
     return (
@@ -155,7 +150,10 @@ export function UtilityPanel({
   // Web-Parity Auto-Rotation Logic
   const utilityWords = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
   // Map utility slugs to indices
-  const categoryIds = ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'];
+  const categoryIds = useMemo(
+    () => ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'],
+    []
+  );
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(false);
@@ -172,7 +170,7 @@ export function UtilityPanel({
         // Rotation should only stop on explicit USER INTERACTION (handlePress).
       }
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, categoryIds]);
 
   // Auto-rotate effect
   useEffect(() => {
@@ -185,7 +183,7 @@ export function UtilityPanel({
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility]);
+  }, [isManualUtility, utilityWords.length]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
@@ -215,7 +213,7 @@ export function UtilityPanel({
         },
       ];
     }
-    return (remoteCategories || []) as any[];
+    return (remoteCategories || []) as Category[];
   }, [slug, remoteCategories]);
 
   if (isLoading && categories.length === 0) {
@@ -258,7 +256,7 @@ export function UtilityPanel({
             id={category.id}
             name={category.name}
             slug={category.slug}
-            iconName={category.icon}
+            iconName={category.icon as React.ComponentProps<typeof Ionicons>['name']}
             variant={itemVariant}
             // Active if: (Manual Interaction & matches selection) OR (Auto Mode & index matches)
             isActive={

@@ -4,7 +4,7 @@
  */
 
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
@@ -113,7 +113,7 @@ export function Footer() {
   };
 
   const handleInternalLink = (route: string) => {
-    router.push(route as any);
+    router.push(route as Href);
   };
 
   return (
@@ -136,7 +136,7 @@ export function Footer() {
               hitSlop={8}
               accessibilityLabel={social.name}
             >
-              <Ionicons name={social.icon as any} size={18} color="#9CA3AF" />
+              <Ionicons name={social.icon as React.ComponentProps<typeof Ionicons>['name']} size={18} color="#9CA3AF" />
             </Pressable>
           ))}
         </View>

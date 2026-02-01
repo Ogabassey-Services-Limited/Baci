@@ -21,7 +21,8 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { usePageConfig } from '@/hooks/use-products';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
-import { Footer } from '@/components/storefront/Footer';
+// Footer component available but not currently rendered
+// import { Footer } from '@/components/storefront/Footer';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
@@ -123,14 +124,14 @@ export default function HomeScreen() {
     });
   }, [onReconnect, refetch]);
 
-  const handleCategorySelect = (id: string | null) => {
+  const handleCategorySelect = useCallback((id: string | null) => {
     if (id && id.startsWith('u-')) {
       // 2026 Best Practice: Utility items bridge to Fintech services (Kuda API)
       router.push('/wallet');
       return;
     }
     setSelectedCategoryId(id);
-  };
+  }, []);
 
   const defaultBlocks = useMemo(
     () => [
@@ -171,6 +172,7 @@ export default function HomeScreen() {
       } else {
         newContent.unshift(injected);
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       content = newContent as any;
     }
 
@@ -178,17 +180,8 @@ export default function HomeScreen() {
     return content;
   }, [pageConfig, isConfigLoading, defaultBlocks, template]);
 
-  if (isConfigLoading && !refreshing) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Header showSearch={true} />
-        <HeroSkeleton />
-        <ProductGridSkeleton count={4} />
-      </View>
-    );
-  }
-
   const renderItem = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ({ item }: { item: any }) => (
       <BlockRenderer
         blocks={[item]}
@@ -202,6 +195,16 @@ export default function HomeScreen() {
   const renderListHeader = () => <View style={{ height: headerHeight }} />;
 
   const isElite = template.headerStyle === 'elite';
+
+  if (isConfigLoading && !refreshing) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Header showSearch={true} />
+        <HeroSkeleton />
+        <ProductGridSkeleton count={4} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -249,8 +252,10 @@ export default function HomeScreen() {
       </Animated.View>
 
       <AnimatedFlashList
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data={blocks as any}
         renderItem={renderItem}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         keyExtractor={(item: any, index: number) =>
           item.props?.id || `block - ${index} `
         }

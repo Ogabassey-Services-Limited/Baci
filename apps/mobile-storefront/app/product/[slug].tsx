@@ -10,15 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
   Pressable,
   Share,
-  LayoutChangeEvent,
-  Linking,
   StyleSheet,
   Text,
   TextInput,
@@ -148,7 +146,7 @@ export default function ProductDetailScreen() {
   }, [savedToastState.show, dismissSavedToast]);
 
   // Get condition display name for cart
-  const getConditionDisplay = (): string | undefined => {
+  const getConditionDisplay = useCallback((): string | undefined => {
     if (selectedCondition) {
       const conditionMap: Record<ProductCondition, string> = {
         new: 'New',
@@ -160,7 +158,7 @@ export default function ProductDetailScreen() {
       return conditionMap[selectedCondition];
     }
     return product?.condition;
-  };
+  }, [selectedCondition, product]);
 
   // Sync quantity with cart store
   const cartItem = useMemo(() => {
@@ -179,7 +177,7 @@ export default function ProductDetailScreen() {
     selectedVariant,
     selectedColor,
     selectedStorage,
-    selectedCondition,
+    getConditionDisplay,
   ]);
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
@@ -219,6 +217,7 @@ export default function ProductDetailScreen() {
   >([]);
   const particleIdRef = useRef(0);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const triggerFlyToCart = (event: any) => {
     // Get position from event (pageX/pageY) or fallback to center
     const { pageX, pageY } = event?.nativeEvent || {};
@@ -257,7 +256,7 @@ export default function ProductDetailScreen() {
         duration: 800,
         easing: Easing.bezier(0.2, 0.8, 0.2, 1),
       });
-    }, []);
+    }, [progress]);
 
     const animatedStyle = useAnimatedStyle(() => {
       const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
@@ -488,6 +487,7 @@ export default function ProductDetailScreen() {
     effectiveComparePrice
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleAddToCart = (event?: any) => {
     haptics.success(); // Haptic feedback for add to cart
 
@@ -519,6 +519,7 @@ export default function ProductDetailScreen() {
     }, 2000);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleUpdateQuantity = (newQuantity: number, event?: any) => {
     haptics.light();
 
@@ -603,7 +604,7 @@ export default function ProductDetailScreen() {
             <Pressable
               onPress={() => {
                 haptics.light();
-                product && toggleSaved(product);
+                if (product) toggleSaved(product);
               }}
               hitSlop={12}
             >
@@ -825,31 +826,31 @@ export default function ProductDetailScreen() {
             product.color_images ||
             product.variant_attributes?.storage ||
             product.variants?.some((v) => v.storage)) && (
-            <View style={styles.section}>
-              <VariantSelector
-                colors={product.colors}
-                colorImages={product.color_images}
-                storage={
-                  product.variant_attributes?.storage ||
-                  product.variants
-                    ?.map((v) => v.storage)
-                    .filter((s): s is string => !!s)
-                }
-                variants={product.variants}
-                selectedColor={selectedColor}
-                selectedStorage={selectedStorage}
-                onSelectColor={(color, imgs) => {
-                  setSelectedColor(color);
-                  if (imgs?.length) {
-                    setColorImages(imgs);
-                    setSelectedImageIndex(0);
+              <View style={styles.section}>
+                <VariantSelector
+                  colors={product.colors}
+                  colorImages={product.color_images}
+                  storage={
+                    product.variant_attributes?.storage ||
+                    product.variants
+                      ?.map((v) => v.storage)
+                      .filter((s): s is string => !!s)
                   }
-                }}
-                onSelectStorage={setSelectedStorage}
-                basePrice={effectivePrice}
-              />
-            </View>
-          )}
+                  variants={product.variants}
+                  selectedColor={selectedColor}
+                  selectedStorage={selectedStorage}
+                  onSelectColor={(color, imgs) => {
+                    setSelectedColor(color);
+                    if (imgs?.length) {
+                      setColorImages(imgs);
+                      setSelectedImageIndex(0);
+                    }
+                  }}
+                  onSelectStorage={setSelectedStorage}
+                  basePrice={effectivePrice}
+                />
+              </View>
+            )}
 
           {/* Legacy Variants (fallback for products without colors/storage) */}
           {product.variants &&

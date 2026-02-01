@@ -19,6 +19,7 @@ import {
   Pressable,
   type PressableProps,
   Text,
+  type GestureResponderEvent,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
@@ -72,7 +73,7 @@ export function Button({
 
   // 2026 Best Practice: Haptic feedback on press
   const handlePress = React.useCallback(
-    (event: any) => {
+    (event: GestureResponderEvent) => {
       if (haptic && Platform.OS === 'ios') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
           // Ignore haptic errors (device may not support)

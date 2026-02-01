@@ -16,7 +16,7 @@ import {
   View,
   type ColorSchemeName,
 } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ErrorBoundary');
