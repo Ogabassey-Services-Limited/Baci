@@ -2,4 +2,48 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 872 files in 782ms. No fixes applied.
+src/config/business-types.ts:77:3 suppressions/unused ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ! Suppression comment has no effect. Remove the suppression or make sure you are suppressing the correct rule.
+  
+    75 │   recommendedFeatures?: string[];
+    76 │   /** Template component to use for storefronts */
+  > 77 │   // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
+       │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    78 │   template: React.ComponentType<unknown>;
+    79 │   /** Lucide icon component for UI */
+  
+
+src/components/ui/file-uploader.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    185 185 │           // Announce addition separately to maintain pure state updates
+    186 186 │           const addedCount = entriesToAdd.length;
+Checked 872 files in 1325ms. No fixes applied.
+    187     │ - ········const·msg·=·`Added·${addedCount}·file${addedCount·===·1·?·''·:·'s'}.${potentialEntries.length·>·remainingSlots
+Found 1 error.
+Found 1 warning.
+        187 │ + ········const·msg·=·`Added·${addedCount}·file${addedCount·===·1·?·''·:·'s'}.${
+        188 │ + ··········potentialEntries.length·>·remainingSlots
+    188 189 │               ? ` ${potentialEntries.length - remainingSlots} file(s) ignored due to limit.`
+    189 190 │               : ''
+    190     │ - ··········}`;
+        191 │ + ········}`;
+    191 192 │           announce(msg);
+    192 193 │   
+    ······· │ 
+    235 236 │               : 'border-muted-foreground/25 hover:border-primary/50',
+    236 237 │             entries.length >= maxFiles &&
+    237     │ - ··········'opacity-50·cursor-not-allowed·pointer-events-none'
+        238 │ + ············'opacity-50·cursor-not-allowed·pointer-events-none'
+    238 239 │           )}
+    239 240 │         >
+  
+
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

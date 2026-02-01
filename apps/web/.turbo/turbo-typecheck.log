@@ -2,7 +2,3 @@
 > @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
 > tsc --noEmit
 
-src/components/ui/file-uploader.tsx(196,8): error TS1005: ',' expected.
-src/components/ui/file-uploader.tsx(198,3): error TS1128: Declaration or statement expected.
-src/components/ui/file-uploader.tsx(332,1): error TS1128: Declaration or statement expected.
- ELIFECYCLE  Command failed with exit code 2.

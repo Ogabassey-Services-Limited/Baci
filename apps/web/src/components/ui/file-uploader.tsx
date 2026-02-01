@@ -184,10 +184,8 @@ export function FileUploader({
 
         // Announce addition separately to maintain pure state updates
         const addedCount = entriesToAdd.length;
-        const msg = `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${potentialEntries.length > remainingSlots
-            ? ` ${potentialEntries.length - remainingSlots} file(s) ignored due to limit.`
-            : ''
-          }`;
+        const ignoredCount = potentialEntries.length - remainingSlots;
+        const msg = `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${ignoredCount > 0 ? ` ${ignoredCount} file(s) ignored due to limit.` : ''}`;
         announce(msg);
 
         return [...prev, ...entriesToAdd];
