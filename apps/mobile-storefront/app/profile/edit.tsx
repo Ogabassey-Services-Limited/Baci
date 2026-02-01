@@ -37,7 +37,11 @@ import { useAuthStore } from '@/stores/auth-store';
 const ProfileSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
-  phone: z.string().min(10, 'Valid phone number required').optional().or(z.literal('')),
+  phone: z
+    .string()
+    .min(10, 'Valid phone number required')
+    .optional()
+    .or(z.literal('')),
 });
 
 type ProfileFormData = z.infer<typeof ProfileSchema>;
@@ -106,7 +110,9 @@ export default function ProfileEditScreen() {
     textContentType?: string;
   }) => (
     <View style={styles.inputGroup}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
       <Controller
         control={control}
         name={name}
@@ -203,7 +209,11 @@ export default function ProfileEditScreen() {
               <Text style={[styles.emailText, { color: colors.text }]}>
                 {customer?.email || 'Not set'}
               </Text>
-              <Ionicons name="lock-closed" size={16} color={colors.textSecondary} />
+              <Ionicons
+                name="lock-closed"
+                size={16}
+                color={colors.textSecondary}
+              />
             </View>
             <Text style={[styles.emailHint, { color: colors.textSecondary }]}>
               Email cannot be changed

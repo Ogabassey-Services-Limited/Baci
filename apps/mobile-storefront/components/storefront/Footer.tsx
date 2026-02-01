@@ -14,11 +14,46 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('Footer');
 
 const SOCIAL_LINKS = [
-  { name: 'Instagram', icon: 'logo-instagram', color: '#E1306C', url: 'https://instagram.com/ogabasseyy', handle: 'ogabasseyy', scheme: 'instagram://user?username=' },
-  { name: 'TikTok', icon: 'logo-tiktok', color: '#000000', url: 'https://www.tiktok.com/@ogabasseyy', handle: 'ogabasseyy', scheme: 'snssdk1233://' },
-  { name: 'X', icon: 'logo-twitter', color: '#000000', url: 'https://x.com/ogabasseyy', handle: 'ogabasseyy', scheme: 'twitter://user?screen_name=' },
-  { name: 'Facebook', icon: 'logo-facebook', color: '#1877F2', url: 'https://www.facebook.com/ogabasseyyy/', handle: 'ogabasseyyy', scheme: 'fb://facewebmodal/f?href=' },
-  { name: 'YouTube', icon: 'logo-youtube', color: '#FF0000', url: 'https://www.youtube.com/@ogabassey', handle: '@ogabassey', scheme: 'vnd.youtube://www.youtube.com/' },
+  {
+    name: 'Instagram',
+    icon: 'logo-instagram',
+    color: '#E1306C',
+    url: 'https://instagram.com/ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'instagram://user?username=',
+  },
+  {
+    name: 'TikTok',
+    icon: 'logo-tiktok',
+    color: '#000000',
+    url: 'https://www.tiktok.com/@ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'snssdk1233://',
+  },
+  {
+    name: 'X',
+    icon: 'logo-twitter',
+    color: '#000000',
+    url: 'https://x.com/ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'twitter://user?screen_name=',
+  },
+  {
+    name: 'Facebook',
+    icon: 'logo-facebook',
+    color: '#1877F2',
+    url: 'https://www.facebook.com/ogabasseyyy/',
+    handle: 'ogabasseyyy',
+    scheme: 'fb://facewebmodal/f?href=',
+  },
+  {
+    name: 'YouTube',
+    icon: 'logo-youtube',
+    color: '#FF0000',
+    url: 'https://www.youtube.com/@ogabassey',
+    handle: '@ogabassey',
+    scheme: 'vnd.youtube://www.youtube.com/',
+  },
 ];
 
 const MENU_LINKS = [
@@ -44,14 +79,22 @@ export function Footer() {
 
   const handleExternalLink = async (url: string) => {
     // Check if it's a social link to try deep linking first
-    const social = SOCIAL_LINKS.find(s => url.includes(s.url) || (s.name === 'X' && url.includes('x.com')) || (s.name === 'YouTube' && url.includes('youtube.com')));
+    const social = SOCIAL_LINKS.find(
+      (s) =>
+        url.includes(s.url) ||
+        (s.name === 'X' && url.includes('x.com')) ||
+        (s.name === 'YouTube' && url.includes('youtube.com'))
+    );
 
     if (social && social.scheme) {
       let appUrl = '';
-      if (social.name === 'Instagram') appUrl = `${social.scheme}${social.handle}`;
+      if (social.name === 'Instagram')
+        appUrl = `${social.scheme}${social.handle}`;
       else if (social.name === 'X') appUrl = `${social.scheme}${social.handle}`;
-      else if (social.name === 'Facebook') appUrl = `${social.scheme}${social.url}`;
-      else if (social.name === 'YouTube') appUrl = `${social.scheme}user/${social.handle}`;
+      else if (social.name === 'Facebook')
+        appUrl = `${social.scheme}${social.url}`;
+      else if (social.name === 'YouTube')
+        appUrl = `${social.scheme}user/${social.handle}`;
       else if (social.name === 'TikTok') appUrl = social.url; // TikTok handles its web URL well
 
       try {
@@ -140,7 +183,9 @@ export function Footer() {
           </View>
           <Pressable
             style={styles.contactItem}
-            onPress={() => handleExternalLink(`tel:${CONTACT_INFO.phone.replace(/\s/g, '')}`)}
+            onPress={() =>
+              handleExternalLink(`tel:${CONTACT_INFO.phone.replace(/\s/g, '')}`)
+            }
           >
             <Feather name="phone" size={14} color={BRAND.primary} />
             <Text style={styles.contactText}>{CONTACT_INFO.phone}</Text>
@@ -170,7 +215,10 @@ export function Footer() {
           </View>
           <View style={styles.badge}>
             <Svg width={14} height={14} viewBox="0 0 24 24">
-              <Path d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z" fill="#F97316" />
+              <Path
+                d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z"
+                fill="#F97316"
+              />
             </Svg>
             <Text style={styles.badgeText}>Flutterwave</Text>
           </View>

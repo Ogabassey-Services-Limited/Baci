@@ -74,7 +74,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
-      router.push(checkoutUrl);
+      router.push(checkoutUrl as never);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -83,7 +83,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
-    router.push(checkoutUrl);
+    router.push(checkoutUrl as never);
     onClose();
   };
 

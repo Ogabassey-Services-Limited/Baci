@@ -135,9 +135,7 @@ export function VariantSelector({
       // Find matching variant for price info
       const variant = variants?.find(
         (v) =>
-          v.storage === s ||
-          v.attributes?.storage === s ||
-          v.name?.includes(s)
+          v.storage === s || v.attributes?.storage === s || v.name?.includes(s)
       );
 
       normalizedStorage.push({
@@ -165,7 +163,10 @@ export function VariantSelector({
             </Text>
             {selectedColor && (
               <Text
-                style={[styles.selectedLabel, { color: themeColors.textSecondary }]}
+                style={[
+                  styles.selectedLabel,
+                  { color: themeColors.textSecondary },
+                ]}
               >
                 {selectedColor}
               </Text>
@@ -283,9 +284,7 @@ export function VariantSelector({
                     </Text>
                   )}
                   {isLowStock && (
-                    <Text style={styles.lowStockText}>
-                      {option.stock} left
-                    </Text>
+                    <Text style={styles.lowStockText}>{option.stock} left</Text>
                   )}
                   {isOutOfStock && (
                     <Text style={styles.outOfStockText}>Out of stock</Text>

@@ -73,7 +73,8 @@ export default function SearchScreen() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // 2026 Best Practice: Persist search history
-  const [recentSearches, setRecentSearches] = useState<string[]>(DEFAULT_SEARCHES);
+  const [recentSearches, setRecentSearches] =
+    useState<string[]>(DEFAULT_SEARCHES);
 
   // Load search history from storage on mount
   useEffect(() => {
@@ -81,8 +82,20 @@ export default function SearchScreen() {
       try {
         const saved = storage.getString(SEARCH_HISTORY_KEY);
         if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          // 2026 Critical Fix: Validate JSON.parse result with proper type guard
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(saved);
+          } catch {
+            // Invalid JSON, use defaults
+            return;
+          }
+          // Type guard: ensure parsed is string array
+          if (
+            Array.isArray(parsed) &&
+            parsed.length > 0 &&
+            parsed.every((item): item is string => typeof item === 'string')
+          ) {
             setRecentSearches(parsed);
           }
         }
@@ -99,7 +112,9 @@ export default function SearchScreen() {
 
     setRecentSearches((prev) => {
       // Remove duplicates and add to front
-      const filtered = prev.filter((s) => s.toLowerCase() !== searchTerm.toLowerCase());
+      const filtered = prev.filter(
+        (s) => s.toLowerCase() !== searchTerm.toLowerCase()
+      );
       const updated = [searchTerm, ...filtered].slice(0, MAX_SEARCH_HISTORY);
 
       // Persist to storage
@@ -135,7 +150,8 @@ export default function SearchScreen() {
   };
 
   const handleCategoryPress = (slug: string) => {
-    router.push(`/category/${slug}` as any);
+    // 2026 Critical Fix: Use proper Href type for type-safe navigation
+    router.push({ pathname: '/category/[slug]', params: { slug } });
   };
 
   const handleProductPress = (product: Product) => {

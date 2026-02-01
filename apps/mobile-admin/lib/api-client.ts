@@ -1,8 +1,11 @@
 import { supabase } from './supabase';
 
 // Centralized Base URL Logic
-export const BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
+// Centralized Base URL Logic
+// Use local IP for development to ensure physical devices can connect
+export const BASE_URL = __DEV__
+  ? 'http://192.168.100.27:3000'
+  : process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
 
 interface RequestOptions extends RequestInit {
   requiresAuth?: boolean;

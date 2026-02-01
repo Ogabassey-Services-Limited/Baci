@@ -103,7 +103,9 @@ export function resetUser(): void {
 /**
  * Update user properties without changing identity
  */
-export function setUserProperties(properties: Record<string, string | number | boolean | null>): void {
+export function setUserProperties(
+  properties: Record<string, string | number | boolean | null>
+): void {
   if (!posthogClient) return;
   posthogClient.capture('$set', { $set: properties });
 }

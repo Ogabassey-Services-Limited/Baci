@@ -85,7 +85,8 @@ class OfflineQueueManager {
 
     // Listen for network changes
     this.unsubscribeNetInfo = NetInfo.addEventListener((state) => {
-      const isOnline = state.isConnected === true && state.isInternetReachable !== false;
+      const isOnline =
+        state.isConnected === true && state.isInternetReachable !== false;
 
       if (isOnline && this.state.queue.length > 0 && !this.state.isProcessing) {
         // Network restored - process queue
@@ -95,7 +96,8 @@ class OfflineQueueManager {
 
     // Initial check - process if online and queue has items
     const netState = await NetInfo.fetch();
-    const isOnline = netState.isConnected === true && netState.isInternetReachable !== false;
+    const isOnline =
+      netState.isConnected === true && netState.isInternetReachable !== false;
 
     if (isOnline && this.state.queue.length > 0) {
       this.processQueue();
@@ -139,7 +141,8 @@ class OfflineQueueManager {
 
     // Try to process immediately if online
     const netState = await NetInfo.fetch();
-    const isOnline = netState.isConnected === true && netState.isInternetReachable !== false;
+    const isOnline =
+      netState.isConnected === true && netState.isInternetReachable !== false;
 
     if (isOnline && !this.state.isProcessing) {
       this.processQueue();
@@ -216,7 +219,8 @@ class OfflineQueueManager {
       } catch (error) {
         // Failed - update retry count
         mutation.retryCount++;
-        mutation.lastError = error instanceof Error ? error.message : 'Unknown error';
+        mutation.lastError =
+          error instanceof Error ? error.message : 'Unknown error';
 
         log.error(`Failed to process ${mutation.id}:`, error);
 
@@ -230,7 +234,9 @@ class OfflineQueueManager {
 
         // Check if still online before continuing
         const netState = await NetInfo.fetch();
-        const isOnline = netState.isConnected === true && netState.isInternetReachable !== false;
+        const isOnline =
+          netState.isConnected === true &&
+          netState.isInternetReachable !== false;
 
         if (!isOnline) {
           log.info('Network lost during processing, stopping');
@@ -313,7 +319,9 @@ export const offlineQueue = new OfflineQueueManager();
 import { useEffect, useState } from 'react';
 
 export function useOfflineQueue() {
-  const [state, setState] = useState<OfflineQueueState>(offlineQueue.getState());
+  const [state, setState] = useState<OfflineQueueState>(
+    offlineQueue.getState()
+  );
 
   useEffect(() => {
     return offlineQueue.subscribe(setState);

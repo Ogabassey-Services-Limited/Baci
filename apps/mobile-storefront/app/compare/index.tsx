@@ -7,13 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useMemo } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -59,7 +53,11 @@ export default function CompareScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
-      <Ionicons name="git-compare-outline" size={80} color={colors.textSecondary} />
+      <Ionicons
+        name="git-compare-outline"
+        size={80}
+        color={colors.textSecondary}
+      />
       <Text style={[styles.emptyTitle, { color: colors.text }]}>
         No products to compare
       </Text>
@@ -132,7 +130,11 @@ export default function CompareScreen() {
                   style={styles.removeButton}
                   onPress={() => removeProduct(product.id)}
                 >
-                  <Ionicons name="close-circle" size={24} color={colors.textSecondary} />
+                  <Ionicons
+                    name="close-circle"
+                    size={24}
+                    color={colors.textSecondary}
+                  />
                 </Pressable>
 
                 <Pressable
@@ -151,7 +153,12 @@ export default function CompareScreen() {
                     {product.name}
                   </Text>
                   {product.brand && (
-                    <Text style={[styles.productBrand, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[
+                        styles.productBrand,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       {product.brand}
                     </Text>
                   )}
@@ -162,7 +169,9 @@ export default function CompareScreen() {
 
           {/* Price Row */}
           <View style={styles.specRow}>
-            <View style={[styles.labelCell, { backgroundColor: colors.background }]}>
+            <View
+              style={[styles.labelCell, { backgroundColor: colors.background }]}
+            >
               <Text style={[styles.labelText, { color: colors.textSecondary }]}>
                 Price
               </Text>
@@ -170,16 +179,25 @@ export default function CompareScreen() {
             {products.map((product) => (
               <View
                 key={product.id}
-                style={[styles.specCell, { backgroundColor: colors.background }]}
+                style={[
+                  styles.specCell,
+                  { backgroundColor: colors.background },
+                ]}
               >
                 <Text style={[styles.priceText, { color: BRAND.primary }]}>
                   {formatPrice(product.price)}
                 </Text>
-                {product.compare_at_price && product.compare_at_price > product.price && (
-                  <Text style={[styles.comparePriceText, { color: colors.textSecondary }]}>
-                    {formatPrice(product.compare_at_price)}
-                  </Text>
-                )}
+                {product.compare_at_price &&
+                  product.compare_at_price > product.price && (
+                    <Text
+                      style={[
+                        styles.comparePriceText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {formatPrice(product.compare_at_price)}
+                    </Text>
+                  )}
               </View>
             ))}
           </View>
@@ -205,7 +223,9 @@ export default function CompareScreen() {
 
           {/* Rating Row */}
           <View style={styles.specRow}>
-            <View style={[styles.labelCell, { backgroundColor: colors.background }]}>
+            <View
+              style={[styles.labelCell, { backgroundColor: colors.background }]}
+            >
               <Text style={[styles.labelText, { color: colors.textSecondary }]}>
                 Rating
               </Text>
@@ -213,7 +233,10 @@ export default function CompareScreen() {
             {products.map((product) => (
               <View
                 key={product.id}
-                style={[styles.specCell, { backgroundColor: colors.background }]}
+                style={[
+                  styles.specCell,
+                  { backgroundColor: colors.background },
+                ]}
               >
                 <View style={styles.ratingContainer}>
                   <Ionicons name="star" size={14} color={colors.rating} />
@@ -231,10 +254,15 @@ export default function CompareScreen() {
               <View
                 style={[
                   styles.labelCell,
-                  { backgroundColor: index % 2 === 0 ? colors.card : colors.background },
+                  {
+                    backgroundColor:
+                      index % 2 === 0 ? colors.card : colors.background,
+                  },
                 ]}
               >
-                <Text style={[styles.labelText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.labelText, { color: colors.textSecondary }]}
+                >
                   {specKey}
                 </Text>
               </View>
@@ -243,7 +271,10 @@ export default function CompareScreen() {
                   key={product.id}
                   style={[
                     styles.specCell,
-                    { backgroundColor: index % 2 === 0 ? colors.card : colors.background },
+                    {
+                      backgroundColor:
+                        index % 2 === 0 ? colors.card : colors.background,
+                    },
                   ]}
                 >
                   <Text style={[styles.specValue, { color: colors.text }]}>
@@ -267,7 +298,10 @@ export default function CompareScreen() {
                 style={[styles.actionCell, { backgroundColor: colors.card }]}
               >
                 <Pressable
-                  style={[styles.addToCartButton, { backgroundColor: BRAND.primary }]}
+                  style={[
+                    styles.addToCartButton,
+                    { backgroundColor: BRAND.primary },
+                  ]}
                   onPress={() => handleAddToCart(product)}
                 >
                   <Ionicons name="cart-outline" size={16} color="#FFF" />

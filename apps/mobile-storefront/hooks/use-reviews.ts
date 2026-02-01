@@ -83,7 +83,9 @@ export function useReviews({
         if (!validatedData) {
           // Fallback to raw data if validation fails (graceful degradation)
           log.warn('Reviews API response validation failed, using raw data');
-          const reviews = Array.isArray(rawData?.reviews) ? rawData.reviews : [];
+          const reviews = Array.isArray(rawData?.reviews)
+            ? rawData.reviews
+            : [];
           if (append) {
             setReviews((prev) => [...prev, ...reviews]);
           } else {

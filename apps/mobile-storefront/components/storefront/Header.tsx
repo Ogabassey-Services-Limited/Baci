@@ -61,7 +61,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 
         {/* Santa Mode Overlay (if active) */}
         {isSanta && (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(255,0,0,0.1)' }]} />
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: 'rgba(255,0,0,0.1)' },
+            ]}
+          />
         )}
 
         <View style={styles.eliteContent}>
@@ -100,12 +105,20 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
                 onPress={() => router.push('/(tabs)/cart')}
                 hitSlop={12}
                 style={styles.iconBtn}
-                accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+                accessibilityLabel={
+                  itemCount > 0
+                    ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
+                    : 'Shopping cart, empty'
+                }
                 accessibilityRole="button"
               >
                 <Ionicons name="cart-outline" size={26} color="#FFF" />
                 {itemCount > 0 && (
-                  <View style={styles.badge} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
+                  <View
+                    style={styles.badge}
+                    importantForAccessibility="no-hide-descendants"
+                    accessibilityElementsHidden={true}
+                  >
                     <Text style={styles.badgeText}>{itemCount}</Text>
                   </View>
                 )}
@@ -174,12 +187,20 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
               onPress={() => router.push('/(tabs)/cart')}
               hitSlop={12}
               style={styles.iconBtn}
-              accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+              accessibilityLabel={
+                itemCount > 0
+                  ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
+                  : 'Shopping cart, empty'
+              }
               accessibilityRole="button"
             >
               <Ionicons name="bag-outline" size={24} color="#000" />
               {itemCount > 0 && (
-                <View style={[styles.badge, { backgroundColor: '#000' }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
+                <View
+                  style={[styles.badge, { backgroundColor: '#000' }]}
+                  importantForAccessibility="no-hide-descendants"
+                  accessibilityElementsHidden={true}
+                >
                   <Text style={styles.badgeText}>{itemCount}</Text>
                 </View>
               )}
@@ -215,12 +236,20 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
             onPress={() => router.push('/(tabs)/cart')}
             hitSlop={12}
             style={styles.iconBtn}
-            accessibilityLabel={itemCount > 0 ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}` : 'Shopping cart, empty'}
+            accessibilityLabel={
+              itemCount > 0
+                ? `Shopping cart, ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
+                : 'Shopping cart, empty'
+            }
             accessibilityRole="button"
           >
             <Ionicons name="cart-outline" size={24} color={BRAND.primary} />
             {itemCount > 0 && (
-              <View style={styles.badge} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden={true}>
+              <View
+                style={styles.badge}
+                importantForAccessibility="no-hide-descendants"
+                accessibilityElementsHidden={true}
+              >
                 <Text style={styles.badgeText}>{itemCount}</Text>
               </View>
             )}

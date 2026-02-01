@@ -66,9 +66,10 @@ export class ApiError extends Error {
   isRetryable: boolean;
 
   constructor(response: Response, body?: unknown) {
-    const message = body && typeof body === 'object' && 'error' in body
-      ? String((body as { error: unknown }).error)
-      : `HTTP ${response.status}: ${response.statusText}`;
+    const message =
+      body && typeof body === 'object' && 'error' in body
+        ? String((body as { error: unknown }).error)
+        : `HTTP ${response.status}: ${response.statusText}`;
     super(message);
     this.name = 'ApiError';
     this.status = response.status;
@@ -108,7 +109,8 @@ function defaultIsRetryable(error: Error): boolean {
   if (error instanceof TimeoutError) return true;
   if (error instanceof ApiError) return error.isRetryable;
   // TypeError usually indicates network issues in fetch
-  if (error instanceof TypeError && error.message.includes('Network')) return true;
+  if (error instanceof TypeError && error.message.includes('Network'))
+    return true;
   return false;
 }
 
@@ -186,7 +188,9 @@ export async function fetchWithRetry(
       if (checkNetwork) {
         const isOnline = await checkNetworkConnectivity();
         if (!isOnline) {
-          throw new NetworkError('No internet connection. Please check your network.');
+          throw new NetworkError(
+            'No internet connection. Please check your network.'
+          );
         }
       }
 
@@ -306,7 +310,9 @@ export async function withRetry<T>(
       if (checkNetwork) {
         const isOnline = await checkNetworkConnectivity();
         if (!isOnline) {
-          throw new NetworkError('No internet connection. Please check your network.');
+          throw new NetworkError(
+            'No internet connection. Please check your network.'
+          );
         }
       }
 
@@ -391,7 +397,9 @@ export async function withSupabaseRetry<T>(
       if (checkNetwork) {
         const isOnline = await checkNetworkConnectivity();
         if (!isOnline) {
-          throw new NetworkError('No internet connection. Please check your network.');
+          throw new NetworkError(
+            'No internet connection. Please check your network.'
+          );
         }
       }
 

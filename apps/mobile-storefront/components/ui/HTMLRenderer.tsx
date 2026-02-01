@@ -6,8 +6,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
 interface HTMLRendererProps {
-    html: string;
-    baseColor?: string;
+  html: string;
+  baseColor?: string;
 }
 
 /**
@@ -16,72 +16,75 @@ interface HTMLRendererProps {
  * 2026 Best Practice: Avoids 'div' soup by utilizing specialized renderers.
  */
 export const HTMLRenderer = ({ html, baseColor }: HTMLRendererProps) => {
-    const { width } = useWindowDimensions();
-    const colorScheme = useColorScheme();
-    const colors = Colors[colorScheme ?? 'light'];
+  const { width } = useWindowDimensions();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
-    const tagsStyles = useMemo<Record<string, MixedStyleDeclaration>>(() => ({
-        body: {
-            color: baseColor || colors.text,
-            fontSize: 15,
-            lineHeight: 24,
-            fontFamily: 'serif', // System serif matches web's premium feel
-        },
-        p: {
-            marginBottom: 16,
-        },
-        h1: {
-            fontSize: 24,
-            fontWeight: '800' as any,
-            marginBottom: 16,
-            color: colors.text,
-        },
-        h2: {
-            fontSize: 20,
-            fontWeight: '700' as any,
-            marginTop: 24,
-            marginBottom: 12,
-            color: colors.text,
-        },
-        h3: {
-            fontSize: 18,
-            fontWeight: '600' as any,
-            marginTop: 20,
-            marginBottom: 10,
-            color: colors.text,
-        },
-        strong: {
-            fontWeight: '700' as any,
-            color: colors.text,
-        },
-        ul: {
-            marginBottom: 16,
-            paddingLeft: 20,
-        },
-        ol: {
-            marginBottom: 16,
-            paddingLeft: 20,
-        },
-        li: {
-            marginBottom: 8,
-        },
-        em: {
-            fontStyle: 'italic' as any,
-        },
-        a: {
-            color: colors.primary,
-            textDecorationLine: 'underline',
-        }
-    }), [colors, baseColor]);
+  const tagsStyles = useMemo<Record<string, MixedStyleDeclaration>>(
+    () => ({
+      body: {
+        color: baseColor || colors.text,
+        fontSize: 15,
+        lineHeight: 24,
+        fontFamily: 'serif', // System serif matches web's premium feel
+      },
+      p: {
+        marginBottom: 16,
+      },
+      h1: {
+        fontSize: 24,
+        fontWeight: '800' as any,
+        marginBottom: 16,
+        color: colors.text,
+      },
+      h2: {
+        fontSize: 20,
+        fontWeight: '700' as any,
+        marginTop: 24,
+        marginBottom: 12,
+        color: colors.text,
+      },
+      h3: {
+        fontSize: 18,
+        fontWeight: '600' as any,
+        marginTop: 20,
+        marginBottom: 10,
+        color: colors.text,
+      },
+      strong: {
+        fontWeight: '700' as any,
+        color: colors.text,
+      },
+      ul: {
+        marginBottom: 16,
+        paddingLeft: 20,
+      },
+      ol: {
+        marginBottom: 16,
+        paddingLeft: 20,
+      },
+      li: {
+        marginBottom: 8,
+      },
+      em: {
+        fontStyle: 'italic' as any,
+      },
+      a: {
+        color: colors.primary,
+        textDecorationLine: 'underline',
+      },
+    }),
+    [colors, baseColor]
+  );
 
-    if (!html) return null;
+  if (!html) return null;
 
-    return (
-        <RenderHTML
-            contentWidth={width - 40} // Accounting for default screen padding
-            source={{ html }}
-            tagsStyles={tagsStyles}
-            enableExperimentalMarginCollapsing={true}
-        />
-    );
+  return (
+    <RenderHTML
+      contentWidth={width - 40} // Accounting for default screen padding
+      source={{ html }}
+      tagsStyles={tagsStyles}
+      enableExperimentalMarginCollapsing={true}
+    />
+  );
 };

@@ -166,7 +166,8 @@ export default function OrderDetailsScreen() {
             return {
               ...prevOrder,
               status: payload.new.status ?? prevOrder.status,
-              tracking_number: payload.new.tracking_number ?? prevOrder.tracking_number,
+              tracking_number:
+                payload.new.tracking_number ?? prevOrder.tracking_number,
               tracking_url: payload.new.tracking_url ?? prevOrder.tracking_url,
               updated_at: payload.new.updated_at ?? prevOrder.updated_at,
             };
@@ -492,8 +493,7 @@ export default function OrderDetailsScreen() {
                 ? `Partially paid via ${order.payment_method?.replace('_', ' ')}`
                 : order.payment_status === 'pending'
                   ? 'Payment pending'
-                  : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`
-            }
+                  : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`}
           </Text>
         </View>
       </View>

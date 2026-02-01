@@ -107,13 +107,7 @@ export function SafeImage({
   // If error and showFallbackIcon, render placeholder view
   if (hasError && showFallbackIcon) {
     return (
-      <View
-        style={[
-          styles.fallbackContainer,
-          style,
-          fallbackStyle,
-        ]}
-      >
+      <View style={[styles.fallbackContainer, style, fallbackStyle]}>
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}

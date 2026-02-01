@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -23,6 +22,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -975,7 +975,7 @@ export default function NewOrderScreen() {
                       ]}
                     >
                       {item.image_url ? (
-                        <Image
+                        <SafeImage
                           source={{ uri: item.image_url }}
                           style={{
                             width: '100%',

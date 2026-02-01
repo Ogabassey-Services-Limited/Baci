@@ -166,7 +166,12 @@ export function OfflineNotice({
       </Text>
 
       {showCachedDataNotice && (
-        <View style={[styles.cachedNotice, { backgroundColor: `${BRAND.primary}10` }]}>
+        <View
+          style={[
+            styles.cachedNotice,
+            { backgroundColor: `${BRAND.primary}10` },
+          ]}
+        >
           <Ionicons name="time-outline" size={14} color={BRAND.primary} />
           <Text style={[styles.cachedText, { color: BRAND.primary }]}>
             Showing data from your last visit
@@ -221,7 +226,7 @@ interface OfflineEmptyStateProps {
 
 export function OfflineEmptyState({
   title = "Can't load content",
-  description = "Connect to the internet to see this content.",
+  description = 'Connect to the internet to see this content.',
   showRetry = true,
   onRetry,
   isRetrying = false,
@@ -235,7 +240,9 @@ export function OfflineEmptyState({
       accessibilityRole="alert"
       accessibilityLabel={`${title}. ${description}`}
     >
-      <View style={[styles.emptyIconContainer, { backgroundColor: colors.card }]}>
+      <View
+        style={[styles.emptyIconContainer, { backgroundColor: colors.card }]}
+      >
         <Ionicons name="wifi-outline" size={40} color={colors.textSecondary} />
         <View style={styles.emptyIconBadge}>
           <Ionicons name="close" size={14} color="#FFF" />
@@ -264,7 +271,11 @@ export function OfflineEmptyState({
             <ActivityIndicator size="small" color={BRAND.primary} />
           ) : (
             <>
-              <Ionicons name="refresh-outline" size={18} color={BRAND.primary} />
+              <Ionicons
+                name="refresh-outline"
+                size={18}
+                color={BRAND.primary}
+              />
               <Text style={[styles.emptyRetryText, { color: BRAND.primary }]}>
                 Retry
               </Text>

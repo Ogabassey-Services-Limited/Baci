@@ -56,7 +56,7 @@ export const syncStorage = {
     if (!isStorageInitialized) {
       log.warn(
         `Accessing "${name}" before initialization complete. ` +
-        'Call initializeStorage() in _layout.tsx before stores are accessed.'
+          'Call initializeStorage() in _layout.tsx before stores are accessed.'
       );
     }
     // Return from memory cache (sync)
@@ -65,11 +65,15 @@ export const syncStorage = {
   setItem: (name: string, value: string): void => {
     memoryCache[name] = value;
     // Also persist to AsyncStorage (async, fire and forget)
-    AsyncStorage.setItem(name, value).catch((error) => log.warn('Failed to persist item:', name, error));
+    AsyncStorage.setItem(name, value).catch((error) =>
+      log.warn('Failed to persist item:', name, error)
+    );
   },
   removeItem: (name: string): void => {
     delete memoryCache[name];
-    AsyncStorage.removeItem(name).catch((error) => log.warn('Failed to remove item:', name, error));
+    AsyncStorage.removeItem(name).catch((error) =>
+      log.warn('Failed to remove item:', name, error)
+    );
   },
 };
 

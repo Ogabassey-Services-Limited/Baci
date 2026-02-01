@@ -110,10 +110,14 @@ export const logger = {
  */
 export function createLogger(tag: string) {
   return {
-    debug: (message: string, ...args: unknown[]) => logger.debug(tag, message, ...args),
-    info: (message: string, ...args: unknown[]) => logger.info(tag, message, ...args),
-    warn: (message: string, ...args: unknown[]) => logger.warn(tag, message, ...args),
-    error: (message: string, ...args: unknown[]) => logger.error(tag, message, ...args),
+    debug: (message: string, ...args: unknown[]) =>
+      logger.debug(tag, message, ...args),
+    info: (message: string, ...args: unknown[]) =>
+      logger.info(tag, message, ...args),
+    warn: (message: string, ...args: unknown[]) =>
+      logger.warn(tag, message, ...args),
+    error: (message: string, ...args: unknown[]) =>
+      logger.error(tag, message, ...args),
   };
 }
 

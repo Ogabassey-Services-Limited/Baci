@@ -10,7 +10,12 @@
  * @see https://www.esparkinfo.com/blog/react-native-best-practices
  */
 
-import { router, type Href, useSegments, useRootNavigationState } from 'expo-router';
+import {
+  router,
+  type Href,
+  useSegments,
+  useRootNavigationState,
+} from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { createLogger } from '@/lib/logger';
 import { useAuthStore } from '@/stores/auth-store';
@@ -18,12 +23,7 @@ import { useAuthStore } from '@/stores/auth-store';
 const log = createLogger('AuthGuard');
 
 // Routes that require authentication
-const PROTECTED_ROUTES = [
-  'orders',
-  'addresses',
-  'wallet',
-  'profile',
-] as const;
+const PROTECTED_ROUTES = ['orders', 'addresses', 'wallet', 'profile'] as const;
 
 /**
  * Hook to guard routes and handle auth state changes

@@ -11,7 +11,6 @@ import {
   Alert,
   Animated,
   FlatList,
-  Image,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -24,6 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
@@ -255,7 +255,7 @@ export default function ProductsScreen() {
           ]}
         >
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} />
+            <SafeImage source={{ uri: imageUrl }} style={styles.image} />
           ) : (
             <Ionicons name="image-outline" size={24} color={colors.textMuted} />
           )}
@@ -319,7 +319,7 @@ export default function ProductsScreen() {
           ]}
         >
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} />
+            <SafeImage source={{ uri: imageUrl }} style={styles.image} />
           ) : (
             <Ionicons name="image-outline" size={24} color={colors.textMuted} />
           )}

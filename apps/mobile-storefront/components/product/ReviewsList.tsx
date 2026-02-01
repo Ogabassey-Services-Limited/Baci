@@ -102,8 +102,11 @@ export function ReviewsList({
               {stats.average_rating.toFixed(1)}
             </Text>
             {renderStars(Math.round(stats.average_rating), 18)}
-            <Text style={[styles.totalReviews, { color: colors.textSecondary }]}>
-              {stats.review_count} {stats.review_count === 1 ? 'review' : 'reviews'}
+            <Text
+              style={[styles.totalReviews, { color: colors.textSecondary }]}
+            >
+              {stats.review_count}{' '}
+              {stats.review_count === 1 ? 'review' : 'reviews'}
             </Text>
           </View>
           <View style={styles.summaryRight}>
@@ -194,9 +197,7 @@ export function ReviewsList({
               size={14}
               color={colors.textSecondary}
             />
-            <Text
-              style={[styles.helpfulText, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.helpfulText, { color: colors.textSecondary }]}>
               Helpful ({review.helpful_count})
             </Text>
           </Pressable>

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -430,6 +431,16 @@ export default function LoginScreen() {
               }}
               onPress={async () => {
                 await resetOnboarding();
+                Alert.alert(
+                  'Onboarding Reset',
+                  'You will now be taken to the onboarding screen.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/(auth)/onboarding'),
+                    },
+                  ]
+                );
               }}
             >
               <Ionicons name="refresh-outline" size={20} color="#D97706" />

@@ -43,9 +43,7 @@ function TabBarIcon({
         />
         {badge !== undefined && badge > 0 && (
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {badge > 99 ? '99+' : badge}
-            </Text>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
           </View>
         )}
       </View>
@@ -102,9 +100,8 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => (
-            focused ? <Text style={styles.tabLabel}>Home</Text> : null
-          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Home</Text> : null,
         }}
       />
       <Tabs.Screen
@@ -119,9 +116,8 @@ export default function TabLayout() {
               badge={savedCount}
             />
           ),
-          tabBarLabel: ({ focused }) => (
-            focused ? <Text style={styles.tabLabel}>Saved</Text> : null
-          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
         }}
       />
       <Tabs.Screen
@@ -135,9 +131,8 @@ export default function TabLayout() {
               badge={cartCount}
             />
           ),
-          tabBarLabel: ({ focused }) => (
-            focused ? <Text style={styles.tabLabel}>Cart</Text> : null
-          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
         }}
       />
       <Tabs.Screen
@@ -151,9 +146,8 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => (
-            focused ? <Text style={styles.tabLabel}>Wallet</Text> : null
-          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Wallet</Text> : null,
         }}
       />
       <Tabs.Screen
@@ -167,9 +161,8 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => (
-            focused ? <Text style={styles.tabLabel}>Account</Text> : null
-          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Account</Text> : null,
         }}
       />
       {/* Categories hidden from tab bar but reachable via route */}
@@ -227,6 +220,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
-
-

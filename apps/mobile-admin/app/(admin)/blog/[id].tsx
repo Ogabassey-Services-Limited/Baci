@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -225,7 +225,7 @@ export default function BlogPostDetailScreen() {
         >
           {featuredImage ? (
             <>
-              <Image
+              <SafeImage
                 source={featuredImage}
                 style={styles.featuredImage}
                 contentFit="cover"

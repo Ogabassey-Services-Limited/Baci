@@ -174,7 +174,10 @@ export function ConditionSelector({
                   </Text>
                   {item.grade && (
                     <Text
-                      style={[styles.gradeText, { color: colors.textSecondary }]}
+                      style={[
+                        styles.gradeText,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       Grade {item.grade} • {GRADE_LABELS[item.grade]}
                     </Text>
@@ -212,11 +215,13 @@ export function ConditionSelector({
                 )}
               </View>
 
-              {item.stock !== undefined && item.stock > 0 && item.stock <= 5 && (
-                <Text style={[styles.stockWarning, { color: '#EF4444' }]}>
-                  Only {item.stock} left
-                </Text>
-              )}
+              {item.stock !== undefined &&
+                item.stock > 0 &&
+                item.stock <= 5 && (
+                  <Text style={[styles.stockWarning, { color: '#EF4444' }]}>
+                    Only {item.stock} left
+                  </Text>
+                )}
 
               {item.notes && (
                 <Text

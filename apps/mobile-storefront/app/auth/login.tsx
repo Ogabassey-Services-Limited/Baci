@@ -5,10 +5,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -119,6 +120,23 @@ export default function LoginScreen() {
       router.back();
     }
   };
+
+  // 2026 Critical Fix: Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (step === 'otp') {
+          setStep('email');
+          setOtp('');
+          return true; // Prevent default back behavior
+        }
+        return false; // Let default back behavior happen
+      }
+    );
+
+    return () => backHandler.remove();
+  }, [step]);
 
   // 2026 Best Practice: Handle Google OAuth sign-in
   const handleGoogleSignIn = async () => {

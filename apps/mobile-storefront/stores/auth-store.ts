@@ -44,6 +44,7 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
+  cleanup: () => void; // 2026 Critical Fix: Cleanup auth subscription
   signInWithOtp: (
     email: string
   ) => Promise<{ success: boolean; error?: string }>;
@@ -70,9 +71,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
   error: null,
   // Internal: store auth subscription for cleanup (2026 Best Practice)
-  _authSubscription: null as { data: { subscription: { unsubscribe: () => void } } } | null,
+  _authSubscription: null as {
+    subscription: { unsubscribe: () => void };
+  } | null,
   // 2026 Critical Fix: Prevent multiple concurrent initialize calls
   _initializationInProgress: false as boolean,
+  // Store expected redirect URL for OAuth validation
+  _expectedRedirectUrl: null as string | null,
 
   // Initialize auth state
   initialize: async () => {
@@ -144,7 +149,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               last_name: customerValidation.data.last_name ?? undefined,
               phone: customerValidation.data.phone ?? undefined,
               avatar_url: customerValidation.data.avatar_url ?? undefined,
-              loyalty_points: customerValidation.data.loyalty_points ?? undefined,
+              loyalty_points:
+                customerValidation.data.loyalty_points ?? undefined,
               loyalty_tier: customerValidation.data.loyalty_tier ?? undefined,
             }
           : null;
@@ -167,100 +173,112 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Listen for auth changes - store subscription for cleanup (2026 Best Practice)
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        log.debug('Auth state changed:', event);
-        const { merchantId } = get();
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          log.debug('Auth state changed:', event);
+          const { merchantId } = get();
 
-        // 2026 Critical Fix: Wrap async auth listener operations in try-catch
-        // to prevent unhandled promise rejections and race conditions
-        try {
-          if (event === 'SIGNED_IN' && session?.user && merchantId) {
-            // Fetch or create customer record
-            let { data: customerData } = await supabase
-              .from('customers')
-              .select(
-                'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-              )
-              .eq('merchant_id', merchantId)
-              .eq('email', session.user.email)
-              .single();
-
-            // Create customer if doesn't exist
-            if (!customerData && session.user.email) {
-              const { data: newCustomer } = await supabase
+          // 2026 Critical Fix: Wrap async auth listener operations in try-catch
+          // to prevent unhandled promise rejections and race conditions
+          try {
+            if (event === 'SIGNED_IN' && session?.user && merchantId) {
+              // Fetch or create customer record
+              let { data: customerData } = await supabase
                 .from('customers')
-                .insert({
-                  merchant_id: merchantId,
-                  email: session.user.email,
-                  first_name:
-                    session.user.user_metadata?.full_name?.split(' ')[0] || '',
-                  last_name:
-                    session.user.user_metadata?.full_name
-                      ?.split(' ')
-                      .slice(1)
-                      .join(' ') || '',
-                  avatar_url: session.user.user_metadata?.avatar_url,
-                  source: 'mobile_app',
-                })
                 .select(
                   'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
                 )
+                .eq('merchant_id', merchantId)
+                .eq('email', session.user.email)
                 .single();
 
-              customerData = newCustomer;
+              // Create customer if doesn't exist
+              if (!customerData && session.user.email) {
+                const { data: newCustomer } = await supabase
+                  .from('customers')
+                  .insert({
+                    merchant_id: merchantId,
+                    email: session.user.email,
+                    first_name:
+                      session.user.user_metadata?.full_name?.split(' ')[0] ||
+                      '',
+                    last_name:
+                      session.user.user_metadata?.full_name
+                        ?.split(' ')
+                        .slice(1)
+                        .join(' ') || '',
+                    avatar_url: session.user.user_metadata?.avatar_url,
+                    source: 'mobile_app',
+                  })
+                  .select(
+                    'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                  )
+                  .single();
+
+                customerData = newCustomer;
+              }
+
+              // 2026 Best Practice: Validate customer data from auth listener
+              const authCustomerValidation =
+                CustomerRowSchema.safeParse(customerData);
+              const validatedCustomer = authCustomerValidation.success
+                ? {
+                    id: authCustomerValidation.data.id,
+                    email: authCustomerValidation.data.email,
+                    first_name:
+                      authCustomerValidation.data.first_name ?? undefined,
+                    last_name:
+                      authCustomerValidation.data.last_name ?? undefined,
+                    phone: authCustomerValidation.data.phone ?? undefined,
+                    avatar_url:
+                      authCustomerValidation.data.avatar_url ?? undefined,
+                    loyalty_points:
+                      authCustomerValidation.data.loyalty_points ?? undefined,
+                    loyalty_tier:
+                      authCustomerValidation.data.loyalty_tier ?? undefined,
+                  }
+                : null;
+
+              // 2026 Best Practice: Sync guest cart after login
+              // The local cart persists through login - no server sync needed
+              // Items added as guest are automatically kept in the user's session
+              // This prevents cart data loss during authentication flow
+              const guestCartItems = useCartStore.getState().items;
+              if (guestCartItems.length > 0) {
+                log.info(
+                  `Cart sync: ${guestCartItems.length} items preserved after login`
+                );
+                // Cart items remain in local storage, linked to this session
+                // Future enhancement: sync cart to server for cross-device access
+              }
+
+              set({
+                user: session.user,
+                session,
+                customer: validatedCustomer,
+              });
+            } else if (event === 'SIGNED_OUT') {
+              set({
+                user: null,
+                session: null,
+                customer: null,
+              });
+            } else if (event === 'TOKEN_REFRESHED' && session) {
+              set({ session });
             }
-
-            // 2026 Best Practice: Validate customer data from auth listener
-            const authCustomerValidation = CustomerRowSchema.safeParse(customerData);
-            const validatedCustomer = authCustomerValidation.success
-              ? {
-                  id: authCustomerValidation.data.id,
-                  email: authCustomerValidation.data.email,
-                  first_name: authCustomerValidation.data.first_name ?? undefined,
-                  last_name: authCustomerValidation.data.last_name ?? undefined,
-                  phone: authCustomerValidation.data.phone ?? undefined,
-                  avatar_url: authCustomerValidation.data.avatar_url ?? undefined,
-                  loyalty_points: authCustomerValidation.data.loyalty_points ?? undefined,
-                  loyalty_tier: authCustomerValidation.data.loyalty_tier ?? undefined,
-                }
-              : null;
-
-            // 2026 Best Practice: Sync guest cart after login
-            // The local cart persists through login - no server sync needed
-            // Items added as guest are automatically kept in the user's session
-            // This prevents cart data loss during authentication flow
-            const guestCartItems = useCartStore.getState().items;
-            if (guestCartItems.length > 0) {
-              log.info(
-                `Cart sync: ${guestCartItems.length} items preserved after login`
-              );
-              // Cart items remain in local storage, linked to this session
-              // Future enhancement: sync cart to server for cross-device access
-            }
-
-            set({
-              user: session.user,
-              session,
-              customer: validatedCustomer,
-            });
-          } else if (event === 'SIGNED_OUT') {
-            set({
-              user: null,
-              session: null,
-              customer: null,
-            });
-          } else if (event === 'TOKEN_REFRESHED' && session) {
-            set({ session });
+          } catch (authListenerError) {
+            log.error('Error in auth state change handler:', authListenerError);
+            // Don't crash the app - just log the error
+            // User can still retry operations manually
           }
-        } catch (authListenerError) {
-          log.error('Error in auth state change handler:', authListenerError);
-          // Don't crash the app - just log the error
-          // User can still retry operations manually
         }
-      });
+      );
 
-      // Store subscription reference for potential cleanup
-      set({ _authSubscription: { data: authListener }, _initializationInProgress: false } as Partial<AuthState>);
+      // Store subscription reference for cleanup (2026 Critical Fix)
+      set({
+        _authSubscription: authListener,
+        _initializationInProgress: false,
+      } as Partial<AuthState>);
     } catch (error) {
       log.error('Auth initialization error:', error);
       set({
@@ -269,6 +287,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitialized: true,
         _initializationInProgress: false,
       } as Partial<AuthState>);
+    }
+  },
+
+  // 2026 Critical Fix: Cleanup auth subscription to prevent memory leaks
+  cleanup: () => {
+    const state = get() as AuthState & {
+      _authSubscription: { subscription: { unsubscribe: () => void } } | null;
+    };
+    if (state._authSubscription?.subscription) {
+      log.debug('Cleaning up auth subscription');
+      state._authSubscription.subscription.unsubscribe();
+      set({ _authSubscription: null } as Partial<AuthState>);
     }
   },
 
@@ -349,8 +379,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (error || !data.url) {
-        set({ error: error?.message || 'Failed to get OAuth URL', isLoading: false });
-        return { success: false, error: error?.message || 'Failed to get OAuth URL' };
+        set({
+          error: error?.message || 'Failed to get OAuth URL',
+          isLoading: false,
+        });
+        return {
+          success: false,
+          error: error?.message || 'Failed to get OAuth URL',
+        };
       }
 
       // Open the OAuth URL in an in-app browser
@@ -361,9 +397,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
 
       if (result.type === 'success' && result.url) {
+        // 2026 Critical Fix: Validate OAuth redirect URL origin before extracting tokens
+        const resultUrl = new URL(result.url);
+        const expectedUrl = new URL(redirectUrl);
+
+        // Validate URL scheme and host match expected redirect
+        // This prevents open redirect attacks and token injection
+        if (
+          resultUrl.protocol !== expectedUrl.protocol ||
+          resultUrl.host !== expectedUrl.host ||
+          !resultUrl.pathname.startsWith(expectedUrl.pathname)
+        ) {
+          log.warn('OAuth redirect URL mismatch:', {
+            expected: redirectUrl,
+            received: result.url.substring(0, 100), // Log only first 100 chars for security
+          });
+          set({ error: 'Invalid OAuth redirect', isLoading: false });
+          return { success: false, error: 'Invalid OAuth redirect' };
+        }
+
         // Extract the access token and refresh token from the URL
-        const url = new URL(result.url);
-        const params = new URLSearchParams(url.hash.substring(1)); // Remove # prefix
+        const params = new URLSearchParams(resultUrl.hash.substring(1)); // Remove # prefix
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
 
@@ -414,6 +468,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       set({ isLoading: true });
+
+      // 2026 Critical Fix: Cleanup auth subscription before sign out
+      get().cleanup();
+
       await supabase.auth.signOut();
       // Clear cart on logout to prevent cart data leakage between users
       useCartStore.getState().clearCart();
@@ -422,6 +480,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session: null,
         customer: null,
         isLoading: false,
+        isInitialized: false, // Allow re-initialization after sign out
       });
     } catch (error) {
       log.error('Sign out error:', error);

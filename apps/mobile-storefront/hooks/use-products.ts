@@ -183,7 +183,10 @@ async function fetchProductsPage(
   if (result.error) throw result.error;
 
   const products = (result.data || []).map(transformProduct);
-  const total = (result as any).count || 0; // Cast to access count if missing from inferred type
+  // 2026 Critical Fix: Access count from Supabase response with proper typing
+  // The count is returned when using { count: 'exact' } in select
+  const resultWithCount = result as typeof result & { count: number | null };
+  const total = resultWithCount.count ?? 0;
   const nextOffset = offset + limit < total ? offset + limit : null;
 
   return { products, nextOffset, total };
@@ -217,7 +220,9 @@ export function usePageConfig(slug: string = 'home') {
       );
 
       if (error) throw error;
-      return (data as any)?.published_config as PageConfig | null;
+      // 2026 Critical Fix: Access published_config with null safety
+      // The select('published_config') returns { published_config: unknown } | null
+      return (data?.published_config ?? null) as PageConfig | null;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: !!merchantId,
@@ -309,7 +314,10 @@ export function useProduct(slug: string) {
       log.info('Fetching product:', slug);
 
       // Determine if slug is actually an ID (UUID)
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          slug
+        );
 
       let supabaseQuery = supabase
         .from('products')
@@ -415,7 +423,10 @@ export function usePrefetchProduct() {
       queryKey: ['product', slug, merchantId],
       queryFn: async () => {
         // Determine if slug is actually an ID (UUID)
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            slug
+          );
 
         let supabaseQuery = supabase
           .from('products')
@@ -451,7 +462,10 @@ export function usePrefetchProduct() {
         // 2026 Best Practice: Validate data at the edge
         const validated = ProductRowSchema.safeParse(data);
         if (!validated.success) {
-          log.error('Prefetch product validation failed:', validated.error.format());
+          log.error(
+            'Prefetch product validation failed:',
+            validated.error.format()
+          );
         }
 
         return transformProduct(validated.success ? validated.data : data);

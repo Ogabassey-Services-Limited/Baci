@@ -3,6 +3,7 @@
  * Allows customers to submit price offers and receive counter-offers
  */
 
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
@@ -44,7 +45,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = NegotiationSchema.parse(body);
 
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // Fetch product details
     const { data: product, error: productError } = await supabase
@@ -138,8 +140,8 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Log negotiation for analytics
-    await supabase
+    // Log negotiation for analytics (non-blocking, don't fail if logging fails)
+    supabase
       .from('negotiation_logs')
       .insert({
         product_id: validatedData.productId,
@@ -154,7 +156,9 @@ export async function POST(request: NextRequest) {
         evidence_url: validatedData.evidenceUrl,
         evidence_note: validatedData.evidenceNote,
       })
-      .catch(console.error); // Don't fail if logging fails
+      .then(({ error }) => {
+        if (error) console.error('Negotiation log error:', error);
+      });
 
     return NextResponse.json(result);
   } catch (error) {

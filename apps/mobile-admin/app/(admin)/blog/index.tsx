@@ -5,13 +5,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -221,7 +221,7 @@ export default function BlogListScreen() {
     >
       <View style={styles.row}>
         {item.featured_image_url ? (
-          <Image
+          <SafeImage
             source={{ uri: item.featured_image_url }}
             style={styles.thumbnail}
           />

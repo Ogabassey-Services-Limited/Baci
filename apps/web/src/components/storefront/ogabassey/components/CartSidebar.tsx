@@ -483,6 +483,7 @@ export const CartSidebar: React.FC = () => {
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
           onSuccess={handleNegotiationSuccess}
+          type="single"
         />
       )}
     </>

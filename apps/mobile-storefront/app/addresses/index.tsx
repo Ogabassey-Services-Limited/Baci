@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  type AlertButton,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -162,28 +163,27 @@ export default function AddressesScreen() {
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => {
-            Alert.alert(
-              'Address Options',
-              '',
-              [
-                {
-                  text: 'Edit',
-                  onPress: () => router.push(`/addresses/${item.id}`),
-                },
-                !item.is_default
-                  ? {
-                      text: 'Set as Default',
-                      onPress: () => handleSetDefault(item.id),
-                    }
-                  : null,
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => handleDeleteAddress(item),
-                },
-                { text: 'Cancel', style: 'cancel' },
-              ].filter(Boolean) as any[]
-            );
+            // 2026 Critical Fix: Properly type Alert buttons without 'as any'
+            const buttons: AlertButton[] = [
+              {
+                text: 'Edit',
+                onPress: () => router.push(`/addresses/${item.id}`),
+              },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => handleDeleteAddress(item),
+              },
+              { text: 'Cancel', style: 'cancel' },
+            ];
+            // Conditionally add "Set as Default" if not already default
+            if (!item.is_default) {
+              buttons.splice(1, 0, {
+                text: 'Set as Default',
+                onPress: () => handleSetDefault(item.id),
+              });
+            }
+            Alert.alert('Address Options', '', buttons);
           }}
         >
           <Ionicons

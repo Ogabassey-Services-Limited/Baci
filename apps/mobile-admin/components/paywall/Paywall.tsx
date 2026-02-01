@@ -1,4 +1,3 @@
-import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
@@ -19,14 +18,14 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 
-const { width } = Dimensions.get('window');
+const { width: _width } = Dimensions.get('window');
 
 interface PaywallProps {
   onClose?: () => void;
 }
 
 export default function Paywall({ onClose }: PaywallProps) {
-  const { colors, shadows } = useTheme();
+  const { colors, shadows: _shadows } = useTheme();
   const {
     currentOffering,
     purchasePackage,
@@ -36,7 +35,8 @@ export default function Paywall({ onClose }: PaywallProps) {
     error,
   } = useRevenueCat();
 
-  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+  const [selectedPackage, setSelectedPackage] =
+    useState<PurchasesPackage | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -47,9 +47,15 @@ export default function Paywall({ onClose }: PaywallProps) {
   useEffect(() => {
     // Default to yearly if available, otherwise monthly
     if (currentOffering?.availablePackages) {
-      const annual = currentOffering.availablePackages.find(p => p.packageType === 'ANNUAL');
-      const monthly = currentOffering.availablePackages.find(p => p.packageType === 'MONTHLY');
-      setSelectedPackage(annual || monthly || currentOffering.availablePackages[0] || null);
+      const annual = currentOffering.availablePackages.find(
+        (p) => p.packageType === 'ANNUAL'
+      );
+      const monthly = currentOffering.availablePackages.find(
+        (p) => p.packageType === 'MONTHLY'
+      );
+      setSelectedPackage(
+        annual || monthly || currentOffering.availablePackages[0] || null
+      );
     }
   }, [currentOffering]);
 
@@ -64,6 +70,7 @@ export default function Paywall({ onClose }: PaywallProps) {
           { text: 'OK', onPress: onClose },
         ]);
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { useRevenueCatStore } = require('@/stores/revenueCatStore');
         const storeError = useRevenueCatStore.getState().error;
         if (!storeError) {
@@ -89,17 +96,37 @@ export default function Paywall({ onClose }: PaywallProps) {
       } else {
         Alert.alert('Notice', 'No active subscriptions found to restore.');
       }
-    } catch (err) {
+    } catch (_err) {
       Alert.alert('Error', 'Could not restore purchases.');
     }
   };
 
   const PRO_FEATURES = [
-    { id: '1', title: 'Unlimited Storefronts', desc: 'Build as many shops as you need' },
-    { id: '2', title: 'Advanced AI Analytics', desc: 'Predict trends and customer behavior' },
-    { id: '3', title: 'Premium Themes', desc: 'Unlock all 2026 designer storefronts' },
-    { id: '4', title: 'Custom Domains', desc: 'Use your own .com or .shop domain' },
-    { id: '5', title: 'Priority Support', desc: '24/7 dedicated help from our team' },
+    {
+      id: '1',
+      title: 'Unlimited Storefronts',
+      desc: 'Build as many shops as you need',
+    },
+    {
+      id: '2',
+      title: 'Advanced AI Analytics',
+      desc: 'Predict trends and customer behavior',
+    },
+    {
+      id: '3',
+      title: 'Premium Themes',
+      desc: 'Unlock all 2026 designer storefronts',
+    },
+    {
+      id: '4',
+      title: 'Custom Domains',
+      desc: 'Use your own .com or .shop domain',
+    },
+    {
+      id: '5',
+      title: 'Priority Support',
+      desc: '24/7 dedicated help from our team',
+    },
   ];
 
   if (isLoading && !currentOffering) {
@@ -112,8 +139,10 @@ export default function Paywall({ onClose }: PaywallProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Premium Header */}
         <LinearGradient
           colors={[colors.primary, '#8B0000']} // Premium Baci Red Gradient
@@ -123,9 +152,16 @@ export default function Paywall({ onClose }: PaywallProps) {
             <Ionicons name="close" size={24} color="#FFF" />
           </Pressable>
 
-          <Ionicons name="diamond" size={48} color="#FFF" style={styles.headerIcon} />
+          <Ionicons
+            name="diamond"
+            size={48}
+            color="#FFF"
+            style={styles.headerIcon}
+          />
           <Text style={styles.headerTitle}>Baci Pro</Text>
-          <Text style={styles.headerSubtitle}>The ultimate toolkit for modern merchants</Text>
+          <Text style={styles.headerSubtitle}>
+            The ultimate toolkit for modern merchants
+          </Text>
         </LinearGradient>
 
         <View style={styles.content}>
@@ -133,12 +169,26 @@ export default function Paywall({ onClose }: PaywallProps) {
           <View style={styles.featureList}>
             {PRO_FEATURES.map((feature) => (
               <View key={feature.id} style={styles.featureItem}>
-                <View style={[styles.checkCircle, { backgroundColor: colors.primary + '20' }]}>
+                <View
+                  style={[
+                    styles.checkCircle,
+                    { backgroundColor: colors.primary + '20' },
+                  ]}
+                >
                   <Ionicons name="checkmark" size={16} color={colors.primary} />
                 </View>
                 <View style={styles.featureText}>
-                  <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
-                  <Text style={[styles.featureDesc, { color: colors.textSecondary }]}>{feature.desc}</Text>
+                  <Text style={[styles.featureTitle, { color: colors.text }]}>
+                    {feature.title}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.featureDesc,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {feature.desc}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -159,7 +209,7 @@ export default function Paywall({ onClose }: PaywallProps) {
                     {
                       backgroundColor: colors.card,
                       borderColor: isActive ? colors.primary : colors.border,
-                      borderWidth: isActive ? 2 : 1
+                      borderWidth: isActive ? 2 : 1,
                     },
                   ]}
                 >
@@ -168,14 +218,26 @@ export default function Paywall({ onClose }: PaywallProps) {
                       {isAnnual ? 'Yearly Access' : 'Monthly Access'}
                     </Text>
                     {isAnnual && (
-                      <View style={[styles.savingsBadge, { backgroundColor: '#4CAF50' }]}>
+                      <View
+                        style={[
+                          styles.savingsBadge,
+                          { backgroundColor: '#4CAF50' },
+                        ]}
+                      >
                         <Text style={styles.savingsText}>SAVE 20%</Text>
                       </View>
                     )}
                   </View>
                   <View style={styles.tierPricing}>
-                    <Text style={[styles.tierPrice, { color: colors.text }]}>{pack.product.priceString}</Text>
-                    <Text style={[styles.tierPeriod, { color: colors.textSecondary }]}>
+                    <Text style={[styles.tierPrice, { color: colors.text }]}>
+                      {pack.product.priceString}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.tierPeriod,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
                       /{isAnnual ? 'year' : 'mo'}
                     </Text>
                   </View>
@@ -193,29 +255,59 @@ export default function Paywall({ onClose }: PaywallProps) {
           disabled={!selectedPackage || isLoading}
           style={({ pressed }) => [
             styles.mainButton,
-            { backgroundColor: colors.primary, opacity: (pressed || !selectedPackage || isLoading) ? 0.8 : 1 }
+            {
+              backgroundColor: colors.primary,
+              opacity: pressed || !selectedPackage || isLoading ? 0.8 : 1,
+            },
           ]}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.mainButtonText}>
-              {isPro ? 'Manage subscription' : `Continue with ${selectedPackage?.product.title || 'Pro'}`}
+              {isPro
+                ? 'Manage subscription'
+                : `Continue with ${selectedPackage?.product.title || 'Pro'}`}
             </Text>
           )}
         </Pressable>
 
+        {/* Auto-renewal disclosure - Required by Apple */}
+        <Text
+          style={[styles.subscriptionDisclosure, { color: colors.textMuted }]}
+        >
+          {selectedPackage && (
+            <>
+              Subscription auto-renews{' '}
+              {selectedPackage.packageType === 'ANNUAL' ? 'yearly' : 'monthly'}{' '}
+              at {selectedPackage.product.priceString} unless cancelled at least
+              24 hours before the end of the current period. Manage or cancel
+              anytime in your Apple ID settings.
+            </>
+          )}
+        </Text>
+
         <View style={styles.footerLinks}>
           <Pressable onPress={onRestore}>
-            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Restore Purchases</Text>
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
+              Restore Purchases
+            </Text>
           </Pressable>
           <Text style={{ color: colors.textMuted }}>|</Text>
-          <Pressable onPress={() => Linking.openURL('https://usebaci.com/legal/terms')}>
-            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Terms</Text>
+          <Pressable
+            onPress={() => Linking.openURL('https://usebaci.com/terms')}
+          >
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
+              Terms
+            </Text>
           </Pressable>
           <Text style={{ color: colors.textMuted }}>|</Text>
-          <Pressable onPress={() => Linking.openURL('https://usebaci.com/legal/privacy')}>
-            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>Privacy</Text>
+          <Pressable
+            onPress={() => Linking.openURL('https://usebaci.com/privacy')}
+          >
+            <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
+              Privacy
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -375,5 +467,12 @@ const styles = StyleSheet.create({
   smallLink: {
     fontSize: 11,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  subscriptionDisclosure: {
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+    lineHeight: 14,
+    marginBottom: SPACING.sm,
   },
 });

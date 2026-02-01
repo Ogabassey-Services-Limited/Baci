@@ -98,8 +98,7 @@ const CategoryItem = memo(function CategoryItem({
     // Optional: Subtle press scale if desired
   };
 
-  const handlePressOut = () => {
-  };
+  const handlePressOut = () => {};
 
   if (variant === 'circle') {
     return (
@@ -132,7 +131,7 @@ const CategoryItem = memo(function CategoryItem({
           style={[
             styles.circleLabel,
             animatedLabelStyle,
-            isActive && { fontWeight: '700' }
+            isActive && { fontWeight: '700' },
           ]}
         >
           {name}
@@ -177,7 +176,7 @@ export function UtilityPanel({
 
   // Auto-rotate effect
   useEffect(() => {
-    // 2026 Best Practice: Auto-rotation should run if NOT manual AND 
+    // 2026 Best Practice: Auto-rotation should run if NOT manual AND
     // the parent selection is either null or the current auto index item
     if (isManualUtility) return;
 
@@ -199,11 +198,21 @@ export function UtilityPanel({
     // 2026 Best Practice: Default to utilities if slug matches or is unspecified (safe fallback for this specialized component)
     if (!slug || slug === 'utility' || slug === 'utilities') {
       return [
-        { id: 'u-airtime', name: 'Airtime', slug: 'airtime', icon: 'call-outline' },
+        {
+          id: 'u-airtime',
+          name: 'Airtime',
+          slug: 'airtime',
+          icon: 'call-outline',
+        },
         { id: 'u-data', name: 'Data', slug: 'data', icon: 'wifi' },
         { id: 'u-tv', name: 'Tv', slug: 'tv', icon: 'tv-outline' },
         { id: 'u-power', name: 'Power', slug: 'power', icon: 'flash-outline' },
-        { id: 'u-gaming', name: 'Gaming', slug: 'gaming', icon: 'game-controller-outline' },
+        {
+          id: 'u-gaming',
+          name: 'Gaming',
+          slug: 'gaming',
+          icon: 'game-controller-outline',
+        },
       ];
     }
     return (remoteCategories || []) as any[];
@@ -252,7 +261,11 @@ export function UtilityPanel({
             iconName={category.icon}
             variant={itemVariant}
             // Active if: (Manual Interaction & matches selection) OR (Auto Mode & index matches)
-            isActive={isManualUtility && selectedCategoryId ? category.id === selectedCategoryId : activeUtilityIndex === index}
+            isActive={
+              isManualUtility && selectedCategoryId
+                ? category.id === selectedCategoryId
+                : activeUtilityIndex === index
+            }
             onPress={() => handlePress(category.id, index)}
           />
         ))}

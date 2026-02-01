@@ -7,13 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import React, { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
@@ -51,9 +45,9 @@ const faqItems: FAQItem[] = [
   },
   {
     id: '5',
-    question: 'How do I verify a phone\'s IMEI?',
+    question: "How do I verify a phone's IMEI?",
     answer:
-      'Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you\'re buying a legitimate device.',
+      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you're buying a legitimate device.",
   },
   {
     id: '6',
@@ -148,7 +142,9 @@ export default function FAQScreen() {
                     styles.supportIconContainer,
                     {
                       backgroundColor:
-                        option.id === 'whatsapp' ? '#25D366' : `${BRAND.primary}15`,
+                        option.id === 'whatsapp'
+                          ? '#25D366'
+                          : `${BRAND.primary}15`,
                     },
                   ]}
                 >
@@ -162,7 +158,10 @@ export default function FAQScreen() {
                   {option.title}
                 </Text>
                 <Text
-                  style={[styles.supportSubtitle, { color: colors.textSecondary }]}
+                  style={[
+                    styles.supportSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   {option.subtitle}
                 </Text>
@@ -185,7 +184,10 @@ export default function FAQScreen() {
                   key={item.id}
                   style={[
                     styles.faqItem,
-                    { backgroundColor: colors.card, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
                   ]}
                   onPress={() => toggleExpand(item.id)}
                   accessibilityRole="button"
@@ -207,7 +209,10 @@ export default function FAQScreen() {
                   </View>
                   {isExpanded && (
                     <Text
-                      style={[styles.faqAnswer, { color: colors.textSecondary }]}
+                      style={[
+                        styles.faqAnswer,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       {item.answer}
                     </Text>

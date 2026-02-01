@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -18,6 +19,10 @@ import {
 } from 'react-native';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 import { useOnboarding } from '@/hooks/useOnboarding';
+import {
+  validatePassword,
+  type PasswordValidationResult,
+} from '@/lib/password-utils';
 
 // Simplified Business Types from Web Config
 const BUSINESS_TYPES = [
@@ -67,6 +72,19 @@ export default function RegisterScreen() {
   });
   const [isSlugEdited, setIsSlugEdited] = useState(false);
 
+  // Validation State
+  const [passwordState, setPasswordState] = useState<PasswordValidationResult>({
+    isValid: false,
+    strength: 0,
+    requirements: {
+      length: false,
+      complexity: false,
+      notCommon: false,
+      match: true,
+    },
+  });
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
   const updateForm = (key: string, value: string) => {
     setFormData((prev) => {
       const updates: Partial<typeof formData> = { [key]: value };
@@ -76,8 +94,26 @@ export default function RegisterScreen() {
         const firstWord = value.split(' ')[0] || '';
         updates.slug = firstWord
           .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens (though for first word, less likely needed)
+          .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
+      }
+
+      // Real-time validation
+      if (key === 'password') {
+        const result = validatePassword(value, prev.confirmPassword);
+        setPasswordState(result);
+        if (prev.confirmPassword && value !== prev.confirmPassword) {
+          setConfirmError('Passwords do not match');
+        } else {
+          setConfirmError(null);
+        }
+      }
+      if (key === 'confirmPassword') {
+        if (prev.password && value !== prev.password) {
+          setConfirmError('Passwords do not match');
+        } else {
+          setConfirmError(null);
+        }
       }
 
       return { ...prev, ...updates };
@@ -97,14 +133,19 @@ export default function RegisterScreen() {
         Alert.alert('Error', 'Please fill in all fields');
         return;
       }
-      if (formData.password !== formData.confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
+
+      const result = validatePassword(
+        formData.password,
+        formData.confirmPassword
+      );
+      if (!result.isValid) {
+        Alert.alert(
+          'Password too weak',
+          result.error || 'Please choose a stronger password.'
+        );
         return;
       }
-      if (formData.password.length < 8) {
-        Alert.alert('Error', 'Password must be at least 8 characters');
-        return;
-      }
+
       setStep(2);
     }
   };
@@ -140,6 +181,8 @@ export default function RegisterScreen() {
           background: '#ffffff',
           accent: '#F59E0B',
         }),
+        logoUrl: '',
+        brandPreferences: '',
       },
       {
         onSuccess: (data: unknown) => {
@@ -280,6 +323,139 @@ export default function RegisterScreen() {
                       />
                     </Pressable>
                   </View>
+
+                  {/* Password Strength Meter & Checklist */}
+                  <View style={styles.validationContainer}>
+                    <Text style={styles.validationTitle}>
+                      Password Strength
+                    </Text>
+
+                    <View style={styles.strengthMeter}>
+                      <View
+                        style={[
+                          styles.strengthBar,
+                          {
+                            backgroundColor:
+                              passwordState.strength > 0
+                                ? passwordState.strength === 1
+                                  ? '#EF4444'
+                                  : passwordState.strength === 2
+                                    ? '#F59E0B'
+                                    : '#10B981'
+                                : '#374151',
+                            width: '32%',
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.strengthBar,
+                          {
+                            backgroundColor:
+                              passwordState.strength > 1
+                                ? passwordState.strength === 2
+                                  ? '#F59E0B'
+                                  : '#10B981'
+                                : '#374151',
+                            width: '32%',
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.strengthBar,
+                          {
+                            backgroundColor:
+                              passwordState.strength > 2
+                                ? '#10B981'
+                                : '#374151',
+                            width: '32%',
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.checklist}>
+                      <View style={styles.checkItem}>
+                        <Ionicons
+                          name={
+                            passwordState.requirements.length
+                              ? 'checkmark-circle'
+                              : 'ellipse-outline'
+                          }
+                          size={14}
+                          color={
+                            passwordState.requirements.length
+                              ? '#10B981'
+                              : '#9CA3AF'
+                          }
+                        />
+                        <Text
+                          style={
+                            passwordState.requirements.length
+                              ? styles.checkTextValid
+                              : styles.checkText
+                          }
+                        >
+                          At least 8 characters
+                        </Text>
+                      </View>
+                      <View style={styles.checkItem}>
+                        <Ionicons
+                          name={
+                            passwordState.requirements.complexity
+                              ? 'checkmark-circle'
+                              : 'ellipse-outline'
+                          }
+                          size={14}
+                          color={
+                            passwordState.requirements.complexity
+                              ? '#10B981'
+                              : '#9CA3AF'
+                          }
+                        />
+                        <Text
+                          style={
+                            passwordState.requirements.complexity
+                              ? styles.checkTextValid
+                              : styles.checkText
+                          }
+                        >
+                          Complexity (longer or mixed types)
+                        </Text>
+                      </View>
+                      <View style={styles.checkItem}>
+                        <Ionicons
+                          name={
+                            passwordState.requirements.notCommon
+                              ? 'checkmark-circle'
+                              : formData.password.length > 0
+                                ? 'alert-circle-outline'
+                                : 'ellipse-outline'
+                          }
+                          size={14}
+                          color={
+                            passwordState.requirements.notCommon
+                              ? '#10B981'
+                              : formData.password.length > 0
+                                ? '#EF4444'
+                                : '#9CA3AF'
+                          }
+                        />
+                        <Text
+                          style={
+                            passwordState.requirements.notCommon
+                              ? styles.checkTextValid
+                              : formData.password.length > 0
+                                ? styles.checkTextError
+                                : styles.checkText
+                          }
+                        >
+                          Not a common password
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -308,6 +484,9 @@ export default function RegisterScreen() {
                       />
                     </Pressable>
                   </View>
+                  {confirmError && (
+                    <Text style={styles.errorText}>{confirmError}</Text>
+                  )}
                 </View>
 
                 <Pressable style={styles.button} onPress={handleNext}>
@@ -405,6 +584,25 @@ export default function RegisterScreen() {
                     </>
                   )}
                 </Pressable>
+
+                <Text style={styles.termsText}>
+                  By creating an account, you agree to our{' '}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={() => Linking.openURL('https://usebaci.com/terms')}
+                  >
+                    Terms of Service
+                  </Text>{' '}
+                  and{' '}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={() =>
+                      Linking.openURL('https://usebaci.com/privacy')
+                    }
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -583,5 +781,61 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  termsText: {
+    color: '#9CA3AF',
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
+    marginTop: SPACING.lg,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: DARK_COLORS.primary,
+    textDecorationLine: 'underline',
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  validationContainer: {
+    marginTop: 12,
+    gap: 8,
+  },
+  validationTitle: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  strengthMeter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginBottom: 4,
+  },
+  strengthBar: {
+    height: 4,
+    borderRadius: 2,
+  },
+  checklist: {
+    marginTop: 4,
+    gap: 6,
+  },
+  checkItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  checkText: {
+    color: '#6B7280',
+    fontSize: 12,
+  },
+  checkTextValid: {
+    color: '#10B981',
+    fontSize: 12,
+  },
+  checkTextError: {
+    color: '#EF4444',
+    fontSize: 12,
   },
 });

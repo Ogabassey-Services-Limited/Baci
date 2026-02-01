@@ -95,9 +95,9 @@ async function fetchWalletData(
 
   const walletValidation = WalletRowSchema.safeParse(walletResult.data);
 
-  const transactionsValidation = z.array(TransactionRowSchema).safeParse(
-    transactionsResult.data
-  );
+  const transactionsValidation = z
+    .array(TransactionRowSchema)
+    .safeParse(transactionsResult.data);
 
   return {
     wallet: {
@@ -139,11 +139,21 @@ export function useWallet() {
   });
 
   // Real-time sync
+  // 2026 Critical Fix: Prevent channel race condition on rapid mount/unmount
   useEffect(() => {
     if (!customer?.id) return;
 
+    // Cleanup any existing channel first (prevent duplicates)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    let isMounted = true;
+    const channelName = `wallet-hook-${customer.id}-${Date.now()}`;
+
     const channel = supabase
-      .channel(`wallet-hook-${customer.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -153,10 +163,12 @@ export function useWallet() {
           filter: `customer_id=eq.${customer.id}`,
         },
         () => {
-          // Invalidate to refetch
-          queryClient.invalidateQueries({
-            queryKey: walletKeys.data(customer.id),
-          });
+          // Only invalidate if still mounted
+          if (isMounted) {
+            queryClient.invalidateQueries({
+              queryKey: walletKeys.data(customer.id),
+            });
+          }
         }
       )
       .on(
@@ -168,9 +180,11 @@ export function useWallet() {
           filter: `id=eq.${customer.id}`,
         },
         () => {
-          queryClient.invalidateQueries({
-            queryKey: walletKeys.data(customer.id),
-          });
+          if (isMounted) {
+            queryClient.invalidateQueries({
+              queryKey: walletKeys.data(customer.id),
+            });
+          }
         }
       )
       .subscribe();
@@ -178,8 +192,10 @@ export function useWallet() {
     channelRef.current = channel;
 
     return () => {
+      isMounted = false;
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        // Use removeChannel for synchronous cleanup
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };

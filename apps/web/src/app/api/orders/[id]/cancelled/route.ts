@@ -126,11 +126,9 @@ export async function POST(
             refundAmount * 100, // Convert to kobo
             cancellationReason || 'Order cancelled'
           );
-          refundResult = {
-            success: paystackRefund.success,
-            refundId: paystackRefund.data?.id,
-            error: paystackRefund.error,
-          };
+          refundResult = paystackRefund.success
+            ? { success: true, refundId: paystackRefund.data.id }
+            : { success: false, error: paystackRefund.error };
         } else if (transaction.gateway === 'korapay') {
           // TODO: Implement Korapay refund
           logger.warn({

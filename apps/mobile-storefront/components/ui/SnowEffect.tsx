@@ -25,8 +25,8 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   const layer = index % 3;
 
   // Parallax properties based on layer
-  const scale = 0.5 + (layer * 0.4); // 0.5, 0.9, 1.3
-  const speedMultiplier = 0.7 + (layer * 0.3); // Back moves slower
+  const scale = 0.5 + layer * 0.4; // 0.5, 0.9, 1.3
+  const speedMultiplier = 0.7 + layer * 0.3; // Back moves slower
 
   // 2026 Best Practice: Use index-based seeded values instead of Math.random()
   // This ensures stable values across re-renders and prevents animation recreation
@@ -36,13 +36,16 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   // Memoize all random-based values with stable seeds
   const xPosition = useMemo(() => seededRandom(0) * SCREEN_WIDTH, []);
   const startY = useMemo(() => -seededRandom(1) * 200, []);
-  const duration = useMemo(() => (6000 + seededRandom(2) * 4000) / speedMultiplier, [speedMultiplier]);
+  const duration = useMemo(
+    () => (6000 + seededRandom(2) * 4000) / speedMultiplier,
+    [speedMultiplier]
+  );
   const delay = useMemo(() => seededRandom(3) * 8000, []);
   const size = useMemo(() => (3 + seededRandom(4) * 4) * scale, [scale]);
 
   // 2026 Best Practice: Initialize shared values with stable starting values
   const translateY = useSharedValue(startY);
-  const opacity = useSharedValue(0.4 + (layer * 0.2));
+  const opacity = useSharedValue(0.4 + layer * 0.2);
 
   useEffect(() => {
     translateY.value = withDelay(
@@ -62,10 +65,7 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   }, [delay, duration, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale }
-    ],
+    transform: [{ translateY: translateY.value }, { scale: scale }],
     opacity: opacity.value,
   }));
 

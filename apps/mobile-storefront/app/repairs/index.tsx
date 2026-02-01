@@ -6,7 +6,14 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
@@ -143,7 +150,9 @@ export default function RepairsScreen() {
             <Text style={[styles.headerTitle, { color: colors.text }]}>
               Repair Lab
             </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+            >
               Expert repairs that save you money
             </Text>
           </View>
@@ -168,7 +177,10 @@ export default function RepairsScreen() {
               <Text style={styles.primaryButtonText}>Book a Repair</Text>
             </Pressable>
             <Pressable
-              style={[styles.secondaryButton, { borderColor: 'rgba(255,255,255,0.3)' }]}
+              style={[
+                styles.secondaryButton,
+                { borderColor: 'rgba(255,255,255,0.3)' },
+              ]}
               onPress={handleSwap}
             >
               <Text style={styles.secondaryButtonText}>Trade-in Instead</Text>
@@ -189,7 +201,9 @@ export default function RepairsScreen() {
               <Text style={[styles.impactTitle, { color: colors.text }]}>
                 {card.title}
               </Text>
-              <Text style={[styles.impactDesc, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.impactDesc, { color: colors.textSecondary }]}
+              >
                 {card.desc}
               </Text>
             </View>
@@ -212,7 +226,10 @@ export default function RepairsScreen() {
                 style={[styles.serviceCard, { backgroundColor: colors.card }]}
               >
                 <View
-                  style={[styles.serviceIcon, { backgroundColor: colors.background }]}
+                  style={[
+                    styles.serviceIcon,
+                    { backgroundColor: colors.background },
+                  ]}
                 >
                   <Ionicons
                     name={service.icon}
@@ -286,7 +303,12 @@ export default function RepairsScreen() {
                 key={index}
                 style={[styles.recyclingCard, { backgroundColor: colors.card }]}
               >
-                <View style={[styles.recyclingCardIcon, { backgroundColor: item.bg }]}>
+                <View
+                  style={[
+                    styles.recyclingCardIcon,
+                    { backgroundColor: item.bg },
+                  ]}
+                >
                   <Ionicons name={item.icon} size={18} color={item.color} />
                 </View>
                 <View style={styles.recyclingCardText}>

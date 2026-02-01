@@ -21,7 +21,7 @@ import { sendEmail } from '@/lib/zeptomail';
 
 // GIGL-specific shipment creation logic is now in its own function
 interface OrderItem {
-  value: number;
+  value?: number;
   quantity: number;
   product_id?: string;
   productId?: string;
@@ -29,6 +29,7 @@ interface OrderItem {
   name?: string;
   productName?: string;
   price?: number;
+  negotiatedPrice?: number;
 }
 
 interface CustomerInfo {
@@ -67,10 +68,10 @@ async function handleGiglShipment(
       },
       ShipmentDetails: { VehicleType: 1, IsFromAgility: 0, IsBatchPickUp: 0 },
       ShipmentItems: order.items.map(
-        (item: { value: number; quantity: number }) => ({
+        (item: { value?: number; quantity: number; price?: number }) => ({
           SpecialPackageId: 10,
           Quantity: item.quantity,
-          Value: item.value,
+          Value: item.value ?? item.price ?? 0,
           ShipmentType: 0, // Special
         })
       ),

@@ -39,14 +39,18 @@ interface UseKeyboardResult {
  * });
  * ```
  */
-export function useKeyboard(options: UseKeyboardOptions = {}): UseKeyboardResult {
+export function useKeyboard(
+  options: UseKeyboardOptions = {}
+): UseKeyboardResult {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     // Use different events for iOS vs Android
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showEvent =
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSubscription = Keyboard.addListener(showEvent, (event) => {
       setIsKeyboardVisible(true);
@@ -72,14 +76,15 @@ export function useKeyboard(options: UseKeyboardOptions = {}): UseKeyboardResult
    * Wraps a handler function to dismiss keyboard before execution
    * This is a 2026 best practice for form submission UX
    */
-  const withKeyboardDismiss = useCallback(<T extends (...args: any[]) => any>(
-    handler: T
-  ): T => {
-    return ((...args: Parameters<T>) => {
-      Keyboard.dismiss();
-      return handler(...args);
-    }) as T;
-  }, []);
+  const withKeyboardDismiss = useCallback(
+    <T extends (...args: any[]) => any>(handler: T): T => {
+      return ((...args: Parameters<T>) => {
+        Keyboard.dismiss();
+        return handler(...args);
+      }) as T;
+    },
+    []
+  );
 
   return {
     isKeyboardVisible,
@@ -138,4 +143,5 @@ export const TextContentTypes = {
   creditCardFamilyName: 'creditCardFamilyName',
 } as const;
 
-export type TextContentType = typeof TextContentTypes[keyof typeof TextContentTypes];
+export type TextContentType =
+  (typeof TextContentTypes)[keyof typeof TextContentTypes];

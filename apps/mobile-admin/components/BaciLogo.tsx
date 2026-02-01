@@ -3,7 +3,8 @@
  * Uses the actual Baci app icon (navy bag with white cloud)
  */
 
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 
 interface BaciLogoProps {
   size?: number;
@@ -23,11 +24,11 @@ export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
         },
       ]}
     >
-      <Image
+      <SafeImage
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require('@/assets/images/icon.png')}
         style={{ width: size, height: size }}
-        resizeMode="cover"
+        contentFit="cover"
       />
     </View>
   );

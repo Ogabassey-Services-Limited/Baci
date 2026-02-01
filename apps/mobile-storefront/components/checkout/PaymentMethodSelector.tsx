@@ -100,22 +100,22 @@ export function PaymentMethodSelector({
   const isBNPLEligible =
     orderTotal >= BNPL_MIN_AMOUNT && orderTotal <= BNPL_MAX_AMOUNT;
 
-  const filteredMethods = PAYMENT_METHODS.filter((m) => m.tab === selectedTab).map(
-    (method) => {
-      // Add eligibility check for BNPL methods
-      if (method.tab === 'installments' && !isBNPLEligible) {
-        return {
-          ...method,
-          disabled: true,
-          disabledReason:
-            orderTotal < BNPL_MIN_AMOUNT
-              ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
-              : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
-        };
-      }
-      return method;
+  const filteredMethods = PAYMENT_METHODS.filter(
+    (m) => m.tab === selectedTab
+  ).map((method) => {
+    // Add eligibility check for BNPL methods
+    if (method.tab === 'installments' && !isBNPLEligible) {
+      return {
+        ...method,
+        disabled: true,
+        disabledReason:
+          orderTotal < BNPL_MIN_AMOUNT
+            ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
+            : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
+      };
     }
-  );
+    return method;
+  });
 
   // Calculate installment examples
   const installmentExamples = [
@@ -202,7 +202,10 @@ export function PaymentMethodSelector({
                   Buy Now, Pay Later
                 </Text>
                 <Text
-                  style={[styles.installmentDesc, { color: colors.textSecondary }]}
+                  style={[
+                    styles.installmentDesc,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   Split {formatPrice(orderTotal)} into easy payments:
                 </Text>
@@ -210,7 +213,10 @@ export function PaymentMethodSelector({
                   {installmentExamples.map((example) => (
                     <Text
                       key={example.months}
-                      style={[styles.installmentExample, { color: BRAND.primary }]}
+                      style={[
+                        styles.installmentExample,
+                        { color: BRAND.primary },
+                      ]}
                     >
                       {example.months}mo: {formatPrice(example.monthly)}/mo
                     </Text>
@@ -270,7 +276,7 @@ export function PaymentMethodSelector({
               accessibilityRole="radio"
               accessibilityState={{
                 selected: isSelected,
-                disabled: isDisabled
+                disabled: isDisabled,
               }}
               accessibilityLabel={`${method.label}. ${isDisabled ? method.disabledReason : method.description}`}
             >
@@ -323,7 +329,10 @@ export function PaymentMethodSelector({
               >
                 {isSelected && (
                   <View
-                    style={[styles.radioInner, { backgroundColor: BRAND.primary }]}
+                    style={[
+                      styles.radioInner,
+                      { backgroundColor: BRAND.primary },
+                    ]}
                   />
                 )}
               </View>

@@ -16,7 +16,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
+import Colors, {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  palette,
+} from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -41,11 +47,22 @@ export default function WalletTabScreen() {
         edges={['top']}
       >
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Wallet</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Wallet
+          </Text>
         </View>
         <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: palette.amber[50] }]}>
-            <Ionicons name="wallet-outline" size={48} color={palette.amber[500]} />
+          <View
+            style={[
+              styles.emptyIconContainer,
+              { backgroundColor: palette.amber[50] },
+            ]}
+          >
+            <Ionicons
+              name="wallet-outline"
+              size={48}
+              color={palette.amber[500]}
+            />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             Sign in to access your wallet
@@ -71,7 +88,9 @@ export default function WalletTabScreen() {
         edges={['top']}
       >
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Wallet</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Wallet
+          </Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={BRAND.primary} />
@@ -125,7 +144,9 @@ export default function WalletTabScreen() {
         </View>
 
         {/* Points Card */}
-        <View style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}>
+        <View
+          style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}
+        >
           <View style={styles.pointsHeader}>
             <Ionicons name="sparkles" size={24} color={palette.amber[600]} />
             <Text style={[styles.pointsLabel, { color: palette.amber[800] }]}>
@@ -136,7 +157,10 @@ export default function WalletTabScreen() {
             {(data?.wallet?.loyalty_points || 0).toLocaleString()} pts
           </Text>
           <Pressable
-            style={[styles.redeemButton, { backgroundColor: palette.amber[500] }]}
+            style={[
+              styles.redeemButton,
+              { backgroundColor: palette.amber[500] },
+            ]}
             onPress={() => router.push('/wallet')}
           >
             <Text style={styles.redeemButtonText}>Redeem Points</Text>
@@ -153,7 +177,11 @@ export default function WalletTabScreen() {
               style={[styles.quickAction, { backgroundColor: colors.card }]}
               onPress={() => router.push('/orders')}
             >
-              <Ionicons name="receipt-outline" size={24} color={BRAND.primary} />
+              <Ionicons
+                name="receipt-outline"
+                size={24}
+                color={BRAND.primary}
+              />
               <Text style={[styles.quickActionLabel, { color: colors.text }]}>
                 Orders
               </Text>
@@ -162,7 +190,11 @@ export default function WalletTabScreen() {
               style={[styles.quickAction, { backgroundColor: colors.card }]}
               onPress={() => router.push('/wallet')}
             >
-              <Ionicons name="gift-outline" size={24} color={palette.amber[500]} />
+              <Ionicons
+                name="gift-outline"
+                size={24}
+                color={palette.amber[500]}
+              />
               <Text style={[styles.quickActionLabel, { color: colors.text }]}>
                 Rewards
               </Text>
@@ -171,7 +203,11 @@ export default function WalletTabScreen() {
               style={[styles.quickAction, { backgroundColor: colors.card }]}
               onPress={() => router.push('/faq')}
             >
-              <Ionicons name="help-circle-outline" size={24} color={palette.gray[500]} />
+              <Ionicons
+                name="help-circle-outline"
+                size={24}
+                color={palette.gray[500]}
+              />
               <Text style={[styles.quickActionLabel, { color: colors.text }]}>
                 Help
               </Text>

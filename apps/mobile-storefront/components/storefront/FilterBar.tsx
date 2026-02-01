@@ -64,16 +64,25 @@ export function FilterBar({
 
   const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-  const [tempMinPrice, setTempMinPrice] = useState(minPrice > 0 ? minPrice.toString() : '');
-  const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice < 3000000 ? maxPrice.toString() : '');
+  const [tempMinPrice, setTempMinPrice] = useState(
+    minPrice > 0 ? minPrice.toString() : ''
+  );
+  const [tempMaxPrice, setTempMaxPrice] = useState(
+    maxPrice < 3000000 ? maxPrice.toString() : ''
+  );
 
   const getActiveFilterLabel = () => {
     switch (activeFilterType) {
-      case 'price': return 'Price Range';
-      case 'brand': return 'Brand';
-      case 'condition': return 'Condition';
-      case 'rating': return 'Rating';
-      default: return 'Filter';
+      case 'price':
+        return 'Price Range';
+      case 'brand':
+        return 'Brand';
+      case 'condition':
+        return 'Condition';
+      case 'rating':
+        return 'Rating';
+      default:
+        return 'Filter';
     }
   };
 
@@ -90,7 +99,12 @@ export function FilterBar({
                 onChangeText={setTempMinPrice}
                 placeholder="0"
                 keyboardType="numeric"
-                onBlur={() => onPriceChange(Number(tempMinPrice) || 0, Number(tempMaxPrice) || 3000000)}
+                onBlur={() =>
+                  onPriceChange(
+                    Number(tempMinPrice) || 0,
+                    Number(tempMaxPrice) || 3000000
+                  )
+                }
                 placeholderTextColor="#9CA3AF"
               />
             </View>
@@ -103,7 +117,12 @@ export function FilterBar({
                 onChangeText={setTempMaxPrice}
                 placeholder="Max"
                 keyboardType="numeric"
-                onBlur={() => onPriceChange(Number(tempMinPrice) || 0, Number(tempMaxPrice) || 3000000)}
+                onBlur={() =>
+                  onPriceChange(
+                    Number(tempMinPrice) || 0,
+                    Number(tempMaxPrice) || 3000000
+                  )
+                }
                 placeholderTextColor="#9CA3AF"
               />
             </View>
@@ -111,7 +130,12 @@ export function FilterBar({
         );
       case 'brand':
         return (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandScroll} contentContainerStyle={styles.brandScrollContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.brandScroll}
+            contentContainerStyle={styles.brandScrollContent}
+          >
             {['All', ...brands].map((brand) => {
               const isActive = selectedBrand === brand;
               return (
@@ -120,7 +144,9 @@ export function FilterBar({
                   onPress={() => onSelectBrand(brand)}
                   style={[
                     styles.brandChip,
-                    isActive ? styles.brandChipActive : styles.brandChipInactive,
+                    isActive
+                      ? styles.brandChipActive
+                      : styles.brandChipInactive,
                   ]}
                   hitSlop={6}
                 >
@@ -130,10 +156,14 @@ export function FilterBar({
                     color={isActive ? '#FFF' : '#6B7280'}
                     style={styles.brandChipIcon}
                   />
-                  <Text style={[
-                    styles.brandChipText,
-                    isActive ? styles.brandChipTextActive : styles.brandChipTextInactive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.brandChipText,
+                      isActive
+                        ? styles.brandChipTextActive
+                        : styles.brandChipTextInactive,
+                    ]}
+                  >
                     {brand}
                   </Text>
                 </Pressable>
@@ -150,14 +180,16 @@ export function FilterBar({
                 onPress={() => onSelectCondition(condition)}
                 style={[
                   styles.segmentItem,
-                  selectedCondition === condition && styles.segmentItemActive
+                  selectedCondition === condition && styles.segmentItemActive,
                 ]}
                 hitSlop={6}
               >
-                <Text style={[
-                  styles.segmentText,
-                  selectedCondition === condition && styles.segmentTextActive
-                ]}>
+                <Text
+                  style={[
+                    styles.segmentText,
+                    selectedCondition === condition && styles.segmentTextActive,
+                  ]}
+                >
                   {condition}
                 </Text>
               </Pressable>
@@ -170,14 +202,21 @@ export function FilterBar({
             {[4, 3, 2, 1].map((rating) => (
               <Pressable
                 key={rating}
-                onPress={() => onSelectRating(minRating === rating ? 0 : rating)}
+                onPress={() =>
+                  onSelectRating(minRating === rating ? 0 : rating)
+                }
                 style={[
                   styles.ratingChip,
-                  minRating === rating && styles.ratingChipActive
+                  minRating === rating && styles.ratingChipActive,
                 ]}
                 hitSlop={6}
               >
-                <Text style={[styles.ratingText, minRating === rating && styles.ratingTextActive]}>
+                <Text
+                  style={[
+                    styles.ratingText,
+                    minRating === rating && styles.ratingTextActive,
+                  ]}
+                >
                   {rating}+
                 </Text>
                 <Ionicons
@@ -188,7 +227,14 @@ export function FilterBar({
               </Pressable>
             ))}
             <Pressable onPress={() => onSelectRating(0)} hitSlop={8}>
-              <Text style={[styles.anyText, minRating === 0 && styles.anyTextActive]}>Any</Text>
+              <Text
+                style={[
+                  styles.anyText,
+                  minRating === 0 && styles.anyTextActive,
+                ]}
+              >
+                Any
+              </Text>
             </Pressable>
           </View>
         );
@@ -221,8 +267,15 @@ export function FilterBar({
               style={[styles.catPill, isActive && styles.catPillActive]}
               hitSlop={8}
             >
-              <Feather name={icon} size={15} color={isActive ? '#FFF' : '#4B5563'} />
-              <Text style={[styles.catText, isActive && styles.catTextActive]} numberOfLines={1}>
+              <Feather
+                name={icon}
+                size={15}
+                color={isActive ? '#FFF' : '#4B5563'}
+              />
+              <Text
+                style={[styles.catText, isActive && styles.catTextActive]}
+                numberOfLines={1}
+              >
                 {cat}
               </Text>
             </Pressable>
@@ -248,7 +301,11 @@ export function FilterBar({
                 color={BRAND.primary}
                 style={[
                   styles.chevron,
-                  { transform: [{ rotate: isFilterMenuOpen ? '180deg' : '0deg' }] }
+                  {
+                    transform: [
+                      { rotate: isFilterMenuOpen ? '180deg' : '0deg' },
+                    ],
+                  },
                 ]}
               />
             </Pressable>
@@ -270,22 +327,32 @@ export function FilterBar({
                     }}
                     style={[
                       styles.popoverItem,
-                      activeFilterType === item.id && styles.popoverItemActive
+                      activeFilterType === item.id && styles.popoverItemActive,
                     ]}
                   >
                     <Feather
                       name={item.icon as any}
                       size={16}
-                      color={activeFilterType === item.id ? BRAND.primary : '#6B7280'}
+                      color={
+                        activeFilterType === item.id ? BRAND.primary : '#6B7280'
+                      }
                     />
-                    <Text style={[
-                      styles.popoverText,
-                      activeFilterType === item.id && styles.popoverTextActive
-                    ]}>
+                    <Text
+                      style={[
+                        styles.popoverText,
+                        activeFilterType === item.id &&
+                          styles.popoverTextActive,
+                      ]}
+                    >
                       {item.label}
                     </Text>
                     {activeFilterType === item.id && (
-                      <Feather name="check" size={14} color={BRAND.primary} style={styles.checkIcon} />
+                      <Feather
+                        name="check"
+                        size={14}
+                        color={BRAND.primary}
+                        style={styles.checkIcon}
+                      />
                     )}
                   </Pressable>
                 ))}
@@ -296,25 +363,37 @@ export function FilterBar({
           <View style={styles.vDivider} />
 
           {/* Dynamic Controls Area */}
-          <View style={styles.dynamicArea}>
-            {renderActiveControls()}
-          </View>
+          <View style={styles.dynamicArea}>{renderActiveControls()}</View>
 
           {/* View Toggle */}
           <View style={styles.viewToggle}>
             <Pressable
               onPress={() => onViewModeChange('grid')}
-              style={[styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive]}
+              style={[
+                styles.viewBtn,
+                viewMode === 'grid' && styles.viewBtnActive,
+              ]}
               hitSlop={8}
             >
-              <Feather name="grid" size={15} color={viewMode === 'grid' ? BRAND.primary : '#9CA3AF'} />
+              <Feather
+                name="grid"
+                size={15}
+                color={viewMode === 'grid' ? BRAND.primary : '#9CA3AF'}
+              />
             </Pressable>
             <Pressable
               onPress={() => onViewModeChange('list')}
-              style={[styles.viewBtn, viewMode === 'list' && styles.viewBtnActive]}
+              style={[
+                styles.viewBtn,
+                viewMode === 'list' && styles.viewBtnActive,
+              ]}
               hitSlop={8}
             >
-              <Feather name="list" size={15} color={viewMode === 'list' ? BRAND.primary : '#9CA3AF'} />
+              <Feather
+                name="list"
+                size={15}
+                color={viewMode === 'list' ? BRAND.primary : '#9CA3AF'}
+              />
             </Pressable>
           </View>
         </View>

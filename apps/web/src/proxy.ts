@@ -149,11 +149,28 @@ function isVercelPreview(hostname: string): boolean {
  */
 function isLocalhost(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
-  return (
+
+  // Standard localhost/loopback
+  if (
     normalizedHost === 'localhost' ||
     normalizedHost === '127.0.0.1' ||
-    normalizedHost.endsWith('.localhost') // subdomain.localhost:3000
-  );
+    normalizedHost.endsWith('.localhost')
+  ) {
+    return true;
+  }
+
+  // Allow private/local IP ranges ONLY in development (for physical devices testing over WiFi)
+  if (process.env.NODE_ENV === 'development') {
+    // 192.168.x.x
+    if (normalizedHost.startsWith('192.168.')) return true;
+    // 10.x.x.x
+    if (normalizedHost.startsWith('10.')) return true;
+    // 172.16.x.x to 172.31.x.x
+    const match172 = normalizedHost.match(/^172\.(1[6-9]|2[0-9]|3[01])\./);
+    if (match172) return true;
+  }
+
+  return false;
 }
 
 /**

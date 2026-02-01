@@ -174,10 +174,10 @@ export const useCartStore = create<CartState>()(
           items: state.items.map((item) =>
             item.id === id
               ? {
-                ...item,
-                negotiatedPrice,
-                negotiationStatus: 'accepted' as const,
-              }
+                  ...item,
+                  negotiatedPrice,
+                  negotiationStatus: 'accepted' as const,
+                }
               : item
           ),
         }));
@@ -212,10 +212,10 @@ export const useCartStore = create<CartState>()(
           items: state.items.map((item) =>
             item.id === id
               ? {
-                ...item,
-                negotiatedPrice: undefined,
-                negotiationStatus: undefined,
-              }
+                  ...item,
+                  negotiatedPrice: undefined,
+                  negotiationStatus: undefined,
+                }
               : item
           ),
         }));
@@ -227,10 +227,10 @@ export const useCartStore = create<CartState>()(
           items: state.items.map((item) =>
             item.id === id
               ? {
-                ...item,
-                hasAssurance: !item.hasAssurance,
-                assuranceRate: 0.05, // 5% assurance rate
-              }
+                  ...item,
+                  hasAssurance: !item.hasAssurance,
+                  assuranceRate: 0.05, // 5% assurance rate
+                }
               : item
           ),
         }));

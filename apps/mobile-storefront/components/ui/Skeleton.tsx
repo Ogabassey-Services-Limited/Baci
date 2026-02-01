@@ -4,7 +4,14 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Animated, type DimensionValue, type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  type DimensionValue,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 

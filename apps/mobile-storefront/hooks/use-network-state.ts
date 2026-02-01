@@ -59,6 +59,10 @@ export function useNetworkState(): UseNetworkStateResult {
 
   const wasOffline = useRef(false);
   const reconnectCallbacks = useRef<Set<() => void>>(new Set());
+  // 2026 Critical Fix: Track timeout for cleanup to prevent memory leaks
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((netState: NetInfoState) => {
@@ -87,9 +91,14 @@ export function useNetworkState(): UseNetworkStateResult {
           }
         });
 
+        // 2026 Critical Fix: Clear previous timeout before setting new one
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
         // Clear the wasRecentlyReconnected flag after a short delay
-        setTimeout(() => {
+        reconnectTimeoutRef.current = setTimeout(() => {
           setState((prev) => ({ ...prev, wasRecentlyReconnected: false }));
+          reconnectTimeoutRef.current = null;
         }, 3000);
       }
 
@@ -113,7 +122,14 @@ export function useNetworkState(): UseNetworkStateResult {
       wasOffline.current = !isOnline;
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      // 2026 Critical Fix: Clear timeout on cleanup to prevent memory leak
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -233,7 +249,14 @@ export function useRetry<T>(
 
     setIsRetrying(false);
     return null;
-  }, [operation, maxRetries, initialDelay, maxDelay, backoffMultiplier, onMaxRetriesReached]);
+  }, [
+    operation,
+    maxRetries,
+    initialDelay,
+    maxDelay,
+    backoffMultiplier,
+    onMaxRetriesReached,
+  ]);
 
   const reset = useCallback(() => {
     setRetryCount(0);

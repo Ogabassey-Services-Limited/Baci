@@ -18,23 +18,23 @@ const { resolver } = config;
 
 config.watchFolders = [workspaceRoot];
 config.resolver = {
-    ...resolver,
-    nodeModulesPaths: [
-        path.resolve(projectRoot, 'node_modules'),
-        path.resolve(workspaceRoot, 'node_modules'),
-    ],
-    // Explicitly alias core libraries to the workspace root to prevent duplication
-    extraNodeModules: {
-        'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
-        'react': path.resolve(workspaceRoot, 'node_modules/react'),
-        'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
-        'expo': path.resolve(workspaceRoot, 'node_modules/expo'),
-        'expo-router': path.resolve(workspaceRoot, 'node_modules/expo-router'),
-    },
-    // Critical for PNPM monorepos to resolve symlinked packages
-    unstable_enableSymlinks: true,
-    // 2026: Disable package exports as it often causes duplicate bundling in monorepos
-    unstable_enablePackageExports: false,
+  ...resolver,
+  nodeModulesPaths: [
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(workspaceRoot, 'node_modules'),
+  ],
+  // Explicitly alias core libraries to the workspace root to prevent duplication
+  extraNodeModules: {
+    'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
+    react: path.resolve(workspaceRoot, 'node_modules/react'),
+    'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
+    expo: path.resolve(workspaceRoot, 'node_modules/expo'),
+    'expo-router': path.resolve(workspaceRoot, 'node_modules/expo-router'),
+  },
+  // Critical for PNPM monorepos to resolve symlinked packages
+  unstable_enableSymlinks: true,
+  // 2026: Disable package exports as it often causes duplicate bundling in monorepos
+  unstable_enablePackageExports: false,
 };
 
 module.exports = config;

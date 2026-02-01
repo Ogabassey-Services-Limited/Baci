@@ -1554,6 +1554,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         onClose={() => setIsNegotiationOpen(false)}
         productName={productData.name}
         currentPrice={productData.rawPrice || 0}
+        type="single"
         onSuccess={(price) => {
           setIsNegotiationOpen(false);
           // If options are selected (or not required), add to cart with negotiated price

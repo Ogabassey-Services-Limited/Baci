@@ -274,7 +274,11 @@ export default function OrdersScreen() {
       // Has orders but search returned no results
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="search-outline" size={64} color={colors.textSecondary} />
+          <Ionicons
+            name="search-outline"
+            size={64}
+            color={colors.textSecondary}
+          />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No matching orders
           </Text>
@@ -294,7 +298,11 @@ export default function OrdersScreen() {
     // No orders at all
     return (
       <View style={styles.emptyState}>
-        <Ionicons name="receipt-outline" size={64} color={colors.textSecondary} />
+        <Ionicons
+          name="receipt-outline"
+          size={64}
+          color={colors.textSecondary}
+        />
         <Text style={[styles.emptyTitle, { color: colors.text }]}>
           No orders yet
         </Text>
@@ -412,9 +420,23 @@ export default function OrdersScreen() {
 
       {/* Search Bar - matches web functionality */}
       {orders.length > 0 && (
-        <View style={[styles.searchContainer, { backgroundColor: colors.background }]}>
-          <View style={[styles.searchInputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="search-outline" size={20} color={colors.textSecondary} />
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={[
+              styles.searchInputContainer,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons
+              name="search-outline"
+              size={20}
+              color={colors.textSecondary}
+            />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search orders, items or status..."
@@ -430,13 +452,20 @@ export default function OrdersScreen() {
                 onPress={() => setSearchQuery('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                <Ionicons
+                  name="close-circle"
+                  size={20}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             )}
           </View>
           {searchQuery.length > 0 && (
-            <Text style={[styles.searchResults, { color: colors.textSecondary }]}>
-              {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'} found
+            <Text
+              style={[styles.searchResults, { color: colors.textSecondary }]}
+            >
+              {filteredOrders.length}{' '}
+              {filteredOrders.length === 1 ? 'order' : 'orders'} found
             </Text>
           )}
         </View>

@@ -141,7 +141,11 @@ export async function createOrder(
     const errorMessage = validationResult.error.issues
       .map((e: { message: string }) => e.message)
       .join(', ');
-    throw new OrderError(errorMessage, 'VALIDATION_ERROR', validationResult.error);
+    throw new OrderError(
+      errorMessage,
+      'VALIDATION_ERROR',
+      validationResult.error
+    );
   }
 
   // 2. Check network connectivity
@@ -177,7 +181,8 @@ export async function createOrder(
     tax_amount: request.tax_amount || 0,
     discount_amount: request.discount_amount || 0,
     payment_method: request.payment_method,
-    payment_status: request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
+    payment_status:
+      request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
     shipping_status: 'pending',
     shipping_address: {
       firstName: request.shipping_address.firstName,
@@ -233,14 +238,21 @@ export async function createOrder(
       });
 
       if (response.status === 400) {
-        throw new OrderError(errorMessage, 'VALIDATION_ERROR', errorData.details);
+        throw new OrderError(
+          errorMessage,
+          'VALIDATION_ERROR',
+          errorData.details
+        );
       } else if (response.status === 401) {
         throw new OrderError(
           'Session expired. Please sign in again.',
           'AUTH_ERROR'
         );
       } else if (response.status === 404) {
-        throw new OrderError('Service unavailable. Please try again later.', 'NOT_FOUND');
+        throw new OrderError(
+          'Service unavailable. Please try again later.',
+          'NOT_FOUND'
+        );
       } else if (response.status >= 500) {
         throw new OrderError(
           'Server error. Please try again in a few moments.',
@@ -353,7 +365,9 @@ export async function createOrder(
  * Get order by ID
  * For order confirmation and tracking screens
  */
-export async function getOrder(orderId: string): Promise<OrderResponse['order'] | null> {
+export async function getOrder(
+  orderId: string
+): Promise<OrderResponse['order'] | null> {
   const isOnline = await checkNetwork();
   if (!isOnline) {
     throw new OrderError(
@@ -364,7 +378,9 @@ export async function getOrder(orderId: string): Promise<OrderResponse['order'] 
 
   const { data, error } = await supabase
     .from('orders')
-    .select('id, order_number, total, payment_status, shipping_status, created_at')
+    .select(
+      'id, order_number, total, payment_status, shipping_status, created_at'
+    )
     .eq('id', orderId)
     .single();
 
@@ -391,7 +407,9 @@ export async function getCustomerOrders(customerId: string) {
 
   const { data, error } = await supabase
     .from('orders')
-    .select('id, order_number, total, payment_status, shipping_status, created_at, order_items(*)')
+    .select(
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(*)'
+    )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)
     .order('created_at', { ascending: false });
@@ -431,7 +449,11 @@ export async function createOrderWithOfflineSupport(
     const errorMessage = validationResult.error.issues
       .map((e: { message: string }) => e.message)
       .join(', ');
-    throw new OrderError(errorMessage, 'VALIDATION_ERROR', validationResult.error);
+    throw new OrderError(
+      errorMessage,
+      'VALIDATION_ERROR',
+      validationResult.error
+    );
   }
 
   // 2. Check network connectivity

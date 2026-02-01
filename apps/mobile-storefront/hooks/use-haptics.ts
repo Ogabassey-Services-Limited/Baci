@@ -11,7 +11,14 @@ import { Platform } from 'react-native';
 /**
  * Haptic feedback types for different interactions
  */
-export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'selection';
+export type HapticType =
+  | 'light'
+  | 'medium'
+  | 'heavy'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'selection';
 
 /**
  * Trigger haptic feedback with error handling

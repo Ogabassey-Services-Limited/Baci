@@ -17,13 +17,28 @@ const isProFromInfo = (info: CustomerInfo | null): boolean => {
   if (!info) return false;
 
   const activeKeys = Object.keys(info.entitlements.active);
-  // 2026 Best Practice: Support multiple identifiers to prevent "Activation" delays 
-  const possibleProKeys = ['pro', 'baci_pro', 'premium', 'all_features', 'monthly', 'yearly', 'default'];
+  // 2026 Best Practice: Support multiple identifiers to prevent "Activation" delays
+  const possibleProKeys = [
+    'pro',
+    'baci_pro',
+    'premium',
+    'all_features',
+    'monthly',
+    'yearly',
+    'default',
+  ];
 
-  const isPro = activeKeys.some(key => possibleProKeys.includes(key.toLowerCase()));
+  const isPro = activeKeys.some((key) =>
+    possibleProKeys.includes(key.toLowerCase())
+  );
 
   if (activeKeys.length > 0) {
-    console.log('[RevenueCat] Active Entitlements:', activeKeys, 'Is Pro:', isPro);
+    console.log(
+      '[RevenueCat] Active Entitlements:',
+      activeKeys,
+      'Is Pro:',
+      isPro
+    );
   }
 
   return isPro;
@@ -66,12 +81,14 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       });
 
       if (!apiKey) {
-        console.warn(`[RevenueCat] No API Key found for platform: ${Platform.OS}`);
+        console.warn(
+          `[RevenueCat] No API Key found for platform: ${Platform.OS}`
+        );
         set({
           isLoading: false,
           isInitializing: false,
           isInitialized: true, // Mark as done to prevent spamming warnings
-          error: `Missing API Key for ${Platform.OS}`
+          error: `Missing API Key for ${Platform.OS}`,
         });
         return;
       }
@@ -96,7 +113,7 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         const proStatus = isProFromInfo(newInfo);
         set({
           customerInfo: newInfo,
-          isPro: proStatus
+          isPro: proStatus,
         });
       });
     } catch (e: unknown) {
@@ -113,7 +130,10 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   purchasePackage: async (pack: PurchasesPackage) => {
     try {
       set({ isLoading: true, error: null });
-      console.log('[RevenueCat] Starting purchase for:', pack.product.identifier);
+      console.log(
+        '[RevenueCat] Starting purchase for:',
+        pack.product.identifier
+      );
 
       const { customerInfo } = await Purchases.purchasePackage(pack);
       const isPro = isProFromInfo(customerInfo);

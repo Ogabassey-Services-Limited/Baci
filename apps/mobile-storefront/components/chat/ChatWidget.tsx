@@ -161,6 +161,10 @@ export function ChatWidget({
         if (Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5) {
           hasMoved.current = true;
         }
+        // Note: useNativeDriver: false is required here because we access
+        // ._value directly in onPanResponderRelease for edge snapping.
+        // To use native driver, refactor to Reanimated's useSharedValue.
+        // Low priority as FAB drag frequency is low.
         Animated.event([null, { dx: pan.x, dy: pan.y }], {
           useNativeDriver: false,
         })(_, gestureState);
@@ -205,7 +209,7 @@ export function ChatWidget({
       if (!isChatOpen) {
         const randomMsg =
           PROACTIVE_MESSAGES[
-          Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
+            Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
           ];
         setProactiveMsg(randomMsg);
 
@@ -387,7 +391,12 @@ export function ChatWidget({
 
   // Auto-send initial message if provided by UIStore
   useEffect(() => {
-    if (isChatOpen && chatInitialMessage && messages.length === 1 && !isLoading) {
+    if (
+      isChatOpen &&
+      chatInitialMessage &&
+      messages.length === 1 &&
+      !isLoading
+    ) {
       // Small delay to ensure welcome message is settled
       const timer = setTimeout(() => {
         handleSend(chatInitialMessage);
@@ -431,9 +440,7 @@ export function ChatWidget({
                 { backgroundColor: santaMode ? BRAND.primary : colors.muted },
               ]}
             >
-              <Text style={styles.avatarEmoji}>
-                {santaMode ? '🎅' : '✨'}
-              </Text>
+              <Text style={styles.avatarEmoji}>{santaMode ? '🎅' : '✨'}</Text>
             </View>
           )}
           <View
@@ -441,7 +448,13 @@ export function ChatWidget({
               styles.messageBubble,
               isUser
                 ? [styles.userBubble, { backgroundColor: BRAND.primary }]
-                : [styles.aiBubble, { backgroundColor: colors.card, borderColor: colors.border }],
+                : [
+                    styles.aiBubble,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ],
             ]}
           >
             <Text
@@ -470,11 +483,7 @@ export function ChatWidget({
             style={[styles.suggestionChip, { borderColor: colors.border }]}
             onPress={() => handleSuggestionPress(suggestion.label)}
           >
-            <Ionicons
-              name={suggestion.icon}
-              size={14}
-              color={BRAND.primary}
-            />
+            <Ionicons name={suggestion.icon} size={14} color={BRAND.primary} />
             <Text style={[styles.suggestionText, { color: colors.text }]}>
               {suggestion.label}
             </Text>
@@ -533,9 +542,26 @@ export function ChatWidget({
               </Pressable>
             </View>
             {/* Thought bubble tail dots */}
-            <View style={[styles.nudgeTailContainer, isOnRight.current ? styles.nudgeTailRight : styles.nudgeTailLeft]}>
-              <View style={[styles.nudgeDot1, { backgroundColor: colors.card, borderColor: colors.border }]} />
-              <View style={[styles.nudgeDot2, { backgroundColor: colors.card, borderColor: colors.border }]} />
+            <View
+              style={[
+                styles.nudgeTailContainer,
+                isOnRight.current
+                  ? styles.nudgeTailRight
+                  : styles.nudgeTailLeft,
+              ]}
+            >
+              <View
+                style={[
+                  styles.nudgeDot1,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              />
+              <View
+                style={[
+                  styles.nudgeDot2,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              />
             </View>
           </Animated.View>
         )}
@@ -586,7 +612,10 @@ export function ChatWidget({
         onRequestClose={handleClose}
       >
         <SafeAreaView
-          style={[styles.modalContainer, { backgroundColor: colors.background }]}
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.background },
+          ]}
         >
           {/* Header */}
           <View
@@ -680,7 +709,10 @@ export function ChatWidget({
                     <View
                       style={[
                         styles.loadingBubble,
-                        { backgroundColor: colors.card, borderColor: colors.border },
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
                       ]}
                     >
                       <ActivityIndicator size="small" color={BRAND.primary} />
@@ -708,12 +740,16 @@ export function ChatWidget({
                     styles.input,
                     {
                       backgroundColor: colors.card,
-                      borderColor: santaMode ? BRAND.primaryLight : colors.border,
+                      borderColor: santaMode
+                        ? BRAND.primaryLight
+                        : colors.border,
                       color: colors.text,
                     },
                   ]}
                   placeholder={
-                    santaMode ? 'Tell Santa your wish...' : 'Type your message...'
+                    santaMode
+                      ? 'Tell Santa your wish...'
+                      : 'Type your message...'
                   }
                   placeholderTextColor={colors.placeholder}
                   value={input}

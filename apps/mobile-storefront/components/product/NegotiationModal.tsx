@@ -21,13 +21,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-} from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
+import Colors, {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  palette,
+} from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 import {
   type NegotiationResult,
@@ -168,7 +170,8 @@ export function NegotiationModal({
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
     setStatus('processing');
-    const offerAmount = parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
+    const offerAmount =
+      parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
@@ -281,7 +284,9 @@ export function NegotiationModal({
               </Text>
               <Text style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Current Price: </Text>
-                <Text style={styles.priceValue}>{formatPrice(currentPrice)}</Text>
+                <Text style={styles.priceValue}>
+                  {formatPrice(currentPrice)}
+                </Text>
               </Text>
             </View>
 
@@ -318,7 +323,9 @@ export function NegotiationModal({
                 style={styles.centerContainer}
               >
                 <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Reviewing your offer...</Text>
+                <Text style={styles.processingText}>
+                  Reviewing your offer...
+                </Text>
                 <Text style={styles.processingSubtext}>
                   Checking with sales manager
                 </Text>
@@ -394,7 +401,9 @@ export function NegotiationModal({
                     accessibilityLabel="Negotiate again"
                     accessibilityRole="button"
                   >
-                    <Text style={styles.tryAgainButtonText}>Negotiate Again</Text>
+                    <Text style={styles.tryAgainButtonText}>
+                      Negotiate Again
+                    </Text>
                   </Pressable>
 
                   {/* I Saw It Cheaper - Only after 2+ attempts */}
@@ -411,7 +420,9 @@ export function NegotiationModal({
                         color="#1D4ED8"
                         style={styles.buttonIcon}
                       />
-                      <Text style={styles.cheaperButtonText}>I Saw It Cheaper</Text>
+                      <Text style={styles.cheaperButtonText}>
+                        I Saw It Cheaper
+                      </Text>
                     </Pressable>
                   )}
                 </View>
@@ -426,8 +437,8 @@ export function NegotiationModal({
                     📸 Saw it cheaper elsewhere?
                   </Text>
                   <Text style={styles.uploadInfoText}>
-                    Upload proof (screenshot, photo) and we'll try to match or beat
-                    that price!
+                    Upload proof (screenshot, photo) and we'll try to match or
+                    beat that price!
                   </Text>
                 </View>
 
@@ -444,7 +455,11 @@ export function NegotiationModal({
                     </View>
                   ) : (
                     <View style={styles.uploadPlaceholder}>
-                      <Ionicons name="image-outline" size={24} color="#1D4ED8" />
+                      <Ionicons
+                        name="image-outline"
+                        size={24}
+                        color="#1D4ED8"
+                      />
                       <Text style={styles.uploadPlaceholderText}>
                         Tap to select image
                       </Text>
@@ -484,7 +499,9 @@ export function NegotiationModal({
                       color="#FFF"
                       style={styles.buttonIcon}
                     />
-                    <Text style={styles.sendReviewButtonText}>Send for Review</Text>
+                    <Text style={styles.sendReviewButtonText}>
+                      Send for Review
+                    </Text>
                   </Pressable>
                 </View>
               </Animated.View>

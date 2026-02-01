@@ -19,7 +19,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -30,6 +29,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -1171,7 +1171,7 @@ Thank you for choosing Ogabassey!
                   ]}
                 >
                   {item.image_url ? (
-                    <Image
+                    <SafeImage
                       source={{ uri: item.image_url }}
                       style={styles.itemImage}
                     />

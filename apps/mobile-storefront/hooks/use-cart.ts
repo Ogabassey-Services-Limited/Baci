@@ -68,7 +68,11 @@ async function checkStock(
     // If offline, return limited stock to prevent over-ordering
     // User can still add items but with reasonable limits
     log.warn('Offline: Stock check skipped, using conservative estimate');
-    return { available: requestedQuantity <= 5, currentStock: 5, requestedQuantity };
+    return {
+      available: requestedQuantity <= 5,
+      currentStock: 5,
+      requestedQuantity,
+    };
   }
 
   const { data, error } = await supabase
@@ -80,7 +84,11 @@ async function checkStock(
   if (error) {
     log.error('Stock check failed:', error);
     // If we can't check stock, use conservative estimate to prevent over-ordering
-    return { available: requestedQuantity <= 5, currentStock: 5, requestedQuantity };
+    return {
+      available: requestedQuantity <= 5,
+      currentStock: 5,
+      requestedQuantity,
+    };
   }
 
   const currentStock = data?.stock_quantity ?? 0; // Default to 0 if no stock data

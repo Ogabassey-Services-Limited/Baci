@@ -71,388 +71,413 @@ const LOW_STOCK_THRESHOLD = 5;
  * - variant, isWishlisted (UI state changes)
  * - Ignores callback function references (they're stable via useCallback in parent)
  */
-export const ProductCard = memo(function ProductCard({
-  product,
-  variant = 'grid',
-  onPress,
-  onPressIn,
-  onWishlistToggle,
-  isWishlisted = false,
-  blurhash = DEFAULT_BLURHASH,
-}: ProductCardProps) {
-  const scale = useSharedValue(1);
-  const heartScale = useSharedValue(1);
-  const addItem = useCartStore((state) => state.addItem);
-  const cartItems = useCartStore((state) => state.items);
-  const toggleSaved = useSavedStore((state) => state.toggleSaved);
+export const ProductCard = memo(
+  function ProductCard({
+    product,
+    variant = 'grid',
+    onPress,
+    onPressIn,
+    onWishlistToggle,
+    isWishlisted = false,
+    blurhash = DEFAULT_BLURHASH,
+  }: ProductCardProps) {
+    const scale = useSharedValue(1);
+    const heartScale = useSharedValue(1);
+    const addItem = useCartStore((state) => state.addItem);
+    const cartItems = useCartStore((state) => state.items);
+    const toggleSaved = useSavedStore((state) => state.toggleSaved);
 
-  // 2026 Best Practice: Reactive selector for store state
-  // This ensures the component re-renders immediately when this specific product's saved status changes
-  const isSaved = useSavedStore((state) =>
-    state.items.some(item => String(item.product_id) === String(product.id))
-  );
+    // 2026 Best Practice: Reactive selector for store state
+    // This ensures the component re-renders immediately when this specific product's saved status changes
+    const isSaved = useSavedStore((state) =>
+      state.items.some((item) => String(item.product_id) === String(product.id))
+    );
 
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+    const colorScheme = useColorScheme();
+    const colors = Colors[colorScheme ?? 'light'];
 
-  // 2026 Best Practice: Calculate counts from store to show in UI
-  const cartItemCount = useMemo(() => {
-    return cartItems
-      .filter((item) => item.product_id === product.id)
-      .reduce((total, item) => total + item.quantity, 0);
-  }, [cartItems, product.id]);
+    // 2026 Best Practice: Calculate counts from store to show in UI
+    const cartItemCount = useMemo(() => {
+      return cartItems
+        .filter((item) => item.product_id === product.id)
+        .reduce((total, item) => total + item.quantity, 0);
+    }, [cartItems, product.id]);
 
-  // Real-time stock tracking
-  const [stockQuantity, setStockQuantity] = useState<number | undefined>(
-    product.stock_quantity
-  );
-  const channelRef = useRef<RealtimeChannel | null>(null);
+    // Real-time stock tracking
+    const [stockQuantity, setStockQuantity] = useState<number | undefined>(
+      product.stock_quantity
+    );
+    const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Subscribe to real-time stock updates
-  // 2026 Best Practice: Only include stable identifiers in dependency array
-  // to prevent unnecessary re-subscriptions. product.id is stable, while
-  // stock_quantity changes shouldn't trigger re-subscription.
-  useEffect(() => {
-    // Only subscribe if product has stock tracking
-    if (product.stock_quantity === undefined) return;
+    // Subscribe to real-time stock updates
+    // 2026 Best Practice: Only include stable identifiers in dependency array
+    // to prevent unnecessary re-subscriptions. product.id is stable, while
+    // stock_quantity changes shouldn't trigger re-subscription.
+    useEffect(() => {
+      // Only subscribe if product has stock tracking
+      if (product.stock_quantity === undefined) return;
 
-    const channel = supabase
-      .channel(`product-stock-${product.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'products',
-          filter: `id=eq.${product.id}`,
-        },
-        (payload) => {
-          if (payload.new && 'stock_quantity' in payload.new) {
-            setStockQuantity(payload.new.stock_quantity as number);
+      const channel = supabase
+        .channel(`product-stock-${product.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'products',
+            filter: `id=eq.${product.id}`,
+          },
+          (payload) => {
+            if (payload.new && 'stock_quantity' in payload.new) {
+              setStockQuantity(payload.new.stock_quantity as number);
+            }
           }
+        )
+        .subscribe();
+
+      channelRef.current = channel;
+
+      // Cleanup subscription on unmount
+      return () => {
+        if (channelRef.current) {
+          channelRef.current.unsubscribe();
+          channelRef.current = null;
         }
-      )
-      .subscribe();
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-subscribe when product.id changes, not stock_quantity
+    }, [product.id]);
 
-    channelRef.current = channel;
+    // Determine if we should show scarcity badge
+    const showScarcityBadge =
+      stockQuantity !== undefined &&
+      stockQuantity > 0 &&
+      stockQuantity < LOW_STOCK_THRESHOLD;
 
-    // Cleanup subscription on unmount
-    return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
+
+    const heartAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: heartScale.value }],
+    }));
+
+    const handlePress = () => {
+      if (onPress) {
+        onPress();
+      } else {
+        router.push(`/product/${product.slug}`);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-subscribe when product.id changes, not stock_quantity
-  }, [product.id]);
 
-  // Determine if we should show scarcity badge
-  const showScarcityBadge =
-    stockQuantity !== undefined &&
-    stockQuantity > 0 &&
-    stockQuantity < LOW_STOCK_THRESHOLD;
+    const handleAnimateIn = () => {
+      scale.value = withSpring(0.96, SPRING_CONFIG.snappy);
+      onPressIn?.();
+    };
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+    const handleAnimateOut = () => {
+      scale.value = withSpring(1, SPRING_CONFIG.snappy);
+    };
 
-  const heartAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-  }));
+    const handleWishlistPress = () => {
+      // Instant feedback - animate heart before callback
+      heartScale.value = withSpring(1.3, SPRING_CONFIG.snappy, () => {
+        heartScale.value = withSpring(1, SPRING_CONFIG.snappy);
+      });
 
-  const handlePress = () => {
-    if (onPress) {
-      onPress();
-    } else {
-      router.push(`/product/${product.slug}`);
-    }
-  };
+      // Toggle in store
+      toggleSaved(product);
 
-  const handleAnimateIn = () => {
-    scale.value = withSpring(0.96, SPRING_CONFIG.snappy);
-    onPressIn?.();
-  };
+      // Call legacy prop if exists
+      onWishlistToggle?.(product);
+    };
 
-  const handleAnimateOut = () => {
-    scale.value = withSpring(1, SPRING_CONFIG.snappy);
-  };
+    const handleAddToCart = () => {
+      addItem({
+        product_id: product.id,
+        name: product.name,
+        price: product.price,
+        compare_at_price: product.compare_at_price,
+        quantity: 1,
+        image_url: product.image,
+        condition: product.condition,
+      });
+    };
 
-  const handleWishlistPress = () => {
-    // Instant feedback - animate heart before callback
-    heartScale.value = withSpring(1.3, SPRING_CONFIG.snappy, () => {
-      heartScale.value = withSpring(1, SPRING_CONFIG.snappy);
-    });
-
-    // Toggle in store
-    toggleSaved(product);
-
-    // Call legacy prop if exists
-    onWishlistToggle?.(product);
-  };
-
-  const handleAddToCart = () => {
-    addItem({
-      product_id: product.id,
-      name: product.name,
-      price: product.price,
-      compare_at_price: product.compare_at_price,
-      quantity: 1,
-      image_url: product.image,
-      condition: product.condition,
-    });
-  };
-
-  // Calculate discount percentage for potential use in badges/promotions
-  const discountPercentage = getDiscountPercentage(
-    product.price,
-    product.compare_at_price
-  );
-
-  // 2026 Best Practice: Track image load failures for fallback rendering
-  const [imageError, setImageError] = useState(false);
-
-  // Common image props for all variants
-  // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
-  // - recyclingKey helps with memory management during list scrolling
-  // - onError gracefully handles corrupt/incompatible images (rdar://143602439)
-  // - allowDownscaling reduces memory pressure on large images
-  const imageProps = {
-    placeholder: { blurhash },
-    transition: 300,
-    cachePolicy: 'memory-disk' as const,
-    contentFit: 'cover' as const,
-    recyclingKey: product.id,
-    allowDownscaling: true,
-    onError: () => {
-      // Silently handle image decode failures (iOS 26 24-bpp bug)
-      setImageError(true);
-    },
-  };
-
-  // Fallback to blurhash placeholder if image fails to load
-  const imageSource = imageError
-    ? { uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}` }
-    : { uri: product.image };
-
-  // --- RENDER: Editorial Variant (Fashion) ---
-  if (variant === 'editorial') {
-    return (
-      <AnimatedPressable
-        onPress={handlePress}
-        onPressIn={handleAnimateIn}
-        onPressOut={handleAnimateOut}
-        style={[styles.editorialContainer, animatedStyle]}
-      >
-        <Image
-          source={imageSource}
-          style={styles.editorialImage}
-          {...imageProps}
-        />
-        <View style={styles.editorialContent}>
-          <Text style={[styles.editorialName, { color: colors.text }]}>
-            {product.name}
-          </Text>
-          <Text style={[styles.editorialPrice, { color: BRAND.primary }]}>
-            {formatPrice(product.price)}
-          </Text>
-        </View>
-      </AnimatedPressable>
+    // Calculate discount percentage for potential use in badges/promotions
+    const discountPercentage = getDiscountPercentage(
+      product.price,
+      product.compare_at_price
     );
-  }
 
-  // --- RENDER: List Variant (Pharma/B2B/Elite) ---
-  if (variant === 'list') {
-    return (
-      <AnimatedPressable
-        onPress={handlePress}
-        onPressIn={handleAnimateIn}
-        onPressOut={handleAnimateOut}
-        style={[
-          styles.listContainer,
-          { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
-          animatedStyle,
-        ]}
-      >
-        <Image
-          source={imageSource}
-          style={styles.listImage}
-          {...imageProps}
-        />
-        <View style={styles.listContent}>
-          {/* Rating */}
-          <View style={styles.ratingRowMini}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Ionicons
-                key={s}
-                name={s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'}
-                size={10}
-                color="#F59E0B"
-              />
-            ))}
-          </View>
+    // 2026 Best Practice: Track image load failures for fallback rendering
+    const [imageError, setImageError] = useState(false);
 
-          <Text style={[styles.listName, { color: '#111827' }]} numberOfLines={1}>
-            {product.name}
-          </Text>
+    // Common image props for all variants
+    // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
+    // - recyclingKey helps with memory management during list scrolling
+    // - onError gracefully handles corrupt/incompatible images (rdar://143602439)
+    // - allowDownscaling reduces memory pressure on large images
+    const imageProps = {
+      placeholder: { blurhash },
+      transition: 300,
+      cachePolicy: 'memory-disk' as const,
+      contentFit: 'cover' as const,
+      recyclingKey: product.id,
+      allowDownscaling: true,
+      onError: () => {
+        // Silently handle image decode failures (iOS 26 24-bpp bug)
+        setImageError(true);
+      },
+    };
 
-          {product.description && (
-            <Text style={styles.listDescription} numberOfLines={2}>
-              {product.description.replace(/<[^>]*>/g, '').substring(0, 100)}
+    // Fallback to blurhash placeholder if image fails to load
+    const imageSource = imageError
+      ? {
+          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
+        }
+      : { uri: product.image };
+
+    // --- RENDER: Editorial Variant (Fashion) ---
+    if (variant === 'editorial') {
+      return (
+        <AnimatedPressable
+          onPress={handlePress}
+          onPressIn={handleAnimateIn}
+          onPressOut={handleAnimateOut}
+          style={[styles.editorialContainer, animatedStyle]}
+        >
+          <Image
+            source={imageSource}
+            style={styles.editorialImage}
+            {...imageProps}
+          />
+          <View style={styles.editorialContent}>
+            <Text style={[styles.editorialName, { color: colors.text }]}>
+              {product.name}
             </Text>
-          )}
-
-          <View style={styles.listFooter}>
-            <Text style={[styles.listPrice, { color: BRAND.primary }]}>
+            <Text style={[styles.editorialPrice, { color: BRAND.primary }]}>
               {formatPrice(product.price)}
             </Text>
-            <Pressable
-              onPress={handleAddToCart}
-              style={styles.listCartBtn}
-              hitSlop={8}
-              accessibilityLabel={`Add ${product.name} to cart`}
-              accessibilityRole="button"
-            >
-              <View style={{ position: 'relative' }}>
-                <Ionicons name="cart" size={16} color="#FFF" />
-                {cartItemCount > 0 && (
-                  <View style={styles.listBadge}>
-                    <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.listCartLabel}>Add</Text>
-            </Pressable>
           </View>
-        </View>
+        </AnimatedPressable>
+      );
+    }
 
-        {/* Wishlist in List View */}
-        <Pressable
-          onPress={handleWishlistPress}
-          style={styles.listWishlistBtn}
-          hitSlop={8}
-          accessibilityLabel={isWishlisted ? `Remove ${product.name} from saved items` : `Save ${product.name} for later`}
-          accessibilityRole="button"
+    // --- RENDER: List Variant (Pharma/B2B/Elite) ---
+    if (variant === 'list') {
+      return (
+        <AnimatedPressable
+          onPress={handlePress}
+          onPressIn={handleAnimateIn}
+          onPressOut={handleAnimateOut}
+          style={[
+            styles.listContainer,
+            { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
+            animatedStyle,
+          ]}
         >
-          <Ionicons
-            name={isSaved ? 'heart' : 'heart-outline'}
-            size={18}
-            color={isSaved ? '#EF4444' : '#9CA3AF'}
+          <Image
+            source={imageSource}
+            style={styles.listImage}
+            {...imageProps}
           />
-        </Pressable>
-      </AnimatedPressable>
-    );
-  }
+          <View style={styles.listContent}>
+            {/* Rating */}
+            <View style={styles.ratingRowMini}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Ionicons
+                  key={s}
+                  name={
+                    s <= Math.floor(product.rating || 0)
+                      ? 'star'
+                      : 'star-outline'
+                  }
+                  size={10}
+                  color="#F59E0B"
+                />
+              ))}
+            </View>
 
-  // --- RENDER: Standard Grid Variant ---
-  return (
-    <AnimatedPressable
-      style={[
-        styles.gridContainer,
-        {
-          backgroundColor: '#FFF',
-          borderColor: '#F3F4F6',
-          shadowColor: colors.black,
-        },
-        animatedStyle,
-      ]}
-      onPress={handlePress}
-      onPressIn={handleAnimateIn}
-      onPressOut={handleAnimateOut}
-    >
-      {/* Image Container */}
-      <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
-        {/* Wishlist - Top Right */}
-        <Pressable
-          onPress={handleWishlistPress}
-          style={styles.wishlistBtn}
-          hitSlop={8}
-          accessibilityLabel={isWishlisted ? `Remove ${product.name} from saved items` : `Save ${product.name} for later`}
-          accessibilityRole="button"
-        >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
+            <Text
+              style={[styles.listName, { color: '#111827' }]}
+              numberOfLines={1}
+            >
+              {product.name}
+            </Text>
+
+            {product.description && (
+              <Text style={styles.listDescription} numberOfLines={2}>
+                {product.description.replace(/<[^>]*>/g, '').substring(0, 100)}
+              </Text>
+            )}
+
+            <View style={styles.listFooter}>
+              <Text style={[styles.listPrice, { color: BRAND.primary }]}>
+                {formatPrice(product.price)}
+              </Text>
+              <Pressable
+                onPress={handleAddToCart}
+                style={styles.listCartBtn}
+                hitSlop={8}
+                accessibilityLabel={`Add ${product.name} to cart`}
+                accessibilityRole="button"
+              >
+                <View style={{ position: 'relative' }}>
+                  <Ionicons name="cart" size={16} color="#FFF" />
+                  {cartItemCount > 0 && (
+                    <View style={styles.listBadge}>
+                      <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.listCartLabel}>Add</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Wishlist in List View */}
+          <Pressable
+            onPress={handleWishlistPress}
+            style={styles.listWishlistBtn}
+            hitSlop={8}
+            accessibilityLabel={
+              isWishlisted
+                ? `Remove ${product.name} from saved items`
+                : `Save ${product.name} for later`
+            }
+            accessibilityRole="button"
+          >
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={18}
               color={isSaved ? '#EF4444' : '#9CA3AF'}
             />
-          </Animated.View>
-        </Pressable>
+          </Pressable>
+        </AnimatedPressable>
+      );
+    }
 
-        {/* Condition Badge */}
-        {product.condition && (
-          <View
-            style={[
-              styles.badgeContainer,
-              product.condition === 'New'
-                ? { backgroundColor: '#111827' }
-                : { backgroundColor: '#4F46E5' },
-            ]}
+    // --- RENDER: Standard Grid Variant ---
+    return (
+      <AnimatedPressable
+        style={[
+          styles.gridContainer,
+          {
+            backgroundColor: '#FFF',
+            borderColor: '#F3F4F6',
+            shadowColor: colors.black,
+          },
+          animatedStyle,
+        ]}
+        onPress={handlePress}
+        onPressIn={handleAnimateIn}
+        onPressOut={handleAnimateOut}
+      >
+        {/* Image Container */}
+        <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
+          {/* Wishlist - Top Right */}
+          <Pressable
+            onPress={handleWishlistPress}
+            style={styles.wishlistBtn}
+            hitSlop={8}
+            accessibilityLabel={
+              isWishlisted
+                ? `Remove ${product.name} from saved items`
+                : `Save ${product.name} for later`
+            }
+            accessibilityRole="button"
           >
-            <Text style={styles.badgeText}>{product.condition}</Text>
-          </View>
-        )}
+            <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
+              <Ionicons
+                name={isSaved ? 'heart' : 'heart-outline'}
+                size={18}
+                color={isSaved ? '#EF4444' : '#9CA3AF'}
+              />
+            </Animated.View>
+          </Pressable>
 
-        <Image
-          source={imageSource}
-          style={styles.gridImage}
-          {...imageProps}
-        />
-
-        {/* Floating Cart Button */}
-        <Pressable
-          onPress={handleAddToCart}
-          style={styles.floatingCartBtn}
-          accessibilityLabel={`Add ${product.name} to cart`}
-          accessibilityRole="button"
-        >
-          <Ionicons name="cart" size={18} color={BRAND.primary} />
-          {cartItemCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+          {/* Condition Badge */}
+          {product.condition && (
+            <View
+              style={[
+                styles.badgeContainer,
+                product.condition === 'New'
+                  ? { backgroundColor: '#111827' }
+                  : { backgroundColor: '#4F46E5' },
+              ]}
+            >
+              <Text style={styles.badgeText}>{product.condition}</Text>
             </View>
           )}
-        </Pressable>
-      </View>
 
-      {/* Content */}
-      <View style={styles.gridContent}>
-        {/* Rating Row */}
-        <View style={styles.ratingRowMini}>
-          {[1, 2, 3, 4, 5].map((s) => (
-            <Ionicons
-              key={s}
-              name={s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'}
-              size={10}
-              color="#F59E0B"
-            />
-          ))}
-          <Text style={styles.ratingTextMini}>({product.rating || 0})</Text>
+          <Image
+            source={imageSource}
+            style={styles.gridImage}
+            {...imageProps}
+          />
+
+          {/* Floating Cart Button */}
+          <Pressable
+            onPress={handleAddToCart}
+            style={styles.floatingCartBtn}
+            accessibilityLabel={`Add ${product.name} to cart`}
+            accessibilityRole="button"
+          >
+            <Ionicons name="cart" size={18} color={BRAND.primary} />
+            {cartItemCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
 
-        {/* Title */}
-        <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
-          {product.name}
-        </Text>
+        {/* Content */}
+        <View style={styles.gridContent}>
+          {/* Rating Row */}
+          <View style={styles.ratingRowMini}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Ionicons
+                key={s}
+                name={
+                  s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
+                }
+                size={10}
+                color="#F59E0B"
+              />
+            ))}
+            <Text style={styles.ratingTextMini}>({product.rating || 0})</Text>
+          </View>
 
-        {/* Price Row */}
-        <View style={styles.priceRow}>
-          <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
-            {formatPrice(product.price)}
+          {/* Title */}
+          <Text
+            style={[styles.gridName, { color: '#111827' }]}
+            numberOfLines={2}
+          >
+            {product.name}
           </Text>
-          <Text style={styles.detailsText}>Details</Text>
+
+          {/* Price Row */}
+          <View style={styles.priceRow}>
+            <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
+              {formatPrice(product.price)}
+            </Text>
+            <Text style={styles.detailsText}>Details</Text>
+          </View>
         </View>
-      </View>
-    </AnimatedPressable>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.product.id === nextProps.product.id &&
-    prevProps.product.price === nextProps.product.price &&
-    prevProps.variant === nextProps.variant &&
-    // Implicitly handled by store subscription in the component itself
-    prevProps.product.id === nextProps.product.id
-  );
-});
+      </AnimatedPressable>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.product.id === nextProps.product.id &&
+      prevProps.product.price === nextProps.product.price &&
+      prevProps.variant === nextProps.variant &&
+      // Implicitly handled by store subscription in the component itself
+      prevProps.product.id === nextProps.product.id
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   gridContainer: {
@@ -502,9 +527,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wishlistBlur: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    // 2026 Critical Fix: Meet WCAG 2.5.5 minimum touch target size of 44px
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -513,9 +539,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 4,
     right: 4,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    // 2026 Critical Fix: Meet WCAG 2.5.5 minimum touch target size of 44px
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',

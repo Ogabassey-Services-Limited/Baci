@@ -74,13 +74,19 @@ export default function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // 2026 Critical Fix: Validate slug parameter early
+  const isValidSlug = Boolean(
+    slug && typeof slug === 'string' && slug.length > 0
+  );
+
   // 2026 Best Practice: Network state monitoring for offline UX
   const { isOnline } = useNetworkState();
 
   // 2026 Best Practice: Haptic feedback for tactile UX
   const haptics = useHaptics();
 
-  const { product, isLoading, error } = useProduct(slug || '');
+  // Only fetch if we have a valid slug
+  const { product, isLoading, error } = useProduct(isValidSlug ? slug : '');
   const { items, addItem, updateQuantity, removeItem } = useCartStore();
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
@@ -167,7 +173,14 @@ export default function ProductDetailScreen() {
         (item.color || null) === (selectedColor || null) &&
         (item.storage || null) === (selectedStorage || null)
     );
-  }, [product, items, selectedVariant, selectedColor, selectedStorage, selectedCondition]);
+  }, [
+    product,
+    items,
+    selectedVariant,
+    selectedColor,
+    selectedStorage,
+    selectedCondition,
+  ]);
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
@@ -201,7 +214,9 @@ export default function ProductDetailScreen() {
     }
   };
 
-  const [flyingParticles, setFlyingParticles] = useState<{ id: number; startX: number; startY: number }[]>([]);
+  const [flyingParticles, setFlyingParticles] = useState<
+    { id: number; startX: number; startY: number }[]
+  >([]);
   const particleIdRef = useRef(0);
 
   const triggerFlyToCart = (event: any) => {
@@ -209,19 +224,28 @@ export default function ProductDetailScreen() {
     const { pageX, pageY } = event?.nativeEvent || {};
     const id = ++particleIdRef.current;
 
-    setFlyingParticles(prev => [...prev, {
-      id,
-      startX: pageX || Dimensions.get('window').width / 2,
-      startY: pageY || Dimensions.get('window').height - 100
-    }]);
+    setFlyingParticles((prev) => [
+      ...prev,
+      {
+        id,
+        startX: pageX || Dimensions.get('window').width / 2,
+        startY: pageY || Dimensions.get('window').height - 100,
+      },
+    ]);
 
     // Cleanup particle after animation
     setTimeout(() => {
-      setFlyingParticles(prev => prev.filter(p => p.id !== id));
+      setFlyingParticles((prev) => prev.filter((p) => p.id !== id));
     }, 1000);
   };
 
-  const FlyToCartParticle = ({ startX, startY }: { startX: number; startY: number }) => {
+  const FlyToCartParticle = ({
+    startX,
+    startY,
+  }: {
+    startX: number;
+    startY: number;
+  }) => {
     const progress = useSharedValue(0);
     const insets = useSafeAreaInsets();
     const window = Dimensions.get('window');
@@ -231,7 +255,7 @@ export default function ProductDetailScreen() {
     useEffect(() => {
       progress.value = withTiming(1, {
         duration: 800,
-        easing: Easing.bezier(0.2, 0.8, 0.2, 1)
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
       });
     }, []);
 
@@ -253,7 +277,7 @@ export default function ProductDetailScreen() {
         transform: [
           { translateX: translateX - 20 },
           { translateY: translateY - 20 },
-          { scale }
+          { scale },
         ],
         opacity,
       };
@@ -311,6 +335,33 @@ export default function ProductDetailScreen() {
     return { backgroundColor };
   });
 
+  // 2026 Critical Fix: Handle invalid slug parameter
+  if (!isValidSlug) {
+    return (
+      <View
+        style={[styles.errorContainer, { backgroundColor: colors.background }]}
+      >
+        <Ionicons
+          name="alert-circle-outline"
+          size={64}
+          color={colors.textSecondary}
+        />
+        <Text style={[styles.errorTitle, { color: colors.text }]}>
+          Invalid Product Link
+        </Text>
+        <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
+          This product link is not valid. Please try searching for the product.
+        </Text>
+        <Pressable
+          style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.retryButtonText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View
@@ -332,7 +383,10 @@ export default function ProductDetailScreen() {
     if (!isOnline) {
       return (
         <View
-          style={[styles.errorContainer, { backgroundColor: colors.background }]}
+          style={[
+            styles.errorContainer,
+            { backgroundColor: colors.background },
+          ]}
         >
           <OfflineEmptyState
             title="Product Unavailable Offline"
@@ -433,8 +487,6 @@ export default function ProductDetailScreen() {
     effectivePrice,
     effectiveComparePrice
   );
-
-
 
   const handleAddToCart = (event?: any) => {
     haptics.success(); // Haptic feedback for add to cart
@@ -548,9 +600,17 @@ export default function ProductDetailScreen() {
         </Animated.View>
         <View style={styles.headerRight}>
           <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-            <Pressable onPress={() => { haptics.light(); product && toggleSaved(product); }} hitSlop={12}>
+            <Pressable
+              onPress={() => {
+                haptics.light();
+                product && toggleSaved(product);
+              }}
+              hitSlop={12}
+            >
               <Ionicons
-                name={product && isSaved(product.id) ? 'heart' : 'heart-outline'}
+                name={
+                  product && isSaved(product.id) ? 'heart' : 'heart-outline'
+                }
                 size={22}
                 color={product && isSaved(product.id) ? '#EF4444' : '#FFF'}
               />
@@ -684,13 +744,16 @@ export default function ProductDetailScreen() {
           <View style={styles.ratingRow}>
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((s) => {
-                const rating = reviewStats?.average_rating || product.rating || 4.5;
+                const rating =
+                  reviewStats?.average_rating || product.rating || 4.5;
                 return (
                   <Ionicons
                     key={s}
                     name={s <= Math.round(rating) ? 'star' : 'star-outline'}
                     size={14}
-                    color={s <= Math.round(rating) ? colors.rating : colors.border}
+                    color={
+                      s <= Math.round(rating) ? colors.rating : colors.border
+                    }
                   />
                 );
               })}
@@ -709,22 +772,21 @@ export default function ProductDetailScreen() {
             <Text style={[styles.price, { color: BRAND.primary }]}>
               {formatPrice(effectivePrice)}
             </Text>
-            {effectiveComparePrice && effectiveComparePrice > effectivePrice && (
-              <Text
-                style={[styles.comparePrice, { color: colors.textSecondary }]}
-              >
-                {formatPrice(effectiveComparePrice)}
-              </Text>
-            )}
+            {effectiveComparePrice &&
+              effectiveComparePrice > effectivePrice && (
+                <Text
+                  style={[styles.comparePrice, { color: colors.textSecondary }]}
+                >
+                  {formatPrice(effectiveComparePrice)}
+                </Text>
+              )}
           </View>
 
           {/* Negotiated Price Badge */}
           {negotiatedPrice && (
             <View style={styles.negotiatedBadge}>
               <Ionicons name="pricetag" size={14} color="#10B981" />
-              <Text style={styles.negotiatedText}>
-                Your negotiated price!
-              </Text>
+              <Text style={styles.negotiatedText}>Your negotiated price!</Text>
             </View>
           )}
 
@@ -734,7 +796,11 @@ export default function ProductDetailScreen() {
               style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
               onPress={() => setShowNegotiationModal(true)}
             >
-              <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
+              <Ionicons
+                name="chatbubble-outline"
+                size={16}
+                color={BRAND.primary}
+              />
               <Text style={[styles.makeOfferText, { color: BRAND.primary }]}>
                 Make an Offer
               </Text>
@@ -757,33 +823,33 @@ export default function ProductDetailScreen() {
           {/* Advanced Variant Selection */}
           {(product.colors ||
             product.color_images ||
-            (product.variant_attributes?.storage ||
-              product.variants?.some((v) => v.storage))) && (
-              <View style={styles.section}>
-                <VariantSelector
-                  colors={product.colors}
-                  colorImages={product.color_images}
-                  storage={
-                    product.variant_attributes?.storage ||
-                    product.variants
-                      ?.map((v) => v.storage)
-                      .filter((s): s is string => !!s)
+            product.variant_attributes?.storage ||
+            product.variants?.some((v) => v.storage)) && (
+            <View style={styles.section}>
+              <VariantSelector
+                colors={product.colors}
+                colorImages={product.color_images}
+                storage={
+                  product.variant_attributes?.storage ||
+                  product.variants
+                    ?.map((v) => v.storage)
+                    .filter((s): s is string => !!s)
+                }
+                variants={product.variants}
+                selectedColor={selectedColor}
+                selectedStorage={selectedStorage}
+                onSelectColor={(color, imgs) => {
+                  setSelectedColor(color);
+                  if (imgs?.length) {
+                    setColorImages(imgs);
+                    setSelectedImageIndex(0);
                   }
-                  variants={product.variants}
-                  selectedColor={selectedColor}
-                  selectedStorage={selectedStorage}
-                  onSelectColor={(color, imgs) => {
-                    setSelectedColor(color);
-                    if (imgs?.length) {
-                      setColorImages(imgs);
-                      setSelectedImageIndex(0);
-                    }
-                  }}
-                  onSelectStorage={setSelectedStorage}
-                  basePrice={effectivePrice}
-                />
-              </View>
-            )}
+                }}
+                onSelectStorage={setSelectedStorage}
+                basePrice={effectivePrice}
+              />
+            </View>
+          )}
 
           {/* Legacy Variants (fallback for products without colors/storage) */}
           {product.variants &&
@@ -840,7 +906,9 @@ export default function ProductDetailScreen() {
             {product.description ? (
               <HTMLRenderer html={product.description} />
             ) : (
-              <Text style={[styles.description, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.description, { color: colors.textSecondary }]}
+              >
                 No description available for this product.
               </Text>
             )}
@@ -901,7 +969,9 @@ export default function ProductDetailScreen() {
               onLoadMore={loadMoreReviews}
               onMarkHelpful={(reviewId) => {
                 // Mark review as helpful
-                markReviewHelpful(reviewId, product.id).catch((err) => log.error('Failed to mark review helpful:', err));
+                markReviewHelpful(reviewId, product.id).catch((err) =>
+                  log.error('Failed to mark review helpful:', err)
+                );
               }}
             />
           </View>
@@ -924,19 +994,59 @@ export default function ProductDetailScreen() {
           style={{ width: '100%' }}
         >
           {quantityInCart > 0 ? (
-            <View key="cart-active" style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 0 }}>
+            <View
+              key="cart-active"
+              style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 0 }}
+            >
               {/* Quantity Controller */}
-              <View style={{ flex: 1.2, height: 56, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 12, borderWidth: 2, borderColor: BRAND.primary }}>
+              <View
+                style={{
+                  flex: 1.2,
+                  height: 56,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFF',
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: BRAND.primary,
+                }}
+              >
                 <Pressable
                   onPress={(e) => handleUpdateQuantity(quantityInCart - 1, e)}
-                  style={{ width: 50, height: '100%', justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: '#FEE2E2' }}
+                  style={{
+                    width: 50,
+                    height: '100%',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRightWidth: 1,
+                    borderRightColor: '#FEE2E2',
+                  }}
                   hitSlop={10}
                 >
-                  <Ionicons name={quantityInCart === 1 ? "trash-outline" : "remove"} size={22} color={BRAND.primary} />
+                  <Ionicons
+                    name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
+                    size={22}
+                    color={BRAND.primary}
+                  />
                 </Pressable>
 
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                  <Text style={{ fontSize: 9, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: -2 }}>
+                <View
+                  style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 9,
+                      color: '#9CA3AF',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      marginBottom: -2,
+                    }}
+                  >
                     In Cart
                   </Text>
                   <TextInput
@@ -959,7 +1069,14 @@ export default function ProductDetailScreen() {
 
                 <Pressable
                   onPress={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
-                  style={{ width: 50, height: '100%', justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#FEE2E2' }}
+                  style={{
+                    width: 50,
+                    height: '100%',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderLeftWidth: 1,
+                    borderLeftColor: '#FEE2E2',
+                  }}
                   hitSlop={10}
                 >
                   <Ionicons name="add" size={22} color={BRAND.primary} />
@@ -969,10 +1086,24 @@ export default function ProductDetailScreen() {
               {/* View Cart Button */}
               <Pressable
                 onPress={() => router.push('/(tabs)/cart')}
-                style={{ flex: 1, height: 56, backgroundColor: BRAND.primary, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, ...SHADOWS.md }}
+                style={{
+                  flex: 1,
+                  height: 56,
+                  backgroundColor: BRAND.primary,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: 8,
+                  ...SHADOWS.md,
+                }}
               >
                 <Ionicons name="cart-outline" size={20} color="#FFF" />
-                <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>View Cart</Text>
+                <Text
+                  style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}
+                >
+                  View Cart
+                </Text>
               </Pressable>
             </View>
           ) : (
@@ -981,7 +1112,12 @@ export default function ProductDetailScreen() {
               style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
               onPress={(e) => handleAddToCart(e)}
             >
-              <Ionicons name="cart-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+              <Ionicons
+                name="cart-outline"
+                size={22}
+                color="#FFF"
+                style={{ marginRight: 8 }}
+              />
               <Text style={styles.addToCartBtnText}>Add to Cart</Text>
             </Pressable>
           )}
@@ -989,12 +1125,8 @@ export default function ProductDetailScreen() {
       </View>
 
       {/* Fly to Cart Particles */}
-      {flyingParticles.map(p => (
-        <FlyToCartParticle
-          key={p.id}
-          startX={p.startX}
-          startY={p.startY}
-        />
+      {flyingParticles.map((p) => (
+        <FlyToCartParticle key={p.id} startX={p.startX} startY={p.startY} />
       ))}
 
       {/* Cart Added Toast */}
@@ -1017,7 +1149,9 @@ export default function ProductDetailScreen() {
           <Ionicons
             name={savedToastState.type === 'add' ? 'heart' : 'heart-dislike'}
             size={20}
-            color={savedToastState.type === 'add' ? '#EF4444' : colors.textSecondary}
+            color={
+              savedToastState.type === 'add' ? '#EF4444' : colors.textSecondary
+            }
           />
           <Text style={styles.toastText}>{savedToastState.message}</Text>
         </Animated.View>

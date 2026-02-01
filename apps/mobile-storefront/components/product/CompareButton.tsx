@@ -27,7 +27,9 @@ export function CompareButton({
   const isInComparison = useComparisonStore((state) =>
     state.isInComparison(product.id)
   );
-  const toggleComparison = useComparisonStore((state) => state.toggleComparison);
+  const toggleComparison = useComparisonStore(
+    (state) => state.toggleComparison
+  );
   const canAdd = useComparisonStore((state) => state.canAdd());
 
   const handlePress = () => {

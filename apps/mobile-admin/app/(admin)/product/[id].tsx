@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -557,7 +557,7 @@ export default function ProductEditScreen() {
             </View>
           ) : formData.images && formData.images.length > 0 ? (
             <View>
-              <Image
+              <SafeImage
                 source={formData.images[0]}
                 style={styles.productImage}
                 contentFit="cover"

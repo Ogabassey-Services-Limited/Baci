@@ -220,7 +220,10 @@ export async function calculateCommerce(
     // 2026 Best Practice: AbortController timeout for edge function calls
     // Prevents requests from hanging indefinitely on poor connections
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), EDGE_FUNCTION_TIMEOUT);
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      EDGE_FUNCTION_TIMEOUT
+    );
 
     let result: any;
     let error: any;

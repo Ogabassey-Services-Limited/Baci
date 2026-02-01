@@ -173,10 +173,7 @@ export function CheckoutIdentityModal({
           {/* Tabs */}
           <View style={styles.tabContainer}>
             <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'new' && styles.tabActive,
-              ]}
+              style={[styles.tab, activeTab === 'new' && styles.tabActive]}
               onPress={() => {
                 triggerHaptic();
                 setActiveTab('new');
@@ -197,10 +194,7 @@ export function CheckoutIdentityModal({
               </Text>
             </Pressable>
             <Pressable
-              style={[
-                styles.tab,
-                activeTab === 'signin' && styles.tabActive,
-              ]}
+              style={[styles.tab, activeTab === 'signin' && styles.tabActive]}
               onPress={() => {
                 triggerHaptic();
                 setActiveTab('signin');
@@ -209,7 +203,9 @@ export function CheckoutIdentityModal({
               <Ionicons
                 name="person-outline"
                 size={16}
-                color={activeTab === 'signin' ? BRAND.primary : palette.gray[500]}
+                color={
+                  activeTab === 'signin' ? BRAND.primary : palette.gray[500]
+                }
               />
               <Text
                 style={[
@@ -233,7 +229,8 @@ export function CheckoutIdentityModal({
                     <Text style={styles.optionTitle}>Guest Checkout</Text>
                   </View>
                   <Text style={styles.optionDescription}>
-                    Fastest way to checkout. Create an account later if you wish.
+                    Fastest way to checkout. Create an account later if you
+                    wish.
                   </Text>
                   <Pressable
                     style={({ pressed }) => [
@@ -243,7 +240,9 @@ export function CheckoutIdentityModal({
                     ]}
                     onPress={handleGuestCheckout}
                   >
-                    <Text style={styles.primaryButtonText}>Continue as Guest</Text>
+                    <Text style={styles.primaryButtonText}>
+                      Continue as Guest
+                    </Text>
                   </Pressable>
                 </View>
 
@@ -256,11 +255,18 @@ export function CheckoutIdentityModal({
 
                 {/* Create Account */}
                 <View style={[styles.optionCard, styles.optionCardSecondary]}>
-                  <View style={[styles.optionHeader, styles.optionHeaderCentered]}>
+                  <View
+                    style={[styles.optionHeader, styles.optionHeaderCentered]}
+                  >
                     <Ionicons name="person-add" size={16} color="#DC2626" />
                     <Text style={styles.optionTitle}>Create Account</Text>
                   </View>
-                  <Text style={[styles.optionDescription, styles.optionDescriptionCentered]}>
+                  <Text
+                    style={[
+                      styles.optionDescription,
+                      styles.optionDescriptionCentered,
+                    ]}
+                  >
                     Save your details for faster checkout next time.
                   </Text>
                   <Pressable
@@ -279,7 +285,11 @@ export function CheckoutIdentityModal({
                 {/* Sign In Form */}
                 {error && (
                   <View style={styles.errorContainer}>
-                    <Ionicons name="alert-circle" size={16} color={BRAND.primary} />
+                    <Ionicons
+                      name="alert-circle"
+                      size={16}
+                      color={BRAND.primary}
+                    />
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
@@ -301,7 +311,9 @@ export function CheckoutIdentityModal({
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
                     <Text style={styles.inputLabel}>Password</Text>
-                    <Pressable onPress={() => router.push('/auth/login?mode=forgot')}>
+                    <Pressable
+                      onPress={() => router.push('/auth/login?mode=forgot')}
+                    >
                       <Text style={styles.forgotLink}>Forgot?</Text>
                     </Pressable>
                   </View>
@@ -341,7 +353,9 @@ export function CheckoutIdentityModal({
                   ) : (
                     <>
                       <Ionicons name="person" size={16} color="#FFF" />
-                      <Text style={styles.primaryButtonText}>Sign In & Checkout</Text>
+                      <Text style={styles.primaryButtonText}>
+                        Sign In & Checkout
+                      </Text>
                     </>
                   )}
                 </Pressable>

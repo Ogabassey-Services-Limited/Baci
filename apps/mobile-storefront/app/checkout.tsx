@@ -133,29 +133,36 @@ export default function CheckoutScreen() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // If order is being processed, block back button entirely
-      if (isOrderInFlight.current) {
-        return true; // Consume the event, don't go back
-      }
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        // If order is being processed, block back button entirely
+        if (isOrderInFlight.current) {
+          return true; // Consume the event, don't go back
+        }
 
-      // If on first step, show confirmation before leaving checkout
-      if (step === 'address') {
-        Alert.alert(
-          'Leave Checkout?',
-          'Your cart items will be saved. Are you sure you want to leave?',
-          [
-            { text: 'Stay', style: 'cancel' },
-            { text: 'Leave', style: 'destructive', onPress: () => router.back() },
-          ]
-        );
-        return true; // Consume the event, handled with alert
-      }
+        // If on first step, show confirmation before leaving checkout
+        if (step === 'address') {
+          Alert.alert(
+            'Leave Checkout?',
+            'Your cart items will be saved. Are you sure you want to leave?',
+            [
+              { text: 'Stay', style: 'cancel' },
+              {
+                text: 'Leave',
+                style: 'destructive',
+                onPress: () => router.back(),
+              },
+            ]
+          );
+          return true; // Consume the event, handled with alert
+        }
 
-      // On other steps, go to previous step
-      handleBack();
-      return true; // Consume the event
-    });
+        // On other steps, go to previous step
+        handleBack();
+        return true; // Consume the event
+      }
+    );
 
     return () => backHandler.remove();
   }, [step]);
@@ -216,14 +223,21 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
-    // 2026 Best Practice: Prevent duplicate order submission
-    // Ref check prevents race condition from rapid button presses
-    if (isOrderInFlight.current) {
+    // 2026 Critical Fix: Prevent duplicate order submission
+    // Set both ref AND state synchronously before any async work
+    // This closes the race condition window completely
+    if (isOrderInFlight.current || isProcessing) {
       return;
     }
 
+    // Set ref immediately to block concurrent calls
+    isOrderInFlight.current = true;
+    setIsProcessing(true);
+
     // Check for empty cart (e.g., if user navigated back after clearing cart)
     if (items.length === 0) {
+      isOrderInFlight.current = false;
+      setIsProcessing(false);
       Alert.alert(
         'Empty Cart',
         'Your cart is empty. Please add items before checking out.',
@@ -231,9 +245,6 @@ export default function CheckoutScreen() {
       );
       return;
     }
-
-    isOrderInFlight.current = true;
-    setIsProcessing(true);
 
     try {
       // Track review step completion
@@ -310,7 +321,8 @@ export default function CheckoutScreen() {
       });
 
       const { order } = orderResponse;
-      const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
+      const orderNumber =
+        order.order_number || order.id.slice(0, 8).toUpperCase();
 
       // Track order completed with real order data
       trackOrderCompleted({
@@ -394,11 +406,9 @@ export default function CheckoutScreen() {
           error instanceof Error ? error.message : 'Unknown error',
           { step: 'place_order', paymentMethod: selectedPayment }
         );
-        Alert.alert(
-          'Error',
-          'Failed to place order. Please try again.',
-          [{ text: 'OK' }]
-        );
+        Alert.alert('Error', 'Failed to place order. Please try again.', [
+          { text: 'OK' },
+        ]);
       }
     } finally {
       setIsProcessing(false);
@@ -478,7 +488,9 @@ export default function CheckoutScreen() {
   );
 
   // 2026 Best Practice: Map field names to iOS textContentType for autofill
-  const TEXT_CONTENT_TYPE_MAP: Partial<Record<keyof ShippingAddressInput, TextContentType>> = {
+  const TEXT_CONTENT_TYPE_MAP: Partial<
+    Record<keyof ShippingAddressInput, TextContentType>
+  > = {
     firstName: TextContentTypes.givenName,
     lastName: TextContentTypes.familyName,
     phone: TextContentTypes.telephoneNumber,
@@ -487,10 +499,14 @@ export default function CheckoutScreen() {
   };
 
   // React Native TextInput autoComplete prop type
-  type TextInputAutoComplete = React.ComponentProps<typeof TextInput>['autoComplete'];
+  type TextInputAutoComplete = React.ComponentProps<
+    typeof TextInput
+  >['autoComplete'];
 
   // 2026 Best Practice: Map field names to Android autoComplete for autofill
-  const AUTO_COMPLETE_MAP: Partial<Record<keyof ShippingAddressInput, TextInputAutoComplete>> = {
+  const AUTO_COMPLETE_MAP: Partial<
+    Record<keyof ShippingAddressInput, TextInputAutoComplete>
+  > = {
     firstName: 'name-given',
     lastName: 'name-family',
     phone: 'tel',
@@ -837,10 +853,17 @@ export default function CheckoutScreen() {
               disabled={isProcessing}
               accessibilityRole="button"
               accessibilityLabel={`Place order for ${formatPrice(total)}`}
-              accessibilityState={{ disabled: isProcessing, busy: isProcessing }}
+              accessibilityState={{
+                disabled: isProcessing,
+                busy: isProcessing,
+              }}
             >
               {isProcessing ? (
-                <ActivityIndicator color="#FFFFFF" />
+                // 2026 Critical Fix: Show loading text for better user feedback
+                <View style={styles.processingContainer}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.actionButtonText}>Processing...</Text>
+                </View>
               ) : (
                 <>
                   <Text style={styles.actionButtonText}>Place Order</Text>
@@ -1075,6 +1098,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // 2026 Critical Fix: Processing state container for loading feedback
+  processingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   actionButtonPrice: {
     color: '#FFFFFF',

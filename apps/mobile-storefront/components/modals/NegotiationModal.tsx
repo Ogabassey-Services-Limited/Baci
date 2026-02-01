@@ -26,10 +26,17 @@ import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 import { supabase } from '@/lib/supabase';
 
-type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
+type NegotiationStatus =
+  | 'input'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'upload'
+  | 'submitted';
 
 export const NegotiationModal: React.FC = () => {
-  const { isNegotiationModalOpen, negotiationContext, closeNegotiation } = useUIStore();
+  const { isNegotiationModalOpen, negotiationContext, closeNegotiation } =
+    useUIStore();
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -38,8 +45,12 @@ export const NegotiationModal: React.FC = () => {
   const [uploadFile, setUploadFile] = useState<string | null>(null);
   const [uploadLink, setUploadLink] = useState('');
 
-  const applyNegotiatedPrice = useCartStore((state) => state.applyNegotiatedPrice);
-  const applyCartWideNegotiation = useCartStore((state) => state.applyCartWideNegotiation);
+  const applyNegotiatedPrice = useCartStore(
+    (state) => state.applyNegotiatedPrice
+  );
+  const applyCartWideNegotiation = useCartStore(
+    (state) => state.applyCartWideNegotiation
+  );
 
   // Reset state when modal opens
   useEffect(() => {
@@ -81,7 +92,10 @@ export const NegotiationModal: React.FC = () => {
     }
 
     if (offerAmount >= currentPrice) {
-      Alert.alert('Invalid Offer', 'Negotiated price must be lower than the current price.');
+      Alert.alert(
+        'Invalid Offer',
+        'Negotiated price must be lower than the current price.'
+      );
       setStatus('input');
       return;
     }
@@ -151,7 +165,8 @@ export const NegotiationModal: React.FC = () => {
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
     setStatus('processing');
-    const offerAmount = parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
+    const offerAmount =
+      parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
@@ -233,7 +248,11 @@ export const NegotiationModal: React.FC = () => {
               <Ionicons name="hand-right" size={18} color={BRAND.primary} />
               <Text style={styles.headerTitle}>NEGOTIATE PRICE</Text>
             </View>
-            <Pressable onPress={closeNegotiation} style={styles.closeButton} hitSlop={12}>
+            <Pressable
+              onPress={closeNegotiation}
+              style={styles.closeButton}
+              hitSlop={12}
+            >
               <Ionicons name="close" size={20} color={palette.gray[400]} />
             </Pressable>
           </View>
@@ -248,7 +267,9 @@ export const NegotiationModal: React.FC = () => {
               </Text>
               <Text style={styles.priceRow}>
                 <Text style={styles.priceLabel}>Current Price: </Text>
-                <Text style={styles.priceValue}>{formatPrice(currentPrice)}</Text>
+                <Text style={styles.priceValue}>
+                  {formatPrice(currentPrice)}
+                </Text>
               </Text>
             </View>
 
@@ -275,22 +296,35 @@ export const NegotiationModal: React.FC = () => {
 
             {/* Processing State */}
             {status === 'processing' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <ActivityIndicator size="large" color={BRAND.primary} />
-                <Text style={styles.processingText}>Reviewing your offer...</Text>
-                <Text style={styles.processingSubtext}>Checking with sales manager</Text>
+                <Text style={styles.processingText}>
+                  Reviewing your offer...
+                </Text>
+                <Text style={styles.processingSubtext}>
+                  Checking with sales manager
+                </Text>
               </Animated.View>
             )}
 
             {/* Success State */}
             {status === 'success' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
                 </View>
                 <Text style={styles.successTitle}>Offer Accepted!</Text>
                 <Text style={styles.successSubtext}>{message}</Text>
-                <Pressable style={styles.applyButton} onPress={handleApplyAndClose}>
+                <Pressable
+                  style={styles.applyButton}
+                  onPress={handleApplyAndClose}
+                >
                   <Text style={styles.applyButtonText}>Apply to Cart</Text>
                 </Pressable>
               </Animated.View>
@@ -298,7 +332,10 @@ export const NegotiationModal: React.FC = () => {
 
             {/* Counter Offer State */}
             {status === 'failed' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.amberCircle}>
                   <Ionicons name="hand-right" size={28} color="#D97706" />
                 </View>
@@ -307,13 +344,18 @@ export const NegotiationModal: React.FC = () => {
 
                 {counterOffer && (
                   <View style={styles.counterOfferBox}>
-                    <Text style={styles.counterOfferPrice}>{formatPrice(counterOffer)}</Text>
+                    <Text style={styles.counterOfferPrice}>
+                      {formatPrice(counterOffer)}
+                    </Text>
                   </View>
                 )}
 
                 <View style={styles.buttonColumn}>
                   {counterOffer && (
-                    <Pressable style={styles.acceptButton} onPress={handleAcceptCounter}>
+                    <Pressable
+                      style={styles.acceptButton}
+                      onPress={handleAcceptCounter}
+                    >
                       <Ionicons
                         name="checkmark-circle"
                         size={18}
@@ -325,19 +367,29 @@ export const NegotiationModal: React.FC = () => {
                       </Text>
                     </Pressable>
                   )}
-                  <Pressable style={styles.tryAgainButton} onPress={() => setStatus('input')}>
-                    <Text style={styles.tryAgainButtonText}>Negotiate Again</Text>
+                  <Pressable
+                    style={styles.tryAgainButton}
+                    onPress={() => setStatus('input')}
+                  >
+                    <Text style={styles.tryAgainButtonText}>
+                      Negotiate Again
+                    </Text>
                   </Pressable>
 
                   {attemptCount >= 2 && (
-                    <Pressable style={styles.cheaperButton} onPress={() => setStatus('upload')}>
+                    <Pressable
+                      style={styles.cheaperButton}
+                      onPress={() => setStatus('upload')}
+                    >
                       <Ionicons
                         name="cloud-upload-outline"
                         size={18}
                         color="#1D4ED8"
                         style={styles.buttonIcon}
                       />
-                      <Text style={styles.cheaperButtonText}>I Saw It Cheaper</Text>
+                      <Text style={styles.cheaperButtonText}>
+                        I Saw It Cheaper
+                      </Text>
                     </Pressable>
                   )}
                 </View>
@@ -348,9 +400,12 @@ export const NegotiationModal: React.FC = () => {
             {status === 'upload' && (
               <Animated.View entering={FadeIn.duration(200)}>
                 <View style={styles.uploadInfoBox}>
-                  <Text style={styles.uploadInfoTitle}>📸 Saw it cheaper elsewhere?</Text>
+                  <Text style={styles.uploadInfoTitle}>
+                    📸 Saw it cheaper elsewhere?
+                  </Text>
                   <Text style={styles.uploadInfoText}>
-                    Upload proof (screenshot, photo) and we'll try to match or beat that price!
+                    Upload proof (screenshot, photo) and we'll try to match or
+                    beat that price!
                   </Text>
                 </View>
 
@@ -358,13 +413,23 @@ export const NegotiationModal: React.FC = () => {
                 <Pressable style={styles.uploadBox} onPress={pickImage}>
                   {uploadFile ? (
                     <View style={styles.uploadedRow}>
-                      <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={16}
+                        color="#16A34A"
+                      />
                       <Text style={styles.uploadedText}>Image added</Text>
                     </View>
                   ) : (
                     <View style={styles.uploadPlaceholder}>
-                      <Ionicons name="image-outline" size={24} color="#1D4ED8" />
-                      <Text style={styles.uploadPlaceholderText}>Tap to select image</Text>
+                      <Ionicons
+                        name="image-outline"
+                        size={24}
+                        color="#1D4ED8"
+                      />
+                      <Text style={styles.uploadPlaceholderText}>
+                        Tap to select image
+                      </Text>
                     </View>
                   )}
                 </Pressable>
@@ -381,17 +446,25 @@ export const NegotiationModal: React.FC = () => {
                 />
 
                 <View style={styles.uploadButtonRow}>
-                  <Pressable style={styles.backButton} onPress={() => setStatus('failed')}>
+                  <Pressable
+                    style={styles.backButton}
+                    onPress={() => setStatus('failed')}
+                  >
                     <Text style={styles.backButtonText}>Back</Text>
                   </Pressable>
-                  <Pressable style={styles.sendReviewButton} onPress={handleUploadSubmit}>
+                  <Pressable
+                    style={styles.sendReviewButton}
+                    onPress={handleUploadSubmit}
+                  >
                     <Ionicons
                       name="cloud-upload"
                       size={18}
                       color="#FFF"
                       style={styles.buttonIcon}
                     />
-                    <Text style={styles.sendReviewButtonText}>Send for Review</Text>
+                    <Text style={styles.sendReviewButtonText}>
+                      Send for Review
+                    </Text>
                   </Pressable>
                 </View>
               </Animated.View>
@@ -399,7 +472,10 @@ export const NegotiationModal: React.FC = () => {
 
             {/* Submitted State */}
             {status === 'submitted' && (
-              <Animated.View entering={FadeIn.duration(200)} style={styles.centerContainer}>
+              <Animated.View
+                entering={FadeIn.duration(200)}
+                style={styles.centerContainer}
+              >
                 <View style={styles.successCircle}>
                   <Ionicons name="checkmark-circle" size={28} color="#16A34A" />
                 </View>

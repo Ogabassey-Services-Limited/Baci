@@ -71,7 +71,14 @@ export function ImageZoomModal({
     savedScale.value = 1;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-  }, [scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY]);
+  }, [
+    scale,
+    translateX,
+    translateY,
+    savedScale,
+    savedTranslateX,
+    savedTranslateY,
+  ]);
 
   // Handle index change with JS callback
   const handleIndexChange = useCallback(
@@ -261,7 +268,15 @@ export function ImageZoomModal({
     savedScale.value = 1;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-  }, [initialIndex, scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY]);
+  }, [
+    initialIndex,
+    scale,
+    translateX,
+    translateY,
+    savedScale,
+    savedTranslateX,
+    savedTranslateY,
+  ]);
 
   return (
     <Modal

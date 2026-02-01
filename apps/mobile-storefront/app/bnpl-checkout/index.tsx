@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,11 +17,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 
 type BNPLGateway = 'credpal' | 'credit_direct';
+
+// 2026 Critical Fix: Zod schema for route parameter validation
+const BNPLParamsSchema = z.object({
+  orderId: z.string().min(1, 'Order ID is required'),
+  gateway: z.enum(['credpal', 'credit_direct'], {
+    errorMap: () => ({ message: 'Invalid payment gateway' }),
+  }),
+  amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
+  customerEmail: z.string().email().optional(),
+  customerName: z.string().optional(),
+  merchantSlug: z.string().optional(),
+});
 
 // API base URL - use environment variable in production
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
@@ -39,11 +52,58 @@ export default function BNPLCheckoutScreen() {
   >('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { orderId, gateway, amount, customerEmail, customerName, merchantSlug } =
-    params;
+  // 2026 Critical Fix: Validate route params with Zod
+  const validatedParams = useMemo(() => {
+    const result = BNPLParamsSchema.safeParse(params);
+    if (!result.success) {
+      return {
+        isValid: false,
+        error: result.error.errors[0]?.message || 'Invalid parameters',
+        data: null,
+      };
+    }
+    return { isValid: true, error: null, data: result.data };
+  }, [params]);
+
+  const {
+    orderId,
+    gateway,
+    amount,
+    customerEmail,
+    customerName,
+    merchantSlug,
+  } = validatedParams.data || {};
 
   // Construct the BNPL launcher URL
-  const bnplUrl = `${API_BASE_URL}/${merchantSlug || 'ogabassey'}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}`;
+  const bnplUrl = validatedParams.isValid
+    ? `${API_BASE_URL}/${merchantSlug || 'ogabassey'}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}`
+    : '';
+
+  // 2026 Critical Fix: Show error state for invalid params
+  if (!validatedParams.isValid) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={64} color={BRAND.primary} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            Invalid Checkout
+          </Text>
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            {validatedParams.error}
+          </Text>
+          <Pressable
+            style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.retryText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const handleNavigationChange = (navState: WebViewNavigation) => {
     const { url } = navState;
@@ -81,7 +141,8 @@ export default function BNPLCheckoutScreen() {
       setStatus('error');
       const urlParams = new URL(url);
       setErrorMessage(
-        urlParams.searchParams.get('error') || 'Payment failed. Please try again.'
+        urlParams.searchParams.get('error') ||
+          'Payment failed. Please try again.'
       );
     }
   };
@@ -281,7 +342,10 @@ export default function BNPLCheckoutScreen() {
 
       {/* Security badge */}
       <View
-        style={[styles.securityBadge, { backgroundColor: `${BRAND.primary}10` }]}
+        style={[
+          styles.securityBadge,
+          { backgroundColor: `${BRAND.primary}10` },
+        ]}
       >
         <Ionicons name="shield-checkmark" size={16} color={BRAND.primary} />
         <Text style={[styles.securityText, { color: BRAND.primary }]}>
@@ -456,5 +520,29 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  // 2026 Critical Fix: Styles for invalid params error state
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: SPACING.lg,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 14,
+    marginTop: SPACING.sm,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -13,7 +13,9 @@ const withObjCLinkerFlag = (config) => {
     const targetName = 'Ogabassey';
 
     // Get the native target
-    const nativeTarget = project.getTarget('com.apple.product-type.application');
+    const nativeTarget = project.getTarget(
+      'com.apple.product-type.application'
+    );
     if (!nativeTarget) {
       console.warn('Could not find application target');
       return config;
@@ -23,15 +25,18 @@ const withObjCLinkerFlag = (config) => {
     const configurations = project.pbxXCBuildConfigurationSection();
 
     // Find configurations belonging to our target
-    const targetConfigList = project.pbxXCConfigurationList()[
-      project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
-    ];
+    const targetConfigList =
+      project.pbxXCConfigurationList()[
+        project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
+      ];
 
     if (targetConfigList?.buildConfigurations) {
       for (const configRef of targetConfigList.buildConfigurations) {
         const buildConfig = configurations[configRef.value];
         if (buildConfig?.buildSettings) {
-          let ldflags = buildConfig.buildSettings.OTHER_LDFLAGS || ['$(inherited)'];
+          let ldflags = buildConfig.buildSettings.OTHER_LDFLAGS || [
+            '$(inherited)',
+          ];
 
           // Ensure it's an array
           if (typeof ldflags === 'string') {
@@ -39,8 +44,9 @@ const withObjCLinkerFlag = (config) => {
           }
 
           // Add -ObjC if not present (handles both quoted and unquoted)
-          const hasObjC = ldflags.some(flag =>
-            flag === '-ObjC' || flag === '"-ObjC"' || flag.includes('-ObjC')
+          const hasObjC = ldflags.some(
+            (flag) =>
+              flag === '-ObjC' || flag === '"-ObjC"' || flag.includes('-ObjC')
           );
 
           if (!hasObjC) {

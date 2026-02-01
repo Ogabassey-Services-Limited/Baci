@@ -5,6 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -230,8 +231,18 @@ export default function SettingsScreen() {
               styles.devButton,
               { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' },
             ]}
-            onPress={() => {
-              resetOnboarding();
+            onPress={async () => {
+              await resetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => _router.replace('/(auth)/onboarding'),
+                  },
+                ]
+              );
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />

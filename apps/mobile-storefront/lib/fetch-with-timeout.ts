@@ -77,7 +77,9 @@ export async function fetchWithTimeout(
 
     // Check for network errors
     if (error instanceof TypeError && error.message.includes('Network')) {
-      throw new NetworkError('Network request failed. Please check your connection.');
+      throw new NetworkError(
+        'Network request failed. Please check your connection.'
+      );
     }
 
     throw error;

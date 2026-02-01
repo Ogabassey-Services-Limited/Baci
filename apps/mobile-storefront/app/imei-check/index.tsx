@@ -126,11 +126,14 @@ export default function ImeiCheckerScreen() {
     setResult(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/storefront/imei-check`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imei, tier: selectedTier }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/storefront/imei-check`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imei, tier: selectedTier }),
+        }
+      );
 
       const rawData = await response.json();
 
@@ -141,8 +144,16 @@ export default function ImeiCheckerScreen() {
         'IMEI check API'
       );
 
-      if (!response.ok || (validated && !validated.success) || (!validated && !rawData?.success)) {
-        setError(validated?.error || rawData?.error || 'Unable to check IMEI. Please try again.');
+      if (
+        !response.ok ||
+        (validated && !validated.success) ||
+        (!validated && !rawData?.success)
+      ) {
+        setError(
+          validated?.error ||
+            rawData?.error ||
+            'Unable to check IMEI. Please try again.'
+        );
         return;
       }
 
@@ -184,7 +195,9 @@ export default function ImeiCheckerScreen() {
 
   const isStatusClean = (status: string) => {
     const s = status.toLowerCase();
-    return s === 'clean' || s === 'not found' || s.includes('clean') || s === 'off';
+    return (
+      s === 'clean' || s === 'not found' || s.includes('clean') || s === 'off'
+    );
   };
 
   // Results View
@@ -273,7 +286,9 @@ export default function ImeiCheckerScreen() {
               >
                 {result.score}%
               </Text>
-              <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.scoreLabel, { color: colors.textSecondary }]}
+              >
                 Trust
               </Text>
             </View>
@@ -297,7 +312,9 @@ export default function ImeiCheckerScreen() {
                   name="shield-checkmark"
                   size={20}
                   color={
-                    isStatusClean(result.blacklistStatus) ? '#059669' : '#DC2626'
+                    isStatusClean(result.blacklistStatus)
+                      ? '#059669'
+                      : '#DC2626'
                   }
                 />
               </View>
@@ -365,9 +382,7 @@ export default function ImeiCheckerScreen() {
 
             {/* SIM Lock */}
             <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
-              <View
-                style={[styles.statusIcon, { backgroundColor: '#DBEAFE' }]}
-              >
+              <View style={[styles.statusIcon, { backgroundColor: '#DBEAFE' }]}>
                 <Ionicons name="globe" size={20} color="#2563EB" />
               </View>
               <View style={styles.statusInfo}>
@@ -384,9 +399,7 @@ export default function ImeiCheckerScreen() {
 
             {/* Carrier */}
             <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
-              <View
-                style={[styles.statusIcon, { backgroundColor: '#EDE9FE' }]}
-              >
+              <View style={[styles.statusIcon, { backgroundColor: '#EDE9FE' }]}>
                 <Ionicons name="cellular" size={20} color="#7C3AED" />
               </View>
               <View style={styles.statusInfo}>
@@ -406,7 +419,10 @@ export default function ImeiCheckerScreen() {
           <View
             style={[
               styles.verdictContainer,
-              { backgroundColor: verdictColors.bg, borderColor: verdictColors.border },
+              {
+                backgroundColor: verdictColors.bg,
+                borderColor: verdictColors.border,
+              },
             ]}
           >
             <Text style={[styles.verdictText, { color: verdictColors.text }]}>
@@ -473,7 +489,9 @@ export default function ImeiCheckerScreen() {
               <Text style={{ color: BRAND.primary }}>Verify First.</Text>
             </Text>
 
-            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.heroSubtitle, { color: colors.textSecondary }]}
+            >
               That "Brand New" iPhone might be stolen, iCloud locked, or
               refurbished. One quick check can save you from losing money.
             </Text>
@@ -481,19 +499,25 @@ export default function ImeiCheckerScreen() {
             <View style={styles.trustIndicators}>
               <View style={styles.trustItem}>
                 <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text style={[styles.trustText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.trustText, { color: colors.textSecondary }]}
+                >
                   Instant
                 </Text>
               </View>
               <View style={styles.trustItem}>
                 <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text style={[styles.trustText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.trustText, { color: colors.textSecondary }]}
+                >
                   Official DB
                 </Text>
               </View>
               <View style={styles.trustItem}>
                 <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text style={[styles.trustText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.trustText, { color: colors.textSecondary }]}
+                >
                   Accurate
                 </Text>
               </View>
@@ -547,7 +571,10 @@ export default function ImeiCheckerScreen() {
                     {tier.name}
                   </Text>
                   <Text
-                    style={[styles.tierTagline, { color: colors.textSecondary }]}
+                    style={[
+                      styles.tierTagline,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     {tier.tagline}
                   </Text>
@@ -566,7 +593,9 @@ export default function ImeiCheckerScreen() {
 
           {/* Features */}
           <View style={styles.featuresContainer}>
-            <Text style={[styles.featuresLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.featuresLabel, { color: colors.textSecondary }]}
+            >
               What's included:
             </Text>
             <View style={styles.featuresList}>
@@ -577,7 +606,10 @@ export default function ImeiCheckerScreen() {
                 >
                   <Ionicons name="checkmark" size={12} color="#059669" />
                   <Text
-                    style={[styles.featureText, { color: colors.textSecondary }]}
+                    style={[
+                      styles.featureText,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     {feature}
                   </Text>

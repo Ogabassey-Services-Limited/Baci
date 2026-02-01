@@ -25,7 +25,13 @@ import { useCategories } from '@/hooks/use-products';
 export default function CategoriesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: categories = [], isLoading, isError, refetch, isRefetching } = useCategories();
+  const {
+    data: categories = [],
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+  } = useCategories();
   const { isOnline, onReconnect } = useNetworkState();
 
   // Auto-refetch when network is restored
@@ -61,11 +67,17 @@ export default function CategoriesScreen() {
           />
         ) : (
           <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={48} color={colors.textSecondary} />
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
             <Text style={[styles.errorTitle, { color: colors.text }]}>
               Something went wrong
             </Text>
-            <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.errorSubtitle, { color: colors.textSecondary }]}
+            >
               We couldn't load categories. Please try again.
             </Text>
             <Pressable

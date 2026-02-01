@@ -27,19 +27,19 @@ const log = createLogger('AdTracking');
 
 // Firebase Analytics removed due to native conflict. Using PostHog and Server-side CAPI instead.
 const analytics = () => ({
-  setUserId: async (_: string) => { },
-  resetAnalyticsData: async () => { },
-  logViewItem: async (_: any) => { },
-  logAddToCart: async (_: any) => { },
-  logBeginCheckout: async (_: any) => { },
-  logPurchase: async (_: any) => { },
-  logAddPaymentInfo: async (_: any) => { },
-  logSearch: async (_: any) => { },
-  logAppOpen: async () => { },
-  logScreenView: async (_: any) => { },
-  logSignUp: async (_: any) => { },
-  logLogin: async (_: any) => { },
-  logEvent: async (_: string, __?: any) => { },
+  setUserId: async (_: string) => {},
+  resetAnalyticsData: async () => {},
+  logViewItem: async (_: any) => {},
+  logAddToCart: async (_: any) => {},
+  logBeginCheckout: async (_: any) => {},
+  logPurchase: async (_: any) => {},
+  logAddPaymentInfo: async (_: any) => {},
+  logSearch: async (_: any) => {},
+  logAppOpen: async () => {},
+  logScreenView: async (_: any) => {},
+  logSignUp: async (_: any) => {},
+  logLogin: async (_: any) => {},
+  logEvent: async (_: string, __?: any) => {},
 });
 
 import Constants from 'expo-constants';
@@ -360,7 +360,12 @@ function sendClientBackup(
 
   // TikTok (backup) - Cast to any due to SDK type mismatch
   if (isTikTokInitialized && ttEvent) {
-    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)(ttEvent, {
+    (
+      TikTokBusiness.trackEvent as (
+        name: string,
+        params?: Record<string, unknown>
+      ) => void
+    )(ttEvent, {
       ...params,
       event_id: eventId, // TikTok uses event_id for dedup
     });
@@ -672,7 +677,12 @@ export async function trackPurchase(order: {
 
   // TikTok - Cast to any due to SDK type mismatch
   if (isTikTokInitialized) {
-    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('CompletePayment', {
+    (
+      TikTokBusiness.trackEvent as (
+        name: string,
+        params?: Record<string, unknown>
+      ) => void
+    )('CompletePayment', {
       content_type: 'product',
       contents: order.items.map((item) => ({
         content_id: item.id,
@@ -687,9 +697,7 @@ export async function trackPurchase(order: {
     });
   }
 
-  log.info(
-    `Purchase tracked: ${order.orderId} - ${order.total} ${currency}`
-  );
+  log.info(`Purchase tracked: ${order.orderId} - ${order.total} ${currency}`);
 }
 
 /**
@@ -736,7 +744,12 @@ export async function trackSearch(
   });
 
   if (isTikTokInitialized) {
-    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('Search', {
+    (
+      TikTokBusiness.trackEvent as (
+        name: string,
+        params?: Record<string, unknown>
+      ) => void
+    )('Search', {
       query,
       event_id: eventId,
     });
@@ -799,7 +812,12 @@ export async function trackSignup(
   }
 
   if (isTikTokInitialized) {
-    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)('CompleteRegistration', {
+    (
+      TikTokBusiness.trackEvent as (
+        name: string,
+        params?: Record<string, unknown>
+      ) => void
+    )('CompleteRegistration', {
       registration_method: method,
       event_id: eventId,
     });
@@ -840,6 +858,11 @@ export async function trackCustomEvent(
   }
 
   if (isTikTokInitialized) {
-    (TikTokBusiness.trackEvent as (name: string, params?: Record<string, unknown>) => void)(eventName, { ...params, event_id: eventId });
+    (
+      TikTokBusiness.trackEvent as (
+        name: string,
+        params?: Record<string, unknown>
+      ) => void
+    )(eventName, { ...params, event_id: eventId });
   }
 }

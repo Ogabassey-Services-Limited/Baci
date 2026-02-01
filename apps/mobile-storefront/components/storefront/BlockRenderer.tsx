@@ -86,18 +86,31 @@ const ProductGrid = ({
         const getPriority = (name: string) => {
           // Priority 1: Mobile Phones / Smartphones (Excluding accessories like headphones)
           if (
-            (name.includes('phone') && !name.includes('headphone') && !name.includes('microphone')) ||
+            (name.includes('phone') &&
+              !name.includes('headphone') &&
+              !name.includes('microphone')) ||
             name.includes('mobile') ||
             name === 'smartphones'
           ) {
             return 1;
           }
           // Priority 2: Computing
-          if (name.includes('laptop') || name.includes('computer') || name.includes('macbook')) return 2;
+          if (
+            name.includes('laptop') ||
+            name.includes('computer') ||
+            name.includes('macbook')
+          )
+            return 2;
           // Priority 3: Tablets
           if (name.includes('tablet') || name.includes('ipad')) return 3;
           // Priority 4: Accessories & Audio
-          if (name.includes('accessories') || name.includes('watch') || name.includes('audio') || name.includes('headphone')) return 4;
+          if (
+            name.includes('accessories') ||
+            name.includes('watch') ||
+            name.includes('audio') ||
+            name.includes('headphone')
+          )
+            return 4;
           return 100;
         };
 
@@ -156,10 +169,12 @@ const ProductGrid = ({
         onViewModeChange={setViewMode}
       />
 
-      <View style={[
-        currentVariant === 'list' ? styles.list : styles.grid,
-        { opacity: isFetching ? 0.6 : 1 } // Visual feedback for background updates
-      ]}>
+      <View
+        style={[
+          currentVariant === 'list' ? styles.list : styles.grid,
+          { opacity: isFetching ? 0.6 : 1 }, // Visual feedback for background updates
+        ]}
+      >
         {products.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: '#9CA3AF' }]}>

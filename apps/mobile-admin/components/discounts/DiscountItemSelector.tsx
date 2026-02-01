@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -211,7 +211,7 @@ export function DiscountItemSelector({
                   accessibilityState={{ checked: isSelected }}
                 >
                   {item.images && item.images.length > 0 && (
-                    <Image
+                    <SafeImage
                       source={{ uri: item.images[0] }}
                       style={styles.itemImage}
                       contentFit="cover"

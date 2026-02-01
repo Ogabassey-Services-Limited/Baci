@@ -41,8 +41,9 @@
       "tar": "^7.5.3",
       "diff": "^8.0.3",
       "react-native-screens": "4.20.0",
-      "react-native-reanimated": "4.1.6",
-      "react-native-svg": "15.15.1"
+      "react-native-reanimated": "4.2.1",
+      "react-native-svg": "15.15.1",
+      "react-native-gesture-handler": "2.28.0"
     },
     "patchedDependencies": {
       "react-native-worklets": "patches/react-native-worklets.patch",

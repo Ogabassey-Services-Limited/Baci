@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -325,7 +325,7 @@ export default function StoreSettingsScreen() {
             </Text>
             <View style={styles.logoContainer}>
               {merchant?.logo_url ? (
-                <Image
+                <SafeImage
                   source={{ uri: merchant.logo_url }}
                   style={styles.logo}
                   contentFit="contain"

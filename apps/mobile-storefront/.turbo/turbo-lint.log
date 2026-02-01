@@ -1,6 +1,203 @@
 
+
 > @baci/mobile-storefront@1.0.0 lint /Users/mac/Baci-app/apps/mobile-storefront
 > expo lint
 
-env: load .env
-env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+[90menv: load .env[39m
+[90menv: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY[39m
+[1mnpm[22m [33mwarn[39m [94mUnknown env config "shamefully-hoist". This will stop working in the next major version of npm.[39m
+[1mnpm[22m [33mwarn[39m [94mUnknown env config "npm-globalconfig". This will stop working in the next major version of npm.[39m
+[1mnpm[22m [33mwarn[39m [94mUnknown env config "verify-deps-before-run". This will stop working in the next major version of npm.[39m
+[1mnpm[22m [33mwarn[39m [94mUnknown env config "_jsr-registry". This will stop working in the next major version of npm.[39m
+[1mnpm[22m [33mwarn[39m [94mUnknown env config "node-linker". This will stop working in the next major version of npm.[39m
+⠙[1G[0K[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/_layout.tsx[24m[0m
+[0m   [2m9:10[22m  [31merror[39m  'Platform' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m12:17[22m  [31merror[39m  'RADIUS' is defined but never used. Allowed unused vars must match /^_/u    [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/account.tsx[24m[0m
+[0m   [2m28:11[22m  [31merror[39m  'MenuItem' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m245:33[22m  [31merror[39m  Unexpected any. Specify a different type                                    [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/cart.tsx[24m[0m
+[0m   [2m50:10[22m  [31merror[39m    Unexpected any. Specify a different type                                                                            [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m   [2m88:9[22m   [31merror[39m    'insets' is assigned a value but never used. Allowed unused vars must match /^_/u                                   [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m101:6[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'arrowTranslateX'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m116:9[22m   [31merror[39m    'totalSavings' is assigned a value but never used. Allowed unused vars must match /^_/u                             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m123:9[22m   [31merror[39m    'openChat' is assigned a value but never used. Allowed unused vars must match /^_/u                                 [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m196:53[22m  [31merror[39m    Unexpected any. Specify a different type                                                                            [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/categories.tsx[24m[0m
+[0m  [2m105:45[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/index.tsx[24m[0m
+[0m   [2m24:10[22m  [31merror[39m    'Footer' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m126:9[22m   [33mwarning[39m  The 'handleCategorySelect' function makes the dependencies of useCallback Hook (at line 199) change on every render. Move it inside the useCallback callback. Alternatively, wrap the definition of 'handleCategorySelect' in its own useCallback() Hook  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m174:31[22m  [31merror[39m    Unexpected any. Specify a different type                                                                                                                                                                                                                  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m191:22[22m  [31merror[39m    React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render                                                                                                                            [2mreact-hooks/rules-of-hooks[22m[0m
+[0m  [2m192:24[22m  [31merror[39m    Unexpected any. Specify a different type                                                                                                                                                                                                                  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m252:25[22m  [31merror[39m    Unexpected any. Specify a different type                                                                                                                                                                                                                  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m254:30[22m  [31merror[39m    Unexpected any. Specify a different type                                                                                                                                                                                                                  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/_layout.tsx[24m[0m
+[0m  [2m95:16[22m  [31merror[39m  A `require()` style import is forbidden  [2m@typescript-eslint/no-require-imports[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/addresses/[id].tsx[24m[0m
+[0m  [2m144:6[22m  [33mwarning[39m  React Hook useEffect has a missing dependency: 'fetchAddress'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/bnpl-checkout/index.tsx[24m[0m
+[0m  [2m25:6[22m  [31merror[39m  'BNPLGateway' is defined but never used. Allowed unused vars must match /^_/u             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m72:5[22m  [31merror[39m  'customerEmail' is assigned a value but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m73:5[22m  [31merror[39m  'customerName' is assigned a value but never used. Allowed unused vars must match /^_/u   [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/checkout.tsx[24m[0m
+[0m  [2m168:6[22m  [33mwarning[39m  React Hook useEffect has a missing dependency: 'handleBack'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/orders/[id].tsx[24m[0m
+[0m  [2m312:44[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/orders/index.tsx[24m[0m
+[0m  [2m222:42[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/product/[slug].tsx[24m[0m
+[0m   [2m20:3[22m   [31merror[39m    'LayoutChangeEvent' is defined but never used. Allowed unused vars must match /^_/u                                   [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m21:3[22m   [31merror[39m    'Linking' is defined but never used. Allowed unused vars must match /^_/u                                             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m176:6[22m   [33mwarning[39m  React Hook useMemo has a missing dependency: 'getConditionDisplay'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m222:36[22m  [31merror[39m    Unexpected any. Specify a different type                                                                              [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m260:8[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'progress'. Either include it or remove the dependency array           [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m491:36[22m  [31merror[39m    Unexpected any. Specify a different type                                                                              [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m522:62[22m  [31merror[39m    Unexpected any. Specify a different type                                                                              [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m606:17[22m  [31merror[39m    Expected an assignment or function call and instead saw an expression                                                 [2m@typescript-eslint/no-unused-expressions[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/profile/edit.tsx[24m[0m
+[0m   [2m18:3[22m   [31merror[39m  'Alert' is defined but never used. Allowed unused vars must match /^_/u           [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m90:14[22m  [31merror[39m  'error' is defined but never used. Allowed unused caught errors must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m137:49[22m  [31merror[39m  Unexpected any. Specify a different type                                          [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/app/search.tsx[24m[0m
+[0m  [2m22:10[22m  [31merror[39m  'OfflineNotice' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ConnectivityBanner.tsx[24m[0m
+[0m  [2m51:9[22m  [33mwarning[39m  The 'showBanner' function makes the dependencies of useEffect Hook (at line 119) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'showBanner' in its own useCallback() Hook  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m60:9[22m  [33mwarning[39m  The 'hideBanner' function makes the dependencies of useEffect Hook (at line 119) change on every render. Move it inside the useEffect callback. Alternatively, wrap the definition of 'hideBanner' in its own useCallback() Hook  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ErrorBoundary.tsx[24m[0m
+[0m  [2m19:18[22m  [31merror[39m  'BRAND' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ExternalLink.tsx[24m[0m
+[0m  [2m13:27[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/__tests__/StyledText-test.js[24m[0m
+[0m  [2m5:1[22m  [31merror[39m  'it' is not defined      [2mno-undef[22m[0m
+[0m  [2m8:3[22m  [31merror[39m  'expect' is not defined  [2mno-undef[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/chat/ChatWidget.tsx[24m[0m
+[0m   [2m30:3[22m   [31merror[39m  'Linking' is defined but never used. Allowed unused vars must match /^_/u       [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m155:24[22m  [31merror[39m  Unexpected any. Specify a different type                                        [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m156:24[22m  [31merror[39m  Unexpected any. Specify a different type                                        [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m172:34[22m  [31merror[39m  'gestureState' is defined but never used. Allowed unused args must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m177:36[22m  [31merror[39m  Unexpected any. Specify a different type                                        [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m178:36[22m  [31merror[39m  Unexpected any. Specify a different type                                        [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/checkout/CheckoutIdentityModal.tsx[24m[0m
+[0m  [2m68:6[22m  [33mwarning[39m  React Hook useEffect has missing dependencies: 'backdropOpacity' and 'translateY'. Either include them or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/modals/NegotiationModal.tsx[24m[0m
+[0m   [2m24:8[22m   [31merror[39m    'Colors' is defined but never used. Allowed unused vars must match /^_/u                       [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m288:21[22m  [33mwarning[39m  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  [2mjsx-a11y/no-autofocus[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/navigation/DrawerMenu.tsx[24m[0m
+[0m  [2m138:25[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/product/CompareButton.tsx[24m[0m
+[0m  [2m7:46[22m  [31merror[39m  'View' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/product/ConditionSelector.tsx[24m[0m
+[0m   [2m10:18[22m  [31merror[39m  'BRAND' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m161:42[22m  [31merror[39m  Unexpected any. Specify a different type                                 [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/product/ImageZoomModal.tsx[24m[0m
+[0m  [2m26:3[22m  [31merror[39m  'withTiming' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/product/NegotiationModal.tsx[24m[0m
+[0m   [2m26:8[22m   [31merror[39m    'Colors' is defined but never used. Allowed unused vars must match /^_/u                       [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m28:3[22m   [31merror[39m    'RADIUS' is defined but never used. Allowed unused vars must match /^_/u                       [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m30:3[22m   [31merror[39m    'SPACING' is defined but never used. Allowed unused vars must match /^_/u                      [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m35:8[22m   [31merror[39m    'NegotiationResult' is defined but never used. Allowed unused vars must match /^_/u            [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m36:3[22m   [31merror[39m    'NegotiationResultSchema' is defined but never used. Allowed unused vars must match /^_/u      [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m37:3[22m   [31merror[39m    'parseApiResponse' is defined but never used. Allowed unused vars must match /^_/u             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m75:9[22m   [31merror[39m    'colorScheme' is assigned a value but never used. Allowed unused vars must match /^_/u         [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m76:9[22m   [31merror[39m    'apiUrl' is assigned a value but never used. Allowed unused vars must match /^_/u              [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m305:21[22m  [33mwarning[39m  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  [2mjsx-a11y/no-autofocus[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/BlockRenderer.tsx[24m[0m
+[0m   [2m43:60[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m   [2m49:11[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m   [2m79:46[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m216:37[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m247:33[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/FilterBar.tsx[24m[0m
+[0m   [2m12:33[22m  [31merror[39m  'SPACING' is defined but never used. Allowed unused vars must match /^_/u          [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m63:9[22m   [31merror[39m  'colors' is assigned a value but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m334:42[22m  [31merror[39m  Unexpected any. Specify a different type                                           [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/Footer.tsx[24m[0m
+[0m  [2m116:26[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m139:46[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/Header.tsx[24m[0m
+[0m    [2m8:10[22m  [31merror[39m  'Image' is defined but never used. Allowed unused vars must match /^_/u                 [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m28:7[22m   [31merror[39m  'PATTERN_URI' is assigned a value but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m223:60[22m  [31merror[39m  Unexpected any. Specify a different type                                                [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/Hero.tsx[24m[0m
+[0m   [2m80:58[22m  [31merror[39m  Unexpected any. Specify a different type                                 [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m117:52[22m  [31merror[39m  Unexpected any. Specify a different type                                 [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m144:52[22m  [31merror[39m  Unexpected any. Specify a different type                                 [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m182:32[22m  [31merror[39m  'index' is defined but never used. Allowed unused args must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/ProductCard.tsx[24m[0m
+[0m  [2m151:11[22m  [31merror[39m  'showScarcityBadge' is assigned a value but never used. Allowed unused vars must match /^_/u   [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m207:11[22m  [31merror[39m  'discountPercentage' is assigned a value but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/UtilityPanel.tsx[24m[0m
+[0m    [2m2:10[22m  [31merror[39m    'useRouter' is defined but never used. Allowed unused vars must match /^_/u                                             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m17:3[22m   [31merror[39m    'withSpring' is defined but never used. Allowed unused vars must match /^_/u                                            [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m20:17[22m  [31merror[39m    'RADIUS' is defined but never used. Allowed unused vars must match /^_/u                                                [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m47:3[22m   [31merror[39m    'id' is defined but never used. Allowed unused args must match /^_/u                                                    [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m49:3[22m   [31merror[39m    'slug' is defined but never used. Allowed unused args must match /^_/u                                                  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m59:6[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'progress'. Either include it or remove the dependency array             [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m175:6[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'categoryIds'. Either include it or remove the dependency array          [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m188:6[22m   [33mwarning[39m  React Hook useEffect has a missing dependency: 'utilityWords.length'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m218:40[22m  [31merror[39m    Unexpected any. Specify a different type                                                                                [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ui/Button.tsx[24m[0m
+[0m  [2m75:13[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ui/HTMLRenderer.tsx[24m[0m
+[0m   [2m4:10[22m  [31merror[39m  'TYPOGRAPHY' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m36:30[22m  [31merror[39m  Unexpected any. Specify a different type                                      [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m42:30[22m  [31merror[39m  Unexpected any. Specify a different type                                      [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m49:30[22m  [31merror[39m  Unexpected any. Specify a different type                                      [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m55:30[22m  [31merror[39m  Unexpected any. Specify a different type                                      [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m70:32[22m  [31merror[39m  Unexpected any. Specify a different type                                      [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ui/SafeImage.tsx[24m[0m
+[0m  [2m14:39[22m  [31merror[39m  'ImageSource' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m17:10[22m  [31merror[39m  'BRAND' is defined but never used. Allowed unused vars must match /^_/u        [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ui/SnowEffect.tsx[24m[0m
+[0m  [2m37:67[22m  [33mwarning[39m  React Hook useMemo has a missing dependency: 'seededRandom'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m38:56[22m  [33mwarning[39m  React Hook useMemo has a missing dependency: 'seededRandom'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m41:5[22m   [33mwarning[39m  React Hook useMemo has a missing dependency: 'seededRandom'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m43:55[22m  [33mwarning[39m  React Hook useMemo has a missing dependency: 'seededRandom'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m  [2m44:65[22m  [33mwarning[39m  React Hook useMemo has a missing dependency: 'seededRandom'. Either include it or remove the dependency array  [2mreact-hooks/exhaustive-deps[22m[0m
+[0m[0m
+[0m[4m/Users/mac/Baci-app/apps/mobile-storefront/components/ui/Toast.tsx[24m[0m
+[0m  [2m14:47[22m  [31merror[39m  'View' is defined but never used. Allowed unused vars must match /^_/u   [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m22:10[22m  [31merror[39m  'BRAND' is defined but never used. Allowed unused vars must match /^_/u  [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m[0m
+[0m[31m[1m✖ 111 problems (92 errors, 19 warnings)[22m[39m[0m
+[0m[31m[1m[22m[39m[0m
+⠙[1G[0K[41m[30m ELIFECYCLE [39m[49m [31mCommand failed with exit code 1.[39m

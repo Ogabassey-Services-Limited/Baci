@@ -89,10 +89,13 @@ export function DrawerMenu() {
   // Android back button
   useEffect(() => {
     if (Platform.OS === 'android' && isOpen) {
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-        closeDrawer();
-        return true;
-      });
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          closeDrawer();
+          return true;
+        }
+      );
       return () => backHandler.remove();
     }
   }, [isOpen, closeDrawer]);
@@ -145,7 +148,8 @@ export function DrawerMenu() {
     router.push('/auth/login');
   };
 
-  const isActive = (path: string) => pathname === path || pathname?.startsWith(path + '/');
+  const isActive = (path: string) =>
+    pathname === path || pathname?.startsWith(path + '/');
 
   if (!isOpen && translateX.value === -DRAWER_WIDTH) {
     return null;
@@ -196,10 +200,7 @@ export function DrawerMenu() {
               return (
                 <Pressable
                   key={item.path}
-                  style={[
-                    styles.menuItem,
-                    active && styles.menuItemActive,
-                  ]}
+                  style={[styles.menuItem, active && styles.menuItemActive]}
                   onPress={() => handleNavigate(item.path)}
                   accessibilityLabel={item.label}
                   accessibilityRole="menuitem"
@@ -225,7 +226,12 @@ export function DrawerMenu() {
           </ScrollView>
 
           {/* Footer */}
-          <View style={[styles.footer, { paddingBottom: insets.bottom + SPACING.md }]}>
+          <View
+            style={[
+              styles.footer,
+              { paddingBottom: insets.bottom + SPACING.md },
+            ]}
+          >
             {isAuthenticated ? (
               <Pressable
                 style={styles.authButton}

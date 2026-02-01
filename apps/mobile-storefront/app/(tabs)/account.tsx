@@ -243,27 +243,38 @@ export default function AccountScreen() {
   };
 
   const renderMenuItem = (item: any, isLast: boolean) => (
-    <Pressable
-      key={item.id}
-      onPress={() => handleMenuPress(item)}
-    >
+    <Pressable key={item.id} onPress={() => handleMenuPress(item)}>
       {({ pressed }) => (
         <View
           style={[
             styles.menuItem,
-            !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
+            !isLast && {
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+            },
             pressed && styles.menuItemPressed,
           ]}
         >
           <View style={styles.menuItemLeft}>
-            <View style={[styles.menuIconWrapper, { backgroundColor: item.color + '15' }]}>
+            <View
+              style={[
+                styles.menuIconWrapper,
+                { backgroundColor: item.color + '15' },
+              ]}
+            >
               <Ionicons name={item.icon} size={22} color={item.color} />
             </View>
             <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuLabel, { color: colors.text }]} numberOfLines={1}>
+              <Text
+                style={[styles.menuLabel, { color: colors.text }]}
+                numberOfLines={1}
+              >
                 {item.label}
               </Text>
-              <Text style={[styles.menuSubLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+              <Text
+                style={[styles.menuSubLabel, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
                 {item.subLabel}
               </Text>
             </View>
@@ -275,7 +286,11 @@ export default function AccountScreen() {
                 <Text style={styles.badgeText}>{item.badge}</Text>
               </View>
             )}
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={colors.textSecondary}
+            />
           </View>
         </View>
       )}
@@ -285,11 +300,15 @@ export default function AccountScreen() {
   const renderGuestView = () => (
     <View style={styles.guestCard}>
       <View style={styles.guestHeader}>
-        <View style={[styles.guestIconBg, { backgroundColor: palette.red[50] }]}>
+        <View
+          style={[styles.guestIconBg, { backgroundColor: palette.red[50] }]}
+        >
           <Ionicons name="person" size={40} color={BRAND.primary} />
         </View>
         <View style={styles.guestInfo}>
-          <Text style={[styles.guestTitle, { color: colors.text }]}>Join the Elite</Text>
+          <Text style={[styles.guestTitle, { color: colors.text }]}>
+            Join the Elite
+          </Text>
           <Text style={[styles.guestSubtitle, { color: colors.textSecondary }]}>
             Unlock tracking, rewards, and 24/7 tech support.
           </Text>
@@ -351,10 +370,15 @@ export default function AccountScreen() {
       </View>
 
       {loyaltyPoints !== undefined && (
-        <View style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}>
+        <View
+          style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}
+        >
           <Ionicons name="sparkles" size={16} color={palette.amber[600]} />
           <Text style={[styles.pointsText, { color: palette.amber[800] }]}>
-            Rewards Balance: <Text style={{ fontWeight: '800' }}>{loyaltyPoints.toLocaleString()} pts</Text>
+            Rewards Balance:{' '}
+            <Text style={{ fontWeight: '800' }}>
+              {loyaltyPoints.toLocaleString()} pts
+            </Text>
           </Text>
         </View>
       )}
@@ -373,15 +397,15 @@ export default function AccountScreen() {
         {customer ? renderProfileHeader() : renderGuestView()}
 
         {menuSections
-          .filter(section => section.visible)
+          .filter((section) => section.visible)
           .map((section) => (
             <View key={section.title} style={styles.sectionWrapper}>
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textSecondary }]}
+              >
                 {section.title}
               </Text>
-              <View
-                style={[styles.menuCard, { backgroundColor: colors.card }]}
-              >
+              <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
                 {section.items.map((item, idx) =>
                   renderMenuItem(item, idx === section.items.length - 1)
                 )}
@@ -630,5 +654,3 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
 });
-
-

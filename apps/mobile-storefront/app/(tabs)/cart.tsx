@@ -29,7 +29,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckoutIdentityModal } from '@/components/checkout/CheckoutIdentityModal';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
+import Colors, {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  palette,
+} from '@/constants/Colors';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -37,11 +43,11 @@ import { useUIStore } from '@/stores/ui-store';
 const CartQuantityInput = ({
   value,
   onChange,
-  style
+  style,
 }: {
-  value: number,
-  onChange: (val: number) => void,
-  style: any
+  value: number;
+  onChange: (val: number) => void;
+  style: any;
 }) => {
   const [localValue, setLocalValue] = useState(value.toString());
 
@@ -100,7 +106,8 @@ export default function CartScreen() {
 
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
   const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
-  const [pendingNegotiateItem, setPendingNegotiateItem] = useState<CartItem | null>(null);
+  const [pendingNegotiateItem, setPendingNegotiateItem] =
+    useState<CartItem | null>(null);
   const pendingOperations = useRef<Set<string>>(new Set());
 
   const items = useCartStore((state) => state.items);
@@ -117,7 +124,7 @@ export default function CartScreen() {
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
   };
 
@@ -170,7 +177,8 @@ export default function CartScreen() {
     openNegotiation({
       type: 'single',
       itemId: item.id,
-      productName: item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
+      productName:
+        item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
       currentPrice: priceToUse * item.quantity,
     });
     setShowNegotiateWarning(false);
@@ -180,10 +188,12 @@ export default function CartScreen() {
   // Open item negotiation with warning check
   const openItemNegotiation = (item: CartItem) => {
     // Check if any item already has individual negotiation
-    const hasAnyIndividualNegotiation = items.some(i => i.negotiatedPrice != null);
+    const hasAnyIndividualNegotiation = items.some(
+      (i) => i.negotiatedPrice != null
+    );
 
     // Check if cart-wide discount is active
-    const hasBulkDiscount = items.some(i => (i as any).cartDiscount > 0);
+    const hasBulkDiscount = items.some((i) => (i as any).cartDiscount > 0);
 
     if (hasBulkDiscount) {
       Alert.alert(
@@ -205,8 +215,11 @@ export default function CartScreen() {
 
   // Open total/bulk negotiation
   const openTotalNegotiation = () => {
-    if (items.some(i => i.negotiationStatus === 'accepted')) {
-      Alert.alert('Negotiation Active', 'Please reset individual item prices before negotiating the total cart.');
+    if (items.some((i) => i.negotiationStatus === 'accepted')) {
+      Alert.alert(
+        'Negotiation Active',
+        'Please reset individual item prices before negotiating the total cart.'
+      );
       return;
     }
     triggerHaptic();
@@ -232,7 +245,9 @@ export default function CartScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconBg, { backgroundColor: palette.gray[100] }]}>
+          <View
+            style={[styles.emptyIconBg, { backgroundColor: palette.gray[100] }]}
+          >
             <Ionicons name="cart" size={56} color={BRAND.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -265,7 +280,9 @@ export default function CartScreen() {
           </Text>
         </View>
         <Pressable onPress={handleClearCart} hitSlop={12}>
-          <Text style={[styles.clearText, { color: BRAND.primary }]}>Clear All</Text>
+          <Text style={[styles.clearText, { color: BRAND.primary }]}>
+            Clear All
+          </Text>
         </Pressable>
       </View>
 
@@ -285,10 +302,16 @@ export default function CartScreen() {
               <View style={styles.cardTop}>
                 <Pressable
                   style={styles.imageContainer}
-                  onPress={() => router.push(`/product/${item.slug || item.product_id}`)}
+                  onPress={() =>
+                    router.push(`/product/${item.slug || item.product_id}`)
+                  }
                 >
                   <SafeImage
-                    source={{ uri: item.image_url || 'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image' }}
+                    source={{
+                      uri:
+                        item.image_url ||
+                        'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image',
+                    }}
                     style={styles.productImage}
                     contentFit="contain"
                   />
@@ -301,32 +324,41 @@ export default function CartScreen() {
 
                   {/* Tags Row */}
                   <View style={styles.tagsRow}>
-                    <View style={[
-                      styles.conditionTag,
-                      item.condition?.toLowerCase() === 'new'
-                        ? styles.conditionTagNew
-                        : styles.conditionTagUsed,
-                    ]}>
-                      <Text style={[
-                        styles.conditionTagText,
+                    <View
+                      style={[
+                        styles.conditionTag,
                         item.condition?.toLowerCase() === 'new'
-                          ? styles.conditionTagTextNew
-                          : styles.conditionTagTextUsed,
-                      ]}>
+                          ? styles.conditionTagNew
+                          : styles.conditionTagUsed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.conditionTagText,
+                          item.condition?.toLowerCase() === 'new'
+                            ? styles.conditionTagTextNew
+                            : styles.conditionTagTextUsed,
+                        ]}
+                      >
                         {item.condition || 'NEW'}
                       </Text>
                     </View>
                     {item.color && (
                       <View style={styles.colorTag}>
                         <View
-                          style={[styles.colorDot, { backgroundColor: item.color }]}
+                          style={[
+                            styles.colorDot,
+                            { backgroundColor: item.color },
+                          ]}
                         />
                         <Text style={styles.colorTagText}>{item.color}</Text>
                       </View>
                     )}
                     {item.storage && (
                       <View style={styles.storageTag}>
-                        <Text style={styles.storageTagText}>{item.storage}</Text>
+                        <Text style={styles.storageTagText}>
+                          {item.storage}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -338,7 +370,11 @@ export default function CartScreen() {
                   onPress={() => handleRemoveItem(item)}
                   hitSlop={12}
                 >
-                  <Ionicons name="trash-outline" size={18} color={BRAND.primary} />
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={BRAND.primary}
+                  />
                 </Pressable>
               </View>
 
@@ -353,7 +389,15 @@ export default function CartScreen() {
                     onPress={() => handleQuantityChange(item, -1)}
                     disabled={item.quantity <= 1}
                   >
-                    <Ionicons name="remove" size={16} color={item.quantity <= 1 ? palette.gray[300] : palette.gray[600]} />
+                    <Ionicons
+                      name="remove"
+                      size={16}
+                      color={
+                        item.quantity <= 1
+                          ? palette.gray[300]
+                          : palette.gray[600]
+                      }
+                    />
                   </Pressable>
                   <CartQuantityInput
                     style={styles.quantityText}
@@ -399,13 +443,29 @@ export default function CartScreen() {
                     toggleAssurance(item.id);
                   }}
                 >
-                  <View style={[styles.toggle, item.hasAssurance && styles.toggleActive]}>
-                    <View style={[styles.toggleKnob, item.hasAssurance && styles.toggleKnobActive]} />
+                  <View
+                    style={[
+                      styles.toggle,
+                      item.hasAssurance && styles.toggleActive,
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleKnob,
+                        item.hasAssurance && styles.toggleKnobActive,
+                      ]}
+                    />
                   </View>
                   <View style={styles.assuranceInfo}>
                     <View style={styles.assuranceHeader}>
-                      <Ionicons name="shield-checkmark" size={12} color={BRAND.primary} />
-                      <Text style={styles.assuranceTitle}>Ogabassey Assurance</Text>
+                      <Ionicons
+                        name="shield-checkmark"
+                        size={12}
+                        color={BRAND.primary}
+                      />
+                      <Text style={styles.assuranceTitle}>
+                        Ogabassey Assurance
+                      </Text>
                     </View>
                     <Text style={styles.assuranceDesc}>
                       {item.hasAssurance
@@ -429,7 +489,11 @@ export default function CartScreen() {
                       openItemNegotiation(item);
                     }}
                   >
-                    <Ionicons name="pricetag-outline" size={14} color={BRAND.primary} />
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={14}
+                      color={BRAND.primary}
+                    />
                     <Text style={styles.negotiateButtonText}>Negotiate</Text>
                   </Pressable>
                 )}
@@ -442,7 +506,11 @@ export default function CartScreen() {
 
         {/* Secure Checkout Badge */}
         <View style={styles.secureBadgeInside}>
-          <Ionicons name="shield-checkmark-outline" size={14} color={palette.gray[400]} />
+          <Ionicons
+            name="shield-checkmark-outline"
+            size={14}
+            color={palette.gray[400]}
+          />
           <Text style={styles.secureBadgeText}>Secure Checkout</Text>
         </View>
       </ScrollView>
@@ -451,9 +519,14 @@ export default function CartScreen() {
       <View style={styles.checkoutStickyFooter}>
         {/* Row 1: Hint Message (Now relative and centered) */}
         <View style={styles.bulkHint}>
-          <Ionicons name="information-circle-outline" size={14} color={palette.gray[500]} />
+          <Ionicons
+            name="information-circle-outline"
+            size={14}
+            color={palette.gray[500]}
+          />
           <Text style={styles.bulkHintText}>
-            Individual item negotiations take precedence over cart-wide discounts.
+            Individual item negotiations take precedence over cart-wide
+            discounts.
           </Text>
         </View>
 
@@ -463,19 +536,30 @@ export default function CartScreen() {
             style={({ pressed }) => [
               styles.bulkButton,
               pressed && styles.bulkButtonPressed,
-              items.some(i => i.negotiationStatus === 'accepted') && styles.bulkButtonDisabled
+              items.some((i) => i.negotiationStatus === 'accepted') &&
+                styles.bulkButtonDisabled,
             ]}
             onPress={openTotalNegotiation}
           >
             <Ionicons
               name="cash-outline"
               size={22}
-              color={items.some(i => i.negotiationStatus === 'accepted') ? palette.gray[400] : BRAND.primary}
+              color={
+                items.some((i) => i.negotiationStatus === 'accepted')
+                  ? palette.gray[400]
+                  : BRAND.primary
+              }
             />
-            <Text style={[
-              styles.bulkButtonText,
-              items.some(i => i.negotiationStatus === 'accepted') && { color: palette.gray[400] }
-            ]}>Negotiate</Text>
+            <Text
+              style={[
+                styles.bulkButtonText,
+                items.some((i) => i.negotiationStatus === 'accepted') && {
+                  color: palette.gray[400],
+                },
+              ]}
+            >
+              Negotiate
+            </Text>
           </Pressable>
 
           {/* Checkout Button - Bulletproof Visibility Version */}
@@ -484,21 +568,21 @@ export default function CartScreen() {
             onPress={handleCheckout}
           >
             {/* Forced Background Layer */}
-            <View style={[
-              StyleSheet.absoluteFill,
-              {
-                backgroundColor: '#DC2626',
-                borderRadius: RADIUS.xl,
-                borderWidth: 1.5,
-                borderColor: '#991B1B',
-              }
-            ]} />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: '#DC2626',
+                  borderRadius: RADIUS.xl,
+                  borderWidth: 1.5,
+                  borderColor: '#991B1B',
+                },
+              ]}
+            />
 
             {/* Content Layer */}
             <View style={styles.checkoutButtonContent}>
-              <Text style={styles.checkoutBtnLabel}>
-                Checkout
-              </Text>
+              <Text style={styles.checkoutBtnLabel}>Checkout</Text>
               <View style={styles.checkoutBtnDot} />
               <Text style={styles.checkoutBtnPrice}>
                 {formatPrice(grandTotal || 0)}
@@ -547,7 +631,10 @@ export default function CartScreen() {
             {/* Description */}
             <Text style={styles.warningDescription}>
               Negotiating items individually will disable bulk cart negotiation.
-              <Text style={styles.warningDescriptionBold}> You can only use one approach.</Text>
+              <Text style={styles.warningDescriptionBold}>
+                {' '}
+                You can only use one approach.
+              </Text>
             </Text>
 
             {/* Buttons */}
@@ -564,7 +651,9 @@ export default function CartScreen() {
                   }
                 }}
               >
-                <Text style={styles.warningPrimaryButtonText}>Negotiate This Item</Text>
+                <Text style={styles.warningPrimaryButtonText}>
+                  Negotiate This Item
+                </Text>
               </Pressable>
 
               <Pressable
@@ -579,8 +668,14 @@ export default function CartScreen() {
                   openTotalNegotiation();
                 }}
               >
-                <Ionicons name="cash-outline" size={18} color={palette.gray[800]} />
-                <Text style={styles.warningSecondaryButtonText}>Bulk Negotiate Entire Cart</Text>
+                <Ionicons
+                  name="cash-outline"
+                  size={18}
+                  color={palette.gray[800]}
+                />
+                <Text style={styles.warningSecondaryButtonText}>
+                  Bulk Negotiate Entire Cart
+                </Text>
               </Pressable>
 
               <Pressable

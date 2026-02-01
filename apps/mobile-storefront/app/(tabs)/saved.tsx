@@ -35,7 +35,9 @@ export default function SavedTabScreen() {
         edges={['top']}
       >
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Saved Items</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Saved Items
+          </Text>
         </View>
         {/* Show offline notice when offline with empty state */}
         {!isOnline && (
@@ -47,8 +49,17 @@ export default function SavedTabScreen() {
           />
         )}
         <View style={styles.emptyContainer}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: colors.card }]}>
-            <Ionicons name="heart-outline" size={48} color={colors.textSecondary} />
+          <View
+            style={[
+              styles.emptyIconContainer,
+              { backgroundColor: colors.card },
+            ]}
+          >
+            <Ionicons
+              name="heart-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             No saved items yet
@@ -85,7 +96,9 @@ export default function SavedTabScreen() {
       edges={['top']}
     >
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Saved Items</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Saved Items
+        </Text>
         <Text style={[styles.headerCount, { color: colors.textSecondary }]}>
           {items.length} {items.length === 1 ? 'item' : 'items'}
         </Text>
@@ -130,7 +143,12 @@ export default function SavedTabScreen() {
                 ₦{item.price.toLocaleString()}
               </Text>
               {!isOnline && (
-                <Text style={[styles.offlineIndicator, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.offlineIndicator,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   Tap to view when online
                 </Text>
               )}

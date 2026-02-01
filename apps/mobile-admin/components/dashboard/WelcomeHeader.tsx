@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -53,7 +53,7 @@ export function WelcomeHeader({
     if (canShowImage) {
       // Regular image URL (PNG, JPG, etc.)
       return (
-        <Image
+        <SafeImage
           source={{ uri: avatarUrl }}
           style={[styles.avatar, { backgroundColor: colors.card }]}
         />

@@ -38,7 +38,11 @@ interface MenuSection {
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { signOut } = useAuth();
-  const { merchant, storeUrl, isLive } = useMerchant();
+  const {
+    merchant: _merchant,
+    storeUrl: _storeUrl,
+    isLive: _isLive,
+  } = useMerchant();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
   const router = useRouter();
@@ -272,14 +276,19 @@ export default function MenuScreen() {
 
   const SubscriptionStatusCard = () => {
     // Determine which entitlement is actually active to show its name/date
-    const activeEntitlement = Object.values(customerInfo?.entitlements.active || {})[0];
+    const activeEntitlement = Object.values(
+      customerInfo?.entitlements.active || {}
+    )[0];
 
     const expiryDate = activeEntitlement?.expirationDate
-      ? new Date(activeEntitlement.expirationDate).toLocaleDateString(undefined, {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit'
-      })
+      ? new Date(activeEntitlement.expirationDate).toLocaleDateString(
+          undefined,
+          {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+          }
+        )
       : null;
 
     if (isPro) {
@@ -307,7 +316,11 @@ export default function MenuScreen() {
                   Active{expiryDate ? `: Valid till ${expiryDate}` : ''}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="rgba(255,255,255,0.7)"
+              />
             </View>
           </LinearGradient>
         </Pressable>
@@ -316,15 +329,27 @@ export default function MenuScreen() {
 
     return (
       <Pressable
-        style={[styles.freeCardContainer, { backgroundColor: colors.card }, shadows.sm]}
+        style={[
+          styles.freeCardContainer,
+          { backgroundColor: colors.card },
+          shadows.sm,
+        ]}
         onPress={() => router.push('/(admin)/subscribe')}
       >
-        <View style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}>
+        <View
+          style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}
+        >
           <Ionicons name="star" size={24} color={colors.gold} />
         </View>
         <View style={styles.freeCardContent}>
-          <Text style={[styles.freeCardTitle, { color: colors.text }]}>Free Plan</Text>
-          <Text style={[styles.freeCardSubtitle, { color: colors.textSecondary }]}>Upgrade to Pro for more features</Text>
+          <Text style={[styles.freeCardTitle, { color: colors.text }]}>
+            Free Plan
+          </Text>
+          <Text
+            style={[styles.freeCardSubtitle, { color: colors.textSecondary }]}
+          >
+            Upgrade to Pro for more features
+          </Text>
         </View>
         <View style={[styles.freeCardBadge, { backgroundColor: colors.gold }]}>
           <Text style={styles.freeCardBadgeText}>UPGRADE</Text>
@@ -411,6 +436,16 @@ export default function MenuScreen() {
             }}
             onPress={async () => {
               await resetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.replace('/(auth)/onboarding'),
+                  },
+                ]
+              );
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />

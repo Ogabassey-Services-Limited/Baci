@@ -74,9 +74,13 @@ export default function SwapScreen() {
 
   const pickVideo = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your media library.');
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your media library.'
+        );
         return;
       }
 
@@ -128,12 +132,16 @@ export default function SwapScreen() {
 
     try {
       // Create form data
+      // 2026 Note: React Native FormData accepts { uri, type, name } objects
+      // This is a RN-specific API that differs from web FormData
       const formData = new FormData();
-      formData.append('video', {
+      const videoFile = {
         uri: videoUri,
         type: 'video/mp4',
         name: 'device-video.mp4',
-      } as unknown as Blob);
+      };
+      // @ts-expect-error - React Native FormData accepts file-like objects with uri
+      formData.append('video', videoFile);
 
       const response = await fetch(`${API_BASE_URL}/api/ai/grade-device`, {
         method: 'POST',
@@ -166,7 +174,11 @@ export default function SwapScreen() {
       setStep('result');
     } catch (err) {
       log.error('Analysis error:', err);
-      setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Analysis failed. Please try again.'
+      );
       setStep('upload');
     }
   };
@@ -239,7 +251,9 @@ export default function SwapScreen() {
             <Text style={[styles.headerTitle, { color: colors.text }]}>
               Swap & Trade-in
             </Text>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+            >
               Upgrade to the latest tech for less
             </Text>
           </View>
@@ -357,27 +371,36 @@ export default function SwapScreen() {
               {step === 'upload' && (
                 <>
                   <View
-                    style={[
-                      styles.uploadArea,
-                      { borderColor: colors.border },
-                    ]}
+                    style={[styles.uploadArea, { borderColor: colors.border }]}
                   >
                     <View style={styles.uploadIconContainer}>
-                      <Ionicons name="videocam" size={32} color={BRAND.primary} />
+                      <Ionicons
+                        name="videocam"
+                        size={32}
+                        color={BRAND.primary}
+                      />
                     </View>
                     <Text style={[styles.uploadTitle, { color: colors.text }]}>
                       Upload a Video of Your Device
                     </Text>
                     <Text
-                      style={[styles.uploadDesc, { color: colors.textSecondary }]}
+                      style={[
+                        styles.uploadDesc,
+                        { color: colors.textSecondary },
+                      ]}
                     >
-                      Show the screen and back clearly. Keep it under 15 seconds.
+                      Show the screen and back clearly. Keep it under 15
+                      seconds.
                     </Text>
 
                     {videoUri ? (
                       <View style={styles.videoSelected}>
                         <View style={styles.videoSelectedBadge}>
-                          <Ionicons name="checkmark" size={14} color="#059669" />
+                          <Ionicons
+                            name="checkmark"
+                            size={14}
+                            color="#059669"
+                          />
                           <Text style={styles.videoSelectedText}>
                             Video Selected
                           </Text>
@@ -408,7 +431,9 @@ export default function SwapScreen() {
                           onPress={recordVideo}
                         >
                           <Ionicons name="camera" size={18} color="#FFF" />
-                          <Text style={styles.uploadButtonText}>Record Now</Text>
+                          <Text style={styles.uploadButtonText}>
+                            Record Now
+                          </Text>
                         </Pressable>
                       </View>
                     )}
@@ -451,7 +476,10 @@ export default function SwapScreen() {
                     Gemini AI is Analyzing...
                   </Text>
                   <Text
-                    style={[styles.analyzingDesc, { color: colors.textSecondary }]}
+                    style={[
+                      styles.analyzingDesc,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     Checking screen condition... Identifying model...
                   </Text>
@@ -462,13 +490,16 @@ export default function SwapScreen() {
                 <>
                   {/* Value Display */}
                   <View style={styles.valueCard}>
-                    <Text style={styles.valueLabel}>Estimated Trade-in Value</Text>
+                    <Text style={styles.valueLabel}>
+                      Estimated Trade-in Value
+                    </Text>
                     <Text style={styles.valueAmount}>
                       N{result.estimatedValue.toLocaleString()}
                     </Text>
                     {result.basePrice > 0 && (
                       <Text style={styles.valueBase}>
-                        Based on market price: N{result.basePrice.toLocaleString()}
+                        Based on market price: N
+                        {result.basePrice.toLocaleString()}
                       </Text>
                     )}
                   </View>
@@ -476,22 +507,36 @@ export default function SwapScreen() {
                   {/* Details Grid */}
                   <View style={styles.detailsGrid}>
                     <View
-                      style={[styles.detailCard, { backgroundColor: colors.card }]}
+                      style={[
+                        styles.detailCard,
+                        { backgroundColor: colors.card },
+                      ]}
                     >
                       <Text
-                        style={[styles.detailLabel, { color: colors.textSecondary }]}
+                        style={[
+                          styles.detailLabel,
+                          { color: colors.textSecondary },
+                        ]}
                       >
                         Model
                       </Text>
-                      <Text style={[styles.detailValue, { color: colors.text }]}>
+                      <Text
+                        style={[styles.detailValue, { color: colors.text }]}
+                      >
                         {result.model}
                       </Text>
                     </View>
                     <View
-                      style={[styles.detailCard, { backgroundColor: colors.card }]}
+                      style={[
+                        styles.detailCard,
+                        { backgroundColor: colors.card },
+                      ]}
                     >
                       <Text
-                        style={[styles.detailLabel, { color: colors.textSecondary }]}
+                        style={[
+                          styles.detailLabel,
+                          { color: colors.textSecondary },
+                        ]}
                       >
                         Condition
                       </Text>
@@ -552,7 +597,10 @@ export default function SwapScreen() {
 
                   <Pressable style={styles.retryButton} onPress={resetModal}>
                     <Text
-                      style={[styles.retryButtonText, { color: colors.textSecondary }]}
+                      style={[
+                        styles.retryButtonText,
+                        { color: colors.textSecondary },
+                      ]}
                     >
                       Try Another Device
                     </Text>

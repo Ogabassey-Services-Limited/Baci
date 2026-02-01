@@ -182,17 +182,11 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
       return (
         <View
-          style={[
-            styles.container,
-            { backgroundColor: colors.background },
-          ]}
+          style={[styles.container, { backgroundColor: colors.background }]}
         >
           <View style={styles.content}>
             <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: colors.muted },
-              ]}
+              style={[styles.iconContainer, { backgroundColor: colors.muted }]}
             >
               <Ionicons
                 name={content.icon}
@@ -219,8 +213,17 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               accessibilityLabel={content.buttonText}
               accessibilityHint="Attempts to recover from the error"
             >
-              <Ionicons name="refresh" size={20} color={colors.primaryForeground} />
-              <Text style={[styles.retryButtonText, { color: colors.primaryForeground }]}>
+              <Ionicons
+                name="refresh"
+                size={20}
+                color={colors.primaryForeground}
+              />
+              <Text
+                style={[
+                  styles.retryButtonText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
                 {content.buttonText}
               </Text>
             </Pressable>
@@ -330,9 +333,7 @@ export function ErrorFallback({
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.content}>
-        <View
-          style={[styles.iconContainer, { backgroundColor: colors.muted }]}
-        >
+        <View style={[styles.iconContainer, { backgroundColor: colors.muted }]}>
           <Ionicons
             name={content.icon}
             size={64}
@@ -360,7 +361,10 @@ export function ErrorFallback({
         >
           <Ionicons name="refresh" size={20} color={colors.primaryForeground} />
           <Text
-            style={[styles.retryButtonText, { color: colors.primaryForeground }]}
+            style={[
+              styles.retryButtonText,
+              { color: colors.primaryForeground },
+            ]}
           >
             {content.buttonText}
           </Text>

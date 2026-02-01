@@ -77,7 +77,9 @@ export function FilterSheet({
             >
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.title} accessibilityRole="header">Filter by Price</Text>
+                <Text style={styles.title} accessibilityRole="header">
+                  Filter by Price
+                </Text>
                 <Pressable
                   onPress={onClose}
                   style={styles.closeButton}
@@ -92,9 +94,16 @@ export function FilterSheet({
               <View style={styles.content}>
                 <View style={styles.inputRow}>
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label} nativeID="minPriceLabel">Min Price</Text>
+                    <Text style={styles.label} nativeID="minPriceLabel">
+                      Min Price
+                    </Text>
                     <View style={styles.inputWrapper}>
-                      <Text style={styles.currency} importantForAccessibility="no">₦</Text>
+                      <Text
+                        style={styles.currency}
+                        importantForAccessibility="no"
+                      >
+                        ₦
+                      </Text>
                       <TextInput
                         value={tempMinPrice}
                         onChangeText={setTempMinPrice}
@@ -108,12 +117,21 @@ export function FilterSheet({
                     </View>
                   </View>
 
-                  <Text style={styles.separator} importantForAccessibility="no">-</Text>
+                  <Text style={styles.separator} importantForAccessibility="no">
+                    -
+                  </Text>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label} nativeID="maxPriceLabel">Max Price</Text>
+                    <Text style={styles.label} nativeID="maxPriceLabel">
+                      Max Price
+                    </Text>
                     <View style={styles.inputWrapper}>
-                      <Text style={styles.currency} importantForAccessibility="no">₦</Text>
+                      <Text
+                        style={styles.currency}
+                        importantForAccessibility="no"
+                      >
+                        ₦
+                      </Text>
                       <TextInput
                         value={tempMaxPrice}
                         onChangeText={setTempMaxPrice}
@@ -131,7 +149,11 @@ export function FilterSheet({
                 {/* Quick Price Presets */}
                 <View style={styles.presets}>
                   <Text style={styles.presetsLabel}>Quick Select:</Text>
-                  <View style={styles.presetButtons} accessibilityRole="radiogroup" accessibilityLabel="Quick price range presets">
+                  <View
+                    style={styles.presetButtons}
+                    accessibilityRole="radiogroup"
+                    accessibilityLabel="Quick price range presets"
+                  >
                     <Pressable
                       style={styles.presetButton}
                       onPress={() => {

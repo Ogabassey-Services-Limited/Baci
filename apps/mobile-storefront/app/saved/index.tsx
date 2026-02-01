@@ -117,7 +117,9 @@ export default function SavedItemsScreen() {
               />
               {discountPercentage && (
                 <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>-{discountPercentage}%</Text>
+                  <Text style={styles.discountText}>
+                    -{discountPercentage}%
+                  </Text>
                 </View>
               )}
             </View>
@@ -178,7 +180,10 @@ export default function SavedItemsScreen() {
                 color={colors.textSecondary}
               />
               <Text
-                style={[styles.actionButtonText, { color: colors.textSecondary }]}
+                style={[
+                  styles.actionButtonText,
+                  { color: colors.textSecondary },
+                ]}
               >
                 Remove
               </Text>

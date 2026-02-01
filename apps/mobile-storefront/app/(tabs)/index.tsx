@@ -26,7 +26,10 @@ import { Footer } from '@/components/storefront/Footer';
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
 
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList) as any;
+// 2026 Best Practice: Properly type AnimatedFlashList with generic component type
+const AnimatedFlashList = Animated.createAnimatedComponent(
+  FlashList as React.ComponentClass<React.ComponentProps<typeof FlashList>>
+);
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -152,11 +155,14 @@ export default function HomeScreen() {
     let content = pageConfig?.content || defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
-    if (template.headerStyle === 'elite' && !content.some(b => b.type === 'CategoryRail')) {
-      const heroIndex = content.findIndex(b => b.type === 'HeroCarousel');
+    if (
+      template.headerStyle === 'elite' &&
+      !content.some((b) => b.type === 'CategoryRail')
+    ) {
+      const heroIndex = content.findIndex((b) => b.type === 'HeroCarousel');
       const injected = {
         type: 'CategoryRail' as const,
-        props: { id: 'forced-categories', slug: 'utility' }
+        props: { id: 'forced-categories', slug: 'utility' },
       };
 
       const newContent = [...content];
@@ -193,9 +199,7 @@ export default function HomeScreen() {
     [selectedCategoryId, handleCategorySelect]
   );
 
-  const renderListHeader = () => (
-    <View style={{ height: headerHeight }} />
-  );
+  const renderListHeader = () => <View style={{ height: headerHeight }} />;
 
   const isElite = template.headerStyle === 'elite';
 
@@ -206,7 +210,9 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
-        <Animated.View style={[styles.eliteBackground, backgroundAnimatedStyle]}>
+        <Animated.View
+          style={[styles.eliteBackground, backgroundAnimatedStyle]}
+        >
           <Image
             source={{ uri: PATTERN_URI }}
             style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
@@ -245,7 +251,9 @@ export default function HomeScreen() {
       <AnimatedFlashList
         data={blocks as any}
         renderItem={renderItem}
-        keyExtractor={(item: any, index: number) => item.props?.id || `block - ${index} `}
+        keyExtractor={(item: any, index: number) =>
+          item.props?.id || `block - ${index} `
+        }
         ListHeaderComponent={renderListHeader}
         extraData={selectedCategoryId}
         onScroll={scrollHandler}

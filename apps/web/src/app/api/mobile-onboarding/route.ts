@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { onboardingSchema } from '@/schemas/onboarding';
+import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
 
 // Import these dynamically in the function to avoid load-time issues,
@@ -15,15 +15,27 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // --- 1. Validation ---
+    console.log(
+      'Incoming mobile onboarding payload:',
+      JSON.stringify(body, null, 2)
+    );
+
     // Adapting schema validation for JSON input instead of FormData
-    const validationResult = await onboardingSchema.safeParseAsync(body);
+    const validationResult = await mobileOnboardingSchema.safeParseAsync(body);
 
     if (!validationResult.success) {
+      const errorDetail = JSON.stringify(
+        validationResult.error.flatten(),
+        null,
+        2
+      );
+      console.error('Validation failed for mobile onboarding:', errorDetail);
       return NextResponse.json(
         {
           success: false,
           message: `Validation failed: ${validationResult.error.issues.map((e) => e.message).join(', ')}`,
           errors: validationResult.error.flatten(),
+          debugInfo: errorDetail, // Add more detail for mobile debugging
         },
         { status: 400 }
       );
@@ -38,9 +50,14 @@ export async function POST(req: NextRequest) {
       logoUrl,
       slug: providedSlug,
       brandColors: brandColorsString,
-      fullName,
+      firstName,
+      lastName,
       phone,
     } = validationResult.data;
+
+    // Combine first and last name for Supabase user metadata
+    const fullName =
+      [firstName, lastName].filter(Boolean).join(' ') || undefined;
 
     // Parse brand colors
     let brandColors: BrandColors | null = null;

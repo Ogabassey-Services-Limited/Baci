@@ -11,19 +11,23 @@ const withFirebaseModularHeaders = (config) => {
   return withDangerousMod(config, [
     'ios',
     async (config) => {
-      const podfilePath = path.join(config.modRequest.projectRoot, 'ios', 'Podfile');
+      const podfilePath = path.join(
+        config.modRequest.projectRoot,
+        'ios',
+        'Podfile'
+      );
       let podfileContent = fs.readFileSync(podfilePath, 'utf8');
 
       // 1. Clean up ALL previous surgical fixes to prevent duplication
       // This regex matches our surgicalPostInstall blocks
       podfileContent = podfileContent.replace(
         /installer\.pods_project\.targets\.each do \|target\|[\s\S]*?end\n\s*end\n\s*end/g,
-        ""
+        ''
       );
       // Clean up multiple RNScreens force-load blocks
       podfileContent = podfileContent.replace(
         /# Force load RNScreens to prevent stripping[\s\S]*?end\s*end\s*end/g,
-        ""
+        ''
       );
 
       // 2. Define the new surgical fix
@@ -63,18 +67,18 @@ const withFirebaseModularHeaders = (config) => {
 `;
 
       // 3. Ensure use_modular_headers! is set for the project
-      if (!podfileContent.includes("use_modular_headers!")) {
+      if (!podfileContent.includes('use_modular_headers!')) {
         podfileContent = podfileContent.replace(
           /platform :ios/,
-          "use_modular_headers!\nplatform :ios"
+          'use_modular_headers!\nplatform :ios'
         );
       }
 
       // 4. Inject our surgical post_install fix ensuring it's at the start of post_install
-      if (podfileContent.includes("post_install do |installer|")) {
+      if (podfileContent.includes('post_install do |installer|')) {
         podfileContent = podfileContent.replace(
           /post_install do \|installer\|/,
-          "post_install do |installer|" + surgicalPostInstall
+          'post_install do |installer|' + surgicalPostInstall
         );
       }
 

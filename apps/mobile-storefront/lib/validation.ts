@@ -78,7 +78,10 @@ export const ShippingAddressSchema = z.object({
     .min(2, 'City name must be at least 2 characters')
     .max(100, 'City name is too long (max 100 characters)'),
   state: z.string().min(1, 'Please select your state'),
-  notes: z.string().max(500, 'Delivery notes are too long (max 500 characters)').optional(),
+  notes: z
+    .string()
+    .max(500, 'Delivery notes are too long (max 500 characters)')
+    .optional(),
 });
 
 export type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
@@ -230,12 +233,14 @@ export const ReviewStatsSchema = z.object({
 export const ReviewsApiResponseSchema = z.object({
   reviews: z.array(ReviewSchema).default([]),
   stats: ReviewStatsSchema.optional(),
-  pagination: z.object({
-    page: z.number(),
-    limit: z.number(),
-    totalPages: z.number(),
-    totalCount: z.number(),
-  }).optional(),
+  pagination: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      totalPages: z.number(),
+      totalCount: z.number(),
+    })
+    .optional(),
 });
 
 export type Review = z.infer<typeof ReviewSchema>;
@@ -250,7 +255,9 @@ export const MarkReviewHelpfulResponseSchema = z.object({
   helpfulCount: z.number(),
 });
 
-export type MarkReviewHelpfulResponse = z.infer<typeof MarkReviewHelpfulResponseSchema>;
+export type MarkReviewHelpfulResponse = z.infer<
+  typeof MarkReviewHelpfulResponseSchema
+>;
 
 /**
  * IMEI Check API response schema
@@ -300,7 +307,9 @@ export const AIGradeDeviceApiResponseSchema = z.object({
 });
 
 export type AIAnalysisResult = z.infer<typeof AIAnalysisResultSchema>;
-export type AIGradeDeviceApiResponse = z.infer<typeof AIGradeDeviceApiResponseSchema>;
+export type AIGradeDeviceApiResponse = z.infer<
+  typeof AIGradeDeviceApiResponseSchema
+>;
 
 /**
  * Negotiation API response schema
@@ -375,19 +384,27 @@ export const ProductRowSchema = z.object({
   status: z.string().optional(),
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
-  variant_attributes: z.record(z.string(), z.array(z.string())).nullable().optional(),
-  categories: z.union([
-    z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      slug: z.string(),
-    })),
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      slug: z.string(),
-    }),
-  ]).nullable().optional(),
+  variant_attributes: z
+    .record(z.string(), z.array(z.string()))
+    .nullable()
+    .optional(),
+  categories: z
+    .union([
+      z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          slug: z.string(),
+        })
+      ),
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        slug: z.string(),
+      }),
+    ])
+    .nullable()
+    .optional(),
 });
 
 export type ProductRow = z.infer<typeof ProductRowSchema>;
@@ -424,7 +441,8 @@ export function isOrderRealtimePayload(
 ): payload is { new: OrderRow; old: OrderRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
-  if (!('new' in p) || typeof p.new !== 'object' || p.new === null) return false;
+  if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
+    return false;
   const result = OrderRowSchema.safeParse(p.new);
   return result.success;
 }
@@ -437,7 +455,8 @@ export function isWalletRealtimePayload(
 ): payload is { new: WalletRow; old: WalletRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
-  if (!('new' in p) || typeof p.new !== 'object' || p.new === null) return false;
+  if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
+    return false;
   const result = WalletRowSchema.safeParse(p.new);
   return result.success;
 }
@@ -450,7 +469,8 @@ export function isCustomerRealtimePayload(
 ): payload is { new: CustomerRow; old: CustomerRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
-  if (!('new' in p) || typeof p.new !== 'object' || p.new === null) return false;
+  if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
+    return false;
   const result = CustomerRowSchema.safeParse(p.new);
   return result.success;
 }
