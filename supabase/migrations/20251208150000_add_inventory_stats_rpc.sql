@@ -9,34 +9,42 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_inventory_value DECIMAL(15, 2) := 0;
+  v_inventory_cost DECIMAL(15, 2) := 0;
+  v_total_units INTEGER := 0;
+  v_active_count INTEGER := 0;
+  v_low_stock_count INTEGER := 0;
   v_out_of_stock_count INTEGER := 0;
   v_category_count INTEGER := 0;
 BEGIN
-  -- Calculate Inventory Value (Sum of price * stock_quantity for in-stock items)
-  SELECT COALESCE(SUM(price * stock_quantity), 0)
-  INTO v_inventory_value
+  -- Single pass aggregation for performance
+  SELECT
+    COALESCE(SUM(CASE WHEN status != 'archived' THEN price * stock_quantity ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN cost_price IS NOT NULL AND status != 'archived' THEN cost_price * stock_quantity ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN status != 'archived' THEN stock_quantity ELSE 0 END), 0),
+    -- Active: In stock OR management disabled
+    COUNT(*) FILTER (WHERE status != 'archived' AND (stock_quantity > 0 OR manage_stock = false)),
+    -- Low Stock: Between 0 and 10 and management enabled
+    COUNT(*) FILTER (WHERE status != 'archived' AND stock_quantity > 0 AND stock_quantity < 10 AND manage_stock = true),
+    -- Out of Stock: 0 and management enabled
+    COUNT(*) FILTER (WHERE status != 'archived' AND stock_quantity = 0 AND manage_stock = true),
+    COUNT(DISTINCT category_id) FILTER (WHERE status != 'archived')
+  INTO
+    v_inventory_value,
+    v_inventory_cost,
+    v_total_units,
+    v_active_count,
+    v_low_stock_count,
+    v_out_of_stock_count,
+    v_category_count
   FROM products
-  WHERE merchant_id = p_merchant_id
-  AND stock_quantity > 0;
+  WHERE merchant_id = p_merchant_id;
 
-  -- Calculate Out of Stock Count
-  SELECT COUNT(*)
-  INTO v_out_of_stock_count
-  FROM products
-  WHERE merchant_id = p_merchant_id
-  AND stock_quantity = 0;
-
-  -- Calculate Unique Category Count
-  SELECT COUNT(DISTINCT category)
-  INTO v_category_count
-  FROM products
-  WHERE merchant_id = p_merchant_id
-  AND category IS NOT NULL
-  AND category != '';
-
-  -- Return as JSON
   RETURN jsonb_build_object(
     'inventoryValue', v_inventory_value,
+    'inventoryCost', v_inventory_cost,
+    'totalStock', v_total_units,
+    'activeCount', v_active_count,
+    'lowStockCount', v_low_stock_count,
     'outOfStockCount', v_out_of_stock_count,
     'categoryCount', v_category_count
   );

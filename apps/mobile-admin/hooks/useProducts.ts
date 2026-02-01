@@ -49,6 +49,8 @@ export interface InventoryStats {
   inventoryValue: number;
   inventoryCost: number;
   totalStock: number;
+  activeCount: number;
+  lowStockCount: number;
   outOfStockCount: number;
   categoryCount: number;
 }
@@ -399,44 +401,57 @@ export function useTopSellingProducts(limit: number = 20) {
   return useQuery({
     queryKey: ['top-selling-products', merchant?.id, limit],
     queryFn: async () => {
-      // Manual aggregation for now (fallback logic from dashboard)
-      const { data: orderItems, error } = await supabase
-        .from('order_items')
-        .select(`
-          quantity,
-          price,
-          product_id,
-          products!inner(*)
-        `)
-        .eq('orders.merchant_id', merchant?.id);
+      // 1970-01-01 to now (all time)
+      const startDate = new Date(0).toISOString();
+      const endDate = new Date().toISOString();
+
+      const { data, error } = await supabase.rpc('get_top_products', {
+        p_merchant_id: merchant?.id,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_limit: limit,
+      });
 
       if (error) throw error;
-      if (!orderItems) return [];
 
-      const productMap = new Map<string, TopSellingProduct>();
+      // Transform RPC result to match TopSellingProduct interface
+      // RPC returns { id, name, revenue, units }
+      // We need to fetch full product details or map accordingly.
+      // Ideally RPC should return full details, but for now we can map partial product.
+      // Or we can fetch product details for these IDs. 
+      // But for speed, let's just return what we have and maybe fetch images?
 
-      for (const item of orderItems) {
-        // @ts-expect-error - Supabase types join
-        const product = item.products as Product;
-        const existing = productMap.get(product.id);
-        const qty = item.quantity || 1;
-        const rev = qty * (item.price || 0);
+      // Wait, the UI expects full Product object + totalSold/Revenue.
+      // The RPC `get_top_products` returns `id`, `name`, `revenue`, `units`.
+      // It DOES NOT return price, images, stock etc.
+      // So detailed view might break.
 
-        if (existing) {
-          existing.totalSold += qty;
-          existing.totalRevenue += rev;
-        } else {
-          productMap.set(product.id, {
-            ...product,
-            totalSold: qty,
-            totalRevenue: rev,
-          });
-        }
-      }
+      // Let's modify the RPC later to return more info, OR fetch product details here.
+      // Fetching details for 20 products is much faster than fetching 10,000 order items.
 
-      return Array.from(productMap.values())
-        .sort((a, b) => b.totalSold - a.totalSold)
-        .slice(0, limit);
+      const rpcData = data as any[];
+      if (!rpcData?.length) return [];
+
+      const productIds = rpcData.map((d) => d.id);
+
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .in('id', productIds);
+
+      if (productsError) throw productsError;
+
+      const productsMap = new Map(productsData?.map(p => [p.id, p]));
+
+      return rpcData.map(item => {
+        const product = productsMap.get(item.id);
+        if (!product) return null;
+        return {
+          ...product,
+          totalSold: Number(item.units),
+          totalRevenue: Number(item.revenue),
+        };
+      }).filter(Boolean) as TopSellingProduct[];
     },
     enabled: !!merchant?.id,
   });

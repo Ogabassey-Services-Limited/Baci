@@ -23,7 +23,10 @@ export async function GET(
 
   // If there's an OAuth error from the provider
   if (error) {
-    console.error('OAuth error:', error, errorDescription);
+    // Sanitize log inputs to prevent injection
+    const safeError = String(error).replace(/[\n\r]/g, '');
+    const safeDesc = String(errorDescription).replace(/[\n\r]/g, '');
+    console.error('OAuth error:', safeError, safeDesc);
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';
     return NextResponse.redirect(
       `${origin}${loginPath}?error=${encodeURIComponent(errorDescription || error)}`

@@ -370,7 +370,7 @@ export default function ProductsScreen() {
     }
   }, [activeTab, products, searchQuery]);
 
-  const _totalCount = data?.pages[0]?.totalCount ?? 0;
+
 
   // Calculate stats
   const stats = useMemo(() => {
