@@ -23,6 +23,7 @@ export function TagInput({
   maxTags,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
+  const [announcement, setAnnouncement] = useState('');
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -39,19 +40,26 @@ export function TagInput({
 
     if (value.includes(trimmedInput)) {
       setInputValue('');
+      setAnnouncement(`Tag "${trimmedInput}" is already added`);
       return;
     }
 
     if (maxTags && value.length >= maxTags) {
+      setAnnouncement(`Cannot add more than ${maxTags} tags`);
       return;
     }
 
     onChange([...value, trimmedInput]);
     setInputValue('');
+    setAnnouncement(`Tag "${trimmedInput}" added`);
   };
 
   const removeTag = (index: number) => {
+    const tagToRemove = value[index];
     onChange(value.filter((_, i) => i !== index));
+    if (tagToRemove) {
+      setAnnouncement(`Tag "${tagToRemove}" removed`);
+    }
   };
 
   return (
@@ -74,6 +82,7 @@ export function TagInput({
           disabled={
             !inputValue.trim() || (maxTags ? value.length >= maxTags : false)
           }
+          aria-label="Add tag"
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -83,19 +92,19 @@ export function TagInput({
         <div className="flex flex-wrap gap-2">
           {value.map((tag, index) => (
             <Badge
-              // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
-              key={`${tag}-${index}`}
+              key={tag}
               variant="secondary"
               className="px-2 py-1 text-sm font-normal"
             >
               {tag}
               <button
                 type="button"
-                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors"
+                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(index);
                 }}
+                aria-label={`Remove ${tag}`}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -103,6 +112,9 @@ export function TagInput({
           ))}
         </div>
       )}
+      <output className="sr-only" aria-live="polite">
+        {announcement}
+      </output>
     </div>
   );
 }
