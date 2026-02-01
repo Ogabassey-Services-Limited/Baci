@@ -14,6 +14,12 @@ export interface CurrencyConfig {
 }
 
 /**
+ * Cache for Intl.NumberFormat instances to improve performance
+ * Key format: "locale|json_stringified_options"
+ */
+const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
+
+/**
  * Locale mapping for countries to ensure proper number formatting
  */
 const COUNTRY_LOCALES: Record<string, string> = {
@@ -81,14 +87,24 @@ export function formatCurrency(
   const config = getCurrencyConfig(countryCode);
 
   try {
-    return new Intl.NumberFormat(config.locale, {
+    const formatOptions: Intl.NumberFormatOptions = {
       style: 'currency',
       currency: config.code,
       currencyDisplay: 'symbol',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
       ...options,
-    }).format(amount);
+    };
+
+    const cacheKey = `${config.locale}|${JSON.stringify(formatOptions)}`;
+    let formatter = FORMATTER_CACHE.get(cacheKey);
+
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(config.locale, formatOptions);
+      FORMATTER_CACHE.set(cacheKey, formatter);
+    }
+
+    return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
     return `${config.symbol}${amount.toFixed(2)}`;
