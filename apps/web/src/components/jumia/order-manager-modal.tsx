@@ -263,6 +263,7 @@ export function OrderManagerModal({
                     <Link
                       href={`https://vendorcenter.jumia.com.ng/order/delivery-providers`}
                       target="_blank"
+                      rel="noopener noreferrer"
                       className="text-xs text-blue-500 hover:underline"
                     >
                       Check valid providers
