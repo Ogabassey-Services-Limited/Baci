@@ -166,9 +166,9 @@ export function FileUploader({
         file,
       }));
 
-      setEntries((prev) => {
-        const remainingSlots = Math.max(0, maxFiles - prev.length);
-        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+      // Calculate based on current state to ensure pure state updates
+      const remainingSlots = Math.max(0, maxFiles - entries.length);
+      const entriesToAdd = potentialEntries.slice(0, remainingSlots);
 
         if (entriesToAdd.length === 0) {
           // Immediately revoke all as none will be used
@@ -176,13 +176,12 @@ export function FileUploader({
           announce('No files added. Upload limit reached.');
           return prev;
         }
+      }
 
-        // Revoke URLs for files that didn't fit the limit
-        if (potentialEntries.length > remainingSlots) {
-          for (const e of potentialEntries.slice(remainingSlots)) {
-            URL.revokeObjectURL(e.src);
-          }
-        }
+      // Announce successful addition
+      setAnnouncement(
+        `${entriesToAdd.length} file${entriesToAdd.length !== 1 ? 's' : ''} added`
+      );
 
         const addedCount = entriesToAdd.length;
         announce(
@@ -199,6 +198,13 @@ export function FileUploader({
   };
 
   const removeFile = (index: number) => {
+    // Announce removal before state update (since we need the current list)
+    const entry = entries[index];
+    if (entry) {
+      const name = entry.file?.name || `Image ${index + 1}`;
+      setAnnouncement(`${name} removed`);
+    }
+
     setEntries((prev) => {
       const entryToRemove = prev[index];
       // Revoke blob URL for new uploads
@@ -318,6 +324,9 @@ export function FileUploader({
           ))}
         </div>
       )}
+      <output className="sr-only" aria-live="polite">
+        {announcement}
+      </output>
     </div>
   );
 }
