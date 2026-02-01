@@ -2,23 +2,4 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-src/components/ui/file-uploader.tsx format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    233 233 │               : 'border-muted-foreground/25 hover:border-primary/50',
-    234 234 │             entries.length >= maxFiles &&
-    235     │ - ··········'opacity-50·cursor-not-allowed·pointer-events-none'
-        235 │ + ············'opacity-50·cursor-not-allowed·pointer-events-none'
-    236 236 │           )}
-    237 237 │         >
-  
-
-Checked 872 files in 891ms. No fixes applied.
-Found 1 error.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.
+Checked 872 files in 880ms. No fixes applied.

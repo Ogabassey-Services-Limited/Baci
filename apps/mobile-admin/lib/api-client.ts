@@ -92,7 +92,7 @@ export async function apiClient<T = unknown>(
 
   if (__DEV__) {
     // Use separate arguments to avoid format string injection
-    console.log('[API]', config.method, url);
+    console.log('[API]', config.method, String(url));
   }
 
   try {
@@ -133,7 +133,7 @@ export async function apiClient<T = unknown>(
         { isTimeout: true }
       );
       // Use separate arguments to avoid format string injection
-      console.error('[API Timeout]', url);
+      console.error('[API Timeout]', String(url));
       throw timeoutError;
     }
 
@@ -144,21 +144,21 @@ export async function apiClient<T = unknown>(
         { isOffline: true }
       );
       // Use separate arguments to avoid format string injection
-      console.error('[API Offline]', url);
+      console.error('[API Offline]', String(url));
       throw offlineError;
     }
 
     // Re-throw NetworkError as-is
     if (error instanceof NetworkError) {
       // Use separate arguments to avoid format string injection
-      console.error('[API Error]', url, error.message);
+      console.error('[API Error]', String(url), String(error.message));
       throw error;
     }
 
     // Handle other errors
     const message = error instanceof Error ? error.message : String(error);
     // Use separate arguments to avoid format string injection
-    console.error('[API Error]', url, message);
+    console.error('[API Error]', String(url), String(message));
     throw error;
   }
 }

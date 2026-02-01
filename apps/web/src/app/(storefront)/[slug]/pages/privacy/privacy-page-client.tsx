@@ -37,7 +37,8 @@ export function PrivacyPageClient({
 }: PrivacyPageClientProps) {
   // Defense-in-depth: sanitize on client if server-sanitized content not provided
   const safeHtml = useMemo(() => {
-    if (sanitizedContent) return sanitizedContent;
+    // Ensure even server-provided content passes through client sanitizer for defense-in-depth to satisfy CodeQL
+    if (sanitizedContent) return DOMPurify.sanitize(sanitizedContent);
     if (!content) return undefined;
     // Fallback client-side sanitization (should not normally be needed)
     return DOMPurify.sanitize(content, {

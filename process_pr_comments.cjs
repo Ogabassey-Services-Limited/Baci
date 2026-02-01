@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const prNumber = '196';
+const prNumber = process.env.PR_NUMBER || '214';
 const inputFile = `pr_${prNumber}_full_threads.json`;
 const outputFile = `pr_${prNumber}_todo.md`;
 
@@ -59,9 +59,12 @@ try {
         if (!comment) return;
 
         const fullBody = comment.body
-            .replace(/\n/g, ' ')   // Normalize line breaks
             .replace(/\\/g, '\\\\') // Escape backslashes first
-            .replace(/\|/g, '\\|'); // Escape table pipes
+            .replace(/\|/g, '\\|')  // Escape table pipes
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, ' ');   // Normalize line breaks
         const body = fullBody.substring(0, 80) + (fullBody.length > 80 ? '...' : '');
         const path = thread.path || 'General';
         md += `| \`${path}\` | ${comment.author?.login} | ${body} | [View](${comment.url}) |\n`;
@@ -96,9 +99,12 @@ try {
 
                 // Clean body
                 const body = comment.body
-                    .replace(/\n/g, ' <br> ') // Preserve line breaks safely
                     .replace(/\\/g, '\\\\')   // Escape backslashes first
-                    .replace(/\|/g, '\\|');   // Escape table pipes
+                    .replace(/\|/g, '\\|')    // Escape table pipes
+                    .replace(/&/g, '&amp;')   // Escape HTML entities to prevent injection
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\n/g, ' <br> '); // Preserve line breaks safely
 
                 md += `| **${comment.author?.login || 'unknown'}** | ${body} | [View](${comment.url}) |\n`;
             });
@@ -110,8 +116,9 @@ try {
     if (allGeneralComments.length > 0) {
         md += '\n## 💬 General Discussion\n\n';
         allGeneralComments.forEach(c => {
-            const body = c.body.replace(/\n/g, ' <br> ');
-            md += `> **${c.author?.login}**: ${body}\n\n`;
+            const body = c.body;
+            const safeBody = body.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, ' <br> ');
+            md += `> **${c.author?.login}**: ${safeBody}\n\n`;
         });
     }
 

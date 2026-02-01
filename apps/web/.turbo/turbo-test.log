@@ -5,19 +5,16 @@
 
 [1m[46m RUN [49m[22m [36mv4.0.16 [39m[90m/Users/mac/Baci-app/apps/web[39m
 
- [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 20[2mms[22m[39m
- [32m✓[39m src/app/api/products/xss.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 48[2mms[22m[39m
- [32m✓[39m src/app/api/products/bulk-update/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m src/app/api/products/xss.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m src/lib/rate-limit.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m src/app/api/products/bulk-update/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
 [90mstderr[2m | src/app/api/wallet/csrf.test.ts[2m > [22m[2mWallet API CSRF Protection[2m > [22m[2mPOST /api/wallet/withdraw[2m > [22m[2mshould call checkCsrfProtection
 [22m[39mDebit failed: [1mnull[22m []
 
- [32m✓[39m src/app/api/wallet/csrf.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 26[2mms[22m[39m
- [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 145[2mms[22m[39m
- [32m✓[39m src/app/api/products/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 22[2mms[22m[39m
- [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 598[2mms[22m[39m
-     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 591[2mms[22m[39m
- [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 800[2mms[22m[39m
-     [33m[2m✓[22m[39m should render the button with its children [33m 446[2mms[22m[39m
+ [32m✓[39m src/app/api/wallet/csrf.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/components/ui/password-input.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32m✓[39m src/app/api/products/csrf.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/components/ui/button.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 241[2mms[22m[39m
 [90mstderr[2m | src/components/ui/file-uploader.test.tsx[2m > [22m[2mFileUploader[2m > [22m[2mrenders initial files correctly
 [22m[39mReceived `true` for a non-boolean attribute `fill`.
 
@@ -26,6 +23,8 @@ Received `true` for a non-boolean attribute `unoptimized`.
 
 If you want to write it to the DOM, pass a string instead: unoptimized="true" or unoptimized={value.toString()}.
 
+ [32m✓[39m src/hooks/use-cart.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 752[2mms[22m[39m
+     [33m[2m✓[22m[39m removes ghost products and updates prices [33m 669[2mms[22m[39m
 [90mstderr[2m | src/components/ui/file-uploader.test.tsx[2m > [22m[2mFileUploader[2m > [22m[2mdisplays error message for oversized files
 [22m[39mAn update to FileUploader inside a test was not wrapped in act(...).
 
@@ -48,14 +47,14 @@ act(() => {
 
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 
- [32m✓[39m src/components/ui/file-uploader.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1242[2mms[22m[39m
-     [33m[2m✓[22m[39m renders initial files correctly [33m 709[2mms[22m[39m
- [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m src/lib/sanitize-core.test.tsx [2m([22m[2m47 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/components/ui/file-uploader.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1403[2mms[22m[39m
+     [33m[2m✓[22m[39m renders initial files correctly [33m 495[2mms[22m[39m
+ [32m✓[39m src/lib/sanitize-core.test.tsx [2m([22m[2m47 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/proxy.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [32m✓[39m src/lib/seo-utils.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
 [2m      Tests [22m [1m[32m106 passed[39m[22m[90m (106)[39m
-[2m   Start at [22m 17:18:46
-[2m   Duration [22m 6.18s[2m (transform 7.40s, setup 2.90s, import 13.25s, tests 2.93s, environment 19.20s)[22m
+[2m   Start at [22m 17:41:04
+[2m   Duration [22m 5.16s[2m (transform 2.42s, setup 2.99s, import 5.51s, tests 2.61s, environment 16.96s)[22m
 

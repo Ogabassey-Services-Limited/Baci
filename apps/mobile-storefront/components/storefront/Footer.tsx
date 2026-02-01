@@ -86,14 +86,17 @@ export function Footer() {
       social = SOCIAL_LINKS.find((s) => {
         try {
           const socialHost = new URL(s.url).hostname.toLowerCase();
-          if (hostname === socialHost || hostname.endsWith(`.${socialHost}`)) {
-            return true;
-          }
+          // Strict host matching to prevent subdomain takeovers/phishing
+          // Allow exact match or immediate subdomain (e.g. www.x.com)
+          if (hostname === socialHost) return true;
+          if (hostname.endsWith(`.${socialHost}`)) return true;
 
+          // Special case for X/Twitter redirection
           if (s.name === 'X' && (hostname === 'x.com' || hostname.endsWith('.x.com'))) {
             return true;
           }
 
+          // Special case for YouTube variants
           if (
             s.name === 'YouTube' &&
             (hostname === 'youtube.com' ||

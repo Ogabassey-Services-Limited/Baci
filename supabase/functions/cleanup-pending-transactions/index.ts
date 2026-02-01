@@ -40,7 +40,7 @@ Deno.serve(async (_req) => {
   const results = [];
 
   for (const tx of stuckTransactions ?? []) {
-    let actualStatus: 'success' | 'failed' | 'pending' | 'unknown' = 'unknown';
+    let actualStatus: 'success' | 'failed' | 'pending' | 'unknown';
 
     try {
       if (!tx.gateway_reference) {

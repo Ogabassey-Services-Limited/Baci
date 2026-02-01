@@ -489,7 +489,7 @@ export function parseApiResponse<T>(
     console.warn(
       'API response validation failed',
       context ? `(${context})` : '',
-      result.error.issues
+      result.error.issues.map(i => JSON.stringify(i))
     );
     return null;
   }

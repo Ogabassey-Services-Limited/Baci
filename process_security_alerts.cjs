@@ -4,12 +4,14 @@ function escapeMarkdownCell(text) {
     if (typeof text !== 'string') {
         return '';
     }
+    // Escape backslashes first (critical for Markdown)
+    let result = text.replace(/\\/g, '\\\\');
     // Normalize whitespace
-    let result = text.replace(/\n/g, ' ');
-    // Escape backslashes first, then other Markdown table meta-characters
-    result = result.replace(/\\/g, '\\\\');
+    result = result.replace(/\n/g, ' ');
+    // Escape Markdown table characters
     result = result.replace(/\|/g, '\\|');
-    result = result.replace(/`/g, '\\`');
+    // Escape HTML characters to prevent injection
+    result = result.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return result;
 }
 

@@ -598,7 +598,7 @@ export default function ProductDetailScreen() {
             <Pressable
               onPress={() => {
                 haptics.light();
-                if (product) toggleSaved(product);
+                toggleSaved(product);
               }}
               hitSlop={12}
             >
