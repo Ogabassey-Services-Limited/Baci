@@ -10,6 +10,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { useMerchant } from './useMerchant';
 
 export interface Customer {
@@ -67,7 +68,7 @@ async function fetchCustomers(
   }
 
   if (filters?.search) {
-    const term = filters.search.trim();
+    const term = sanitizeSearchQuery(filters.search);
     if (term) {
       query = query.or(
         `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
@@ -205,6 +206,7 @@ export function useCreateCustomer() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['createCustomer'],
     mutationFn: async (newCustomer: {
       first_name: string;
       last_name: string;
@@ -263,6 +265,7 @@ export function useUpdateCustomer() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['updateCustomer'],
     mutationFn: async (updates: {
       id: string;
       first_name?: string | null;
@@ -301,6 +304,7 @@ export function useDeleteCustomer() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['deleteCustomer'],
     mutationFn: async (customerId: string) => {
       if (!merchant?.id) throw new Error('No merchant selected');
 

@@ -1,13 +1,11 @@
 
-
 > baci-mobile-admin@1.0.0 lint /Users/mac/Baci-app/apps/mobile-admin
 > expo lint
 
-[90menv: load .env[39m
-[90menv: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL EXPO_PUBLIC_REVENUECAT_API_KEY_IOS EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "shamefully-hoist". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "npm-globalconfig". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "verify-deps-before-run". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "_jsr-registry". This will stop working in the next major version of npm.[39m
-[1mnpm[22m [33mwarn[39m [94mUnknown env config "node-linker". This will stop working in the next major version of npm.[39m
-⠙[1G[0K⠙[1G[0K
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_WEB_API_URL EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_API_URL EXPO_PUBLIC_REVENUECAT_API_KEY_IOS EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID
+npm warn Unknown env config "shamefully-hoist". This will stop working in the next major version of npm.
+npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm.
+npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm.
+npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm.
+npm warn Unknown env config "node-linker". This will stop working in the next major version of npm.

@@ -114,12 +114,14 @@ async function fetchDashboardStats(
   merchantId: string,
   period: TimePeriod
 ): Promise<DashboardStats> {
-  console.log(
-    '[DashboardStats] Fetching for merchant:',
-    merchantId,
-    'period:',
-    period
-  );
+  if (__DEV__) {
+    console.log(
+      '[DashboardStats] Fetching for merchant:',
+      merchantId,
+      'period:',
+      period
+    );
+  }
 
   const { start } = getDateRange(period);
 
@@ -134,7 +136,9 @@ async function fetchDashboardStats(
   }
 
   const { count: orders, error: ordersError } = await ordersQuery;
-  console.log('[DashboardStats] Orders:', orders, 'Error:', ordersError);
+  if (__DEV__) {
+    console.log('[DashboardStats] Orders:', orders, 'Error:', ordersError);
+  }
 
   // Fetch pending orders (always total, not filtered by period)
   const { count: pendingOrders } = await supabase
@@ -391,7 +395,9 @@ async function fetchTopProducts(
 
   if (error) {
     // Fallback: manual query if RPC doesn't exist
-    console.log('[DashboardStats] RPC not available, using fallback query');
+    if (__DEV__) {
+      console.log('[DashboardStats] RPC not available, using fallback query');
+    }
 
     const { data: orderItems } = await supabase
       .from('order_items')

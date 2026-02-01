@@ -5,10 +5,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  type ListRenderItemInfo,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -19,6 +20,131 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { type Product, useProducts } from '@/hooks/useProducts';
+
+// Item height for getItemLayout optimization
+const INVENTORY_ITEM_HEIGHT = 88;
+
+// Helper function moved outside component
+const formatPrice = (amount: number) => {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+// Color type for the memoized component
+interface InventoryColors {
+  background: string;
+  card: string;
+  text: string;
+  textSecondary: string;
+  border: string;
+  inputBg: string;
+}
+
+// Memoized Inventory Product Item component
+interface InventoryProductItemProps {
+  item: Product;
+  colors: InventoryColors;
+  onPress: (id: string) => void;
+}
+
+const InventoryProductItem = memo(function InventoryProductItem({
+  item,
+  colors,
+  onPress,
+}: InventoryProductItemProps) {
+  const threshold = item.low_stock_threshold ?? 5;
+  const isLowStock = item.stock <= threshold && item.stock > 0;
+  const isOutOfStock = item.stock === 0;
+  const stockStatusLabel = isOutOfStock
+    ? 'Out of stock'
+    : isLowStock
+      ? `Low stock: ${item.stock} remaining`
+      : `${item.stock} in stock`;
+
+  return (
+    <Pressable
+      style={[
+        styles.productCard,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          minHeight: 56,
+        },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`${item.name}, ${formatPrice(item.price)}, ${stockStatusLabel}`}
+      accessibilityRole="button"
+      accessibilityHint="View product details"
+    >
+      <View style={[styles.productImage, { backgroundColor: colors.inputBg }]}>
+        {item.images?.[0] ? (
+          <View style={styles.productImage}>
+            <Ionicons
+              name="cube-outline"
+              size={32}
+              color={colors.textSecondary}
+            />
+          </View>
+        ) : (
+          <Ionicons
+            name="cube-outline"
+            size={32}
+            color={colors.textSecondary}
+          />
+        )}
+      </View>
+      <View style={styles.productInfo}>
+        <Text
+          style={[styles.productName, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {item.name}
+        </Text>
+        <Text style={[styles.productSku, { color: colors.textSecondary }]}>
+          {item.sku || 'No SKU'}
+        </Text>
+        <Text style={[styles.productPrice, { color: colors.text }]}>
+          {formatPrice(item.price)}
+        </Text>
+      </View>
+      <View style={styles.stockInfo}>
+        <View
+          style={[
+            styles.stockBadge,
+            {
+              backgroundColor: isOutOfStock
+                ? '#FEE2E2'
+                : isLowStock
+                  ? '#FEF3C7'
+                  : '#D1FAE5',
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.stockText,
+              {
+                color: isOutOfStock
+                  ? '#DC2626'
+                  : isLowStock
+                    ? '#D97706'
+                    : '#059669',
+              },
+            ]}
+          >
+            {item.stock}
+          </Text>
+        </View>
+        <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>
+          in stock
+        </Text>
+      </View>
+    </Pressable>
+  );
+});
 
 export default function InventoryScreen() {
   const colorScheme = useColorScheme();
@@ -41,22 +167,17 @@ export default function InventoryScreen() {
     return data?.pages.flatMap((page) => page.products) ?? [];
   }, [data]);
 
-  const colors = {
-    background: isDark ? '#0F172A' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDark ? '#94A3B8' : '#64748B',
-    border: isDark ? '#334155' : '#E2E8F0',
-    inputBg: isDark ? '#1E293B' : '#F1F5F9',
-  };
-
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const colors: InventoryColors = useMemo(
+    () => ({
+      background: isDark ? '#0F172A' : '#F8FAFC',
+      card: isDark ? '#1E293B' : '#FFFFFF',
+      text: isDark ? '#F8FAFC' : '#0F172A',
+      textSecondary: isDark ? '#94A3B8' : '#64748B',
+      border: isDark ? '#334155' : '#E2E8F0',
+      inputBg: isDark ? '#1E293B' : '#F1F5F9',
+    }),
+    [isDark]
+  );
 
   // Calculate stats from real data
   const totalProducts = products.length;
@@ -66,102 +187,54 @@ export default function InventoryScreen() {
   ).length;
   const outOfStockCount = products.filter((p) => p.stock === 0).length;
 
-  const renderProduct = ({ item }: { item: Product }) => {
-    const threshold = item.low_stock_threshold ?? 5;
-    const isLowStock = item.stock <= threshold && item.stock > 0;
-    const isOutOfStock = item.stock === 0;
+  // Navigation callback
+  const handleProductPress = useCallback((id: string) => {
+    router.push(`/product/${id}`);
+  }, []);
 
-    return (
-      <Pressable
-        style={[
-          styles.productCard,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-        onPress={() => router.push(`/product/${item.id}`)}
-      >
-        <View
-          style={[styles.productImage, { backgroundColor: colors.inputBg }]}
-        >
-          {item.images?.[0] ? (
-            <View style={styles.productImage}>
-              <Ionicons
-                name="cube-outline"
-                size={32}
-                color={colors.textSecondary}
-              />
-            </View>
-          ) : (
-            <Ionicons
-              name="cube-outline"
-              size={32}
-              color={colors.textSecondary}
-            />
-          )}
-        </View>
-        <View style={styles.productInfo}>
-          <Text
-            style={[styles.productName, { color: colors.text }]}
-            numberOfLines={1}
-          >
-            {item.name}
-          </Text>
-          <Text style={[styles.productSku, { color: colors.textSecondary }]}>
-            {item.sku || 'No SKU'}
-          </Text>
-          <Text style={[styles.productPrice, { color: colors.text }]}>
-            {formatPrice(item.price)}
-          </Text>
-        </View>
-        <View style={styles.stockInfo}>
-          <View
-            style={[
-              styles.stockBadge,
-              {
-                backgroundColor: isOutOfStock
-                  ? '#FEE2E2'
-                  : isLowStock
-                    ? '#FEF3C7'
-                    : '#D1FAE5',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.stockText,
-                {
-                  color: isOutOfStock
-                    ? '#DC2626'
-                    : isLowStock
-                      ? '#D97706'
-                      : '#059669',
-                },
-              ]}
-            >
-              {item.stock}
-            </Text>
-          </View>
-          <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>
-            in stock
-          </Text>
-        </View>
-      </Pressable>
-    );
-  };
+  // Memoized renderItem callback
+  const renderProduct = useCallback(
+    ({ item }: ListRenderItemInfo<Product>) => (
+      <InventoryProductItem
+        item={item}
+        colors={colors}
+        onPress={handleProductPress}
+      />
+    ),
+    [colors, handleProductPress]
+  );
 
-  const renderFooter = () => {
+  // Memoized keyExtractor callback
+  const productKeyExtractor = useCallback((item: Product) => item.id, []);
+
+  // getItemLayout for consistent item heights
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Product> | null | undefined, index: number) => ({
+      length: INVENTORY_ITEM_HEIGHT,
+      offset: INVENTORY_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
+  const renderFooter = useCallback(() => {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.loadingFooter}>
         <ActivityIndicator size="small" color="#3B82F6" />
       </View>
     );
-  };
+  }, [isFetchingNextPage]);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  };
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   if (isLoading) {
     return (
@@ -200,23 +273,37 @@ export default function InventoryScreen() {
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Search products"
+            accessibilityHint="Enter product name or SKU to search"
           />
         </View>
         <Pressable
           style={[styles.scanButton, { backgroundColor: '#3B82F6' }]}
           onPress={() => router.push('/scan')}
+          accessibilityLabel="Scan barcode"
+          accessibilityRole="button"
+          accessibilityHint="Opens barcode scanner to find products"
         >
           <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
       {/* Quick Stats */}
-      <View style={styles.statsRow}>
+      <View
+        style={styles.statsRow}
+        accessibilityRole="summary"
+        accessibilityLabel={`Inventory summary: ${totalProducts} products, ${lowStockCount} low stock, ${outOfStockCount} out of stock`}
+      >
         <View
           style={[
             styles.statCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              minHeight: 44,
+            },
           ]}
+          accessibilityLabel={`${totalProducts} products total`}
         >
           <Text style={[styles.statValue, { color: colors.text }]}>
             {totalProducts}
@@ -228,8 +315,13 @@ export default function InventoryScreen() {
         <View
           style={[
             styles.statCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              minHeight: 44,
+            },
           ]}
+          accessibilityLabel={`${lowStockCount} products with low stock`}
         >
           <Text style={[styles.statValue, { color: '#D97706' }]}>
             {lowStockCount}
@@ -241,8 +333,13 @@ export default function InventoryScreen() {
         <View
           style={[
             styles.statCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              minHeight: 44,
+            },
           ]}
+          accessibilityLabel={`${outOfStockCount} products out of stock`}
         >
           <Text style={[styles.statValue, { color: '#DC2626' }]}>
             {outOfStockCount}
@@ -257,12 +354,16 @@ export default function InventoryScreen() {
       <FlatList
         data={products}
         renderItem={renderProduct}
-        keyExtractor={(item) => item.id}
+        keyExtractor={productKeyExtractor}
+        getItemLayout={getItemLayout}
         contentContainerStyle={styles.listContent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={() => refetch()}
+            onRefresh={handleRefresh}
             tintColor="#3B82F6"
           />
         }

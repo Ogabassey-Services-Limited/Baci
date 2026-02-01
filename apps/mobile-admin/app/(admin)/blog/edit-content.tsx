@@ -21,6 +21,7 @@ import { WebView } from 'react-native-webview';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { parseWebViewEditorMessage } from '@/lib/validators/storage';
 import { asUploadFile } from '@/types/upload';
 
 /**
@@ -169,17 +170,23 @@ export default function EditContentScreen() {
   };
 
   const onWebViewMessage = (event: { nativeEvent: { data: string } }) => {
-    try {
-      const message = JSON.parse(event.nativeEvent.data);
-      if (message.type === 'save') {
+    // Use Zod schema validation for safe parsing of WebView messages
+    const message = parseWebViewEditorMessage(event.nativeEvent.data);
+    if (!message) {
+      console.error('WebView message parse error: invalid message format');
+      return;
+    }
+
+    switch (message.type) {
+      case 'save':
         saveContent(message.content);
-      } else if (message.type === 'ai_request') {
+        break;
+      case 'ai_request':
         processAIRequest(message.content);
-      } else if (message.type === 'content_change') {
+        break;
+      case 'content_change':
         setContent(message.content);
-      }
-    } catch (e) {
-      console.error('WebView message parse error:', e);
+        break;
     }
   };
 
@@ -231,7 +238,9 @@ export default function EditContentScreen() {
         const asset = result.assets[0];
 
         try {
-          console.log('[ImagePick] Selected asset:', asset.uri);
+          if (__DEV__) {
+            console.log('[ImagePick] Selected asset:', asset.uri);
+          }
 
           // Prepare FormData for API upload
           const formData = new FormData();
@@ -248,7 +257,9 @@ export default function EditContentScreen() {
           const baseUrl = process.env.EXPO_PUBLIC_API_URL || '';
           const uploadUrl = `${baseUrl}/api/merchant/blog/upload`;
 
-          console.log('[ImagePick] Uploading via API proxy to:', uploadUrl);
+          if (__DEV__) {
+            console.log('[ImagePick] Uploading via API proxy to:', uploadUrl);
+          }
 
           // Upload via API (Bypassing client-side RLS using Dev Header)
           const response = await fetch(uploadUrl, {
@@ -269,7 +280,9 @@ export default function EditContentScreen() {
             );
           }
 
-          console.log('[ImagePick] Upload success:', data);
+          if (__DEV__) {
+            console.log('[ImagePick] Upload success:', data);
+          }
 
           if (data.url) {
             // Insert image into editor

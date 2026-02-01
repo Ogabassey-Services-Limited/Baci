@@ -50,7 +50,9 @@ export function usePushNotifications(): UsePushNotificationsResult {
    */
   const registerPush = useCallback(async () => {
     if (!user?.id || !merchant?.id) {
-      console.log('[Push] Cannot register: missing user or merchant');
+      if (__DEV__) {
+        console.log('[Push] Cannot register: missing user or merchant');
+      }
       return;
     }
 
@@ -61,7 +63,9 @@ export function usePushNotifications(): UsePushNotificationsResult {
       const pushToken = await registerForPushNotifications();
 
       if (!pushToken) {
-        console.log('[Push] Registration failed - no token received');
+        if (__DEV__) {
+          console.log('[Push] Registration failed - no token received');
+        }
         setIsLoading(false);
         return;
       }
@@ -78,7 +82,9 @@ export function usePushNotifications(): UsePushNotificationsResult {
         await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, pushToken);
         setToken(pushToken);
         setIsRegistered(true);
-        console.log('[Push] Registration complete');
+        if (__DEV__) {
+          console.log('[Push] Registration complete');
+        }
       }
     } catch (error) {
       console.error('[Push] Registration error:', error);
@@ -102,7 +108,9 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
       setToken(null);
       setIsRegistered(false);
-      console.log('[Push] Unregistered');
+      if (__DEV__) {
+        console.log('[Push] Unregistered');
+      }
     } catch (error) {
       console.error('[Push] Unregister error:', error);
     }
@@ -115,17 +123,21 @@ export function usePushNotifications(): UsePushNotificationsResult {
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
       Notifications.addNotificationReceivedListener((notification) => {
-        console.log(
-          '[Push] Notification received:',
-          notification.request.content.title
-        );
+        if (__DEV__) {
+          console.log(
+            '[Push] Notification received:',
+            notification.request.content.title
+          );
+        }
         // You can show an in-app toast here if desired
       });
 
     // Listener for when user taps on a notification
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        console.log('[Push] Notification tapped');
+        if (__DEV__) {
+          console.log('[Push] Notification tapped');
+        }
 
         // Clear badge on interaction
         clearBadge();

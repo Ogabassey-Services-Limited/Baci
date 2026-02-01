@@ -375,6 +375,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: SPACING.xs,
     maxWidth: 160,
+    minHeight: 44, // Accessibility: minimum touch target
   },
   branchName: {
     fontSize: TYPOGRAPHY.size.sm,
@@ -390,6 +391,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     gap: SPACING.xs,
+    minHeight: 44, // Accessibility: minimum touch target
   },
   addButtonText: {
     fontSize: TYPOGRAPHY.size.sm,

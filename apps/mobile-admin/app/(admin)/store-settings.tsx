@@ -30,6 +30,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
+import { asUploadFile } from '@/types/upload';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -145,12 +146,15 @@ export default function StoreSettingsScreen() {
       const filePath = `${merchant.id}/${fileName}`;
       const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
 
-      // Append file as expected by Supabase/RN polyfill
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: mimeType,
-      } as unknown as Blob);
+      // Append file using type-safe upload helper for React Native
+      formData.append(
+        'file',
+        asUploadFile({
+          uri,
+          name: fileName,
+          type: mimeType,
+        })
+      );
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage

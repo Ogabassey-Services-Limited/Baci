@@ -5,9 +5,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import SafeImage from '@/components/ui/SafeImage';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   useCategories,
@@ -34,6 +36,11 @@ import {
 } from '@/hooks/useProducts';
 import { supabase } from '@/lib/supabase';
 import { stripHtmlTags } from '@/lib/utils';
+
+// Route param validation - accepts UUID or 'new' for creating new products
+const routeParamsSchema = z.object({
+  id: z.union([z.literal('new'), z.string().uuid()]),
+});
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -138,13 +145,22 @@ const PriceInput = ({
 };
 
 export default function ProductEditScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const isEditing = id !== 'new';
+  const rawParams = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { merchant, isLoading } = useMerchant();
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
+
+  // Validate route params with Zod
+  const validatedParams = useMemo(() => {
+    const result = routeParamsSchema.safeParse(rawParams);
+    return result.success ? result.data : null;
+  }, [rawParams]);
+
+  // Extract id safely (will be undefined if validation fails)
+  const id = validatedParams?.id;
+  const isEditing = id !== 'new' && id !== undefined;
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const generateSKU = () => {
     return `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -192,6 +208,7 @@ export default function ProductEditScreen() {
   const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
+    if (!id) return;
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: (newCategory) => {
         // Auto-select the new category
@@ -212,7 +229,8 @@ export default function ProductEditScreen() {
   };
 
   // Fetch product details using the new hook
-  const { data: product, error } = useProduct(id);
+  // Pass 'new' for invalid/undefined id - the hook handles this by returning null
+  const { data: product, error } = useProduct(id ?? 'new');
 
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -266,6 +284,16 @@ export default function ProductEditScreen() {
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
+
+  // Show error screen for invalid route params (after all hooks)
+  if (!validatedParams || !id) {
+    return (
+      <InvalidRouteScreen
+        title="Invalid Product"
+        message="The product ID is invalid. Please check the link and try again."
+      />
+    );
+  }
 
   const handleSave = () => {
     // Cast strict type for Zod
@@ -617,15 +645,27 @@ export default function ProductEditScreen() {
           </View>
           <Switch
             value={formData.status === 'active'}
+            disabled={updateProductMutation.isPending}
             onValueChange={(val) => {
               const newStatus = val ? 'active' : 'draft';
+              const previousStatus = formData.status;
               setFormData((prev) => ({ ...prev, status: newStatus }));
               // Autosave status change immediately if editing
               if (isEditing) {
-                updateProductMutation.mutate({
-                  id,
-                  updates: { ...formData, status: newStatus },
-                });
+                updateProductMutation.mutate(
+                  {
+                    id,
+                    updates: { ...formData, status: newStatus },
+                  },
+                  {
+                    onError: (error) => {
+                      // Rollback to previous status on error
+                      setFormData((prev) => ({ ...prev, status: previousStatus }));
+                      const message = error instanceof Error ? error.message : 'Failed to update product status';
+                      Alert.alert('Update Failed', message);
+                    },
+                  }
+                );
               }
             }}
             trackColor={{ false: colors.border, true: colors.primary }}

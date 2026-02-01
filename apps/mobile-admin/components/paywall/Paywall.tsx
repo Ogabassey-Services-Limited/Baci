@@ -148,7 +148,12 @@ export default function Paywall({ onClose }: PaywallProps) {
           colors={[colors.primary, '#8B0000']} // Premium Baci Red Gradient
           style={styles.header}
         >
-          <Pressable style={styles.closeButton} onPress={onClose}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Close paywall"
+          >
             <Ionicons name="close" size={24} color="#FFF" />
           </Pressable>
 
@@ -212,6 +217,9 @@ export default function Paywall({ onClose }: PaywallProps) {
                       borderWidth: isActive ? 2 : 1,
                     },
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${isAnnual ? 'Yearly' : 'Monthly'} subscription at ${pack.product.priceString}${isAnnual ? ' per year, save 20 percent' : ' per month'}`}
+                  accessibilityState={{ selected: isActive }}
                 >
                   <View style={styles.tierInfo}>
                     <Text style={[styles.tierTitle, { color: colors.text }]}>
@@ -260,6 +268,15 @@ export default function Paywall({ onClose }: PaywallProps) {
               opacity: pressed || !selectedPackage || isLoading ? 0.8 : 1,
             },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isLoading
+              ? 'Processing purchase'
+              : isPro
+                ? 'Manage your subscription'
+                : `Subscribe to ${selectedPackage?.product.title || 'Baci Pro'} for ${selectedPackage?.product.priceString || ''}`
+          }
+          accessibilityState={{ disabled: !selectedPackage || isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color="#FFF" />
@@ -288,7 +305,12 @@ export default function Paywall({ onClose }: PaywallProps) {
         </Text>
 
         <View style={styles.footerLinks}>
-          <Pressable onPress={onRestore}>
+          <Pressable
+            onPress={onRestore}
+            accessibilityRole="button"
+            accessibilityLabel="Restore previous purchases"
+            style={styles.footerLinkTouchTarget}
+          >
             <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
               Restore Purchases
             </Text>
@@ -296,6 +318,9 @@ export default function Paywall({ onClose }: PaywallProps) {
           <Text style={{ color: colors.textMuted }}>|</Text>
           <Pressable
             onPress={() => Linking.openURL('https://usebaci.com/terms')}
+            accessibilityRole="link"
+            accessibilityLabel="View terms of service"
+            style={styles.footerLinkTouchTarget}
           >
             <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
               Terms
@@ -304,6 +329,9 @@ export default function Paywall({ onClose }: PaywallProps) {
           <Text style={{ color: colors.textMuted }}>|</Text>
           <Pressable
             onPress={() => Linking.openURL('https://usebaci.com/privacy')}
+            accessibilityRole="link"
+            accessibilityLabel="View privacy policy"
+            style={styles.footerLinkTouchTarget}
           >
             <Text style={[styles.smallLink, { color: colors.textSecondary }]}>
               Privacy
@@ -467,6 +495,11 @@ const styles = StyleSheet.create({
   smallLink: {
     fontSize: 11,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  footerLinkTouchTarget: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.xs,
   },
   subscriptionDisclosure: {
     fontSize: 10,

@@ -18,6 +18,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
@@ -58,9 +59,12 @@ async function fetchOrders(
   }
 
   if (filters?.search) {
-    query = query.or(
-      `order_number.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%`
-    );
+    const term = sanitizeSearchQuery(filters.search);
+    if (term) {
+      query = query.or(
+        `order_number.ilike.%${term}%,customer_name.ilike.%${term}%,customer_email.ilike.%${term}%`
+      );
+    }
   }
 
   if (filters?.dateFilter) {
@@ -166,6 +170,7 @@ export function useUpdateOrderStatus() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['updateOrderStatus'],
     mutationFn: ({
       orderId,
       status,
@@ -324,6 +329,7 @@ export function useShipOnCredit() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['shipOnCredit'],
     mutationFn: async ({
       orderId,
       creditNotes,
@@ -367,6 +373,7 @@ export function useSendReminder() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: ['sendReminder'],
     mutationFn: async ({
       orderId,
       channel = 'email',
@@ -419,6 +426,7 @@ export function useRecordPayment() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['recordPayment'],
     mutationFn: async ({
       orderId,
       amount,

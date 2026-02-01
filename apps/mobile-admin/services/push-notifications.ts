@@ -79,7 +79,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
 
     const token = tokenResponse.data;
-    console.log('[Push] Expo Push Token:', token);
+    if (__DEV__) {
+      console.log('[Push] Expo Push Token:', token);
+    }
 
     // Configure Android notification channels
     if (Platform.OS === 'android') {
@@ -174,7 +176,9 @@ export async function savePushTokenToServer(
       return false;
     }
 
-    console.log('[Push] Token saved to server');
+    if (__DEV__) {
+      console.log('[Push] Token saved to server');
+    }
     return true;
   } catch (error) {
     console.error('[Push] Error saving push token:', error);
@@ -200,7 +204,9 @@ export async function removePushTokenFromServer(
       return false;
     }
 
-    console.log('[Push] Token deactivated');
+    if (__DEV__) {
+      console.log('[Push] Token deactivated');
+    }
     return true;
   } catch (error) {
     console.error('[Push] Error deactivating push token:', error);

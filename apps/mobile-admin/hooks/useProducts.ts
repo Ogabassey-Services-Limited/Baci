@@ -10,6 +10,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = 'active' | 'draft' | 'archived';
@@ -82,9 +83,10 @@ async function fetchProducts(
   }
 
   if (filters?.search) {
-    query = query.or(
-      `name.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`
-    );
+    const term = sanitizeSearchQuery(filters.search);
+    if (term) {
+      query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+    }
   }
 
   const { data, error, count } = await query;
@@ -180,7 +182,9 @@ export function useProduct(productId: string) {
 
       if (variantsError && variantsError.code !== 'PGRST116') {
         // PGRST116 is "No rows found"
-        console.log('Error fetching variants', variantsError);
+        if (__DEV__) {
+          console.log('Error fetching variants', variantsError);
+        }
       }
 
       return { ...productData, variants: variants || [] } as Product & {
@@ -203,6 +207,7 @@ export function useUpdateProduct() {
   const { merchant: _merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['updateProduct'],
     mutationFn: async ({
       id,
       updates,
@@ -239,6 +244,7 @@ export function useCreateProduct() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['createProduct'],
     mutationFn: async (newProduct: ProductFormValues) => {
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
@@ -268,6 +274,7 @@ export function useUpdateProductStock() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['updateProductStock'],
     mutationFn: ({ productId, stock }: { productId: string; stock: number }) =>
       updateProductStock(productId, stock),
     onMutate: async ({ productId, stock }) => {
@@ -317,6 +324,7 @@ export function useUpdateProductStatus() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['updateProductStatus'],
     mutationFn: ({
       productId,
       status,
@@ -355,6 +363,7 @@ export function useCreateCategory() {
   const { merchant } = useMerchant();
 
   return useMutation({
+    mutationKey: ['createCategory'],
     mutationFn: async (name: string) => {
       if (!name.trim()) throw new Error('Category name is required');
       const slug = name

@@ -1,9 +1,46 @@
-export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-NG', {
+// Cache for Intl.NumberFormat instances to prevent expensive re-creation
+// This significantly improves performance when rendering lists of prices (e.g. product grids)
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
+/**
+ * Format amount as currency with caching for performance
+ * @param amount - The number to format
+ * @param options - Optional Intl.NumberFormatOptions to override defaults
+ * @param currency - Currency code (default: 'NGN')
+ * @param locale - Locale string (default: 'en-NG')
+ */
+export const formatCurrency = (
+  amount: number,
+  options?: Partial<Intl.NumberFormatOptions>,
+  currency = 'NGN',
+  locale = 'en-NG'
+) => {
+  const finalOptions: Intl.NumberFormatOptions = {
     style: 'currency',
-    currency: 'NGN',
+    currency,
     minimumFractionDigits: 2,
-  }).format(amount);
+    maximumFractionDigits: 2,
+    ...options,
+  };
+
+  // Create a cache key based on locale and finalOptions (not caller options)
+  // Using finalOptions ensures identical effective formatters share one cache entry
+  const cacheKey = `${locale}-${JSON.stringify(finalOptions)}`;
+
+  let formatter = formatterCache.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, finalOptions);
+    formatterCache.set(cacheKey, formatter);
+  }
+
+  return formatter.format(amount);
+};
+
+/**
+ * Format currency without decimal places (compact display)
+ */
+export const formatCurrencyCompact = (amount: number, currency = 'NGN', locale = 'en-NG') => {
+  return formatCurrency(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 }, currency, locale);
 };
 
 /**

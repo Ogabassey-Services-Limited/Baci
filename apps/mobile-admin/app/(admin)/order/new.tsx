@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, Stack } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +22,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import {
+  sanitizeCustomerName,
+  sanitizeEmail,
+  sanitizePhone,
+  sanitizeAddress,
+  sanitizeNotes,
+  sanitizeText,
+} from '@/lib/sanitize';
 import SafeImage from '@/components/ui/SafeImage';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import PhoneInput from 'react-native-phone-number-input';
@@ -187,6 +195,9 @@ export default function NewOrderScreen() {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Ref-based flag to prevent duplicate submissions (guards against race conditions)
+  const isSubmittingRef = useRef(false);
+
   // Modals
   const [showProductModal, setShowProductModal] = useState(false);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
@@ -347,8 +358,9 @@ export default function NewOrderScreen() {
 
   const handleSelectCustomer = (item: CustomerRecord) => {
     const displayName =
-      [item.first_name, item.last_name].filter(Boolean).join(' ') ||
-      item.email.split('@')[0];
+      [item.first_name, item.last_name]
+        .filter((name): name is string => Boolean(name))
+        .join(' ') || item.email.split('@')[0];
     setCustomer({
       name: displayName,
       email: item.email || '',
@@ -427,6 +439,11 @@ export default function NewOrderScreen() {
   };
 
   const handleSubmit = async () => {
+    // Guard against duplicate submissions using ref (prevents race condition on rapid clicks)
+    if (isSubmittingRef.current) {
+      return;
+    }
+
     if (!customer.name) {
       Alert.alert('Required', 'Please select a customer for this order');
       return;
@@ -436,18 +453,35 @@ export default function NewOrderScreen() {
       return;
     }
 
+    // Set ref immediately to prevent duplicate submissions
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+
     try {
       const orderNumber = generateOrderNumber();
+
+      // Sanitize all customer inputs to prevent XSS
+      const sanitizedCustomerName = sanitizeCustomerName(customer.name) || 'Walk-in Customer';
+      const sanitizedCustomerEmail = customer.email ? sanitizeEmail(customer.email) : null;
+      const sanitizedCustomerPhone = customer.phone ? sanitizePhone(customer.phone) : null;
+      const sanitizedCustomerAddress = customer.address ? sanitizeAddress(customer.address) : '';
+      const sanitizedNotes = notes.trim() ? sanitizeNotes(notes) : null;
+
+      // Sanitize delivery info
+      const sanitizedDeliveryName = sanitizeCustomerName(deliveryInfo.name);
+      const sanitizedDeliveryPhone = sanitizePhone(deliveryInfo.phone);
+      const sanitizedDeliveryAddress = sanitizeAddress(deliveryInfo.address);
+      const sanitizedDeliveryCity = sanitizeText(deliveryInfo.city, 100);
+      const sanitizedDeliveryState = sanitizeText(deliveryInfo.state, 100);
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           merchant_id: merchant?.id,
           order_number: orderNumber,
-          customer_name: customer.name || 'Walk-in Customer',
-          customer_email: customer.email || null,
-          customer_phone: customer.phone || null,
+          customer_name: sanitizedCustomerName,
+          customer_email: sanitizedCustomerEmail,
+          customer_phone: sanitizedCustomerPhone,
           shipping_status: 'pending',
           payment_status: paymentStatus,
           amount_paid:
@@ -468,19 +502,19 @@ export default function NewOrderScreen() {
           currency: merchant?.payout_currency || 'NGN',
           source: selectedChannel,
           recorded_by_user_id: user?.id || null,
-          notes: notes.trim() || null,
+          notes: sanitizedNotes,
           shipping_address: sameAsCustomer
             ? ({
-                name: customer.name,
-                phone: customer.phone,
-                address: customer.address,
+                name: sanitizedCustomerName,
+                phone: sanitizedCustomerPhone || '',
+                address: sanitizedCustomerAddress,
               } satisfies ShippingAddress)
             : ({
-                name: deliveryInfo.name,
-                phone: deliveryInfo.phone,
-                address: deliveryInfo.address,
-                city: deliveryInfo.city,
-                state: deliveryInfo.state,
+                name: sanitizedDeliveryName,
+                phone: sanitizedDeliveryPhone,
+                address: sanitizedDeliveryAddress,
+                city: sanitizedDeliveryCity,
+                state: sanitizedDeliveryState,
               } satisfies ShippingAddress),
         })
         .select()
@@ -488,14 +522,15 @@ export default function NewOrderScreen() {
 
       if (orderError) throw orderError;
 
+      // Sanitize order item names and descriptions
       const { error: itemsError } = await supabase.from('order_items').insert(
         orderItems.map((item) => ({
           order_id: order.id,
           product_id: item.is_custom ? null : item.product_id,
-          name: item.name,
+          name: sanitizeText(item.name, 200),
           quantity: item.quantity,
           price: item.price,
-          item_description: item.details || null,
+          item_description: item.details ? sanitizeText(item.details, 1000) : null,
         }))
       );
 
@@ -510,6 +545,7 @@ export default function NewOrderScreen() {
     } catch (error: unknown) {
       Alert.alert('Error', (error as Error).message);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1856,10 +1892,16 @@ export default function NewOrderScreen() {
                         address: data.description,
                       }));
                     }}
-                    onFail={(error) =>
-                      console.log('Google Places Error:', error)
-                    }
-                    onNotFound={() => console.log('Google Places: No results')}
+                    onFail={(error) => {
+                      if (__DEV__) {
+                        console.log('Google Places Error:', error);
+                      }
+                    }}
+                    onNotFound={() => {
+                      if (__DEV__) {
+                        console.log('Google Places: No results');
+                      }
+                    }}
                     query={{
                       key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
                       language: 'en',

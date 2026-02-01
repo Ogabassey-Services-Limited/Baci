@@ -32,12 +32,16 @@ import { supabase } from '@/lib/supabase';
 const getApiUrl = () => {
   // FORCE Production URL for reliability as local IP in .env is often unreachable
   const base = 'https://usebaci.com';
-  console.log(`[Diagnostic] Base API URL forced to: "${base}"`);
+  if (__DEV__) {
+    console.log(`[Diagnostic] Base API URL forced to: "${base}"`);
+  }
   // Ensure it has protocol
   const url = base.startsWith('http') ? base : `https://${base}`;
   // Ensure it ends with /api but not /api/
   const final = url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
-  console.log(`[Diagnostic] Final computed API URL: "${final}"`);
+  if (__DEV__) {
+    console.log(`[Diagnostic] Final computed API URL: "${final}"`);
+  }
   return final;
 };
 
@@ -60,7 +64,9 @@ export default function BuyDomainScreen() {
 
   const handleSearch = async () => {
     const cleanQuery = query.trim().toLowerCase();
-    console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
+    if (__DEV__) {
+      console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
+    }
 
     if (!cleanQuery) return;
 
@@ -80,20 +86,26 @@ export default function BuyDomainScreen() {
       } = await supabase.auth.getSession();
 
       if (!session) throw new Error('You must be signed in to search domains');
-      console.log(
-        `[Diagnostic] Auth session token present: ${!!session.access_token}`
-      );
+      if (__DEV__) {
+        console.log(
+          `[Diagnostic] Auth session token present: ${!!session.access_token}`
+        );
+      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log(
-          `[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`
-        );
+        if (__DEV__) {
+          console.log(
+            `[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`
+          );
+        }
         controller.abort();
       }, 20000);
 
       const targetUrl = `${API_URL}/domains/check-availability`;
-      console.log(`[Diagnostic] Fetching: ${targetUrl}`);
+      if (__DEV__) {
+        console.log(`[Diagnostic] Fetching: ${targetUrl}`);
+      }
 
       const response = await fetch(targetUrl, {
         method: 'POST',
@@ -106,18 +118,24 @@ export default function BuyDomainScreen() {
       });
 
       clearTimeout(timeoutId);
-      console.log(`[Diagnostic] Fetch response status: ${response.status}`);
+      if (__DEV__) {
+        console.log(`[Diagnostic] Fetch response status: ${response.status}`);
+      }
 
       if (!response.ok) {
         const err = await response
           .json()
           .catch(() => ({ error: 'Search failed' }));
-        console.log(`[Diagnostic] Fetch error body:`, err);
+        if (__DEV__) {
+          console.log(`[Diagnostic] Fetch error body:`, err);
+        }
         throw new Error(err.error || `Server error (${response.status})`);
       }
 
       const data = await response.json();
-      console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
+      if (__DEV__) {
+        console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
+      }
 
       const mappedResults = (data.results || []).map(
         (r: {

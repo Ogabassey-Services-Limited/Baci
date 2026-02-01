@@ -6,6 +6,7 @@
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
 import { useCallback, useEffect, useState } from 'react';
+import { clearAdminQueryCache } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
 
 interface AuthState {
@@ -59,6 +60,8 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Clear cached data to prevent data leakage to next user
+    clearAdminQueryCache();
     await supabase.auth.signOut();
   }, []);
 

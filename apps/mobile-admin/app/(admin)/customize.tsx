@@ -111,6 +111,8 @@ export default function CustomizeScreen() {
   const { storeUrl } = useMerchant();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   const [inputText, setInputText] = useState('');
   const [viewMode, setViewMode] = useState<'chat' | 'preview'>('chat');
@@ -131,11 +133,30 @@ export default function CustomizeScreen() {
     // isPublished,
   } = useBuilderConfig();
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+      // Clear any existing timeout before setting a new one
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }
+        scrollTimeoutRef.current = null;
       }, 100);
     }
   }, [messages.length]);

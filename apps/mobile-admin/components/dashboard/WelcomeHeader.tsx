@@ -66,7 +66,13 @@ export function WelcomeHeader({
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
-        <Pressable style={styles.avatarContainer} onPress={onAvatarPress}>
+        <Pressable
+          style={styles.avatarContainer}
+          onPress={onAvatarPress}
+          accessibilityRole="button"
+          accessibilityLabel="Change store avatar"
+          accessibilityHint="Double tap to update your store logo"
+        >
           {renderAvatar()}
           <View
             style={[
@@ -119,6 +125,12 @@ export function WelcomeHeader({
       <Pressable
         style={[styles.notificationButton, { backgroundColor: colors.card }]}
         onPress={onNotificationPress}
+        accessibilityRole="button"
+        accessibilityLabel={
+          notificationCount > 0
+            ? `Notifications, ${notificationCount} unread`
+            : 'Notifications'
+        }
       >
         <Ionicons name="notifications-outline" size={24} color={colors.text} />
         {notificationCount > 0 && (

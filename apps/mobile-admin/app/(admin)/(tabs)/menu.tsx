@@ -16,8 +16,10 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { performLogoutCleanup } from '@/lib/logout';
 
 interface MenuItem {
   id: string;
@@ -45,6 +47,7 @@ export default function MenuScreen() {
   } = useMerchant();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
+  const { unregisterPush } = usePushNotifications();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -54,6 +57,7 @@ export default function MenuScreen() {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
+          await performLogoutCleanup(unregisterPush);
           await signOut();
         },
       },
@@ -229,6 +233,9 @@ export default function MenuScreen() {
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={item.onPress}
+      accessibilityLabel={item.description ? `${item.label}. ${item.description}` : item.label}
+      accessibilityRole="button"
+      accessibilityHint={`Navigate to ${item.label}`}
     >
       <View
         style={[
@@ -296,6 +303,9 @@ export default function MenuScreen() {
         <Pressable
           style={[styles.subCardContainer, shadows.md]}
           onPress={() => router.push('/(admin)/subscribe')}
+          accessibilityLabel={`Baci Pro Merchant subscription. ${expiryDate ? `Active until ${expiryDate}` : 'Active'}. Tap to manage subscription`}
+          accessibilityRole="button"
+          accessibilityHint="Opens subscription management"
         >
           <LinearGradient
             colors={['#D62027', '#9B1014']}
@@ -335,6 +345,9 @@ export default function MenuScreen() {
           shadows.sm,
         ]}
         onPress={() => router.push('/(admin)/subscribe')}
+        accessibilityLabel="Free Plan. Upgrade to Pro for more features"
+        accessibilityRole="button"
+        accessibilityHint="Opens subscription upgrade options"
       >
         <View
           style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}
@@ -433,7 +446,11 @@ export default function MenuScreen() {
               marginBottom: SPACING['3xl'],
               backgroundColor: '#FEF3C7',
               borderColor: '#F59E0B',
+              minHeight: 44,
             }}
+            accessibilityLabel="Reset Onboarding for development testing"
+            accessibilityRole="button"
+            accessibilityHint="Resets onboarding state and returns to onboarding screen"
             onPress={async () => {
               await resetOnboarding();
               Alert.alert(
@@ -622,6 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
+    minHeight: 56,
   },
   menuIcon: {
     width: 40,

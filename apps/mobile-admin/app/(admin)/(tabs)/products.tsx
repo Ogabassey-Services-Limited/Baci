@@ -5,12 +5,13 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   FlatList,
+  type ListRenderItemInfo,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -37,12 +38,231 @@ import {
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
+// Item heights for getItemLayout optimization
+const PRODUCT_ITEM_HEIGHT = 96;
+const CATEGORY_ITEM_HEIGHT = 72;
+
+// Helper functions moved outside component to prevent recreation
+const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
+
+const formatMetric = (value: number) => {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toString();
+};
+
+// Category type
+type Category = { id: string; name: string; slug: string };
+
+// Memoized Product Item component
+interface ProductItemProps {
+  item: Product;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (id: string) => void;
+}
+
+const ProductItem = memo(function ProductItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+}: ProductItemProps) {
+  const getStockStatus = () => {
+    if (!item.manage_stock) return { label: 'In Stock', color: colors.success };
+    const stock = item.stock ?? item.stock_quantity ?? 0;
+    if (stock === 0) return { label: 'Out of stock', color: colors.error };
+    if (stock < 10) return { label: `${stock} left`, color: colors.warning };
+    return { label: `${stock} in stock`, color: colors.success };
+  };
+
+  const stockStatus = getStockStatus();
+  const imageUrl = item.images?.[0];
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.productCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`${item.name}, ${formatPrice(item.price)}, ${stockStatus.label}`}
+      accessibilityRole="button"
+      accessibilityHint="View product details"
+    >
+      <View
+        style={[
+          styles.productImage,
+          { backgroundColor: colors.backgroundLight },
+        ]}
+      >
+        {imageUrl ? (
+          <SafeImage source={{ uri: imageUrl }} style={styles.image} />
+        ) : (
+          <Ionicons name="image-outline" size={24} color={colors.textMuted} />
+        )}
+      </View>
+
+      <View style={styles.productInfo}>
+        <Text
+          style={[styles.productName, { color: colors.text }]}
+          numberOfLines={2}
+        >
+          {item.name}
+        </Text>
+
+        <View style={styles.priceRow}>
+          <Text style={[styles.price, { color: colors.text }]}>
+            {formatPrice(item.price)}
+          </Text>
+          {item.compare_at_price && item.compare_at_price > item.price && (
+            <Text style={[styles.comparePrice, { color: colors.textMuted }]}>
+              {formatPrice(item.compare_at_price)}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.stockRow}>
+          <View
+            style={[styles.stockDot, { backgroundColor: stockStatus.color }]}
+          />
+          <Text style={[styles.stockText, { color: stockStatus.color }]}>
+            {stockStatus.label}
+          </Text>
+        </View>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+    </Pressable>
+  );
+});
+
+// Memoized Top Selling Product Item component
+interface TopSellingProductItemProps {
+  item: TopSellingProduct;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (id: string) => void;
+}
+
+const TopSellingProductItem = memo(function TopSellingProductItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+}: TopSellingProductItemProps) {
+  const imageUrl = item.images?.[0];
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.productCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`Top seller: ${item.name}, ${formatPrice(item.price)}, ${formatMetric(item.totalSold)} sold`}
+      accessibilityRole="button"
+      accessibilityHint="View product details"
+    >
+      <View style={[styles.productRank, { backgroundColor: colors.gold }]}>
+        <Ionicons name="trophy" size={12} color="#FFF" />
+      </View>
+
+      <View
+        style={[
+          styles.productImage,
+          { backgroundColor: colors.backgroundLight },
+        ]}
+      >
+        {imageUrl ? (
+          <SafeImage source={{ uri: imageUrl }} style={styles.image} />
+        ) : (
+          <Ionicons name="image-outline" size={24} color={colors.textMuted} />
+        )}
+      </View>
+
+      <View style={styles.productInfo}>
+        <Text
+          style={[styles.productName, { color: colors.text }]}
+          numberOfLines={2}
+        >
+          {item.name}
+        </Text>
+
+        <View style={styles.priceRow}>
+          <Text style={[styles.price, { color: colors.text }]}>
+            {formatPrice(item.price)}
+          </Text>
+        </View>
+
+        <View style={styles.stockRow}>
+          <Ionicons
+            name="analytics"
+            size={14}
+            color={colors.primary}
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.stockText, { color: colors.primary }]}>
+            {formatMetric(item.totalSold)} sold •{' '}
+            {formatMetric(item.totalRevenue)} rev
+          </Text>
+        </View>
+      </View>
+
+      <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+    </Pressable>
+  );
+});
+
+// Memoized Category Item component
+interface CategoryItemProps {
+  item: Category;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (id: string) => void;
+}
+
+const CategoryItem = memo(function CategoryItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+}: CategoryItemProps) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.categoryCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`Category: ${item.name}`}
+      accessibilityRole="button"
+      accessibilityHint="View products in this category"
+    >
+      <View
+        style={[styles.categoryIcon, { backgroundColor: colors.goldLight }]}
+      >
+        <Ionicons name="folder-open" size={20} color={colors.gold} />
+      </View>
+      <Text style={[styles.categoryName, { color: colors.text }]}>
+        {item.name}
+      </Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
+  );
+});
+
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
 
   const {
     data,
-
     isLoading: isProductsLoading,
     isFetchingNextPage,
     hasNextPage,
@@ -77,7 +297,7 @@ export default function ProductsScreen() {
 
   const createCategoryMutation = useCreateCategory();
 
-  const handleCreateCategory = () => {
+  const handleCreateCategory = useCallback(() => {
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: () => {
         setNewCategoryName('');
@@ -87,10 +307,10 @@ export default function ProductsScreen() {
         Alert.alert('Error', err.message);
       },
     });
-  };
+  }, [createCategoryMutation, newCategoryName]);
 
   // Collapsible search bar animation
-  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  const searchBarAnim = useRef(new Animated.Value(1)).current;
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -99,30 +319,27 @@ export default function ProductsScreen() {
       const currentScrollY = event.nativeEvent.contentOffset.y;
       const diff = currentScrollY - lastScrollY.current;
 
-      // Only trigger animation if scrolled more than 10px and not at top
       if (Math.abs(diff) > 10) {
         if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-          // Scrolling down - hide search bar
           isSearchVisible.current = false;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         } else if (diff < 0 && !isSearchVisible.current) {
-          // Scrolling up - show search bar
           isSearchVisible.current = true;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 1,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         }
       }
 
       lastScrollY.current = currentScrollY;
     },
-    [searchBarHeight]
+    [searchBarAnim]
   );
 
   // Flatten pages into single array
@@ -134,13 +351,11 @@ export default function ProductsScreen() {
   const displayData = useMemo(() => {
     let filtered = products;
 
-    // Apply search filter first
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((p) => p.name.toLowerCase().includes(q));
     }
 
-    // Then apply tab filter
     switch (activeTab) {
       case 'in_stock':
         return filtered.filter((p) => p.stock > 0 || !p.manage_stock);
@@ -177,23 +392,89 @@ export default function ProductsScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, activeTab]);
 
-  const formatPrice = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
-  };
+  // Navigation callback for products
+  const handleProductPress = useCallback((id: string) => {
+    router.push(`/product/${id}`);
+  }, []);
 
-  const formatMetric = (value: number) => {
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-    return value.toString();
-  };
+  // Navigation callback for categories (placeholder)
+  const handleCategoryPress = useCallback((_id: string) => {
+    // Implement category filtering logic here later or navigate
+    // router.push(`/products/category/${id}`)
+  }, []);
 
-  const getStockStatus = (item: Product) => {
-    if (!item.manage_stock) return { label: 'In Stock', color: colors.success };
-    const stock = item.stock ?? item.stock_quantity ?? 0;
-    if (stock === 0) return { label: 'Out of stock', color: colors.error };
-    if (stock < 10) return { label: `${stock} left`, color: colors.warning };
-    return { label: `${stock} in stock`, color: colors.success };
-  };
+  // Memoized renderItem callbacks
+  const renderProduct = useCallback(
+    ({ item }: ListRenderItemInfo<Product>) => (
+      <ProductItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleProductPress}
+      />
+    ),
+    [colors, shadows, handleProductPress]
+  );
+
+  const renderTopSellingProduct = useCallback(
+    ({ item }: ListRenderItemInfo<TopSellingProduct>) => (
+      <TopSellingProductItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleProductPress}
+      />
+    ),
+    [colors, shadows, handleProductPress]
+  );
+
+  const renderCategory = useCallback(
+    ({ item }: ListRenderItemInfo<Category>) => (
+      <CategoryItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleCategoryPress}
+      />
+    ),
+    [colors, shadows, handleCategoryPress]
+  );
+
+  // Memoized keyExtractor callbacks
+  const productKeyExtractor = useCallback((item: Product) => item.id, []);
+  const topSellingKeyExtractor = useCallback(
+    (item: TopSellingProduct) => item.id,
+    []
+  );
+  const categoryKeyExtractor = useCallback((item: Category) => item.id, []);
+
+  // getItemLayout for consistent item heights
+  const getProductItemLayout = useCallback(
+    (_data: ArrayLike<Product> | null | undefined, index: number) => ({
+      length: PRODUCT_ITEM_HEIGHT,
+      offset: PRODUCT_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
+  const getTopSellingItemLayout = useCallback(
+    (_data: ArrayLike<TopSellingProduct> | null | undefined, index: number) => ({
+      length: PRODUCT_ITEM_HEIGHT,
+      offset: PRODUCT_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
+  const getCategoryItemLayout = useCallback(
+    (_data: ArrayLike<Category> | null | undefined, index: number) => ({
+      length: CATEGORY_ITEM_HEIGHT,
+      offset: CATEGORY_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
 
   // Interactive Stat Card Component
   const StatCard = ({
@@ -215,10 +496,15 @@ export default function ProductsScreen() {
         {
           backgroundColor: isActive ? color : colors.card,
           borderColor: isActive ? color : colors.border,
+          minHeight: 44,
         },
         shadows.sm,
       ]}
       onPress={onPress}
+      accessibilityLabel={`${label}: ${value} products${isActive ? ', currently selected' : ''}`}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityHint={`Filter products by ${label.toLowerCase()}`}
     >
       <Text style={[styles.statValue, { color: isActive ? '#FFF' : color }]}>
         {value}
@@ -231,159 +517,6 @@ export default function ProductsScreen() {
       >
         {label}
       </Text>
-    </Pressable>
-  );
-
-  const renderProduct = ({ item }: { item: Product }) => {
-    const stockStatus = getStockStatus(item);
-    const imageUrl = item.images?.[0];
-
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.productCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
-        onPress={() => router.push(`/product/${item.id}`)}
-      >
-        <View
-          style={[
-            styles.productImage,
-            { backgroundColor: colors.backgroundLight },
-          ]}
-        >
-          {imageUrl ? (
-            <SafeImage source={{ uri: imageUrl }} style={styles.image} />
-          ) : (
-            <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-          )}
-        </View>
-
-        <View style={styles.productInfo}>
-          <Text
-            style={[styles.productName, { color: colors.text }]}
-            numberOfLines={2}
-          >
-            {item.name}
-          </Text>
-
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]}>
-              {formatPrice(item.price)}
-            </Text>
-            {item.compare_at_price && item.compare_at_price > item.price && (
-              <Text style={[styles.comparePrice, { color: colors.textMuted }]}>
-                {formatPrice(item.compare_at_price)}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.stockRow}>
-            <View
-              style={[styles.stockDot, { backgroundColor: stockStatus.color }]}
-            />
-            <Text style={[styles.stockText, { color: stockStatus.color }]}>
-              {stockStatus.label}
-            </Text>
-          </View>
-        </View>
-
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </Pressable>
-    );
-  };
-
-  const renderTopSellingProduct = ({ item }: { item: TopSellingProduct }) => {
-    const imageUrl = item.images?.[0];
-
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.productCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
-        onPress={() => router.push(`/product/${item.id}`)}
-      >
-        <View style={[styles.productRank, { backgroundColor: colors.gold }]}>
-          <Ionicons name="trophy" size={12} color="#FFF" />
-        </View>
-
-        <View
-          style={[
-            styles.productImage,
-            { backgroundColor: colors.backgroundLight },
-          ]}
-        >
-          {imageUrl ? (
-            <SafeImage source={{ uri: imageUrl }} style={styles.image} />
-          ) : (
-            <Ionicons name="image-outline" size={24} color={colors.textMuted} />
-          )}
-        </View>
-
-        <View style={styles.productInfo}>
-          <Text
-            style={[styles.productName, { color: colors.text }]}
-            numberOfLines={2}
-          >
-            {item.name}
-          </Text>
-
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]}>
-              {formatPrice(item.price)}
-            </Text>
-          </View>
-
-          <View style={styles.stockRow}>
-            <Ionicons
-              name="analytics"
-              size={14}
-              color={colors.primary}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.stockText, { color: colors.primary }]}>
-              {formatMetric(item.totalSold)} sold •{' '}
-              {formatMetric(item.totalRevenue)} rev
-            </Text>
-          </View>
-        </View>
-
-        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-      </Pressable>
-    );
-  };
-
-  const renderCategory = ({
-    item,
-  }: {
-    item: { id: string; name: string; slug: string };
-  }) => (
-    <Pressable
-      style={({ pressed }) => [
-        styles.categoryCard,
-        { backgroundColor: colors.card },
-        shadows.sm,
-        pressed && { backgroundColor: colors.cardHover },
-      ]}
-      onPress={() => {
-        // Implement category filtering logic here later or navigate
-        // router.push(`/products/category/${item.id}`)
-      }}
-    >
-      <View
-        style={[styles.categoryIcon, { backgroundColor: colors.goldLight }]}
-      >
-        <Ionicons name="folder-open" size={20} color={colors.gold} />
-      </View>
-      <Text style={[styles.categoryName, { color: colors.text }]}>
-        {item.name}
-      </Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </Pressable>
   );
 
@@ -401,7 +534,7 @@ export default function ProductsScreen() {
     label: string;
   }) => {
     const isActive = activeTab === id;
-    if (id === 'low_stock' || id === 'out_of_stock') return null; // Hide these from tab list as they are cards now
+    if (id === 'low_stock' || id === 'out_of_stock') return null;
 
     return (
       <Pressable
@@ -409,8 +542,13 @@ export default function ProductsScreen() {
           styles.tabButton,
           isActive && { backgroundColor: colors.gold },
           !isActive && { backgroundColor: colors.card },
+          { minHeight: 44 },
         ]}
         onPress={() => setActiveTab(id)}
+        accessibilityLabel={`${label}${isActive ? ', currently selected' : ''}`}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isActive }}
+        accessibilityHint={`Show ${label.toLowerCase()} products`}
       >
         <Text
           style={[
@@ -531,12 +669,18 @@ export default function ProductsScreen() {
         style={[
           styles.searchContainer,
           {
-            maxHeight: searchBarHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 60],
-            }),
-            opacity: searchBarHeight,
-            overflow: 'hidden',
+            opacity: searchBarAnim,
+            transform: [
+              {
+                translateY: searchBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-60, 0],
+                }),
+              },
+              {
+                scaleY: searchBarAnim,
+              },
+            ],
           },
         ]}
       >
@@ -552,7 +696,18 @@ export default function ProductsScreen() {
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')}>
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
               <Ionicons
                 name="close-circle"
                 size={20}
@@ -609,8 +764,12 @@ export default function ProductsScreen() {
         <FlatList
           data={categories}
           renderItem={renderCategory}
-          keyExtractor={(item) => item.id}
+          keyExtractor={categoryKeyExtractor}
+          getItemLayout={getCategoryItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isCategoriesLoading}
@@ -633,9 +792,16 @@ export default function ProductsScreen() {
                 <Pressable
                   style={[
                     styles.emptyButton,
-                    { backgroundColor: colors.gold, marginTop: 16 },
+                    {
+                      backgroundColor: colors.gold,
+                      marginTop: 16,
+                      minHeight: 44,
+                    },
                   ]}
                   onPress={() => setIsCategoryModalVisible(true)}
+                  accessibilityLabel="Create Category"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens form to create a new product category"
                 >
                   <Ionicons name="add" size={20} color="#FFFFFF" />
                   <Text style={styles.emptyButtonText}>Create Category</Text>
@@ -650,8 +816,12 @@ export default function ProductsScreen() {
         <FlatList
           data={topSellingProducts}
           renderItem={renderTopSellingProduct}
-          keyExtractor={(item) => item.id}
+          keyExtractor={topSellingKeyExtractor}
+          getItemLayout={getTopSellingItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isTopSellingLoading}
@@ -694,8 +864,12 @@ export default function ProductsScreen() {
         <FlatList
           data={displayData}
           renderItem={renderProduct}
-          keyExtractor={(item) => item.id}
+          keyExtractor={productKeyExtractor}
+          getItemLayout={getProductItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isProductsLoading}
@@ -732,8 +906,14 @@ export default function ProductsScreen() {
                   Add your first product to get started
                 </Text>
                 <Pressable
-                  style={[styles.emptyButton, { backgroundColor: colors.gold }]}
+                  style={[
+                    styles.emptyButton,
+                    { backgroundColor: colors.gold, minHeight: 44 },
+                  ]}
                   onPress={() => router.push('/product/new')}
+                  accessibilityLabel="Add Product"
+                  accessibilityRole="button"
+                  accessibilityHint="Opens form to create a new product"
                 >
                   <Ionicons name="add" size={20} color="#FFFFFF" />
                   <Text style={styles.emptyButtonText}>Add Product</Text>
@@ -758,6 +938,15 @@ export default function ProductsScreen() {
             router.push('/product/new');
           }
         }}
+        accessibilityLabel={
+          activeTab === 'categories' ? 'Add new category' : 'Add new product'
+        }
+        accessibilityRole="button"
+        accessibilityHint={
+          activeTab === 'categories'
+            ? 'Opens form to create a new category'
+            : 'Opens form to create a new product'
+        }
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </Pressable>
@@ -824,8 +1013,13 @@ export default function ProductsScreen() {
                   alignItems: 'center',
                   borderWidth: 1,
                   borderColor: colors.border,
+                  minHeight: 44,
+                  justifyContent: 'center',
                 }}
                 onPress={() => setIsCategoryModalVisible(false)}
+                accessibilityLabel="Cancel"
+                accessibilityRole="button"
+                accessibilityHint="Closes the create category dialog"
               >
                 <Text style={{ color: colors.text, fontWeight: '600' }}>
                   Cancel
@@ -839,9 +1033,19 @@ export default function ProductsScreen() {
                   padding: 12,
                   borderRadius: 8,
                   alignItems: 'center',
+                  minHeight: 44,
+                  justifyContent: 'center',
                 }}
                 onPress={handleCreateCategory}
                 disabled={createCategoryMutation.isPending}
+                accessibilityLabel={
+                  createCategoryMutation.isPending
+                    ? 'Creating category'
+                    : 'Create category'
+                }
+                accessibilityRole="button"
+                accessibilityState={{ disabled: createCategoryMutation.isPending }}
+                accessibilityHint="Creates the new category"
               >
                 {createCategoryMutation.isPending ? (
                   <ActivityIndicator color="#FFF" />
@@ -1076,14 +1280,14 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 100, // Move above InventorySummaryBar (which is at bottom: 20 + ~60 height)
+    bottom: 100,
     right: SPACING.lg,
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 300, // Above summaryWrapper (zIndex: 200)
+    zIndex: 300,
   },
   summaryWrapper: {
     position: 'absolute',

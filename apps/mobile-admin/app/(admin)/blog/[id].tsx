@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import SafeImage from '@/components/ui/SafeImage';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,16 +15,31 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { asUploadFile } from '@/types/upload';
 
+// Route param validation - accepts UUID or 'new' for creating new posts
+const routeParamsSchema = z.object({
+  id: z.union([z.literal('new'), z.string().uuid()]),
+});
+
 export default function BlogPostDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const rawParams = useLocalSearchParams();
   const { colors } = useTheme();
   const { merchant } = useMerchant();
+
+  // Validate route params with Zod
+  const validatedParams = useMemo(() => {
+    const result = routeParamsSchema.safeParse(rawParams);
+    return result.success ? result.data : null;
+  }, [rawParams]);
+
+  // Extract id safely (will be undefined if validation fails)
+  const id = validatedParams?.id;
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,11 +54,12 @@ export default function BlogPostDetailScreen() {
   );
 
   const fetchPost = useCallback(async () => {
+    if (!id || id === 'new') return;
     try {
       const { data, error } = await supabase
         .from('blog_posts')
         .select('*')
-        .eq(id ? 'id' : '', id)
+        .eq('id', id)
         .single();
 
       if (error) throw error;
@@ -68,6 +85,16 @@ export default function BlogPostDetailScreen() {
     }
   }, [id, fetchPost]);
 
+  // Show error screen for invalid route params (after all hooks)
+  if (!validatedParams) {
+    return (
+      <InvalidRouteScreen
+        title="Invalid Blog Post"
+        message="The blog post ID is invalid. Please check the link and try again."
+      />
+    );
+  }
+
   const handlePickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], // Updated to match type
@@ -89,13 +116,13 @@ export default function BlogPostDetailScreen() {
 
       // Use FormData for reliable file upload in React Native
       const fileData = new FormData();
+      const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
       fileData.append(
         'file',
         asUploadFile({
           uri: uri,
           name: fileName.split('/').pop() || 'image.jpg',
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}` as any,
+          type: mimeType,
         })
       );
 

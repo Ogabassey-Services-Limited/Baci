@@ -86,17 +86,37 @@ export default function OnboardingScreen() {
   const slidesRef = useRef<FlatList<OnboardingSlide>>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Refs for proper cleanup and avoiding stale closures
+  const currentIndexRef = useRef(currentIndex);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Keep the ref in sync with state
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
   // Auto-swipe interval (3.5 seconds)
   const AUTO_SWIPE_INTERVAL = 3500;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const nextIndex = (currentIndex + 1) % SLIDES.length;
-      slidesRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    isMountedRef.current = true;
+
+    intervalRef.current = setInterval(() => {
+      if (isMountedRef.current) {
+        const nextIndex = (currentIndexRef.current + 1) % SLIDES.length;
+        slidesRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+      }
     }, AUTO_SWIPE_INTERVAL);
 
-    return () => clearInterval(timer);
-  }, [currentIndex]);
+    return () => {
+      isMountedRef.current = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []); // Run only once on mount
 
   const viewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {

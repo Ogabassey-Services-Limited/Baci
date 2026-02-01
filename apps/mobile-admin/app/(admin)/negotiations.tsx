@@ -35,6 +35,7 @@ export default function NegotiationsScreen() {
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const _router = useRouter();
 
   const fetchRequests = async () => {
@@ -74,17 +75,23 @@ export default function NegotiationsScreen() {
   }, []);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
+    if (actionLoadingId) return; // Prevent double-submit
+    setActionLoadingId(id);
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const { error } = await supabase
         .from('negotiation_requests')
         .update({ status })
         .eq('id', id);
 
       if (error) throw error;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchRequests();
-    } catch (_error) {
-      Alert.alert('Error', `Failed to ${status} request`);
+    } catch (error) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const message = error instanceof Error ? error.message : `Failed to ${status} request`;
+      Alert.alert('Error', message);
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -159,16 +166,34 @@ export default function NegotiationsScreen() {
 
       <View style={styles.actionRow}>
         <Pressable
-          style={[styles.actionButton, styles.rejectButton]}
+          style={[
+            styles.actionButton,
+            styles.rejectButton,
+            actionLoadingId === item.id && styles.disabledButton,
+          ]}
           onPress={() => handleAction(item.id, 'rejected')}
+          disabled={actionLoadingId !== null}
         >
-          <Text style={styles.rejectButtonText}>Reject</Text>
+          {actionLoadingId === item.id ? (
+            <ActivityIndicator size="small" color={palette.gray[600]} />
+          ) : (
+            <Text style={styles.rejectButtonText}>Reject</Text>
+          )}
         </Pressable>
         <Pressable
-          style={[styles.actionButton, styles.acceptButton]}
+          style={[
+            styles.actionButton,
+            styles.acceptButton,
+            actionLoadingId === item.id && styles.disabledButton,
+          ]}
           onPress={() => handleAction(item.id, 'accepted')}
+          disabled={actionLoadingId !== null}
         >
-          <Text style={styles.acceptButtonText}>Accept Offer</Text>
+          {actionLoadingId === item.id ? (
+            <ActivityIndicator size="small" color={palette.white} />
+          ) : (
+            <Text style={styles.acceptButtonText}>Accept Offer</Text>
+          )}
         </Pressable>
       </View>
     </View>
@@ -333,6 +358,9 @@ const styles = StyleSheet.create({
   acceptButtonText: {
     color: palette.white,
     fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   emptyContainer: {
     alignItems: 'center',

@@ -46,7 +46,9 @@ const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
 ];
 
 export default function HomeScreen() {
-  console.log('[HomeScreen] Rendering');
+  if (__DEV__) {
+    console.log('[HomeScreen] Rendering');
+  }
   const { colors, shadows } = useTheme();
   const { merchant, storeUrl, isLive, primaryDomain } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');

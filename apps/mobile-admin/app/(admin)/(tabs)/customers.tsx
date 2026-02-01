@@ -6,11 +6,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
   FlatList,
+  type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -31,6 +32,272 @@ import {
 import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
 import { useTheme } from '@/hooks/useTheme';
 
+// Item height for getItemLayout optimization (card padding + content + gap)
+const CUSTOMER_ITEM_HEIGHT = 88;
+
+// Helper functions moved outside component to prevent recreation
+const formatCurrency = (amount: number) => {
+  if (amount >= 1000000) {
+    return `₦${(amount / 1000000).toFixed(1)} M`;
+  }
+  if (amount >= 1000) {
+    return `₦${(amount / 1000).toFixed(0)} k`;
+  }
+  return `₦${amount.toLocaleString()} `;
+};
+
+const getInitials = (name: string | null) => {
+  if (!name) return '?';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
+const getDisplayName = (customer: Customer) => {
+  const names = [customer.first_name, customer.last_name]
+    .filter((name): name is string => Boolean(name))
+    .join(' ');
+  if (names) return names;
+  return customer.email.split('@')[0];
+};
+
+const handleWhatsApp = (phone: string) => {
+  const cleanPhone = phone.replace(/\D/g, '');
+  Linking.openURL(`https://wa.me/${cleanPhone}`);
+};
+
+const handleCall = (phone: string) => {
+  const cleanPhone = phone.replace(/[^\d+]/g, '');
+  Linking.openURL(`tel:${cleanPhone}`);
+};
+
+const handleEmail = (email: string) => {
+  Linking.openURL(`mailto:${email}`);
+};
+
+// Memoized Failed Order Item component
+interface FailedOrderItemProps {
+  item: FailedOrder;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (item: FailedOrder) => void;
+}
+
+const FailedOrderItem = memo(function FailedOrderItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+}: FailedOrderItemProps) {
+  const errorMessage =
+    item.gateway_response?.message ||
+    (item.payment_status === 'bnpl_pending'
+      ? 'BNPL Drop-off'
+      : 'Payment Failed');
+
+  const displayName = item.customer_name || 'Guest';
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.customerCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item)}
+      accessibilityLabel={`Follow up: ${displayName}, ${item.customer_email}, ${formatCurrency(item.total)}, ${errorMessage}`}
+      accessibilityRole="button"
+      accessibilityHint="View customer or order details"
+    >
+      <View style={[styles.avatar, { backgroundColor: colors.goldLight }]}>
+        <Text style={[styles.avatarText, { color: colors.gold }]}>
+          {getInitials(displayName)}
+        </Text>
+      </View>
+
+      <View style={styles.customerInfo}>
+        <Text
+          style={[styles.customerName, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {displayName}
+        </Text>
+        <Text
+          style={[styles.customerEmail, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {item.customer_email}
+        </Text>
+
+        <Text style={[styles.errorText, { color: '#EF4444' }]} numberOfLines={1}>
+          {formatCurrency(item.total)} •{' '}
+          {item.attempt_count > 1
+            ? `${item.attempt_count} attempts`
+            : errorMessage}
+        </Text>
+      </View>
+
+      <View style={styles.actionRow}>
+        {item.customer_phone && (
+          <>
+            <Pressable
+              style={[styles.miniActionButton, { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleWhatsApp(item.customer_phone!);
+              }}
+              accessibilityLabel={`Message ${displayName} on WhatsApp`}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
+            </Pressable>
+            <Pressable
+              style={[styles.miniActionButton, { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleCall(item.customer_phone!);
+              }}
+              accessibilityLabel={`Call ${displayName}`}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="call" size={16} color="#4B5563" />
+            </Pressable>
+          </>
+        )}
+        <Pressable
+          style={[styles.miniActionButton, { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 }]}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleEmail(item.customer_email);
+          }}
+          accessibilityLabel={`Email ${displayName}`}
+          accessibilityRole="button"
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="mail" size={16} color="#2563EB" />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+});
+
+// Memoized Customer Item component
+interface CustomerItemProps {
+  item: Customer;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (id: string) => void;
+}
+
+const CustomerItem = memo(function CustomerItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+}: CustomerItemProps) {
+  const displayName = getDisplayName(item);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.customerCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`${displayName}, ${item.email}, ${item.total_orders} orders, spent ${formatCurrency(item.total_spent)}`}
+      accessibilityRole="button"
+      accessibilityHint="View customer details"
+    >
+      <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
+        <Text style={[styles.avatarText, { color: colors.primary }]}>
+          {getInitials(displayName)}
+        </Text>
+      </View>
+
+      <View style={styles.customerInfo}>
+        <Text
+          style={[styles.customerName, { color: colors.text }]}
+          numberOfLines={1}
+        >
+          {displayName}
+        </Text>
+        <Text
+          style={[styles.customerEmail, { color: colors.textSecondary }]}
+          numberOfLines={1}
+        >
+          {item.email}
+        </Text>
+
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Ionicons name="cart-outline" size={14} color={colors.textMuted} />
+            <Text style={[styles.statText, { color: colors.textMuted }]}>
+              {item.total_orders} orders
+            </Text>
+          </View>
+          <Text style={[styles.statDot, { color: colors.textMuted }]}>•</Text>
+          <View style={styles.stat}>
+            <Text style={[styles.statText, { color: colors.success }]}>
+              {formatCurrency(item.total_spent)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.actionRow}>
+        {item.phone && (
+          <>
+            <Pressable
+              style={[styles.miniActionButton, { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleWhatsApp(item.phone!);
+              }}
+              accessibilityLabel={`Message ${displayName} on WhatsApp`}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
+            </Pressable>
+            <Pressable
+              style={[styles.miniActionButton, { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 }]}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleCall(item.phone!);
+              }}
+              accessibilityLabel={`Call ${displayName}`}
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="call" size={16} color="#4B5563" />
+            </Pressable>
+          </>
+        )}
+        <Pressable
+          style={[styles.miniActionButton, { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 }]}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleEmail(item.email);
+          }}
+          accessibilityLabel={`Email ${displayName}`}
+          accessibilityRole="button"
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons name="mail" size={16} color="#2563EB" />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+});
+
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
@@ -38,7 +305,8 @@ export default function CustomersScreen() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   // Collapsible search bar animation
-  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  // Using opacity and translateY for native driver support (better performance)
+  const searchBarAnim = useRef(new Animated.Value(1)).current;
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -52,25 +320,25 @@ export default function CustomersScreen() {
         if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
           // Scrolling down - hide search bar
           isSearchVisible.current = false;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         } else if (diff < 0 && !isSearchVisible.current) {
           // Scrolling up - show search bar
           isSearchVisible.current = true;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 1,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         }
       }
 
       lastScrollY.current = currentScrollY;
     },
-    [searchBarHeight]
+    [searchBarAnim]
   );
 
   const {
@@ -121,250 +389,72 @@ export default function CustomersScreen() {
     }
   }, [activeTab, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `₦${(amount / 1000000).toFixed(1)} M`;
-    }
-    if (amount >= 1000) {
-      return `₦${(amount / 1000).toFixed(0)} k`;
-    }
-    return `₦${amount.toLocaleString()} `;
-  };
+  // Navigation callbacks for memoized list items
+  const handleCustomerPress = useCallback(
+    (id: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router.push(`/customer/${id}` as any);
+    },
+    [router]
+  );
 
-  const getInitials = (name: string | null) => {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getDisplayName = (customer: Customer) => {
-    const names = [customer.first_name, customer.last_name]
-      .filter(Boolean)
-      .join(' ');
-    if (names) return names;
-    return customer.email.split('@')[0];
-  };
-
-  const handleWhatsApp = (phone: string) => {
-    // Remove '+' and any non-numeric characters for WhatsApp API
-    const cleanPhone = phone.replace(/\D/g, '');
-    Linking.openURL(`https://wa.me/${cleanPhone}`);
-  };
-
-  /* Sanitize phone for calling - keep + for international numbers */
-  const handleCall = (phone: string) => {
-    // Keep only digits and +
-    const cleanPhone = phone.replace(/[^\d+]/g, '');
-    Linking.openURL(`tel:${cleanPhone}`);
-  };
-
-  const handleEmail = (email: string) => {
-    Linking.openURL(`mailto:${email}`);
-  };
-
-  /* ... */
-
-  const renderFailedOrder = ({ item }: { item: FailedOrder }) => {
-    // Determine error message based on gateway response or status
-    const errorMessage =
-      item.gateway_response?.message ||
-      (item.payment_status === 'bnpl_pending'
-        ? 'BNPL Drop-off'
-        : 'Payment Failed');
-
-    const displayName = item.customer_name || 'Guest';
-
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.customerCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
-        onPress={() => {
-          // Navigate to customer if available, otherwise order
-          if (item.customer_id) {
-            router.push(`/customer/${item.customer_id}`);
-          } else {
-            router.push(`/order/${item.id}`);
-          }
-        }}
-      >
-        <View style={[styles.avatar, { backgroundColor: colors.goldLight }]}>
-          <Text style={[styles.avatarText, { color: colors.gold }]}>
-            {getInitials(displayName)}
-          </Text>
-        </View>
-
-        <View style={styles.customerInfo}>
-          <Text
-            style={[styles.customerName, { color: colors.text }]}
-            numberOfLines={1}
-          >
-            {displayName}
-          </Text>
-          <Text
-            style={[styles.customerEmail, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {item.customer_email}
-          </Text>
-
-          <Text
-            style={[styles.errorText, { color: '#EF4444' }]}
-            numberOfLines={1}
-          >
-            {formatCurrency(item.total)} •{' '}
-            {item.attempt_count > 1
-              ? `${item.attempt_count} attempts`
-              : errorMessage}
-          </Text>
-        </View>
-
-        <View style={styles.actionRow}>
-          {item.customer_phone && (
-            <>
-              <Pressable
-                style={[
-                  styles.miniActionButton,
-                  { backgroundColor: '#DCFCE7' },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleWhatsApp(item.customer_phone!);
-                }}
-              >
-                <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.miniActionButton,
-                  { backgroundColor: '#F3F4F6' },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleCall(item.customer_phone!);
-                }}
-              >
-                <Ionicons name="call" size={16} color="#4B5563" />
-              </Pressable>
-            </>
-          )}
-          <Pressable
-            style={[styles.miniActionButton, { backgroundColor: '#DBEAFE' }]}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleEmail(item.customer_email);
-            }}
-          >
-            <Ionicons name="mail" size={16} color="#2563EB" />
-          </Pressable>
-        </View>
-      </Pressable>
-    );
-  };
-
-  const renderCustomer = ({ item }: { item: Customer }) => {
-    const displayName = getDisplayName(item);
-
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.customerCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
+  const handleFailedOrderPress = useCallback(
+    (item: FailedOrder) => {
+      if (item.customer_id) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onPress={() => router.push(`/customer/${item.id}` as any)}
-      >
-        <View style={[styles.avatar, { backgroundColor: colors.primaryLight }]}>
-          <Text style={[styles.avatarText, { color: colors.primary }]}>
-            {getInitials(displayName)}
-          </Text>
-        </View>
+        router.push(`/customer/${item.customer_id}` as any);
+      } else {
+        router.push(`/order/${item.id}`);
+      }
+    },
+    [router]
+  );
 
-        <View style={styles.customerInfo}>
-          <Text
-            style={[styles.customerName, { color: colors.text }]}
-            numberOfLines={1}
-          >
-            {displayName}
-          </Text>
-          <Text
-            style={[styles.customerEmail, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {item.email}
-          </Text>
+  // Memoized renderItem callbacks
+  const renderCustomer = useCallback(
+    ({ item }: ListRenderItemInfo<Customer>) => (
+      <CustomerItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleCustomerPress}
+      />
+    ),
+    [colors, shadows, handleCustomerPress]
+  );
 
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <Ionicons
-                name="cart-outline"
-                size={14}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.statText, { color: colors.textMuted }]}>
-                {item.total_orders} orders
-              </Text>
-            </View>
-            <Text style={[styles.statDot, { color: colors.textMuted }]}>•</Text>
-            <View style={styles.stat}>
-              <Text style={[styles.statText, { color: colors.success }]}>
-                {formatCurrency(item.total_spent)}
-              </Text>
-            </View>
-          </View>
-        </View>
+  const renderFailedOrder = useCallback(
+    ({ item }: ListRenderItemInfo<FailedOrder>) => (
+      <FailedOrderItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleFailedOrderPress}
+      />
+    ),
+    [colors, shadows, handleFailedOrderPress]
+  );
 
-        <View style={styles.actionRow}>
-          {item.phone && (
-            <>
-              <Pressable
-                style={[
-                  styles.miniActionButton,
-                  { backgroundColor: '#DCFCE7' },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleWhatsApp(item.phone!);
-                }}
-              >
-                <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.miniActionButton,
-                  { backgroundColor: '#F3F4F6' },
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleCall(item.phone!);
-                }}
-              >
-                <Ionicons name="call" size={16} color="#4B5563" />
-              </Pressable>
-            </>
-          )}
-          <Pressable
-            style={[styles.miniActionButton, { backgroundColor: '#DBEAFE' }]}
-            onPress={(e) => {
-              e.stopPropagation();
-              handleEmail(item.email);
-            }}
-          >
-            <Ionicons name="mail" size={16} color="#2563EB" />
-          </Pressable>
-        </View>
-      </Pressable>
-    );
-  };
+  // Memoized keyExtractor callbacks
+  const customerKeyExtractor = useCallback(
+    (item: Customer) => item.id,
+    []
+  );
+
+  const failedOrderKeyExtractor = useCallback(
+    (item: FailedOrder) => item.id,
+    []
+  );
+
+  // getItemLayout for consistent item heights (improves scroll performance)
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Customer | FailedOrder> | null | undefined, index: number) => ({
+      length: CUSTOMER_ITEM_HEIGHT,
+      offset: CUSTOMER_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
 
   return (
     <SafeAreaView
@@ -385,12 +475,18 @@ export default function CustomersScreen() {
         style={[
           styles.searchContainer,
           {
-            maxHeight: searchBarHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 60],
-            }),
-            opacity: searchBarHeight,
-            overflow: 'hidden',
+            opacity: searchBarAnim,
+            transform: [
+              {
+                translateY: searchBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-60, 0],
+                }),
+              },
+              {
+                scaleY: searchBarAnim,
+              },
+            ],
           },
         ]}
       >
@@ -406,7 +502,13 @@ export default function CustomersScreen() {
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')}>
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}
+            >
               <Ionicons
                 name="close-circle"
                 size={20}
@@ -422,12 +524,17 @@ export default function CustomersScreen() {
         <Pressable
           style={[
             styles.tab,
+            { minHeight: 44 },
             activeTab === 'failed' && {
               backgroundColor: colors.gold,
               borderColor: colors.gold,
             },
           ]}
           onPress={() => setActiveTab('failed')}
+          accessibilityLabel={`Follow Up${failedOrders?.length ? `: ${failedOrders.length} customers` : ''}${activeTab === 'failed' ? ', currently selected' : ''}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'failed' }}
+          accessibilityHint="View customers with failed transactions"
         >
           <Text
             style={[
@@ -443,12 +550,17 @@ export default function CustomersScreen() {
         <Pressable
           style={[
             styles.tab,
+            { minHeight: 44 },
             activeTab === 'all' && {
               backgroundColor: colors.gold,
               borderColor: colors.gold,
             },
           ]}
           onPress={() => setActiveTab('all')}
+          accessibilityLabel={`All Customers${activeTab === 'all' ? ', currently selected' : ''}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'all' }}
+          accessibilityHint="View all customers"
         >
           <Text
             style={[
@@ -521,7 +633,8 @@ export default function CustomersScreen() {
           <FlatList
             data={customers}
             renderItem={renderCustomer}
-            keyExtractor={(item) => item.id}
+            keyExtractor={customerKeyExtractor}
+            getItemLayout={getItemLayout}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
@@ -535,6 +648,9 @@ export default function CustomersScreen() {
             onEndReachedThreshold={0.5}
             onScroll={handleScroll}
             scrollEventThrottle={16}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={5}
             ListFooterComponent={
               isFetchingNextPage ? (
                 <View style={styles.footerLoader}>
@@ -569,9 +685,13 @@ export default function CustomersScreen() {
         <FlatList
           data={filteredFailedOrders}
           renderItem={renderFailedOrder}
+          keyExtractor={failedOrderKeyExtractor}
+          getItemLayout={getItemLayout}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          keyExtractor={(item) => item.id}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={5}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl

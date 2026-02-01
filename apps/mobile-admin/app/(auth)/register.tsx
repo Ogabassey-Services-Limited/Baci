@@ -23,6 +23,7 @@ import {
   validatePassword,
   type PasswordValidationResult,
 } from '@/lib/password-utils';
+import { getEmailError } from '@/lib/sanitize';
 
 // Simplified Business Types from Web Config
 const BUSINESS_TYPES = [
@@ -131,6 +132,13 @@ export default function RegisterScreen() {
     if (step === 1) {
       if (!formData.email || !formData.password || !formData.confirmPassword) {
         Alert.alert('Error', 'Please fill in all fields');
+        return;
+      }
+
+      // Validate email format using Zod schema
+      const emailError = getEmailError(formData.email.trim());
+      if (emailError) {
+        Alert.alert('Invalid Email', emailError);
         return;
       }
 

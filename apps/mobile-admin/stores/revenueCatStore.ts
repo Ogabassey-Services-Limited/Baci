@@ -32,7 +32,7 @@ const isProFromInfo = (info: CustomerInfo | null): boolean => {
     possibleProKeys.includes(key.toLowerCase())
   );
 
-  if (activeKeys.length > 0) {
+  if (activeKeys.length > 0 && __DEV__) {
     console.log(
       '[RevenueCat] Active Entitlements:',
       activeKeys,
@@ -57,7 +57,11 @@ interface RevenueCatState {
   initialize: () => Promise<void>;
   purchasePackage: (pack: PurchasesPackage) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
+  cleanup: () => void;
 }
+
+// Store listener subscription for cleanup on logout
+let customerInfoListenerRemove: (() => void) | null = null;
 
 export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   currentOffering: null,
@@ -109,13 +113,16 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       });
 
       // Reactive Pattern: Automatically sync state on server confirmation
-      Purchases.addCustomerInfoUpdateListener((newInfo) => {
-        const proStatus = isProFromInfo(newInfo);
-        set({
-          customerInfo: newInfo,
-          isPro: proStatus,
-        });
-      });
+      // Store the listener removal function for cleanup on logout
+      customerInfoListenerRemove = Purchases.addCustomerInfoUpdateListener(
+        (newInfo) => {
+          const proStatus = isProFromInfo(newInfo);
+          set({
+            customerInfo: newInfo,
+            isPro: proStatus,
+          });
+        }
+      );
     } catch (e: unknown) {
       console.warn('[RevenueCat] Initialization notice:', e);
       set({
@@ -130,10 +137,12 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   purchasePackage: async (pack: PurchasesPackage) => {
     try {
       set({ isLoading: true, error: null });
-      console.log(
-        '[RevenueCat] Starting purchase for:',
-        pack.product.identifier
-      );
+      if (__DEV__) {
+        console.log(
+          '[RevenueCat] Starting purchase for:',
+          pack.product.identifier
+        );
+      }
 
       const { customerInfo } = await Purchases.purchasePackage(pack);
       const isPro = isProFromInfo(customerInfo);
@@ -180,5 +189,27 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       });
       return false;
     }
+  },
+
+  cleanup: () => {
+    // Remove listener to prevent memory leak and data mixing between users
+    if (customerInfoListenerRemove) {
+      customerInfoListenerRemove();
+      customerInfoListenerRemove = null;
+      if (__DEV__) {
+        console.log('[RevenueCat] Listener cleaned up');
+      }
+    }
+
+    // Reset state to initial values
+    set({
+      currentOffering: null,
+      customerInfo: null,
+      isPro: false,
+      isLoading: true,
+      isInitializing: false,
+      isInitialized: false,
+      error: null,
+    });
   },
 }));
