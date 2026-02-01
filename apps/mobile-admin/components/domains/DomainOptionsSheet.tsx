@@ -31,7 +31,7 @@ export default function DomainOptionsSheet({
   onAction,
 }: DomainOptionsSheetProps) {
   const { colors, shadows } = useTheme();
-  const actionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
   // Cleanup timer on unmount

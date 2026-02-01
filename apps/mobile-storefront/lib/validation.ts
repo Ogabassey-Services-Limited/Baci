@@ -485,8 +485,10 @@ export function parseApiResponse<T>(
 ): T | null {
   const result = schema.safeParse(data);
   if (!result.success) {
+    // Use separate arguments to avoid format string injection
     console.warn(
-      `API response validation failed${context ? ` (${context})` : ''}:`,
+      'API response validation failed',
+      context ? `(${context})` : '',
       result.error.issues
     );
     return null;

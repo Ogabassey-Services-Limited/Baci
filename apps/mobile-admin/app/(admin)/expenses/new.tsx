@@ -255,7 +255,7 @@ export default function AddExpenseScreen() {
                 {receiptUri ? (
                   <>
                     <SafeImage
-                      source={receiptUri}
+                      source={{ uri: receiptUri }}
                       style={styles.receiptPreview}
                       contentFit="cover"
                       transition={200}

@@ -93,7 +93,8 @@ export default function CheckoutScreen() {
     watch,
     getValues,
   } = useForm<ShippingAddressInput>({
-    resolver: zodResolver(ShippingAddressSchema),
+    // Cast to any for Zod 4 compatibility with @hookform/resolvers
+    resolver: zodResolver(ShippingAddressSchema as any),
     defaultValues: {
       firstName: customer?.first_name || '',
       lastName: customer?.last_name || '',

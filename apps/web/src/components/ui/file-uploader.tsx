@@ -166,23 +166,23 @@ export function FileUploader({
         file,
       }));
 
-      // Calculate based on current state to ensure pure state updates
-      const remainingSlots = Math.max(0, maxFiles - entries.length);
-      const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+      setEntries((prev) => {
+        // Calculate based on current state to ensure pure state updates
+        const remainingSlots = Math.max(0, maxFiles - prev.length);
+        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+
+        // Revoke unused blob URLs to prevent memory leaks
+        const unusedEntries = potentialEntries.slice(remainingSlots);
+        for (const e of unusedEntries) {
+          URL.revokeObjectURL(e.src);
+        }
 
         if (entriesToAdd.length === 0) {
-          // Immediately revoke all as none will be used
-          for (const e of potentialEntries) URL.revokeObjectURL(e.src);
           announce('No files added. Upload limit reached.');
           return prev;
         }
-      }
 
-      // Announce successful addition
-      setAnnouncement(
-        `${entriesToAdd.length} file${entriesToAdd.length !== 1 ? 's' : ''} added`
-      );
-
+        // Announce successful addition
         const addedCount = entriesToAdd.length;
         announce(
           `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${

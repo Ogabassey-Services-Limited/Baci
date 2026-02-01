@@ -111,7 +111,7 @@ export default function CustomizeScreen() {
   const { storeUrl } = useMerchant();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
   const [inputText, setInputText] = useState('');

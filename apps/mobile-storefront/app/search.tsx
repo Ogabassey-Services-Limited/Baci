@@ -80,7 +80,7 @@ export default function SearchScreen() {
   useEffect(() => {
     const loadSearchHistory = async () => {
       try {
-        const saved = storage.getString(SEARCH_HISTORY_KEY);
+        const saved = storage.getItem(SEARCH_HISTORY_KEY);
         if (saved) {
           // 2026 Critical Fix: Validate JSON.parse result with proper type guard
           let parsed: unknown;
@@ -119,7 +119,7 @@ export default function SearchScreen() {
 
       // Persist to storage
       try {
-        storage.set(SEARCH_HISTORY_KEY, JSON.stringify(updated));
+        storage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updated));
       } catch {
         // Ignore storage errors
       }

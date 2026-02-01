@@ -61,7 +61,8 @@ interface RevenueCatState {
 }
 
 // Store listener subscription for cleanup on logout
-let customerInfoListenerRemove: (() => void) | null = null;
+// Note: addCustomerInfoUpdateListener may return void in newer SDK versions
+let customerInfoListenerRemove: (() => void) | void | null = null;
 
 export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   currentOffering: null,
@@ -193,7 +194,7 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
 
   cleanup: () => {
     // Remove listener to prevent memory leak and data mixing between users
-    if (customerInfoListenerRemove) {
+    if (typeof customerInfoListenerRemove === 'function') {
       customerInfoListenerRemove();
       customerInfoListenerRemove = null;
       if (__DEV__) {

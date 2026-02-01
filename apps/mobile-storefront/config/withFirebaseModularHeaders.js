@@ -3,6 +3,26 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Validate and resolve a path to ensure it's within the project root
+ * Prevents path traversal attacks (semgrep: path-join-resolve-traversal)
+ * @param {string} projectRoot - The trusted project root directory
+ * @param {...string} segments - Path segments to join
+ * @returns {string} The validated absolute path
+ */
+function safePathJoin(projectRoot, ...segments) {
+  // Resolve to absolute path
+  const resolvedRoot = path.resolve(projectRoot);
+  const targetPath = path.resolve(resolvedRoot, ...segments);
+
+  // Ensure the resolved path is within the project root
+  if (!targetPath.startsWith(resolvedRoot + path.sep) && targetPath !== resolvedRoot) {
+    throw new Error(`Path traversal detected: ${targetPath} is outside project root`);
+  }
+
+  return targetPath;
+}
+
+/**
  * Config plugin to add surgical header search paths for Firebase
  * This allows Firebase (which needs static frameworks) to find React headers
  * without forcing React itself to be a module.
@@ -11,7 +31,9 @@ const withFirebaseModularHeaders = (config) => {
   return withDangerousMod(config, [
     'ios',
     async (config) => {
-      const podfilePath = path.join(
+      // Use validated path join to prevent path traversal
+      // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal
+      const podfilePath = safePathJoin(
         config.modRequest.projectRoot,
         'ios',
         'Podfile'

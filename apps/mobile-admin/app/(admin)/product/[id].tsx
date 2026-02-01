@@ -586,7 +586,7 @@ export default function ProductEditScreen() {
           ) : formData.images && formData.images.length > 0 ? (
             <View>
               <SafeImage
-                source={formData.images[0]}
+                source={{ uri: formData.images[0] }}
                 style={styles.productImage}
                 contentFit="cover"
                 transition={200}

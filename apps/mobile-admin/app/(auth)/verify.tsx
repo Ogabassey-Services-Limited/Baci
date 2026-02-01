@@ -26,8 +26,8 @@ export default function VerifyScreen() {
   const inputs = useRef<Array<TextInput | null>>([]);
 
   // Refs for proper cleanup
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
 
   // Cleanup all timers on unmount

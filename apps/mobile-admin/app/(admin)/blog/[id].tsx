@@ -253,7 +253,7 @@ export default function BlogPostDetailScreen() {
           {featuredImage ? (
             <>
               <SafeImage
-                source={featuredImage}
+                source={{ uri: featuredImage }}
                 style={styles.featuredImage}
                 contentFit="cover"
                 transition={200}

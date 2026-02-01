@@ -63,6 +63,7 @@ export default function SavedItemsScreen() {
     (item: SavedItem) => {
       addToCart({
         product_id: item.product_id,
+        slug: item.slug,
         name: item.name,
         price: item.price,
         compare_at_price: item.compare_at_price,

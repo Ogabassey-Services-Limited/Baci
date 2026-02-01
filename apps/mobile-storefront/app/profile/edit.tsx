@@ -62,7 +62,8 @@ export default function ProfileEditScreen() {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
-    resolver: zodResolver(ProfileSchema),
+    // Cast to any for Zod 4 compatibility with @hookform/resolvers
+    resolver: zodResolver(ProfileSchema as any),
     defaultValues: {
       first_name: customer?.first_name || '',
       last_name: customer?.last_name || '',

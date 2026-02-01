@@ -38,14 +38,16 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 };
 
 /**
- * Format log message with optional timestamp and tag
+ * Format log prefix with optional timestamp and tag
+ * Returns an array of prefix parts to avoid format string injection
+ * (nosemgrep: javascript.lang.security.audit.unsafe-formatstring)
  */
-function formatMessage(tag: string, message: string): string {
+function getLogPrefix(tag: string): string[] {
   if (config.showTimestamp) {
     const time = new Date().toISOString().split('T')[1].slice(0, 12);
-    return `[${time}] [${tag}] ${message}`;
+    return [`[${time}]`, `[${tag}]`];
   }
-  return `[${tag}] ${message}`;
+  return [`[${tag}]`];
 }
 
 /**
@@ -66,7 +68,8 @@ export const logger = {
    */
   debug: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('debug')) {
-      console.log(formatMessage(tag, message), ...args);
+      // Use separate arguments to avoid format string injection
+      console.log(...getLogPrefix(tag), message, ...args);
     }
   },
 
@@ -75,7 +78,8 @@ export const logger = {
    */
   info: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('info')) {
-      console.log(formatMessage(tag, message), ...args);
+      // Use separate arguments to avoid format string injection
+      console.log(...getLogPrefix(tag), message, ...args);
     }
   },
 
@@ -84,7 +88,8 @@ export const logger = {
    */
   warn: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('warn')) {
-      console.warn(formatMessage(tag, message), ...args);
+      // Use separate arguments to avoid format string injection
+      console.warn(...getLogPrefix(tag), message, ...args);
     }
   },
 
@@ -93,7 +98,8 @@ export const logger = {
    */
   error: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('error')) {
-      console.error(formatMessage(tag, message), ...args);
+      // Use separate arguments to avoid format string injection
+      console.error(...getLogPrefix(tag), message, ...args);
     }
   },
 

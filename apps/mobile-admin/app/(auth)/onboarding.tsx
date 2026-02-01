@@ -88,7 +88,7 @@ export default function OnboardingScreen() {
 
   // Refs for proper cleanup and avoiding stale closures
   const currentIndexRef = useRef(currentIndex);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
 
   // Keep the ref in sync with state

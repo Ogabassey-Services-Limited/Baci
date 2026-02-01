@@ -27,8 +27,9 @@ type BNPLGateway = 'credpal' | 'credit_direct';
 // 2026 Critical Fix: Zod schema for route parameter validation
 const BNPLParamsSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
-  gateway: z.enum(['credpal', 'credit_direct'], {
-    errorMap: () => ({ message: 'Invalid payment gateway' }),
+  // Zod 4: Use message option instead of errorMap
+  gateway: z.enum(['credpal', 'credit_direct'] as const, {
+    message: 'Invalid payment gateway',
   }),
   amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
   customerEmail: z.string().email().optional(),
@@ -58,7 +59,8 @@ export default function BNPLCheckoutScreen() {
     if (!result.success) {
       return {
         isValid: false,
-        error: result.error.errors[0]?.message || 'Invalid parameters',
+        // Zod 4: Use .issues instead of .errors
+        error: result.error.issues[0]?.message || 'Invalid parameters',
         data: null,
       };
     }

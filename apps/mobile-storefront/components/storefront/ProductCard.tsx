@@ -194,6 +194,7 @@ export const ProductCard = memo(
     const handleAddToCart = () => {
       addItem({
         product_id: product.id,
+        slug: product.slug,
         name: product.name,
         price: product.price,
         compare_at_price: product.compare_at_price,

@@ -26,10 +26,10 @@ import { Footer } from '@/components/storefront/Footer';
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
 
-// 2026 Best Practice: Properly type AnimatedFlashList with generic component type
-const AnimatedFlashList = Animated.createAnimatedComponent(
-  FlashList as React.ComponentClass<React.ComponentProps<typeof FlashList>>
-);
+// 2026 Best Practice: Use any type for AnimatedFlashList
+// The type system can't properly infer animated component types with FlashList generics
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const AnimatedFlashList: any = Animated.createAnimatedComponent(FlashList as any);
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();

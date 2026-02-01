@@ -42,6 +42,7 @@ export default function CompareScreen() {
   const handleAddToCart = (product: (typeof products)[0]) => {
     addToCart({
       product_id: product.id,
+      slug: product.slug,
       name: product.name,
       price: product.price,
       compare_at_price: product.compare_at_price,

@@ -166,7 +166,8 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        console.error(`Rollback attempt ${attempt} failed:`, rollbackError);
+        // Use separate arguments to avoid format string injection
+        console.error('Rollback attempt', attempt, 'failed:', rollbackError);
         // Wait before retry (exponential backoff)
         if (attempt < 3) {
           await new Promise((resolve) => setTimeout(resolve, attempt * 500));

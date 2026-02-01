@@ -167,6 +167,7 @@ export function TermsPageClient({
               {/* Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
                 <div className="max-w-3xl mx-auto">
+                  {/* Security: Content is sanitized via DOMPurify (client-side) or sanitize-html (server-side) */}
                   {safeHtml ? (
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none
@@ -176,12 +177,9 @@ export function TermsPageClient({
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // codeql[js/html-injection] - Safe: Content sanitized via DOMPurify (client) or sanitize-html (server)
                       // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via DOMPurify or server sanitization
-                      dangerouslySetInnerHTML={{
-                        __html: safeHtml,
-                      }}
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via DOMPurify
+                      dangerouslySetInnerHTML={{ __html: safeHtml }}
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">

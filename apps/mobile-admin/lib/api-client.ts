@@ -91,7 +91,8 @@ export async function apiClient<T = unknown>(
   const url = `${BASE_URL}${cleanEndpoint}`;
 
   if (__DEV__) {
-    console.log(`[API] ${config.method} ${url}`);
+    // Use separate arguments to avoid format string injection
+    console.log('[API]', config.method, url);
   }
 
   try {
@@ -131,7 +132,8 @@ export async function apiClient<T = unknown>(
         'Request timed out. Please check your connection and try again.',
         { isTimeout: true }
       );
-      console.error(`[API Timeout] ${url}`);
+      // Use separate arguments to avoid format string injection
+      console.error('[API Timeout]', url);
       throw timeoutError;
     }
 
@@ -141,19 +143,22 @@ export async function apiClient<T = unknown>(
         'Unable to connect. Please check your internet connection.',
         { isOffline: true }
       );
-      console.error(`[API Offline] ${url}`);
+      // Use separate arguments to avoid format string injection
+      console.error('[API Offline]', url);
       throw offlineError;
     }
 
     // Re-throw NetworkError as-is
     if (error instanceof NetworkError) {
-      console.error(`[API Error] ${url}:`, error.message);
+      // Use separate arguments to avoid format string injection
+      console.error('[API Error]', url, error.message);
       throw error;
     }
 
     // Handle other errors
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[API Error] ${url}:`, message);
+    // Use separate arguments to avoid format string injection
+    console.error('[API Error]', url, message);
     throw error;
   }
 }

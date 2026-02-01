@@ -202,7 +202,9 @@ export function usePageConfig(slug: string = 'home') {
   return useQuery({
     queryKey: ['page_config', slug, merchantId],
     queryFn: async () => {
-      const { data, error } = await withSupabaseRetry(
+      const { data, error } = await withSupabaseRetry<{
+        published_config: unknown;
+      }>(
         async () =>
           await supabase
             .from('page_configs')
