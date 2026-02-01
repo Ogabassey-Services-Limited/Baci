@@ -65,18 +65,28 @@ export async function POST(request: NextRequest) {
     // Explicitly filtering dangerous keys (redundant but safe)
     // nosemgrep: javascript.lang.security.audit.prototype-pollution.assignment-to-proto
     const sanitizedFormData: Record<string, string> = Object.create(null);
+    // Allowlist of valid field name patterns - only allow alphanumeric and common form field characters
+    const VALID_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_\-\s]*$/;
     for (const [key, value] of Object.entries(formData)) {
       const sanitizedKey = sanitizeText(String(key), 100);
       const sanitizedValue = sanitizeText(String(value ?? ''), 10000);
 
       // Block keys that could be used for prototype pollution
+      // Also validate against allowlist pattern for additional security
       if (
         sanitizedKey &&
         sanitizedKey !== '__proto__' &&
         sanitizedKey !== 'constructor' &&
-        sanitizedKey !== 'prototype'
+        sanitizedKey !== 'prototype' &&
+        VALID_KEY_PATTERN.test(sanitizedKey)
       ) {
-        sanitizedFormData[sanitizedKey] = sanitizedValue;
+        // codeql[js/property-injection]: Key is validated against allowlist pattern and sanitized
+        Object.defineProperty(sanitizedFormData, sanitizedKey, {
+          value: sanitizedValue,
+          writable: true,
+          enumerable: true,
+          configurable: false,
+        });
       }
     }
 

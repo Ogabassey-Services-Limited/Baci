@@ -986,12 +986,14 @@ export async function GET(request: NextRequest) {
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
     // Input validation for reference parameter
+    // codeql[js/user-controlled-bypass]: This check only validates presence, not authorization.
+    // Authorization is enforced below by verifying transaction ownership (merchant_id check).
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    // Verify the reference belongs to the authenticated user's merchant account
-    // This prevents users from probing arbitrary payment references
+    // SECURITY: Verify the reference belongs to the authenticated user's merchant account
+    // This prevents users from probing arbitrary payment references (IDOR protection)
     const { data: merchant } = await supabase
       .from('merchants')
       .select('id')

@@ -114,7 +114,11 @@ export async function getOrCreatePaystackCustomer(
       `Could not create or retrieve customer: ${createData.message}`
     );
   } catch (error) {
-    console.error('Paystack Customer Error', error);
+    // Use separate arguments to prevent log injection (codeql[js/log-injection])
+    console.error(
+      'Paystack Customer Error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     throw error;
   }
 }
