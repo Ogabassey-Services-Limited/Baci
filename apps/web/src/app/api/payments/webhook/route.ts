@@ -985,14 +985,12 @@ export async function GET(request: NextRequest) {
     const gateway: PaymentGateway =
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
-    // Input validation for reference parameter - only checks presence
-    // lgtm[js/user-controlled-bypass] - Authorization enforced at line 1024 via merchant_id ownership check
+    // Input validation for reference parameter
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    // SECURITY: Verify the reference belongs to the authenticated user's merchant account
-    // This prevents users from probing arbitrary payment references (IDOR protection)
+    // SECURITY: Get merchant first to establish authorization context
     const { data: merchant } = await supabase
       .from('merchants')
       .select('id')
@@ -1006,35 +1004,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if transaction belongs to this merchant
+    // SECURITY: Query transaction with BOTH reference AND merchant_id
+    // This prevents IDOR attacks - user can only access their own transactions
     const { data: transaction } = await supabase
       .from('transactions')
       .select('id, merchant_id')
       .eq('gateway_reference', reference)
+      .eq('merchant_id', merchant.id) // Authorization enforced in query
       .single();
 
     if (!transaction) {
+      // Could be either not found OR not owned by this merchant - don't reveal which
       return NextResponse.json(
         { error: 'Transaction not found' },
         { status: 404 }
       );
     }
 
-    if (transaction.merchant_id !== merchant.id) {
-      logger.warn({
-        message: 'Unauthorized payment verification attempt',
-        userId: user.id,
-        merchantId: merchant.id,
-        attemptedReference: reference,
-        transactionMerchantId: transaction.merchant_id,
-      });
-      return NextResponse.json(
-        { error: 'Transaction does not belong to your account' },
-        { status: 403 }
-      );
-    }
-
-    // Now safe to verify with payment gateway - user owns this transaction
+    // Transaction verified to belong to authenticated merchant
     const paymentData =
       gateway === 'paystack'
         ? await verifyPaystackPayment(reference)
