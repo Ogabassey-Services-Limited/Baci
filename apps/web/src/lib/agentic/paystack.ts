@@ -37,6 +37,20 @@ function validateAndEncodeEmail(email: string): string {
   return encodeURIComponent(email);
 }
 
+/**
+ * Sanitize potentially user-controlled strings before logging to prevent
+ * log injection (for example, forged new log lines or control characters).
+ */
+function sanitizeForLog(value: unknown, maxLength = 500): string {
+  const str = String(value ?? '');
+  // Replace all ASCII control characters (0x00-0x1F, 0x7F) with spaces
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+  const withoutControls = str.replace(/[\x00-\x1F\x7F]/g, ' ');
+  // Collapse repeated whitespace and trim to keep logs concise
+  const normalized = withoutControls.replace(/\s+/g, ' ').trim();
+  return normalized.slice(0, maxLength);
+}
+
 export interface PaystackCustomer {
   email: string;
   first_name: string;
@@ -111,18 +125,17 @@ export async function getOrCreatePaystackCustomer(
     }
 
     // Sanitize API response message before including in error to prevent log injection
-    const sanitizedMessage = String(createData.message || 'Unknown error')
-      .replace(/[\r\n\t]/g, ' ')
-      .slice(0, 200);
+    const sanitizedMessage = sanitizeForLog(
+      createData.message || 'Unknown error',
+      200
+    );
     throw new Error(
       `Could not create or retrieve customer: ${sanitizedMessage}`
     );
   } catch (error) {
-    // Sanitize error message to prevent log injection (remove newlines/carriage returns)
+    // Sanitize error message to prevent log injection before logging
     const safeMessage =
-      error instanceof Error
-        ? String(error.message).replace(/[\r\n]/g, ' ')
-        : 'Unknown error';
+      error instanceof Error ? sanitizeForLog(error.message) : 'Unknown error';
     console.error('Paystack Customer Error:', safeMessage);
     throw error;
   }
