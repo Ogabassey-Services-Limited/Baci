@@ -1,4 +1,5 @@
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+
 import { logger } from '@/lib/logger';
 
 if (!PAYSTACK_SECRET_KEY && process.env.NODE_ENV === 'production') {

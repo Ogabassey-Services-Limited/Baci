@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -14,7 +15,6 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
-import { z } from 'zod';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 

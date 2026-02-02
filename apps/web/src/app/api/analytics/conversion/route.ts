@@ -2,10 +2,10 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
+import { logger } from '@/lib/logger';
 import { snapchatCAPI } from '@/lib/snapchat-capi';
 import { createClient } from '@/lib/supabase/server';
 import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
-import { logger } from '@/lib/logger';
 
 /**
  * Unified Conversions API Endpoint
@@ -148,7 +148,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      logger.error({ message: 'Failed to fetch merchant for analytics', error: merchantError });
+      logger.error({
+        message: 'Failed to fetch merchant for analytics',
+        error: merchantError,
+      });
       // Don't fail - just return success
       return NextResponse.json({
         success: true,
@@ -404,7 +407,10 @@ export async function POST(request: NextRequest) {
         // This requires Google Ads API or Measurement Protocol v2
         results.google = { success: true };
       } catch (googleError) {
-        logger.error({ message: 'Google Enhanced Conversions error', error: googleError });
+        logger.error({
+          message: 'Google Enhanced Conversions error',
+          error: googleError,
+        });
         results.google = { success: false, error: String(googleError) };
       }
     }
@@ -427,7 +433,10 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    logger.error({ message: 'Unified conversion endpoint internal error', error });
+    logger.error({
+      message: 'Unified conversion endpoint internal error',
+      error,
+    });
     // Never fail the request - analytics errors shouldn't block the user
     return NextResponse.json({
       success: false,

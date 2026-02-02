@@ -31,7 +31,12 @@ export async function POST(
 
     const body = await request.json();
     const { amount, payment_method, reference, notes } = body;
-    logger.info({ message: 'RecordPayment body parsed', amount, payment_method, orderId: id });
+    logger.info({
+      message: 'RecordPayment body parsed',
+      amount,
+      payment_method,
+      orderId: id,
+    });
 
     // Input validation: Ensure amount is a positive number.
     // Note: This is NOT a security bypass - it's input validation that runs BEFORE
@@ -47,7 +52,11 @@ export async function POST(
     // Authenticate request (supports mobile Bearer token + web cookies)
     const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
-      logger.warn({ message: 'RecordPayment auth failed', error: authError, orderId: id });
+      logger.warn({
+        message: 'RecordPayment auth failed',
+        error: authError,
+        orderId: id,
+      });
       return NextResponse.json(
         { error: authError || 'Unauthorized' },
         { status: 401 }
@@ -57,7 +66,11 @@ export async function POST(
     // Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(user.id);
     if (!merchantId) {
-      logger.error({ message: 'RecordPayment merchant not found', userId: user.id, orderId: id });
+      logger.error({
+        message: 'RecordPayment merchant not found',
+        userId: user.id,
+        orderId: id,
+      });
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -77,7 +90,12 @@ export async function POST(
       .single();
 
     if (merchantError || !merchant) {
-      logger.error({ message: 'RecordPayment merchant details error', error: merchantError, merchantId, orderId: id });
+      logger.error({
+        message: 'RecordPayment merchant details error',
+        error: merchantError,
+        merchantId,
+        orderId: id,
+      });
       return NextResponse.json(
         { error: 'Merchant details not found' },
         { status: 404 }
@@ -93,7 +111,12 @@ export async function POST(
       .single();
 
     if (orderError || !order) {
-      logger.error({ message: 'RecordPayment order not found', error: orderError, orderId: id, merchantId: merchant.id });
+      logger.error({
+        message: 'RecordPayment order not found',
+        error: orderError,
+        orderId: id,
+        merchantId: merchant.id,
+      });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -141,7 +164,11 @@ export async function POST(
       });
 
     if (transactionError) {
-      logger.error({ message: 'RecordPayment transaction insert error', error: transactionError, orderId: id });
+      logger.error({
+        message: 'RecordPayment transaction insert error',
+        error: transactionError,
+        orderId: id,
+      });
       return NextResponse.json(
         { error: 'Failed to record payment' },
         { status: 500 }
@@ -202,7 +229,10 @@ export async function POST(
           : `${merchant.business_name} Orders`;
 
         // Fire and forget
-        logger.info({ message: 'RecordPayment sending confirmation email', orderId: id });
+        logger.info({
+          message: 'RecordPayment sending confirmation email',
+          orderId: id,
+        });
         sendEmail({
           to: order.customer_email,
           toName: order.customer_name,
@@ -239,7 +269,10 @@ export async function POST(
         }
       });
     } else {
-      logger.info({ message: 'RecordPayment order partially paid', orderId: id });
+      logger.info({
+        message: 'RecordPayment order partially paid',
+        orderId: id,
+      });
       updates.payment_status = 'partially_paid';
       // Auto-advance shipping status for partial payments too (indicates activity)
       if (order.shipping_status === 'pending') {
@@ -281,7 +314,10 @@ export async function POST(
         const htmlContent = generatePaymentReceiptEmail(receiptData);
         const textContent = generatePaymentReceiptText(receiptData);
 
-        logger.info({ message: 'RecordPayment sending receipt email', orderId: id });
+        logger.info({
+          message: 'RecordPayment sending receipt email',
+          orderId: id,
+        });
         sendEmail({
           to: order.customer_email,
           toName: order.customer_name,
@@ -304,14 +340,24 @@ export async function POST(
 
     // Apply updates if needed
     if (Object.keys(updates).length > 0) {
-      logger.info({ message: 'RecordPayment applying status updates', updates, orderId: id });
+      logger.info({
+        message: 'RecordPayment applying status updates',
+        updates,
+        orderId: id,
+      });
       const { error: updateError } = await supabase
         .from('orders')
         .update(updates)
         .eq('id', id);
 
       if (updateError) {
-        logger.error({ message: 'RecordPayment failed to update order status', error: updateError, orderId: id });
+        logger.error({
+          message:
+            'CRITICAL: RecordPayment failed to update order status after transaction created',
+          error: updateError,
+          orderId: id,
+          inconsistentState: true,
+        });
         // Note: Transaction was already created, so we don't fail the request entirely,
         // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
       }
@@ -326,7 +372,11 @@ export async function POST(
     });
     // biome-ignore lint/suspicious/noExplicitAny: Catch error type
   } catch (error: any) {
-    logger.error({ message: 'RecordPayment internal error', error, orderId: id });
+    logger.error({
+      message: 'RecordPayment internal error',
+      error,
+      orderId: id,
+    });
     return NextResponse.json(
       { error: error.message || 'Internal Error' },
       { status: 500 }

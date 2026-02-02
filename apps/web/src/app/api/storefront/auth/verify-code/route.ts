@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { verifyCodeSchema } from '@/schemas/auth';
-import { logger } from '@/lib/logger';
 
 /**
  * Customer OTP Authentication - Verify Code
@@ -66,10 +66,13 @@ export async function POST(request: Request) {
       });
 
     if (verifyError || !authData.user) {
+      const redactedEmail = email
+        ? `${email.slice(0, 3)}***@${email.split('@')[1]}`
+        : 'unknown';
       logger.error({
         message: 'OTP verification error',
         error: verifyError,
-        email,
+        email: redactedEmail,
       });
 
       if (verifyError?.message?.includes('expired')) {

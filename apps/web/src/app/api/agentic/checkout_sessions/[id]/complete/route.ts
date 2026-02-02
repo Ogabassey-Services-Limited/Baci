@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing logic
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-
-import { createServiceClient } from '@/lib/supabase/service';
 import { logger } from '@/lib/logger';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(
   request: NextRequest,
@@ -77,7 +76,11 @@ export async function POST(
         phone: buyer.phone_number,
       });
     } catch (dvaError: unknown) {
-      logger.error({ message: 'DVA Creation Failed', error: dvaError, sessionId: params.id });
+      logger.error({
+        message: 'DVA Creation Failed',
+        error: dvaError,
+        sessionId: params.id,
+      });
       const errorMessage =
         dvaError instanceof Error ? dvaError.message : 'Unknown error';
       return NextResponse.json(
@@ -126,7 +129,11 @@ export async function POST(
     const orderData = await orderRes.json();
 
     if (orderRes.status !== 200 && orderRes.status !== 201) {
-      logger.error({ message: 'Order creation failed', error: orderData, sessionId: params.id });
+      logger.error({
+        message: 'Order creation failed',
+        error: orderData,
+        sessionId: params.id,
+      });
       return NextResponse.json(
         { error: 'Order creation failed', details: orderData.error },
         { status: 500 }
@@ -158,7 +165,13 @@ export async function POST(
       total: sessionCalc.totals.find((t: any) => t.type === 'total')?.amount,
       status: 'pending',
       ...buyer,
-    }).catch((err) => logger.error({ message: 'Webhook trigger failed', error: err, sessionId: params.id }));
+    }).catch((err) =>
+      logger.error({
+        message: 'Webhook trigger failed',
+        error: err,
+        sessionId: params.id,
+      })
+    );
 
     // 6. Success Response
     return NextResponse.json({
@@ -184,7 +197,11 @@ export async function POST(
     });
     // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
   } catch (err: any) {
-    logger.error({ message: 'Agentic Checkout Complete Error', error: err, sessionId: params.id });
+    logger.error({
+      message: 'Agentic Checkout Complete Error',
+      error: err,
+      sessionId: params.id,
+    });
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

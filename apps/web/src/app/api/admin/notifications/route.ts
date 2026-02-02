@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { logger } from '@/lib/logger';
 import type {
   AdminNotificationFilters,
   CreateNotificationInput,
@@ -139,7 +139,8 @@ export async function GET(request: NextRequest) {
 
       if (batchError) {
         logger.warn({
-          message: 'Batch stats RPC unavailable, falling back to individual queries',
+          message:
+            'Batch stats RPC unavailable, falling back to individual queries',
           error: batchError,
         });
       }
@@ -159,7 +160,9 @@ export async function GET(request: NextRequest) {
       } else {
         // If batch function is unavailable, stats will be missing for notifications.
         // Instead of performing N+1 individual queries, we'll proceed with default stats.
-        logger.warn({ message: 'Batch stats RPC unavailable, proceeding with default stats' });
+        logger.warn({
+          message: 'Batch stats RPC unavailable, proceeding with default stats',
+        });
         statsMap = new Map();
       }
     }
@@ -296,7 +299,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      logger.error({ message: 'Error creating notification', error: createError });
+      logger.error({
+        message: 'Error creating notification',
+        error: createError,
+      });
       return NextResponse.json(
         { error: 'Failed to create notification' },
         { status: 500 }
@@ -317,7 +323,10 @@ export async function POST(request: NextRequest) {
         );
 
         if (rpcError) {
-          logger.error({ message: 'Error sending to all merchants', error: rpcError });
+          logger.error({
+            message: 'Error sending to all merchants',
+            error: rpcError,
+          });
           // Mark notification as failed in the database for consistency
           await supabase
             .from('notifications')
@@ -355,7 +364,10 @@ export async function POST(request: NextRequest) {
         );
 
         if (rpcError) {
-          logger.error({ message: 'Error sending to specific merchants', error: rpcError });
+          logger.error({
+            message: 'Error sending to specific merchants',
+            error: rpcError,
+          });
         }
         merchantsSent = count || 0;
         broadcastMerchantIds = body.target_merchant_ids;
@@ -375,7 +387,10 @@ export async function POST(request: NextRequest) {
           );
 
           if (rpcError) {
-            logger.error({ message: 'Error sending to segment merchants', error: rpcError });
+            logger.error({
+              message: 'Error sending to segment merchants',
+              error: rpcError,
+            });
           }
           merchantsSent = count || 0;
           broadcastMerchantIds = segmentMerchants;
@@ -493,7 +508,10 @@ async function broadcastNotification(
     });
 
     if (sendResult !== 'ok') {
-      logger.warn({ message: 'Broadcast may not have been delivered', status: sendResult });
+      logger.warn({
+        message: 'Broadcast may not have been delivered',
+        status: sendResult,
+      });
     }
 
     // Cleanup channel
@@ -533,7 +551,9 @@ async function sendPushNotificationsToMerchants(
     }
 
     if (!tokens || tokens.length === 0) {
-      logger.info({ message: '[Push] No active push tokens found for target merchants' });
+      logger.info({
+        message: '[Push] No active push tokens found for target merchants',
+      });
       return;
     }
 
@@ -581,7 +601,10 @@ async function sendPushNotificationsToMerchants(
         .from('push_tokens')
         .update({ is_active: false })
         .in('token', tokensToDeactivate);
-      logger.info({ message: '[Push] Deactivated invalid tokens', count: tokensToDeactivate.length });
+      logger.info({
+        message: '[Push] Deactivated invalid tokens',
+        count: tokensToDeactivate.length,
+      });
     }
   } catch (error) {
     logger.error({ message: '[Push] Error sending push notifications', error });

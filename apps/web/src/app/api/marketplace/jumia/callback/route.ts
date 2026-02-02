@@ -5,8 +5,8 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
 
     // Jumia may return an error
     if (error) {
-      logger.error({ message: 'Jumia Callback OAuth error', error, merchantId });
+      logger.error({
+        message: 'Jumia Callback OAuth error',
+        error,
+        merchantId,
+      });
       return NextResponse.redirect(
         new URL(
           `/dashboard/channels?error=${encodeURIComponent(error)}`,
@@ -43,7 +47,11 @@ export async function GET(request: NextRequest) {
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
 
     if (!storedState || storedState !== state) {
-      logger.error({ message: 'Jumia Callback State mismatch', state, storedState });
+      logger.error({
+        message: 'Jumia Callback State mismatch',
+        state: `${state?.slice(0, 8)}...`,
+        storedState: `${storedState?.slice(0, 8)}...`,
+      });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=invalid_state', request.url)
       );
@@ -82,7 +90,10 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
 
     if (discoveredShops.length === 0) {
-      logger.warn({ message: 'Jumia Callback No shops discovered', merchantId });
+      logger.warn({
+        message: 'Jumia Callback No shops discovered',
+        merchantId,
+      });
       // Fallback to a generic integration if no shops found (unlikely but safe)
       discoveredShops.push({
         id: 'oauth',
@@ -121,7 +132,7 @@ export async function GET(request: NextRequest) {
         logger.error({
           message: 'Jumia Callback Database error for shop',
           shopId,
-          error: insertError
+          error: insertError,
         });
       }
     }

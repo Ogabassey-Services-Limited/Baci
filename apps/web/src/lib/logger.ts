@@ -74,7 +74,8 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
       /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(cleanStr) &&
       cleanStr.length > 40;
     // Very long random-looking string (>50) and mostly base64/hex
-    const isLongRandom = cleanStr.length > 50 && /^[A-Za-z0-9+/=_-]+$/.test(cleanStr);
+    const isLongRandom =
+      cleanStr.length > 50 && /^[A-Za-z0-9+/=_-]+$/.test(cleanStr);
 
     if (hasSensitivePrefix || isLikelyJwt || isLongRandom) {
       return '[REDACTED_TOKEN]';
@@ -119,7 +120,8 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
  */
 export function sanitizeForLog(value: unknown, maxLength = 1000): string {
   const sanitized = sanitizeForLogging(value);
-  const str = typeof sanitized === 'string' ? sanitized : JSON.stringify(sanitized);
+  const str =
+    typeof sanitized === 'string' ? sanitized : JSON.stringify(sanitized);
   return str.slice(0, maxLength);
 }
 
@@ -168,9 +170,9 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
     // Safely extract message from sanitized payload
     const sanitizedMessage =
       typeof sanitizedPayload === 'object' &&
-        sanitizedPayload !== null &&
-        'message' in sanitizedPayload &&
-        typeof sanitizedPayload.message === 'string'
+      sanitizedPayload !== null &&
+      'message' in sanitizedPayload &&
+      typeof sanitizedPayload.message === 'string'
         ? sanitizedPayload.message
         : '';
 

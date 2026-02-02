@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
+import { createClient } from '@/lib/supabase/server';
 import type {
   NotificationWithStats,
   UpdateNotificationInput,
@@ -202,7 +202,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateError) {
-      logger.error({ message: 'Error updating notification', error: updateError, id });
+      logger.error({
+        message: 'Error updating notification',
+        error: updateError,
+        id,
+      });
       return NextResponse.json(
         { error: 'Failed to update notification' },
         { status: 500 }
@@ -274,7 +278,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       .eq('id', id);
 
     if (deleteError) {
-      logger.error({ message: 'Error deleting notification', error: deleteError, id });
+      logger.error({
+        message: 'Error deleting notification',
+        error: deleteError,
+        id,
+      });
       return NextResponse.json(
         { error: 'Failed to delete notification' },
         { status: 500 }

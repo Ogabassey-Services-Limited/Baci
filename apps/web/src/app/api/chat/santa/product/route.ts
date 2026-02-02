@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedSantaProductList } from '@/ai/santa-data';
+import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
-import { logger } from '@/lib/logger';
 
 const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
 
@@ -38,7 +38,10 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       return NextResponse.json({ product: null });
     }
 
-    logger.info({ message: 'Santa Product found match', match: matchingProduct.name });
+    logger.info({
+      message: 'Santa Product found match',
+      match: matchingProduct.name,
+    });
 
     // Now get the full product details from database
     const supabase = createServiceClient();
@@ -110,7 +113,11 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       },
     });
   } catch (err) {
-    logger.error({ message: 'Santa Product internal error', error: err, productName });
+    logger.error({
+      message: 'Santa Product internal error',
+      error: err,
+      productName: safeProductName,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
