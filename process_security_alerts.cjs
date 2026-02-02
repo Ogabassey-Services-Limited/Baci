@@ -1,5 +1,20 @@
 const fs = require('fs');
 
+function escapeMarkdownCell(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    // Escape backslashes first (critical for Markdown)
+    let result = text.replace(/\\/g, '\\\\');
+    // Normalize whitespace
+    result = result.replace(/\n/g, ' ');
+    // Escape Markdown table characters
+    result = result.replace(/\|/g, '\\|');
+    // Escape HTML characters to prevent injection
+    result = result.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return result;
+}
+
 const inputFile = 'security_alerts_raw.json';
 const outputFile = 'security_alerts_todo.md';
 
@@ -10,8 +25,10 @@ try {
     }
 
     const raw = fs.readFileSync(inputFile, 'utf8');
-    // Handle paginated JSON output (concatenated arrays from --paginate)
-    // gh --paginate with REST returns concatenated arrays like [...][...]
+
+    // Handle paginated REST API JSON output (concatenated arrays: [...][...])
+    // We need to split them or find a way to parse.
+    // A simple way is to replace '][' with ',' and wrap in []
     const jsonStr = raw.trim().replace(/\]\[/g, '],[');
     const pages = JSON.parse(`[${jsonStr}]`);
 
@@ -28,6 +45,9 @@ try {
     // Group by Rule ID
     const byRule = {};
     allAlerts.forEach(alert => {
+        // Only process OPEN alerts (though API should have filtered, let's be safe)
+        if (alert.state !== 'open') return;
+
         const ruleId = alert.rule.id;
         if (!byRule[ruleId]) {
             byRule[ruleId] = {
@@ -40,13 +60,16 @@ try {
         byRule[ruleId].alerts.push(alert);
     });
 
+    const openCount = Object.values(byRule).reduce((acc, group) => acc + group.alerts.length, 0);
+
     let md = `# Security Alerts Todo List\n\n`;
     md += `**Summary**\n`;
-    md += `- Total Open Alerts: ${total}\n`;
+    md += `- Total Alerts Fetched: ${total}\n`;
+    md += `- Total Open Alerts: ${openCount}\n`;
     md += `- Rule Categories: ${Object.keys(byRule).length}\n\n`;
 
     // Sort rules by severity (Error > Warning > Note)
-    const severityOrder = { error: 0, warning: 1, note: 2, none: 3 };
+    const severityOrder = { critical: 0, high: 1, error: 2, warning: 3, medium: 4, low: 5, note: 6, none: 7 };
     const sortedRuleIds = Object.keys(byRule).sort((a, b) => {
         const sevA = severityOrder[byRule[a].severity.toLowerCase()] ?? 99;
         const sevB = severityOrder[byRule[b].severity.toLowerCase()] ?? 99;
@@ -55,7 +78,8 @@ try {
 
     sortedRuleIds.forEach(ruleId => {
         const group = byRule[ruleId];
-        const icon = group.severity === 'error' ? '🔴' : group.severity === 'warning' ? '🟠' : '🔵';
+        const sev = group.severity.toLowerCase();
+        const icon = (sev === 'critical' || sev === 'high' || sev === 'error') ? '🔴' : (sev === 'warning' || sev === 'medium') ? '🟠' : '🔵';
 
         md += `## ${icon} ${group.name} (${group.alerts.length})\n`;
         md += `- **Rule ID**: \`${ruleId}\`\n`;
@@ -66,10 +90,10 @@ try {
         md += `|---|---|---|---|\n`;
 
         group.alerts.forEach(alert => {
-            const loc = alert.most_recent_instance?.location;
-            const path = loc?.path || 'unknown';
-            const line = loc?.start_line || '?';
-            const msg = (alert.most_recent_instance?.message?.text || '').replace(/\n/g, ' ').replace(/\|/g, '\\|');
+            const loc = alert.most_recent_instance.location;
+            const path = loc.path;
+            const line = loc.start_line;
+            const msg = escapeMarkdownCell(alert.most_recent_instance.message.text);
             const url = alert.html_url;
 
             md += `| \`${path}\` | ${line} | ${msg} | [View](${url}) |\n`;
@@ -78,7 +102,7 @@ try {
     });
 
     fs.writeFileSync(outputFile, md);
-    console.log(`Generated ${outputFile}`);
+    console.log(`Generated ${outputFile} with ${openCount} open alerts.`);
 
 } catch (e) {
     console.error('Error processing alerts:', e);

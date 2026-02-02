@@ -25,9 +25,16 @@ export async function GET(
 
   // If there's an OAuth error from the provider
   if (error) {
+    // Explicit sanitization to satisfy CodeQL log injection flow analysis
+    const safeError = String(error).replace(/[\r\n]/g, ' ').slice(0, 200);
+    const safeDesc = String(errorDescription ?? '')
+      .replace(/[\r\n]/g, ' ')
+      .slice(0, 500);
+
     logger.error({
       message: 'OAuth callback error',
-      error: errorDescription || error,
+      error: safeError,
+      description: safeDesc,
       slug,
     });
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';

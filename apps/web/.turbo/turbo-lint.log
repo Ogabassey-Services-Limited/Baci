@@ -2,4 +2,548 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 872 files in 758ms. No fixes applied.
+src/app/(storefront)/[slug]/account/callback/route.ts:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━
+
+  ! This import is unused.
+  
+    2 │ import { NextResponse } from 'next/server';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  > 4 │ import { verifyCodeSchema } from '@/schemas/auth';
+      │        ^^^^^^^^^^^^^^^^^^^^
+    5 │ import { logger } from '@/lib/logger';
+    6 │ 
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+      2   2 │   import { NextResponse } from 'next/server';
+      3   3 │   import { createClient } from '@/lib/supabase/server';
+      4     │ - import·{·verifyCodeSchema·}·from·'@/schemas/auth';
+      5   4 │   import { logger } from '@/lib/logger';
+      6   5 │   
+  
+
+src/app/(storefront)/[slug]/account/callback/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { NextResponse } from 'next/server';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { cookies } from 'next/headers';
+      2   2 │   import { NextResponse } from 'next/server';
+      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      4     │ - import·{·verifyCodeSchema·}·from·'@/schemas/auth';
+      5     │ - import·{·logger·}·from·'@/lib/logger';
+          3 │ + import·{·logger·}·from·'@/lib/logger';
+          4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+          5 │ + import·{·verifyCodeSchema·}·from·'@/schemas/auth';
+      6   6 │   
+      7   7 │   /**
+  
+
+src/app/(storefront)/[slug]/account/callback/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     27  27 │     if (error) {
+     28  28 │       // Explicit sanitization to satisfy CodeQL log injection flow analysis
+     29     │ - ····const·safeError·=·String(error).replace(/[\r\n]/g,·'·').slice(0,·200);
+         29 │ + ····const·safeError·=·String(error)
+         30 │ + ······.replace(/[\r\n]/g,·'·')
+         31 │ + ······.slice(0,·200);
+     30  32 │       const safeDesc = String(errorDescription ?? '')
+     31  33 │         .replace(/[\r\n]/g, ' ')
+  
+
+src/app/api/admin/notifications/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+    3 │ import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      2   2 │   import { type NextRequest, NextResponse } from 'next/server';
+      3   3 │   import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+      4     │ - import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+      5     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      6     │ - import·{·logger·}·from·'@/lib/logger';
+          4 │ + import·{·logger·}·from·'@/lib/logger';
+          5 │ + import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+          6 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+      7   7 │   import type {
+      8   8 │     AdminNotificationFilters,
+  
+
+src/app/api/admin/notifications/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    140 140 │         if (batchError) {
+    141 141 │           logger.warn({
+    142     │ - ··········message:·'Batch·stats·RPC·unavailable,·falling·back·to·individual·queries',
+        142 │ + ··········message:
+        143 │ + ············'Batch·stats·RPC·unavailable,·falling·back·to·individual·queries',
+    143 144 │             error: batchError,
+    144 145 │           });
+    ······· │ 
+    160 161 │           // If batch function is unavailable, stats will be missing for notifications.
+    161 162 │           // Instead of performing N+1 individual queries, we'll proceed with default stats.
+    162     │ - ········logger.warn({·message:·'Batch·stats·RPC·unavailable,·proceeding·with·default·stats'·});
+        163 │ + ········logger.warn({
+        164 │ + ··········message:·'Batch·stats·RPC·unavailable,·proceeding·with·default·stats',
+        165 │ + ········});
+    163 166 │           statsMap = new Map();
+    164 167 │         }
+    ······· │ 
+    297 300 │   
+    298 301 │       if (createError) {
+    299     │ - ······logger.error({·message:·'Error·creating·notification',·error:·createError·});
+        302 │ + ······logger.error({
+        303 │ + ········message:·'Error·creating·notification',
+        304 │ + ········error:·createError,
+        305 │ + ······});
+    300 306 │         return NextResponse.json(
+    301 307 │           { error: 'Failed to create notification' },
+    ······· │ 
+    318 324 │   
+    319 325 │           if (rpcError) {
+    320     │ - ··········logger.error({·message:·'Error·sending·to·all·merchants',·error:·rpcError·});
+        326 │ + ··········logger.error({
+        327 │ + ············message:·'Error·sending·to·all·merchants',
+        328 │ + ············error:·rpcError,
+        329 │ + ··········});
+    321 330 │             // Mark notification as failed in the database for consistency
+    322 331 │             await supabase
+    ······· │ 
+    356 365 │   
+    357 366 │           if (rpcError) {
+    358     │ - ··········logger.error({·message:·'Error·sending·to·specific·merchants',·error:·rpcError·});
+        367 │ + ··········logger.error({
+        368 │ + ············message:·'Error·sending·to·specific·merchants',
+        369 │ + ············error:·rpcError,
+        370 │ + ··········});
+    359 371 │           }
+    360 372 │           merchantsSent = count || 0;
+    ······· │ 
+    376 388 │   
+    377 389 │             if (rpcError) {
+    378     │ - ············logger.error({·message:·'Error·sending·to·segment·merchants',·error:·rpcError·});
+        390 │ + ············logger.error({
+        391 │ + ··············message:·'Error·sending·to·segment·merchants',
+        392 │ + ··············error:·rpcError,
+        393 │ + ············});
+    379 394 │             }
+    380 395 │             merchantsSent = count || 0;
+    ······· │ 
+    494 509 │   
+    495 510 │       if (sendResult !== 'ok') {
+    496     │ - ······logger.warn({·message:·'Broadcast·may·not·have·been·delivered',·status:·sendResult·});
+        511 │ + ······logger.warn({
+        512 │ + ········message:·'Broadcast·may·not·have·been·delivered',
+        513 │ + ········status:·sendResult,
+        514 │ + ······});
+    497 515 │       }
+    498 516 │   
+    ······· │ 
+    534 552 │   
+    535 553 │       if (!tokens || tokens.length === 0) {
+    536     │ - ······logger.info({·message:·'[Push]·No·active·push·tokens·found·for·target·merchants'·});
+        554 │ + ······logger.info({
+        555 │ + ········message:·'[Push]·No·active·push·tokens·found·for·target·merchants',
+        556 │ + ······});
+    537 557 │         return;
+    538 558 │       }
+    ······· │ 
+    582 602 │           .update({ is_active: false })
+    583 603 │           .in('token', tokensToDeactivate);
+    584     │ - ······logger.info({·message:·'[Push]·Deactivated·invalid·tokens',·count:·tokensToDeactivate.length·});
+        604 │ + ······logger.info({
+        605 │ + ········message:·'[Push]·Deactivated·invalid·tokens',
+        606 │ + ········count:·tokensToDeactivate.length,
+        607 │ + ······});
+    585 608 │       }
+    586 609 │     } catch (error) {
+  
+
+src/app/api/analytics/conversion/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import crypto from 'node:crypto';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { cookies } from 'next/headers';
+    3 │ import { type NextRequest, NextResponse } from 'next/server';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      3   3 │   import { type NextRequest, NextResponse } from 'next/server';
+      4   4 │   import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
+      5     │ - import·{·snapchatCAPI·}·from·'@/lib/snapchat-capi';
+      6     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      7     │ - import·{·tiktokEventsAPI·}·from·'@/lib/tiktok-events-api';
+      8     │ - import·{·logger·}·from·'@/lib/logger';
+          5 │ + import·{·logger·}·from·'@/lib/logger';
+          6 │ + import·{·snapchatCAPI·}·from·'@/lib/snapchat-capi';
+          7 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+          8 │ + import·{·tiktokEventsAPI·}·from·'@/lib/tiktok-events-api';
+      9   9 │   
+     10  10 │   /**
+  
+
+src/app/api/analytics/conversion/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    149 149 │   
+    150 150 │       if (merchantError || !merchant) {
+    151     │ - ······logger.error({·message:·'Failed·to·fetch·merchant·for·analytics',·error:·merchantError·});
+        151 │ + ······logger.error({
+        152 │ + ········message:·'Failed·to·fetch·merchant·for·analytics',
+        153 │ + ········error:·merchantError,
+        154 │ + ······});
+    152 155 │         // Don't fail - just return success
+    153 156 │         return NextResponse.json({
+    ······· │ 
+    405 408 │           results.google = { success: true };
+    406 409 │         } catch (googleError) {
+    407     │ - ········logger.error({·message:·'Google·Enhanced·Conversions·error',·error:·googleError·});
+        410 │ + ········logger.error({
+        411 │ + ··········message:·'Google·Enhanced·Conversions·error',
+        412 │ + ··········error:·googleError,
+        413 │ + ········});
+    408 414 │           results.google = { success: false, error: String(googleError) };
+    409 415 │         }
+    ······· │ 
+    428 434 │       });
+    429 435 │     } catch (error) {
+    430     │ - ····logger.error({·message:·'Unified·conversion·endpoint·internal·error',·error·});
+        436 │ + ····logger.error({
+        437 │ + ······message:·'Unified·conversion·endpoint·internal·error',
+        438 │ + ······error,
+        439 │ + ····});
+    431 440 │       // Never fail the request - analytics errors shouldn't block the user
+    432 441 │       return NextResponse.json({
+  
+
+src/app/api/chat/santa/product/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { getCachedSantaProductList } from '@/ai/santa-data';
+    3 │ import { sanitizeForLog } from '@/lib/sanitize-core';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { type NextRequest, NextResponse } from 'next/server';
+      2   2 │   import { getCachedSantaProductList } from '@/ai/santa-data';
+      3     │ - import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
+      4     │ - import·{·createServiceClient·}·from·'@/lib/supabase/service';
+      5     │ - import·{·logger·}·from·'@/lib/logger';
+          3 │ + import·{·logger·}·from·'@/lib/logger';
+          4 │ + import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
+          5 │ + import·{·createServiceClient·}·from·'@/lib/supabase/service';
+      6   6 │   
+      7   7 │   const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
+  
+
+src/app/api/chat/santa/product/route.ts:14:9 lint/correctness/noUnusedVariables  FIXABLE  ━━━━━━━━━━
+
+  × This variable safeProductName is unused.
+  
+    12 │ async function handleProductLookup(productName: string): Promise<NextResponse> {
+    13 │   // Sanitize for safe logging (prevent log injection)
+  > 14 │   const safeProductName = sanitizeForLog(productName);
+       │         ^^^^^^^^^^^^^^^
+    15 │   try {
+    16 │     // Get products directly (bypass cache to ensure consistency)
+  
+  i Unused variables are often the result of typos, incomplete refactors, or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend safeProductName with an underscore.
+  
+     12  12 │   async function handleProductLookup(productName: string): Promise<NextResponse> {
+     13  13 │     // Sanitize for safe logging (prevent log injection)
+     14     │ - ··const·safeProductName·=·sanitizeForLog(productName);
+         14 │ + ··const·_safeProductName·=·sanitizeForLog(productName);
+     15  15 │     try {
+     16  16 │       // Get products directly (bypass cache to ensure consistency)
+  
+
+src/app/api/chat/santa/product/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     39  39 │       }
+     40  40 │   
+     41     │ - ····logger.info({·message:·'Santa·Product·found·match',·match:·matchingProduct.name·});
+         41 │ + ····logger.info({
+         42 │ + ······message:·'Santa·Product·found·match',
+         43 │ + ······match:·matchingProduct.name,
+         44 │ + ····});
+     42  45 │   
+     43  46 │       // Now get the full product details from database
+    ······· │ 
+    111 114 │       });
+    112 115 │     } catch (err) {
+    113     │ - ····logger.error({·message:·'Santa·Product·internal·error',·error:·err,·productName·});
+        116 │ + ····logger.error({
+        117 │ + ······message:·'Santa·Product·internal·error',
+        118 │ + ······error:·err,
+        119 │ + ······productName,
+        120 │ + ····});
+    114 121 │       return NextResponse.json(
+    115 122 │         { error: 'Internal server error' },
+  
+
+src/app/api/marketplace/jumia/callback/route.ts:6:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+    4 │  */
+    5 │ 
+  > 6 │ import { type NextRequest, NextResponse } from 'next/server';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    7 │ import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
+    8 │ import { createAdminClient } from '@/lib/supabase/admin';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      6   6 │   import { type NextRequest, NextResponse } from 'next/server';
+      7   7 │   import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
+      8     │ - import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+      9     │ - import·{·logger·}·from·'@/lib/logger';
+          8 │ + import·{·logger·}·from·'@/lib/logger';
+          9 │ + import·{·createAdminClient·}·from·'@/lib/supabase/admin';
+     10  10 │   
+     11  11 │   // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
+  
+
+src/app/api/marketplace/jumia/callback/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     25  25 │       // Jumia may return an error
+     26  26 │       if (error) {
+     27     │ - ······logger.error({·message:·'Jumia·Callback·OAuth·error',·error,·merchantId·});
+         27 │ + ······logger.error({
+         28 │ + ········message:·'Jumia·Callback·OAuth·error',
+         29 │ + ········error,
+         30 │ + ········merchantId,
+         31 │ + ······});
+     28  32 │         return NextResponse.redirect(
+     29  33 │           new URL(
+  
+
+src/app/api/orders/[id]/record-payment/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     32  32 │       const body = await request.json();
+     33  33 │       const { amount, payment_method, reference, notes } = body;
+     34     │ - ····logger.info({·message:·'RecordPayment·body·parsed',·amount,·payment_method,·orderId:·id·});
+         34 │ + ····logger.info({
+         35 │ + ······message:·'RecordPayment·body·parsed',
+         36 │ + ······amount,
+         37 │ + ······payment_method,
+         38 │ + ······orderId:·id,
+         39 │ + ····});
+     35  40 │   
+     36  41 │       // Input validation: Ensure amount is a positive number.
+    ······· │ 
+     48  53 │       const { user, error: authError } = await authenticateApiRequest(request);
+     49  54 │       if (authError || !user) {
+     50     │ - ······logger.warn({·message:·'RecordPayment·auth·failed',·error:·authError,·orderId:·id·});
+         55 │ + ······logger.warn({
+         56 │ + ········message:·'RecordPayment·auth·failed',
+         57 │ + ········error:·authError,
+         58 │ + ········orderId:·id,
+         59 │ + ······});
+     51  60 │         return NextResponse.json(
+     52  61 │           { error: authError || 'Unauthorized' },
+    ······· │ 
+     58  67 │       const merchantId = await getMerchantIdForApiUser(user.id);
+     59  68 │       if (!merchantId) {
+     60     │ - ······logger.error({·message:·'RecordPayment·merchant·not·found',·userId:·user.id,·orderId:·id·});
+         69 │ + ······logger.error({
+         70 │ + ········message:·'RecordPayment·merchant·not·found',
+         71 │ + ········userId:·user.id,
+         72 │ + ········orderId:·id,
+         73 │ + ······});
+     61  74 │         return NextResponse.json(
+     62  75 │           { error: 'Merchant not found' },
+    ······· │ 
+     78  91 │   
+     79  92 │       if (merchantError || !merchant) {
+     80     │ - ······logger.error({·message:·'RecordPayment·merchant·details·error',·error:·merchantError,·merchantId,·orderId:·id·});
+         93 │ + ······logger.error({
+         94 │ + ········message:·'RecordPayment·merchant·details·error',
+         95 │ + ········error:·merchantError,
+         96 │ + ········merchantId,
+         97 │ + ········orderId:·id,
+         98 │ + ······});
+     81  99 │         return NextResponse.json(
+     82 100 │           { error: 'Merchant details not found' },
+    ······· │ 
+     94 112 │   
+     95 113 │       if (orderError || !order) {
+     96     │ - ······logger.error({·message:·'RecordPayment·order·not·found',·error:·orderError,·orderId:·id,·merchantId:·merchant.id·});
+        114 │ + ······logger.error({
+        115 │ + ········message:·'RecordPayment·order·not·found',
+        116 │ + ········error:·orderError,
+        117 │ + ········orderId:·id,
+        118 │ + ········merchantId:·merchant.id,
+        119 │ + ······});
+     97 120 │         return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+     98 121 │       }
+    ······· │ 
+    142 165 │   
+    143 166 │       if (transactionError) {
+    144     │ - ······logger.error({·message:·'RecordPayment·transaction·insert·error',·error:·transactionError,·orderId:·id·});
+        167 │ + ······logger.error({
+        168 │ + ········message:·'RecordPayment·transaction·insert·error',
+        169 │ + ········error:·transactionError,
+        170 │ + ········orderId:·id,
+        171 │ + ······});
+    145 172 │         return NextResponse.json(
+    146 173 │           { error: 'Failed to record payment' },
+    ······· │ 
+    203 230 │   
+    204 231 │           // Fire and forget
+    205     │ - ········logger.info({·message:·'RecordPayment·sending·confirmation·email',·orderId:·id·});
+        232 │ + ········logger.info({
+        233 │ + ··········message:·'RecordPayment·sending·confirmation·email',
+        234 │ + ··········orderId:·id,
+        235 │ + ········});
+    206 236 │           sendEmail({
+    207 237 │             to: order.customer_email,
+    ······· │ 
+    240 270 │         });
+    241 271 │       } else {
+    242     │ - ······logger.info({·message:·'RecordPayment·order·partially·paid',·orderId:·id·});
+        272 │ + ······logger.info({
+        273 │ + ········message:·'RecordPayment·order·partially·paid',
+        274 │ + ········orderId:·id,
+        275 │ + ······});
+    243 276 │         updates.payment_status = 'partially_paid';
+    244 277 │         // Auto-advance shipping status for partial payments too (indicates activity)
+    ······· │ 
+    282 315 │           const textContent = generatePaymentReceiptText(receiptData);
+    283 316 │   
+    284     │ - ········logger.info({·message:·'RecordPayment·sending·receipt·email',·orderId:·id·});
+        317 │ + ········logger.info({
+        318 │ + ··········message:·'RecordPayment·sending·receipt·email',
+        319 │ + ··········orderId:·id,
+        320 │ + ········});
+    285 321 │           sendEmail({
+    286 322 │             to: order.customer_email,
+    ······· │ 
+    305 341 │       // Apply updates if needed
+    306 342 │       if (Object.keys(updates).length > 0) {
+    307     │ - ······logger.info({·message:·'RecordPayment·applying·status·updates',·updates,·orderId:·id·});
+        343 │ + ······logger.info({
+        344 │ + ········message:·'RecordPayment·applying·status·updates',
+        345 │ + ········updates,
+        346 │ + ········orderId:·id,
+        347 │ + ······});
+    308 348 │         const { error: updateError } = await supabase
+    309 349 │           .from('orders')
+    ······· │ 
+    312 352 │   
+    313 353 │         if (updateError) {
+    314     │ - ········logger.error({·message:·'RecordPayment·failed·to·update·order·status',·error:·updateError,·orderId:·id·});
+        354 │ + ········logger.error({
+        355 │ + ··········message:·'RecordPayment·failed·to·update·order·status',
+        356 │ + ··········error:·updateError,
+        357 │ + ··········orderId:·id,
+        358 │ + ········});
+    315 359 │           // Note: Transaction was already created, so we don't fail the request entirely,
+    316 360 │           // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
+    ······· │ 
+    327 371 │       // biome-ignore lint/suspicious/noExplicitAny: Catch error type
+    328 372 │     } catch (error: any) {
+    329     │ - ····logger.error({·message:·'RecordPayment·internal·error',·error,·orderId:·id·});
+        373 │ + ····logger.error({
+        374 │ + ······message:·'RecordPayment·internal·error',
+        375 │ + ······error,
+        376 │ + ······orderId:·id,
+        377 │ + ····});
+    330 378 │       return NextResponse.json(
+    331 379 │         { error: error.message || 'Internal Error' },
+  
+
+src/app/api/storefront/auth/verify-code/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { NextResponse } from 'next/server';
+    3 │ import { createClient } from '@/lib/supabase/server';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      1   1 │   import { cookies } from 'next/headers';
+      2   2 │   import { NextResponse } from 'next/server';
+      3     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      4     │ - import·{·verifyCodeSchema·}·from·'@/schemas/auth';
+      5     │ - import·{·logger·}·from·'@/lib/logger';
+          3 │ + import·{·logger·}·from·'@/lib/logger';
+          4 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+          5 │ + import·{·verifyCodeSchema·}·from·'@/schemas/auth';
+      6   6 │   
+      7   7 │   /**
+  
+
+src/lib/logger.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     75  75 │         cleanStr.length > 40;
+     76  76 │       // Very long random-looking string (>50) and mostly base64/hex
+     77     │ - ····const·isLongRandom·=·cleanStr.length·>·50·&&·/^[A-Za-z0-9+/=_-]+$/.test(cleanStr);
+         77 │ + ····const·isLongRandom·=
+         78 │ + ······cleanStr.length·>·50·&&·/^[A-Za-z0-9+/=_-]+$/.test(cleanStr);
+     78  79 │   
+     79  80 │       if (hasSensitivePrefix || isLikelyJwt || isLongRandom) {
+    ······· │ 
+    120 121 │   export function sanitizeForLog(value: unknown, maxLength = 1000): string {
+    121 122 │     const sanitized = sanitizeForLogging(value);
+    122     │ - ··const·str·=·typeof·sanitized·===·'string'·?·sanitized·:·JSON.stringify(sanitized);
+        123 │ + ··const·str·=
+        124 │ + ····typeof·sanitized·===·'string'·?·sanitized·:·JSON.stringify(sanitized);
+    123 125 │     return str.slice(0, maxLength);
+    124 126 │   }
+    ······· │ 
+    169 171 │       const sanitizedMessage =
+    170 172 │         typeof sanitizedPayload === 'object' &&
+    171     │ - ········sanitizedPayload·!==·null·&&
+    172     │ - ········'message'·in·sanitizedPayload·&&
+    173     │ - ········typeof·sanitizedPayload.message·===·'string'
+        173 │ + ······sanitizedPayload·!==·null·&&
+        174 │ + ······'message'·in·sanitizedPayload·&&
+        175 │ + ······typeof·sanitizedPayload.message·===·'string'
+    174 176 │           ? sanitizedPayload.message
+    175 177 │           : '';
+  
+
+Checked 871 files in 1085ms. No fixes applied.
+Found 14 errors.
+Found 1 warning.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.
