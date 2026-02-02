@@ -21,7 +21,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     logger.info({
       message: 'Santa Product searching',
       count: santaProducts.length,
-      productName,
+      productName: safeProductName,
     });
 
     // Find the best match by name
@@ -34,7 +34,10 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     );
 
     if (!matchingProduct) {
-      logger.info({ message: 'Santa Product no match found', productName });
+      logger.info({
+        message: 'Santa Product no match found',
+        productName: safeProductName,
+      });
       return NextResponse.json({ product: null });
     }
 

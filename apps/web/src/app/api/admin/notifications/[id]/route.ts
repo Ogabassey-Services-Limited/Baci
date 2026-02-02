@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+import { notificationIdSchema } from '@/schemas/notifications';
 import type {
   NotificationWithStats,
   UpdateNotificationInput,
@@ -17,9 +18,18 @@ interface RouteParams {
  * Only accessible to platform administrators
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  let id: string | undefined;
   try {
-    id = (await params).id;
+    const { id } = await params;
+
+    // Validate ID as a UUID
+    const validation = notificationIdSchema.safeParse(id);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid notification ID format' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -45,61 +55,43 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Fetch notification
-    const { data: notification, error } = await supabase
+    // Fetch notification with delivery stats
+    const { data: notification, error: fetchError } = await supabase
       .from('notifications')
       .select('*')
       .eq('id', id)
       .single();
 
-    if (error || !notification) {
+    if (fetchError || !notification) {
       return NextResponse.json(
         { error: 'Notification not found' },
         { status: 404 }
       );
     }
 
-    // Fetch stats
-    const { data: stats } = await supabase.rpc('get_notification_stats', {
-      p_notification_id: id,
-    });
-
-    // Fetch delivery details (per-merchant status)
-    const { data: deliveries } = await supabase
+    // Get stats
+    const { count: totalRecipients } = await supabase
       .from('merchant_notifications')
-      .select(`
-        id,
-        merchant_id,
-        read_at,
-        dismissed_at,
-        banner_dismissed_at,
-        created_at,
-        merchants (
-          id,
-          business_name,
-          user_id
-        )
-      `)
-      .eq('notification_id', id)
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .select('*', { count: 'exact', head: true })
+      .eq('notification_id', id);
 
-    const notificationWithStats: NotificationWithStats & {
-      deliveries: unknown[];
-    } = {
+    const { count: readCount } = await supabase
+      .from('merchant_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('notification_id', id)
+      .not('read_at', 'is', null);
+
+    const notificationWithStats: NotificationWithStats = {
       ...notification,
-      stats: stats?.[0] || {
-        total_sent: 0,
-        total_read: 0,
-        total_dismissed: 0,
-        read_rate: 0,
+      stats: {
+        total_recipients: totalRecipients || 0,
+        read_count: readCount || 0,
       },
-      deliveries: deliveries || [],
     };
 
     return NextResponse.json(notificationWithStats);
   } catch (error) {
-    logger.error({ message: 'Admin notification GET error', error, id });
+    logger.error({ message: 'Admin notification GET error', error });
     return NextResponse.json(
       { error: 'Failed to fetch notification' },
       { status: 500 }
@@ -113,9 +105,18 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Only accessible to platform administrators
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  let id: string | undefined;
   try {
-    id = (await params).id;
+    const { id } = await params;
+
+    // Validate ID as a UUID
+    const validation = notificationIdSchema.safeParse(id);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid notification ID format' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -215,7 +216,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    logger.error({ message: 'Admin notification PATCH error', error, id });
+    logger.error({ message: 'Admin notification PATCH error', error });
     return NextResponse.json(
       { error: 'Failed to update notification' },
       { status: 500 }
@@ -229,9 +230,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Only accessible to platform administrators
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  let id: string | undefined;
   try {
-    id = (await params).id;
+    const { id } = await params;
+
+    // Validate ID as a UUID
+    const validation = notificationIdSchema.safeParse(id);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid notification ID format' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -296,7 +306,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         : 'Scheduled notification cancelled',
     });
   } catch (error) {
-    logger.error({ message: 'Admin notification DELETE error', error, id });
+    logger.error({ message: 'Admin notification DELETE error', error });
     return NextResponse.json(
       { error: 'Failed to delete notification' },
       { status: 500 }

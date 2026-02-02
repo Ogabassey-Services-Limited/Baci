@@ -131,7 +131,8 @@ export async function POST(
     if (orderRes.status !== 200 && orderRes.status !== 201) {
       logger.error({
         message: 'Order creation failed',
-        error: orderData,
+        status: orderRes.status,
+        statusText: orderRes.statusText,
         sessionId: params.id,
       });
       return NextResponse.json(

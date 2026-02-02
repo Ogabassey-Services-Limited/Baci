@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
+import { referenceSchema } from '@/schemas/payments';
 
 type PaymentGateway = 'paystack' | 'korapay';
 
@@ -222,7 +223,6 @@ export async function POST(request: NextRequest) {
     // which are then verified against the payment gateway.
     // lgtm[js/user-controlled-bypass]
     // codeql[js/user-controlled-bypass-of-security-check]
-    const referenceSchema = z.string().min(1).max(100);
     const referenceResult = referenceSchema.safeParse(reference);
 
     if (!referenceResult.success) {
