@@ -13,7 +13,10 @@ vi.mock('@/components/optimized-image', () => ({
 }));
 
 vi.mock('@/components/themed', () => ({
-  ThemedCard: ({ children, className }: any) => (
+  ThemedCard: ({
+    children,
+    className,
+  }: React.PropsWithChildren<{ className?: string }>) => (
     <div className={className}>{children}</div>
   ),
   ThemedButton: ({
@@ -21,7 +24,11 @@ vi.mock('@/components/themed', () => ({
     onClick,
     disabled,
     'aria-label': ariaLabel,
-  }: any) => (
+  }: React.PropsWithChildren<{
+    onClick?: () => void;
+    disabled?: boolean;
+    'aria-label'?: string;
+  }>) => (
     <button
       type="button"
       onClick={onClick}
@@ -31,7 +38,11 @@ vi.mock('@/components/themed', () => ({
       {children}
     </button>
   ),
-  ThemedBadge: ({ children }: any) => <span>{children}</span>,
+  ThemedBadge: ({
+    children,
+  }: React.PropsWithChildren<Record<string, unknown>>) => (
+    <span>{children}</span>
+  ),
 }));
 
 vi.mock('@/hooks/use-currency', () => ({

@@ -24,6 +24,7 @@ interface StorefrontProductCardProps {
   onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onQuickView: (product: Product) => void;
+  isOnSale?: boolean;
 }
 
 /**
@@ -37,6 +38,7 @@ export function StorefrontProductCard({
   onAddToCart,
   onUpdateQuantity,
   onQuickView,
+  isOnSale = false,
 }: StorefrontProductCardProps) {
   const { formatCurrency } = useCurrency();
 
@@ -51,9 +53,7 @@ export function StorefrontProductCard({
         ) || null // Convert 0 to null to hide 0% badges
       : null;
 
-  const discountBadgeText = discountPercentage
-    ? `-${discountPercentage}%`
-    : 'SALE';
+  const discountBadgeText = isOnSale ? 'SALE' : `-${discountPercentage}%`;
 
   const isLowStock =
     product.manage_stock &&
@@ -123,7 +123,7 @@ export function StorefrontProductCard({
 
           {/* Product Badges */}
           <div className="absolute top-2 left-2 flex flex-col gap-1">
-            {discountPercentage && (
+            {(discountPercentage || isOnSale) && (
               <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
                 {discountBadgeText}
               </span>
