@@ -258,7 +258,9 @@ export function useResendInvitation() {
 
   return useMutation({
     mutationFn: async (staffId: string) => {
-      console.log('[ResendInvite] Starting for staffId:', staffId);
+      if (__DEV__) {
+        console.log('[ResendInvite] Starting for staffId:', staffId);
+      }
       if (!merchant?.id) throw new Error('Merchant not found');
 
       // Verify staff member exists and is pending
@@ -268,12 +270,14 @@ export function useResendInvitation() {
         .eq('id', staffId)
         .single();
 
-      console.log(
-        '[ResendInvite] DB Lookup result:',
-        staff,
-        'Error:',
-        fetchError
-      );
+      if (__DEV__) {
+        console.log(
+          '[ResendInvite] DB Lookup result:',
+          staff,
+          'Error:',
+          fetchError
+        );
+      }
 
       if (fetchError || !staff) {
         console.error(

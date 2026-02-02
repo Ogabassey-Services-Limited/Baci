@@ -28,6 +28,9 @@ export function SuccessModal({
         <Animated.View
           entering={FadeInUp.springify().damping(15)}
           style={styles.container}
+          accessible={true}
+          accessibilityViewIsModal={true}
+          accessibilityLabel={`${title} dialog. ${message}`}
         >
           <View style={styles.iconContainer}>
             <View style={styles.iconBg}>
@@ -73,6 +76,8 @@ export function SuccessModal({
             style={styles.button}
             onPress={onClose}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss success message"
           >
             <Text style={styles.buttonText}>Beautiful!</Text>
           </TouchableOpacity>

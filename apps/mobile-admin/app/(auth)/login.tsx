@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { getEmailError } from '@/lib/sanitize';
 
 // Multi-colored Google Logo Component
 const GoogleLogo = ({ size = 20 }: { size?: number }) => (
@@ -73,13 +75,15 @@ const googleConfig = {
 };
 
 // DEBUG: Log the client IDs to verify they're being loaded
-console.log('[GoogleSignIn] Configuring with:', {
-  iosClientId: `${googleConfig.iosClientId?.slice(0, 20)}...`,
-  webClientId: `${googleConfig.webClientId?.slice(0, 20)}...`,
-  source: Constants.expoConfig?.extra?.googleWebClientId
-    ? 'Constants.extra'
-    : 'process.env',
-});
+if (__DEV__) {
+  console.log('[GoogleSignIn] Configuring with:', {
+    iosClientId: `${googleConfig.iosClientId?.slice(0, 20)}...`,
+    webClientId: `${googleConfig.webClientId?.slice(0, 20)}...`,
+    source: Constants.expoConfig?.extra?.googleWebClientId
+      ? 'Constants.extra'
+      : 'process.env',
+  });
+}
 
 // Configure Google Sign-In once
 GoogleSignin.configure({
@@ -111,10 +115,12 @@ export default function LoginScreen() {
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
 
-      console.log(
-        '[GoogleSignIn] Response:',
-        JSON.stringify(response, null, 2)
-      );
+      if (__DEV__) {
+        console.log(
+          '[GoogleSignIn] Response:',
+          JSON.stringify(response, null, 2)
+        );
+      }
 
       if (isSuccessResponse(response) && response.data?.idToken) {
         const { error: signInError } = await supabase.auth.signInWithIdToken({
@@ -185,6 +191,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!email.trim() || !password) {
       setError('Please enter both email and password');
+      return;
+    }
+
+    // Validate email format using Zod schema
+    const emailError = getEmailError(email.trim());
+    if (emailError) {
+      setError(emailError);
       return;
     }
 
@@ -301,6 +314,8 @@ export default function LoginScreen() {
                 <Pressable
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -313,6 +328,8 @@ export default function LoginScreen() {
             <Pressable
               onPress={() => router.push('/(auth)/forgot-password')}
               style={{ alignSelf: 'flex-end', marginTop: 8 }}
+              accessibilityRole="link"
+              accessibilityLabel="Forgot password? Reset your password"
             >
               <Text
                 style={{
@@ -333,6 +350,9 @@ export default function LoginScreen() {
               ]}
               onPress={handleLogin}
               disabled={isAnyLoading}
+              accessibilityRole="button"
+              accessibilityLabel={isLoading ? 'Signing in' : 'Sign in to your account'}
+              accessibilityState={{ disabled: isAnyLoading }}
             >
               {isLoading ? (
                 <ActivityIndicator color={BRAND.navy} />
@@ -366,6 +386,9 @@ export default function LoginScreen() {
                 ]}
                 onPress={handleGoogleSignIn}
                 disabled={isAnyLoading}
+                accessibilityRole="button"
+                accessibilityLabel={isGoogleLoading ? 'Signing in with Google' : 'Sign in with Google'}
+                accessibilityState={{ disabled: isAnyLoading }}
               >
                 {isGoogleLoading ? (
                   <ActivityIndicator size="small" color={colors.text} />
@@ -390,6 +413,9 @@ export default function LoginScreen() {
                   ]}
                   onPress={handleAppleSignIn}
                   disabled={isAnyLoading}
+                  accessibilityRole="button"
+                  accessibilityLabel={isAppleLoading ? 'Signing in with Apple' : 'Sign in with Apple'}
+                  accessibilityState={{ disabled: isAnyLoading }}
                 >
                   {isAppleLoading ? (
                     <ActivityIndicator size="small" color="#FFF" />
@@ -430,6 +456,16 @@ export default function LoginScreen() {
               }}
               onPress={async () => {
                 await resetOnboarding();
+                Alert.alert(
+                  'Onboarding Reset',
+                  'You will now be taken to the onboarding screen.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => router.replace('/(auth)/onboarding'),
+                    },
+                  ]
+                );
               }}
             >
               <Ionicons name="refresh-outline" size={20} color="#D97706" />

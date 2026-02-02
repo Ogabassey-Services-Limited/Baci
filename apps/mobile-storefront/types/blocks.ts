@@ -5,7 +5,7 @@
 
 export interface PageConfig {
   content: Block[];
-  theme?: any;
+  theme?: unknown;
   root: {
     props: {
       title: string;
@@ -26,7 +26,7 @@ export interface BaseBlock {
   type: string;
   props: {
     id: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

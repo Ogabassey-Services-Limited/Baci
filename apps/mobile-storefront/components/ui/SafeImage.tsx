@@ -1,0 +1,158 @@
+/**
+ * SafeImage Component
+ *
+ * A wrapper around expo-image that handles iOS CoreGraphics errors
+ * for unsupported image formats (24-bpp PNG, certain color spaces).
+ *
+ * iOS Bug Reference: rdar://143602439
+ *
+ * When an image fails to load, this component gracefully falls back
+ * to a placeholder or cached image instead of crashing the app.
+ */
+
+import { Ionicons } from '@expo/vector-icons';
+import { Image, type ImageProps } from 'expo-image';
+import { useState, useCallback } from 'react';
+import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+
+
+// Default blurhash for smooth loading placeholder
+const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
+
+export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
+  /**
+   * Optional callback when image fails to load
+   */
+  onLoadError?: (error: Error) => void;
+  /**
+   * Custom fallback component to render on error
+   */
+  fallbackComponent?: React.ReactNode;
+  /**
+   * Whether to show a placeholder icon on error (default: true)
+   */
+  showFallbackIcon?: boolean;
+  /**
+   * Container style for the fallback view
+   */
+  fallbackStyle?: StyleProp<ViewStyle>;
+  /**
+   * Fallback icon size (default: 32)
+   */
+  fallbackIconSize?: number;
+  /**
+   * Fallback icon color (default: #9CA3AF - gray-400)
+   */
+  fallbackIconColor?: string;
+}
+
+export function SafeImage({
+  source,
+  style,
+  placeholder,
+  transition = 300,
+  cachePolicy = 'memory-disk',
+  contentFit = 'cover',
+  onLoadError,
+  fallbackComponent,
+  showFallbackIcon = true,
+  fallbackStyle,
+  fallbackIconSize = 32,
+  fallbackIconColor = '#9CA3AF',
+  ...rest
+}: SafeImageProps) {
+  const [hasError, setHasError] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
+
+  // Handle image load errors gracefully
+  const handleError = useCallback(
+    (error: { error: string }) => {
+      // Prevent infinite error loops
+      if (errorCount >= 2) return;
+
+      setErrorCount((prev) => prev + 1);
+      setHasError(true);
+
+      // Log for debugging in development
+      if (__DEV__) {
+        console.warn(
+          '[SafeImage] Image load failed:',
+          error.error,
+          '\nSource:',
+          source
+        );
+      }
+
+      // Call optional error callback
+      if (onLoadError) {
+        onLoadError(new Error(error.error));
+      }
+    },
+    [errorCount, onLoadError, source]
+  );
+
+  // Reset error state when source changes
+  const handleLoadStart = useCallback(() => {
+    if (hasError) {
+      setHasError(false);
+      setErrorCount(0);
+    }
+  }, [hasError]);
+
+  // If we have a custom fallback component, use it
+  if (hasError && fallbackComponent) {
+    return <>{fallbackComponent}</>;
+  }
+
+  // If error and showFallbackIcon, render placeholder view
+  if (hasError && showFallbackIcon) {
+    return (
+      <View style={[styles.fallbackContainer, style, fallbackStyle]}>
+        <Ionicons
+          name="image-outline"
+          size={fallbackIconSize}
+          color={fallbackIconColor}
+        />
+      </View>
+    );
+  }
+
+  // Determine placeholder - use provided or default blurhash
+  const effectivePlaceholder = placeholder || { blurhash: DEFAULT_BLURHASH };
+
+  return (
+    <Image
+      source={source}
+      style={style}
+      placeholder={effectivePlaceholder}
+      transition={transition}
+      cachePolicy={cachePolicy}
+      contentFit={contentFit}
+      onError={handleError}
+      onLoadStart={handleLoadStart}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * Helper hook to create SafeImage props with common settings
+ */
+export function useSafeImageProps(blurhash?: string) {
+  return {
+    placeholder: { blurhash: blurhash || DEFAULT_BLURHASH },
+    transition: 300,
+    cachePolicy: 'memory-disk' as const,
+    contentFit: 'cover' as const,
+  };
+}
+
+const styles = StyleSheet.create({
+  fallbackContainer: {
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default SafeImage;

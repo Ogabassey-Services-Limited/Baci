@@ -214,7 +214,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    return NextResponse.json({ message: 'Staff member removed successfully' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Staff delete error:', error);
     return NextResponse.json(
@@ -304,7 +304,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
 
     return NextResponse.json({
-      message: 'Invitation resent successfully',
+      success: true,
       inviteUrl,
     });
   } catch (error) {

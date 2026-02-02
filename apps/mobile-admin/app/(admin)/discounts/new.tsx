@@ -71,7 +71,7 @@ export default function NewDiscountScreen() {
     formState: { errors },
   } = useForm<DiscountFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(discountSchema) as any,
+    resolver: zodResolver(discountSchema as any),
     defaultValues: {
       code: '',
       discount_type: 'percentage',

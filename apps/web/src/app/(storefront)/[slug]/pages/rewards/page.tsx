@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useLoyalty } from '@/hooks/use-loyalty';
 
 export default function RewardsPage() {
@@ -61,20 +62,17 @@ export default function RewardsPage() {
     }
   }, [slug]);
 
+  // Get customer from auth context (more secure than localStorage)
+  const { customer } = useCustomerAuth();
+
   useEffect(() => {
-    // Check for logged in customer (from localStorage or auth context)
-    try {
-      const storedCustomerId = localStorage.getItem('customer_id');
-      if (storedCustomerId) {
-        setCustomerId(storedCustomerId);
-      }
-    } catch {
-      // localStorage not available (e.g., incognito mode)
-      console.error('Failed to access localStorage');
+    // Use customer from auth context instead of localStorage (prevents XSS exposure)
+    if (customer?.id) {
+      setCustomerId(customer.id);
     }
 
     fetchMerchant();
-  }, [fetchMerchant]);
+  }, [fetchMerchant, customer?.id]);
 
   const { enrolled, loading, recentTransactions, getTierInfo, tier } =
     useLoyalty(merchantId || undefined, customerId || undefined);

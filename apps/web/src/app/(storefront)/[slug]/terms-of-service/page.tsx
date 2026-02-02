@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
@@ -122,6 +123,11 @@ export default async function TermsOfServicePage({ params }: PageProps) {
           <TermsPageClient
             merchant={merchant}
             content={merchant.pages?.terms}
+            sanitizedContent={
+              merchant.pages?.terms
+                ? sanitizeHtml(merchant.pages.terms)
+                : undefined
+            }
           />
         }
       />

@@ -86,7 +86,9 @@ export interface MerchantData {
 async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
-  console.log('[Merchant] Fetching context for user:', userId);
+  if (__DEV__) {
+    console.log('[Merchant] Fetching context for user:', userId);
+  }
 
   // Call the RPC function to get context in a single round-trip
   // This handles both Owner and Staff logic on the server
@@ -98,7 +100,9 @@ async function fetchMerchantData(
   }
 
   if (!data) {
-    console.log('[Merchant] No merchant context found for user');
+    if (__DEV__) {
+      console.log('[Merchant] No merchant context found for user');
+    }
     return { merchant: null, primaryDomain: null };
   }
 

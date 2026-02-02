@@ -5,7 +5,7 @@
 
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -17,7 +17,7 @@ import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const ELITE_HEIGHT = 280; // Compact card height
+const ELITE_HEIGHT = 220; // Wide horizontal rectangle matching web parity
 const CAROUSEL_HEIGHT = 450;
 const STANDARD_HEIGHT = 220;
 
@@ -26,7 +26,7 @@ interface HeroSlide {
   subtitle: string;
   image: string;
   ctaText: string;
-  ctaLink: string;
+  ctaLink: Href;
 }
 
 interface HeroProps {
@@ -43,6 +43,16 @@ const DEFAULT_SLIDES: HeroSlide[] = [
     ctaLink: '/category/all',
   },
 ];
+
+// Default Blurhash for hero images (neutral gradient)
+const DEFAULT_HERO_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
+
+// 2026 Best Practice: Common image props for offline caching
+const heroImageProps = {
+  placeholder: { blurhash: DEFAULT_HERO_BLURHASH },
+  transition: 300,
+  cachePolicy: 'memory-disk' as const, // Persist images for offline viewing
+};
 
 // --- SUB-COMPONENT: Elite Web-Alike Slide ---
 const EliteSlide = ({ item }: { item: HeroSlide }) => {
@@ -67,7 +77,7 @@ const EliteSlide = ({ item }: { item: HeroSlide }) => {
             </Text>
             <Pressable
               style={styles.eliteCta}
-              onPress={() => router.push(item.ctaLink as any)}
+              onPress={() => router.push(item.ctaLink)}
             >
               <Text style={styles.eliteCtaText}>{item.ctaText}</Text>
             </Pressable>
@@ -78,7 +88,7 @@ const EliteSlide = ({ item }: { item: HeroSlide }) => {
               source={{ uri: item.image }}
               style={styles.eliteProductImage}
               contentFit="contain"
-              transition={300}
+              {...heroImageProps}
             />
           </View>
         </View>
@@ -94,6 +104,7 @@ const FashionSlide = ({ item }: { item: HeroSlide }) => (
       source={{ uri: item.image }}
       style={StyleSheet.absoluteFill}
       contentFit="cover"
+      {...heroImageProps}
     />
     <LinearGradient
       colors={['transparent', 'rgba(0,0,0,0.5)']}
@@ -103,7 +114,7 @@ const FashionSlide = ({ item }: { item: HeroSlide }) => (
       <Text style={styles.fashionTitle}>{item.title}</Text>
       <Pressable
         style={styles.fashionCta}
-        onPress={() => router.push(item.ctaLink as any)}
+        onPress={() => router.push(item.ctaLink)}
       >
         <Text style={styles.fashionCtaText}>{item.ctaText} →</Text>
       </Pressable>
@@ -120,6 +131,7 @@ const StandardSlide = ({ item }: { item: HeroSlide }) => (
       source={{ uri: item.image }}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
       contentFit="cover"
+      {...heroImageProps}
     />
     <LinearGradient
       colors={['rgba(0,0,0,0.6)', 'transparent']}
@@ -129,7 +141,7 @@ const StandardSlide = ({ item }: { item: HeroSlide }) => (
       <Text style={styles.standardTitle}>{item.title}</Text>
       <Pressable
         style={styles.standardCta}
-        onPress={() => router.push(item.ctaLink as any)}
+        onPress={() => router.push(item.ctaLink)}
       >
         <Text style={styles.standardCtaText}>{item.ctaText}</Text>
       </Pressable>
@@ -167,7 +179,7 @@ export function Hero({
     return () => clearInterval(interval);
   }, [currentIndex, slides.length, autoplayDelay]);
 
-  const renderSlide = ({ item, index }: { item: HeroSlide; index: number }) => {
+  const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {
       case 'parallax':
         return <EliteSlide item={item} />;
@@ -227,7 +239,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: ELITE_HEIGHT,
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    marginTop: 0, // Removed negative margin to sit BELOW searchbar
     paddingBottom: SPACING.lg, // Space for dots
   },
   eliteCard: {
@@ -259,36 +271,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   eliteProductImage: {
-    width: '140%', // Oversized for effect
-    height: '140%',
-    transform: [{ rotate: '-12deg' }, { translateX: 10 }, { translateY: 10 }],
+    width: '120%', // Refined for horizontal aspect
+    height: '120%',
+    transform: [{ rotate: '-12deg' }, { translateX: 10 }, { translateY: 5 }],
   },
   eliteTitle: {
-    fontSize: 26, // Large
+    fontSize: 24, // Optimized for horizontal layout
     fontFamily: 'Inter_900Black',
     color: '#111',
     textAlign: 'left',
     lineHeight: 28,
   },
   eliteSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 12,
+    color: '#4B5563', // gray-600 for WCAG AA contrast
     textAlign: 'left',
-    fontFamily: 'Inter_500Medium',
-    lineHeight: 18,
+    fontFamily: 'serif',
+    lineHeight: 16,
     marginBottom: 8,
   },
   eliteCta: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E5E7EB', // Light pill
+    backgroundColor: '#FFF', // White pill matching web
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   eliteCtaText: {
     fontWeight: '700',
     color: '#111',
     fontSize: 12,
+    fontFamily: 'serif',
   },
 
   // Fashion
@@ -338,7 +353,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
-  dotActive: { width: 20, backgroundColor: '#FFF' },
+  dotActive: { width: 20, backgroundColor: '#111' },
 });

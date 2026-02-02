@@ -96,7 +96,6 @@ export default function ProfileScreen() {
           // Unregister push notifications first
           await unregisterPush();
           await signOut();
-          router.replace('/(auth)/login');
         },
       },
     ]);
@@ -153,7 +152,6 @@ export default function ProfileScreen() {
                             onPress: async () => {
                               await unregisterPush();
                               await signOut();
-                              router.replace('/(auth)/login');
                             },
                           },
                         ]

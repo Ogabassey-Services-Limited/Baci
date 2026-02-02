@@ -85,8 +85,12 @@ export default function ConnectDomainScreen() {
   };
 
   const copyToClipboard = async (text: string) => {
-    await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'Text copied to clipboard');
+    try {
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copied', 'Text copied to clipboard');
+    } catch {
+      Alert.alert('Error', 'Failed to copy to clipboard');
+    }
   };
 
   const handleDone = () => {

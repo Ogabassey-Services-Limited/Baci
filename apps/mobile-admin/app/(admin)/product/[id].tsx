@@ -4,14 +4,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   useCategories,
@@ -31,6 +35,12 @@ import {
   useUpdateProduct,
 } from '@/hooks/useProducts';
 import { supabase } from '@/lib/supabase';
+import { stripHtmlTags } from '@/lib/utils';
+
+// Route param validation - accepts UUID or 'new' for creating new products
+const routeParamsSchema = z.object({
+  id: z.union([z.literal('new'), z.string().uuid()]),
+});
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -135,13 +145,22 @@ const PriceInput = ({
 };
 
 export default function ProductEditScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const isEditing = id !== 'new';
+  const rawParams = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { merchant, isLoading } = useMerchant();
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
+
+  // Validate route params with Zod
+  const validatedParams = useMemo(() => {
+    const result = routeParamsSchema.safeParse(rawParams);
+    return result.success ? result.data : null;
+  }, [rawParams]);
+
+  // Extract id safely (will be undefined if validation fails)
+  const id = validatedParams?.id;
+  const isEditing = id !== 'new' && id !== undefined;
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const generateSKU = () => {
     return `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -189,6 +208,7 @@ export default function ProductEditScreen() {
   const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
+    if (!id) return;
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: (newCategory) => {
         // Auto-select the new category
@@ -209,21 +229,8 @@ export default function ProductEditScreen() {
   };
 
   // Fetch product details using the new hook
-  const { data: product, error } = useProduct(id);
-
-  // Helper to strip HTML tags
-  const stripHtml = useCallback((html: string) => {
-    if (!html) return '';
-    const text = html.replace(/<[^>]*>?/gm, '');
-    // Basic entity decoding for common chars
-    return text
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
-  }, []);
+  // Pass 'new' for invalid/undefined id - the hook handles this by returning null
+  const { data: product, error } = useProduct(id ?? 'new');
 
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -238,7 +245,7 @@ export default function ProductEditScreen() {
         cost_price: product.cost_price || 0,
         stock_quantity: product.stock_quantity || 0,
         low_stock_threshold: product.low_stock_threshold || 3,
-        description: stripHtml(product.description || ''),
+        description: stripHtmlTags(product.description || ''),
         category: product.category || '',
         category_id: product.category_id || '',
         color: product.color || '',
@@ -272,11 +279,21 @@ export default function ProductEditScreen() {
       });
       setIsInitialized(true);
     }
-  }, [product, isInitialized, stripHtml]);
+  }, [product, isInitialized]);
 
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
+
+  // Show error screen for invalid route params (after all hooks)
+  if (!validatedParams || !id) {
+    return (
+      <InvalidRouteScreen
+        title="Invalid Product"
+        message="The product ID is invalid. Please check the link and try again."
+      />
+    );
+  }
 
   const handleSave = () => {
     // Cast strict type for Zod
@@ -568,8 +585,8 @@ export default function ProductEditScreen() {
             </View>
           ) : formData.images && formData.images.length > 0 ? (
             <View>
-              <Image
-                source={formData.images[0]}
+              <SafeImage
+                source={{ uri: formData.images[0] }}
                 style={styles.productImage}
                 contentFit="cover"
                 transition={200}
@@ -628,15 +645,27 @@ export default function ProductEditScreen() {
           </View>
           <Switch
             value={formData.status === 'active'}
+            disabled={updateProductMutation.isPending}
             onValueChange={(val) => {
               const newStatus = val ? 'active' : 'draft';
+              const previousStatus = formData.status;
               setFormData((prev) => ({ ...prev, status: newStatus }));
               // Autosave status change immediately if editing
               if (isEditing) {
-                updateProductMutation.mutate({
-                  id,
-                  updates: { ...formData, status: newStatus },
-                });
+                updateProductMutation.mutate(
+                  {
+                    id,
+                    updates: { ...formData, status: newStatus },
+                  },
+                  {
+                    onError: (error) => {
+                      // Rollback to previous status on error
+                      setFormData((prev) => ({ ...prev, status: previousStatus }));
+                      const message = error instanceof Error ? error.message : 'Failed to update product status';
+                      Alert.alert('Update Failed', message);
+                    },
+                  }
+                );
               }
             }}
             trackColor={{ false: colors.border, true: colors.primary }}

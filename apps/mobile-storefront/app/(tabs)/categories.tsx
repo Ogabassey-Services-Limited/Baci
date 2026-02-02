@@ -5,7 +5,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import type { Href } from 'expo-router';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,17 +16,33 @@ import {
   Text,
   View,
 } from 'react-native';
+import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { useCategories } from '@/hooks/use-products-query';
+import { useNetworkState } from '@/hooks/use-network-state';
+import { useCategories } from '@/hooks/use-products';
 
 export default function CategoriesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { data: categories = [], isLoading } = useCategories();
+  const {
+    data: categories = [],
+    isLoading,
+    isError,
+    refetch,
+    isRefetching,
+  } = useCategories();
+  const { isOnline, onReconnect } = useNetworkState();
+
+  // Auto-refetch when network is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      refetch();
+    });
+  }, [onReconnect, refetch]);
 
   const handleCategoryPress = (slug: string) => {
-    router.push(`/category/${slug}` as any);
+    router.push(`/category/${slug}` as Href);
   };
 
   if (isLoading) {
@@ -35,7 +53,63 @@ export default function CategoriesScreen() {
     );
   }
 
-  const renderCategory = ({ item }: { item: any }) => (
+  // Error state with retry button
+  if (isError) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        {!isOnline ? (
+          <OfflineEmptyState
+            title="Can't load categories"
+            description="Connect to the internet to browse categories."
+            showRetry
+            onRetry={() => refetch()}
+            isRetrying={isRefetching}
+          />
+        ) : (
+          <View style={styles.errorContainer}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Something went wrong
+            </Text>
+            <Text
+              style={[styles.errorSubtitle, { color: colors.textSecondary }]}
+            >
+              We couldn't load categories. Please try again.
+            </Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+              onPress={() => refetch()}
+              disabled={isRefetching}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+            >
+              {isRefetching ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="refresh-outline" size={18} color="#FFF" />
+                  <Text style={styles.retryButtonText}>Try Again</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  interface Category {
+    id: string;
+    slug: string;
+    name: string;
+    image_url?: string;
+  }
+
+  const renderCategory = ({ item }: { item: Category }) => (
     <Pressable
       style={({ pressed }) => [
         styles.categoryCard,
@@ -70,6 +144,16 @@ export default function CategoriesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Show offline banner when offline but have cached data */}
+      {!isOnline && categories.length > 0 && (
+        <OfflineNotice
+          variant="banner"
+          showRetry
+          onRetry={() => refetch()}
+          isRetrying={isRefetching}
+          showCachedDataNotice
+        />
+      )}
       <FlatList
         data={categories}
         renderItem={renderCategory}
@@ -90,6 +174,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: SPACING.lg,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.lg,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
   },
   listContent: {
     padding: SPACING.md,

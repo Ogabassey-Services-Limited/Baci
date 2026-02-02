@@ -15,6 +15,9 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
+import { createLogger } from '@/lib/logger';
+const log = createLogger('PushNotifications');
+
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -53,7 +56,7 @@ export async function requestPermissions(): Promise<Notifications.PermissionStat
 export async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications require a physical device
   if (!Device.isDevice) {
-    console.warn('Push notifications require a physical device');
+    log.warn('Push notifications require a physical device');
     return null;
   }
 
@@ -61,7 +64,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   const permissionStatus = await requestPermissions();
 
   if (permissionStatus !== 'granted') {
-    console.warn('Push notification permission not granted');
+    log.warn('Push notification permission not granted');
     return null;
   }
 
@@ -70,7 +73,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
-      console.warn('EAS project ID not configured in app.json');
+      log.warn('EAS project ID not configured in app.json');
       // Still try to get token without project ID for development
     }
 
@@ -79,7 +82,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     });
 
     const token = tokenResponse.data;
-    console.log('Expo Push Token:', token);
+    log.debug('Expo Push Token:', token);
 
     // Configure Android notification channel
     if (Platform.OS === 'android') {
@@ -88,7 +91,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     return token;
   } catch (error) {
-    console.error('Failed to get push token:', error);
+    log.error('Failed to get push token:', error);
     return null;
   }
 }
@@ -149,14 +152,14 @@ export async function savePushTokenToServer(
     );
 
     if (error) {
-      console.error('Failed to save push token:', error);
+      log.error('Failed to save push token:', error);
       return false;
     }
 
-    console.log('Push token saved to server');
+    log.debug('Push token saved to server');
     return true;
   } catch (error) {
-    console.error('Error saving push token:', error);
+    log.error('Error saving push token:', error);
     return false;
   }
 }
@@ -174,13 +177,13 @@ export async function removePushTokenFromServer(
       .eq('token', token);
 
     if (error) {
-      console.error('Failed to remove push token:', error);
+      log.error('Failed to remove push token:', error);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error removing push token:', error);
+    log.error('Error removing push token:', error);
     return false;
   }
 }

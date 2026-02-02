@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,7 +26,8 @@ import { formatCurrency } from '@/utils/format';
 export default function DiscountsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
-  const { discounts, isLoading, deleteDiscount } = useDiscounts();
+  const { discounts, isLoading, deleteDiscount, isDeleting } = useDiscounts();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // const [refreshing, setRefreshing] = useState(false);
 
@@ -34,6 +36,7 @@ export default function DiscountsScreen() {
   };
 
   const handleDelete = (id: string, code: string) => {
+    if (isDeleting) return; // Prevent double-submit
     Alert.alert(
       'Delete Discount',
       `Are you sure you want to delete "${code}"? This action cannot be undone.`,
@@ -43,10 +46,14 @@ export default function DiscountsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            setDeletingId(id);
             try {
               await deleteDiscount(id);
-            } catch (_error) {
-              Alert.alert('Error', 'Failed to delete discount');
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to delete discount';
+              Alert.alert('Delete Failed', message);
+            } finally {
+              setDeletingId(null);
             }
           },
         },
@@ -106,12 +113,17 @@ export default function DiscountsScreen() {
 
         <Pressable
           onPress={() => handleDelete(item.id, item.code)}
+          disabled={deletingId !== null}
           style={({ pressed }) => [
             styles.deleteButton,
-            { opacity: pressed ? 0.7 : 1 },
+            { opacity: pressed || deletingId === item.id ? 0.7 : 1 },
           ]}
         >
-          <Ionicons name="trash-outline" size={20} color={colors.error} />
+          {deletingId === item.id ? (
+            <ActivityIndicator size="small" color={colors.error} />
+          ) : (
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
+          )}
         </Pressable>
       </View>
     </View>

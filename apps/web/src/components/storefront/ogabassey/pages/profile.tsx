@@ -14,7 +14,6 @@ import {
   User,
   Wallet,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type React from 'react';
@@ -90,12 +89,6 @@ export const OgabasseyV2Profile: React.FC = () => {
   const menuItems = getMenuItems(storeSlug);
   const { customer, logout, isAuthenticated } = useCustomerAuth();
   const { savedItems } = useV2Saved();
-
-  // Helper to format date
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Member since 2024';
-    return `Member since ${new Date(dateString).getFullYear()}`;
-  };
 
   // Helper for initials
   const getInitials = (name?: string) => {

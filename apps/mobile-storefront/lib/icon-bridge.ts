@@ -26,6 +26,12 @@ const ICON_MAP: Record<string, keyof typeof Ionicons.glyphMap> = {
   'hair-extensions': 'cut-outline',
   pharmaceuticals: 'medical-outline',
   general: 'cube-outline',
+  // Utility Panel specifics
+  airtime: 'call-outline',
+  data: 'wifi-outline',
+  tv: 'tv-outline',
+  power: 'flash-outline',
+  gaming: 'game-controller-outline',
 };
 
 /**

@@ -6,11 +6,13 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { Href } from 'expo-router';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,17 +21,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors, { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
-interface MenuItem {
+interface AccountMenuItem {
   id: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   label: string;
-  route?: string;
-  action?: () => void;
+  subLabel: string;
+  color: string;
   badge?: number;
+  action?: () => void;
+  route?: string;
+  visible?: boolean;
 }
 
 export default function AccountScreen() {
@@ -37,21 +42,17 @@ export default function AccountScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const customer = useAuthStore((state) => state.customer);
-  const _isLoading = useAuthStore((state) => state.isLoading);
   const signOut = useAuthStore((state) => state.signOut);
 
-  // Real-time loyalty points (syncs when wallet screen updates)
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
     customer?.loyalty_points
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Sync loyalty points from customer when it changes
   useEffect(() => {
     setLoyaltyPoints(customer?.loyalty_points);
   }, [customer?.loyalty_points]);
 
-  // Real-time subscription for loyalty points updates
   useEffect(() => {
     if (!customer?.id) return;
 
@@ -67,10 +68,6 @@ export default function AccountScreen() {
         },
         (payload) => {
           if (payload.new && 'loyalty_points' in payload.new) {
-            console.log(
-              'Account: Loyalty points updated:',
-              payload.new.loyalty_points
-            );
             setLoyaltyPoints(payload.new.loyalty_points as number);
           }
         }
@@ -100,171 +97,302 @@ export default function AccountScreen() {
     ]);
   };
 
-  const menuItems: MenuItem[] = [
+  const menuSections = [
     {
-      id: 'orders',
-      icon: 'receipt-outline',
-      label: 'My Orders',
-      route: '/orders',
+      title: 'Activities',
+      items: [
+        {
+          id: 'orders',
+          icon: 'receipt-outline',
+          label: 'My Orders',
+          subLabel: 'Track, return, or buy again',
+          route: '/orders',
+          color: palette.red[500],
+        },
+        {
+          id: 'saved',
+          icon: 'heart-outline',
+          label: 'Saved Items',
+          subLabel: 'Your wishlisted products',
+          route: '/saved',
+          color: palette.red[500],
+        },
+        {
+          id: 'wallet',
+          icon: 'wallet-outline',
+          label: 'Wallet & Rewards',
+          subLabel: 'Manage balance and points',
+          route: '/wallet',
+          color: palette.amber[500],
+        },
+      ],
+      visible: !!customer,
     },
     {
-      id: 'saved',
-      icon: 'heart-outline',
-      label: 'Saved Items',
-      route: '/saved',
+      title: 'Personal Info',
+      items: [
+        {
+          id: 'addresses',
+          icon: 'location-outline',
+          label: 'Shipping Addresses',
+          subLabel: 'Manage your delivery locations',
+          route: '/addresses',
+          color: palette.gray[600],
+        },
+        {
+          id: 'notifications',
+          icon: 'notifications-outline',
+          label: 'Notifications',
+          subLabel: 'Manage alerts and messages',
+          route: '/notifications',
+          color: palette.amber[500],
+        },
+      ],
+      visible: !!customer,
     },
     {
-      id: 'addresses',
-      icon: 'location-outline',
-      label: 'Delivery Addresses',
-      route: '/addresses',
+      title: 'Support & Help',
+      items: [
+        {
+          id: 'help',
+          icon: 'help-circle-outline',
+          label: 'Help Center',
+          subLabel: 'FAQs, chat, and support',
+          route: '/faq',
+          color: '#3B82F6', // Blue
+        },
+        {
+          id: 'repairs',
+          icon: 'build-outline',
+          label: 'Repairs & Services',
+          subLabel: 'Device repair and restoration',
+          route: '/repairs',
+          color: palette.gray[600],
+        },
+        {
+          id: 'settings',
+          icon: 'settings-outline',
+          label: 'App Settings',
+          subLabel: 'Themes, notifications, and more',
+          route: '/modal',
+          color: palette.gray[500],
+        },
+      ],
+      visible: true,
     },
     {
-      id: 'wallet',
-      icon: 'wallet-outline',
-      label: 'Wallet & Rewards',
-      route: '/wallet',
-    },
-    {
-      id: 'notifications',
-      icon: 'notifications-outline',
-      label: 'Notifications',
-      route: '/notifications',
-    },
-    {
-      id: 'help',
-      icon: 'help-circle-outline',
-      label: 'Help & Support',
-      route: '/help',
-    },
-    {
-      id: 'settings',
-      icon: 'settings-outline',
-      label: 'Settings',
-      route: '/settings',
+      title: 'Connect With Us',
+      items: [
+        {
+          id: 'instagram',
+          icon: 'logo-instagram',
+          label: 'Instagram',
+          subLabel: '@ogabasseyy • Community',
+          action: () => {
+            const username = 'ogabasseyy';
+            const appUrl = `instagram://user?username=${username}`;
+            const webUrl = `https://instagram.com/${username}`;
+            Linking.canOpenURL(appUrl).then((supported) => {
+              Linking.openURL(supported ? appUrl : webUrl);
+            });
+          },
+          color: '#E1306C',
+        },
+        {
+          id: 'whatsapp',
+          icon: 'logo-whatsapp',
+          label: 'WhatsApp Support',
+          subLabel: 'Chat with our experts',
+          action: () => Linking.openURL('https://wa.me/2348146978921'),
+          color: '#25D366',
+        },
+        {
+          id: 'youtube',
+          icon: 'logo-youtube',
+          label: 'YouTube',
+          subLabel: '@ogabassey • Channel',
+          action: () => {
+            const username = '@ogabassey';
+            const appUrl = `vnd.youtube://www.youtube.com/user/${username}`;
+            const webUrl = `https://www.youtube.com/${username}`;
+            Linking.canOpenURL(appUrl).then((supported) => {
+              Linking.openURL(supported ? appUrl : webUrl);
+            });
+          },
+          color: '#FF0000',
+        },
+        {
+          id: 'tiktok',
+          icon: 'logo-tiktok',
+          label: 'TikTok',
+          subLabel: '@ogabasseyy • Official',
+          action: () => {
+            const url = 'https://www.tiktok.com/@ogabasseyy';
+            Linking.openURL(url);
+          },
+          color: '#000000',
+        },
+      ],
+      visible: true,
     },
   ];
 
-  const handleMenuPress = (item: MenuItem) => {
+  const handleMenuPress = (item: { action?: () => void; route?: string }) => {
     if (item.action) {
       item.action();
     } else if (item.route) {
-      router.push(item.route as any);
+      router.push(item.route as Href);
     }
   };
 
-  const renderMenuItem = (item: MenuItem) => (
-    <Pressable
-      key={item.id}
-      style={({ pressed }) => [
-        styles.menuItem,
-        { borderBottomColor: colors.border },
-        pressed && styles.menuItemPressed,
-      ]}
-      onPress={() => handleMenuPress(item)}
-    >
-      <View
-        style={[
-          styles.menuIconContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Ionicons name={item.icon} size={22} color={BRAND.primary} />
-      </View>
-      <Text style={[styles.menuLabel, { color: colors.text }]}>
-        {item.label}
-      </Text>
-      {item.badge && (
-        <View style={[styles.badge, { backgroundColor: BRAND.primary }]}>
-          <Text style={styles.badgeText}>{item.badge}</Text>
+  const renderMenuItem = (item: AccountMenuItem, isLast: boolean) => (
+    <Pressable key={item.id} onPress={() => handleMenuPress(item)}>
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.menuItem,
+            !isLast && {
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+            },
+            pressed && styles.menuItemPressed,
+          ]}
+        >
+          <View style={styles.menuItemLeft}>
+            <View
+              style={[
+                styles.menuIconWrapper,
+                { backgroundColor: item.color + '15' },
+              ]}
+            >
+              <Ionicons
+                name={
+                  item.icon as unknown as React.ComponentProps<
+                    typeof Ionicons
+                  >['name']
+                }
+                size={22}
+                color={item.color}
+              />
+            </View>
+            <View style={styles.menuTextContainer}>
+              <Text
+                style={[styles.menuLabel, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {item.label}
+              </Text>
+              <Text
+                style={[styles.menuSubLabel, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {item.subLabel}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.menuItemRight}>
+            {item.badge && item.badge > 0 && (
+              <View style={[styles.badge, { backgroundColor: BRAND.primary }]}>
+                <Text style={styles.badgeText}>{item.badge}</Text>
+              </View>
+            )}
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={colors.textSecondary}
+            />
+          </View>
         </View>
       )}
-      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
     </Pressable>
   );
 
   const renderGuestView = () => (
-    <View style={styles.guestContainer}>
-      <View
-        style={[styles.guestIconContainer, { backgroundColor: colors.card }]}
-      >
-        <Ionicons
-          name="person-outline"
-          size={48}
-          color={colors.textSecondary}
-        />
+    <View style={styles.guestCard}>
+      <View style={styles.guestHeader}>
+        <View
+          style={[styles.guestIconBg, { backgroundColor: palette.red[50] }]}
+        >
+          <Ionicons name="person" size={40} color={BRAND.primary} />
+        </View>
+        <View style={styles.guestInfo}>
+          <Text style={[styles.guestTitle, { color: colors.text }]}>
+            Join the Elite
+          </Text>
+          <Text style={[styles.guestSubtitle, { color: colors.textSecondary }]}>
+            Unlock tracking, rewards, and 24/7 tech support.
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.guestTitle, { color: colors.text }]}>
-        Welcome to Ogabassey
-      </Text>
-      <Text style={[styles.guestSubtitle, { color: colors.textSecondary }]}>
-        Sign in to track orders, save items, and earn rewards
-      </Text>
-      <Pressable
-        style={[styles.signInButton, { backgroundColor: BRAND.primary }]}
-        onPress={() => router.push('/auth/login')}
-      >
-        <Text style={styles.signInButtonText}>Sign In</Text>
-      </Pressable>
-      <Pressable
-        style={[styles.createAccountButton, { borderColor: BRAND.primary }]}
-        onPress={() => router.push('/auth/login')}
-      >
-        <Text style={[styles.createAccountText, { color: BRAND.primary }]}>
-          Create Account
-        </Text>
-      </Pressable>
+
+      <View style={styles.guestActions}>
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
+          onPress={() => router.push('/auth/login')}
+        >
+          <Text style={styles.primaryButtonText}>Sign In / Join Now</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
   const renderProfileHeader = () => (
     <View style={[styles.profileHeader, { backgroundColor: colors.card }]}>
-      {customer?.avatar_url ? (
-        <Image source={{ uri: customer.avatar_url }} style={styles.avatar} />
-      ) : (
-        <View
-          style={[
-            styles.avatarPlaceholder,
-            { backgroundColor: BRAND.primaryLight },
-          ]}
-        >
-          <Text style={[styles.avatarInitials, { color: BRAND.primary }]}>
-            {customer?.first_name?.[0] ||
-              customer?.email?.[0]?.toUpperCase() ||
-              'U'}
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.profileInfo}>
-        <Text style={[styles.profileName, { color: colors.text }]}>
-          {customer?.first_name
-            ? `${customer.first_name} ${customer.last_name || ''}`
-            : 'Welcome!'}
-        </Text>
-        <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
-          {customer?.email}
-        </Text>
-        {loyaltyPoints !== undefined && (
-          <View style={styles.loyaltyBadge}>
-            <Ionicons name="star" size={14} color="#FBBF24" />
-            <Text style={[styles.loyaltyText, { color: colors.text }]}>
-              {loyaltyPoints.toLocaleString()} points
+      <View style={styles.profileHeaderTop}>
+        {customer?.avatar_url ? (
+          <Image source={{ uri: customer.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              { backgroundColor: BRAND.primaryLight },
+            ]}
+          >
+            <Text style={[styles.avatarInitials, { color: BRAND.primary }]}>
+              {customer?.first_name?.[0] ||
+                customer?.email?.[0]?.toUpperCase() ||
+                'U'}
             </Text>
           </View>
         )}
+
+        <View style={styles.profileInfo}>
+          <Text style={[styles.profileName, { color: colors.text }]}>
+            {customer?.first_name
+              ? `${customer.first_name} ${customer.last_name || ''}`
+              : 'Store Member'}
+          </Text>
+          <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
+            {customer?.email}
+          </Text>
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.settingsButton,
+            { borderColor: colors.border },
+            pressed && styles.settingsButtonPressed,
+          ]}
+          onPress={() => router.push('/profile/edit' as Href)}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.text} />
+        </Pressable>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.editButton,
-          { borderColor: colors.border },
-          pressed && styles.editButtonPressed,
-        ]}
-        onPress={() => router.push('/profile/edit' as any)}
-      >
-        <Ionicons name="pencil" size={16} color={colors.text} />
-      </Pressable>
+      {loyaltyPoints !== undefined && (
+        <View
+          style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}
+        >
+          <Ionicons name="sparkles" size={16} color={palette.amber[600]} />
+          <Text style={[styles.pointsText, { color: palette.amber[800] }]}>
+            Rewards Balance:{' '}
+            <Text style={{ fontWeight: '800' }}>
+              {loyaltyPoints.toLocaleString()} pts
+            </Text>
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -273,47 +401,45 @@ export default function AccountScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {customer ? (
-          <>
-            {renderProfileHeader()}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 60, paddingTop: 20 }}
+      >
+        {customer ? renderProfileHeader() : renderGuestView()}
 
-            <View
-              style={[styles.menuContainer, { backgroundColor: colors.card }]}
-            >
-              {menuItems.map(renderMenuItem)}
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.signOutButton,
-                { borderColor: colors.error },
-                pressed && styles.signOutButtonPressed,
-              ]}
-              onPress={handleSignOut}
-            >
-              <Ionicons name="log-out-outline" size={20} color={colors.error} />
-              <Text style={[styles.signOutText, { color: colors.error }]}>
-                Sign Out
+        {menuSections
+          .filter((section) => section.visible)
+          .map((section) => (
+            <View key={section.title} style={styles.sectionWrapper}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textSecondary }]}
+              >
+                {section.title}
               </Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            {renderGuestView()}
-
-            <View
-              style={[styles.menuContainer, { backgroundColor: colors.card }]}
-            >
-              {menuItems
-                .filter((item) => ['help', 'settings'].includes(item.id))
-                .map(renderMenuItem)}
+              <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+                {section.items.map((item, idx) =>
+                  renderMenuItem(item, idx === section.items.length - 1)
+                )}
+              </View>
             </View>
-          </>
+          ))}
+
+        {customer && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.logoutButton,
+              pressed && styles.logoutButtonPressed,
+            ]}
+            onPress={handleSignOut}
+          >
+            <Text style={[styles.logoutText, { color: colors.error }]}>
+              Sign Out Securely
+            </Text>
+          </Pressable>
         )}
 
-        <Text style={[styles.versionText, { color: colors.textSecondary }]}>
-          Ogabassey v1.0.0
+        <Text style={[styles.versionTag, { color: colors.textSecondary }]}>
+          ENVIRONMENT: PRODUCTION • VERSION 1.0.0
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -324,172 +450,218 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  guestContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 40,
+  sectionWrapper: {
+    marginTop: 32,
+    paddingHorizontal: 20,
   },
-  guestIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 12,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  guestCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    ...SHADOWS.lg,
+  },
+  guestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  guestIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginRight: 16,
+  },
+  guestInfo: {
+    flex: 1,
   },
   guestTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontWeight: '800',
+    marginBottom: 4,
+    fontFamily: 'Inter_700Bold',
   },
   guestSubtitle: {
     fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 24,
     lineHeight: 20,
+    opacity: 0.8,
   },
-  signInButton: {
+  guestActions: {
     width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
   },
-  signInButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  createAccountButton: {
+  primaryButton: {
     width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1.5,
+    ...SHADOWS.md,
   },
-  createAccountText: {
+  primaryButtonText: {
+    color: '#000000',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
   },
   profileHeader: {
+    marginHorizontal: 20,
+    borderRadius: 24,
+    padding: 24,
+    ...SHADOWS.md,
+  },
+  profileHeaderTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
   },
   avatar: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 22,
+    marginRight: 16,
   },
   avatarPlaceholder: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
   },
   avatarInitials: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   profileInfo: {
     flex: 1,
-    marginLeft: 16,
   },
   profileName: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 2,
+    fontFamily: 'Inter_700Bold',
   },
   profileEmail: {
     fontSize: 13,
-    marginBottom: 8,
   },
-  loyaltyBadge: {
+  pointsCard: {
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
-  loyaltyText: {
-    fontSize: 13,
-    fontWeight: '500',
+  pointsText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
-  editButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  editButtonPressed: {
+  settingsButtonPressed: {
     opacity: 0.7,
   },
-  menuContainer: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
+  menuCard: {
+    borderRadius: 24,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    ...SHADOWS.sm,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    justifyContent: 'space-between',
+    paddingVertical: 18,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    width: '100%',
+    minHeight: 72,
   },
   menuItemPressed: {
-    opacity: 0.7,
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
-  menuIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  menuIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
+    flexShrink: 0,
+  },
+  menuTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   menuLabel: {
-    flex: 1,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  menuSubLabel: {
+    fontSize: 12,
     fontWeight: '500',
-    marginLeft: 12,
+    opacity: 0.7,
+  },
+  menuItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    marginLeft: 'auto',
   },
   badge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     marginRight: 8,
+    flexShrink: 0,
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
   },
-  signOutButton: {
-    flexDirection: 'row',
+  logoutButton: {
+    marginTop: 48,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
+    paddingVertical: 12,
   },
-  signOutButtonPressed: {
-    opacity: 0.7,
+  logoutButtonPressed: {
+    opacity: 0.6,
   },
-  signOutText: {
+  logoutText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
-  versionText: {
+  versionTag: {
     textAlign: 'center',
-    fontSize: 12,
-    marginTop: 24,
-    marginBottom: 32,
+    fontSize: 10,
+    marginTop: 40,
+    letterSpacing: 2,
+    fontWeight: '700',
+    opacity: 0.4,
   },
 });

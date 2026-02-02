@@ -9,7 +9,10 @@ import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
+import {
+  calculatePlatformFee,
+  verifyTransaction as verifyPaystackPayment,
+} from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
@@ -139,8 +142,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // Parse the verified payload
-    const body = JSON.parse(rawBody);
+    // 2026 Critical Fix: Parse the verified payload with error handling
+    // Even with valid signature, malformed JSON could crash the webhook
+    // Define expected webhook payload structure
+    interface WebhookPayload {
+      event?: string;
+      status?: string;
+      reference?: string;
+      data?: {
+        reference?: string;
+        [key: string]: unknown;
+      };
+      [key: string]: unknown;
+    }
+
+    let body: WebhookPayload;
+    try {
+      body = JSON.parse(rawBody) as WebhookPayload;
+    } catch (parseError) {
+      logger.error({
+        message: 'Failed to parse webhook JSON body',
+        gateway,
+        error:
+          parseError instanceof Error
+            ? parseError.message
+            : 'Unknown parse error',
+        rawBodyPreview: rawBody.substring(0, 200), // Log first 200 chars for debugging
+      });
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     logger.info({
       message: `Payment webhook received from ${gateway} (signature verified)`,
@@ -155,7 +185,7 @@ export async function POST(request: NextRequest) {
     if (gateway === 'paystack') {
       // Paystack webhook structure: { event: 'charge.success', data: { reference, ... } }
       const event = body.event;
-      reference = body.data?.reference;
+      reference = body.data?.reference ?? '';
 
       isSuccessEvent = event === 'charge.success';
 
@@ -169,7 +199,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Korapay webhook structure: { reference, status, event, ... }
-      reference = body.reference;
+      reference = body.reference ?? '';
       const event = body.event;
       const status = body.status;
 
@@ -231,26 +261,22 @@ export async function POST(request: NextRequest) {
 
     // ============================================
     // CHAT ORDER HANDLING (Virtual Account Payments)
+    // 2026 Best Practice: Unified Order Flow
+    // Chat orders are now converted to standard orders on payment
     // ============================================
-    // Check if this is a chat order payment (CHAT-* prefix)
     if (reference.startsWith('CHAT-')) {
       logger.info({
-        message: 'Processing chat order payment',
+        message: 'Processing chat order payment - unified flow',
         reference,
         gateway,
       });
 
-      // Find and update the chat order
+      // Find the pending chat order
       const { data: chatOrder, error: chatOrderError } = await supabase
         .from('chat_orders')
-        .update({
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .select('*')
         .eq('payment_reference', reference)
         .eq('status', 'pending_payment')
-        .select()
         .single();
 
       if (chatOrderError || !chatOrder) {
@@ -260,24 +286,289 @@ export async function POST(request: NextRequest) {
           error: chatOrderError,
         });
         // Don't fail - might be a regular order with CHAT prefix by coincidence
+        // Fall through to standard order handling
       } else {
-        logger.info({
-          message: 'Chat order payment confirmed',
-          orderId: chatOrder.id,
-          reference,
+        // Parse items from JSONB
+        const chatItems = (chatOrder.items || []) as Array<{
+          product_id: string;
+          variant_id?: string;
+          name: string;
+          quantity: number;
+          price: number;
+          image_url?: string;
+        }>;
+
+        // Generate order number
+        const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+
+        // Create standard order from chat order
+        const { data: newOrder, error: orderCreateError } = await supabase
+          .from('orders')
+          .insert({
+            merchant_id: chatOrder.merchant_id,
+            customer_id: chatOrder.customer_id || null,
+            customer_name: chatOrder.customer_name,
+            customer_email: chatOrder.customer_email,
+            customer_phone: chatOrder.customer_phone,
+            shipping_address: chatOrder.shipping_address,
+            order_number: orderNumber,
+            subtotal: chatOrder.subtotal,
+            shipping_fee: chatOrder.shipping_fee || 0,
+            total: (
+              Number(chatOrder.subtotal) + Number(chatOrder.shipping_fee || 0)
+            ).toString(),
+            payment_status: 'paid',
+            shipping_status: 'processing',
+            payment_method: 'bank_transfer',
+            currency: 'NGN',
+            notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
+            source: 'chat',
+          })
+          .select()
+          .single();
+
+        if (orderCreateError || !newOrder) {
+          logger.error({
+            message: 'Failed to create order from chat order',
+            reference,
+            chatOrderId: chatOrder.id,
+            error: orderCreateError,
+          });
+          return NextResponse.json(
+            { error: 'Failed to create order' },
+            { status: 500 }
+          );
+        }
+
+        // Create order items
+        const orderItems = chatItems.map((item) => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          subtotal: item.quantity * item.price,
+          image_url: item.image_url || null,
+        }));
+
+        if (orderItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+
+          if (itemsError) {
+            logger.error({
+              message: 'Failed to create order items from chat order',
+              orderId: newOrder.id,
+              error: itemsError,
+            });
+          }
+        }
+
+        // Decrement stock for each item
+        for (const item of chatItems) {
+          try {
+            const { error: stockError } = await supabase.rpc(
+              'decrement_stock_on_order',
+              {
+                p_product_id: item.product_id,
+                p_variant_id: item.variant_id || null,
+                p_quantity: item.quantity,
+              }
+            );
+
+            if (stockError) {
+              logger.warn({
+                message: 'Stock decrement failed for chat order item',
+                productId: item.product_id,
+                error: stockError,
+              });
+            }
+          } catch (stockErr) {
+            logger.warn({
+              message: 'Stock decrement error',
+              productId: item.product_id,
+              error: stockErr,
+            });
+          }
+        }
+
+        // Create transaction record
+        const { error: txnError } = await supabase.from('transactions').insert({
+          merchant_id: chatOrder.merchant_id,
+          order_id: newOrder.id,
           amount: chatOrder.subtotal,
+          currency: 'NGN',
+          status: 'completed',
+          gateway: gateway,
+          gateway_reference: reference,
+          type: 'payment',
+          description: `Payment for order ${orderNumber} (via chat)`,
         });
 
-        // TODO: Emit Supabase Realtime event for frontend notification
-        // await supabase.channel(`chat-${chatOrder.session_id}`).send({
-        //   type: 'payment_confirmed',
-        //   order: chatOrder,
-        // });
+        if (txnError) {
+          logger.warn({
+            message: 'Failed to create transaction for chat order',
+            orderId: newOrder.id,
+            error: txnError,
+          });
+        }
+
+        // Update chat order with order link and status
+        await supabase
+          .from('chat_orders')
+          .update({
+            status: 'paid',
+            order_id: newOrder.id,
+            paid_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', chatOrder.id);
+
+        // Send push notification to merchant
+        try {
+          const orderAmount = Number(chatOrder.subtotal) || 0;
+          await notifyNewOrder(
+            chatOrder.merchant_id,
+            orderNumber,
+            chatOrder.customer_name || 'Customer',
+            orderAmount,
+            'NGN'
+          );
+          await notifyPaymentReceived(
+            chatOrder.merchant_id,
+            orderAmount,
+            'NGN',
+            orderNumber
+          );
+        } catch (pushErr) {
+          logger.warn({
+            message: 'Push notification failed for chat order',
+            error: pushErr,
+          });
+        }
+
+        // Send order confirmation email
+        try {
+          const { data: merchantDetails } = await supabase
+            .from('merchants')
+            .select(
+              'business_name, slug, support_email, email_sender_name, email'
+            )
+            .eq('id', chatOrder.merchant_id)
+            .single();
+
+          if (merchantDetails && chatOrder.customer_email) {
+            const rootDomain =
+              process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+            const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
+
+            const emailItems = chatItems.map((item) => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+            }));
+
+            const shippingAddr = chatOrder.shipping_address as {
+              address?: string;
+              city?: string;
+              state?: string;
+            } | null;
+
+            const emailData = {
+              orderNumber,
+              customerName: chatOrder.customer_name || 'Customer',
+              items: emailItems,
+              subtotal: Number(chatOrder.subtotal),
+              shippingFee: Number(chatOrder.shipping_fee || 0),
+              total:
+                Number(chatOrder.subtotal) +
+                Number(chatOrder.shipping_fee || 0),
+              shippingAddress: {
+                address: shippingAddr?.address || '',
+                city: shippingAddr?.city || '',
+                state: shippingAddr?.state || '',
+                phone: chatOrder.customer_phone || '',
+              },
+              merchantName: merchantDetails.business_name,
+              merchantUrl,
+            };
+
+            const htmlContent = generateOrderConfirmationEmail(emailData);
+            const textContent = generateOrderConfirmationText(emailData);
+
+            const replyToEmail =
+              merchantDetails.support_email ||
+              merchantDetails.email ||
+              `support@${merchantDetails.slug}.${rootDomain}`;
+            const senderName = merchantDetails.email_sender_name
+              ? `${merchantDetails.email_sender_name} Orders`
+              : merchantDetails.business_name
+                ? `${merchantDetails.business_name} Orders`
+                : undefined;
+
+            await sendEmail({
+              to: chatOrder.customer_email,
+              toName: chatOrder.customer_name || 'Customer',
+              subject: `Order Confirmation - #${orderNumber}`,
+              htmlContent,
+              textContent,
+              replyTo: replyToEmail,
+              emailType: 'orders',
+              fromName: senderName,
+            });
+
+            logger.info({
+              message: 'Chat order confirmation email sent',
+              orderId: newOrder.id,
+            });
+          }
+        } catch (emailErr) {
+          logger.warn({
+            message: 'Email failed for chat order',
+            error: emailErr,
+          });
+        }
+
+        // Record settlement for merchant wallet
+        try {
+          const grossAmount = Number(chatOrder.subtotal) || 0;
+          const platformFee =
+            calculatePlatformFee(grossAmount * 100).platformFee / 100;
+
+          await supabase.rpc('record_merchant_settlement', {
+            p_merchant_id: chatOrder.merchant_id,
+            p_source_type: 'order',
+            p_source_id: newOrder.id,
+            p_gateway: gateway,
+            p_gateway_reference: reference,
+            p_gross_amount: grossAmount,
+            p_gateway_fee: 0,
+            p_platform_fee: platformFee,
+            p_description: `Chat order payment via ${gateway}`,
+          });
+        } catch (settlementErr) {
+          logger.warn({
+            message: 'Settlement recording failed for chat order',
+            error: settlementErr,
+          });
+        }
+
+        logger.info({
+          message: 'Chat order converted to standard order successfully',
+          chatOrderId: chatOrder.id,
+          newOrderId: newOrder.id,
+          orderNumber,
+          reference,
+        });
 
         return NextResponse.json({
           success: true,
-          message: 'Chat order payment processed',
-          orderId: chatOrder.id,
+          message:
+            'Chat order payment processed and converted to standard order',
+          orderId: newOrder.id,
+          orderNumber,
         });
       }
     }
@@ -583,7 +874,7 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               order
             );
-          } catch (_err) {
+          } catch {
             // Errors are already logged inside triggerPurchaseConversion
             // This catch prevents unhandled rejections in the background task
           }
@@ -593,11 +884,13 @@ export async function POST(request: NextRequest) {
 
     // Record settlement for merchant wallet tracking
     try {
-      // Calculate fees (platform takes 1.5% for example)
+      // Calculate fees using proper platform fee structure (2% capped at ₦2,050)
       const grossAmount = Number(transaction.amount) || 0;
       const gatewayFee = Number(transaction.gateway_fee) || 0;
+      // Use stored platform fee if available, otherwise calculate using proper formula
       const platformFee =
-        Number(transaction.platform_fee) || grossAmount * 0.015;
+        Number(transaction.platform_fee) ||
+        calculatePlatformFee(grossAmount * 100).platformFee / 100; // Convert to/from kobo
 
       const { error: settlementError } = await supabase.rpc(
         'record_merchant_settlement',
@@ -661,23 +954,74 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint to manually verify a payment
+/**
+ * GET endpoint to manually verify a payment
+ *
+ * Security: Requires authentication to prevent:
+ * - Information disclosure (probing for valid payment references)
+ * - Gateway rate limit abuse
+ * - Payment reference enumeration attacks
+ *
+ * Only authenticated merchants can verify their own transactions.
+ */
 export async function GET(request: NextRequest) {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Require authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('reference');
-    // Gateway selection from query param with safe default
-    // lgtm[js/user-controlled-bypass]
-    const gateway = (searchParams.get('gateway') ||
-      'paystack') as PaymentGateway;
 
-    // Input validation - intentional guard
-    // lgtm[js/user-controlled-bypass]
-    // codeql[js/user-controlled-bypass-of-security-check]
+    // Validate gateway parameter against allowed values
+    const gatewayParam = searchParams.get('gateway');
+    const gateway: PaymentGateway =
+      gatewayParam === 'korapay' ? 'korapay' : 'paystack';
+
+    // Input validation for reference parameter
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
+    // SECURITY: Get merchant first to establish authorization context
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Merchant account not found' },
+        { status: 403 }
+      );
+    }
+
+    // SECURITY: Query transaction with BOTH reference AND merchant_id
+    // This prevents IDOR attacks - user can only access their own transactions
+    const { data: transaction } = await supabase
+      .from('transactions')
+      .select('id, merchant_id')
+      .eq('gateway_reference', reference)
+      .eq('merchant_id', merchant.id) // Authorization enforced in query
+      .single();
+
+    if (!transaction) {
+      // Could be either not found OR not owned by this merchant - don't reveal which
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
+    }
+
+    // Transaction verified to belong to authenticated merchant
     const paymentData =
       gateway === 'paystack'
         ? await verifyPaystackPayment(reference)

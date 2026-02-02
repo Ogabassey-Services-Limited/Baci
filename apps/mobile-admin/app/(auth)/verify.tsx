@@ -17,8 +17,6 @@ import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 
 export default function VerifyScreen() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeInterval = React.useRef<any>(null);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
@@ -26,22 +24,64 @@ export default function VerifyScreen() {
   const [showSuccess, setShowSuccess] = useState(false); // Custom success state
   const [timer, setTimer] = useState(30); // 30s countdown for resend
   const inputs = useRef<Array<TextInput | null>>([]);
-  // const { refreshSession } = useAuth(); // Not needed as useAuth listens to state changes
 
+  // Refs for proper cleanup
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup all timers on unmount
   useEffect(() => {
-    if (activeInterval.current) clearInterval(activeInterval.current);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
-    if (timer > 0) {
-      activeInterval.current = setInterval(() => setTimer((t) => t - 1), 1000);
+  // Extract the condition to a variable for proper static analysis
+  const isTimerActive = timer > 0;
+
+  // Timer countdown effect - only start interval when timer > 0
+  useEffect(() => {
+    // Clear any existing interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (isTimerActive) {
+      intervalRef.current = setInterval(() => {
+        if (isMountedRef.current) {
+          setTimer((t) => {
+            if (t <= 1) {
+              // Clear interval when timer reaches 0
+              if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+              }
+              return 0;
+            }
+            return t - 1;
+          });
+        }
+      }, 1000);
     }
 
     return () => {
-      if (activeInterval.current) {
-        clearInterval(activeInterval.current);
-        activeInterval.current = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [timer]);
+  }, [isTimerActive]); // Only re-run when timer transitions between 0 and >0
 
   const handleCodeChange = (text: string, index: number) => {
     const newCode = [...code];
@@ -216,9 +256,16 @@ export default function VerifyScreen() {
               style={styles.successButton}
               onPress={() => {
                 router.dismissAll();
+                // Clear any existing navigation timeout
+                if (navigationTimeoutRef.current) {
+                  clearTimeout(navigationTimeoutRef.current);
+                }
                 // Small delay to ensure modal dismissal doesn't conflict with navigation
-                setTimeout(() => {
-                  router.replace('/(admin)/(tabs)');
+                navigationTimeoutRef.current = setTimeout(() => {
+                  if (isMountedRef.current) {
+                    router.replace('/(admin)/(tabs)');
+                  }
+                  navigationTimeoutRef.current = null;
                 }, 100);
               }}
             >

@@ -21,7 +21,7 @@ import { sendEmail } from '@/lib/zeptomail';
 
 // GIGL-specific shipment creation logic is now in its own function
 interface OrderItem {
-  value: number;
+  value?: number;
   quantity: number;
   product_id?: string;
   productId?: string;
@@ -29,6 +29,7 @@ interface OrderItem {
   name?: string;
   productName?: string;
   price?: number;
+  negotiatedPrice?: number;
 }
 
 interface CustomerInfo {
@@ -67,10 +68,10 @@ async function handleGiglShipment(
       },
       ShipmentDetails: { VehicleType: 1, IsFromAgility: 0, IsBatchPickUp: 0 },
       ShipmentItems: order.items.map(
-        (item: { value: number; quantity: number }) => ({
+        (item: { value?: number; quantity: number; price?: number }) => ({
           SpecialPackageId: 10,
           Quantity: item.quantity,
-          Value: item.value,
+          Value: item.value ?? item.price ?? 0,
           ShipmentType: 0, // Special
         })
       ),
@@ -211,7 +212,30 @@ export async function POST(request: NextRequest) {
       customer_email: z.string().email(),
       customer_name: z.string().min(1),
       customer_phone: z.string().optional(),
-      items: z.array(z.any()).min(1), // TODO: Strict items schema
+      items: z
+        .array(
+          z
+            .object({
+              product_id: z.string().optional(),
+              productId: z.string().optional(),
+              id: z.string().optional(),
+              name: z.string().min(1),
+              productName: z.string().optional(),
+              quantity: z.number().int().positive(),
+              price: z.number().nonnegative(),
+              negotiatedPrice: z.number().nonnegative().optional(),
+              value: z.number().nonnegative().optional(),
+              has_assurance: z.boolean().optional(),
+              assurance_fee: z.number().nonnegative().optional(),
+              variantId: z.string().optional(),
+              variantAttributes: z.record(z.string()).optional(),
+            })
+            .refine((data) => data.product_id || data.productId || data.id, {
+              message:
+                'At least one product identifier (product_id, productId, or id) is required',
+            })
+        )
+        .min(1),
       subtotal: z.union([z.string(), z.number()]),
       shipping_fee: z.union([z.string(), z.number()]).default(0),
       discount_amount: z.union([z.string(), z.number()]).default(0),
@@ -310,10 +334,113 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate total
+    // Pre-checkout stock validation: Check all items have sufficient stock before creating order
+    // Pre-checkout stock validation: Check all items have sufficient stock before creating order
+    const productIds = items
+      .map((item) => item.product_id || item.productId || item.id)
+      .filter(Boolean);
+    const variantIds = items.map((item) => item.variantId).filter(Boolean);
+
+    if (productIds.length > 0) {
+      // Fetch product stock and variant stock in parallel
+      const [productsResponse, variantsResponse] = await Promise.all([
+        supabase
+          .from('products')
+          .select('id, name, stock_quantity')
+          .in('id', productIds),
+        variantIds.length > 0
+          ? supabase
+              .from('product_variants')
+              .select('id, product_id, stock_quantity')
+              .in('id', variantIds)
+          : Promise.resolve({
+              data: [] as {
+                id: string;
+                product_id: string;
+                stock_quantity: number;
+              }[],
+              error: null,
+            }),
+      ]);
+
+      const products = productsResponse.data;
+      const variants = variantsResponse.data;
+      const stockError = productsResponse.error || variantsResponse.error;
+
+      if (stockError) {
+        logger.error({
+          message: 'Failed to check product or variant stock',
+          error: stockError,
+        });
+        // Continue without stock check if query fails (graceful degradation)
+      } else if (products) {
+        const outOfStockItems: Array<{
+          name: string;
+          available: number;
+          requested: number;
+        }> = [];
+
+        for (const item of items) {
+          const itemProductId = item.product_id || item.productId || item.id;
+          const itemVariantId = item.variantId;
+
+          let availableStock = 0;
+          let found = false;
+
+          // Check variant stock first if variantId is provided
+          if (itemVariantId && variants) {
+            const variant = variants.find((v) => v.id === itemVariantId);
+            if (variant) {
+              availableStock = variant.stock_quantity ?? 0;
+              found = true;
+            }
+          }
+
+          // Fallback to product stock if no variant or variant not found
+          if (!found) {
+            const product = products.find((p) => p.id === itemProductId);
+            if (product) {
+              availableStock = product.stock_quantity ?? 0;
+              found = true;
+            }
+          }
+
+          if (found) {
+            const requestedQty = item.quantity || 1;
+            if (availableStock < requestedQty) {
+              outOfStockItems.push({
+                name: item.name || 'Unknown Product',
+                available: availableStock,
+                requested: requestedQty,
+              });
+            }
+          }
+        }
+
+        if (outOfStockItems.length > 0) {
+          return NextResponse.json(
+            {
+              error: 'Insufficient stock',
+              details: outOfStockItems.map((i) =>
+                i.available === 0
+                  ? `${i.name} is out of stock`
+                  : `${i.name}: only ${i.available} available (requested ${i.requested})`
+              ),
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Calculate total (subtotal + shipping - discount)
+    const discountAmount = Number.parseFloat(
+      (body.discount_amount || 0).toString()
+    );
     const total =
       Number.parseFloat(subtotal.toString()) +
-      Number.parseFloat(shipping_fee.toString());
+      Number.parseFloat(shipping_fee.toString()) -
+      discountAmount;
 
     // Create or get customer record
     let customer_id = null;
@@ -499,7 +626,7 @@ export async function POST(request: NextRequest) {
           product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
           name: item.name || item.productName || 'Unknown Product',
           quantity: item.quantity || 1,
-          price: item.price || 0,
+          price: item.negotiatedPrice || item.price || 0, // Use negotiated price if available
           has_assurance: item.has_assurance || false,
           assurance_fee: item.assurance_fee || 0,
         })
@@ -528,11 +655,17 @@ export async function POST(request: NextRequest) {
         const stockUpdatePromises = orderItems
           .filter((item) => item.product_id)
           .map(async (item) => {
+            // Find the original item to get the variantId
+            const originalItem = items.find(
+              (i) => (i.product_id || i.productId || i.id) === item.product_id
+            );
+
             const { data: stockResult, error: stockError } = await supabase.rpc(
               'decrement_product_stock',
               {
                 product_id_param: item.product_id,
                 quantity_param: item.quantity,
+                variant_id_param: originalItem?.variantId || null,
               }
             );
 

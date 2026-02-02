@@ -1,7 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,10 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { BRAND, RADIUS } from '@/constants/Colors';
 
 interface FilterBarProps {
   categories: string[];
@@ -37,13 +33,13 @@ type FilterType = 'price' | 'brand' | 'condition' | 'rating';
 const CATEGORY_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
   All: 'grid',
   Phones: 'smartphone',
-  Gaming: 'target', // Gamepad icon in Feather is missing, using target or similar? Feather has 'disc' or 'target' or 'box'. Let's use 'monitor' for generic or check Ionicons.
+  Smartphones: 'smartphone',
+  Gaming: 'target',
   Laptops: 'monitor',
   Accessories: 'headphones',
   Printers: 'printer',
+  TVs: 'tv',
 };
-
-// Fallback for Gaming to Ionicons if needed, but keeping simple for now.
 
 export function FilterBar({
   categories,
@@ -62,15 +58,15 @@ export function FilterBar({
   viewMode,
   onViewModeChange,
 }: FilterBarProps) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
-  const [activeFilterType, setActiveFilterType] = useState<FilterType | null>(
-    null
+
+  const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [tempMinPrice, setTempMinPrice] = useState(
+    minPrice > 0 ? minPrice.toString() : ''
   );
-  const [tempMinPrice, setTempMinPrice] = useState(minPrice.toString());
   const [tempMaxPrice, setTempMaxPrice] = useState(
-    maxPrice > 0 ? maxPrice.toString() : ''
+    maxPrice < 3000000 ? maxPrice.toString() : ''
   );
 
   const getActiveFilterLabel = () => {
@@ -88,44 +84,44 @@ export function FilterBar({
     }
   };
 
-  const renderFilterContent = () => {
+  const renderActiveControls = () => {
     switch (activeFilterType) {
       case 'price':
         return (
-          <View style={styles.priceContainer}>
-            <View style={styles.priceInputWrapper}>
-              <Text style={styles.currencySymbol}>₦</Text>
+          <View style={styles.priceRow}>
+            <View style={styles.priceField}>
+              <Text style={styles.currency}>₦</Text>
               <TextInput
                 style={styles.priceInput}
                 value={tempMinPrice}
                 onChangeText={setTempMinPrice}
-                placeholder="Min"
+                placeholder="0"
                 keyboardType="numeric"
-                returnKeyType="done"
-                onSubmitEditing={() =>
+                onBlur={() =>
                   onPriceChange(
                     Number(tempMinPrice) || 0,
-                    Number(tempMaxPrice) || 0
+                    Number(tempMaxPrice) || 3000000
                   )
                 }
+                placeholderTextColor="#9CA3AF"
               />
             </View>
-            <Text style={styles.priceDash}>-</Text>
-            <View style={styles.priceInputWrapper}>
-              <Text style={styles.currencySymbol}>₦</Text>
+            <Text style={styles.dash}>-</Text>
+            <View style={styles.priceField}>
+              <Text style={styles.currency}>₦</Text>
               <TextInput
                 style={styles.priceInput}
                 value={tempMaxPrice}
                 onChangeText={setTempMaxPrice}
                 placeholder="Max"
                 keyboardType="numeric"
-                returnKeyType="done"
-                onSubmitEditing={() =>
+                onBlur={() =>
                   onPriceChange(
                     Number(tempMinPrice) || 0,
-                    Number(tempMaxPrice) || 0
+                    Number(tempMaxPrice) || 3000000
                   )
                 }
+                placeholderTextColor="#9CA3AF"
               />
             </View>
           </View>
@@ -135,44 +131,56 @@ export function FilterBar({
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
+            style={styles.brandScroll}
+            contentContainerStyle={styles.brandScrollContent}
           >
-            {['All', ...brands].map((brand) => (
-              <Pressable
-                key={brand}
-                onPress={() => onSelectBrand(brand)}
-                style={[
-                  styles.filterChip,
-                  selectedBrand === brand
-                    ? styles.filterChipActive
-                    : styles.filterChipInactive,
-                ]}
-              >
-                <Text
+            {['All', ...brands].map((brand) => {
+              const isActive = selectedBrand === brand;
+              return (
+                <Pressable
+                  key={brand}
+                  onPress={() => onSelectBrand(brand)}
                   style={[
-                    styles.filterChipText,
-                    selectedBrand === brand
-                      ? styles.filterChipTextActive
-                      : styles.filterChipTextInactive,
+                    styles.brandChip,
+                    isActive
+                      ? styles.brandChipActive
+                      : styles.brandChipInactive,
                   ]}
+                  hitSlop={6}
                 >
-                  {brand}
-                </Text>
-              </Pressable>
-            ))}
+                  <Feather
+                    name="grid"
+                    size={13}
+                    color={isActive ? '#FFF' : '#6B7280'}
+                    style={styles.brandChipIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.brandChipText,
+                      isActive
+                        ? styles.brandChipTextActive
+                        : styles.brandChipTextInactive,
+                    ]}
+                  >
+                    {brand}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         );
       case 'condition':
         return (
-          <View style={styles.segmentContainer}>
+          <View style={styles.conditionSegment}>
             {['All', 'New', 'Open Box', 'Used'].map((condition) => (
               <Pressable
                 key={condition}
                 onPress={() => onSelectCondition(condition)}
                 style={[
-                  styles.segmentButton,
-                  selectedCondition === condition && styles.segmentButtonActive,
+                  styles.segmentItem,
+                  selectedCondition === condition && styles.segmentItemActive,
                 ]}
+                hitSlop={6}
               >
                 <Text
                   style={[
@@ -197,10 +205,9 @@ export function FilterBar({
                 }
                 style={[
                   styles.ratingChip,
-                  minRating === rating
-                    ? styles.ratingChipActive
-                    : styles.ratingChipInactive,
+                  minRating === rating && styles.ratingChipActive,
                 ]}
+                hitSlop={6}
               >
                 <Text
                   style={[
@@ -212,16 +219,16 @@ export function FilterBar({
                 </Text>
                 <Ionicons
                   name="star"
-                  size={12}
-                  color={minRating === rating ? '#B45309' : '#9CA3AF'}
+                  size={10}
+                  color={minRating === rating ? '#B45309' : '#F59E0B'}
                 />
               </Pressable>
             ))}
-            <Pressable onPress={() => onSelectRating(0)}>
+            <Pressable onPress={() => onSelectRating(0)} hitSlop={8}>
               <Text
                 style={[
-                  styles.ratingAnyText,
-                  minRating === 0 && styles.ratingAnyTextActive,
+                  styles.anyText,
+                  minRating === 0 && styles.anyTextActive,
                 ]}
               >
                 Any
@@ -229,142 +236,165 @@ export function FilterBar({
             </Pressable>
           </View>
         );
-      default:
-        return null;
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Category Horizontal Scroll */}
+      {/* Backdrop for dismissal */}
+      {isFilterMenuOpen && (
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => setIsFilterMenuOpen(false)}
+        />
+      )}
+      {/* Category Row */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryScroll}
-        style={styles.categoryScrollWrapper}
+        contentContainerStyle={styles.categoryContent}
+        style={styles.categoryList}
       >
-        {categories.map((category) => {
-          const iconName = CATEGORY_ICONS[category] || 'grid';
-          const isActive = selectedCategory === category;
+        {categories.map((cat) => {
+          const isActive = selectedCategory === cat;
+          const icon = CATEGORY_ICONS[cat] || 'grid';
           return (
             <Pressable
-              key={category}
-              onPress={() => onSelectCategory(category)}
-              style={[
-                styles.categoryPill,
-                isActive && styles.categoryPillActive,
-              ]}
+              key={cat}
+              onPress={() => onSelectCategory(cat)}
+              style={[styles.catPill, isActive && styles.catPillActive]}
+              hitSlop={8}
             >
               <Feather
-                name={iconName}
-                size={14}
+                name={icon}
+                size={15}
                 color={isActive ? '#FFF' : '#4B5563'}
               />
               <Text
-                style={[
-                  styles.categoryText,
-                  isActive && styles.categoryTextActive,
-                ]}
+                style={[styles.catText, isActive && styles.catTextActive]}
+                numberOfLines={1}
               >
-                {category}
+                {cat}
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
-      {/* Tools Row: Filter Toggle + Active Filters + View Mode */}
-      <View style={styles.toolsRow}>
-        {/* Main Filter Toggle */}
-        <Pressable
-          style={styles.filterToggle}
-          onPress={() => setActiveFilterType(activeFilterType ? null : 'price')} // Toggle or default to price
-        >
-          <Feather name="sliders" size={16} color={BRAND.primary} />
-          <Text style={styles.filterToggleText}>
-            {activeFilterType ? getActiveFilterLabel() : 'Filter'}
-          </Text>
-          <Feather
-            name="chevron-down"
-            size={14}
-            color={BRAND.primary}
-            style={{
-              transform: [{ rotate: activeFilterType ? '180deg' : '0deg' }],
-            }}
-          />
-        </Pressable>
-
-        <View style={styles.divider} />
-
-        {/* Dynamic Filter Area */}
-        <View style={{ flex: 1, paddingLeft: 8 }}>
-          {!activeFilterType ? (
-            // Show Quick Chips when menu closed
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+      {/* Tools Section */}
+      <View style={styles.toolsContainer}>
+        <View style={styles.mainTools}>
+          {/* Filter Toggle */}
+          <View style={styles.filterWrapper}>
+            <Pressable
+              onPress={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+              style={styles.filterToggle}
+              hitSlop={12}
             >
-              {[
-                { id: 'price', label: 'Price' },
-                { id: 'brand', label: 'Brand' },
-                { id: 'condition', label: 'Condition' },
-                { id: 'rating', label: 'Rating' },
-              ].map((f) => (
-                <Pressable
-                  key={f.id}
-                  onPress={() => setActiveFilterType(f.id as FilterType)}
-                  style={styles.quickChip}
-                >
-                  <Text style={styles.quickChipText}>{f.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            // Show Active Filter Content
-            renderFilterContent()
-          )}
-        </View>
+              <Feather name="sliders" size={16} color={BRAND.primary} />
+              <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
+              <Feather
+                name="chevron-down"
+                size={12}
+                color={BRAND.primary}
+                style={[
+                  styles.chevron,
+                  {
+                    transform: [
+                      { rotate: isFilterMenuOpen ? '180deg' : '0deg' },
+                    ],
+                  },
+                ]}
+              />
+            </Pressable>
 
-        {/* View Mode Toggle */}
-        <View style={styles.viewToggle}>
-          <Pressable
-            onPress={() => onViewModeChange('grid')}
-            style={[
-              styles.viewIcon,
-              viewMode === 'grid' && styles.viewIconActive,
-            ]}
-          >
-            <Feather
-              name="grid"
-              size={16}
-              color={viewMode === 'grid' ? BRAND.primary : '#9CA3AF'}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => onViewModeChange('list')}
-            style={[
-              styles.viewIcon,
-              viewMode === 'list' && styles.viewIconActive,
-            ]}
-          >
-            <Feather
-              name="list"
-              size={16}
-              color={viewMode === 'list' ? BRAND.primary : '#9CA3AF'}
-            />
-          </Pressable>
-        </View>
+            {/* Filter Menu Popover */}
+            {isFilterMenuOpen && (
+              <View style={styles.popover}>
+                {[
+                  { id: 'price', label: 'Price Range', icon: 'tag' },
+                  { id: 'brand', label: 'Brand', icon: 'layers' },
+                  { id: 'condition', label: 'Condition', icon: 'check-circle' },
+                  { id: 'rating', label: 'Rating', icon: 'star' },
+                ].map((item) => (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => {
+                      setActiveFilterType(item.id as FilterType);
+                      setIsFilterMenuOpen(false);
+                    }}
+                    style={[
+                      styles.popoverItem,
+                      activeFilterType === item.id && styles.popoverItemActive,
+                    ]}
+                  >
+                    <Feather
+                      name={item.icon as keyof typeof Feather.glyphMap}
+                      size={16}
+                      color={
+                        activeFilterType === item.id ? BRAND.primary : '#6B7280'
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.popoverText,
+                        activeFilterType === item.id &&
+                        styles.popoverTextActive,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {activeFilterType === item.id && (
+                      <Feather
+                        name="check"
+                        size={14}
+                        color={BRAND.primary}
+                        style={styles.checkIcon}
+                      />
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
 
-        {/* Close Active Filter Button (small X) */}
-        {activeFilterType && (
-          <Pressable
-            onPress={() => setActiveFilterType(null)}
-            style={{ padding: 8 }}
-          >
-            <Ionicons name="close-circle" size={20} color={colors.text} />
-          </Pressable>
-        )}
+          <View style={styles.vDivider} />
+
+          {/* Dynamic Controls Area */}
+          <View style={styles.dynamicArea}>{renderActiveControls()}</View>
+
+          {/* View Toggle */}
+          <View style={styles.viewToggle}>
+            <Pressable
+              onPress={() => onViewModeChange('grid')}
+              style={[
+                styles.viewBtn,
+                viewMode === 'grid' && styles.viewBtnActive,
+              ]}
+              hitSlop={8}
+            >
+              <Feather
+                name="grid"
+                size={15}
+                color={viewMode === 'grid' ? BRAND.primary : '#9CA3AF'}
+              />
+            </Pressable>
+            <Pressable
+              onPress={() => onViewModeChange('list')}
+              style={[
+                styles.viewBtn,
+                viewMode === 'list' && styles.viewBtnActive,
+              ]}
+              hitSlop={8}
+            >
+              <Feather
+                name="list"
+                size={15}
+                color={viewMode === 'list' ? BRAND.primary : '#9CA3AF'}
+              />
+            </Pressable>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -375,154 +405,239 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    paddingBottom: 8,
+    zIndex: 1000,
+    elevation: 4,
+    paddingBottom: 4,
   },
-  categoryScrollWrapper: {
+  // Categories
+  categoryList: {
     borderBottomWidth: 1,
     borderBottomColor: '#F9FAFB',
   },
-  categoryScroll: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  categoryContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 8,
   },
-  categoryPill: {
+  catPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 99,
     backgroundColor: '#FFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 6,
   },
-  categoryPillActive: {
+  catPillActive: {
     backgroundColor: BRAND.primary,
     borderColor: BRAND.primary,
+    shadowColor: BRAND.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  categoryText: {
+  catText: {
     fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
     fontFamily: 'serif',
-    color: '#4B5563',
-    fontWeight: '500',
   },
-  categoryTextActive: {
+  catTextActive: {
     color: '#FFF',
   },
-  toolsRow: {
+  // Tools Row
+  toolsContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    zIndex: 2000,
+  },
+  mainTools: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    height: 44, // Fixed height for alignment
+    gap: 10,
+    zIndex: 2000,
+  },
+  filterWrapper: {
+    position: 'relative',
+    zIndex: 3000,
+    elevation: 20,
   },
   filterToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
-  filterToggleText: {
-    fontSize: 13,
-    fontFamily: 'serif',
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: '800',
     color: BRAND.primary,
-    fontWeight: '700',
+    fontFamily: 'serif',
   },
-  divider: {
+  chevron: {
+    marginTop: 1,
+  },
+  popover: {
+    position: 'absolute',
+    top: 42,
+    left: 0,
+    width: 200,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 25,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    zIndex: 4000,
+  },
+  popoverItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 10,
+  },
+  popoverItemActive: {
+    backgroundColor: '#FEF2F2',
+  },
+  popoverText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+    fontFamily: 'serif',
+  },
+  popoverTextActive: {
+    color: BRAND.primary,
+    fontWeight: '800',
+  },
+  checkIcon: {
+    marginLeft: 'auto',
+  },
+  vDivider: {
     width: 1,
     height: 24,
     backgroundColor: '#E5E7EB',
-    marginHorizontal: 10,
   },
-  // Filter Inputs
-  priceContainer: {
+  dynamicArea: {
+    flex: 1,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  // Active Controls
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    flex: 1,
+    gap: 6,
   },
-  priceInputWrapper: {
+  priceField: {
     flex: 1,
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 8,
     height: 32,
   },
-  currencySymbol: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    fontSize: 10,
+  currency: {
+    fontSize: 11,
     color: '#6B7280',
-    fontFamily: 'serif',
+    fontWeight: '700',
+    marginRight: 2,
   },
   priceInput: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 6,
-    paddingLeft: 20,
-    paddingRight: 4,
     fontSize: 12,
-    fontFamily: 'serif',
-    color: '#111827',
-  },
-  priceDash: {
-    color: '#D1D5DB',
-  },
-  chipRow: {
-    gap: 6,
-  },
-  filterChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFF',
-  },
-  filterChipActive: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
-  },
-  filterChipInactive: {},
-  filterChipText: {
-    fontSize: 11,
-    fontFamily: 'serif',
     fontWeight: '700',
-    color: '#4B5563',
+    color: '#111827',
+    padding: 0,
+    fontFamily: 'serif',
   },
-  filterChipTextActive: {
+  dash: {
+    color: '#D1D5DB',
+    fontWeight: '700',
+    fontSize: 10,
+  },
+  brandScroll: {
+    flexGrow: 0,
+  },
+  brandScrollContent: {
+    alignItems: 'center',
+    paddingRight: 4,
+  },
+  brandChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  brandChipActive: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  brandChipInactive: {
+    backgroundColor: '#FFF',
+    borderColor: '#E5E7EB',
+  },
+  brandChipIcon: {
+    marginRight: 6,
+  },
+  brandChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: 'serif',
+  },
+  brandChipTextActive: {
     color: '#FFF',
   },
-  filterChipTextInactive: {},
-  segmentContainer: {
+  brandChipTextInactive: {
+    color: '#4B5563',
+  },
+  conditionSegment: {
     flexDirection: 'row',
     backgroundColor: '#F3F4F6',
     padding: 2,
-    borderRadius: 8,
-    flex: 1,
+    borderRadius: 10,
   },
-  segmentButton: {
+  segmentItem: {
     flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 6,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  segmentButtonActive: {
+  segmentItemActive: {
     backgroundColor: '#FFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   segmentText: {
     fontSize: 10,
-    fontFamily: 'serif',
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#6B7280',
+    fontFamily: 'serif',
   },
   segmentTextActive: {
     color: '#111827',
@@ -530,70 +645,87 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   ratingChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 6,
+    gap: 4,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 8,
   },
   ratingChipActive: {
     backgroundColor: '#FEF3C7',
   },
-  ratingChipInactive: {
-    backgroundColor: 'transparent',
-  },
   ratingText: {
     fontSize: 11,
-    fontFamily: 'serif',
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#6B7280',
+    fontFamily: 'serif',
   },
   ratingTextActive: {
     color: '#B45309',
   },
-  ratingAnyText: {
+  anyText: {
     fontSize: 11,
-    fontFamily: 'serif',
     color: '#9CA3AF',
     textDecorationLine: 'underline',
+    fontWeight: '600',
   },
-  ratingAnyTextActive: {
+  anyTextActive: {
     color: '#111827',
+    fontWeight: '800',
   },
-  quickChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  quickChipText: {
-    fontSize: 10,
-    fontFamily: 'serif',
-    color: '#6B7280',
-  },
+  // View Toggle
   viewToggle: {
     flexDirection: 'row',
     backgroundColor: '#F3F4F6',
-    borderRadius: 8,
     padding: 2,
-    marginLeft: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  viewIcon: {
+  viewBtn: {
     padding: 6,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  viewIconActive: {
+  viewBtnActive: {
     backgroundColor: '#FFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: -500,
+    left: -500,
+    right: -500,
+    bottom: -1500,
+    backgroundColor: 'transparent',
+    zIndex: 105,
+  },
+  promoBanner: {
+    backgroundColor: '#FFF5F5',
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  promoText: {
+    fontSize: 13,
+    color: '#374151',
+    textAlign: 'center',
+    fontFamily: 'serif',
+    fontWeight: '600',
+  },
+  promoHighlight: {
+    color: BRAND.primary,
+    fontWeight: '900',
   },
 });

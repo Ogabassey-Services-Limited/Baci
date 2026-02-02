@@ -1,9 +1,5 @@
-/**
- * Menu Screen - Settings and More Options
- * Access to settings, support, and additional features
- */
-
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -20,7 +16,10 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { performLogoutCleanup } from '@/lib/logout';
 
 interface MenuItem {
   id: string;
@@ -41,8 +40,14 @@ interface MenuSection {
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { signOut } = useAuth();
-  const { merchant, storeUrl, isLive } = useMerchant();
+  const {
+    merchant: _merchant,
+    storeUrl: _storeUrl,
+    isLive: _isLive,
+  } = useMerchant();
   const { resetOnboarding } = useOnboarding();
+  const { isPro, customerInfo } = useRevenueCat();
+  const { unregisterPush } = usePushNotifications();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -52,8 +57,8 @@ export default function MenuScreen() {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
+          await performLogoutCleanup(unregisterPush);
           await signOut();
-          router.replace('/(auth)/login');
         },
       },
     ]);
@@ -199,14 +204,14 @@ export default function MenuScreen() {
           icon: 'person-outline',
           label: 'Profile',
           description: 'Your account details',
-          onPress: () => router.push('/profile'),
+          onPress: () => router.push('/(admin)/profile'),
         },
         {
           id: 'notifications',
           icon: 'notifications-outline',
           label: 'Notifications',
           description: 'Push notification settings',
-          onPress: () => router.push('/notifications'),
+          onPress: () => router.push('/(admin)/notifications'),
         },
         {
           id: 'logout',
@@ -228,6 +233,9 @@ export default function MenuScreen() {
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={item.onPress}
+      accessibilityLabel={item.description ? `${item.label}. ${item.description}` : item.label}
+      accessibilityRole="button"
+      accessibilityHint={`Navigate to ${item.label}`}
     >
       <View
         style={[
@@ -273,6 +281,96 @@ export default function MenuScreen() {
     </Pressable>
   );
 
+  const SubscriptionStatusCard = () => {
+    // Determine which entitlement is actually active to show its name/date
+    const activeEntitlement = Object.values(
+      customerInfo?.entitlements.active || {}
+    )[0];
+
+    const expiryDate = activeEntitlement?.expirationDate
+      ? new Date(activeEntitlement.expirationDate).toLocaleDateString(
+          undefined,
+          {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+          }
+        )
+      : null;
+
+    if (isPro) {
+      return (
+        <Pressable
+          style={[styles.subCardContainer, shadows.md]}
+          onPress={() => router.push('/(admin)/subscribe')}
+          accessibilityLabel={`Baci Pro Merchant subscription. ${expiryDate ? `Active until ${expiryDate}` : 'Active'}. Tap to manage subscription`}
+          accessibilityRole="button"
+          accessibilityHint="Opens subscription management"
+        >
+          <LinearGradient
+            colors={['#D62027', '#9B1014']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.subCardGradient}
+          >
+            <View style={styles.subCardMain}>
+              <View style={styles.subCardIconContainer}>
+                <Ionicons name="ribbon" size={28} color="#FFFFFF" />
+              </View>
+              <View style={styles.subCardInfo}>
+                <View style={styles.subCardStatusRow}>
+                  <Text style={styles.subCardTitle}>Baci Pro Merchant</Text>
+                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                </View>
+                <Text style={styles.subCardStatusText}>
+                  Active{expiryDate ? `: Valid till ${expiryDate}` : ''}
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color="rgba(255,255,255,0.7)"
+              />
+            </View>
+          </LinearGradient>
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable
+        style={[
+          styles.freeCardContainer,
+          { backgroundColor: colors.card },
+          shadows.sm,
+        ]}
+        onPress={() => router.push('/(admin)/subscribe')}
+        accessibilityLabel="Free Plan. Upgrade to Pro for more features"
+        accessibilityRole="button"
+        accessibilityHint="Opens subscription upgrade options"
+      >
+        <View
+          style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}
+        >
+          <Ionicons name="star" size={24} color={colors.gold} />
+        </View>
+        <View style={styles.freeCardContent}>
+          <Text style={[styles.freeCardTitle, { color: colors.text }]}>
+            Free Plan
+          </Text>
+          <Text
+            style={[styles.freeCardSubtitle, { color: colors.textSecondary }]}
+          >
+            Upgrade to Pro for more features
+          </Text>
+        </View>
+        <View style={[styles.freeCardBadge, { backgroundColor: colors.gold }]}>
+          <Text style={styles.freeCardBadgeText}>UPGRADE</Text>
+        </View>
+      </Pressable>
+    );
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -293,45 +391,8 @@ export default function MenuScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Store Preview Card */}
-        <Pressable
-          style={[
-            styles.storeCard,
-            { backgroundColor: colors.card },
-            shadows.sm,
-          ]}
-        >
-          <View
-            style={[styles.storeAvatar, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.storeAvatarText}>
-              {merchant?.business_name?.charAt(0).toUpperCase() || 'B'}
-            </Text>
-          </View>
-          <View style={styles.storeInfo}>
-            <Text style={[styles.storeName, { color: colors.text }]}>
-              {merchant?.business_name || 'Your Store'}
-            </Text>
-            <Text style={[styles.storeUrl, { color: colors.textSecondary }]}>
-              {storeUrl || 'mybaci.store'}
-            </Text>
-          </View>
-          {isLive && (
-            <View
-              style={[
-                styles.liveBadge,
-                { backgroundColor: colors.successLight },
-              ]}
-            >
-              <View
-                style={[styles.liveDot, { backgroundColor: colors.success }]}
-              />
-              <Text style={[styles.liveText, { color: colors.success }]}>
-                Live
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        {/* Subscription Card */}
+        <SubscriptionStatusCard />
 
         {/* Menu Sections */}
         {menuSections.map((section) => (
@@ -367,7 +428,7 @@ export default function MenuScreen() {
 
         {/* App Version */}
         <Text style={[styles.version, { color: colors.textMuted }]}>
-          Baci Admin v1.0.0
+          Baci Admin v1.1.0
         </Text>
 
         {/* DEV: Reset Onboarding */}
@@ -385,9 +446,23 @@ export default function MenuScreen() {
               marginBottom: SPACING['3xl'],
               backgroundColor: '#FEF3C7',
               borderColor: '#F59E0B',
+              minHeight: 44,
             }}
+            accessibilityLabel="Reset Onboarding for development testing"
+            accessibilityRole="button"
+            accessibilityHint="Resets onboarding state and returns to onboarding screen"
             onPress={async () => {
               await resetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => router.replace('/(auth)/onboarding'),
+                  },
+                ]
+              );
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />
@@ -419,6 +494,83 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: SPACING.lg,
     paddingTop: 0,
+  },
+  subCardContainer: {
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    marginBottom: SPACING.lg,
+  },
+  subCardGradient: {
+    padding: SPACING.lg,
+  },
+  subCardMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subCardIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  subCardInfo: {
+    flex: 1,
+  },
+  subCardStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  subCardTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    color: '#FFFFFF',
+  },
+  subCardStatusText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  freeCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.lg,
+  },
+  freeCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  freeCardContent: {
+    flex: 1,
+  },
+  freeCardTitle: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  freeCardSubtitle: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginTop: 2,
+  },
+  freeCardBadge: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  freeCardBadgeText: {
+    color: '#000000',
+    fontSize: 10,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   storeCard: {
     borderRadius: RADIUS.lg,
@@ -487,6 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
+    minHeight: 56,
   },
   menuIcon: {
     width: 40,

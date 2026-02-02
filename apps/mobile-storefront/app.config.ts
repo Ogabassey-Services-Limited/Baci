@@ -74,6 +74,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           'Allow the app to access your camera to scan QR codes.',
       },
     ],
+    [
+      'expo-build-properties',
+      {
+        ios: {
+          useFrameworks: 'static',
+        },
+      },
+    ],
+    './config/withFirebaseModularHeaders.js',
+    './config/withObjCLinkerFlag.js',
     'expo-localization',
   ],
   web: {

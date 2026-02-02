@@ -388,6 +388,8 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
           onSuccess={handleNegotiationSuccess}
+          type={negotiationState.type}
+          itemId={negotiationState.item?.cartItemId}
         />
       )}
     </div>

@@ -1,7 +1,6 @@
 'use client';
 
-import { ArrowLeft, Loader2, Mail, ShieldCheck } from 'lucide-react';
-import Image from 'next/image';
+import { ArrowLeft, Loader2, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -170,11 +169,15 @@ export function OgabasseyLoginPage() {
 
     return (
         <div
-            className="min-h-screen flex flex-col relative overflow-hidden bg-background"
+            className="min-h-screen flex flex-col relative overflow-hidden bg-[#FAFAFA]"
         >
-            {/* Subtle primary accent gradient at top */}
+            {/* Soft Red Gradient Background - Premium Brand Touch */}
+            <div className="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+
+            {/* Subtle primary accent line at top */}
             <div
-                className="absolute top-0 left-0 right-0 h-1 bg-primary"
+                className="absolute top-0 left-0 right-0 h-1.5 bg-[#D62027]"
             />
 
             {/* Header */}
@@ -237,7 +240,7 @@ export function OgabasseyLoginPage() {
 
                             <Button
                                 type="submit"
-                                className="w-full h-12 text-white rounded-xl font-semibold transition-colors bg-primary hover:bg-primary/90"
+                                className="w-full h-12 text-white rounded-xl font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] bg-[#D62027] hover:bg-[#D62027]/90 shadow-lg shadow-red-600/10"
                                 disabled={isSending || isGoogleLoading || !email}
                             >
                                 {isSending ? (

@@ -63,7 +63,7 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
   );
 
   // Track if we've completed hydration
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [_isHydrated, setIsHydrated] = useState(false);
 
   // On mount (client-side only), apply date-based default or cookie preference
   // This runs AFTER hydration to avoid mismatch

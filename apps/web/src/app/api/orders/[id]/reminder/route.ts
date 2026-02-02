@@ -145,7 +145,7 @@ export async function POST(
     };
 
     // 10. Send based on channel
-    let sendResult = { success: false, error: '' };
+    let sendResult: { success: boolean; error: string };
 
     if (channel === 'email' && order.customer_email) {
       try {

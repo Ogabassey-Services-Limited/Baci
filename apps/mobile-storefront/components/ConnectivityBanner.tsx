@@ -10,7 +10,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -27,6 +27,8 @@ export function ConnectivityBanner() {
   const insets = useSafeAreaInsets();
   const [bannerState, setBannerState] = useState<BannerState>('hidden');
   const wasOffline = useRef(false);
+  // Timer ref for auto-hide cleanup - prevents memory leaks (2026 Best Practice)
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Animation values
   const translateY = useSharedValue(-100);
@@ -46,24 +48,27 @@ export function ConnectivityBanner() {
     },
   };
 
-  const showBanner = (state: 'offline' | 'online') => {
-    setBannerState(state);
-    translateY.value = withTiming(0, {
-      duration: 300,
-      easing: Easing.out(Easing.cubic),
-    });
-    opacity.value = withTiming(1, { duration: 200 });
-  };
+  const showBanner = useCallback(
+    (state: 'offline' | 'online') => {
+      setBannerState(state);
+      translateY.value = withTiming(0, {
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+      });
+      opacity.value = withTiming(1, { duration: 200 });
+    },
+    [opacity, translateY]
+  );
 
-  const hideBanner = () => {
-    translateY.value = withTiming(-100, {
+  const hideBanner = useCallback(() => {
+    translateY.value = withTiming(100, {
       duration: 300,
       easing: Easing.in(Easing.cubic),
     });
     opacity.value = withTiming(0, { duration: 200 }, () => {
       runOnJS(setBannerState)('hidden');
     });
-  };
+  }, [opacity, translateY]);
 
   // Monitor network connectivity
   useEffect(() => {
@@ -72,17 +77,26 @@ export function ConnectivityBanner() {
       const isConnected = state.isConnected === true;
 
       if (!isConnected) {
-        // Going offline
+        // Going offline - clear any pending hide timer
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
         wasOffline.current = true;
         showBanner('offline');
       } else if (wasOffline.current) {
         // Coming back online after being offline
         showBanner('online');
 
+        // Clear any existing timer before setting a new one (2026 Best Practice)
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+        }
         // Auto-hide after 2 seconds
-        setTimeout(() => {
+        hideTimerRef.current = setTimeout(() => {
           hideBanner();
           wasOffline.current = false;
+          hideTimerRef.current = null;
         }, 2000);
       }
     });
@@ -97,7 +111,14 @@ export function ConnectivityBanner() {
       }
     });
 
-    return () => unsubscribe();
+    // Cleanup on unmount - prevents memory leaks
+    return () => {
+      unsubscribe();
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
   }, [hideBanner, showBanner]);
 
   const animatedStyle = useAnimatedStyle(() => ({

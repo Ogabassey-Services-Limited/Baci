@@ -1,77 +1,92 @@
 /**
- * Tab Layout for Ogabassey Store
- * Design aligned with Baci web app navigation
+ * Tab Layout - Matching Web MobileFooter Design
+ * Dark theme with pattern overlay, 5 navigation items
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ErrorFallback } from '@/components/ErrorBoundary';
+import { BRAND } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
+import { useSavedStore } from '@/stores/saved-store';
 
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof Ionicons>['name'];
-  color: string;
-  focused: boolean;
+export function ErrorBoundary({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry: () => void;
 }) {
-  return <Ionicons size={24} style={{ marginBottom: -2 }} {...props} />;
+  return <ErrorFallback error={error} retry={retry} />;
 }
 
-function CartIcon({ color, focused }: { color: string; focused: boolean }) {
-  const itemCount = useCartStore((state) => state.itemCount());
-
+function TabBarIcon({
+  name,
+  focused,
+  badge,
+}: {
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  focused: boolean;
+  badge?: number;
+}) {
   return (
-    <View style={styles.cartIconContainer}>
-      <Ionicons
-        name={focused ? 'cart' : 'cart-outline'}
-        size={24}
-        color={color}
-      />
-      {itemCount > 0 && (
-        <View style={styles.cartBadge}>
-          <Text style={styles.cartBadgeText}>
-            {itemCount > 99 ? '99+' : itemCount}
-          </Text>
-        </View>
-      )}
+    <View style={styles.iconContainer}>
+      <View style={[styles.iconInner, focused && styles.iconActiveBg]}>
+        <Ionicons
+          name={name}
+          size={22}
+          color={focused ? '#FFFFFF' : '#9CA3AF'}
+          style={{ opacity: focused ? 1 : 0.6 }}
+        />
+        {badge !== undefined && badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const _colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
+  const cartCount = useCartStore((state) => state.itemCount());
+  const savedCount = useSavedStore((state) => state.items.length);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: BRAND.primary,
-        tabBarInactiveTintColor: '#888888',
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#222222',
+          backgroundColor: '#0F0F0F', // Matching web bg
           borderTopWidth: 1,
-          paddingTop: SPACING.sm,
-          paddingBottom: SPACING.sm,
-          height: 60,
+          borderTopColor: 'rgba(255, 255, 255, 0.08)',
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 10,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.size.xs - 1,
-          fontFamily: 'Inter_500Medium',
-          marginTop: 2,
+        tabBarItemStyle: {
+          height: 50,
         },
         headerStyle: {
           backgroundColor: '#000000',
         },
         headerTitleStyle: {
           fontFamily: 'Inter_600SemiBold',
-          fontSize: TYPOGRAPHY.size.lg,
+          fontSize: 17,
           color: '#FFFFFF',
         },
         headerTintColor: '#FFFFFF',
         headerShadowVisible: false,
+        lazy: true,
+        tabBarHideOnKeyboard: true,
+        tabBarShowLabel: true, // Needed for our custom label component
       }}
     >
       <Tabs.Screen
@@ -79,48 +94,83 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? 'home' : 'home-outline'}
-              color={color}
               focused={focused}
             />
           ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Home</Text> : null,
         }}
       />
       <Tabs.Screen
-        name="categories"
+        name="saved"
         options={{
-          title: 'Categories',
-          tabBarIcon: ({ color, focused }) => (
+          title: 'Saved',
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
             <TabBarIcon
-              name={focused ? 'grid' : 'grid-outline'}
-              color={color}
+              name={focused ? 'heart' : 'heart-outline'}
               focused={focused}
+              badge={savedCount}
             />
           ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',
-          tabBarIcon: ({ color, focused }) => (
-            <CartIcon color={color} focused={focused} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon
+              name={focused ? 'cart' : 'cart-outline'}
+              focused={focused}
+              badge={cartCount}
+            />
           ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
+        }}
+      />
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: 'Wallet',
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon
+              name={focused ? 'wallet' : 'wallet-outline'}
+              focused={focused}
+            />
+          ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Wallet</Text> : null,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color, focused }) => (
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? 'person' : 'person-outline'}
-              color={color}
               focused={focused}
             />
           ),
+          tabBarLabel: ({ focused }) =>
+            focused ? <Text style={styles.tabLabel}>Account</Text> : null,
+        }}
+      />
+      {/* Categories hidden from tab bar but reachable via route */}
+      <Tabs.Screen
+        name="categories"
+        options={{
+          href: null,
+          title: 'Explore',
         }}
       />
     </Tabs>
@@ -128,24 +178,45 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  cartIconContainer: {
-    position: 'relative',
+  iconContainer: {
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cartBadge: {
+  iconInner: {
+    width: 44,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
+  iconActiveBg: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  badge: {
     position: 'absolute',
-    top: -6,
-    right: -10,
+    top: -4,
+    right: 4,
     backgroundColor: BRAND.primary,
-    borderRadius: RADIUS.full,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 9,
+    minWidth: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.xs,
+    paddingHorizontal: 2,
+    borderWidth: 1.5,
+    borderColor: '#0F0F0F',
   },
-  cartBadgeText: {
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  tabLabel: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontFamily: 'Inter_700Bold',
+    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
+    marginTop: 4,
   },
 });

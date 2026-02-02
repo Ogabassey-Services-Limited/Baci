@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -226,7 +227,7 @@ export default function CompleteProfileScreen() {
           <ScrollView contentContainerStyle={styles.content}>
             <View style={styles.introSection}>
               {formData.logoUrl ? (
-                <Image
+                <SafeImage
                   source={{ uri: formData.logoUrl }}
                   style={styles.avatar}
                 />
@@ -367,6 +368,23 @@ export default function CompleteProfileScreen() {
                   </>
                 )}
               </Pressable>
+
+              <Text style={styles.termsText}>
+                By continuing, you agree to our{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://usebaci.com/terms')}
+                >
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://usebaci.com/privacy')}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -516,5 +534,16 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  termsText: {
+    color: '#9CA3AF',
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
+    marginTop: SPACING.lg,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: DARK_COLORS.primary,
+    textDecorationLine: 'underline',
   },
 });

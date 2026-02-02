@@ -19,24 +19,24 @@ import { asRoute } from '@/lib/routes';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 
 // Mock data removed
-interface OrderItem {
+interface _OrderItem {
   id: string;
   name: string;
   description: string;
   image: string;
 }
 
-interface Order {
+interface _Order {
   id: string;
   date: string;
   status: 'Processing' | 'Delivered' | 'Cancelled' | 'Shipped';
   total: string;
-  items: OrderItem[];
+  items: _OrderItem[];
 }
 
 export const OgabasseyV2Orders: React.FC = () => {
   const merchantContext = useMerchantSafe();
-  const { customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
+  const { customer: _customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
   const basePath = merchantContext?.merchant?.slug ? `/${merchantContext.merchant.slug}` : '';
 
   const [orders, setOrders] = useState<any[]>([]);

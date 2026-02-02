@@ -41,7 +41,7 @@ const MCP_PATH = '/mcp';
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
 const RATE_LIMIT_MAX_ENTRIES = 10_000; // Max unique IPs to track (prevent memory exhaustion)
-const MAX_REQUEST_SIZE = 1024 * 100; // 100KB max request body
+
 const REQUEST_TIMEOUT_MS = 30_000; // 30 second timeout
 
 // Validate required environment variables at startup (fail closed)
@@ -1280,7 +1280,7 @@ function createOgabasseyServer() {
     'add_to_cart',
     {
       title: 'Add to Cart',
-      isReadOnly: false,
+
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
       description:
         'Add a product to the shopping cart. This tool is accessible from the in-chat widget for real-time cart updates.',

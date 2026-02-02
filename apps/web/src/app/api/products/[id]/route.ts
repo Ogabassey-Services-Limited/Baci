@@ -12,6 +12,7 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { formatZodErrors, updateProductSchema } from '@/schemas/products';
 
 export async function GET(
   _request: NextRequest,
@@ -167,9 +168,25 @@ export async function PUT(
 
   try {
     const { id } = await params;
-    const body = await request.json();
+    const rawBody = await request.json();
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    // Validate and sanitize input using Zod schema (2026 best practice)
+    // updateProductSchema allows partial updates - only provided fields are validated
+    const parseResult = updateProductSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Use sanitized data from Zod transform
+    const body = parseResult.data;
 
     // Get authenticated user
     const {
@@ -197,7 +214,7 @@ export async function PUT(
     // Verify product belongs to merchant
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
-      .select('id')
+      .select('id, name, description, condition, condition_detail')
       .eq('id', id)
       .eq('merchant_id', merchant.id)
       .single();
@@ -206,105 +223,152 @@ export async function PUT(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Prepare updates
-    // Generate slug with condition if not 'new'
-    const slug =
-      body.slug ||
-      generateProductSlug(body.name, body.condition, body.condition_detail);
-    const sku =
-      body.sku ||
-      (body.name
-        ? generateSlug(body.name).toUpperCase().substring(0, 20)
-        : undefined);
-
-    const meta_description =
-      body.meta_description || generateMetaDescription(body.description);
-    const meta_title = body.meta_title || body.name;
-
-    // Prepare product object for schema generation
-    const productForSchema: Product = {
-      id: id,
-      name: body.name,
-      description: body.description,
-      price: body.price,
-      stock: body.stock || 0,
-      manage_stock: true,
-      status: body.status || 'draft',
-      image: body.images?.[0]?.url || '',
-      imageLarge: body.images?.[0]?.url || '',
-      imageHint: '',
-      brand: body.brand || merchant.business_name,
-      sku: sku,
-      gtin: body.gtin,
-      mpn: body.mpn,
-      weight_value: body.weight_value,
-      weight_unit: body.weight_unit,
-      condition: body.condition,
-      images: body.images,
-    };
-
-    const country = merchant.country
-      ? getCountryByCode(merchant.country)
-      : undefined;
-    const currency = country ? country.currency : 'USD';
-    // Sanitize user-provided schema_markup to prevent XSS (defense in depth)
-    const schema_markup = body.schema_markup
-      ? sanitizeSchemaMarkup(body.schema_markup)
-      : generateProductSchema(
-          productForSchema,
-          merchant.business_name,
-          currency
-        );
-
-    // Update product
-    const updates = {
-      name: body.name,
-      description: body.description,
-      price: body.price,
-      stock_quantity: body.stock,
-
-      // New fields
-      sku: sku,
-      slug: slug,
-      compare_at_price: body.compare_at_price,
-      cost_price: body.cost_price,
-      low_stock_threshold: body.low_stock_threshold,
-
-      images: body.images || [],
-      image_small: body.images?.[0]?.url || body.image,
-      image_large: body.images?.[0]?.url || body.imageLarge,
-      image_hint: body.imageHint,
-
-      weight_value: body.weight_value,
-      weight_unit: body.weight_unit,
-      dimensions: body.dimensions,
-
-      status: body.status || 'draft',
-      is_active: body.status === 'active',
-
-      taxable: body.taxable,
-      tax_code: body.tax_code,
-
-      condition: body.condition,
-      condition_detail: body.condition_detail,
-
-      meta_title: meta_title,
-      meta_description: meta_description,
-      keywords: body.keywords,
-      canonical_url: body.canonical_url,
-      schema_markup: schema_markup,
-
-      gtin: body.gtin,
-      mpn: body.mpn,
-      google_product_category: body.google_product_category,
-      brand: body.brand,
-
-      fulfillment_details: body.fulfillment_details,
-      has_variants: body.has_variants,
-      category: body.category,
-      color: body.color,
+    // Build updates object conditionally (2026 best practice: only update provided fields)
+    // This prevents overwriting existing values with undefined on partial updates
+    const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
+
+    // Core fields - only add if provided
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+    if (body.price !== undefined) updates.price = body.price;
+    if (body.stock !== undefined) updates.stock_quantity = body.stock;
+
+    // Generate slug only if name or condition changed
+    if (body.slug !== undefined) {
+      updates.slug = body.slug;
+    } else if (body.name !== undefined) {
+      updates.slug = generateProductSlug(
+        body.name,
+        body.condition ?? existingProduct.condition,
+        body.condition_detail ?? existingProduct.condition_detail
+      );
+    }
+
+    // Generate SKU only if explicitly provided or name changed
+    if (body.sku !== undefined) {
+      updates.sku = body.sku;
+    } else if (body.name !== undefined) {
+      updates.sku = generateSlug(body.name).toUpperCase().substring(0, 20);
+    }
+
+    // SEO fields - generate only if source changed
+    if (body.meta_title !== undefined) {
+      updates.meta_title = body.meta_title;
+    } else if (body.name !== undefined) {
+      updates.meta_title = body.name;
+    }
+
+    if (body.meta_description !== undefined) {
+      updates.meta_description = body.meta_description;
+    } else if (body.description !== undefined && body.description !== null) {
+      updates.meta_description = generateMetaDescription(body.description);
+    }
+
+    // Pricing fields
+    if (body.compare_at_price !== undefined)
+      updates.compare_at_price = body.compare_at_price;
+    if (body.cost_price !== undefined) updates.cost_price = body.cost_price;
+    if (body.low_stock_threshold !== undefined)
+      updates.low_stock_threshold = body.low_stock_threshold;
+
+    // Image fields
+    if (body.images !== undefined) {
+      updates.images = body.images;
+      updates.image_small = body.images?.[0]?.url;
+      updates.image_large = body.images?.[0]?.url;
+    }
+    if (body.image !== undefined) updates.image_small = body.image;
+    if (body.imageLarge !== undefined) updates.image_large = body.imageLarge;
+    if (body.imageHint !== undefined) updates.image_hint = body.imageHint;
+
+    // Physical attributes
+    if (body.weight_value !== undefined)
+      updates.weight_value = body.weight_value;
+    if (body.weight_unit !== undefined) updates.weight_unit = body.weight_unit;
+    if (body.dimensions !== undefined) updates.dimensions = body.dimensions;
+
+    // Status fields
+    if (body.status !== undefined) {
+      updates.status = body.status;
+      updates.is_active = body.status === 'active';
+    }
+
+    // Tax fields
+    if (body.taxable !== undefined) updates.taxable = body.taxable;
+    if (body.tax_code !== undefined) updates.tax_code = body.tax_code;
+
+    // Condition fields
+    if (body.condition !== undefined) updates.condition = body.condition;
+    if (body.condition_detail !== undefined)
+      updates.condition_detail = body.condition_detail;
+
+    // Additional SEO fields
+    if (body.keywords !== undefined) updates.keywords = body.keywords;
+    if (body.canonical_url !== undefined)
+      updates.canonical_url = body.canonical_url;
+
+    // Identifiers
+    if (body.gtin !== undefined) updates.gtin = body.gtin;
+    if (body.mpn !== undefined) updates.mpn = body.mpn;
+    if (body.google_product_category !== undefined)
+      updates.google_product_category = body.google_product_category;
+    if (body.brand !== undefined) updates.brand = body.brand;
+
+    // Other fields
+    if (body.fulfillment_details !== undefined)
+      updates.fulfillment_details = body.fulfillment_details;
+    if (body.has_variants !== undefined)
+      updates.has_variants = body.has_variants;
+    if (body.category !== undefined) updates.category = body.category;
+    if (body.color !== undefined) updates.color = body.color;
+
+    // Schema markup - generate or sanitize
+    if (body.schema_markup !== undefined) {
+      updates.schema_markup = sanitizeSchemaMarkup(body.schema_markup);
+    } else if (
+      body.name !== undefined ||
+      body.description !== undefined ||
+      body.price !== undefined
+    ) {
+      // Regenerate schema if core product fields changed
+      const schemaName = String(body.name ?? existingProduct.name ?? '');
+      const schemaDescription = String(
+        body.description ?? existingProduct.description ?? ''
+      );
+      const schemaSku = String(updates.sku ?? '');
+
+      const productForSchema: Product = {
+        id: id,
+        name: schemaName,
+        description: schemaDescription,
+        price: body.price ?? 0,
+        stock: body.stock ?? 0,
+        manage_stock: body.manage_stock ?? true,
+        status: (body.status ?? 'draft') as 'draft' | 'active' | 'archived',
+        image: body.images?.[0]?.url || '',
+        imageLarge: body.images?.[0]?.url || '',
+        imageHint: body.imageHint || '',
+        brand: body.brand || merchant.business_name,
+        sku: schemaSku,
+        gtin: body.gtin ?? '',
+        mpn: body.mpn ?? '',
+        weight_value: body.weight_value,
+        weight_unit: body.weight_unit,
+        condition: body.condition,
+      };
+
+      const country = merchant.country
+        ? getCountryByCode(merchant.country)
+        : undefined;
+      const currency = country ? country.currency : 'USD';
+      updates.schema_markup = generateProductSchema(
+        productForSchema,
+        merchant.business_name,
+        currency
+      );
+    }
 
     const { data: updatedProduct, error: updateError } = await supabase
       .from('products')

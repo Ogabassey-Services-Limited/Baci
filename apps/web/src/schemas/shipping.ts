@@ -10,12 +10,12 @@ import { isValidUuid } from '@/lib/sanitize-core';
  * Address schema for shipping sender/receiver
  */
 const AddressSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email().optional(),
-  phone: z.string().min(1),
-  address: z.string().min(1),
-  city: z.string().min(1),
-  state: z.string().min(1),
+  phone: z.string().min(10, 'Phone must be at least 10 digits'),
+  address: z.string().min(5, 'Address must be at least 5 characters'),
+  city: z.string().min(2, 'City must be at least 2 characters'),
+  state: z.string().min(2, 'State must be at least 2 characters'),
   country: z.string().default('Nigeria'),
   countryCode: z.string().default('NG'),
   postalCode: z.string().optional(),

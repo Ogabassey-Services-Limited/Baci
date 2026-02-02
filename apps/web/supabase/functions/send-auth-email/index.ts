@@ -78,6 +78,30 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+/**
+ * Validates and sanitizes a URL for safe use in href attributes.
+ * Only allows http/https protocols to prevent javascript: and other XSS vectors.
+ * Returns a safe fallback URL if validation fails.
+ */
+function sanitizeUrl(url: string): string {
+  if (!url) return '#';
+
+  try {
+    const parsed = new URL(url);
+    // Only allow http and https protocols to prevent javascript:, data:, vbscript:, etc.
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      console.warn('Invalid URL protocol rejected:', parsed.protocol);
+      return '#';
+    }
+    // Return the validated URL string
+    return parsed.href;
+  } catch {
+    // Invalid URL format
+    console.warn('Invalid URL format rejected:', url);
+    return '#';
+  }
+}
+
 function generateEmailHtml(
   config: (typeof EMAIL_CONFIG)[string],
   confirmationUrl: string
@@ -85,8 +109,8 @@ function generateEmailHtml(
   const safeHeading = escapeHtml(config.heading);
   const safeBody = escapeHtml(config.body);
   const safeButtonText = escapeHtml(config.buttonText);
-  // URL should be encoded, not just HTML escaped, but basic HTML escaping protects the attribute
-  const safeUrl = escapeHtml(confirmationUrl);
+  // First sanitize URL to ensure safe protocol (http/https only), then HTML escape for attribute context
+  const safeUrl = escapeHtml(sanitizeUrl(confirmationUrl));
   const safeLogo = escapeHtml(LOGO_URL);
 
   // nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format
@@ -165,7 +189,10 @@ Deno.serve(async (req) => {
   const { user, email_data } = data;
   const emailType = email_data.email_action_type;
   const config = EMAIL_CONFIG[emailType] || EMAIL_CONFIG.signup;
-  const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${email_data.token_hash}&type=${emailType}`;
+  // Safely construct URL with proper encoding of user-controlled parameters
+  const safeTokenHash = encodeURIComponent(email_data.token_hash || '');
+  const safeEmailType = encodeURIComponent(emailType || '');
+  const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${safeTokenHash}&type=${safeEmailType}`;
   const htmlBody = generateEmailHtml(config, confirmationUrl);
 
   console.log('Sending email to:', user.email, 'Type:', emailType);

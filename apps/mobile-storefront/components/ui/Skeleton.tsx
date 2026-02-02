@@ -1,18 +1,25 @@
 /**
  * Skeleton Loading Components
- * 2025 Best Practice: Show content shapes while loading for perceived instant loading
+ * 2026 Best Practice: Show content shapes while loading for perceived instant loading
  */
 
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  Animated,
+  type DimensionValue,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
 interface SkeletonProps {
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   borderRadius?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function Skeleton({

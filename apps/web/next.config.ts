@@ -363,6 +363,12 @@ const nextConfig: NextConfig = {
             value:
               'camera=(), microphone=(), geolocation=(self), interest-cohort=()',
           },
+          // Note: COEP is set selectively in proxy.ts (middleware)
+          // to allow Google Ads on storefront while protecting admin routes
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
         ],
       },
     ];

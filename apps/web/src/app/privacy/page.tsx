@@ -17,7 +17,7 @@ export default function PrivacyPage() {
           <div className="container max-w-3xl prose-baci">
             <h1>Privacy Policy</h1>
             <p className="text-lg text-muted-foreground">
-              Last updated: November 28, 2025
+              Last updated: February 1, 2026
             </p>
 
             <p>
@@ -54,6 +54,62 @@ export default function PrivacyPage() {
               acceptable means to protect your Personal Data, we cannot
               guarantee its absolute security.
             </p>
+
+            <h2>Subscriptions and Payments</h2>
+            <p>
+              Baci offers auto-renewable subscription plans through Apple&apos;s
+              App Store. When you subscribe:
+            </p>
+            <ul>
+              <li>
+                Payment will be charged to your Apple ID account at confirmation
+                of purchase
+              </li>
+              <li>
+                Subscription automatically renews unless cancelled at least 24
+                hours before the end of the current period
+              </li>
+              <li>
+                Your account will be charged for renewal within 24 hours prior
+                to the end of the current period
+              </li>
+              <li>
+                You can manage and cancel your subscriptions by going to your
+                Apple ID account settings after purchase
+              </li>
+              <li>
+                Any unused portion of a free trial period will be forfeited when
+                you purchase a subscription
+              </li>
+            </ul>
+            <p>
+              Subscription data and purchase history are processed by Apple and
+              RevenueCat. We receive confirmation of your subscription status
+              but do not have access to your payment card details.
+            </p>
+
+            <h2>Third-Party Services</h2>
+            <p>
+              We use the following third-party services that may collect
+              information:
+            </p>
+            <ul>
+              <li>
+                <strong>Apple App Store</strong> - For app distribution and
+                in-app purchases
+              </li>
+              <li>
+                <strong>RevenueCat</strong> - For subscription management and
+                analytics
+              </li>
+              <li>
+                <strong>Supabase</strong> - For authentication and data storage
+              </li>
+              <li>
+                <strong>Payment Processors</strong> - Paystack, Korapay for
+                transaction processing
+              </li>
+            </ul>
 
             <h2>Contact Us</h2>
             <p>

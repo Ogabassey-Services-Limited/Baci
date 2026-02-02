@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -30,6 +30,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
+import { asUploadFile } from '@/types/upload';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -145,12 +146,15 @@ export default function StoreSettingsScreen() {
       const filePath = `${merchant.id}/${fileName}`;
       const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
 
-      // Append file as expected by Supabase/RN polyfill
-      formData.append('file', {
-        uri,
-        name: fileName,
-        type: mimeType,
-      } as unknown as Blob);
+      // Append file using type-safe upload helper for React Native
+      formData.append(
+        'file',
+        asUploadFile({
+          uri,
+          name: fileName,
+          type: mimeType,
+        })
+      );
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -325,7 +329,7 @@ export default function StoreSettingsScreen() {
             </Text>
             <View style={styles.logoContainer}>
               {merchant?.logo_url ? (
-                <Image
+                <SafeImage
                   source={{ uri: merchant.logo_url }}
                   style={styles.logo}
                   contentFit="contain"

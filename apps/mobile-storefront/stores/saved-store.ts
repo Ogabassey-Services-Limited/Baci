@@ -1,0 +1,182 @@
+/**
+ * Saved Items (Wishlist) Store using Zustand
+ * Manages wishlist state with AsyncStorage persistence
+ * Compatible with Expo Go (no native modules required)
+ */
+
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { syncStorage } from '../lib/storage';
+import type { Product } from '../types/product';
+
+export interface SavedItem {
+  id: string;
+  product_id: string;
+  name: string;
+  slug: string;
+  price: number;
+  compare_at_price?: number;
+  image: string;
+  brand?: string;
+  condition?: string;
+  savedAt: number;
+}
+
+interface ToastState {
+  show: boolean;
+  message: string;
+  type: 'add' | 'remove';
+}
+
+interface SavedState {
+  // State
+  items: SavedItem[];
+  toastState: ToastState;
+
+  // Computed (via getters)
+  itemCount: () => number;
+
+  // Actions
+  toggleSaved: (product: Product) => void;
+  addItem: (product: Product) => void;
+  removeItem: (productId: string) => void;
+  isSaved: (productId: string) => boolean;
+  clearSaved: () => void;
+  dismissToast: () => void;
+}
+
+export const useSavedStore = create<SavedState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      items: [],
+      toastState: {
+        show: false,
+        message: '',
+        type: 'add',
+      },
+
+      // Computed values
+      itemCount: () => {
+        return get().items.length;
+      },
+
+      // Toggle saved status (add if not saved, remove if saved)
+      toggleSaved: (product) => {
+        const state = get();
+        const exists = state.items.some(
+          (item) => String(item.product_id) === String(product.id)
+        );
+
+        if (exists) {
+          set({
+            items: state.items.filter(
+              (item) => String(item.product_id) !== String(product.id)
+            ),
+            toastState: {
+              show: true,
+              message: 'Removed from Saved',
+              type: 'remove',
+            },
+          });
+        } else {
+          const newItem: SavedItem = {
+            id: `saved-${product.id}-${Date.now()}`,
+            product_id: product.id,
+            name: product.name,
+            slug: product.slug,
+            price: product.price,
+            compare_at_price: product.compare_at_price,
+            image: product.image,
+            brand: product.brand,
+            condition: product.condition,
+            savedAt: Date.now(),
+          };
+
+          set({
+            items: [...state.items, newItem],
+            toastState: {
+              show: true,
+              message: 'Added to Saved Items',
+              type: 'add',
+            },
+          });
+        }
+      },
+
+      // Add item to saved
+      addItem: (product) => {
+        set((state) => {
+          // Check if already saved
+          const exists = state.items.some(
+            (item) => String(item.product_id) === String(product.id)
+          );
+
+          if (exists) {
+            return state; // Already saved, don't add again
+          }
+
+          const newItem: SavedItem = {
+            id: `saved-${product.id}-${Date.now()}`,
+            product_id: product.id,
+            name: product.name,
+            slug: product.slug,
+            price: product.price,
+            compare_at_price: product.compare_at_price,
+            image: product.image,
+            brand: product.brand,
+            condition: product.condition,
+            savedAt: Date.now(),
+          };
+
+          return {
+            items: [...state.items, newItem],
+            toastState: {
+              show: true,
+              message: 'Added to Saved Items',
+              type: 'add',
+            },
+          };
+        });
+      },
+
+      // Remove item from saved
+      removeItem: (productId) => {
+        set((state) => ({
+          items: state.items.filter(
+            (item) => String(item.product_id) !== String(productId)
+          ),
+          toastState: {
+            show: true,
+            message: 'Removed from Saved',
+            type: 'remove',
+          },
+        }));
+      },
+
+      // Check if product is saved
+      isSaved: (productId) => {
+        return get().items.some(
+          (item) => String(item.product_id) === String(productId)
+        );
+      },
+
+      // Clear all saved items
+      clearSaved: () => {
+        set({ items: [] });
+      },
+
+      // Dismiss toast notification
+      dismissToast: () => {
+        set((state) => ({
+          toastState: { ...state.toastState, show: false },
+        }));
+      },
+    }),
+    {
+      name: 'saved-storage',
+      storage: createJSONStorage(() => syncStorage),
+      partialize: (state) => ({ items: state.items }), // Only persist items
+    }
+  )
+);

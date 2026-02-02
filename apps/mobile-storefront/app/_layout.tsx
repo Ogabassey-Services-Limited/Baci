@@ -23,16 +23,27 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { enableScreens } from 'react-native-screens';
+enableScreens();
+
+// 2026 Best Practice: Remove commented debug code from production files
+// Debug utilities should be in separate dev-only files if needed
+
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ChatWidget } from '@/components/chat/ChatWidget';
+import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
-import { ErrorFallback } from '@/components/ErrorBoundary';
+import { ErrorFallback, GlobalErrorBoundary } from '@/components/ErrorBoundary';
+import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { offlineQueue } from '@/lib/offline-queue';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { initAnalytics } from '@/services/analytics';
+import { createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
 // Custom error boundary with network error handling
@@ -81,6 +92,7 @@ const OgabasseyDarkTheme = {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Inter_400Regular,
     Inter_500Medium,
@@ -94,7 +106,7 @@ export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
   const { register: registerPushNotifications } = usePushNotifications();
 
-  // Initialize auth and analytics on app start
+  // Initialize auth, analytics, and offline queue on app start
   useEffect(() => {
     const initializeApp = async () => {
       // Initialize auth
@@ -102,6 +114,16 @@ export default function RootLayout() {
 
       // Initialize analytics (PostHog)
       await initAnalytics();
+
+      // 2026 Best Practice: Initialize offline mutation queue
+      // This enables critical operations like orders to be queued when offline
+      // and automatically processed when network is restored
+      await offlineQueue.initialize();
+
+      // Register handler for queued order creation
+      offlineQueue.registerHandler('create_order', async (orderData) => {
+        return await createOrder(orderData);
+      });
 
       // Initialize ad tracking (Facebook, Google, ATT)
       // await initAdTracking();
@@ -117,6 +139,11 @@ export default function RootLayout() {
     };
 
     initializeApp();
+
+    // Cleanup offline queue on unmount
+    return () => {
+      offlineQueue.destroy();
+    };
   }, [initialize]);
 
   // Register for push notifications after auth initializes
@@ -148,8 +175,12 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme as 'light' | 'dark'];
+
+  // 2026 Best Practice: Auth guard handles sign out redirects
+  // Prevents users from seeing protected screens with stale data after logout
+  useAuthGuard();
 
   return (
     <QueryProvider>
@@ -160,111 +191,190 @@ function RootLayoutNav() {
           }
         >
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <Stack
-            screenOptions={{
-              headerStyle: {
-                backgroundColor: colors.background,
-              },
-              headerTintColor: colors.text,
-              headerTitleStyle: {
-                fontWeight: '600',
-              },
-              headerShadowVisible: false,
-              contentStyle: {
-                backgroundColor: colors.background,
-              },
-            }}
-          >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="product/[slug]"
-              options={{
-                headerTransparent: true,
-                headerTitle: '',
+          <GlobalErrorBoundary context="RootNavigation">
+            <Stack
+              screenOptions={{
+                headerStyle: {
+                  backgroundColor: colors.background,
+                },
+                headerTintColor: colors.text,
+                headerTitleStyle: {
+                  fontWeight: '600',
+                },
+                headerShadowVisible: false,
+                contentStyle: {
+                  backgroundColor: colors.background,
+                },
+                // 2026 Best Practice: Smooth native transition animations
+                animation: 'slide_from_right',
+                gestureEnabled: true,
+                gestureDirection: 'horizontal',
               }}
-            />
-            <Stack.Screen
-              name="checkout"
-              options={{
-                title: 'Checkout',
-                presentation: 'card',
-              }}
-            />
-            <Stack.Screen
-              name="order-success"
-              options={{
-                headerShown: false,
-                gestureEnabled: false,
-              }}
-            />
-            <Stack.Screen
-              name="search"
-              options={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
-            <Stack.Screen
-              name="auth/login"
-              options={{
-                title: '',
-                presentation: 'modal',
-              }}
-            />
-            <Stack.Screen
-              name="orders/index"
-              options={{
-                title: 'My Orders',
-              }}
-            />
-            <Stack.Screen
-              name="orders/[id]"
-              options={{
-                title: 'Order Details',
-              }}
-            />
-            <Stack.Screen
-              name="addresses/index"
-              options={{
-                title: 'My Addresses',
-              }}
-            />
-            <Stack.Screen
-              name="addresses/[id]"
-              options={({ route }) => ({
-                title:
-                  (route.params as { id?: string })?.id === 'new'
-                    ? 'Add Address'
-                    : 'Edit Address',
-              })}
-            />
-            <Stack.Screen
-              name="modal"
-              options={{
-                presentation: 'modal',
-              }}
-            />
-            <Stack.Screen
-              name="notifications"
-              options={{
-                title: 'Notifications',
-              }}
-            />
-            <Stack.Screen
-              name="category/[slug]"
-              options={{
-                title: 'Category',
-              }}
-            />
-            <Stack.Screen
-              name="wallet/index"
-              options={{
-                title: 'Wallet & Rewards',
-              }}
-            />
-          </Stack>
+            >
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="product/[slug]"
+                options={{
+                  headerTransparent: true,
+                  headerTitle: '',
+                  // 2026 Best Practice: Native-standard slide transition for product deep-links
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="checkout"
+                options={{
+                  title: 'Checkout',
+                  presentation: 'card',
+                  // 2026 Best Practice: Card-style checkout presentation
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="order-success"
+                options={{
+                  headerShown: false,
+                  gestureEnabled: false,
+                  // 2026 Best Practice: Fade for success screens
+                  animation: 'fade',
+                }}
+              />
+              <Stack.Screen
+                name="search"
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+              <Stack.Screen
+                name="auth/login"
+                options={{
+                  title: '',
+                  presentation: 'modal',
+                  // 2026 Best Practice: Modal-style auth presentation
+                  animation: 'slide_from_bottom',
+                }}
+              />
+              <Stack.Screen
+                name="orders/index"
+                options={{
+                  title: 'My Orders',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="orders/[id]"
+                options={{
+                  title: 'Order Details',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="addresses/index"
+                options={{
+                  title: 'My Addresses',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="addresses/[id]"
+                options={({ route }) => ({
+                  title:
+                    (route.params as { id?: string })?.id === 'new'
+                      ? 'Add Address'
+                      : 'Edit Address',
+                })}
+              />
+              <Stack.Screen
+                name="modal"
+                options={{
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen
+                name="notifications"
+                options={{
+                  title: 'Notifications',
+                }}
+              />
+              <Stack.Screen
+                name="category/[slug]"
+                options={{
+                  title: 'Category',
+                }}
+              />
+              <Stack.Screen
+                name="wallet/index"
+                options={{
+                  title: 'Wallet & Rewards',
+                }}
+              />
+              {/* 2026 Best Practice: Service screens with consistent animations */}
+              <Stack.Screen
+                name="swap/index"
+                options={{
+                  title: 'Swap & Trade-in',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="imei-check/index"
+                options={{
+                  title: 'IMEI Checker',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="repairs/index"
+                options={{
+                  title: 'Repair Lab',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="saved/index"
+                options={{
+                  title: 'Saved Items',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="compare/index"
+                options={{
+                  title: 'Compare Products',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="bnpl-checkout/index"
+                options={{
+                  title: 'Buy Now Pay Later',
+                  animation: 'slide_from_right',
+                  gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen
+                name="profile/edit"
+                options={{
+                  title: 'Edit Profile',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="faq/index"
+                options={{
+                  title: 'Help & Support',
+                  animation: 'slide_from_right',
+                }}
+              />
+            </Stack>
+          </GlobalErrorBoundary>
           {/* Global Connectivity Banner */}
           <ConnectivityBanner />
+          <ChatWidget bottomOffset={140} />
+          <NegotiationModal />
+          {/* Navigation Drawer - renders on top when open */}
+          <DrawerMenu />
         </ThemeProvider>
       </GestureHandlerRootView>
     </QueryProvider>

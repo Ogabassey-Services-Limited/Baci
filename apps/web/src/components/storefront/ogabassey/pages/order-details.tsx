@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { createClient } from '@/lib/supabase/client';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -32,14 +32,16 @@ function useStoreSlug() {
 
 export const OgabasseyV2OrderDetails: React.FC = () => {
   const params = useParams(); // Get ID from URL
-  const { customer, isAuthenticated } = useCustomerAuth();
-  const merchantContext = useMerchantSafe();
+  const { customer: _customer, isAuthenticated: _isAuthenticated } = useCustomerAuth();
   const storeSlug = useStoreSlug();
   const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
   const router = useRouter();
 
   const [order, setOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Realtime subscription channel ref for cleanup
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Fetch Order
   useEffect(() => {
@@ -68,6 +70,61 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     fetchOrder();
   }, [params?.id]);
 
+  // Supabase Realtime subscription for live order status updates
+  // Matches mobile app functionality for feature parity
+  useEffect(() => {
+    const orderId = params?.id;
+    if (!orderId || typeof orderId !== 'string') return;
+
+    const supabase = createClient();
+
+    // Create a unique channel for this order
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          console.log('[Realtime] Order updated:', payload);
+
+          // Update the order state with new data from realtime
+          const newData = payload.new as Record<string, unknown>;
+          if (newData) {
+            setOrder((prevOrder: any) => {
+              if (!prevOrder) return prevOrder;
+              return {
+                ...prevOrder,
+                status: newData.status ?? prevOrder.status,
+                shipping_status: newData.shipping_status ?? prevOrder.shipping_status,
+                payment_status: newData.payment_status ?? prevOrder.payment_status,
+                tracking_number: newData.tracking_number ?? prevOrder.tracking_number,
+                tracking_url: newData.tracking_url ?? prevOrder.tracking_url,
+                updated_at: newData.updated_at ?? prevOrder.updated_at,
+              };
+            });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Subscription status:', status);
+      });
+
+    channelRef.current = channel;
+
+    // Cleanup: unsubscribe on unmount to prevent memory leaks
+    return () => {
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+    };
+  }, [params?.id]);
+
   const handleBuyAgain = () => {
     // Implementation for re-ordering would go here
     // For now, redirect to product page of first item or cart
@@ -93,32 +150,6 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     if (s === 'shipped') return <Truck size={16} />;
     return <Package size={16} />;
   };
-
-  const getPaymentLogo = (provider: string | undefined) => {
-    const p = provider?.toLowerCase() || '';
-    // Simple logic to return a logo URL or fallback component
-    // In a real app, import these from assets
-    if (p.includes('paystack')) {
-      return <Image src="/images/paystack.png" width={80} height={30} alt="Paystack" className="h-6 w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />;
-    }
-    if (p.includes('credpal')) {
-      return <Image src="/images/credpal.png" width={80} height={30} alt="Credpal" className="h-6 w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />;
-    }
-    if (p.includes('juicyway') || p.includes('juicy')) {
-      // If the user says logos aren't showing, I try to provide one.
-      // Since I don't have the file, I'll use a text fallback that looks better than 'JW'
-      // But I'll attempt to load an image first if it exists.
-      return <Image src="/images/juicyway.png" width={80} height={30} alt="Juicyway" className="h-6 w-auto object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }} />;
-    }
-    // Fallback
-    return <span className="font-bold text-gray-900">{provider || 'Not Specified'}</span>;
-  };
-
-  // Helper validation for images (hacky for now since I don't have the files)
-  // I will just render the components and add a text fallback hidden by default that shows on error?
-  // Actually, simplified approach: check provider string and render text if valid logo not known, 
-  // OR just render the name if no logo available.
-  // The user specifically complained about "JW". 
 
   const PaymentDisplay = ({ provider }: { provider?: string }) => {
     if (!provider) return <span>Not Specified</span>;

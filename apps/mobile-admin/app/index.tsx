@@ -45,9 +45,11 @@ export default function Index() {
   // 3. Authenticated but No Merchant -> Complete Profile
   // We check !merchantLoading to ensure we don't redirect prematurely
   if (!merchant) {
-    console.log(
-      '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
-    );
+    if (__DEV__) {
+      console.log(
+        '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
+      );
+    }
     return <Redirect href="/(auth)/complete-profile" />;
   }
 

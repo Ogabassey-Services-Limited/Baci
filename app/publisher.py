@@ -29,7 +29,7 @@ def get_ogabassey_merchant_id(supabase: Client) -> str:
             return res.data[0]['id']
         
         # Fallback: List all merchants
-        res = supabase.table("merchants").select("id, name, slug").execute()
+        res = supabase.table("merchants").select("id, business_name, slug").execute()
         if res.data:
             return res.data[0]['id'] # Return first one as fallback
             

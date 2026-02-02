@@ -37,6 +37,8 @@ interface SearchAutocompleteProps {
   onSelectProduct?: (url: string) => void;
   placeholder?: string;
   className?: string;
+  id?: string;
+  name?: string;
 }
 
 export function SearchAutocomplete({
@@ -46,6 +48,8 @@ export function SearchAutocomplete({
   onSelectProduct,
   placeholder = 'Search products...',
   className,
+  id = 'search-input',
+  name = 'q',
 }: SearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -187,6 +191,8 @@ export function SearchAutocomplete({
               : undefined
           }
           aria-label="Search products"
+          id={id}
+          name={name}
         />
       </div>
 

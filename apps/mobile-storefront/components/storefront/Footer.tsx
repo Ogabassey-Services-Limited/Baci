@@ -1,74 +1,158 @@
 /**
- * Footer Component
- * Matches Baci web app storefront footer
- * Dark background (#1a1a1a) with white text
+ * Footer Component - Matches web ogabassey footer design
+ * Dark theme with subtle styling
  */
 
-import { Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
+import { router, type Href } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { Logo } from '@/components/ui/Logo';
+import { BRAND, SPACING } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 
-import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
+const log = createLogger('Footer');
 
-interface SocialLink {
-  name: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  url: string;
-}
-
-const SOCIAL_LINKS: SocialLink[] = [
+const SOCIAL_LINKS = [
   {
     name: 'Instagram',
     icon: 'logo-instagram',
-    url: 'https://instagram.com/ogabassey',
+    color: '#E1306C',
+    url: 'https://instagram.com/ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'instagram://user?username=',
+  },
+  {
+    name: 'TikTok',
+    icon: 'logo-tiktok',
+    color: '#000000',
+    url: 'https://www.tiktok.com/@ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'snssdk1233://',
+  },
+  {
+    name: 'X',
+    icon: 'logo-twitter',
+    color: '#000000',
+    url: 'https://x.com/ogabasseyy',
+    handle: 'ogabasseyy',
+    scheme: 'twitter://user?screen_name=',
   },
   {
     name: 'Facebook',
     icon: 'logo-facebook',
-    url: 'https://facebook.com/ogabassey',
+    color: '#1877F2',
+    url: 'https://www.facebook.com/ogabasseyyy/',
+    handle: 'ogabasseyyy',
+    scheme: 'fb://facewebmodal/f?href=',
   },
-  { name: 'TikTok', icon: 'logo-tiktok', url: 'https://tiktok.com/@ogabassey' },
   {
-    name: 'Twitter',
-    icon: 'logo-twitter',
-    url: 'https://twitter.com/ogabassey',
+    name: 'YouTube',
+    icon: 'logo-youtube',
+    color: '#FF0000',
+    url: 'https://www.youtube.com/@ogabassey',
+    handle: '@ogabassey',
+    scheme: 'vnd.youtube://www.youtube.com/',
   },
 ];
 
-interface FooterLink {
-  label: string;
-  url: string;
-}
-
-const QUICK_LINKS: FooterLink[] = [
-  { label: 'Shop All', url: '/category/all' },
-  { label: 'iPhones', url: '/category/iphones' },
-  { label: 'Samsung', url: '/category/samsung' },
-  { label: 'Laptops', url: '/category/laptops' },
+const MENU_LINKS = [
+  { label: 'About Us', route: '/about' },
+  { label: 'Repairs', route: '/repairs' },
+  { label: 'IMEI Check', route: '/imei-check' },
 ];
 
-const SUPPORT_LINKS: FooterLink[] = [
-  { label: 'FAQ', url: '/faq' },
-  { label: 'Shipping & Returns', url: '/shipping' },
-  { label: 'Contact Us', url: '/contact' },
+const SUPPORT_LINKS = [
+  { label: 'My Orders', route: '/orders' },
+  { label: 'Help Center', route: '/faq' },
+  { label: 'Saved Items', route: '/saved' },
 ];
+
+const CONTACT_INFO = {
+  address: '2 Olaide Tomori St, Ikeja, Lagos',
+  phone: '+234 814 697 8921',
+  email: 'support@ogabassey.com',
+};
 
 export function Footer() {
-  const handleSocialPress = (url: string) => {
+  const currentYear = new Date().getFullYear();
+
+  const handleExternalLink = async (url: string) => {
+    let social: (typeof SOCIAL_LINKS)[number] | undefined;
+    try {
+      const parsedUrl = new URL(url);
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      social = SOCIAL_LINKS.find((s) => {
+        try {
+          const socialHost = new URL(s.url).hostname.toLowerCase();
+          // Strict host matching to prevent subdomain takeovers/phishing
+          // Allow exact match or immediate subdomain (e.g. www.x.com)
+          if (hostname === socialHost) return true;
+          if (hostname.endsWith(`.${socialHost}`)) return true;
+
+          // Special case for X/Twitter redirection
+          if (s.name === 'X' && (hostname === 'x.com' || hostname.endsWith('.x.com'))) {
+            return true;
+          }
+
+          // Special case for YouTube variants
+          if (
+            s.name === 'YouTube' &&
+            (hostname === 'youtube.com' ||
+              hostname.endsWith('.youtube.com') ||
+              hostname === 'youtu.be')
+          ) {
+            return true;
+          }
+
+          return false;
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      social = undefined;
+    }
+
+    if (social && social.scheme) {
+      let appUrl = '';
+      if (social.name === 'Instagram')
+        appUrl = `${social.scheme}${social.handle}`;
+      else if (social.name === 'X') appUrl = `${social.scheme}${social.handle}`;
+      else if (social.name === 'Facebook')
+        appUrl = `${social.scheme}${social.url}`;
+      else if (social.name === 'YouTube')
+        appUrl = `${social.scheme}user/${social.handle}`;
+      else if (social.name === 'TikTok') appUrl = social.url; // TikTok handles its web URL well
+
+      try {
+        const canOpen = await Linking.canOpenURL(appUrl);
+        if (canOpen) {
+          Linking.openURL(appUrl);
+          return;
+        }
+      } catch (err) {
+        log.warn('Deep link error:', err);
+      }
+    }
+
+    // Default fallback
     Linking.openURL(url);
   };
 
-  const currentYear = new Date().getFullYear();
+  const handleInternalLink = (route: string) => {
+    router.push(route as Href);
+  };
 
   return (
     <View style={styles.container}>
       {/* Brand Section */}
       <View style={styles.brandSection}>
-        <Text style={styles.logoText}>Ogabassey</Text>
+        <Logo width={100} height={20} color="white" />
         <Text style={styles.tagline}>
           Making Smartphones Accessible and Affordable
         </Text>
-
-        {/* Social Icons */}
         <View style={styles.socialRow}>
           {SOCIAL_LINKS.map((social) => (
             <Pressable
@@ -77,51 +161,104 @@ export function Footer() {
                 styles.socialButton,
                 pressed && styles.socialPressed,
               ]}
-              onPress={() => handleSocialPress(social.url)}
+              onPress={() => handleExternalLink(social.url)}
+              hitSlop={8}
+              accessibilityLabel={social.name}
             >
-              <Ionicons name={social.icon} size={20} color="#9CA3AF" />
+              <Ionicons name={social.icon as React.ComponentProps<typeof Ionicons>['name']} size={18} color="#9CA3AF" />
             </Pressable>
           ))}
         </View>
       </View>
 
-      {/* Links Section */}
-      <View style={styles.linksRow}>
-        {/* Shop Links */}
-        <View style={styles.linkColumn}>
-          <Text style={styles.linkHeading}>Shop</Text>
-          {QUICK_LINKS.map((link) => (
-            <Pressable key={link.label} style={styles.linkItem}>
+      {/* Links Grid */}
+      <View style={styles.gridContainer}>
+        {/* Menu Column */}
+        <View style={styles.column}>
+          <Text style={styles.columnTitle}>MENU</Text>
+          {MENU_LINKS.map((link) => (
+            <Pressable
+              key={link.label}
+              style={styles.linkItem}
+              onPress={() => handleInternalLink(link.route)}
+            >
               <Text style={styles.linkText}>{link.label}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Support Links */}
-        <View style={styles.linkColumn}>
-          <Text style={styles.linkHeading}>Support</Text>
+        {/* Support Column */}
+        <View style={styles.column}>
+          <Text style={styles.columnTitle}>SUPPORT</Text>
           {SUPPORT_LINKS.map((link) => (
-            <Pressable key={link.label} style={styles.linkItem}>
+            <Pressable
+              key={link.label}
+              style={styles.linkItem}
+              onPress={() => handleInternalLink(link.route)}
+            >
               <Text style={styles.linkText}>{link.label}</Text>
             </Pressable>
           ))}
+        </View>
+      </View>
+
+      {/* Contact Section */}
+      <View style={styles.contactSection}>
+        <Text style={styles.columnTitle}>CONTACT</Text>
+        <View style={styles.contactList}>
+          <View style={styles.contactItem}>
+            <Feather name="map-pin" size={14} color={BRAND.primary} />
+            <Text style={styles.contactText}>{CONTACT_INFO.address}</Text>
+          </View>
+          <Pressable
+            style={styles.contactItem}
+            onPress={() =>
+              handleExternalLink(`tel:${CONTACT_INFO.phone.replace(/\s/g, '')}`)
+            }
+          >
+            <Feather name="phone" size={14} color={BRAND.primary} />
+            <Text style={styles.contactText}>{CONTACT_INFO.phone}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.contactItem}
+            onPress={() => handleExternalLink(`mailto:${CONTACT_INFO.email}`)}
+          >
+            <Feather name="mail" size={14} color={BRAND.primary} />
+            <Text style={styles.contactText}>{CONTACT_INFO.email}</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Secured By Section */}
+      <View style={styles.securedSection}>
+        <Text style={styles.securedByText}>Secured by:</Text>
+        <View style={styles.badgesRow}>
+          <View style={styles.badge}>
+            <Svg width={14} height={14} viewBox="0 0 24 24">
+              <Path
+                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z"
+                fill="#2563EB"
+              />
+            </Svg>
+            <Text style={styles.badgeText}>Paystack</Text>
+          </View>
+          <View style={styles.badge}>
+            <Svg width={14} height={14} viewBox="0 0 24 24">
+              <Path
+                d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z"
+                fill="#F97316"
+              />
+            </Svg>
+            <Text style={styles.badgeText}>Flutterwave</Text>
+          </View>
         </View>
       </View>
 
       {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <Text style={styles.copyright}>
-          © {currentYear} Ogabassey. All rights reserved.
+          © {currentYear} Ogabassey Ltd. All rights reserved.
         </Text>
-        <View style={styles.legalLinks}>
-          <Pressable>
-            <Text style={styles.legalText}>Privacy</Text>
-          </Pressable>
-          <Text style={styles.legalDivider}>·</Text>
-          <Pressable>
-            <Text style={styles.legalText}>Terms</Text>
-          </Pressable>
-        </View>
       </View>
     </View>
   );
@@ -131,80 +268,110 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#1a1a1a',
     paddingTop: SPACING.xl,
-    paddingBottom: SPACING['2xl'],
-    paddingHorizontal: SPACING.md,
+    paddingBottom: 100, // Account for tab bar height + safe area
+    paddingHorizontal: SPACING.lg,
   },
-  // Brand Section
   brandSection: {
-    marginBottom: SPACING.lg,
-  },
-  logoText: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
-    marginBottom: SPACING.xs,
+    marginBottom: SPACING.xl,
   },
   tagline: {
-    fontSize: TYPOGRAPHY.size.sm,
+    fontSize: 11,
     fontFamily: 'Inter_400Regular',
     color: '#9CA3AF',
+    marginTop: SPACING.sm,
     marginBottom: SPACING.md,
+    lineHeight: 16,
+    maxWidth: 220,
   },
   socialRow: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    gap: 16,
   },
   socialButton: {
-    padding: SPACING.xs,
+    padding: 4,
   },
   socialPressed: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
-  // Links Section
-  linksRow: {
+  gridContainer: {
     flexDirection: 'row',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
+    gap: 40,
   },
-  linkColumn: {
+  column: {
     flex: 1,
   },
-  linkHeading: {
-    fontSize: TYPOGRAPHY.size.base,
-    fontFamily: 'Inter_600SemiBold',
+  columnTitle: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
-    marginBottom: SPACING.sm,
+    marginBottom: 12,
+    letterSpacing: 1,
   },
   linkItem: {
-    paddingVertical: SPACING.xs,
+    paddingVertical: 6,
   },
   linkText: {
-    fontSize: TYPOGRAPHY.size.sm,
+    fontSize: 12,
     fontFamily: 'Inter_400Regular',
     color: '#9CA3AF',
   },
-  // Bottom Bar
+  contactSection: {
+    marginBottom: SPACING.lg,
+  },
+  contactList: {
+    gap: 10,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  contactText: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: '#9CA3AF',
+    flex: 1,
+    lineHeight: 16,
+  },
+  securedSection: {
+    marginBottom: SPACING.lg,
+  },
+  securedByText: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
+    color: '#111827',
+    letterSpacing: -0.3,
+  },
   bottomBar: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.1)',
     paddingTop: SPACING.md,
+    marginTop: SPACING.sm,
   },
   copyright: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 10,
     fontFamily: 'Inter_400Regular',
     color: '#6B7280',
-    marginBottom: SPACING.xs,
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  legalText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: 'Inter_400Regular',
-    color: '#6B7280',
-  },
-  legalDivider: {
-    color: '#6B7280',
-    marginHorizontal: SPACING.sm,
+    textAlign: 'center',
   },
 });

@@ -69,7 +69,7 @@ describe('useCart - Validation', () => {
       { ...mockProduct, id: 'valid-product', cartItemId: 'valid-product' },
     ];
 
-    localStorageMock.setItem('baci-cart', JSON.stringify(initialCart));
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
 
     // Mock validation response
     (global.fetch as any).mockResolvedValueOnce({
@@ -121,7 +121,7 @@ describe('useCart - Validation', () => {
       { ...mockProduct, id: 'valid-product', cartItemId: 'valid-product' },
     ];
 
-    localStorageMock.setItem('baci-cart', JSON.stringify(initialCart));
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
 
     // Mock empty response
     (global.fetch as any).mockResolvedValueOnce({

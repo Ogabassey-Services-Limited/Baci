@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Truck, Globe, Calculator, MapPin, PackageCheck } from 'lucide-react';
+import { Truck, Globe, Calculator, MapPin } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
 const LOAD_MESSAGES = [

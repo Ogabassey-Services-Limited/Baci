@@ -19,6 +19,7 @@
     "types/**/*.ts",
     "constants/**/*.ts",
     "expo-env.d.ts",
-    ".expo/types/**/*.ts"
+    ".expo/types/**/*.ts",
+    "nativewind-env.d.ts"
   ]
 }

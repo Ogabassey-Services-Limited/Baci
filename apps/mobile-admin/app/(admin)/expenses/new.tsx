@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -254,8 +254,8 @@ export default function AddExpenseScreen() {
               >
                 {receiptUri ? (
                   <>
-                    <Image
-                      source={receiptUri}
+                    <SafeImage
+                      source={{ uri: receiptUri }}
                       style={styles.receiptPreview}
                       contentFit="cover"
                       transition={200}

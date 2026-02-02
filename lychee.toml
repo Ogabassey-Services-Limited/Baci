@@ -126,5 +126,7 @@ exclude = [
   "^https?://([a-z0-9-]+\\.)?tailwindcss\\.com",
   "^https?://([a-z0-9-]+\\.)?jumia\\.com\\.ng",
   "^https?://([a-z0-9-]+\\.)?typescriptlang\\.org",
-  "^https?://([a-z0-9-]+\\.)?firebase\\.google\\.com"
+  "^https?://([a-z0-9-]+\\.)?firebase\\.google\\.com",
+  # Flaky external URLs that may timeout
+  "^https?://vitest\\.dev"
 ]

@@ -2,8 +2,10 @@ import z from 'zod';
 import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**
- * Base schema for Step 1. Contains only field definitions.
+ * --- SHARED BASE SCHEMAS ---
+ * These define the primitive fields for each step.
  */
+
 const step1BaseSchema = z.object({
   businessName: z
     .string()
@@ -21,34 +23,8 @@ const step1BaseSchema = z.object({
     .optional(),
 });
 
-/**
- * Step 1: Business Details (with client-side refinement)
- */
-export const step1Schema = step1BaseSchema.refine(
-  (data) => {
-    if (
-      data.businessType === 'other' &&
-      (!data.otherBusinessType || data.otherBusinessType.length < 2)
-    ) {
-      return false;
-    }
-    return true;
-  },
-  {
-    message:
-      "If you select 'Other', please specify your business type with at least 2 characters.",
-    path: ['otherBusinessType'],
-  }
-);
-
-/**
- * Step 2: Branding (Client-side validation)
- */
-export const step2Schema = z.object({
-  logoUrl: z
-    .string()
-    .trim()
-    .min(1, { message: 'Logo is required. Please upload or generate one.' }),
+const step2BaseSchema = z.object({
+  logoUrl: z.string().trim().optional().or(z.literal('')),
   brandColors: z
     .string()
     .trim()
@@ -56,9 +32,6 @@ export const step2Schema = z.object({
   brandPreferences: z.string().trim().optional(),
 });
 
-/**
- * Base schema for Step 3. Contains only field definitions.
- */
 const step3BaseSchema = z.object({
   email: z
     .string()
@@ -66,21 +39,40 @@ const step3BaseSchema = z.object({
     .email({ message: 'Please enter a valid email address.' }),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
-  fullName: z.string().trim().optional(),
+  firstName: z.string().trim().optional(),
+  lastName: z.string().trim().optional(),
   phone: z.string().trim().optional(),
 });
 
 /**
- * Step 3: Account Creation (with client-side refinement + breach checking)
- * Uses superRefine for proper conditional validation:
- * - If password is provided, it must be at least 8 chars and strong enough
- * - If password is strong enough (>= 2 strength), confirmPassword must match
- * - Password is checked against common/breached passwords
- * Note: The form component handles the "password required" logic for non-logged-in users
+ * --- REUSABLE REFINEMENTS ---
  */
-// Reusable password validation helper
-const validatePassword = (
-  data: { password?: string; confirmPassword?: string },
+
+const refineStep1Other = (
+  data: {
+    businessType: string;
+    otherBusinessType?: string;
+  },
+  ctx: z.RefinementCtx
+) => {
+  if (
+    data.businessType === 'other' &&
+    (!data.otherBusinessType || data.otherBusinessType.length < 2)
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        "If you select 'Other', please specify your business type with at least 2 characters.",
+      path: ['otherBusinessType'],
+    });
+  }
+};
+
+const refineStep3Password = (
+  data: {
+    password?: string;
+    confirmPassword?: string;
+  },
   ctx: z.RefinementCtx
 ) => {
   const { password, confirmPassword } = data;
@@ -129,33 +121,53 @@ const validatePassword = (
   }
 };
 
-export const step3Schema = step3BaseSchema.superRefine((data, ctx) => {
-  validatePassword(data, ctx);
-});
+/**
+ * --- PLATFORM SPECIFIC SCHEMAS (2026 Best Practice: Composition) ---
+ */
 
 /**
- * Combined schema for final server-side validation.
- * This merges the base schemas first, then applies all refinements.
+ * Web Onboarding Schema: STRICT
+ * Requires logoUrl for full branding setup.
  */
 export const onboardingSchema = step1BaseSchema
-  .merge(step2Schema)
+  .merge(step2BaseSchema)
   .merge(step3BaseSchema)
+  .extend({
+    logoUrl: z.string().trim().min(1, {
+      message: 'Logo is required for web setup. Please upload or generate one.',
+    }),
+  })
   .superRefine((data, ctx) => {
-    // Refinement from step1Schema
-    if (
-      data.businessType === 'other' &&
-      (!data.otherBusinessType || data.otherBusinessType.length < 2)
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message:
-          "If you select 'Other', please specify your business type with at least 2 characters.",
-        path: ['otherBusinessType'],
-      });
-    }
-
-    // Refinement from step3Schema (Password Validation)
-    validatePassword(data, ctx);
+    refineStep1Other(data, ctx);
+    refineStep3Password(data, ctx);
   });
 
+/**
+ * Mobile Onboarding Schema: FLEXIBLE
+ * Allows logoUrl to be optional for quick registration.
+ */
+export const mobileOnboardingSchema = step1BaseSchema
+  .merge(step2BaseSchema)
+  .merge(step3BaseSchema)
+  .superRefine((data, ctx) => {
+    refineStep1Other(data, ctx);
+    refineStep3Password(data, ctx);
+  });
+
+/**
+ * --- STEP-WISE SCHEMAS (For UI Form Progress) ---
+ */
+
+export const step1Schema = step1BaseSchema.superRefine(refineStep1Other);
+
+export const step2Schema = step2BaseSchema.extend({
+  logoUrl: z.string().trim().min(1, {
+    message:
+      'Logo is required for step validation. Please upload or generate one.',
+  }),
+});
+
+export const step3Schema = step3BaseSchema.superRefine(refineStep3Password);
+
 export type OnboardingFormValues = z.infer<typeof onboardingSchema>;
+export type MobileOnboardingValues = z.infer<typeof mobileOnboardingSchema>;

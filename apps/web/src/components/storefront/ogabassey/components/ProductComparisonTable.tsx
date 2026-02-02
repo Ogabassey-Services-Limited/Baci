@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, X, Smartphone, Loader2 } from 'lucide-react';
+import { Search, Plus, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';

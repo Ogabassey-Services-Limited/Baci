@@ -19,7 +19,11 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { isOrderRealtimePayload } from '@/lib/validation';
+
+const log = createLogger('OrderDetails');
 
 interface OrderItem {
   id: string;
@@ -121,7 +125,7 @@ export default function OrderDetailsScreen() {
       });
       setError(null);
     } catch (err) {
-      console.error('Error fetching order:', err);
+      log.error('Error fetching order:', err);
       setError('Failed to load order details');
     } finally {
       setIsLoading(false);
@@ -148,23 +152,30 @@ export default function OrderDetailsScreen() {
           filter: `id=eq.${id}`,
         },
         (payload) => {
-          console.log('Order updated in realtime:', payload.new);
+          log.debug('Order updated in realtime:', payload);
 
-          // Update the order state with new data from realtime
+          // 2026 Best Practice: Type guard for realtime payloads
+          if (!isOrderRealtimePayload(payload)) {
+            log.warn('Invalid order realtime payload:', payload);
+            return;
+          }
+
+          // Update the order state with validated data from realtime
           setOrder((prevOrder) => {
             if (!prevOrder) return prevOrder;
             return {
               ...prevOrder,
-              status: payload.new.status,
-              tracking_number: payload.new.tracking_number,
-              tracking_url: payload.new.tracking_url,
-              updated_at: payload.new.updated_at,
+              status: payload.new.status ?? prevOrder.status,
+              tracking_number:
+                payload.new.tracking_number ?? prevOrder.tracking_number,
+              tracking_url: payload.new.tracking_url ?? prevOrder.tracking_url,
+              updated_at: payload.new.updated_at ?? prevOrder.updated_at,
             };
           });
         }
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+        log.debug('Realtime subscription status:', status);
       });
 
     channelRef.current = channel;
@@ -298,7 +309,7 @@ export default function OrderDetailsScreen() {
                       ]}
                     >
                       <Ionicons
-                        name={step.icon as any}
+                        name={step.icon as React.ComponentProps<typeof Ionicons>['name']}
                         size={16}
                         color={isCompleted ? '#FFF' : colors.textSecondary}
                       />
@@ -476,7 +487,13 @@ export default function OrderDetailsScreen() {
         </View>
         <View style={styles.paymentInfo}>
           <Text style={[styles.paymentMethod, { color: colors.textSecondary }]}>
-            Paid via {order.payment_method?.replace('_', ' ')}
+            {order.payment_status === 'paid'
+              ? `Paid via ${order.payment_method?.replace('_', ' ')}`
+              : order.payment_status === 'partially_paid'
+                ? `Partially paid via ${order.payment_method?.replace('_', ' ')}`
+                : order.payment_status === 'pending'
+                  ? 'Payment pending'
+                  : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`}
           </Text>
         </View>
       </View>

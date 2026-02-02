@@ -1,9 +1,10 @@
 'use client';
 
 // Migrated from temp-source/components/NegotiationModal.tsx
-import { AlertCircle, CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
+import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -11,9 +12,11 @@ interface NegotiationModalProps {
   productName: string;
   currentPrice: number;
   onSuccess: (finalPrice: number) => void;
+  type: 'single' | 'total';
+  itemId?: string;
 }
 
-type NegotiationState = 'input' | 'processing' | 'success' | 'failed' | 'upload';
+type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
@@ -21,9 +24,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   productName,
   currentPrice,
   onSuccess,
+  type,
+  itemId,
 }) => {
   const [offer, setOffer] = useState('');
-  const [status, setStatus] = useState<NegotiationState>('input');
+  const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
 
   // Progressive Negotiation State
@@ -33,6 +38,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+
+  const supabase = createClient();
 
   // Reset state when opened
   useEffect(() => {
@@ -87,13 +94,49 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
       const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
 
-      // Update State
-      setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer
-      setCounterOffer(proposedCounter);
-      setMessage(replyMessage);
-      setAttemptCount(prev => prev + 1);
-
+      if (attemptCount >= 2) {
+        setStatus('upload');
+        setMessage("You're looking for a serious discount! Upload evidence of a lower price elsewhere and a merchant will review your request.");
+      } else {
+        // Update State
+        setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer
+        setCounterOffer(proposedCounter);
+        setMessage(replyMessage);
+        setAttemptCount(prev => prev + 1);
+      }
     }, 1500);
+  };
+
+  const submitMerchantRequest = async (evidenceUrl?: string) => {
+    setStatus('processing');
+    const offerAmount = Number.parseFloat(offer);
+
+    try {
+      const { error } = await supabase
+        .from('negotiation_requests')
+        .insert({
+          merchant_id: '868f0fdc-5654-469b-9807-695ca1206d20', // Default merchant for Baci
+          session_id: 'web-session', // In prod, get actual session/user
+          type,
+          item_info: type === 'single' ? {
+            id: itemId,
+            name: productName,
+            current_price: currentPrice,
+          } : null,
+          offered_price: offerAmount,
+          evidence_url: evidenceUrl || null,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      setStatus('submitted');
+      setMessage("Request submitted! We'll notify you as soon as the merchant reviews your offer.");
+    } catch (error) {
+      console.error('Failed to submit request:', error);
+      alert('Failed to submit request. Please try again.');
+      setStatus('upload');
+    }
   };
 
   const handleAcceptCounter = () => {
@@ -103,20 +146,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     }
   };
 
-  const handleUploadSubmit = (e: React.FormEvent) => {
+  const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus('processing');
-
-    // Mock submission delay
-    setTimeout(() => {
-      setStatus('success');
-      setMessage('Price match request received! We\'ll review your evidence and email you within 24 hours.');
-
-      // Auto-close after showing success
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-    }, 1500);
+    submitMerchantRequest(uploadLink || 'uploaded_evidence_placeholder');
   };
 
   return (
@@ -327,6 +359,22 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 </button>
               </div>
             </form>
+          )}
+
+          {status === 'submitted' && (
+            <div className="flex flex-col items-center justify-center py-4 text-center">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                <CheckCircle2 size={28} className="text-green-600" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900 mb-1">Request Sent</h4>
+              <p className="text-sm text-gray-500 mb-6">{message}</p>
+              <button
+                onClick={onClose}
+                className="bg-gray-900 text-white px-8 py-2 rounded-xl font-bold text-sm hover:bg-black transition-colors"
+              >
+                Got it
+              </button>
+            </div>
           )}
         </div>
       </div>

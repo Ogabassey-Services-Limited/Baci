@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  type AlertButton,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -20,6 +21,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Addresses');
 
 interface Address {
   id: string;
@@ -63,7 +67,7 @@ export default function AddressesScreen() {
       setAddresses(data || []);
       setError(null);
     } catch (err) {
-      console.error('Error fetching addresses:', err);
+      log.error('Error fetching addresses:', err);
       setError('Failed to load addresses');
     } finally {
       setIsLoading(false);
@@ -97,7 +101,7 @@ export default function AddressesScreen() {
       // Refresh the list
       fetchAddresses();
     } catch (err) {
-      console.error('Error setting default address:', err);
+      log.error('Error setting default address:', err);
       Alert.alert('Error', 'Failed to set default address');
     }
   };
@@ -122,7 +126,7 @@ export default function AddressesScreen() {
 
               setAddresses((prev) => prev.filter((a) => a.id !== address.id));
             } catch (err) {
-              console.error('Error deleting address:', err);
+              log.error('Error deleting address:', err);
               Alert.alert('Error', 'Failed to delete address');
             }
           },
@@ -159,28 +163,27 @@ export default function AddressesScreen() {
         <TouchableOpacity
           style={styles.menuButton}
           onPress={() => {
-            Alert.alert(
-              'Address Options',
-              '',
-              [
-                {
-                  text: 'Edit',
-                  onPress: () => router.push(`/addresses/${item.id}`),
-                },
-                !item.is_default
-                  ? {
-                      text: 'Set as Default',
-                      onPress: () => handleSetDefault(item.id),
-                    }
-                  : null,
-                {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => handleDeleteAddress(item),
-                },
-                { text: 'Cancel', style: 'cancel' },
-              ].filter(Boolean) as any[]
-            );
+            // 2026 Critical Fix: Properly type Alert buttons without 'as any'
+            const buttons: AlertButton[] = [
+              {
+                text: 'Edit',
+                onPress: () => router.push(`/addresses/${item.id}`),
+              },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => handleDeleteAddress(item),
+              },
+              { text: 'Cancel', style: 'cancel' },
+            ];
+            // Conditionally add "Set as Default" if not already default
+            if (!item.is_default) {
+              buttons.splice(1, 0, {
+                text: 'Set as Default',
+                onPress: () => handleSetDefault(item.id),
+              });
+            }
+            Alert.alert('Address Options', '', buttons);
           }}
         >
           <Ionicons

@@ -10,15 +10,24 @@
  * For production builds, consider switching to MMKV for better performance.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { createMMKV } from 'react-native-mmkv';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 
-// Create the persister with AsyncStorage (Expo Go compatible)
-export const queryPersister = createAsyncStoragePersister({
-  storage: AsyncStorage,
-  // Throttle writes to prevent performance issues during rapid updates
-  throttleTime: 1000,
+// Initialize MMKV storage instance
+const storage = createMMKV();
+
+/**
+ * MMKV-based Persister (High Performance)
+ * MMKV is ~10x faster than AsyncStorage and works synchronously,
+ * enabling the "Flash-Load" pattern.
+ */
+export const queryPersister = createSyncStoragePersister({
+  storage: {
+    getItem: (key) => storage.getString(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.remove(key),
+  },
 });
 
 export const queryClient = new QueryClient({

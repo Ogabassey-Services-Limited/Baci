@@ -1,6 +1,8 @@
 'use client';
 
+import DOMPurify from 'isomorphic-dompurify';
 import { AlertCircle, CheckCircle, Scale, ScrollText } from 'lucide-react';
+import { useMemo } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -33,6 +35,68 @@ export function TermsPageClient({
   content,
   sanitizedContent,
 }: TermsPageClientProps) {
+  // Defense-in-depth: sanitize on client if server-sanitized content not provided
+  const safeHtml = useMemo(() => {
+    // Ensure even server-provided content passes through client sanitizer for defense-in-depth to satisfy CodeQL
+    if (sanitizedContent) return DOMPurify.sanitize(sanitizedContent);
+    if (!content) return undefined;
+    // Fallback client-side sanitization (should not normally be needed)
+    return DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: [
+        'b',
+        'i',
+        'em',
+        'strong',
+        'u',
+        's',
+        'mark',
+        'small',
+        'sub',
+        'sup',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'p',
+        'br',
+        'hr',
+        'div',
+        'span',
+        'blockquote',
+        'pre',
+        'code',
+        'ul',
+        'ol',
+        'li',
+        'a',
+        'img',
+        'table',
+        'thead',
+        'tbody',
+        'tfoot',
+        'tr',
+        'th',
+        'td',
+      ],
+      ALLOWED_ATTR: [
+        'class',
+        'id',
+        'title',
+        'width',
+        'height',
+        'colspan',
+        'rowspan',
+        'href',
+        'target',
+        'rel',
+        'src',
+        'alt',
+      ],
+    });
+  }, [content, sanitizedContent]);
+
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
@@ -104,7 +168,8 @@ export function TermsPageClient({
               {/* Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
                 <div className="max-w-3xl mx-auto">
-                  {content ? (
+                  {/* Security: Content is sanitized via DOMPurify (client-side) or sanitize-html (server-side) */}
+                  {safeHtml ? (
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none
                         prose-headings:font-bold prose-headings:tracking-tight
@@ -113,10 +178,9 @@ export function TermsPageClient({
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizedContent || content,
-                      }} // nosemgrep
+                      // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via DOMPurify
+                      dangerouslySetInnerHTML={{ __html: safeHtml }}
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">

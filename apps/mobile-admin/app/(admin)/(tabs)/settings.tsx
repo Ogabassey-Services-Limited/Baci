@@ -5,6 +5,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,13 +15,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { performLogoutCleanup } from '@/lib/logout';
 
 export default function SettingsScreen() {
   const { resetOnboarding } = useOnboarding();
+  const { signOut } = useAuth();
+  const { unregisterPush } = usePushNotifications();
   const colorScheme = useColorScheme();
   const _router = useRouter();
   const isDark = colorScheme === 'dark';
+
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await performLogoutCleanup(unregisterPush);
+          await signOut();
+        },
+      },
+    ]);
+  };
 
   const colors = {
     background: isDark ? '#0F172A' : '#F8FAFC',
@@ -214,6 +234,7 @@ export default function SettingsScreen() {
             styles.logoutButton,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
+          onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
           <Text style={styles.logoutText}>Sign Out</Text>
@@ -230,8 +251,18 @@ export default function SettingsScreen() {
               styles.devButton,
               { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' },
             ]}
-            onPress={() => {
-              resetOnboarding();
+            onPress={async () => {
+              await resetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => _router.replace('/(auth)/onboarding'),
+                  },
+                ]
+              );
             }}
           >
             <Ionicons name="refresh-outline" size={20} color="#D97706" />

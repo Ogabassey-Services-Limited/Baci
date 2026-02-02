@@ -16,6 +16,7 @@ interface RegisterPayload {
   phone?: string;
   brandColors?: string;
   logoUrl?: string;
+  brandPreferences?: string;
 }
 
 interface CompleteProfilePayload {
@@ -29,6 +30,7 @@ interface CompleteProfilePayload {
   slug?: string;
   logoUrl?: string;
   brandColors?: string;
+  brandPreferences?: string;
 }
 
 // Response type for onboarding API (registration and profile completion)

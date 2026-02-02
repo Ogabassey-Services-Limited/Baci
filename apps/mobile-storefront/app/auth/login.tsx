@@ -5,10 +5,11 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useKeyboard, TextContentTypes } from '@/hooks/use-keyboard';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -32,15 +34,24 @@ export default function LoginScreen() {
 
   const signInWithOtp = useAuthStore((state) => state.signInWithOtp);
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
+  const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const [step, setStep] = useState<AuthStep>('email');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
 
-  const handleSendOtp = async () => {
+  // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
+  const { withKeyboardDismiss } = useKeyboard();
+
+  // Refs for input focus management
+  const otpInputRef = useRef<TextInput>(null);
+
+  // 2026 Best Practice: Dismiss keyboard on submit
+  const handleSendOtp = withKeyboardDismiss(async () => {
     // Validate email with Zod
     const emailResult = EmailSchema.safeParse(email.trim());
     const error = getFirstError(emailResult);
@@ -55,12 +66,15 @@ export default function LoginScreen() {
 
     if (result.success) {
       setStep('otp');
+      // Focus OTP input after transition
+      setTimeout(() => otpInputRef.current?.focus(), 300);
     } else {
       Alert.alert('Error', result.error || 'Failed to send verification code');
     }
-  };
+  });
 
-  const handleVerifyOtp = async () => {
+  // 2026 Best Practice: Dismiss keyboard on submit
+  const handleVerifyOtp = withKeyboardDismiss(async () => {
     // Validate OTP with Zod
     const otpResult = OtpSchema.safeParse(otp.trim());
     const error = getFirstError(otpResult);
@@ -79,7 +93,7 @@ export default function LoginScreen() {
     } else {
       Alert.alert('Error', result.error || 'Invalid verification code');
     }
-  };
+  });
 
   const handleResendOtp = async () => {
     setOtp('');
@@ -104,6 +118,46 @@ export default function LoginScreen() {
       setOtp('');
     } else {
       router.back();
+    }
+  };
+
+  // 2026 Critical Fix: Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (step === 'otp') {
+          setStep('email');
+          setOtp('');
+          return true; // Prevent default back behavior
+        }
+        return false; // Let default back behavior happen
+      }
+    );
+
+    return () => backHandler.remove();
+  }, [step]);
+
+  // 2026 Best Practice: Handle Google OAuth sign-in
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const result = await signInWithGoogle();
+
+      if (result.success) {
+        // Navigate to home on success
+        router.replace('/');
+      } else if (result.error !== 'Sign in was cancelled') {
+        // Only show error if user didn't cancel
+        Alert.alert('Error', result.error || 'Failed to sign in with Google');
+      }
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to sign in with Google'
+      );
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -145,6 +199,12 @@ export default function LoginScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             editable={!isLoading}
+            // 2026 Best Practice: textContentType for iOS autofill
+            textContentType={TextContentTypes.emailAddress}
+            autoComplete="email"
+            returnKeyType="go"
+            onSubmitEditing={handleSendOtp}
+            blurOnSubmit={false}
           />
         </View>
         {emailError && <Text style={styles.errorText}>{emailError}</Text>}
@@ -179,15 +239,24 @@ export default function LoginScreen() {
       </View>
 
       <Pressable
-        style={[styles.socialButton, { borderColor: colors.border }]}
-        onPress={() =>
-          Alert.alert('Coming Soon', 'Google Sign-In will be available soon')
-        }
+        style={[
+          styles.socialButton,
+          { borderColor: colors.border },
+          (isLoading || isGoogleLoading) && styles.buttonDisabled,
+        ]}
+        onPress={handleGoogleSignIn}
+        disabled={isLoading || isGoogleLoading}
       >
-        <Ionicons name="logo-google" size={20} color={colors.text} />
-        <Text style={[styles.socialButtonText, { color: colors.text }]}>
-          Continue with Google
-        </Text>
+        {isGoogleLoading ? (
+          <ActivityIndicator size="small" color={colors.text} />
+        ) : (
+          <>
+            <Ionicons name="logo-google" size={20} color={colors.text} />
+            <Text style={[styles.socialButtonText, { color: colors.text }]}>
+              Continue with Google
+            </Text>
+          </>
+        )}
       </Pressable>
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
@@ -232,6 +301,7 @@ export default function LoginScreen() {
             color={otpError ? '#EF4444' : colors.textSecondary}
           />
           <TextInput
+            ref={otpInputRef}
             style={[styles.input, styles.otpInput, { color: colors.text }]}
             placeholder="000000"
             placeholderTextColor={colors.textSecondary}
@@ -239,10 +309,19 @@ export default function LoginScreen() {
             onChangeText={(text) => {
               setOtp(text);
               if (otpError) setOtpError(null);
+              // Auto-submit when 6 digits entered
+              if (text.length === 6) {
+                handleVerifyOtp();
+              }
             }}
             keyboardType="number-pad"
             maxLength={6}
             editable={!isLoading}
+            // 2026 Best Practice: textContentType for iOS OTP autofill
+            textContentType={TextContentTypes.oneTimeCode}
+            autoComplete="one-time-code"
+            returnKeyType="done"
+            onSubmitEditing={handleVerifyOtp}
           />
         </View>
         {otpError && <Text style={styles.errorText}>{otpError}</Text>}
@@ -299,6 +378,7 @@ export default function LoginScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Logo */}
             <View style={styles.logoContainer}>

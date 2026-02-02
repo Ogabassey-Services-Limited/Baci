@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +15,7 @@ import {
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
 interface Item {
@@ -52,19 +53,20 @@ export function DiscountItemSelector({
     setLoading(true);
     try {
       let query;
+      const sanitizedSearch = sanitizeSearchQuery(search);
       if (type === 'product') {
         query = supabase
           .from('products')
           .select('id, name, description, images')
           .eq('merchant_id', merchant?.id)
-          .ilike('name', `%${search}%`)
+          .ilike('name', `%${sanitizedSearch}%`)
           .limit(50);
       } else {
         query = supabase
           .from('categories')
           .select('id, name, description')
           .eq('merchant_id', merchant?.id)
-          .ilike('name', `%${search}%`)
+          .ilike('name', `%${sanitizedSearch}%`)
           .limit(50);
       }
 
@@ -87,12 +89,14 @@ export function DiscountItemSelector({
   }, [merchant, search, type]);
 
   useEffect(() => {
-    console.log(
-      '[DiscountItemSelector] useEffect triggered. Visible:',
-      visible,
-      'MerchantID:',
-      merchant?.id
-    );
+    if (__DEV__) {
+      console.log(
+        '[DiscountItemSelector] useEffect triggered. Visible:',
+        visible,
+        'MerchantID:',
+        merchant?.id
+      );
+    }
     if (visible && merchant?.id) {
       fetchItems();
     }
@@ -211,7 +215,7 @@ export function DiscountItemSelector({
                   accessibilityState={{ checked: isSelected }}
                 >
                   {item.images && item.images.length > 0 && (
-                    <Image
+                    <SafeImage
                       source={{ uri: item.images[0] }}
                       style={styles.itemImage}
                       contentFit="cover"

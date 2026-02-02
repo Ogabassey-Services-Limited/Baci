@@ -115,7 +115,7 @@ export async function DELETE(
       throw error;
     }
 
-    return NextResponse.json({ message: 'Discount code deleted successfully' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting discount code:', error);
     return NextResponse.json(

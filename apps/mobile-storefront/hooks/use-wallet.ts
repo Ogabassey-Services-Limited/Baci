@@ -14,6 +14,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import {
+  CustomerRowSchema,
+  WalletRowSchema,
+  TransactionRowSchema,
+} from '@/lib/validation';
+import { z } from 'zod';
 
 // ============================================
 // TYPES
@@ -81,13 +87,33 @@ async function fetchWalletData(
 
   if (customerResult.error) throw customerResult.error;
 
+  // 2026 Best Practice: Validate response data with Zod
+  const customerValidation = CustomerRowSchema.pick({
+    loyalty_points: true,
+    loyalty_tier: true,
+  }).safeParse(customerResult.data);
+
+  const walletValidation = WalletRowSchema.safeParse(walletResult.data);
+
+  const transactionsValidation = z
+    .array(TransactionRowSchema)
+    .safeParse(transactionsResult.data);
+
   return {
     wallet: {
-      balance: walletResult.data?.balance || 0,
-      loyalty_points: customerResult.data?.loyalty_points || 0,
-      loyalty_tier: customerResult.data?.loyalty_tier || 'Bronze',
+      balance: walletValidation.success
+        ? walletValidation.data.balance
+        : (walletResult.data?.balance ?? 0),
+      loyalty_points: customerValidation.success
+        ? (customerValidation.data.loyalty_points ?? 0)
+        : (customerResult.data?.loyalty_points ?? 0),
+      loyalty_tier: customerValidation.success
+        ? (customerValidation.data.loyalty_tier ?? 'Bronze')
+        : (customerResult.data?.loyalty_tier ?? 'Bronze'),
     },
-    transactions: transactionsResult.data || [],
+    transactions: transactionsValidation.success
+      ? transactionsValidation.data
+      : (transactionsResult.data ?? []),
   };
 }
 
@@ -106,18 +132,28 @@ export function useWallet() {
 
   const query = useQuery({
     queryKey: walletKeys.data(customer?.id || ''),
-    queryFn: () => fetchWalletData(customer?.id, merchantId!),
+    queryFn: () => fetchWalletData(customer?.id ?? '', merchantId ?? ''),
     enabled: !!customer?.id && !!merchantId,
     staleTime: 30_000, // Consider fresh for 30 seconds
     gcTime: 5 * 60_000, // Keep in cache for 5 minutes
   });
 
   // Real-time sync
+  // 2026 Critical Fix: Prevent channel race condition on rapid mount/unmount
   useEffect(() => {
     if (!customer?.id) return;
 
+    // Cleanup any existing channel first (prevent duplicates)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    let isMounted = true;
+    const channelName = `wallet-hook-${customer.id}-${Date.now()}`;
+
     const channel = supabase
-      .channel(`wallet-hook-${customer.id}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -127,10 +163,12 @@ export function useWallet() {
           filter: `customer_id=eq.${customer.id}`,
         },
         () => {
-          // Invalidate to refetch
-          queryClient.invalidateQueries({
-            queryKey: walletKeys.data(customer.id),
-          });
+          // Only invalidate if still mounted
+          if (isMounted) {
+            queryClient.invalidateQueries({
+              queryKey: walletKeys.data(customer.id),
+            });
+          }
         }
       )
       .on(
@@ -142,9 +180,11 @@ export function useWallet() {
           filter: `id=eq.${customer.id}`,
         },
         () => {
-          queryClient.invalidateQueries({
-            queryKey: walletKeys.data(customer.id),
-          });
+          if (isMounted) {
+            queryClient.invalidateQueries({
+              queryKey: walletKeys.data(customer.id),
+            });
+          }
         }
       )
       .subscribe();
@@ -152,8 +192,10 @@ export function useWallet() {
     channelRef.current = channel;
 
     return () => {
+      isMounted = false;
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        // Use removeChannel for synchronous cleanup
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };

@@ -273,8 +273,8 @@ function parseSickwResponse(
   }
 
   // Generate verdict
-  let verdict = '';
-  let verdictType: 'safe' | 'caution' | 'danger' = 'safe';
+  let verdict: string;
+  let verdictType: 'safe' | 'caution' | 'danger';
 
   if (isBlacklisted) {
     verdict =
@@ -341,6 +341,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Luhn checksum validation for IMEI
+    const luhnCheck = (imeiStr: string): boolean => {
+      let sum = 0;
+      for (let i = 0; i < imeiStr.length; i++) {
+        let digit = Number.parseInt(imeiStr[i], 10);
+        // Double every second digit (from right, so odd indices from left for 15 digits)
+        if (i % 2 === 1) {
+          digit *= 2;
+          if (digit > 9) {
+            digit = Math.floor(digit / 10) + (digit % 10);
+          }
+        }
+        sum += digit;
+      }
+      return sum % 10 === 0;
+    };
+
+    if (!luhnCheck(cleanImei)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid IMEI checksum' },
+        { status: 400 }
+      );
+    }
+
     // Validate service tier
     const serviceTier = IMEI_SERVICE_TIERS[tier as ServiceTier];
     if (!serviceTier) {
@@ -384,7 +408,7 @@ export async function POST(request: NextRequest) {
     let apiResponse: any;
     try {
       apiResponse = JSON.parse(rawText);
-    } catch (_e) {
+    } catch {
       // Not JSON, likely plain text or HTML
       console.warn(
         '[IMEI Check] Response is not JSON, treating as text',

@@ -1,6 +1,6 @@
 /**
  * Baci Mobile Admin - Root Layout
- * 2026 Best Practice: Route Groups Architecture
+ * 2026 Best Practice: Route Groups Architecture + Network State Monitoring
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,7 @@ import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { OnboardingProvider } from '@/context/OnboardingContext';
+import { NetworkProvider } from '@/context/NetworkContext';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 
@@ -94,9 +95,11 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
           <StatusBar style={isDark ? 'light' : 'dark'} />
-          <OnboardingProvider>
-            <Slot />
-          </OnboardingProvider>
+          <NetworkProvider>
+            <OnboardingProvider>
+              <Slot />
+            </OnboardingProvider>
+          </NetworkProvider>
         </ThemeProvider>
       </GestureHandlerRootView>
     </QueryProvider>

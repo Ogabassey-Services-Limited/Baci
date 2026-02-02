@@ -4,6 +4,53 @@ if (!PAYSTACK_SECRET_KEY && process.env.NODE_ENV === 'production') {
   console.warn('PAYSTACK_SECRET_KEY is not set');
 }
 
+/**
+ * Validates that an email is in proper format to prevent SSRF attacks
+ * when used in URL paths. Returns the encoded email if valid.
+ */
+function validateAndEncodeEmail(email: string): string {
+  // Limit email length to prevent potential ReDoS attacks on the regex engine
+  if (!email || email.length > 320) {
+    throw new Error('Invalid email length');
+  }
+
+  // Use a simple, non-polynomial regex for basic format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('Invalid email format');
+  }
+
+  // Ensure email doesn't contain path traversal or URL manipulation characters
+  if (
+    email.includes('/') ||
+    email.includes('\\') ||
+    email.includes('..') ||
+    email.includes('://') ||
+    email.includes('\n') ||
+    email.includes('\r') ||
+    email.includes('\0')
+  ) {
+    throw new Error('Email contains invalid characters');
+  }
+
+  // URL-encode the email to safely include in paths
+  return encodeURIComponent(email);
+}
+
+/**
+ * Sanitize potentially user-controlled strings before logging to prevent
+ * log injection (for example, forged new log lines or control characters).
+ */
+function sanitizeForLog(value: unknown, maxLength = 500): string {
+  const str = String(value ?? '');
+  // Replace all ASCII control characters (0x00-0x1F, 0x7F) with spaces
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+  const withoutControls = str.replace(/[\x00-\x1F\x7F]/g, ' ');
+  // Collapse repeated whitespace and trim to keep logs concise
+  const normalized = withoutControls.replace(/\s+/g, ' ').trim();
+  return normalized.slice(0, maxLength);
+}
+
 export interface PaystackCustomer {
   email: string;
   first_name: string;
@@ -53,17 +100,11 @@ export async function getOrCreatePaystackCustomer(
   customer: PaystackCustomer
 ): Promise<string> {
   try {
-    // 1. Try to create customer
-    const createRes = await fetch('https://api.paystack.co/customer', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY || 'sk_test_placeholder'}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(customer),
-    });
+    // Validate email early to prevent SSRF attacks
+    const encodedEmail = validateAndEncodeEmail(customer.email);
 
-    const createData = await createRes.json();
+    // 1. Try to create customer using the protected paystackRequest helper
+    const createData = await paystackRequest('/customer', 'POST', customer);
 
     if (createData.status) {
       return createData.data.customer_code;
@@ -76,26 +117,26 @@ export async function getOrCreatePaystackCustomer(
     ) {
       // Only fetch if it failed.
       // Note: Paystack unfortunately doesn't always return the code in error.
-      // We must query.
-      const secretKey = PAYSTACK_SECRET_KEY || 'sk_test_placeholder';
-      const getRes = await fetch(
-        `https://api.paystack.co/customer/${customer.email}`,
-        {
-          method: 'GET',
-          headers: { Authorization: `Bearer ${secretKey}` },
-        }
-      );
-      const getData = await getRes.json();
+      // We must query using the validated and encoded email.
+      const getData = await paystackRequest(`/customer/${encodedEmail}`, 'GET');
       if (getData.status) {
         return getData.data.customer_code;
       }
     }
 
+    // Sanitize API response message before including in error to prevent log injection
+    const sanitizedMessage = sanitizeForLog(
+      createData.message || 'Unknown error',
+      200
+    );
     throw new Error(
-      `Could not create or retrieve customer: ${createData.message}`
+      `Could not create or retrieve customer: ${sanitizedMessage}`
     );
   } catch (error) {
-    console.error('Paystack Customer Error', error);
+    // Sanitize error message to prevent log injection before logging
+    const safeMessage =
+      error instanceof Error ? sanitizeForLog(error.message) : 'Unknown error';
+    console.error('Paystack Customer Error:', safeMessage);
     throw error;
   }
 }

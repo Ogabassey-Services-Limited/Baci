@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useOpenAiGlobal } from './hooks/use-openai-global';
 import { useWidgetState } from './hooks/use-widget-state';
@@ -227,7 +227,6 @@ function App() {
   const theme = useOpenAiGlobal('theme') || 'dark';
   const [widgetState, setWidgetState] =
     useWidgetState<WidgetState>(createDefaultState);
-  const [isLoading, setIsLoading] = useState(false);
 
   const cart = widgetState?.cart || [];
   const products = toolOutput?.products || [];

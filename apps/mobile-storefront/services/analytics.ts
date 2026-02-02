@@ -1,5 +1,5 @@
 /**
- * Analytics Service - 2025 Best Practices
+ * Analytics Service - 2026 Best Practices
  * Uses PostHog for product analytics, feature flags, and session recordings
  *
  * @see https://posthog.com/docs/libraries/react-native
@@ -7,6 +7,9 @@
 
 import Constants from 'expo-constants';
 import PostHog from 'posthog-react-native';
+
+import { createLogger } from '@/lib/logger';
+const log = createLogger('Analytics');
 
 // PostHog configuration
 const POSTHOG_API_KEY = Constants.expoConfig?.extra?.posthogApiKey || '';
@@ -22,17 +25,15 @@ let posthogClient: PostHog | null = null;
  */
 export async function initAnalytics(): Promise<void> {
   if (!POSTHOG_API_KEY) {
-    console.warn('[Analytics] PostHog API key not configured');
+    log.warn('PostHog API key not configured');
     return;
   }
 
   try {
     posthogClient = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
-      // Enable automatic screen tracking
-      captureApplicationLifecycleEvents: true,
-      // Disable automatic screen views (we'll do it manually for better control)
-      captureNativeAppLifecycleEvents: true,
+      // 2026 PostHog SDK: Enable automatic app lifecycle tracking
+      captureAppLifecycleEvents: true,
       // Session recording (if enabled in PostHog dashboard)
       enableSessionReplay: true,
       sessionReplayConfig: {
@@ -48,9 +49,9 @@ export async function initAnalytics(): Promise<void> {
       flushInterval: 30000,
     });
 
-    console.log('[Analytics] PostHog initialized');
+    log.info('PostHog initialized');
   } catch (error) {
-    console.error('[Analytics] Failed to initialize PostHog:', error);
+    log.error('Failed to initialize PostHog:', error);
   }
 }
 
@@ -102,7 +103,9 @@ export function resetUser(): void {
 /**
  * Update user properties without changing identity
  */
-export function setUserProperties(properties: Record<string, unknown>): void {
+export function setUserProperties(
+  properties: Record<string, string | number | boolean | null>
+): void {
   if (!posthogClient) return;
   posthogClient.capture('$set', { $set: properties });
 }
@@ -411,7 +414,7 @@ export async function reloadFeatureFlags(): Promise<void> {
   try {
     await posthogClient.reloadFeatureFlags();
   } catch (error) {
-    console.error('[Analytics] Failed to reload feature flags:', error);
+    log.error('Failed to reload feature flags:', error);
   }
 }
 
@@ -470,6 +473,6 @@ export async function shutdownAnalytics(): Promise<void> {
     await posthogClient.shutdown();
     posthogClient = null;
   } catch (error) {
-    console.error('[Analytics] Error during shutdown:', error);
+    log.error('Error during shutdown:', error);
   }
 }

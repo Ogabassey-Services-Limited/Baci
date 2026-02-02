@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useRef } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -30,18 +31,41 @@ export default function DomainOptionsSheet({
   onAction,
 }: DomainOptionsSheetProps) {
   const { colors, shadows } = useTheme();
+  const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (actionTimeoutRef.current) {
+        clearTimeout(actionTimeoutRef.current);
+        actionTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleAction = useCallback(
+    (action: 'visit' | 'verify' | 'set_primary' | 'delete') => {
+      if (!domain) return;
+      onClose();
+      // Clear any existing timeout before setting a new one
+      if (actionTimeoutRef.current) {
+        clearTimeout(actionTimeoutRef.current);
+      }
+      // Small delay to allow sheet to close before action (smoothness)
+      actionTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          onAction(action, domain);
+        }
+        actionTimeoutRef.current = null;
+      }, 100);
+    },
+    [domain, onClose, onAction]
+  );
 
   if (!domain) return null;
-
-  const handleAction = (
-    action: 'visit' | 'verify' | 'set_primary' | 'delete'
-  ) => {
-    onClose();
-    // Small delay to allow sheet to close before action (smoothness)
-    setTimeout(() => {
-      onAction(action, domain);
-    }, 100);
-  };
 
   return (
     <Modal

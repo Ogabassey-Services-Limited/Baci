@@ -1,18 +1,32 @@
 /**
- * Optimistic Cart Hook - 2025 Best Practice
+ * Optimistic Cart Hook - 2026 Best Practice
  *
  * Features:
  * - Immediate UI feedback (< 16ms reaction time)
  * - Automatic rollback on stock validation failure
  * - Toast notifications for stock errors
  * - Syncs with Zustand cart store
+ * - Network awareness before mutations (2026 Best Practice)
  */
 
+import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
 import { Alert, Platform, ToastAndroid } from 'react-native';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { type CartItem, useCartStore } from '@/stores/cart-store';
+
+const log = createLogger('Cart');
+
+/**
+ * Check network connectivity before mutations
+ * 2026 Best Practice: Always verify network before data operations
+ */
+async function checkNetwork(): Promise<boolean> {
+  const state = await NetInfo.fetch();
+  return state.isConnected === true && state.isInternetReachable !== false;
+}
 
 // Types for cart operations
 type AddToCartInput = Omit<CartItem, 'id'>;
@@ -42,11 +56,25 @@ const showToast = (message: string, type: 'error' | 'success' = 'error') => {
 
 /**
  * Check stock availability from the database
+ * 2026 Best Practice: Verify network before database operations
  */
 async function checkStock(
   productId: string,
   requestedQuantity: number
 ): Promise<StockCheckResult> {
+  // 2026 Best Practice: Check network before database call
+  const isOnline = await checkNetwork();
+  if (!isOnline) {
+    // If offline, return limited stock to prevent over-ordering
+    // User can still add items but with reasonable limits
+    log.warn('Offline: Stock check skipped, using conservative estimate');
+    return {
+      available: requestedQuantity <= 5,
+      currentStock: 5,
+      requestedQuantity,
+    };
+  }
+
   const { data, error } = await supabase
     .from('products')
     .select('stock_quantity')
@@ -54,12 +82,16 @@ async function checkStock(
     .single();
 
   if (error) {
-    console.error('Stock check failed:', error);
-    // If we can't check stock, assume it's available (optimistic)
-    return { available: true, currentStock: 999, requestedQuantity };
+    log.error('Stock check failed:', error);
+    // If we can't check stock, use conservative estimate to prevent over-ordering
+    return {
+      available: requestedQuantity <= 5,
+      currentStock: 5,
+      requestedQuantity,
+    };
   }
 
-  const currentStock = data?.stock_quantity ?? 999;
+  const currentStock = data?.stock_quantity ?? 0; // Default to 0 if no stock data
   return {
     available: currentStock >= requestedQuantity,
     currentStock,

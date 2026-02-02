@@ -1,6 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import z from 'zod';
 import { createClient } from '@/lib/supabase/server';
+
+// Zod schema for email validation (2026 best practice: use Zod instead of custom validation)
+const SendCodeSchema = z.object({
+  email: z.string().email('Invalid email format').max(254, 'Email too long'),
+  merchantSlug: z.string().min(1, 'Merchant slug is required'),
+});
 
 /**
  * Customer OTP Authentication - Send Code
@@ -12,32 +19,18 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { email, merchantSlug } = body;
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-    }
-
-    if (!merchantSlug) {
+    // Validate input using Zod schema
+    const parseResult = SendCodeSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0];
       return NextResponse.json(
-        { error: 'Merchant slug is required' },
+        { error: firstError?.message || 'Invalid request data' },
         { status: 400 }
       );
     }
 
-    // Basic email validation with length limit to prevent ReDoS
-    const isValidEmail =
-      email.length <= 254 &&
-      email.includes('@') &&
-      email.indexOf('@') > 0 &&
-      email.lastIndexOf('.') > email.indexOf('@') + 1 &&
-      !/\s/.test(email);
-    if (!isValidEmail) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
+    const { email, merchantSlug } = parseResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

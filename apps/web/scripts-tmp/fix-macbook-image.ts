@@ -32,7 +32,7 @@ async function fixImage() {
   const uploadPath = `products/laptops/${TARGET_SLUG}.png`;
 
   console.log('Uploading to Supabase Storage...');
-  const { data: uploadData, error: uploadError } = await supabase.storage
+  const { error: uploadError } = await supabase.storage
     .from(BUCKET_NAME)
     .upload(uploadPath, fileBuffer, {
       contentType: 'image/png',

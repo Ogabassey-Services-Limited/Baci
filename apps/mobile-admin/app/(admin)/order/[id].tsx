@@ -15,12 +15,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Print from 'expo-print';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { parseSavedRiders } from '@/lib/validators/storage';
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  BackHandler,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -30,6 +32,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { z } from 'zod';
+import SafeImage from '@/components/ui/SafeImage';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -44,6 +49,12 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+// Route param validation - order ID must be a valid UUID
+const routeParamsSchema = z.object({
+  id: z.string().uuid(),
+  action: z.enum(['record-payment', 'ship-on-credit']).optional(),
+});
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -261,17 +272,30 @@ const generateReceiptHtml = (order: {
 };
 
 export default function OrderDetailsScreen() {
-  const { id, action } = useLocalSearchParams<{
+  const rawParams = useLocalSearchParams<{
     id: string;
     action?: string;
   }>();
-  const orderId = Array.isArray(id) ? id[0] : id;
-  const actionParam = Array.isArray(action) ? action[0] : action;
   const { colors, shadows } = useTheme();
 
-  // Data Fetching
+  // Validate route params with Zod
+  const validatedParams = useMemo(() => {
+    // Normalize array params to single values for validation
+    const normalizedParams = {
+      id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
+      action: Array.isArray(rawParams.action) ? rawParams.action[0] : rawParams.action,
+    };
+    const result = routeParamsSchema.safeParse(normalizedParams);
+    return result.success ? result.data : null;
+  }, [rawParams]);
+
+  // Extract validated values (will be undefined if validation fails)
+  const orderId = validatedParams?.id;
+  const actionParam = validatedParams?.action;
+
+  // Data Fetching - use placeholder ID when invalid to maintain hook order
   const queryClient = useQueryClient();
-  const { data: order, isLoading, error } = useOrder(orderId);
+  const { data: order, isLoading, error } = useOrder(orderId ?? '');
   const updateStatusMutation = useUpdateOrderStatus();
   const shipOnCreditMutation = useShipOnCredit();
   const sendReminderMutation = useSendReminder();
@@ -302,6 +326,60 @@ export default function OrderDetailsScreen() {
     message: '',
     subMessage: '',
   });
+
+  // Android hardware back button handler for modals
+  // This ensures the back button closes the modal instead of navigating away
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const anyModalOpen =
+      showStatusModal ||
+      showCreditModal ||
+      showFulfillmentModal ||
+      showRiderModal ||
+      showPaymentOptionModal ||
+      showRecordPaymentModal;
+
+    if (!anyModalOpen) return;
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Close modals in priority order (most specific first)
+      if (showRecordPaymentModal) {
+        setShowRecordPaymentModal(false);
+        return true; // Prevent default back behavior
+      }
+      if (showPaymentOptionModal) {
+        setShowPaymentOptionModal(false);
+        return true;
+      }
+      if (showFulfillmentModal) {
+        setShowFulfillmentModal(false);
+        return true;
+      }
+      if (showRiderModal) {
+        setShowRiderModal(false);
+        return true;
+      }
+      if (showCreditModal) {
+        setShowCreditModal(false);
+        return true;
+      }
+      if (showStatusModal) {
+        setShowStatusModal(false);
+        return true;
+      }
+      return false; // Let default back behavior happen
+    });
+
+    return () => backHandler.remove();
+  }, [
+    showStatusModal,
+    showCreditModal,
+    showFulfillmentModal,
+    showRiderModal,
+    showPaymentOptionModal,
+    showRecordPaymentModal,
+  ]);
 
   // Formatting Helpers
   const formatPrice = (amount: number) => {
@@ -357,11 +435,11 @@ export default function OrderDetailsScreen() {
   const loadSavedRiders = useCallback(async () => {
     try {
       const saved = await AsyncStorage.getItem('saved_riders');
-      if (saved) {
-        setSavedRiders(JSON.parse(saved));
-      }
+      // Use Zod schema validation for safe parsing of stored data
+      setSavedRiders(parseSavedRiders(saved));
     } catch (error) {
       console.error('Failed to load saved riders', error);
+      setSavedRiders([]);
     }
   }, []);
 
@@ -369,6 +447,16 @@ export default function OrderDetailsScreen() {
   useEffect(() => {
     loadSavedRiders();
   }, [loadSavedRiders]);
+
+  // Show error screen for invalid route params (after all hooks)
+  if (!validatedParams) {
+    return (
+      <InvalidRouteScreen
+        title="Invalid Order"
+        message="The order ID is invalid. Please check the link and try again."
+      />
+    );
+  }
 
   const handleSaveRider = async (phone: string) => {
     if (!phone || savedRiders.includes(phone)) return;
@@ -602,7 +690,9 @@ Thank you for choosing Ogabassey!
             data: { session },
           } = await supabase.auth.getSession();
           if (session?.access_token) {
-            console.log('UseOrder: Sending delivered email...');
+            if (__DEV__) {
+              console.log('UseOrder: Sending delivered email...');
+            }
             // Fire and forget - don't block the UI
             fetch(
               `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/delivered`,
@@ -615,16 +705,22 @@ Thank you for choosing Ogabassey!
               }
             )
               .then((res) => {
-                if (!res.ok)
-                  console.log('UseOrder: Delivered email failed', res.status);
-                else console.log('UseOrder: Delivered email sent successfully');
+                if (__DEV__) {
+                  if (!res.ok)
+                    console.log('UseOrder: Delivered email failed', res.status);
+                  else console.log('UseOrder: Delivered email sent successfully');
+                }
               })
-              .catch((err) =>
-                console.log('UseOrder: Delivered email fetch error', err)
-              );
+              .catch((err) => {
+                if (__DEV__) {
+                  console.log('UseOrder: Delivered email fetch error', err);
+                }
+              });
           }
         } catch (e) {
-          console.log('UseOrder: Error in delivered block', e);
+          if (__DEV__) {
+            console.log('UseOrder: Error in delivered block', e);
+          }
         }
       }
 
@@ -635,7 +731,9 @@ Thank you for choosing Ogabassey!
             data: { session },
           } = await supabase.auth.getSession();
           if (session?.access_token) {
-            console.log('UseOrder: Sending cancelled email...');
+            if (__DEV__) {
+              console.log('UseOrder: Sending cancelled email...');
+            }
             // Fire and forget - don't block the UI
             fetch(
               `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/cancelled`,
@@ -649,16 +747,22 @@ Thank you for choosing Ogabassey!
               }
             )
               .then((res) => {
-                if (!res.ok)
-                  console.log('UseOrder: Cancelled email failed', res.status);
-                else console.log('UseOrder: Cancelled email sent successfully');
+                if (__DEV__) {
+                  if (!res.ok)
+                    console.log('UseOrder: Cancelled email failed', res.status);
+                  else console.log('UseOrder: Cancelled email sent successfully');
+                }
               })
-              .catch((err) =>
-                console.log('UseOrder: Cancelled email fetch error', err)
-              );
+              .catch((err) => {
+                if (__DEV__) {
+                  console.log('UseOrder: Cancelled email fetch error', err);
+                }
+              });
           }
         } catch (e) {
-          console.log('UseOrder: Error in cancelled block', e);
+          if (__DEV__) {
+            console.log('UseOrder: Error in cancelled block', e);
+          }
         }
       }
 
@@ -865,7 +969,9 @@ Thank you for choosing Ogabassey!
     if (!addr) return 'No shipping address provided';
     if (typeof addr === 'string') return addr;
     if (typeof addr === 'object') {
-      return [addr.address, addr.city, addr.state].filter(Boolean).join(', ');
+      return [addr.address, addr.city, addr.state]
+        .filter((part): part is string => Boolean(part))
+        .join(', ');
     }
     return 'Invalid address format';
   };
@@ -1171,7 +1277,7 @@ Thank you for choosing Ogabassey!
                   ]}
                 >
                   {item.image_url ? (
-                    <Image
+                    <SafeImage
                       source={{ uri: item.image_url }}
                       style={styles.itemImage}
                     />

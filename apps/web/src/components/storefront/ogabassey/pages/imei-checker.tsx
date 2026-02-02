@@ -199,7 +199,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
     }
   };
 
-  const isIcloudClean = (status: string) => {
+  const _isIcloudClean = (status: string) => {
     const s = status.toLowerCase();
     return s === 'clean' || s === 'off' || s.includes('off');
   };

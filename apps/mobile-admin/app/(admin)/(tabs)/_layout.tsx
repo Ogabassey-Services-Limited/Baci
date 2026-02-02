@@ -12,7 +12,9 @@ import { useFailedOrders } from '@/hooks/useFailedOrders';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function TabLayout() {
-  console.log('[TabLayout] Rendering Debug View');
+  if (__DEV__) {
+    console.log('[TabLayout] Rendering Debug View');
+  }
   const { colors } = useTheme();
   const { data: failedOrders } = useFailedOrders();
   const failedCount = failedOrders?.length ?? 0;

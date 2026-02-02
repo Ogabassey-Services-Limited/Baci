@@ -1,6 +1,5 @@
 import { exec } from 'child_process';
 import util from 'util';
-import path from 'path';
 
 const execAsync = util.promisify(exec);
 

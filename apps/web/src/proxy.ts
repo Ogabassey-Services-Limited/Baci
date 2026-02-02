@@ -149,11 +149,28 @@ function isVercelPreview(hostname: string): boolean {
  */
 function isLocalhost(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
-  return (
+
+  // Standard localhost/loopback
+  if (
     normalizedHost === 'localhost' ||
     normalizedHost === '127.0.0.1' ||
-    normalizedHost.endsWith('.localhost') // subdomain.localhost:3000
-  );
+    normalizedHost.endsWith('.localhost')
+  ) {
+    return true;
+  }
+
+  // Allow private/local IP ranges ONLY in development (for physical devices testing over WiFi)
+  if (process.env.NODE_ENV === 'development') {
+    // 192.168.x.x
+    if (normalizedHost.startsWith('192.168.')) return true;
+    // 10.x.x.x
+    if (normalizedHost.startsWith('10.')) return true;
+    // 172.16.x.x to 172.31.x.x
+    const match172 = normalizedHost.match(/^172\.(1[6-9]|2[0-9]|3[01])\./);
+    if (match172) return true;
+  }
+
+  return false;
 }
 
 /**
@@ -273,12 +290,12 @@ function generateCSP(
         ? {
             ...baseDirectives,
             'script-src':
-              "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google",
+              "'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://va.vercel-scripts.com https://*.myhuaweicloud.com https://checkout.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://www.googletagservices.com https://pagead2.googlesyndication.com https://www.google.com https://www.gstatic.com https://googleads.g.doubleclick.net https://td.doubleclick.net https://ad.doubleclick.net https://pubads.g.doubleclick.net https://tpc.googlesyndication.com https://cdn.ampproject.org https://*.adtrafficquality.google https://cm.g.doubleclick.net",
             'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
             'connect-src':
-              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org",
+              "'self' https://*.supabase.co https://vitals.vercel-insights.com https://checkout.credpal.com https://api.credpal.com https://app.creditdirect.ng https://securepubads.g.doubleclick.net https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://googleads.g.doubleclick.net https://pubads.g.doubleclick.net https://cdn.ampproject.org https://cm.g.doubleclick.net",
             'frame-src':
-              "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google",
+              "'self' https://checkout.credpal.com https://app.creditdirect.ng https://googleads.g.doubleclick.net https://*.safeframe.googlesyndication.com https://tpc.googlesyndication.com https://td.doubleclick.net https://www.google.com https://cdn.ampproject.org https://*.adtrafficquality.google https://ep2.adtrafficquality.google https://cm.g.doubleclick.net https://securepubads.g.doubleclick.net",
           }
         : {
             'default-src': "'self'",
@@ -487,7 +504,8 @@ export async function proxy(request: NextRequest) {
       subdomain = null;
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
-      const domain = normalizeHostname(hostname);
+      // Normalize: lowercase, remove port, and strip 'www.' prefix for consistent lookup
+      const domain = normalizeHostname(hostname).replace(/^www\./, '');
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
@@ -744,11 +762,19 @@ function applySecurityHeaders(
   }
 
   // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
-  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  response.headers.set(
+    'Cross-Origin-Opener-Policy',
+    'same-origin-allow-popups'
+  );
 
   // COEP: Cross-Origin Embedder Policy for SharedArrayBuffer support
-  // Note: 'credentialless' is more compatible than 'require-corp'
-  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  // Note: Google Ads/GPT don't support COEP yet, so we only apply it to admin/auth routes
+  // where third-party ad embeds aren't needed. Storefront routes skip COEP to allow ads.
+  // See: https://developers.google.com/publisher-tag/guides/cross-origin-embedder-policy
+  if (routeType === 'admin' || routeType === 'auth') {
+    response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
+  }
+  // Storefront and API routes: no COEP to allow Google Ads iframes
 
   // Detect bots/crawlers for optimized SEO caching
   const isBot =

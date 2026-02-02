@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
+import SafeImage from '@/components/ui/SafeImage';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -53,7 +53,7 @@ export function WelcomeHeader({
     if (canShowImage) {
       // Regular image URL (PNG, JPG, etc.)
       return (
-        <Image
+        <SafeImage
           source={{ uri: avatarUrl }}
           style={[styles.avatar, { backgroundColor: colors.card }]}
         />
@@ -66,7 +66,13 @@ export function WelcomeHeader({
   return (
     <View style={styles.container}>
       <View style={styles.leftSection}>
-        <Pressable style={styles.avatarContainer} onPress={onAvatarPress}>
+        <Pressable
+          style={styles.avatarContainer}
+          onPress={onAvatarPress}
+          accessibilityRole="button"
+          accessibilityLabel="Change store avatar"
+          accessibilityHint="Double tap to update your store logo"
+        >
           {renderAvatar()}
           <View
             style={[
@@ -119,6 +125,12 @@ export function WelcomeHeader({
       <Pressable
         style={[styles.notificationButton, { backgroundColor: colors.card }]}
         onPress={onNotificationPress}
+        accessibilityRole="button"
+        accessibilityLabel={
+          notificationCount > 0
+            ? `Notifications, ${notificationCount} unread`
+            : 'Notifications'
+        }
       >
         <Ionicons name="notifications-outline" size={24} color={colors.text} />
         {notificationCount > 0 && (

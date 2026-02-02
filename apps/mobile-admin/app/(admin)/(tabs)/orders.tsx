@@ -15,12 +15,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   FlatList,
+  type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -38,9 +39,186 @@ import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
-import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
+import {
+  type Order,
+  useOrders,
+  useUpdateOrderStatus,
+} from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { exportOrdersRPC } from '@/utils/export-orders';
+
+// Item height for getItemLayout optimization
+const ORDER_ITEM_HEIGHT = 120;
+
+// Helper functions moved outside component
+const formatPrice = (amount: number) => {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+const formatTime = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-NG', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+// Memoized Order Item component
+interface OrderItemProps {
+  item: Order;
+  colors: ReturnType<typeof useTheme>['colors'];
+  shadows: ReturnType<typeof useTheme>['shadows'];
+  onPress: (id: string) => void;
+  onStatusPress: (
+    order: Order,
+    event: {
+      target: {
+        measure: (
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+            pageX: number,
+            pageY: number
+          ) => void
+        ) => void;
+      };
+    }
+  ) => void;
+  getShippingStatusConfig: (
+    status: ShippingStatus
+  ) => { color: string; label: string };
+  getPaymentStatusConfig: (
+    status: PaymentStatus
+  ) => { color: string; label: string };
+  getSourceConfig: (source: string | null) => {
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+    label: string;
+  };
+}
+
+const OrderItem = memo(function OrderItem({
+  item,
+  colors,
+  shadows,
+  onPress,
+  onStatusPress,
+  getShippingStatusConfig,
+  getPaymentStatusConfig,
+  getSourceConfig,
+}: OrderItemProps) {
+  const shippingConfig = getShippingStatusConfig(
+    item.shipping_status as ShippingStatus
+  );
+  const paymentConfig = getPaymentStatusConfig(
+    item.payment_status as PaymentStatus
+  );
+  const sourceConfig = getSourceConfig(item.source);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.orderCard,
+        { backgroundColor: colors.card, minHeight: 56 },
+        shadows.sm,
+        pressed && { backgroundColor: colors.cardHover },
+      ]}
+      onPress={() => onPress(item.id)}
+      accessibilityLabel={`Order ${item.order_number} from ${item.customer_name}, ${formatPrice(item.total)}, ${shippingConfig.label}, ${paymentConfig.label}`}
+      accessibilityRole="button"
+      accessibilityHint="View order details"
+    >
+      <View style={styles.orderHeader}>
+        <View style={styles.orderNumberRow}>
+          <View
+            style={[
+              styles.sourceIcon,
+              { backgroundColor: `${sourceConfig.color}15` },
+            ]}
+          >
+            <Ionicons
+              name={sourceConfig.icon}
+              size={16}
+              color={sourceConfig.color}
+            />
+          </View>
+          <Text style={[styles.customerName, { color: colors.text }]}>
+            {item.customer_name}
+          </Text>
+        </View>
+        <View style={styles.statusBadges}>
+          <View
+            style={[
+              styles.paymentBadge,
+              { backgroundColor: `${paymentConfig.color}20` },
+            ]}
+          >
+            <Text style={[styles.paymentText, { color: paymentConfig.color }]}>
+              {paymentConfig.label}
+            </Text>
+          </View>
+          <Pressable
+            style={[
+              styles.statusBadge,
+              { backgroundColor: `${shippingConfig.color}20`, minHeight: 32 },
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onStatusPress(item, e);
+            }}
+            hitSlop={8}
+            accessibilityLabel={`Shipping status: ${shippingConfig.label}. Tap to change status`}
+            accessibilityRole="button"
+            accessibilityHint="Opens status change menu"
+          >
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: shippingConfig.color },
+              ]}
+            />
+            <Text style={[styles.statusText, { color: shippingConfig.color }]}>
+              {shippingConfig.label}
+            </Text>
+            <Ionicons
+              name="chevron-down"
+              size={12}
+              color={shippingConfig.color}
+            />
+          </Pressable>
+        </View>
+      </View>
+
+      <Text style={[styles.orderNumber, { color: colors.textSecondary }]}>
+        {item.order_number}
+      </Text>
+
+      <View style={styles.orderFooter}>
+        <Text style={[styles.orderTotal, { color: colors.text }]}>
+          {formatPrice(item.total)}
+        </Text>
+        <View style={styles.orderMetaRow}>
+          <Text style={[styles.orderMetaBold, { color: colors.textSecondary }]}>
+            {item.item_count ?? 0}{' '}
+            {(item.item_count ?? 0) === 1 ? 'item' : 'items'}
+          </Text>
+          <Text style={[styles.orderMetaDot, { color: colors.textMuted }]}>
+            •
+          </Text>
+          <Text style={[styles.orderMeta, { color: colors.textMuted }]}>
+            {formatTime(item.created_at)}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+});
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -63,7 +241,7 @@ export default function OrdersScreen() {
   const updateStatus = useUpdateOrderStatus();
 
   // Collapsible search bar animation
-  const searchBarHeight = useRef(new Animated.Value(1)).current;
+  const searchBarAnim = useRef(new Animated.Value(1)).current;
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -72,30 +250,27 @@ export default function OrdersScreen() {
       const currentScrollY = event.nativeEvent.contentOffset.y;
       const diff = currentScrollY - lastScrollY.current;
 
-      // Only trigger animation if scrolled more than 10px and not at top
       if (Math.abs(diff) > 10) {
         if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-          // Scrolling down - hide search bar
           isSearchVisible.current = false;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         } else if (diff < 0 && !isSearchVisible.current) {
-          // Scrolling up - show search bar
           isSearchVisible.current = true;
-          Animated.timing(searchBarHeight, {
+          Animated.timing(searchBarAnim, {
             toValue: 1,
             duration: 200,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         }
       }
 
       lastScrollY.current = currentScrollY;
     },
-    [searchBarHeight]
+    [searchBarAnim]
   );
 
   // Fetch orders with filter
@@ -119,9 +294,9 @@ export default function OrdersScreen() {
   const pendingCount = counts?.pending ?? 0;
 
   // Format date range for display
-  const clearDateRange = () => {
+  const clearDateRange = useCallback(() => {
     setDateRange(null);
-  };
+  }, []);
 
   const dateRangeLabel = useMemo(() => {
     if (typeof dateRange === 'string') return dateRange;
@@ -131,303 +306,310 @@ export default function OrdersScreen() {
     return 'All Time';
   }, [dateRange]);
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (allOrders.length === 0) return;
     await exportOrdersRPC(allOrders);
-  };
+  }, [allOrders]);
 
   // Map color key from shared config to actual theme color
-  const getColorFromKey = (colorKey: string): string => {
-    const colorMap: Record<string, string> = {
-      pending: colors.pending,
-      processing: colors.processing,
-      shipped: colors.shipped,
-      delivered: colors.delivered,
-      cancelled: colors.cancelled,
-      returned: colors.returned || colors.textMuted,
-      success: colors.success,
-      error: colors.error,
-      warning: colors.warning,
-      info: colors.info || colors.primary,
-      textMuted: colors.textMuted,
-      primary: colors.primary,
-      gold: colors.gold,
-      whatsapp: BRAND_COLORS.whatsapp,
-      instagram: BRAND_COLORS.instagram,
-    };
-    return colorMap[colorKey] ?? colors.textMuted;
-  };
+  const getColorFromKey = useCallback(
+    (colorKey: string): string => {
+      const colorMap: Record<string, string> = {
+        pending: colors.pending,
+        processing: colors.processing,
+        shipped: colors.shipped,
+        delivered: colors.delivered,
+        cancelled: colors.cancelled,
+        returned: colors.returned || colors.textMuted,
+        success: colors.success,
+        error: colors.error,
+        warning: colors.warning,
+        info: colors.info || colors.primary,
+        textMuted: colors.textMuted,
+        primary: colors.primary,
+        gold: colors.gold,
+        whatsapp: BRAND_COLORS.whatsapp,
+        instagram: BRAND_COLORS.instagram,
+      };
+      return colorMap[colorKey] ?? colors.textMuted;
+    },
+    [colors]
+  );
 
   // Get available status actions based on current status (from shared config)
-  const getStatusActions = (
-    currentStatus: ShippingStatus
-  ): {
-    status: ShippingStatus;
-    label: string;
-    icon: keyof typeof Ionicons.glyphMap;
-    color: string;
-  }[] => {
-    const targetStatus = (
-      (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
-    ) as ShippingStatus;
-    const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
-    return actions.map((action) => ({
-      status: action.nextStatus,
-      label: action.label,
-      icon: action.icon as keyof typeof Ionicons.glyphMap,
-      color: getColorFromKey(
-        SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
-      ),
-    }));
-  };
+  const getStatusActions = useCallback(
+    (
+      currentStatus: ShippingStatus
+    ): {
+      status: ShippingStatus;
+      label: string;
+      icon: keyof typeof Ionicons.glyphMap;
+      color: string;
+    }[] => {
+      const targetStatus = (
+        (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
+      ) as ShippingStatus;
+      const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
+      return actions.map((action) => ({
+        status: action.nextStatus,
+        label: action.label,
+        icon: action.icon as keyof typeof Ionicons.glyphMap,
+        color: getColorFromKey(
+          SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
+        ),
+      }));
+    },
+    [getColorFromKey]
+  );
 
   // Handle status update
-  const handleStatusUpdate = async (newStatus: ShippingStatus) => {
-    if (!selectedOrder) return;
+  const handleStatusUpdate = useCallback(
+    async (newStatus: ShippingStatus) => {
+      if (!selectedOrder) return;
 
-    // CRITICAL: Check payment status before allowing transition to processing
-    // Unpaid orders must either be paid or explicitly shipped on credit
-    if (
-      newStatus === 'processing' &&
-      selectedOrder.payment_status !== 'paid' &&
-      !selectedOrder.is_credit_order
-    ) {
-      setShowStatusDropdown(false);
-      Alert.alert(
-        'Payment Required',
-        `This order (${selectedOrder.order_number}) hasn't been paid yet. What would you like to do?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Record Payment',
-            onPress: () => {
-              setSelectedOrder(null);
-              // Navigate to order with action hint to open payment modal
-              router.push(`/order/${selectedOrder.id}?action=record-payment`);
+      if (
+        newStatus === 'processing' &&
+        selectedOrder.payment_status !== 'paid' &&
+        !selectedOrder.is_credit_order
+      ) {
+        setShowStatusDropdown(false);
+        Alert.alert(
+          'Payment Required',
+          `This order (${selectedOrder.order_number}) hasn't been paid yet. What would you like to do?`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Record Payment',
+              onPress: () => {
+                setSelectedOrder(null);
+                router.push(`/order/${selectedOrder.id}?action=record-payment`);
+              },
             },
-          },
-          {
-            text: 'Ship on Credit',
-            style: 'destructive',
-            onPress: () => {
-              setSelectedOrder(null);
-              // Navigate to order with action hint to open credit modal
-              router.push(`/order/${selectedOrder.id}?action=ship-on-credit`);
+            {
+              text: 'Ship on Credit',
+              style: 'destructive',
+              onPress: () => {
+                setSelectedOrder(null);
+                router.push(`/order/${selectedOrder.id}?action=ship-on-credit`);
+              },
             },
-          },
-        ]
-      );
-      return;
-    }
-
-    try {
-      await updateStatus.mutateAsync({
-        orderId: selectedOrder.id,
-        status: newStatus,
-      });
-      setShowStatusDropdown(false);
-      setSelectedOrder(null);
-    } catch (error) {
-      console.error('Failed to update status:', error);
-    }
-  };
-
-  const openStatusDropdown = (
-    order: Order,
-    event: {
-      target: {
-        measure: (
-          callback: (
-            x: number,
-            y: number,
-            width: number,
-            height: number,
-            pageX: number,
-            pageY: number
-          ) => void
-        ) => void;
-      };
-    }
-  ) => {
-    // Get the position of the pressed element
-    event.target.measure(
-      (
-        _x: number,
-        _y: number,
-        _width: number,
-        height: number,
-        pageX: number,
-        pageY: number
-      ) => {
-        setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
-        setSelectedOrder(order);
-        setShowStatusDropdown(true);
+          ]
+        );
+        return;
       }
-    );
-  };
+
+      try {
+        await updateStatus.mutateAsync({
+          orderId: selectedOrder.id,
+          status: newStatus,
+        });
+        setShowStatusDropdown(false);
+        setSelectedOrder(null);
+      } catch (error) {
+        console.error('Failed to update status:', error);
+      }
+    },
+    [selectedOrder, updateStatus]
+  );
+
+  const openStatusDropdown = useCallback(
+    (
+      order: Order,
+      event: {
+        target: {
+          measure: (
+            callback: (
+              x: number,
+              y: number,
+              width: number,
+              height: number,
+              pageX: number,
+              pageY: number
+            ) => void
+          ) => void;
+        };
+      }
+    ) => {
+      event.target.measure(
+        (
+          _x: number,
+          _y: number,
+          _width: number,
+          height: number,
+          pageX: number,
+          pageY: number
+        ) => {
+          setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
+          setSelectedOrder(order);
+          setShowStatusDropdown(true);
+        }
+      );
+    },
+    []
+  );
 
   // Close dropdown
-  const closeStatusDropdown = () => {
+  const closeStatusDropdown = useCallback(() => {
     setShowStatusDropdown(false);
     setSelectedOrder(null);
-  };
+  }, []);
 
   // Get shipping status display config (using shared config + theme colors)
-  const getShippingStatusConfig = (status: ShippingStatus) => {
-    const config =
-      SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
-    return {
-      color: getColorFromKey(config.colorKey),
-      label: config.label,
-    };
-  };
+  const getShippingStatusConfig = useCallback(
+    (status: ShippingStatus) => {
+      const config =
+        SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
+      return {
+        color: getColorFromKey(config.colorKey),
+        label: config.label,
+      };
+    },
+    [getColorFromKey]
+  );
 
   // Get payment status display config (using shared config + theme colors)
-  const getPaymentStatusConfig = (status: PaymentStatus) => {
-    const config =
-      PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
-    return {
-      color: getColorFromKey(config.colorKey),
-      label: config.label,
-    };
-  };
+  const getPaymentStatusConfig = useCallback(
+    (status: PaymentStatus) => {
+      const config =
+        PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
+      return {
+        color: getColorFromKey(config.colorKey),
+        label: config.label,
+      };
+    },
+    [getColorFromKey]
+  );
 
   // Source icon config (using shared config + theme colors)
-  const getSourceConfig = (source: string | null) => {
-    if (!source)
-      return {
-        icon: 'globe-outline' as const,
-        color: colors.textSecondary,
-        label: 'Website',
-      };
-
-    const normalizedSource = source.toLowerCase().trim();
-
-    switch (normalizedSource) {
-      // --- Social Media ---
-      case 'instagram':
-        return {
-          icon: 'logo-instagram' as const,
-          color: '#C13584',
-          label: 'Instagram',
-        };
-      case 'whatsapp':
-        return {
-          icon: 'logo-whatsapp' as const,
-          color: '#25D366',
-          label: 'WhatsApp',
-        };
-      case 'facebook':
-        return {
-          icon: 'logo-facebook' as const,
-          color: '#1877F2',
-          label: 'Facebook',
-        };
-      case 'twitter':
-      case 'x':
-        return {
-          icon: 'logo-twitter' as const,
-          color: '#1DA1F2',
-          label: 'Twitter',
-        };
-      case 'tiktok':
-        return {
-          icon: 'logo-tiktok' as const,
-          color: '#000000',
-          label: 'TikTok',
-        };
-      case 'snapchat':
-        return {
-          icon: 'logo-snapchat' as const,
-          color: '#FFFC00',
-          label: 'Snapchat',
-        };
-      case 'youtube':
-        return {
-          icon: 'logo-youtube' as const,
-          color: '#FF0000',
-          label: 'YouTube',
-        };
-      case 'pinterest':
-        return {
-          icon: 'logo-pinterest' as const,
-          color: '#BD081C',
-          label: 'Pinterest',
-        };
-      case 'linkedin':
-        return {
-          icon: 'logo-linkedin' as const,
-          color: '#0A66C2',
-          label: 'LinkedIn',
-        };
-      case 'telegram':
-        // 'logo-telegram' exists in newer Ionicons, fallback to 'send' if issue
-        return {
-          icon: 'paper-plane' as const,
-          color: '#0088CC',
-          label: 'Telegram',
-        };
-
-      // --- Marketplaces ---
-      case 'amazon':
-        return {
-          icon: 'logo-amazon' as const,
-          color: '#FF9900',
-          label: 'Amazon',
-        };
-      case 'jumia':
-        return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
-      case 'konga':
-        return { icon: 'cart' as const, color: '#ED017F', label: 'Konga' };
-      case 'jiji':
-        return { icon: 'cart' as const, color: '#3DBE29', label: 'Jiji' };
-
-      // --- System ---
-      case 'mobile_app':
-        return {
-          icon: 'phone-portrait-outline' as const,
-          color: colors.primary,
-          label: 'Mobile App',
-        };
-      case 'online_store':
-      case 'website':
-      case 'storefront':
+  const getSourceConfig = useCallback(
+    (source: string | null) => {
+      if (!source)
         return {
           icon: 'globe-outline' as const,
-          color: colors.info || colors.textSecondary,
+          color: colors.textSecondary,
           label: 'Website',
         };
-      case 'pos':
-        return {
-          icon: 'calculator-outline' as const,
-          color: colors.success,
-          label: 'POS',
-        };
-      case 'physical':
-        return {
-          icon: 'storefront-outline' as const,
-          color: colors.gold,
-          label: 'Store',
-        };
-      case 'staff_entry':
-        return {
-          icon: 'person-outline' as const,
-          color: colors.textSecondary,
-          label: 'Staff',
-        };
 
-      // --- Custom/Fallback ---
-      default: {
-        // Capitalize first letter for display
-        const label = source.charAt(0).toUpperCase() + source.slice(1);
-        return {
-          icon: 'pricetag-outline' as const,
-          color: colors.textSecondary,
-          label: label,
-        };
+      const normalizedSource = source.toLowerCase().trim();
+
+      switch (normalizedSource) {
+        case 'instagram':
+          return {
+            icon: 'logo-instagram' as const,
+            color: '#C13584',
+            label: 'Instagram',
+          };
+        case 'whatsapp':
+          return {
+            icon: 'logo-whatsapp' as const,
+            color: '#25D366',
+            label: 'WhatsApp',
+          };
+        case 'facebook':
+          return {
+            icon: 'logo-facebook' as const,
+            color: '#1877F2',
+            label: 'Facebook',
+          };
+        case 'twitter':
+        case 'x':
+          return {
+            icon: 'logo-twitter' as const,
+            color: '#1DA1F2',
+            label: 'Twitter',
+          };
+        case 'tiktok':
+          return {
+            icon: 'logo-tiktok' as const,
+            color: '#000000',
+            label: 'TikTok',
+          };
+        case 'snapchat':
+          return {
+            icon: 'logo-snapchat' as const,
+            color: '#FFFC00',
+            label: 'Snapchat',
+          };
+        case 'youtube':
+          return {
+            icon: 'logo-youtube' as const,
+            color: '#FF0000',
+            label: 'YouTube',
+          };
+        case 'pinterest':
+          return {
+            icon: 'logo-pinterest' as const,
+            color: '#BD081C',
+            label: 'Pinterest',
+          };
+        case 'linkedin':
+          return {
+            icon: 'logo-linkedin' as const,
+            color: '#0A66C2',
+            label: 'LinkedIn',
+          };
+        case 'telegram':
+          return {
+            icon: 'paper-plane' as const,
+            color: '#0088CC',
+            label: 'Telegram',
+          };
+        case 'amazon':
+          return {
+            icon: 'logo-amazon' as const,
+            color: '#FF9900',
+            label: 'Amazon',
+          };
+        case 'jumia':
+          return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
+        case 'konga':
+          return { icon: 'cart' as const, color: '#ED017F', label: 'Konga' };
+        case 'jiji':
+          return { icon: 'cart' as const, color: '#3DBE29', label: 'Jiji' };
+        case 'mobile_app':
+          return {
+            icon: 'phone-portrait-outline' as const,
+            color: colors.primary,
+            label: 'Mobile App',
+          };
+        case 'online_store':
+        case 'website':
+        case 'storefront':
+          return {
+            icon: 'globe-outline' as const,
+            color: colors.info || colors.textSecondary,
+            label: 'Website',
+          };
+        case 'pos':
+          return {
+            icon: 'calculator-outline' as const,
+            color: colors.success,
+            label: 'POS',
+          };
+        case 'physical':
+          return {
+            icon: 'storefront-outline' as const,
+            color: colors.gold,
+            label: 'Store',
+          };
+        case 'staff_entry':
+          return {
+            icon: 'person-outline' as const,
+            color: colors.textSecondary,
+            label: 'Staff',
+          };
+        default: {
+          const label = source.charAt(0).toUpperCase() + source.slice(1);
+          return {
+            icon: 'pricetag-outline' as const,
+            color: colors.textSecondary,
+            label: label,
+          };
+        }
       }
-    }
-  };
+    },
+    [colors]
+  );
 
   const handleLoadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -435,132 +617,48 @@ export default function OrdersScreen() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Navigation callback for orders
+  const handleOrderPress = useCallback((id: string) => {
+    router.push(`/order/${id}`);
+  }, []);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-NG', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Memoized renderItem callback
+  const renderOrder = useCallback(
+    ({ item }: ListRenderItemInfo<Order>) => (
+      <OrderItem
+        item={item}
+        colors={colors}
+        shadows={shadows}
+        onPress={handleOrderPress}
+        onStatusPress={openStatusDropdown}
+        getShippingStatusConfig={getShippingStatusConfig}
+        getPaymentStatusConfig={getPaymentStatusConfig}
+        getSourceConfig={getSourceConfig}
+      />
+    ),
+    [
+      colors,
+      shadows,
+      handleOrderPress,
+      openStatusDropdown,
+      getShippingStatusConfig,
+      getPaymentStatusConfig,
+      getSourceConfig,
+    ]
+  );
 
-  const renderOrder = ({ item }: { item: Order }) => {
-    const shippingConfig = getShippingStatusConfig(
-      item.shipping_status as ShippingStatus
-    );
-    const paymentConfig = getPaymentStatusConfig(
-      item.payment_status as PaymentStatus
-    );
-    const sourceConfig = getSourceConfig(item.source);
+  // Memoized keyExtractor callback
+  const orderKeyExtractor = useCallback((item: Order) => item.id, []);
 
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.orderCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
-        onPress={() => router.push(`/order/${item.id}`)}
-      >
-        <View style={styles.orderHeader}>
-          <View style={styles.orderNumberRow}>
-            {/* Source Icon */}
-            <View
-              style={[
-                styles.sourceIcon,
-                { backgroundColor: `${sourceConfig.color}15` },
-              ]}
-            >
-              <Ionicons
-                name={sourceConfig.icon}
-                size={16}
-                color={sourceConfig.color}
-              />
-            </View>
-            <Text style={[styles.customerName, { color: colors.text }]}>
-              {item.customer_name}
-            </Text>
-          </View>
-          <View style={styles.statusBadges}>
-            {/* Payment Status Badge */}
-            <View
-              style={[
-                styles.paymentBadge,
-                { backgroundColor: `${paymentConfig.color}20` },
-              ]}
-            >
-              <Text
-                style={[styles.paymentText, { color: paymentConfig.color }]}
-              >
-                {paymentConfig.label}
-              </Text>
-            </View>
-            {/* Shipping Status Badge - Tappable */}
-            <Pressable
-              style={[
-                styles.statusBadge,
-                { backgroundColor: `${shippingConfig.color}20` },
-              ]}
-              onPress={(e) => {
-                e.stopPropagation();
-                openStatusDropdown(item, e);
-              }}
-              hitSlop={8}
-            >
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: shippingConfig.color },
-                ]}
-              />
-              <Text
-                style={[styles.statusText, { color: shippingConfig.color }]}
-              >
-                {shippingConfig.label}
-              </Text>
-              <Ionicons
-                name="chevron-down"
-                size={12}
-                color={shippingConfig.color}
-              />
-            </Pressable>
-          </View>
-        </View>
-
-        <Text style={[styles.orderNumber, { color: colors.textSecondary }]}>
-          {item.order_number}
-        </Text>
-
-        <View style={styles.orderFooter}>
-          <Text style={[styles.orderTotal, { color: colors.text }]}>
-            {formatPrice(item.total)}
-          </Text>
-          <View style={styles.orderMetaRow}>
-            <Text
-              style={[styles.orderMetaBold, { color: colors.textSecondary }]}
-            >
-              {item.item_count ?? 0}{' '}
-              {(item.item_count ?? 0) === 1 ? 'item' : 'items'}
-            </Text>
-            <Text style={[styles.orderMetaDot, { color: colors.textMuted }]}>
-              •
-            </Text>
-            <Text style={[styles.orderMeta, { color: colors.textMuted }]}>
-              {formatTime(item.created_at)}
-            </Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-  };
+  // getItemLayout for consistent item heights
+  const getItemLayout = useCallback(
+    (_data: ArrayLike<Order> | null | undefined, index: number) => ({
+      length: ORDER_ITEM_HEIGHT,
+      offset: ORDER_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
 
   const FilterTab = ({
     status,
@@ -581,13 +679,20 @@ export default function OrdersScreen() {
       <Pressable
         style={[
           styles.filterTab,
-          { backgroundColor: isActive ? colors.gold : colors.card },
+          {
+            backgroundColor: isActive ? colors.gold : colors.card,
+            minHeight: 44,
+          },
         ]}
         onPress={() =>
           setStatusFilter(
             status === 'all' ? undefined : (status as ShippingStatus)
           )
         }
+        accessibilityLabel={`${label} orders: ${count}${isActive ? ', currently selected' : ''}`}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isActive }}
+        accessibilityHint={`Filter to show ${label.toLowerCase()} orders`}
       >
         <Text
           style={[
@@ -618,6 +723,9 @@ export default function OrdersScreen() {
           <Pressable
             style={[styles.calendarButton, { backgroundColor: colors.card }]}
             onPress={() => setShowReportModal(true)}
+            accessibilityLabel="Generate order report"
+            accessibilityRole="button"
+            accessibilityHint="Opens report generation options"
           >
             <Ionicons
               name="document-text-outline"
@@ -628,6 +736,9 @@ export default function OrdersScreen() {
           <Pressable
             style={[styles.calendarButton, { backgroundColor: colors.card }]}
             onPress={() => setShowDatePicker(true)}
+            accessibilityLabel="Filter by date range"
+            accessibilityRole="button"
+            accessibilityHint="Opens date range picker"
           >
             <Ionicons
               name="calendar-outline"
@@ -643,12 +754,18 @@ export default function OrdersScreen() {
         style={[
           styles.searchContainer,
           {
-            maxHeight: searchBarHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 60],
-            }),
-            opacity: searchBarHeight,
-            overflow: 'hidden',
+            opacity: searchBarAnim,
+            transform: [
+              {
+                translateY: searchBarAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-60, 0],
+                }),
+              },
+              {
+                scaleY: searchBarAnim,
+              },
+            ],
           },
         ]}
       >
@@ -664,7 +781,18 @@ export default function OrdersScreen() {
             autoCorrect={false}
           />
           {searchQuery.length > 0 && (
-            <Pressable onPress={() => setSearchQuery('')}>
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              accessibilityLabel="Clear search"
+              accessibilityRole="button"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
               <Ionicons
                 name="close-circle"
                 size={20}
@@ -687,7 +815,18 @@ export default function OrdersScreen() {
                 ? dateRange
                 : `${format(dateRange.start!, 'MMM d')} - ${format(dateRange.end!, 'MMM d')}`}
             </Text>
-            <Pressable onPress={clearDateRange} hitSlop={8}>
+            <Pressable
+              onPress={clearDateRange}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Clear date filter"
+              accessibilityRole="button"
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
               <Ionicons name="close-circle" size={16} color={colors.gold} />
             </Pressable>
           </View>
@@ -724,6 +863,14 @@ export default function OrdersScreen() {
             <Pressable
               onPress={() => setShowInsight(false)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Dismiss insight notification"
+              accessibilityRole="button"
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
             >
               <View
                 style={[
@@ -742,11 +889,14 @@ export default function OrdersScreen() {
             Process them to keep customers happy!
           </Text>
           <Pressable
-            style={styles.insightLink}
+            style={[styles.insightLink, { minHeight: 44 }]}
             onPress={() => {
               setStatusFilter('pending');
               setShowInsight(false);
             }}
+            accessibilityLabel={`View ${pendingCount} pending orders`}
+            accessibilityRole="button"
+            accessibilityHint="Filters orders to show only pending orders"
           >
             <Text style={[styles.insightLinkText, { color: colors.gold }]}>
               View pending
@@ -777,8 +927,12 @@ export default function OrdersScreen() {
       <FlatList
         data={allOrders}
         renderItem={renderOrder}
-        keyExtractor={(item) => item.id}
+        keyExtractor={orderKeyExtractor}
+        getItemLayout={getItemLayout}
         contentContainerStyle={styles.listContent}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         refreshControl={
@@ -827,6 +981,9 @@ export default function OrdersScreen() {
           pressed && { opacity: 0.9, transform: [{ scale: 0.95 }] },
         ]}
         onPress={() => router.push('/order/new')}
+        accessibilityLabel="Create new order"
+        accessibilityRole="button"
+        accessibilityHint="Opens form to create a new order"
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </Pressable>
@@ -851,7 +1008,7 @@ export default function OrdersScreen() {
         logoUrl={merchant?.logo_url || undefined}
         onDateSelect={() => {
           setShowReportModal(false);
-          setTimeout(() => setShowDatePicker(true), 300); // Small delay for smooth transition
+          setTimeout(() => setShowDatePicker(true), 300);
         }}
         onPresetSelect={(preset) => {
           const now = new Date();
@@ -892,12 +1049,12 @@ export default function OrdersScreen() {
       {/* Status Dropdown */}
       {showStatusDropdown && selectedOrder && (
         <>
-          {/* Backdrop to close dropdown */}
           <Pressable
             style={styles.dropdownBackdrop}
             onPress={closeStatusDropdown}
+            accessibilityLabel="Close status menu"
+            accessibilityRole="button"
           />
-          {/* Dropdown Menu */}
           <View
             style={[
               styles.statusDropdown,
@@ -918,6 +1075,7 @@ export default function OrdersScreen() {
                   key={action.status}
                   style={({ pressed }) => [
                     styles.dropdownItem,
+                    { minHeight: 44 },
                     index > 0 && {
                       borderTopWidth: 1,
                       borderTopColor: colors.border,
@@ -926,6 +1084,14 @@ export default function OrdersScreen() {
                   ]}
                   onPress={() => handleStatusUpdate(action.status)}
                   disabled={updateStatus.isPending}
+                  accessibilityLabel={
+                    updateStatus.isPending
+                      ? `Updating to ${action.label}`
+                      : action.label
+                  }
+                  accessibilityRole="menuitem"
+                  accessibilityState={{ disabled: updateStatus.isPending }}
+                  accessibilityHint={`Change order status to ${action.label.toLowerCase()}`}
                 >
                   <Ionicons name={action.icon} size={18} color={action.color} />
                   <Text
@@ -1068,7 +1234,6 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     textAlign: 'center',
   },
-  // Status Dropdown Styles
   dropdownBackdrop: {
     position: 'absolute',
     top: 0,
@@ -1139,12 +1304,12 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     marginBottom: SPACING.md,
-    maxHeight: 50, // Constrain height to prevent layout shifts
+    maxHeight: 50,
   },
   filterContent: {
     paddingHorizontal: SPACING.lg,
     gap: SPACING.sm,
-    paddingRight: SPACING.xl, // Extra padding for last item
+    paddingRight: SPACING.xl,
   },
   filterTab: {
     paddingHorizontal: SPACING.md,
@@ -1158,7 +1323,7 @@ const styles = StyleSheet.create({
   listContent: {
     padding: SPACING.lg,
     paddingTop: SPACING.sm,
-    paddingBottom: 80, // Extra space for FAB
+    paddingBottom: 80,
     gap: SPACING.md,
   },
   orderCard: {

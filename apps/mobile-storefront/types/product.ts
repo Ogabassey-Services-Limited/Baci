@@ -3,8 +3,35 @@
  * Mirrors the web storefront types for consistency
  */
 
+export type ProductCondition =
+  | 'new'
+  | 'used'
+  | 'open_box'
+  | 'refurbished'
+  | 'uk_used';
+
+export type ProductConditionDisplay =
+  | 'New'
+  | 'UK Used'
+  | 'Refurbished'
+  | 'Open Box'
+  | 'Used'
+  | 'New & Used';
+
+export interface ProductConditionOffer {
+  id: string;
+  condition: ProductCondition;
+  price: number;
+  compare_at_price?: number;
+  stock_quantity?: number;
+  images?: string[];
+  condition_notes?: string;
+  grade?: 'A' | 'B' | 'C' | 'D'; // For used items: A=Like new, D=Heavy wear
+}
+
 export interface Product {
   id: string;
+  merchant_id?: string;
   name: string;
   slug: string;
   description?: string;
@@ -14,22 +41,20 @@ export interface Product {
   images?: string[];
   brand?: string;
   category?: string;
-  condition?:
-    | 'New'
-    | 'UK Used'
-    | 'Refurbished'
-    | 'Open Box'
-    | 'Used'
-    | 'New & Used';
+  condition?: ProductConditionDisplay;
   rating?: number;
   review_count?: number;
   in_stock?: boolean;
   stock_quantity?: number;
   has_variants?: boolean;
   colors?: (string | { name: string; value: string })[];
+  color_images?: Record<string, string[]>;
   variant_attributes?: Record<string, string[]>;
   variants?: ProductVariant[];
   specifications?: Record<string, string>;
+  // Condition offers (multiple conditions with different prices)
+  has_condition_offers?: boolean;
+  offers?: ProductConditionOffer[];
 }
 
 export interface ProductVariant {
@@ -38,10 +63,13 @@ export interface ProductVariant {
   sku?: string;
   price: number;
   compare_at_price?: number;
+  price_override?: number;
+  price_modifier?: number;
   image?: string;
   images?: string[];
   color?: string;
   storage?: string;
+  platform?: string;
   in_stock?: boolean;
   stock_quantity?: number;
   attributes?: Record<string, string>;

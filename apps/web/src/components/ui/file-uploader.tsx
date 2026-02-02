@@ -60,7 +60,22 @@ export function FileUploader({
     initialFiles.map((src) => ({ src, file: null }))
   );
   const [errors, setErrors] = useState<string[]>([]);
-  const [announcement, setAnnouncement] = useState('');
+  const [announcement, setAnnouncement] = useState<string>('');
+  const announcementTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  // Helper to set announcement and auto-clear after delay
+  const announce = (message: string) => {
+    if (announcementTimeoutRef.current) {
+      clearTimeout(announcementTimeoutRef.current);
+    }
+    setAnnouncement(message);
+    announcementTimeoutRef.current = setTimeout(() => {
+      setAnnouncement('');
+      announcementTimeoutRef.current = null;
+    }, 2000);
+  };
 
   // 2026 Best Practice: Use a ref to track the latest entries for safe revocation on unmount
   const entriesRef = useRef(entries);
@@ -108,7 +123,7 @@ export function FileUploader({
     });
   }, [stableInitialFiles]);
 
-  // Cleanup object URLs to avoid memory leaks
+  // Cleanup object URLs and announcement timeout to avoid memory leaks
   // Runs only on unmount to ensure URLs remain valid while the component is active
   useEffect(() => {
     return () => {
@@ -117,6 +132,10 @@ export function FileUploader({
         if (entry.file && entry.src.startsWith('blob:')) {
           URL.revokeObjectURL(entry.src);
         }
+      }
+      // Clear announcement timeout on unmount
+      if (announcementTimeoutRef.current) {
+        clearTimeout(announcementTimeoutRef.current);
       }
     };
   }, []);
@@ -147,29 +166,30 @@ export function FileUploader({
         file,
       }));
 
-      // Calculate based on current state to ensure pure state updates
-      const remainingSlots = Math.max(0, maxFiles - entries.length);
-      const entriesToAdd = potentialEntries.slice(0, remainingSlots);
+      // 2026 Best Practice: Separate state calculation from side effects
+      setEntries((prev) => {
+        const remainingSlots = Math.max(0, maxFiles - prev.length);
+        const entriesToAdd = potentialEntries.slice(0, remainingSlots);
 
-      if (entriesToAdd.length === 0) {
-        // Immediately revoke all as none will be used
-        for (const e of potentialEntries) URL.revokeObjectURL(e.src);
-        return;
-      }
-
-      // Revoke URLs for files that didn't fit the limit
-      if (potentialEntries.length > remainingSlots) {
-        for (const e of potentialEntries.slice(remainingSlots)) {
+        // Revoke unused blob URLs immediately
+        const unusedEntries = potentialEntries.slice(remainingSlots);
+        for (const e of unusedEntries) {
           URL.revokeObjectURL(e.src);
         }
-      }
 
-      // Announce successful addition
-      setAnnouncement(
-        `${entriesToAdd.length} file${entriesToAdd.length !== 1 ? 's' : ''} added`
-      );
+        if (entriesToAdd.length === 0) {
+          announce('No files added. Upload limit reached.');
+          return prev;
+        }
 
-      setEntries((prev) => [...prev, ...entriesToAdd]);
+        // Announce addition separately to maintain pure state updates
+        const addedCount = entriesToAdd.length;
+        const ignoredCount = potentialEntries.length - remainingSlots;
+        const msg = `Added ${addedCount} file${addedCount === 1 ? '' : 's'}.${ignoredCount > 0 ? ` ${ignoredCount} file(s) ignored due to limit.` : ''}`;
+        announce(msg);
+
+        return [...prev, ...entriesToAdd];
+      });
     }
   };
 
@@ -187,6 +207,8 @@ export function FileUploader({
       if (entryToRemove?.file && entryToRemove.src.startsWith('blob:')) {
         URL.revokeObjectURL(entryToRemove.src);
       }
+      const fileName = entryToRemove?.file?.name ?? `Image ${index + 1}`;
+      announce(`Removed ${fileName}.`);
       const updated = prev.filter((_, i) => i !== index);
       return updated;
     });
@@ -194,8 +216,8 @@ export function FileUploader({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    // Account for all entries when enforcing maxFiles limit
-    maxFiles: Math.max(0, maxFiles - entries.length),
+    // Enforce total limit; onDrop handles the atomic slice based on current state
+    maxFiles,
     maxSize,
     accept,
   });
@@ -229,6 +251,16 @@ export function FileUploader({
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Screen reader announcement for file upload results */}
+      <div
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="uploader-announcement"
+      >
+        {announcement}
       </div>
 
       {errors.length > 0 && (

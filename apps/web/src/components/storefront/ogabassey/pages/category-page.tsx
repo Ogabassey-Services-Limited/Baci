@@ -17,7 +17,7 @@ import {
 import { ProductCard } from '../components/ProductCard';
 import type { Product } from '../types';
 
-import { CheckCircle, Info, ChevronDown } from 'lucide-react'; // Added icons
+import { CheckCircle } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -44,7 +44,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   products = [],
   categoryImage,
 }) => {
-  const [showMobileIntro, setShowMobileIntro] = useState(false);
+  const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
   const categoryName = (params?.category || 'All') as string;
   const _router = useRouter();

@@ -33,8 +33,13 @@ export async function POST(
     const { amount, payment_method, reference, notes } = body;
     console.log(`[RecordPayment] Body parsed:`, { amount, payment_method });
 
-    // lgtm[js/user-controlled-bypass]
-    // codeql[js/user-controlled-bypass-of-security-check]
+    // Input validation: Ensure amount is a positive number.
+    // Note: This is NOT a security bypass - it's input validation that runs BEFORE
+    // authentication. The actual security is enforced below via:
+    // 1. authenticateApiRequest() - verifies the user is authenticated
+    // 2. getMerchantIdForApiUser() - gets the merchant for this user
+    // 3. Order query with .eq('merchant_id', merchant.id) - ensures order ownership
+    // lgtm[js/user-controlled-bypass] codeql[js/user-controlled-bypass-of-security-check]
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
@@ -229,7 +234,7 @@ export async function POST(
       after(async () => {
         try {
           await triggerPurchaseConversion(supabase, merchant.id, order);
-        } catch (_err) {
+        } catch {
           // Errors are already logged inside triggerPurchaseConversion
           // This catch prevents unhandled rejections in the background task
         }

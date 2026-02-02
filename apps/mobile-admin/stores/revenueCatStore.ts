@@ -13,25 +13,56 @@ const API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID;
 /**
  * Helper to check pro entitlement status - centralized to avoid drift
  */
-const isProFromInfo = (info: CustomerInfo | null): boolean =>
-  Boolean(
-    info?.entitlements.active['pro'] || info?.entitlements.active['baci_pro']
+const isProFromInfo = (info: CustomerInfo | null): boolean => {
+  if (!info) return false;
+
+  const activeKeys = Object.keys(info.entitlements.active);
+  // 2026 Best Practice: Support multiple identifiers to prevent "Activation" delays
+  const possibleProKeys = [
+    'pro',
+    'baci_pro',
+    'premium',
+    'all_features',
+    'monthly',
+    'yearly',
+    'default',
+  ];
+
+  const isPro = activeKeys.some((key) =>
+    possibleProKeys.includes(key.toLowerCase())
   );
+
+  if (activeKeys.length > 0 && __DEV__) {
+    console.log(
+      '[RevenueCat] Active Entitlements:',
+      activeKeys,
+      'Is Pro:',
+      isPro
+    );
+  }
+
+  return isPro;
+};
 
 interface RevenueCatState {
   currentOffering: PurchasesOffering | null;
   customerInfo: CustomerInfo | null;
   isPro: boolean;
   isLoading: boolean;
-  isInitializing: boolean; // Guard against concurrent init calls
-  isInitialized: boolean; // Prevent redundant re-initialization
+  isInitializing: boolean;
+  isInitialized: boolean;
   error: string | null;
 
   // Actions
   initialize: () => Promise<void>;
   purchasePackage: (pack: PurchasesPackage) => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
+  cleanup: () => void;
 }
+
+// Store listener subscription for cleanup on logout
+// Note: addCustomerInfoUpdateListener may return void in newer SDK versions
+let customerInfoListenerRemove: (() => void) | void | null = null;
 
 export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   currentOffering: null,
@@ -43,45 +74,31 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   error: null,
 
   initialize: async () => {
-    // Guard against concurrent or redundant initialization
-    if (get().isInitializing || get().isInitialized) {
-      return;
-    }
+    if (get().isInitializing || get().isInitialized) return;
 
-    // Reset state at start
     set({ isLoading: true, error: null, isInitializing: true });
 
     try {
-      if (Platform.OS === 'ios') {
-        if (!API_KEY_IOS) {
-          console.warn('RevenueCat iOS API Key not found');
-          set({
-            isLoading: false,
-            isInitializing: false,
-            error: 'Configuration Error: iOS API Key missing',
-          });
-          return;
-        }
-        Purchases.configure({ apiKey: API_KEY_IOS });
-      } else if (Platform.OS === 'android') {
-        if (!API_KEY_ANDROID) {
-          console.warn('RevenueCat Android API Key not found');
-          set({
-            isLoading: false,
-            isInitializing: false,
-            error: 'Configuration Error: Android API Key missing',
-          });
-          return;
-        }
-        Purchases.configure({ apiKey: API_KEY_ANDROID });
-      } else {
+      const apiKey = Platform.select({
+        ios: API_KEY_IOS,
+        android: API_KEY_ANDROID,
+        default: null,
+      });
+
+      if (!apiKey) {
+        console.warn(
+          `[RevenueCat] No API Key found for platform: ${Platform.OS}`
+        );
         set({
           isLoading: false,
           isInitializing: false,
-          error: 'Platform not supported',
+          isInitialized: true, // Mark as done to prevent spamming warnings
+          error: `Missing API Key for ${Platform.OS}`,
         });
         return;
       }
+
+      Purchases.configure({ apiKey });
 
       const info = await Purchases.getCustomerInfo();
       const offerings = await Purchases.getOfferings();
@@ -96,14 +113,23 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         error: null,
       });
 
-      // Listen for updates (outside the store action, usually setup in a useEffect,
-      // but for simplicity in this store we just fetch initial state.
-      // A listener could be set up in the provider/hook wrapper)
+      // Reactive Pattern: Automatically sync state on server confirmation
+      // Store the listener removal function for cleanup on logout
+      customerInfoListenerRemove = Purchases.addCustomerInfoUpdateListener(
+        (newInfo) => {
+          const proStatus = isProFromInfo(newInfo);
+          set({
+            customerInfo: newInfo,
+            isPro: proStatus,
+          });
+        }
+      );
     } catch (e: unknown) {
-      console.error('RevenueCat initialization failed:', e);
+      console.warn('[RevenueCat] Initialization notice:', e);
       set({
         isLoading: false,
         isInitializing: false,
+        isInitialized: true,
         error: e instanceof Error ? e.message : 'Initialization failed',
       });
     }
@@ -112,8 +138,14 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   purchasePackage: async (pack: PurchasesPackage) => {
     try {
       set({ isLoading: true, error: null });
-      const { customerInfo } = await Purchases.purchasePackage(pack);
+      if (__DEV__) {
+        console.log(
+          '[RevenueCat] Starting purchase for:',
+          pack.product.identifier
+        );
+      }
 
+      const { customerInfo } = await Purchases.purchasePackage(pack);
       const isPro = isProFromInfo(customerInfo);
 
       set({
@@ -124,7 +156,9 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
 
       return isPro;
     } catch (e: unknown) {
-      // RevenueCat errors have a userCancelled property
+      // 2026 Dev Practice: Use debug for simulated/cancelled errors to avoid Red Screen in Expo Go
+      console.debug('[RevenueCat] Purchase interaction:', e);
+
       const error = e as { userCancelled?: boolean; message?: string };
       if (!error.userCancelled) {
         set({ error: error.message || 'Purchase failed', isLoading: false });
@@ -139,7 +173,6 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const customerInfo = await Purchases.restorePurchases();
-
       const isPro = isProFromInfo(customerInfo);
 
       set({
@@ -150,12 +183,34 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
 
       return isPro;
     } catch (e: unknown) {
-      console.error('Restore failed:', e);
+      console.debug('[RevenueCat] Restore notice:', e);
       set({
         error: e instanceof Error ? e.message : 'Restore failed',
         isLoading: false,
       });
       return false;
     }
+  },
+
+  cleanup: () => {
+    // Remove listener to prevent memory leak and data mixing between users
+    if (typeof customerInfoListenerRemove === 'function') {
+      customerInfoListenerRemove();
+      customerInfoListenerRemove = null;
+      if (__DEV__) {
+        console.log('[RevenueCat] Listener cleaned up');
+      }
+    }
+
+    // Reset state to initial values
+    set({
+      currentOffering: null,
+      customerInfo: null,
+      isPro: false,
+      isLoading: true,
+      isInitializing: false,
+      isInitialized: false,
+      error: null,
+    });
   },
 }));
