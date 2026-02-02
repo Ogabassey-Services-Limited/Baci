@@ -6,6 +6,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logger } from '@/lib/logger';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
@@ -19,11 +20,11 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
 
     // Jumia may return an error
     if (error) {
-      const safeError = encodeURIComponent(String(error).slice(0, 200));
-      console.error('[Jumia Callback] OAuth error:', { error: safeError });
+      logger.error({ message: 'Jumia Callback OAuth error', error, merchantId });
       return NextResponse.redirect(
         new URL(
           `/dashboard/channels?error=${encodeURIComponent(error)}`,
@@ -40,7 +41,6 @@ export async function GET(request: NextRequest) {
 
     // Verify state matches
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
-    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
 
     if (!storedState || storedState !== state) {
       console.error('[Jumia Callback] State mismatch');
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
     ) {
       throw error;
     }
-    console.error('[Jumia Callback] Error:', error);
+    logger.error({ message: 'Jumia Callback internal error', error });
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
     const redirectBase =
       platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';

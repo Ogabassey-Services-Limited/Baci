@@ -90,7 +90,9 @@ async function paystackRequest(
 
   if (!res.ok) {
     const errorBody = await res.text();
-    throw new Error(`Paystack API Error ${res.status}: ${errorBody}`);
+    // Sanitize error body before including in Error to prevent log injection
+    const safeErrorBody = sanitizeForLog(errorBody, 200);
+    throw new Error(`Paystack API Error ${res.status}: ${safeErrorBody}`);
   }
 
   return res.json();

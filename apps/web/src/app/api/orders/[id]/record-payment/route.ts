@@ -25,13 +25,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const { id } = await params;
-    console.log(`[RecordPayment] Starting for order ${id}`);
+    logger.info({ message: 'RecordPayment starting', orderId: id });
 
     const body = await request.json();
     const { amount, payment_method, reference, notes } = body;
-    console.log(`[RecordPayment] Body parsed:`, { amount, payment_method });
+    logger.info({ message: 'RecordPayment body parsed', amount, payment_method, orderId: id });
 
     // Input validation: Ensure amount is a positive number.
     // Note: This is NOT a security bypass - it's input validation that runs BEFORE
@@ -47,7 +47,7 @@ export async function POST(
     // Authenticate request (supports mobile Bearer token + web cookies)
     const { user, error: authError } = await authenticateApiRequest(request);
     if (authError || !user) {
-      console.log(`[RecordPayment] Auth failed: ${authError}`);
+      logger.warn({ message: 'RecordPayment auth failed', error: authError, orderId: id });
       return NextResponse.json(
         { error: authError || 'Unauthorized' },
         { status: 401 }
@@ -57,7 +57,7 @@ export async function POST(
     // Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(user.id);
     if (!merchantId) {
-      console.log(`[RecordPayment] Merchant not found for user ${user.id}`);
+      logger.error({ message: 'RecordPayment merchant not found', userId: user.id, orderId: id });
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -77,7 +77,7 @@ export async function POST(
       .single();
 
     if (merchantError || !merchant) {
-      console.log(`[RecordPayment] Merchant details error:`, merchantError);
+      logger.error({ message: 'RecordPayment merchant details error', error: merchantError, merchantId, orderId: id });
       return NextResponse.json(
         { error: 'Merchant details not found' },
         { status: 404 }
@@ -93,7 +93,7 @@ export async function POST(
       .single();
 
     if (orderError || !order) {
-      console.log(`[RecordPayment] Order fetch error:`, orderError);
+      logger.error({ message: 'RecordPayment order not found', error: orderError, orderId: id, merchantId: merchant.id });
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -112,7 +112,9 @@ export async function POST(
     const orderTotal = Number(order.total) || 0;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
 
-    console.log(`[RecordPayment] Totals:`, {
+    logger.info({
+      message: 'RecordPayment totals calculated',
+      orderId: id,
       currentPaid,
       newPaid,
       orderTotal,
@@ -139,10 +141,7 @@ export async function POST(
       });
 
     if (transactionError) {
-      console.error(
-        `[RecordPayment] Transaction insert error:`,
-        JSON.stringify(transactionError).replace(/[\r\n]/g, ' ')
-      );
+      logger.error({ message: 'RecordPayment transaction insert error', error: transactionError, orderId: id });
       return NextResponse.json(
         { error: 'Failed to record payment' },
         { status: 500 }
@@ -155,7 +154,7 @@ export async function POST(
 
     // Payment Status Logic
     if (newPaid >= orderTotal) {
-      console.log(`[RecordPayment] Order fully paid via manual payment`);
+      logger.info({ message: 'RecordPayment order fully paid', orderId: id });
       updates.payment_status = 'paid';
       // Auto-advance shipping if pending
       if (order.shipping_status === 'pending') {
@@ -203,7 +202,7 @@ export async function POST(
           : `${merchant.business_name} Orders`;
 
         // Fire and forget
-        console.log(`[RecordPayment] Sending confirmation email...`);
+        logger.info({ message: 'RecordPayment sending confirmation email', orderId: id });
         sendEmail({
           to: order.customer_email,
           toName: order.customer_name,
@@ -240,7 +239,7 @@ export async function POST(
         }
       });
     } else {
-      console.log(`[RecordPayment] Order partially paid`);
+      logger.info({ message: 'RecordPayment order partially paid', orderId: id });
       updates.payment_status = 'partially_paid';
       // Auto-advance shipping status for partial payments too (indicates activity)
       if (order.shipping_status === 'pending') {
@@ -279,12 +278,10 @@ export async function POST(
           merchantUrl,
           supportEmail: merchant.support_email,
         };
-
-        console.log(`[RecordPayment] Generating receipt email...`);
         const htmlContent = generatePaymentReceiptEmail(receiptData);
         const textContent = generatePaymentReceiptText(receiptData);
 
-        console.log(`[RecordPayment] Sending receipt email...`);
+        logger.info({ message: 'RecordPayment sending receipt email', orderId: id });
         sendEmail({
           to: order.customer_email,
           toName: order.customer_name,
@@ -307,23 +304,20 @@ export async function POST(
 
     // Apply updates if needed
     if (Object.keys(updates).length > 0) {
-      console.log(`[RecordPayment] Applying status updates:`, updates);
+      logger.info({ message: 'RecordPayment applying status updates', updates, orderId: id });
       const { error: updateError } = await supabase
         .from('orders')
         .update(updates)
         .eq('id', id);
 
       if (updateError) {
-        console.error(
-          'Failed to update order status:',
-          JSON.stringify(updateError).replace(/[\r\n]/g, ' ')
-        );
+        logger.error({ message: 'RecordPayment failed to update order status', error: updateError, orderId: id });
         // Note: Transaction was already created, so we don't fail the request entirely,
         // but it's an inconsistent state. Ideally would use a stored procedure/transaction.
       }
     }
 
-    console.log(`[RecordPayment] Success.`);
+    logger.info({ message: 'RecordPayment success', orderId: id });
     return NextResponse.json({
       success: true,
       amount_paid: amount,
@@ -332,10 +326,7 @@ export async function POST(
     });
     // biome-ignore lint/suspicious/noExplicitAny: Catch error type
   } catch (error: any) {
-    console.error(
-      'Error in record-payment:',
-      JSON.stringify(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: 'RecordPayment internal error', error, orderId: id });
     return NextResponse.json(
       { error: error.message || 'Internal Error' },
       { status: 500 }

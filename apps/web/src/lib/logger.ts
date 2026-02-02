@@ -28,7 +28,8 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
- * Recursively sanitize an object to redact sensitive fields
+ * Recursively sanitize an object to redact sensitive fields and prevent log injection.
+ * Strips control characters and line breaks from all strings.
  */
 function sanitizeForLogging(obj: unknown, depth = 0): unknown {
   // Prevent infinite recursion - reduced from 10 to 7 for performance
@@ -37,6 +38,12 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
   if (obj === null || obj === undefined) return obj;
 
   if (typeof obj === 'string') {
+    // 1. Prevention of Log Injection (CRLF / Control Characters)
+    // Replace all ASCII control characters (0x00-0x1F, 0x7F) including \r and \n
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+    const cleanStr = obj.replace(/[\x00-\x1F\x7F]/g, ' ');
+
+    // 2. Sensitive Data Redaction
     // Redact strings that look like API keys or tokens, using more restrictive patterns:
     //  - Long strings with sensitive prefixes (e.g. Bearer, sk_)
     //  - JWTs (three base64url segments separated by .)
@@ -60,18 +67,20 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
       'shpca_', // Shopify tokens
     ];
     const hasSensitivePrefix = TOKEN_PREFIXES.some((prefix) =>
-      obj.startsWith(prefix)
+      cleanStr.startsWith(prefix)
     );
     // JWT: must have two dots, all segments base64url
     const isLikelyJwt =
-      /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(obj) &&
-      obj.length > 40;
+      /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(cleanStr) &&
+      cleanStr.length > 40;
     // Very long random-looking string (>50) and mostly base64/hex
-    const isLongRandom = obj.length > 50 && /^[A-Za-z0-9+/=_-]+$/.test(obj);
+    const isLongRandom = cleanStr.length > 50 && /^[A-Za-z0-9+/=_-]+$/.test(cleanStr);
+
     if (hasSensitivePrefix || isLikelyJwt || isLongRandom) {
       return '[REDACTED_TOKEN]';
     }
-    return obj;
+
+    return cleanStr;
   }
 
   if (obj instanceof Error) {
@@ -102,6 +111,16 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
   }
 
   return sanitized;
+}
+
+/**
+ * Public helper to sanitize a single value for logging.
+ * Useful for one-off sanitization.
+ */
+export function sanitizeForLog(value: unknown, maxLength = 1000): string {
+  const sanitized = sanitizeForLogging(value);
+  const str = typeof sanitized === 'string' ? sanitized : JSON.stringify(sanitized);
+  return str.slice(0, maxLength);
 }
 
 function sanitizeErrorForLogging(
@@ -149,9 +168,9 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
     // Safely extract message from sanitized payload
     const sanitizedMessage =
       typeof sanitizedPayload === 'object' &&
-      sanitizedPayload !== null &&
-      'message' in sanitizedPayload &&
-      typeof sanitizedPayload.message === 'string'
+        sanitizedPayload !== null &&
+        'message' in sanitizedPayload &&
+        typeof sanitizedPayload.message === 'string'
         ? sanitizedPayload.message
         : '';
 

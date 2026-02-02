@@ -5,6 +5,7 @@ import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
 import { snapchatCAPI } from '@/lib/snapchat-capi';
 import { createClient } from '@/lib/supabase/server';
 import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
+import { logger } from '@/lib/logger';
 
 /**
  * Unified Conversions API Endpoint
@@ -147,8 +148,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      console.error('Failed to fetch merchant:', merchantError);
-      // Don't fail - just log and return success
+      logger.error({ message: 'Failed to fetch merchant for analytics', error: merchantError });
+      // Don't fail - just return success
       return NextResponse.json({
         success: true,
         message: 'Merchant not found, events not sent',
@@ -252,10 +253,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (fbError) {
-        console.error(
-          'Facebook CAPI error:',
-          String(fbError).replace(/[\r\n]/g, ' ')
-        );
+        logger.error({ message: 'Facebook CAPI error', error: fbError });
         results.facebook = { success: false, error: String(fbError) };
       }
     }
@@ -319,10 +317,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (ttError) {
-        console.error(
-          'TikTok Events API error:',
-          String(ttError).replace(/[\r\n]/g, ' ')
-        );
+        logger.error({ message: 'TikTok Events API error', error: ttError });
         results.tiktok = { success: false, error: String(ttError) };
       }
     }
@@ -391,10 +386,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (snapError) {
-        console.error(
-          'Snapchat CAPI error:',
-          String(snapError).replace(/[\r\n]/g, ' ')
-        );
+        logger.error({ message: 'Snapchat CAPI error', error: snapError });
         results.snapchat = { success: false, error: String(snapError) };
       }
     }
@@ -412,34 +404,22 @@ export async function POST(request: NextRequest) {
         // This requires Google Ads API or Measurement Protocol v2
         results.google = { success: true };
       } catch (googleError) {
-        console.error('Google Enhanced Conversions error:', googleError);
+        logger.error({ message: 'Google Enhanced Conversions error', error: googleError });
         results.google = { success: false, error: String(googleError) };
       }
     }
 
-    // Log for debugging - sanitize user-provided values to prevent log injection
-    const sanitizeForLog = (val: unknown): string => {
-      if (val === undefined || val === null) return 'unknown';
-      const str = String(val).slice(0, 50); // Limit length
-      return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, ''); // Remove control chars
-    };
-
-    console.log(
-      '[Conversion]',
-      sanitizeForLog(event_name),
-      'from',
-      sanitizeForLog(event_source),
-      '/',
-      sanitizeForLog(platform),
-      ':',
-      JSON.stringify({
-        value: custom_data.value,
-        currency: String(currency).replace(/[\r\n]/g, ''),
-        resultsStatus: Object.keys(results).map(
-          (k) => `${k}:${results[k].success ? 'ok' : 'fail'}`
-        ),
-      }).replace(/[\r\n]/g, ' ')
-    );
+    logger.info({
+      message: 'Conversion event tracked',
+      eventName: event_name,
+      source: event_source,
+      platform,
+      value: custom_data.value,
+      currency,
+      resultsStatus: Object.keys(results).map(
+        (k) => `${k}:${results[k].success ? 'ok' : 'fail'}`
+      ),
+    });
 
     return NextResponse.json({
       success: true,
@@ -447,10 +427,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error(
-      'Unified conversion endpoint error:',
-      String(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: 'Unified conversion endpoint internal error', error });
     // Never fail the request - analytics errors shouldn't block the user
     return NextResponse.json({
       success: false,

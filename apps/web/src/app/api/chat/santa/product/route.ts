@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedSantaProductList } from '@/ai/santa-data';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
+import { logger } from '@/lib/logger';
 
 const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
 
@@ -17,12 +18,11 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       OGABASSEY_MERCHANT_ID
     );
 
-    console.log(
-      '[Santa Product] Searching in',
-      santaProducts.length,
-      'products for:',
-      safeProductName
-    );
+    logger.info({
+      message: 'Santa Product searching',
+      count: santaProducts.length,
+      productName,
+    });
 
     // Find the best match by name
     const normalizedSearch = productName.toLowerCase().trim();
@@ -34,17 +34,11 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     );
 
     if (!matchingProduct) {
-      console.log('[Santa Product] No match found for:', safeProductName);
+      logger.info({ message: 'Santa Product no match found', productName });
       return NextResponse.json({ product: null });
     }
 
-    console.log(
-      '[Santa Product] Found match:',
-      matchingProduct.name
-        .slice(0, 100)
-        .replace(/[\r\n]/g, ' ')
-        .replace(/[^\x20-\x7E]/g, '')
-    );
+    logger.info({ message: 'Santa Product found match', match: matchingProduct.name });
 
     // Now get the full product details from database
     const supabase = createServiceClient();
@@ -58,10 +52,11 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       .single();
 
     if (error || !fullProduct) {
-      console.log(
-        '[Santa Product] Could not fetch full product details:',
-        error?.message
-      );
+      logger.warn({
+        message: 'Santa Product could not fetch full details',
+        error: error?.message,
+        match: matchingProduct.name,
+      });
       // Return basic product info from Santa data
       return NextResponse.json({
         product: {
@@ -115,7 +110,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       },
     });
   } catch (err) {
-    console.error('[Santa Product] Error:', err);
+    logger.error({ message: 'Santa Product internal error', error: err, productName });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

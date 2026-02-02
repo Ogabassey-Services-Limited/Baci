@@ -217,10 +217,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Input validation - intentional guard, not a bypass
+    // This reference is used to look up server-side transaction records,
+    // which are then verified against the payment gateway.
     // lgtm[js/user-controlled-bypass]
     // codeql[js/user-controlled-bypass-of-security-check]
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
+    if (!reference || typeof reference !== 'string' || reference.length > 100) {
+      return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
 
     const cookieStore = await cookies();

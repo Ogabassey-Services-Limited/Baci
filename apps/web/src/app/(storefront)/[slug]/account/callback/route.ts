@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { verifyCodeSchema } from '@/schemas/auth';
+import { logger } from '@/lib/logger';
 
 /**
  * Storefront OAuth Callback Handler
@@ -23,16 +25,11 @@ export async function GET(
 
   // If there's an OAuth error from the provider
   if (error) {
-    // Log sanitization: remove all control characters and limit length to prevent log injection
-    const safeError = String(error)
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-      .replace(/[\x00-\x1F\x7F]/g, ' ')
-      .slice(0, 200);
-    const safeDesc = String(errorDescription ?? '')
-      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
-      .replace(/[\x00-\x1F\x7F]/g, ' ')
-      .slice(0, 500);
-    console.error('OAuth error:', safeError, safeDesc);
+    logger.error({
+      message: 'OAuth callback error',
+      error: errorDescription || error,
+      slug,
+    });
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';
     return NextResponse.redirect(
       `${origin}${loginPath}?error=${encodeURIComponent(errorDescription || error)}`
@@ -41,7 +38,10 @@ export async function GET(
 
   // No code provided
   if (!code) {
-    console.error('No authorization code provided');
+    logger.error({
+      message: 'No authorization code provided in OAuth callback',
+      slug,
+    });
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';
     return NextResponse.redirect(
       `${origin}${loginPath}?error=No authorization code provided`
@@ -57,7 +57,11 @@ export async function GET(
       await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      console.error('Failed to exchange code for session:', exchangeError);
+      logger.error({
+        message: 'Failed to exchange code for session',
+        error: exchangeError.message,
+        slug,
+      });
       const loginPath = slug ? `/${slug}/account/login` : '/account/login';
       return NextResponse.redirect(
         `${origin}${loginPath}?error=${encodeURIComponent(exchangeError.message)}`
@@ -68,11 +72,19 @@ export async function GET(
     // Use the slug to maintain proper routing
     const accountPath = slug ? `/${slug}/account` : '/account';
 
-    console.log('OAuth successful for user:', data.user?.email);
+    logger.info({
+      message: 'OAuth successful for user',
+      email: data.user?.email,
+      slug,
+    });
 
     return NextResponse.redirect(`${origin}${accountPath}`);
   } catch (err) {
-    console.error('Unexpected error during OAuth callback:', err);
+    logger.error({
+      message: 'Unexpected error during OAuth callback',
+      error: err instanceof Error ? err.message : 'Unknown error',
+      slug,
+    });
     const loginPath = slug ? `/${slug}/account/login` : '/account/login';
     return NextResponse.redirect(
       `${origin}${loginPath}?error=An unexpected error occurred`
