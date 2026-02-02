@@ -60,6 +60,9 @@ export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
   };
 }
 
+const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
+const MAX_CACHE_SIZE = 100;
+
 /**
  * Format a number as currency based on country code
  *
@@ -81,14 +84,40 @@ export function formatCurrency(
   const config = getCurrencyConfig(countryCode);
 
   try {
-    return new Intl.NumberFormat(config.locale, {
-      style: 'currency',
+    // Generate cache key based on config and options
+    const cacheKey = JSON.stringify({
+      locale: config.locale,
       currency: config.code,
-      currencyDisplay: 'symbol',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
       ...options,
-    }).format(amount);
+    });
+
+    let formatter = FORMATTER_CACHE.get(cacheKey);
+
+    if (!formatter) {
+      formatter = new Intl.NumberFormat(config.locale, {
+        style: 'currency',
+        currency: config.code,
+        currencyDisplay: 'symbol',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+        ...options,
+      });
+
+      // Implement LRU policy (First-In, First-Out for eviction)
+      if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
+        const firstKey = FORMATTER_CACHE.keys().next().value;
+        if (firstKey !== undefined) {
+          FORMATTER_CACHE.delete(firstKey);
+        }
+      }
+      FORMATTER_CACHE.set(cacheKey, formatter);
+    } else {
+      // Move to end to indicate "Recent" usage (LRU order)
+      FORMATTER_CACHE.delete(cacheKey);
+      FORMATTER_CACHE.set(cacheKey, formatter);
+    }
+
+    return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
     return `${config.symbol}${amount.toFixed(2)}`;

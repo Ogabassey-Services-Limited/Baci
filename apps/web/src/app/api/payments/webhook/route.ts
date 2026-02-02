@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -16,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
+import { referenceSchema } from '@/schemas/payments';
 
 type PaymentGateway = 'paystack' | 'korapay';
 
@@ -217,11 +219,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Input validation - intentional guard, not a bypass
+    // This reference is used to look up server-side transaction records,
+    // which are then verified against the payment gateway.
     // lgtm[js/user-controlled-bypass]
     // codeql[js/user-controlled-bypass-of-security-check]
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
+    const referenceResult = referenceSchema.safeParse(reference);
+
+    if (!referenceResult.success) {
+      return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
+    const safeReference = referenceResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -231,7 +238,7 @@ export async function POST(request: NextRequest) {
     let gatewayResponse: Record<string, unknown>;
 
     if (gateway === 'paystack') {
-      const result = await verifyPaystackPayment(reference);
+      const result = await verifyPaystackPayment(safeReference);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 400 });
       }

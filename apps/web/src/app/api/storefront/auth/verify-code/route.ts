@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { verifyCodeSchema } from '@/schemas/auth';
 
@@ -65,10 +66,14 @@ export async function POST(request: Request) {
       });
 
     if (verifyError || !authData.user) {
-      console.error(
-        'OTP verification error:',
-        JSON.stringify(verifyError).replace(/[\r\n]/g, ' ')
-      );
+      const redactedEmail = email
+        ? `${email.slice(0, 3)}***@${email.split('@')[1]}`
+        : 'unknown';
+      logger.error({
+        message: 'OTP verification error',
+        error: verifyError,
+        email: redactedEmail,
+      });
 
       if (verifyError?.message?.includes('expired')) {
         return NextResponse.json(
@@ -125,10 +130,12 @@ export async function POST(request: Request) {
     );
 
     if (customerError) {
-      console.error(
-        'Customer upsert error:',
-        JSON.stringify(customerError).replace(/[\r\n]/g, ' ')
-      );
+      logger.error({
+        message: 'Customer upsert error',
+        error: customerError,
+        merchantId: merchant.id,
+        userId: authData.user.id,
+      });
       // Don't fail the login, just log the error
     }
 
@@ -160,10 +167,10 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error(
-      'Verify code error:',
-      JSON.stringify(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({
+      message: 'Verify code internal error',
+      error: error instanceof Error ? error : 'Unknown error',
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

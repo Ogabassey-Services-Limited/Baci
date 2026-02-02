@@ -20,6 +20,7 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/storefront': { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
   '/api/customers': { maxRequests: 20, windowMs: 60000 }, // 20 requests per minute
   '/api/newsletter': { maxRequests: 5, windowMs: 900000 }, // 5 requests per 15 minutes
+  '/api/wallet': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute
   default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
 };
 

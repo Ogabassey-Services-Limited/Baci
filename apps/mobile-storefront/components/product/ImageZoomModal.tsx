@@ -109,6 +109,7 @@ export function ImageZoomModal({
     dimension: number,
     currentScale: number
   ) => {
+    // biome-ignore lint/suspicious/noExplicitAny: Reanimated worklet directive
     'worklet';
     const scaledDimension = dimension * currentScale;
     const maxTranslate = Math.max(0, (scaledDimension - dimension) / 2);

@@ -320,11 +320,34 @@ export function sanitizeSearchQuery(query: string): string {
  * @param maxLength - Maximum length of the output (default: 200)
  * @returns A safe string suitable for logging
  */
-export function sanitizeForLog(value: unknown, maxLength = 200): string {
-  if (value === undefined || value === null) return '';
-  const str = String(value).slice(0, maxLength);
-  // Remove control characters (CR, LF, TAB) and non-printable ASCII
-  return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+export function sanitizeForLog(value: unknown, maxLength = 1000): string {
+  try {
+    if (value === undefined || value === null) return '';
+
+    // Simple string conversion and cleaning for basic types
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      const str = String(value).slice(0, maxLength);
+      return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+    }
+
+    // For complex types, use JSON.stringify but wrap in try-catch for BigInt/Circular
+    const json = JSON.stringify(value);
+    const result = (json === undefined ? String(value) : json).slice(
+      0,
+      maxLength
+    );
+    return result.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+  } catch {
+    // Ultimate fallback
+    return String(value ?? '')
+      .slice(0, maxLength)
+      .replace(/[\r\n\t]/g, ' ')
+      .replace(/[^\x20-\x7E]/g, '');
+  }
 }
 
 /**

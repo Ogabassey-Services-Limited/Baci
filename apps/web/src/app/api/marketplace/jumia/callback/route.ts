@@ -5,6 +5,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
@@ -19,11 +20,15 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
 
     // Jumia may return an error
     if (error) {
-      const safeError = encodeURIComponent(String(error).slice(0, 200));
-      console.error('[Jumia Callback] OAuth error:', { error: safeError });
+      logger.error({
+        message: 'Jumia Callback OAuth error',
+        error,
+        merchantId,
+      });
       return NextResponse.redirect(
         new URL(
           `/dashboard/channels?error=${encodeURIComponent(error)}`,
@@ -40,17 +45,20 @@ export async function GET(request: NextRequest) {
 
     // Verify state matches
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
-    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
 
     if (!storedState || storedState !== state) {
-      console.error('[Jumia Callback] State mismatch');
+      logger.error({
+        message: 'Jumia Callback State mismatch',
+        state: `${state?.slice(0, 8)}...`,
+        storedState: `${storedState?.slice(0, 8)}...`,
+      });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=invalid_state', request.url)
       );
     }
 
     if (!merchantId) {
-      console.error('[Jumia Callback] No merchant ID in session');
+      logger.error({ message: 'Jumia Callback No merchant ID in session' });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=session_expired', request.url)
       );
@@ -82,7 +90,10 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
 
     if (discoveredShops.length === 0) {
-      console.warn('[Jumia Callback] No shops discovered for this account');
+      logger.warn({
+        message: 'Jumia Callback No shops discovered',
+        merchantId,
+      });
       // Fallback to a generic integration if no shops found (unlikely but safe)
       discoveredShops.push({
         id: 'oauth',
@@ -118,10 +129,11 @@ export async function GET(request: NextRequest) {
         );
 
       if (insertError) {
-        console.error(
-          `[Jumia Callback] Database error for shop ${shopId}:`,
-          insertError
-        );
+        logger.error({
+          message: 'Jumia Callback Database error for shop',
+          shopId,
+          error: insertError,
+        });
       }
     }
 
@@ -154,7 +166,7 @@ export async function GET(request: NextRequest) {
     ) {
       throw error;
     }
-    console.error('[Jumia Callback] Error:', error);
+    logger.error({ message: 'Jumia Callback internal error', error });
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
     const redirectBase =
       platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';

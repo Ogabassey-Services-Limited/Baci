@@ -1,5 +1,7 @@
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
+import { logger } from '@/lib/logger';
+
 if (!PAYSTACK_SECRET_KEY && process.env.NODE_ENV === 'production') {
   console.warn('PAYSTACK_SECRET_KEY is not set');
 }
@@ -90,7 +92,9 @@ async function paystackRequest(
 
   if (!res.ok) {
     const errorBody = await res.text();
-    throw new Error(`Paystack API Error ${res.status}: ${errorBody}`);
+    // Sanitize error body before including in Error to prevent log injection
+    const safeErrorBody = sanitizeForLog(errorBody, 200);
+    throw new Error(`Paystack API Error ${res.status}: ${safeErrorBody}`);
   }
 
   return res.json();
@@ -136,7 +140,7 @@ export async function getOrCreatePaystackCustomer(
     // Sanitize error message to prevent log injection before logging
     const safeMessage =
       error instanceof Error ? sanitizeForLog(error.message) : 'Unknown error';
-    console.error('Paystack Customer Error:', safeMessage);
+    logger.error({ message: 'Paystack Customer Error', error: safeMessage });
     throw error;
   }
 }

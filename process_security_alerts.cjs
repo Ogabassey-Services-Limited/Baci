@@ -106,5 +106,6 @@ try {
 
 } catch (e) {
     console.error('Error processing alerts:', e);
+    console.error(e.stack);
     process.exit(1);
 }

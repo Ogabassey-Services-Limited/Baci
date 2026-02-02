@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type {
@@ -106,10 +107,7 @@ export async function GET(request: NextRequest) {
     const { data: notifications, error, count } = await query;
 
     if (error) {
-      const safeError = JSON.stringify(error)
-        .replace(/[\r\n]/g, ' ')
-        .slice(0, 500);
-      console.error('Error fetching notifications:', safeError);
+      logger.error({ message: 'Error fetching notifications', error });
       return NextResponse.json(
         { error: 'Failed to fetch notifications' },
         { status: 500 }
@@ -140,10 +138,11 @@ export async function GET(request: NextRequest) {
       );
 
       if (batchError) {
-        console.warn(
-          'Batch stats RPC unavailable, falling back to individual queries:',
-          JSON.stringify(batchError).replace(/[\r\n]/g, ' ')
-        );
+        logger.warn({
+          message:
+            'Batch stats RPC unavailable, falling back to individual queries',
+          error: batchError,
+        });
       }
 
       if (batchStats && Array.isArray(batchStats)) {
@@ -161,9 +160,9 @@ export async function GET(request: NextRequest) {
       } else {
         // If batch function is unavailable, stats will be missing for notifications.
         // Instead of performing N+1 individual queries, we'll proceed with default stats.
-        console.warn(
-          'Batch stats RPC unavailable, proceeding with default stats'
-        );
+        logger.warn({
+          message: 'Batch stats RPC unavailable, proceeding with default stats',
+        });
         statsMap = new Map();
       }
     }
@@ -190,10 +189,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error(
-      'Admin notifications GET error:',
-      JSON.stringify(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: 'Admin notifications GET internal error', error });
     return NextResponse.json(
       { error: 'Failed to fetch notifications' },
       { status: 500 }
@@ -303,10 +299,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error(
-        'Error creating notification:',
-        JSON.stringify(createError).replace(/[\r\n]/g, ' ')
-      );
+      logger.error({
+        message: 'Error creating notification',
+        error: createError,
+      });
       return NextResponse.json(
         { error: 'Failed to create notification' },
         { status: 500 }
@@ -327,7 +323,10 @@ export async function POST(request: NextRequest) {
         );
 
         if (rpcError) {
-          console.error('Error sending to all merchants:', rpcError);
+          logger.error({
+            message: 'Error sending to all merchants',
+            error: rpcError,
+          });
           // Mark notification as failed in the database for consistency
           await supabase
             .from('notifications')
@@ -365,7 +364,10 @@ export async function POST(request: NextRequest) {
         );
 
         if (rpcError) {
-          console.error('Error sending to specific merchants:', rpcError);
+          logger.error({
+            message: 'Error sending to specific merchants',
+            error: rpcError,
+          });
         }
         merchantsSent = count || 0;
         broadcastMerchantIds = body.target_merchant_ids;
@@ -385,7 +387,10 @@ export async function POST(request: NextRequest) {
           );
 
           if (rpcError) {
-            console.error('Error sending to segment merchants:', rpcError);
+            logger.error({
+              message: 'Error sending to segment merchants',
+              error: rpcError,
+            });
           }
           merchantsSent = count || 0;
           broadcastMerchantIds = segmentMerchants;
@@ -416,11 +421,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     // Safe error logging
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(
-      'Admin notifications POST error:',
-      errorMessage.replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: 'Admin notifications POST internal error', error });
     return NextResponse.json(
       { error: 'Failed to create notification' },
       { status: 500 }
@@ -507,7 +508,10 @@ async function broadcastNotification(
     });
 
     if (sendResult !== 'ok') {
-      console.warn('Broadcast may not have been delivered:', sendResult);
+      logger.warn({
+        message: 'Broadcast may not have been delivered',
+        status: sendResult,
+      });
     }
 
     // Cleanup channel
@@ -519,10 +523,7 @@ async function broadcastNotification(
     }
   } catch (error) {
     // Don't fail the request if broadcast fails
-    console.error(
-      'Error broadcasting notification:',
-      JSON.stringify(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: 'Error broadcasting notification', error });
   }
 }
 
@@ -545,15 +546,14 @@ async function sendPushNotificationsToMerchants(
       .eq('app_type', 'admin');
 
     if (error) {
-      console.error(
-        '[Push] Error fetching push tokens:',
-        JSON.stringify(error).replace(/[\r\n]/g, ' ')
-      );
+      logger.error({ message: '[Push] Error fetching push tokens', error });
       return;
     }
 
     if (!tokens || tokens.length === 0) {
-      console.log('[Push] No active push tokens found for target merchants');
+      logger.info({
+        message: '[Push] No active push tokens found for target merchants',
+      });
       return;
     }
 
@@ -581,9 +581,11 @@ async function sendPushNotificationsToMerchants(
     // Log results
     const successCount = tickets.filter((t) => t.status === 'ok').length;
     const failCount = tickets.filter((t) => t.status === 'error').length;
-    console.log(
-      `[Push] Sent ${successCount} push notifications (${failCount} failed)`
-    );
+    logger.info({
+      message: '[Push] Notifications status',
+      sent: successCount,
+      failed: failCount,
+    });
 
     // Deactivate tokens that are no longer registered
     const tokensToDeactivate = tickets
@@ -599,14 +601,12 @@ async function sendPushNotificationsToMerchants(
         .from('push_tokens')
         .update({ is_active: false })
         .in('token', tokensToDeactivate);
-      console.log(
-        `[Push] Deactivated ${tokensToDeactivate.length} invalid tokens`
-      );
+      logger.info({
+        message: '[Push] Deactivated invalid tokens',
+        count: tokensToDeactivate.length,
+      });
     }
   } catch (error) {
-    console.error(
-      '[Push] Error sending push notifications:',
-      JSON.stringify(error).replace(/[\r\n]/g, ' ')
-    );
+    logger.error({ message: '[Push] Error sending push notifications', error });
   }
 }
