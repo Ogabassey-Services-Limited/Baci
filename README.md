@@ -84,3 +84,4 @@ Baci-app/
 - **Language**: TypeScript (strict mode)
 - **Package Manager**: pnpm (workspaces)
 - **Build System**: Turborepo
+<!-- Retrying CI -->
