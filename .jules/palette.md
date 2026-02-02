@@ -6,4 +6,4 @@
 ## 2024-05-24 - Product Pricing Context
 
 **Learning:** `StorefrontProductCard` previously lacked pricing context (original price, percentage off) compared to `QuickViewModal`, making it harder for users to identify deals and causing accessibility gaps for screen readers who only heard the current price.
-**Action:** When displaying discounted prices, always include the original price (crossed out) and a specific percentage badge. Use `sr-only` text to explicitly label "Original price" and "Current price" to prevent confusion for screen reader users and ensure strict WCAG 2.1 compliance.
+**Action:** When displaying discounted prices, always include the original price (crossed out) and a specific percentage badge. Use `sr-only` text to explicitly label "Original price" and "Current price" to prevent confusion for screen reader users and ensure strict WCAG 2.1 AA compliance.
