@@ -43,14 +43,14 @@ export async function GET(request: NextRequest) {
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
 
     if (!storedState || storedState !== state) {
-      console.error('[Jumia Callback] State mismatch');
+      logger.error({ message: 'Jumia Callback State mismatch', state, storedState });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=invalid_state', request.url)
       );
     }
 
     if (!merchantId) {
-      console.error('[Jumia Callback] No merchant ID in session');
+      logger.error({ message: 'Jumia Callback No merchant ID in session' });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=session_expired', request.url)
       );
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
 
     if (discoveredShops.length === 0) {
-      console.warn('[Jumia Callback] No shops discovered for this account');
+      logger.warn({ message: 'Jumia Callback No shops discovered', merchantId });
       // Fallback to a generic integration if no shops found (unlikely but safe)
       discoveredShops.push({
         id: 'oauth',
@@ -118,10 +118,11 @@ export async function GET(request: NextRequest) {
         );
 
       if (insertError) {
-        console.error(
-          `[Jumia Callback] Database error for shop ${shopId}:`,
-          insertError
-        );
+        logger.error({
+          message: 'Jumia Callback Database error for shop',
+          shopId,
+          error: insertError
+        });
       }
     }
 

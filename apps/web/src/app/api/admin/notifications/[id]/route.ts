@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logger } from '@/lib/logger';
 import type {
   NotificationWithStats,
   UpdateNotificationInput,
@@ -16,8 +17,9 @@ interface RouteParams {
  * Only accessible to platform administrators
  */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
+  let id: string | undefined;
   try {
-    const { id } = await params;
+    id = (await params).id;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -97,7 +99,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(notificationWithStats);
   } catch (error) {
-    console.error('Admin notification GET error:', error);
+    logger.error({ message: 'Admin notification GET error', error, id });
     return NextResponse.json(
       { error: 'Failed to fetch notification' },
       { status: 500 }
@@ -111,8 +113,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Only accessible to platform administrators
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  let id: string | undefined;
   try {
-    const { id } = await params;
+    id = (await params).id;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -199,7 +202,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateError) {
-      console.error('Error updating notification:', updateError);
+      logger.error({ message: 'Error updating notification', error: updateError, id });
       return NextResponse.json(
         { error: 'Failed to update notification' },
         { status: 500 }
@@ -208,7 +211,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error('Admin notification PATCH error:', error);
+    logger.error({ message: 'Admin notification PATCH error', error, id });
     return NextResponse.json(
       { error: 'Failed to update notification' },
       { status: 500 }
@@ -222,8 +225,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Only accessible to platform administrators
  */
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  let id: string | undefined;
   try {
-    const { id } = await params;
+    id = (await params).id;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -270,7 +274,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       .eq('id', id);
 
     if (deleteError) {
-      console.error('Error deleting notification:', deleteError);
+      logger.error({ message: 'Error deleting notification', error: deleteError, id });
       return NextResponse.json(
         { error: 'Failed to delete notification' },
         { status: 500 }
@@ -284,7 +288,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         : 'Scheduled notification cancelled',
     });
   } catch (error) {
-    console.error('Admin notification DELETE error:', error);
+    logger.error({ message: 'Admin notification DELETE error', error, id });
     return NextResponse.json(
       { error: 'Failed to delete notification' },
       { status: 500 }
