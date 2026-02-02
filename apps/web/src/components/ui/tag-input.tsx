@@ -23,6 +23,16 @@ export function TagInput({
   maxTags,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
+  const [announcement, setAnnouncement] = useState('');
+
+  // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
+  const flashAnnouncement = (msg: string) => {
+    setAnnouncement('');
+    // Use microtask to ensure DOM change is detected between empty and message strings
+    requestAnimationFrame(() => {
+      setAnnouncement(msg);
+    });
+  };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -38,15 +48,18 @@ export function TagInput({
     if (!trimmedInput) return;
 
     if (value.includes(trimmedInput)) {
+      flashAnnouncement(`Tag "${trimmedInput}" has already been added`);
       setInputValue('');
       return;
     }
 
     if (maxTags && value.length >= maxTags) {
+      flashAnnouncement(`Maximum of ${maxTags} tags reached`);
       return;
     }
 
     onChange([...value, trimmedInput]);
+    setAnnouncement(`Tag "${trimmedInput}" added`);
     setInputValue('');
   };
 
@@ -56,6 +69,11 @@ export function TagInput({
 
   return (
     <div className={cn('space-y-2', className)}>
+      {/* Screen reader announcements */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+
       <div className="flex gap-2">
         <Input
           type="text"
