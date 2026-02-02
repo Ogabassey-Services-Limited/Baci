@@ -41,6 +41,14 @@ describe('Rate Limit Logic', () => {
     expect(result.limit).toBe(5); // Stricter limit
   });
 
+  it('should enforce strict limit for wallet endpoints', () => {
+    const req = new NextRequest('http://localhost:3000/api/wallet');
+    req.headers.set('x-forwarded-for', '7.7.7.7');
+
+    const result = checkRateLimit(req);
+    expect(result.limit).toBe(5); // Strict limit for wallet
+  });
+
   it('should allow requests within limit', () => {
     const ip = '4.4.4.4';
     // Newsletter limit is 5
