@@ -992,10 +992,15 @@ export async function GET(request: NextRequest) {
     const gateway: PaymentGateway =
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
-    // Input validation for reference parameter
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
+    // Input validation for reference parameter using shared schema
+    const refValidation = referenceSchema.safeParse(reference);
+    if (!refValidation.success) {
+      return NextResponse.json(
+        { error: 'Invalid or missing reference' },
+        { status: 400 }
+      );
     }
+    const validatedReference = refValidation.data;
 
     // SECURITY: Get merchant first to establish authorization context
     const { data: merchant } = await supabase
@@ -1016,7 +1021,7 @@ export async function GET(request: NextRequest) {
     const { data: transaction } = await supabase
       .from('transactions')
       .select('id, merchant_id')
-      .eq('gateway_reference', reference)
+      .eq('gateway_reference', validatedReference)
       .eq('merchant_id', merchant.id) // Authorization enforced in query
       .single();
 
@@ -1031,8 +1036,8 @@ export async function GET(request: NextRequest) {
     // Transaction verified to belong to authenticated merchant
     const paymentData =
       gateway === 'paystack'
-        ? await verifyPaystackPayment(reference)
-        : await verifyKorapayPayment(reference);
+        ? await verifyPaystackPayment(validatedReference)
+        : await verifyKorapayPayment(validatedReference);
 
     return NextResponse.json({
       success: true,

@@ -69,8 +69,8 @@ export const logger = {
   debug: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('debug')) {
       // usage of ...args is deliberate for logging objects
-      // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-      console.log(...getLogPrefix(tag), String(message), ...args);
+      // use literal prefix to prevent format string injection
+      console.log('[DEBUG]', ...getLogPrefix(tag), String(message), ...args);
     }
   },
 
@@ -80,8 +80,8 @@ export const logger = {
   info: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('info')) {
       // usage of ...args is deliberate for logging objects
-      // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-      console.log(...getLogPrefix(tag), String(message), ...args);
+      // use literal prefix to prevent format string injection
+      console.log('[INFO]', ...getLogPrefix(tag), String(message), ...args);
     }
   },
 
@@ -90,8 +90,8 @@ export const logger = {
    */
   warn: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('warn')) {
-      // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-      console.warn(...getLogPrefix(tag), String(message), ...args);
+      // use literal prefix to prevent format string injection
+      console.warn('[WARN]', ...getLogPrefix(tag), String(message), ...args);
     }
   },
 
@@ -100,8 +100,8 @@ export const logger = {
    */
   error: (tag: string, message: string, ...args: unknown[]) => {
     if (shouldLog('error')) {
-      // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-      console.error(...getLogPrefix(tag), String(message), ...args);
+      // use literal prefix to prevent format string injection
+      console.error('[ERROR]', ...getLogPrefix(tag), String(message), ...args);
     }
   },
 
