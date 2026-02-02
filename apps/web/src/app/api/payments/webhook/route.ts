@@ -14,6 +14,7 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -221,9 +222,13 @@ export async function POST(request: NextRequest) {
     // which are then verified against the payment gateway.
     // lgtm[js/user-controlled-bypass]
     // codeql[js/user-controlled-bypass-of-security-check]
-    if (!reference || typeof reference !== 'string' || reference.length > 100) {
+    const referenceSchema = z.string().min(1).max(100);
+    const referenceResult = referenceSchema.safeParse(reference);
+
+    if (!referenceResult.success) {
       return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
+    const safeReference = referenceResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -233,7 +238,7 @@ export async function POST(request: NextRequest) {
     let gatewayResponse: Record<string, unknown>;
 
     if (gateway === 'paystack') {
-      const result = await verifyPaystackPayment(reference);
+      const result = await verifyPaystackPayment(safeReference);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 400 });
       }

@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { verifyCodeSchema } from '@/schemas/auth';
+
 import { logger } from '@/lib/logger';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Storefront OAuth Callback Handler
@@ -26,7 +26,9 @@ export async function GET(
   // If there's an OAuth error from the provider
   if (error) {
     // Explicit sanitization to satisfy CodeQL log injection flow analysis
-    const safeError = String(error).replace(/[\r\n]/g, ' ').slice(0, 200);
+    const safeError = String(error)
+      .replace(/[\r\n]/g, ' ')
+      .slice(0, 200);
     const safeDesc = String(errorDescription ?? '')
       .replace(/[\r\n]/g, ' ')
       .slice(0, 500);
@@ -81,7 +83,7 @@ export async function GET(
 
     logger.info({
       message: 'OAuth successful for user',
-      email: data.user?.email,
+      userId: data.user?.id,
       slug,
     });
 
