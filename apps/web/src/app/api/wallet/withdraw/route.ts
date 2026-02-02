@@ -2,6 +2,8 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { payoutMerchantCommission } from '@/lib/kuda';
+import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
@@ -166,8 +168,12 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // Use separate arguments to avoid format string injection
-        console.error(`Rollback attempt ${attempt} failed:`, rollbackError);
+        // Use sanitized logger to avoid format string and log injection
+        logger.error({
+          message: 'Rollback attempt failed',
+          attempt,
+          error: sanitizeForLog(rollbackError),
+        });
         // Wait before retry (exponential backoff)
         if (attempt < 3) {
           await new Promise((resolve) => setTimeout(resolve, attempt * 500));
@@ -176,14 +182,14 @@ export async function POST(request: NextRequest) {
 
       if (!rollbackSuccess) {
         // Critical: Log for manual intervention
-        console.error(
-          'CRITICAL: Failed to rollback wallet debit after transfer failure',
-          {
-            transactionId,
-            merchantId: merchant.id,
-            amount: withdrawAmount,
-          }
-        );
+        logger.error({
+          message:
+            'CRITICAL: Failed to rollback wallet debit after transfer failure',
+          errorMessage: sanitizeForLog(errorMessage),
+          transactionId,
+          merchantId: merchant.id,
+          amount: withdrawAmount,
+        });
         return NextResponse.json(
           {
             error:

@@ -2,4 +2,70 @@
 > @baci/web@0.1.0 lint /Users/mac/Baci-app/apps/web
 > biome check .
 
-Checked 871 files in 788ms. No fixes applied.
+src/app/api/payments/webhook/route.ts:4:8 lint/correctness/noUnusedImports  FIXABLE  ━━━━━━━━━━━━━━━
+
+  ! This import is unused.
+  
+    2 │ import { cookies } from 'next/headers';
+    3 │ import { after, type NextRequest, NextResponse } from 'next/server';
+  > 4 │ import { z } from 'zod';
+      │        ^^^^^
+    5 │ import {
+    6 │   generateOrderConfirmationEmail,
+  
+  i Unused imports might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: Remove the unused imports.
+  
+       2    2 │   import { cookies } from 'next/headers';
+       3    3 │   import { after, type NextRequest, NextResponse } from 'next/server';
+       4      │ - import·{·z·}·from·'zod';
+       5    4 │   import {
+       6    5 │     generateOrderConfirmationEmail,
+  
+
+src/app/api/wallet/withdraw/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━
+
+  × The imports and exports are not sorted.
+  
+  > 1 │ import { cookies } from 'next/headers';
+      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    2 │ import { type NextRequest, NextResponse } from 'next/server';
+    3 │ import { checkCsrfProtection } from '@/lib/csrf';
+  
+  i Safe fix: Organize Imports (Biome)
+  
+      3   3 │   import { checkCsrfProtection } from '@/lib/csrf';
+      4   4 │   import { payoutMerchantCommission } from '@/lib/kuda';
+      5     │ - import·{·createClient·}·from·'@/lib/supabase/server';
+      6     │ - import·{·logger·}·from·'@/lib/logger';
+      7     │ - import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
+          5 │ + import·{·logger·}·from·'@/lib/logger';
+          6 │ + import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
+          7 │ + import·{·createClient·}·from·'@/lib/supabase/server';
+      8   8 │   
+      9   9 │   const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
+  
+
+src/app/api/wallet/withdraw/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+    184 184 │           // Critical: Log for manual intervention
+    185 185 │           logger.error({
+    186     │ - ··········message:·'CRITICAL:·Failed·to·rollback·wallet·debit·after·transfer·failure',
+        186 │ + ··········message:
+        187 │ + ············'CRITICAL:·Failed·to·rollback·wallet·debit·after·transfer·failure',
+    187 188 │             errorMessage: sanitizeForLog(errorMessage),
+    188 189 │             transactionId,
+  
+
+Checked 873 files in 734ms. No fixes applied.
+Found 2 errors.
+Found 1 warning.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.

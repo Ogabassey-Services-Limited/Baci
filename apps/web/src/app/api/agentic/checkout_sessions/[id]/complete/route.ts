@@ -3,6 +3,7 @@ import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing 
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export async function POST(
@@ -79,7 +80,7 @@ export async function POST(
       logger.error({
         message: 'DVA Creation Failed',
         error: dvaError,
-        sessionId: params.id,
+        sessionId: sanitizeForLog(params.id),
       });
       const errorMessage =
         dvaError instanceof Error ? dvaError.message : 'Unknown error';
@@ -133,7 +134,7 @@ export async function POST(
         message: 'Order creation failed',
         status: orderRes.status,
         statusText: orderRes.statusText,
-        sessionId: params.id,
+        sessionId: sanitizeForLog(params.id),
       });
       return NextResponse.json(
         { error: 'Order creation failed', details: orderData.error },
