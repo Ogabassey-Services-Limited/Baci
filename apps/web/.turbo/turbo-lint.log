@@ -24,48 +24,5 @@ src/app/api/payments/webhook/route.ts:4:8 lint/correctness/noUnusedImports  FIXA
        6    5 │     generateOrderConfirmationEmail,
   
 
-src/app/api/wallet/withdraw/route.ts:1:1 assist/source/organizeImports  FIXABLE  ━━━━━━━━━━━━━━━━━━━
-
-  × The imports and exports are not sorted.
-  
-  > 1 │ import { cookies } from 'next/headers';
-      │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    2 │ import { type NextRequest, NextResponse } from 'next/server';
-    3 │ import { checkCsrfProtection } from '@/lib/csrf';
-  
-  i Safe fix: Organize Imports (Biome)
-  
-      3   3 │   import { checkCsrfProtection } from '@/lib/csrf';
-      4   4 │   import { payoutMerchantCommission } from '@/lib/kuda';
-      5     │ - import·{·createClient·}·from·'@/lib/supabase/server';
-      6     │ - import·{·logger·}·from·'@/lib/logger';
-      7     │ - import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
-          5 │ + import·{·logger·}·from·'@/lib/logger';
-          6 │ + import·{·sanitizeForLog·}·from·'@/lib/sanitize-core';
-          7 │ + import·{·createClient·}·from·'@/lib/supabase/server';
-      8   8 │   
-      9   9 │   const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
-  
-
-src/app/api/wallet/withdraw/route.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Formatter would have printed the following content:
-  
-    184 184 │           // Critical: Log for manual intervention
-    185 185 │           logger.error({
-    186     │ - ··········message:·'CRITICAL:·Failed·to·rollback·wallet·debit·after·transfer·failure',
-        186 │ + ··········message:
-        187 │ + ············'CRITICAL:·Failed·to·rollback·wallet·debit·after·transfer·failure',
-    187 188 │             errorMessage: sanitizeForLog(errorMessage),
-    188 189 │             transactionId,
-  
-
-Checked 873 files in 734ms. No fixes applied.
-Found 2 errors.
+Checked 873 files in 913ms. No fixes applied.
 Found 1 warning.
-check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  × Some errors were emitted while running checks.
-  
-
- ELIFECYCLE  Command failed with exit code 1.
