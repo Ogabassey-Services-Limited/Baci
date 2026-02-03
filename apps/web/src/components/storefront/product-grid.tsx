@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
@@ -226,15 +226,29 @@ export function StorefrontProductGrid({
     return [];
   }, [products, filterType, priceRanges]);
 
-  const fuse = useMemo(() => {
-    if (products.length > 0) {
-      return new Fuse(products, {
-        keys: ['name', 'description', 'brand'],
-        includeScore: true,
-        threshold: 0.4,
-      });
+  // Optimization: Lazy initialize Fuse instance only when needed
+  // This avoids expensive indexing on initial load if the user never searches
+  const fuseRef = useRef<{ list: Product[]; instance: Fuse<Product> } | null>(
+    null
+  );
+
+  const getFuseInstance = useCallback(() => {
+    if (products.length === 0) return null;
+
+    // Check if we have a cached instance for the current products list
+    // If products reference changes, we need to rebuild the index
+    if (fuseRef.current?.list !== products) {
+      fuseRef.current = {
+        list: products,
+        instance: new Fuse(products, {
+          keys: ['name', 'description', 'brand'],
+          includeScore: true,
+          threshold: 0.4,
+        }),
+      };
     }
-    return null;
+
+    return fuseRef.current.instance;
   }, [products]);
 
   const categories = useMemo(() => {
@@ -335,8 +349,13 @@ export function StorefrontProductGrid({
     // Fall back to client-side search
     let filtered = products;
 
-    if (debouncedSearchQuery && fuse) {
-      filtered = fuse.search(debouncedSearchQuery).map((result) => result.item);
+    if (debouncedSearchQuery) {
+      const fuse = getFuseInstance();
+      if (fuse) {
+        filtered = fuse
+          .search(debouncedSearchQuery)
+          .map((result) => result.item);
+      }
     }
 
     if (selectedCategory !== 'All') {
@@ -361,7 +380,6 @@ export function StorefrontProductGrid({
     return filtered.filter((p) => p.status === 'active').slice(0, limit);
   }, [
     debouncedSearchQuery,
-    fuse,
     products,
     selectedCategory,
     limit,
@@ -369,6 +387,7 @@ export function StorefrontProductGrid({
     useServerSearch,
     serverSearchResults,
     priceRanges,
+    getFuseInstance,
   ]);
 
   // React Compiler handles memoization automatically - no manual useCallback needed
