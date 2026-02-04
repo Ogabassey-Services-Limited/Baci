@@ -21,6 +21,9 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/customers': { maxRequests: 20, windowMs: 60000 }, // 20 requests per minute
   '/api/newsletter': { maxRequests: 5, windowMs: 900000 }, // 5 requests per 15 minutes
   '/api/wallet': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute
+  // Auth endpoints (strict limits to prevent abuse)
+  '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60000 }, // 3 requests per minute (email spam protection)
+  '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute (brute force protection)
   default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
 };
 

@@ -159,4 +159,52 @@ describe('Rate Limit Logic', () => {
     // This expects the fix to be working
     expect(result.allowed).toBe(false);
   });
+
+  it('should enforce strict limits for auth endpoints', () => {
+    // Test send-code (limit 3)
+    const ip = '10.0.0.3';
+    const sendCodeLimit = 3;
+
+    for (let i = 0; i < sendCodeLimit; i++) {
+      const req = new NextRequest(
+        'http://localhost/api/storefront/auth/send-code',
+        {
+          headers: { 'x-forwarded-for': ip },
+        }
+      );
+      expect(checkRateLimit(req).allowed).toBe(true);
+    }
+
+    // Next request should be blocked
+    const blockedSendReq = new NextRequest(
+      'http://localhost/api/storefront/auth/send-code',
+      {
+        headers: { 'x-forwarded-for': ip },
+      }
+    );
+    expect(checkRateLimit(blockedSendReq).allowed).toBe(false);
+
+    // Test verify-code (limit 5)
+    const ip2 = '10.0.0.4';
+    const verifyCodeLimit = 5;
+
+    for (let i = 0; i < verifyCodeLimit; i++) {
+      const req = new NextRequest(
+        'http://localhost/api/storefront/auth/verify-code',
+        {
+          headers: { 'x-forwarded-for': ip2 },
+        }
+      );
+      expect(checkRateLimit(req).allowed).toBe(true);
+    }
+
+    // Next request should be blocked
+    const blockedVerifyReq = new NextRequest(
+      'http://localhost/api/storefront/auth/verify-code',
+      {
+        headers: { 'x-forwarded-for': ip2 },
+      }
+    );
+    expect(checkRateLimit(blockedVerifyReq).allowed).toBe(false);
+  });
 });
