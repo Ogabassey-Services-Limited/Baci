@@ -31,6 +31,16 @@ const COUNTRY_LOCALES: Record<string, string> = {
 };
 
 /**
+ * Default fraction digits for specific currencies.
+ * Some currencies like NGN (Naira) and JPY (Yen) are typically displayed without decimals.
+ */
+const DEFAULT_FRACTION_DIGITS: Record<string, number> = {
+  NGN: 0,
+  JPY: 0,
+  // Add others as needed
+};
+
+/**
  * Get currency configuration for a country
  * Defaults to USD if country not found
  */
@@ -72,7 +82,7 @@ const MAX_CACHE_SIZE = 100;
  * @returns Formatted currency string
  *
  * @example
- * formatCurrency(1000, 'NG') // "₦1,000.00"
+ * formatCurrency(1000, 'NG') // "₦1,000" (NGN defaults to 0 decimals)
  * formatCurrency(1000, 'US') // "$1,000.00"
  * formatCurrency(1000, 'GB') // "£1,000.00"
  */
@@ -94,12 +104,14 @@ export function formatCurrency(
     let formatter = FORMATTER_CACHE.get(cacheKey);
 
     if (!formatter) {
+      const defaultDigits = DEFAULT_FRACTION_DIGITS[config.code] ?? 2;
+
       formatter = new Intl.NumberFormat(config.locale, {
         style: 'currency',
         currency: config.code,
         currencyDisplay: 'symbol',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+        minimumFractionDigits: defaultDigits,
+        maximumFractionDigits: defaultDigits,
         ...options,
       });
 
@@ -120,7 +132,8 @@ export function formatCurrency(
     return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
-    return `${config.symbol}${amount.toFixed(2)}`;
+    const defaultDigits = DEFAULT_FRACTION_DIGITS[config.code] ?? 2;
+    return `${config.symbol}${amount.toFixed(defaultDigits)}`;
   }
 }
 
