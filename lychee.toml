@@ -128,5 +128,7 @@ exclude = [
   "^https?://([a-z0-9-]+\\.)?typescriptlang\\.org",
   "^https?://([a-z0-9-]+\\.)?firebase\\.google\\.com",
   # Flaky external URLs that may timeout
-  "^https?://vitest\\.dev"
+  "^https?://vitest\\.dev",
+  "^https?://react-hook-form\\.com",
+  "^https?://grainy-gradients\\.vercel\\.app"
 ]
