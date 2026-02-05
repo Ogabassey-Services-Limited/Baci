@@ -61,6 +61,20 @@ export default function WishListPage() {
   // Use dynamic currency based on merchant's country
   const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
 
+  // Initialize CSRF token
+  useEffect(() => {
+    fetch('/api/csrf').catch(() => {
+      // Ignore errors - best effort to initialize CSRF
+    });
+  }, []);
+
+  // Helper to get CSRF token from cookie (client-side safe)
+  const getCsrfToken = () => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(^| )csrf-token=([^;]+)/);
+    return match ? match[2] : null;
+  };
+
   // Helper to build email query param
   const buildEmailParam = (email: string) =>
     email ? `&email=${encodeURIComponent(email)}` : '';
@@ -153,8 +167,15 @@ export default function WishListPage() {
     setRemovingItemId(itemId);
     try {
       const emailParam = buildEmailParam(customerEmail);
+      const csrfToken = getCsrfToken();
+      const headers: HeadersInit = {};
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
         method: 'DELETE',
+        headers,
       });
 
       if (!response.ok) {
@@ -209,8 +230,15 @@ export default function WishListPage() {
 
       // Remove from wishlist
       const emailParam = buildEmailParam(customerEmail);
+      const csrfToken = getCsrfToken();
+      const headers: HeadersInit = {};
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
         method: 'DELETE',
+        headers,
       });
 
       if (response.ok) {
@@ -241,9 +269,15 @@ export default function WishListPage() {
     // Generate a share token by creating a server-side shareable link
     // This avoids exposing email addresses in URLs which is a PII concern
     try {
+      const csrfToken = getCsrfToken();
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch('/api/wishlist/share', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ email: customerEmail, merchantSlug }),
       });
 
