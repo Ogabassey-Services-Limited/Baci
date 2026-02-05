@@ -39,6 +39,7 @@ exclude = [
   "fonts\\.googleapis\\.com/|fonts\\.gstatic\\.com/|www\\.gstatic\\.com/",
   "generativelanguage\\.googleapis\\.com/",
   "google-analytics\\.com/mp/collect",
+  "grainy-gradients\\.vercel\\.app",
   
   # APIs (Restricted/Dynamic)
   "api\\.pwnedpasswords\\.com",
