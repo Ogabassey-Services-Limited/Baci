@@ -61,6 +61,25 @@ export const EditorToolbar = ({
 
   if (!editor) return null;
 
+  const _insertImageFromUrl = () => {
+    const url = imageUrlValue.trim();
+    if (!url) return;
+
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) return;
+
+    try {
+      const parsed = new URL(sanitized);
+      if (!['http:', 'https:'].includes(parsed.protocol)) return;
+    } catch {
+      return;
+    }
+
+    editor.chain().focus().setImage({ src: sanitized }).run();
+    setImageUrlValue('');
+    setImageUrlOpen(false);
+  };
+
   const formatButtons = [
     {
       name: 'bold',
@@ -331,13 +350,8 @@ export const EditorToolbar = ({
                 value={imageUrlValue}
                 onChange={(e) => setImageUrlValue(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && imageUrlValue.trim()) {
-                    const sanitized = sanitizeUrl(imageUrlValue.trim());
-                    if (sanitized) {
-                      editor.chain().focus().setImage({ src: sanitized }).run();
-                      setImageUrlValue('');
-                      setImageUrlOpen(false);
-                    }
+                  if (e.key === 'Enter') {
+                    _insertImageFromUrl();
                   }
                 }}
               />
@@ -345,16 +359,7 @@ export const EditorToolbar = ({
                 size="sm"
                 className="w-full"
                 disabled={!imageUrlValue.trim()}
-                onClick={() => {
-                  if (imageUrlValue.trim()) {
-                    const sanitized = sanitizeUrl(imageUrlValue.trim());
-                    if (sanitized) {
-                      editor.chain().focus().setImage({ src: sanitized }).run();
-                      setImageUrlValue('');
-                      setImageUrlOpen(false);
-                    }
-                  }
-                }}
+                onClick={_insertImageFromUrl}
               >
                 Insert Image
               </Button>

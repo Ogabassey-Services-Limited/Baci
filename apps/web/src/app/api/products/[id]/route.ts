@@ -5,7 +5,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { sanitizeSchemaMarkup } from '@/lib/sanitize-core';
+import { sanitizeSchemaMarkup, sanitizeText } from '@/lib/sanitize-core';
 import {
   generateMetaDescription,
   generateProductSchema,
@@ -231,7 +231,10 @@ export async function PUT(
     };
 
     // Core fields - only add if provided
-    if (body.name !== undefined) updates.name = body.name;
+    if (body.name !== undefined) {
+      updates.name =
+        typeof body.name === 'string' ? sanitizeText(body.name) : body.name;
+    }
     // Sanitize description to prevent Stored XSS
     if (body.description !== undefined)
       updates.description =
@@ -259,13 +262,19 @@ export async function PUT(
 
     // SEO fields - generate only if source changed
     if (body.meta_title !== undefined) {
-      updates.meta_title = body.meta_title;
+      updates.meta_title =
+        typeof body.meta_title === 'string'
+          ? sanitizeText(body.meta_title)
+          : body.meta_title;
     } else if (body.name !== undefined) {
-      updates.meta_title = body.name;
+      updates.meta_title = updates.name as string;
     }
 
     if (body.meta_description !== undefined) {
-      updates.meta_description = body.meta_description;
+      updates.meta_description =
+        typeof body.meta_description === 'string'
+          ? sanitizeText(body.meta_description)
+          : body.meta_description;
     } else if (body.description !== undefined && body.description !== null) {
       updates.meta_description = generateMetaDescription(
         updates.description as string
@@ -311,16 +320,28 @@ export async function PUT(
       updates.condition_detail = body.condition_detail;
 
     // Additional SEO fields
-    if (body.keywords !== undefined) updates.keywords = body.keywords;
-    if (body.canonical_url !== undefined)
-      updates.canonical_url = body.canonical_url;
+    if (body.keywords !== undefined) {
+      updates.keywords =
+        typeof body.keywords === 'string'
+          ? sanitizeText(body.keywords)
+          : body.keywords;
+    }
+    if (body.canonical_url !== undefined) {
+      updates.canonical_url =
+        typeof body.canonical_url === 'string'
+          ? sanitizeText(body.canonical_url)
+          : body.canonical_url;
+    }
 
     // Identifiers
     if (body.gtin !== undefined) updates.gtin = body.gtin;
     if (body.mpn !== undefined) updates.mpn = body.mpn;
     if (body.google_product_category !== undefined)
       updates.google_product_category = body.google_product_category;
-    if (body.brand !== undefined) updates.brand = body.brand;
+    if (body.brand !== undefined) {
+      updates.brand =
+        typeof body.brand === 'string' ? sanitizeText(body.brand) : body.brand;
+    }
 
     // Other fields
     if (body.fulfillment_details !== undefined)

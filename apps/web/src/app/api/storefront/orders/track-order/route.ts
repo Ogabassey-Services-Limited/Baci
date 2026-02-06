@@ -1,7 +1,6 @@
-import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 // Using direct Supabase client for unauthenticated order tracking.
 // This endpoint allows customers to track orders using order_number + email
@@ -137,7 +136,7 @@ export async function GET(request: NextRequest) {
 
     const orderIdParam = orderId && isUuid(orderId) ? orderId : null;
 
-    const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
+    const supabase = createAnonClient();
 
     const { data: orders, error } = await supabase.rpc('get_order_tracking', {
       p_merchant_slug: merchantSlug,

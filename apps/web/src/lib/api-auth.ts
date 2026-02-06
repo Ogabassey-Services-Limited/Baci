@@ -14,25 +14,8 @@ import {
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
-
-/**
- * Cached stateless anon client for Bearer token verification.
- * Reused across requests since it has no session state.
- */
-let _anonClient: SupabaseClient | null = null;
-function _getAnonClient(): SupabaseClient {
-  if (!_anonClient) {
-    _anonClient = createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
-  }
-  return _anonClient;
-}
 
 function _createScopedClient(token: string): SupabaseClient {
   return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
@@ -69,7 +52,7 @@ export async function authenticateApiRequest(
   const authHeader = request.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const anonClient = _getAnonClient();
+    const anonClient = createAnonClient();
 
     // Verify the token using an anon-scoped client (no service role)
     const {
@@ -136,7 +119,7 @@ export interface UserAccess {
  * Get full access information for an authenticated API user.
  * Returns role, permissions, and flags for authorization decisions.
  *
- * @param userId - The authenticated user's ID
+ * @param supabase - Scoped Supabase client (RLS enforced)
  * @returns UserAccess object if authorized, null otherwise
  */
 export async function getUserAccess(

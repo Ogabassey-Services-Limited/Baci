@@ -1,20 +1,8 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { sanitizeText } from '@/lib/sanitize-core';
+import { createAnonClient } from '@/lib/supabase/anon';
 import { sendEmail } from '@/lib/zeptomail';
-
-// Public endpoint — uses a stateless anon client (no cookie/session needed)
-function _createAnonClient() {
-  return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-}
 
 const subscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -52,7 +40,7 @@ export async function POST(request: NextRequest) {
     const { email, merchantId, source } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    const supabase = _createAnonClient();
+    const supabase = createAnonClient();
 
     const { data: subscribeResult, error: subscribeError } = await supabase.rpc(
       'subscribe_newsletter',
@@ -193,7 +181,7 @@ export async function DELETE(request: NextRequest) {
     const { email, merchantId } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    const supabase = _createAnonClient();
+    const supabase = createAnonClient();
 
     const { error: unsubscribeError } = await supabase.rpc(
       'unsubscribe_newsletter',

@@ -111,9 +111,9 @@ describe('Wallet API CSRF Protection', () => {
 
       const response = await POST_WITHDRAW(request);
 
-      expect(response.status).toBe(403);
+      expect(response.status).toBe(404);
       const body = await response.json();
-      expect(body.error).toBe('Withdrawals are temporarily disabled');
+      expect(body.error).toBe('Not found');
     });
   });
 });
