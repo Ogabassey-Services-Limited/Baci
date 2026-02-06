@@ -215,6 +215,13 @@ export async function PATCH(request: NextRequest) {
       }
     }
     if (typeof minPayoutAmount === 'number' && minPayoutAmount >= 100) {
+      // Security: cap max payout amount to prevent abuse
+      if (minPayoutAmount > 10000000) {
+        return NextResponse.json(
+          { error: 'Minimum payout amount cannot exceed ₦10,000,000' },
+          { status: 400 }
+        );
+      }
       updates.min_payout_amount = minPayoutAmount;
     }
 

@@ -2,13 +2,12 @@ import { createImageUpload } from 'novel';
 import { toast } from '@/hooks/use-toast';
 
 const onUpload = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
   const promise = fetch('/api/merchant/blog/upload', {
     method: 'POST',
-    headers: {
-      'content-type': file.type || 'application/octet-stream',
-      'x-vercel-filename': file.name || 'image.png',
-    },
-    body: file,
+    body: formData,
   });
 
   return new Promise((resolve, reject) => {
@@ -20,7 +19,6 @@ const onUpload = (file: File) => {
 
     promise
       .then(async (res) => {
-        // Successfully uploaded image
         if (res.status === 200) {
           const { url } = (await res.json()) as { url: string };
           // preload the image
@@ -31,11 +29,12 @@ const onUpload = (file: File) => {
           };
         } else if (res.status === 401) {
           resolve(file);
-          throw new Error(
-            '`BLOB_READ_WRITE_TOKEN` environment variable not found, reading image locally instead.'
-          );
+          throw new Error('Not authenticated. Image loaded locally instead.');
         } else {
-          throw new Error('Error uploading image. Please try again.');
+          const data = await res.json().catch(() => ({}));
+          throw new Error(
+            data.error || 'Error uploading image. Please try again.'
+          );
         }
       })
       .catch((error) => {

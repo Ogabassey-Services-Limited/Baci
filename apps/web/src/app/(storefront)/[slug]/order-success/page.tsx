@@ -169,7 +169,15 @@ function OrderSuccessContent() {
               </Link>
             ) : (
               <Link
-                href={asRoute(getHref(`/track-order?orderId=${orderId}`))}
+                href={asRoute(
+                  getHref(
+                    `/track-order?orderId=${orderId}${
+                      order?.shipping?.email
+                        ? `&email=${encodeURIComponent(order.shipping.email)}`
+                        : ''
+                    }`
+                  )
+                )}
                 className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
               >
                 Track My Order

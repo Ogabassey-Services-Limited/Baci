@@ -4,9 +4,13 @@
  * 2025 Best Practice: Verify token, then use admin client for queries.
  */
 
-import type { User } from '@supabase/supabase-js';
+import {
+  createClient as createSupabaseClient,
+  type User,
+} from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -29,13 +33,23 @@ export async function authenticateApiRequest(
   const authHeader = request.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const adminClient = createAdminClient();
+    const anonClient = createSupabaseClient(
+      getSupabaseUrl(),
+      getSupabaseAnonKey(),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
 
-    // Verify the token using admin client
+    // Verify the token using a user-scoped client (no service role)
     const {
       data: { user },
       error,
-    } = await adminClient.auth.getUser(token);
+    } = await anonClient.auth.getUser(token);
 
     if (error || !user) {
       return { user: null, error: 'Invalid or expired token' };

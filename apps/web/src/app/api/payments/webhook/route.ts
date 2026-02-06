@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -33,6 +32,24 @@ function detectGateway(headers: Headers): PaymentGateway {
   }
   // Default to korapay for backwards compatibility
   return 'korapay';
+}
+
+function getVerifiedAmount(
+  gateway: PaymentGateway,
+  gatewayResponse: Record<string, unknown>
+): { amount: number; currency?: string } | null {
+  const rawAmount = gatewayResponse.amount;
+  if (typeof rawAmount !== 'number') {
+    return null;
+  }
+
+  const currency =
+    typeof gatewayResponse.currency === 'string'
+      ? gatewayResponse.currency
+      : undefined;
+  const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
+
+  return { amount, currency };
 }
 
 /**
@@ -266,6 +283,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
+
     // ============================================
     // CHAT ORDER HANDLING (Virtual Account Payments)
     // 2026 Best Practice: Unified Order Flow
@@ -295,6 +314,24 @@ export async function POST(request: NextRequest) {
         // Don't fail - might be a regular order with CHAT prefix by coincidence
         // Fall through to standard order handling
       } else {
+        if (verifiedAmount) {
+          const chatSubtotal = Number(chatOrder.subtotal) || 0;
+          if (Math.abs(verifiedAmount.amount - chatSubtotal) > 0.01) {
+            logger.error({
+              message: 'Payment amount mismatch for chat order',
+              reference,
+              gateway,
+              expected: chatSubtotal,
+              received: verifiedAmount.amount,
+              currency: verifiedAmount.currency,
+            });
+            return NextResponse.json(
+              { error: 'Payment amount mismatch' },
+              { status: 400 }
+            );
+          }
+        }
+
         // Parse items from JSONB
         const chatItems = (chatOrder.items || []) as Array<{
           product_id: string;
@@ -601,6 +638,45 @@ export async function POST(request: NextRequest) {
         { error: 'Transaction not found' },
         { status: 404 }
       );
+    }
+
+    if (verifiedAmount) {
+      const transactionAmount = Number(transaction.amount) || 0;
+      const expectedCurrency =
+        typeof transaction.currency === 'string' ? transaction.currency : null;
+
+      if (Math.abs(verifiedAmount.amount - transactionAmount) > 0.01) {
+        logger.error({
+          message: 'Payment amount mismatch',
+          reference,
+          gateway,
+          expected: transactionAmount,
+          received: verifiedAmount.amount,
+          currency: verifiedAmount.currency,
+        });
+        return NextResponse.json(
+          { error: 'Payment amount mismatch' },
+          { status: 400 }
+        );
+      }
+
+      if (
+        expectedCurrency &&
+        verifiedAmount.currency &&
+        expectedCurrency !== verifiedAmount.currency
+      ) {
+        logger.error({
+          message: 'Payment currency mismatch',
+          reference,
+          gateway,
+          expected: expectedCurrency,
+          received: verifiedAmount.currency,
+        });
+        return NextResponse.json(
+          { error: 'Payment currency mismatch' },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if already processed

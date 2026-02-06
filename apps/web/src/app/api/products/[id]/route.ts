@@ -4,6 +4,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-core';
 import {
   generateMetaDescription,
@@ -231,7 +232,10 @@ export async function PUT(
 
     // Core fields - only add if provided
     if (body.name !== undefined) updates.name = body.name;
-    if (body.description !== undefined) updates.description = body.description;
+    // Sanitize description to prevent Stored XSS
+    if (body.description !== undefined)
+      updates.description =
+        body.description !== null ? sanitizeHtml(body.description) : null;
     if (body.price !== undefined) updates.price = body.price;
     if (body.stock !== undefined) updates.stock_quantity = body.stock;
 

@@ -36,8 +36,21 @@ export async function POST(request: NextRequest) {
 
     // Check for Dev Mode Override
     const devMerchantId = request.headers.get('x-dev-merchant-id');
+    const devOverrideSecret = request.headers.get('x-dev-override-secret');
     const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-    const isDevOverride = !user && devMerchantId === DEV_MERCHANT_ID;
+    const isDevEnv = process.env.NODE_ENV !== 'production';
+    const host = request.headers.get('host') || '';
+    const isLocalhost =
+      host.includes('localhost') || host.startsWith('127.0.0.1');
+    const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
+    const hasValidSecret =
+      !expectedSecret || devOverrideSecret === expectedSecret;
+    const isDevOverride =
+      !user &&
+      isDevEnv &&
+      isLocalhost &&
+      devMerchantId === DEV_MERCHANT_ID &&
+      hasValidSecret;
 
     if (!user && !isDevOverride) {
       return NextResponse.json(
@@ -126,8 +139,8 @@ export async function POST(request: NextRequest) {
     const extension = mimeToExt[file.type] || 'jpg';
     const filename = `${nanoid(12)}.${extension}`;
 
-    // NOTE: Path matches Mobile App expectations
-    const filePath = `blog/${merchant.id}/${filename}`;
+    // Path: merchant_id/blog/filename (merchant ID first for storage policy)
+    const filePath = `${merchant.id}/blog/${filename}`;
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -135,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage (using appropriate client)
     const { error: uploadError } = await supabaseClient.storage
-      .from('merchant-assets')
+      .from('media')
       .upload(filePath, buffer, {
         contentType: file.type,
         cacheControl: '31536000', // 1 year cache
@@ -153,7 +166,7 @@ export async function POST(request: NextRequest) {
     // Get public URL using Admin Client to ensure visibility if bucket is private
     // (though getPublicUrl is usually static string manipulation, it's safer to use the client that knows the bucket)
     const { data: publicUrlData } = supabaseClient.storage
-      .from('merchant-assets')
+      .from('media')
       .getPublicUrl(filePath);
 
     return NextResponse.json({
@@ -209,7 +222,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Ensure the path belongs to this merchant and prevent path traversal
-    const expectedPrefix = `blog/${merchant.id}/`;
+    const expectedPrefix = `${merchant.id}/blog/`;
     // Reject paths with traversal sequences or that don't match expected format
     if (
       typeof path !== 'string' ||
@@ -223,7 +236,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete from Supabase Storage
     const { error: deleteError } = await supabase.storage
-      .from('merchant-assets')
+      .from('media')
       .remove([path]);
 
     if (deleteError) {

@@ -1,7 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { sendEmail } from '@/lib/zeptomail';
 
 const subscribeSchema = z.object({
@@ -35,10 +35,9 @@ export async function POST(request: NextRequest) {
     const { email, merchantId, source } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Use Service Role Key to bypass RLS policies
     const supabase = createSupabaseClient(
       getSupabaseUrl(),
-      getSupabaseServiceRoleKey(),
+      getSupabaseAnonKey(),
       {
         auth: {
           persistSession: false,
@@ -48,77 +47,35 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Check if subscriber already exists for this merchant
-    let query = supabase
-      .from('newsletter_subscribers')
-      .select('id, status')
-      .eq('email', normalizedEmail);
+    const { data: subscribeResult, error: subscribeError } = await supabase.rpc(
+      'subscribe_newsletter',
+      {
+        p_email: normalizedEmail,
+        p_merchant_id: merchantId || null,
+        p_source: source,
+      }
+    );
 
-    if (merchantId) {
-      query = query.eq('merchant_id', merchantId);
-    } else {
-      query = query.is('merchant_id', null);
+    if (subscribeError) {
+      console.error('Newsletter subscription error:', subscribeError);
+      return NextResponse.json(
+        { error: 'Failed to subscribe. Please try again.' },
+        { status: 500 }
+      );
     }
 
-    const { data: existing } = await query.single();
-
-    if (existing) {
-      if (existing.status === 'unsubscribed') {
-        // Resubscribe
-        const { error: updateError } = await supabase
-          .from('newsletter_subscribers')
-          .update({
-            status: 'subscribed',
-            resubscribed_at: new Date().toISOString(),
-            source,
-          })
-          .eq('id', existing.id);
-
-        if (updateError) {
-          console.error('Newsletter resubscribe error:', updateError);
-          return NextResponse.json(
-            { error: 'Failed to resubscribe. Please try again.' },
-            { status: 500 }
-          );
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Welcome back! You have been resubscribed.',
-        });
-      }
-
+    if (subscribeResult === 'already_subscribed') {
       return NextResponse.json({
         success: true,
         message: 'You are already subscribed.',
       });
     }
 
-    // Create new subscriber
-    const { error: insertError } = await supabase
-      .from('newsletter_subscribers')
-      .insert({
-        email: normalizedEmail,
-        merchant_id: merchantId || null,
-        source,
-        status: 'subscribed',
-        subscribed_at: new Date().toISOString(),
+    if (subscribeResult === 'resubscribed') {
+      return NextResponse.json({
+        success: true,
+        message: 'Welcome back! You have been resubscribed.',
       });
-
-    if (insertError) {
-      // Handle unique constraint violation gracefully
-      if (insertError.code === '23505') {
-        return NextResponse.json({
-          success: true,
-          message: 'You are already subscribed.',
-        });
-      }
-
-      console.error('Newsletter subscription error:', insertError);
-      return NextResponse.json(
-        { error: 'Failed to subscribe. Please try again.' },
-        { status: 500 }
-      );
     }
 
     // Get merchant info for personalized email
@@ -200,10 +157,9 @@ export async function DELETE(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Use Service Role Key to bypass RLS policies
     const supabase = createSupabaseClient(
       getSupabaseUrl(),
-      getSupabaseServiceRoleKey(),
+      getSupabaseAnonKey(),
       {
         auth: {
           persistSession: false,
@@ -213,25 +169,14 @@ export async function DELETE(request: NextRequest) {
       }
     );
 
-    // Update subscriber status to unsubscribed
-    let query = supabase
-      .from('newsletter_subscribers')
-      .update({
-        status: 'unsubscribed',
-        unsubscribed_at: new Date().toISOString(),
-      })
-      .eq('email', normalizedEmail);
+    const { data: unsubscribeResult, error: unsubscribeError } =
+      await supabase.rpc('unsubscribe_newsletter', {
+        p_email: normalizedEmail,
+        p_merchant_id: merchantId || null,
+      });
 
-    if (merchantId) {
-      query = query.eq('merchant_id', merchantId);
-    } else {
-      query = query.is('merchant_id', null);
-    }
-
-    const { error: updateError } = await query;
-
-    if (updateError) {
-      console.error('Newsletter unsubscribe error:', updateError);
+    if (unsubscribeError) {
+      console.error('Newsletter unsubscribe error:', unsubscribeError);
       return NextResponse.json(
         { error: 'Failed to unsubscribe. Please try again.' },
         { status: 500 }
@@ -240,7 +185,9 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'You have been unsubscribed.',
+      message: unsubscribeResult
+        ? 'You have been unsubscribed.'
+        : 'You have been unsubscribed.',
     });
   } catch (error) {
     console.error('Newsletter unsubscribe error:', error);

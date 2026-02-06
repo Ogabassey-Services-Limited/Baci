@@ -1,4 +1,6 @@
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   CREDIT_DIRECT_CONFIG,
   generateSessionId,
@@ -8,7 +10,6 @@ import {
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * POST /api/payments/credit-direct/sign
@@ -20,7 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * - customerEmail: string
  * - totalAmount: number (in NGN)
  * - merchantSlug: string
- * - orderId?: string (optional, for linking)
+ * - orderId: string (required, for linking)
  *
  * Response:
  * - signature: string (HMAC-SHA256 hex)
@@ -34,11 +35,11 @@ export async function POST(request: NextRequest) {
     const { customerEmail, totalAmount, merchantSlug, orderId } = body;
 
     // Validate required fields
-    if (!customerEmail || !totalAmount || !merchantSlug) {
+    if (!customerEmail || !totalAmount || !merchantSlug || !orderId) {
       return NextResponse.json(
         {
           error:
-            'Missing required fields: customerEmail, totalAmount, merchantSlug',
+            'Missing required fields: customerEmail, totalAmount, merchantSlug, orderId',
         },
         { status: 400 }
       );
@@ -66,35 +67,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get merchant and verify Credit Direct is enabled
-    // Use admin client to ensure we can read settings regardless of RLS policies
-    const supabase = createAdminClient();
+    const supabase = createSupabaseClient(
+      getSupabaseUrl(),
+      getSupabaseAnonKey(),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    );
 
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, slug')
-      .eq('slug', merchantSlug)
-      .single();
+    // Fetch merchant + Credit Direct settings (public-safe RPC)
+    const { data: settingsRows, error: settingsError } = await supabase.rpc(
+      'get_credit_direct_settings',
+      { p_merchant_slug: merchantSlug }
+    );
 
-    if (merchantError || !merchant) {
+    const settings =
+      Array.isArray(settingsRows) && settingsRows.length > 0
+        ? settingsRows[0]
+        : null;
+
+    if (settingsError || !settings) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    // Check if Credit Direct is enabled for this merchant
-    const { data: settings, error: settingsError } = await supabase
-      .from('merchant_feature_settings')
-      .select(
-        'credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount'
-      )
-      .eq('merchant_id', merchant.id)
-      .maybeSingle();
+    const merchantId = settings.merchant_id as string;
 
     console.log('Credit Direct Sign Debug:', {
       requestSlug: merchantSlug,
-      foundMerchantId: merchant.id,
+      foundMerchantId: merchantId,
       settingsFound: !!settings,
       creditDirectEnabled: settings?.credit_direct_enabled,
       settingsError,
@@ -123,6 +130,42 @@ export async function POST(request: NextRequest) {
       settings?.credit_direct_min_amount ?? CREDIT_DIRECT_CONFIG.minAmount;
     const maxAmount =
       settings?.credit_direct_max_amount ?? CREDIT_DIRECT_CONFIG.maxAmount;
+
+    // Validate order context and ensure email matches order
+    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
+      'get_order_payment_snapshot',
+      {
+        p_order_id: orderId,
+        p_email: customerEmail,
+      }
+    );
+
+    const orderSnapshot =
+      Array.isArray(snapshotRows) && snapshotRows.length > 0
+        ? snapshotRows[0]
+        : null;
+
+    if (snapshotError || !orderSnapshot) {
+      return NextResponse.json(
+        { error: 'Order not found or email mismatch' },
+        { status: 404 }
+      );
+    }
+
+    if (orderSnapshot.merchant_id !== merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant mismatch for this order' },
+        { status: 403 }
+      );
+    }
+
+    const snapshotTotal = Number(orderSnapshot.total);
+    if (!Number.isNaN(snapshotTotal) && totalAmount > snapshotTotal) {
+      return NextResponse.json(
+        { error: 'Amount exceeds order total' },
+        { status: 400 }
+      );
+    }
 
     // Validate amount is within eligible range
     if (!isAmountEligible(totalAmount, minAmount, maxAmount)) {
@@ -173,27 +216,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If orderId provided, store the session mapping for webhook reconciliation
-    if (orderId) {
-      await supabase
-        .from('orders')
-        .update({
-          payment_method: 'credit_direct',
-          payment_status: 'bnpl_pending',
-          notes: JSON.stringify({
-            creditDirectSessionId: sessionId,
-            ...(JSON.parse(
-              (
-                await supabase
-                  .from('orders')
-                  .select('notes')
-                  .eq('id', orderId)
-                  .single()
-              ).data?.notes || '{}'
-            ) || {}),
-          }),
-        })
-        .eq('id', orderId);
+    // Store the session mapping for webhook reconciliation
+    const { error: sessionError } = await supabase.rpc(
+      'set_credit_direct_session',
+      {
+        p_order_id: orderId,
+        p_email: customerEmail,
+        p_merchant_id: merchantId,
+        p_session_id: sessionId,
+      }
+    );
+
+    if (sessionError) {
+      console.error('Failed to link Credit Direct session:', sessionError);
+      return NextResponse.json(
+        { error: 'Failed to initialize Credit Direct checkout' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

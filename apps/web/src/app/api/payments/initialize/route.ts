@@ -34,7 +34,6 @@ import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
 } from '@/lib/paystack';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
@@ -86,7 +85,7 @@ const OrderItemSchema = z.object({
 
 const PaymentInitRequestSchema = z.object({
   merchant_id: z.string().uuid(),
-  order_id: z.string().uuid().optional(),
+  order_id: z.string().uuid(),
   amount: z.number().positive(),
   currency: z.string().default('NGN'),
   customer_email: z.string().email(),
@@ -227,10 +226,11 @@ async function initializeJuicyway(
   request: NextRequest,
   data: PaymentInitRequest,
   merchant: { business_name: string },
-  redirectUrl: string
+  redirectUrl: string,
+  reference: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const fees = calculateKorapayFee(data.amount);
-  const reference = generateJuicywayReference('baci');
   const { firstName, lastName } = parseCustomerName(data.customer_name);
   const amountInMinor = Math.round(data.amount * 100);
 
@@ -304,7 +304,7 @@ async function initializeJuicyway(
     // direction is required for crypto payments
     ...(isCryptoPayment && { direction: 'incoming' as const }),
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       platform_fee: fees.platformFee,
       merchant_amount: fees.merchantAmount,
@@ -503,7 +503,8 @@ async function initializePaystack(
   data: PaymentInitRequest,
   merchant: { paystack_subaccount_code: string | null },
   redirectUrl: string,
-  reference: string
+  reference: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const amountInKobo = Math.round(data.amount * 100);
   const fees = calculatePaystackFee(amountInKobo);
@@ -532,7 +533,7 @@ async function initializePaystack(
       | 'bank_transfer'
     )[],
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       customer_name: data.customer_name,
       platform_fee: fees.platformFee / 100,
@@ -554,7 +555,8 @@ async function initializeKorapay(
   merchant: { business_name: string },
   redirectUrl: string,
   reference: string,
-  notificationUrl: string
+  notificationUrl: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const fees = calculateKorapayFee(data.amount);
 
@@ -571,7 +573,7 @@ async function initializeKorapay(
     notification_url: notificationUrl,
     merchant_bears_cost: true,
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       platform_fee: fees.platformFee,
       merchant_amount: fees.merchantAmount,
@@ -614,16 +616,53 @@ export async function POST(request: NextRequest) {
       ? data.currency
       : 'NGN';
 
-    // Initialize Supabase clients
+    // Initialize Supabase client
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const adminSupabase = createAdminClient();
+
+    // Validate order context (order + email) before initiating payment
+    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
+      'get_order_payment_snapshot',
+      {
+        p_order_id: data.order_id,
+        p_email: data.customer_email,
+      }
+    );
+
+    const orderSnapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : null;
+
+    if (snapshotError || !orderSnapshot) {
+      return createErrorResponse(
+        'Order not found or email mismatch',
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    if (orderSnapshot.merchant_id !== data.merchant_id) {
+      return createErrorResponse(
+        'Merchant mismatch for this order',
+        'MERCHANT_MISMATCH',
+        403
+      );
+    }
+
+    const snapshotTotal = Number(orderSnapshot.total);
+    if (!Number.isNaN(snapshotTotal) && data.amount > snapshotTotal) {
+      return createErrorResponse(
+        'Amount exceeds order total',
+        'AMOUNT_EXCEEDS_TOTAL',
+        400
+      );
+    }
+
+    const merchantId = orderSnapshot.merchant_id;
 
     // Fetch merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name, slug, paystack_subaccount_code')
-      .eq('id', data.merchant_id)
+      .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
@@ -640,7 +679,7 @@ export async function POST(request: NextRequest) {
       .select(
         'paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway'
       )
-      .eq('merchant_id', data.merchant_id)
+      .eq('merchant_id', merchantId)
       .single();
 
     const gatewaySettings: GatewaySettings = featureSettings
@@ -656,11 +695,8 @@ export async function POST(request: NextRequest) {
         }
       : DEFAULT_GATEWAY_SETTINGS;
 
-    // Generate reference and URLs
-    const reference = `BAC-${nanoid(12).toUpperCase()}`;
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
 
     // Select gateway
@@ -669,6 +705,13 @@ export async function POST(request: NextRequest) {
       data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
         ? data.gateway
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
+
+    // Generate reference and URLs
+    const reference =
+      gateway === 'juicyway'
+        ? generateJuicywayReference('baci')
+        : `BAC-${nanoid(12).toUpperCase()}`;
+    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
 
     // Initialize payment based on gateway
     let paymentResult: PaymentResult;
@@ -679,7 +722,9 @@ export async function POST(request: NextRequest) {
           request,
           data,
           merchant,
-          redirectUrl
+          redirectUrl,
+          reference,
+          merchantId
         );
         break;
 
@@ -688,7 +733,8 @@ export async function POST(request: NextRequest) {
           data,
           merchant,
           redirectUrl,
-          reference
+          reference,
+          merchantId
         );
         break;
       case 'credit_direct':
@@ -710,49 +756,37 @@ export async function POST(request: NextRequest) {
           merchant,
           redirectUrl,
           reference,
-          notificationUrl
+          notificationUrl,
+          merchantId
         );
         break;
     }
 
-    // Create transaction record (use admin client to bypass RLS)
-    const { error: transactionError } = await adminSupabase
-      .from('transactions')
-      .insert({
-        merchant_id: data.merchant_id,
-        order_id: data.order_id,
-        transaction_type: 'payment',
-        amount: data.amount,
-        currency: validCurrency,
-        status: 'pending',
-        gateway,
-        gateway_reference: paymentResult.reference,
-        platform_fee: paymentResult.platformFee,
-        merchant_amount: paymentResult.merchantAmount,
-        description: `Payment for order ${data.order_id || 'N/A'}`,
-        metadata: {
-          customer_email: data.customer_email,
-          customer_name: data.customer_name,
-          ...(paymentResult.sessionId && {
-            session_id: paymentResult.sessionId,
-          }),
-        },
-      });
+    // Create transaction record (via RPC) and update order status
+    const { error: transactionError } = await supabase.rpc(
+      'create_payment_transaction',
+      {
+        p_merchant_id: merchantId,
+        p_order_id: data.order_id,
+        p_amount: data.amount,
+        p_currency: validCurrency,
+        p_gateway: gateway,
+        p_reference: paymentResult.reference,
+        p_platform_fee: paymentResult.platformFee,
+        p_merchant_amount: paymentResult.merchantAmount,
+        p_customer_email: data.customer_email,
+        p_customer_name: data.customer_name,
+        p_session_id: paymentResult.sessionId || null,
+      }
+    );
 
     if (transactionError) {
       console.error('Error creating transaction record:', transactionError);
-    }
-
-    // Update order with payment reference (use admin client to bypass RLS)
-    if (data.order_id) {
-      await adminSupabase
-        .from('orders')
-        .update({
-          payment_reference: paymentResult.reference,
-          payment_status: 'pending',
-          currency: validCurrency,
-        })
-        .eq('id', data.order_id);
+      return createErrorResponse(
+        'Failed to create transaction',
+        'TRANSACTION_CREATE_FAILED',
+        500
+      );
     }
 
     // Return success response

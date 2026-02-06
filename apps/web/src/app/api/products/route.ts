@@ -4,6 +4,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
+import { sanitizeHtml } from '@/lib/sanitize';
 import {
   sanitizeLikePattern,
   sanitizeSchemaMarkup,
@@ -383,8 +384,8 @@ export async function POST(request: NextRequest) {
     const sku =
       body.sku || generateSlug(body.name).toUpperCase().substring(0, 20); // Fallback SKU
 
-    // Generate SEO data if missing (using sanitized values)
-    const description = body.description ?? '';
+    // Sanitize description to prevent Stored XSS
+    const description = body.description ? sanitizeHtml(body.description) : '';
     const meta_description =
       body.meta_description || generateMetaDescription(description);
     const meta_title = body.meta_title || body.name;

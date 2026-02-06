@@ -54,6 +54,11 @@ interface GoogleAuthResponse {
   error?: string;
 }
 
+interface AppleAuthResponse {
+  url?: string;
+  error?: string;
+}
+
 interface CustomerAuthContextType {
   user: CustomerUser | null;
   customer: Customer | null;
@@ -64,6 +69,7 @@ interface CustomerAuthContextType {
   sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   // Customer data actions
   refreshCustomer: () => Promise<void>;
@@ -280,6 +286,76 @@ export function CustomerAuthProvider({
     }
   }, [merchantSlug]);
 
+  // Sign in with Apple OAuth
+  const signInWithApple = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    try {
+      let redirectPath = '/account/callback';
+      if (typeof window !== 'undefined') {
+        const pathname = window.location.pathname;
+        if (pathname.startsWith(`/${merchantSlug}`)) {
+          redirectPath = `/${merchantSlug}/account/callback`;
+        }
+      }
+
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${redirectPath}`
+          : '/account/callback';
+
+      const response = await fetch('/api/storefront/auth/apple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchantSlug, redirectUrl }),
+      });
+
+      const data: AppleAuthResponse = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Failed to initiate Apple sign-in',
+        };
+      }
+
+      if (data.url) {
+        try {
+          const url = new URL(data.url);
+          const validHosts = [
+            'appleid.apple.com',
+            'supabase.co',
+            '127.0.0.1',
+            'localhost',
+          ];
+          const isValidDomain =
+            validHosts.some((h) => url.hostname === h) ||
+            url.hostname.endsWith('.apple.com') ||
+            url.hostname.endsWith('.supabase.co');
+
+          if (!isValidDomain) {
+            return {
+              success: false,
+              error: 'Invalid OAuth provider URL',
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            error: 'Invalid OAuth URL format',
+          };
+        }
+        window.location.href = data.url;
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Apple sign-in error:', error);
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }, [merchantSlug]);
+
   // Refresh customer data
   const refreshCustomer = useCallback(async () => {
     if (!user) return;
@@ -330,6 +406,7 @@ export function CustomerAuthProvider({
         sendOtp,
         verifyOtp,
         signInWithGoogle,
+        signInWithApple,
         logout,
         refreshCustomer,
         updateCustomer,

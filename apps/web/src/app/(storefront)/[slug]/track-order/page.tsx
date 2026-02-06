@@ -16,7 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   ThemedBadge,
@@ -116,10 +116,14 @@ export default function OrderTrackPage() {
 function OrderTrackContent() {
   const [orderNumber, setOrderNumber] = useState('');
   const [email, setEmail] = useState('');
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const params = useParams();
+  const slugParam = params?.slug;
+  const merchantSlug = Array.isArray(slugParam) ? slugParam[0] : slugParam;
 
   const handleFetchTracking = useCallback(
     async (params: {
@@ -131,11 +135,19 @@ function OrderTrackContent() {
       setError(null);
 
       try {
+        if (!merchantSlug) {
+          throw new Error('Store identifier is missing.');
+        }
+        if (!params.email) {
+          throw new Error('Email is required to track an order.');
+        }
+
         const queryParams = new URLSearchParams();
         if (params.order_id) queryParams.set('order_id', params.order_id);
         if (params.order_number)
           queryParams.set('order_number', params.order_number);
-        if (params.email) queryParams.set('email', params.email);
+        queryParams.set('email', params.email);
+        queryParams.set('merchant_slug', merchantSlug);
 
         const response = await fetch(
           `/api/storefront/orders/track-order?${queryParams}`
@@ -154,7 +166,7 @@ function OrderTrackContent() {
         setLoading(false);
       }
     },
-    []
+    [merchantSlug]
   );
 
   // Automatic tracking from URL params
@@ -165,12 +177,19 @@ function OrderTrackContent() {
       searchParams.get('order_number') || searchParams.get('orderNumber');
     const qEmail = searchParams.get('email');
 
-    if (qOrderId || qOrderNumber) {
+    if (qOrderId) {
+      setOrderId(qOrderId);
+    }
+
+    if (qEmail) {
+      setEmail(qEmail);
+    }
+
+    if ((qOrderId || qOrderNumber) && qEmail) {
       if (qOrderId) {
         handleFetchTracking({ order_id: qOrderId, email: qEmail });
       } else if (qOrderNumber) {
         setOrderNumber(qOrderNumber);
-        if (qEmail) setEmail(qEmail);
         handleFetchTracking({ order_number: qOrderNumber, email: qEmail });
       }
     }
@@ -178,7 +197,21 @@ function OrderTrackContent() {
 
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    await handleFetchTracking({ order_number: orderNumber, email: email });
+    const trimmedOrderNumber = orderNumber.trim();
+    if (!email.trim()) {
+      setError('Email is required to track an order.');
+      return;
+    }
+    if (!trimmedOrderNumber && !orderId) {
+      setError('Order number is required.');
+      return;
+    }
+
+    await handleFetchTracking({
+      order_number: trimmedOrderNumber || null,
+      order_id: trimmedOrderNumber ? null : orderId,
+      email,
+    });
   };
 
   const formatDate = (dateString: string) => {

@@ -27,6 +27,18 @@ import { useEditor } from 'novel';
 import { useRef, useState } from 'react';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { ColorSelector } from './color-selector';
@@ -46,6 +58,8 @@ export const EditorToolbar = ({
   const editor = _editor as any;
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
+  const [imageUrlOpen, setImageUrlOpen] = useState(false);
+  const [imageUrlValue, setImageUrlValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
@@ -276,15 +290,74 @@ export const EditorToolbar = ({
         >
           <LinkIcon className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-8 w-8 p-0"
-          title="Upload Image"
-        >
-          <ImageIcon className="h-4 w-4" />
-        </Button>
+        <Popover open={imageUrlOpen} onOpenChange={setImageUrlOpen}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                title="Insert Image"
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Upload from device
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setImageUrlOpen(true)}>
+                <LinkIcon className="mr-2 h-4 w-4" />
+                Insert from URL
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <PopoverTrigger className="hidden" />
+          <PopoverContent
+            align="start"
+            className="w-80 p-3"
+            onInteractOutside={() => setImageUrlOpen(false)}
+          >
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Image URL</p>
+              <Input
+                placeholder="https://example.com/image.jpg"
+                value={imageUrlValue}
+                onChange={(e) => setImageUrlValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && imageUrlValue.trim()) {
+                    editor
+                      .chain()
+                      .focus()
+                      .setImage({ src: imageUrlValue.trim() })
+                      .run();
+                    setImageUrlValue('');
+                    setImageUrlOpen(false);
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={!imageUrlValue.trim()}
+                onClick={() => {
+                  if (imageUrlValue.trim()) {
+                    editor
+                      .chain()
+                      .focus()
+                      .setImage({ src: imageUrlValue.trim() })
+                      .run();
+                    setImageUrlValue('');
+                    setImageUrlOpen(false);
+                  }
+                }}
+              >
+                Insert Image
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button
           variant="ghost"
           size="sm"

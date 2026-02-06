@@ -1,5 +1,6 @@
+import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 interface TimelineEvent {
   status: string;
@@ -21,15 +22,13 @@ interface ShippingAddress {
   state?: string;
 }
 
-interface OrderItemWithProduct {
+interface OrderItemRow {
   id: string;
   product_id: string;
   name: string;
   quantity: number;
   price: number;
-  products: {
-    images: string[] | null;
-  } | null;
+  product_images?: unknown;
 }
 
 // GET - Track order by order number or ID
@@ -39,6 +38,8 @@ export async function GET(request: NextRequest) {
     const orderNumber = searchParams.get('order_number');
     const orderId = searchParams.get('order_id');
     const email = searchParams.get('email');
+    const merchantSlug =
+      searchParams.get('merchant_slug') || searchParams.get('slug');
 
     if (!orderNumber && !orderId) {
       return NextResponse.json(
@@ -47,44 +48,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createAdminClient();
-
-    // Build query
-    let query = supabase.from('orders').select(`
-        *,
-        order_items (
-          id,
-          product_id,
-          name,
-          quantity,
-          price,
-          products (
-            images
-          )
-        ),
-        merchants (
-          id,
-          business_name,
-          slug,
-          logo_url,
-          support_email,
-          support_phone,
-          phone
-        )
-      `);
-
-    if (orderId) {
-      query = query.eq('id', orderId);
-    } else if (orderNumber) {
-      query = query.eq('order_number', orderNumber);
+    if (!merchantSlug) {
+      return NextResponse.json(
+        { error: 'merchant_slug is required' },
+        { status: 400 }
+      );
     }
 
-    // If email provided, verify it matches (for security)
-    if (email) {
-      query = query.eq('customer_email', email.toLowerCase());
+    if (!email) {
+      return NextResponse.json({ error: 'email is required' }, { status: 400 });
     }
 
-    const { data: order, error } = await query.single();
+    const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
+
+    const { data: orders, error } = await supabase.rpc('get_order_tracking', {
+      p_merchant_slug: merchantSlug,
+      p_order_id: orderId,
+      p_order_number: orderNumber,
+      p_email: email,
+    });
+
+    const order = Array.isArray(orders) ? orders[0] : null;
 
     if (error || !order) {
       console.error('Track error:', error);
@@ -145,27 +129,41 @@ export async function GET(request: NextRequest) {
         state: typeof shippingAddress === 'object' ? shippingAddress.state : '',
         country: 'Nigeria', // Simplified as it's typically Nigeria for this platform
       },
-      items: (order.order_items as unknown as OrderItemWithProduct[])?.map(
-        (item) => ({
-          id: item.id,
-          product_id: item.product_id,
-          product_name: item.name,
-          quantity: item.quantity,
-          unit_price: item.price,
-          total_price: item.price * item.quantity,
-          product_image: Array.isArray(item.products?.images)
-            ? item.products?.images[0]
-            : null,
-        })
+      items: (Array.isArray(order.items) ? order.items : []).map(
+        (item: OrderItemRow) => {
+          let firstImage: string | null = null;
+          if (Array.isArray(item.product_images)) {
+            const first = item.product_images[0] as unknown;
+            if (typeof first === 'string') {
+              firstImage = first;
+            } else if (
+              first &&
+              typeof first === 'object' &&
+              'url' in (first as { url?: string })
+            ) {
+              firstImage = (first as { url?: string }).url || null;
+            }
+          }
+
+          return {
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.name,
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.price * item.quantity,
+            product_image: firstImage,
+          };
+        }
       ),
       timeline,
       shipping_tracking: shippingTracking,
       estimated_delivery: estimatedDelivery,
       merchant: {
-        name: order.merchants?.business_name,
-        logo: order.merchants?.logo_url,
-        support_email: order.merchants?.support_email,
-        support_phone: order.merchants?.support_phone || order.merchants?.phone,
+        name: order.merchant_business_name,
+        logo: order.merchant_logo_url,
+        support_email: order.merchant_support_email,
+        support_phone: order.merchant_support_phone || order.merchant_phone,
       },
     });
   } catch (error) {

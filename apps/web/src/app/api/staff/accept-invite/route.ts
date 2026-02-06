@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -11,8 +10,6 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    // Initialize admin client lazily to avoid build-time env var validation
-    const supabaseAdmin = createAdminClient();
 
     // Get authenticated user
     const {
@@ -36,97 +33,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find invitation by token (USING ADMIN CLIENT TO BYPASS RLS)
-    // Pending invitations are hidden from public/anon users by RLS
-    const { data: invitation, error: findError } = await supabaseAdmin
-      .from('staff_members')
-      .select('*, merchants(business_name)')
-      .eq('invitation_token', token)
-      .single();
-
-    if (findError || !invitation) {
+    if (!user.email) {
       return NextResponse.json(
-        { error: 'Invalid or expired invitation' },
-        { status: 404 }
-      );
-    }
-
-    // Check if invitation is still pending
-    if (invitation.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'This invitation has already been used' },
+        { error: 'User email is required to accept invitation' },
         { status: 400 }
       );
     }
 
-    // Check if invitation has expired
-    if (new Date(invitation.invitation_expires_at) < new Date()) {
+    const { data: acceptedRows, error: acceptError } = await supabase.rpc(
+      'accept_staff_invite',
+      {
+        p_token: token,
+        p_email: user.email,
+      }
+    );
+
+    const acceptedStaff =
+      Array.isArray(acceptedRows) && acceptedRows.length > 0
+        ? acceptedRows[0]
+        : null;
+
+    if (acceptError || !acceptedStaff) {
+      const message = acceptError?.message || 'Failed to accept invitation';
+      const status =
+        message === 'invite_expired' || message === 'invite_used'
+          ? 400
+          : message === 'email_mismatch'
+            ? 403
+            : message === 'already_owner' || message === 'already_staff'
+              ? 400
+              : message === 'invalid_invite'
+                ? 404
+                : 500;
       return NextResponse.json(
-        { error: 'This invitation has expired' },
-        { status: 400 }
-      );
-    }
-
-    // Check if email matches
-    if (invitation.email.toLowerCase() !== user.email?.toLowerCase()) {
-      return NextResponse.json(
-        { error: 'This invitation was sent to a different email address' },
-        { status: 403 }
-      );
-    }
-
-    // Check if user is already the merchant owner
-    const { data: ownedMerchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', invitation.merchant_id)
-      .eq('user_id', user.id)
-      .single();
-
-    if (ownedMerchant) {
-      return NextResponse.json(
-        { error: 'You are already the owner of this store' },
-        { status: 400 }
-      );
-    }
-
-    // Check if user already has a staff record for this merchant
-    // (Using Admin client here nicely ensures we find any record including inactive ones if needed,
-    // but standard client is fine too since user can see their own records. sticking to standard for "my records")
-    const { data: existingStaff } = await supabase
-      .from('staff_members')
-      .select('id')
-      .eq('merchant_id', invitation.merchant_id)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
-
-    if (existingStaff) {
-      return NextResponse.json(
-        { error: 'You are already a staff member of this store' },
-        { status: 400 }
-      );
-    }
-
-    // Accept invitation - link user and activate
-    // MUST USE ADMIN CLIENT because user doesn't have permission to update this row yet
-    const { data: acceptedStaff, error: acceptError } = await supabaseAdmin
-      .from('staff_members')
-      .update({
-        user_id: user.id,
-        status: 'active',
-        accepted_at: new Date().toISOString(),
-        invitation_token: null, // Clear token after use
-      })
-      .eq('id', invitation.id)
-      .select('*, merchants(business_name, slug)')
-      .single();
-
-    if (acceptError) {
-      console.error('Failed to accept invitation:', acceptError);
-      return NextResponse.json(
-        { error: 'Failed to accept invitation' },
-        { status: 500 }
+        {
+          error:
+            message === 'invite_expired'
+              ? 'This invitation has expired'
+              : message === 'invite_used'
+                ? 'This invitation has already been used'
+                : message === 'email_mismatch'
+                  ? 'This invitation was sent to a different email address'
+                  : message === 'already_owner'
+                    ? 'You are already the owner of this store'
+                    : message === 'already_staff'
+                      ? 'You are already a staff member of this store'
+                      : message === 'invalid_invite'
+                        ? 'Invalid or expired invitation'
+                        : 'Failed to accept invitation',
+        },
+        { status }
       );
     }
 
@@ -157,17 +113,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token is required' }, { status: 400 });
     }
 
-    // Initialize admin client lazily
-    const supabaseAdmin = createAdminClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-    // Use Admin Client to find invitation (Bypass RLS)
-    const { data: invitation, error } = await supabaseAdmin
-      .from('staff_members')
-      .select(
-        'email, role, status, invitation_expires_at, merchants(business_name)'
-      )
-      .eq('invitation_token', token)
-      .single();
+    const { data: previewRows, error } = await supabase.rpc(
+      'get_staff_invite_preview',
+      { p_token: token }
+    );
+
+    const invitation =
+      Array.isArray(previewRows) && previewRows.length > 0
+        ? previewRows[0]
+        : null;
 
     if (error || !invitation) {
       return NextResponse.json(
@@ -176,33 +133,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if already accepted
-    if (invitation.status !== 'pending') {
-      return NextResponse.json(
-        { error: 'This invitation has already been used' },
-        { status: 400 }
-      );
-    }
-
-    // Check expiry
-    if (new Date(invitation.invitation_expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: 'This invitation has expired' },
-        { status: 400 }
-      );
-    }
-
-    // Extract merchant name from the joined data
-    // Supabase returns nested relations as objects for single relations
-    const merchantInfo = invitation.merchants as unknown as {
-      business_name: string;
-    } | null;
-
     return NextResponse.json({
       valid: true,
       email: invitation.email,
       role: invitation.role,
-      merchantName: merchantInfo?.business_name || 'Unknown Store',
+      merchantName: invitation.merchant_business_name || 'Unknown Store',
       expiresAt: invitation.invitation_expires_at,
     });
   } catch (error) {

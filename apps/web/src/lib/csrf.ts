@@ -31,30 +31,6 @@ export function createCsrfTokenPair(): { token: string; secret: string } {
 }
 
 /**
- * Hash token with secret for verification using Web Crypto API
- */
-async function hashToken(token: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const data = encoder.encode(token);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign('HMAC', key, data);
-  const hashArray = Array.from(new Uint8Array(signature));
-  return btoa(String.fromCharCode(...hashArray))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
-
-/**
  * Set CSRF token in cookies (call this in server components/API routes)
  */
 export async function setCsrfToken(): Promise<string> {
@@ -98,8 +74,6 @@ export async function getCsrfToken(): Promise<string | null> {
  * Uses HMAC-based comparison which is inherently constant-time.
  */
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  if (a.length !== b.length) return false;
-
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -114,6 +88,9 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
     crypto.subtle.sign('HMAC', key, encoder.encode(b)),
   ]);
 
+  // HMAC outputs are always 32 bytes regardless of input length,
+  // so XOR loop is constant-time. Length mismatch produces different
+  // HMACs, which the comparison catches without an early return.
   const viewA = new Uint8Array(macA);
   const viewB = new Uint8Array(macB);
   let result = 0;
@@ -144,18 +121,8 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     return false;
   }
 
-  // Verify token matches (constant-time)
-  const tokenMatch = await timingSafeEqual(headerToken, tokenCookie.value);
-  if (!tokenMatch) {
-    console.warn('CSRF: Token mismatch');
-    return false;
-  }
-
-  // Additional verification: hash check (constant-time)
-  const expectedHash = await hashToken(tokenCookie.value, secretCookie.value);
-  const actualHash = await hashToken(headerToken, secretCookie.value);
-
-  return timingSafeEqual(expectedHash, actualHash);
+  // Verify header token matches cookie token (constant-time)
+  return await timingSafeEqual(headerToken, tokenCookie.value);
 }
 
 /**
