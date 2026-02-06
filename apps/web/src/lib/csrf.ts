@@ -94,6 +94,36 @@ export async function getCsrfToken(): Promise<string | null> {
 }
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ * Uses HMAC-based comparison which is inherently constant-time.
+ */
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  if (a.length !== b.length) return false;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode('csrf-compare'),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const [macA, macB] = await Promise.all([
+    crypto.subtle.sign('HMAC', key, encoder.encode(a)),
+    crypto.subtle.sign('HMAC', key, encoder.encode(b)),
+  ]);
+
+  const viewA = new Uint8Array(macA);
+  const viewB = new Uint8Array(macB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i] ^ viewB[i];
+  }
+  return result === 0;
+}
+
+/**
  * Verify CSRF token from request (Edge-compatible - uses request.cookies)
  */
 export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
@@ -114,17 +144,18 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     return false;
   }
 
-  // Verify token matches
-  if (headerToken !== tokenCookie.value) {
+  // Verify token matches (constant-time)
+  const tokenMatch = await timingSafeEqual(headerToken, tokenCookie.value);
+  if (!tokenMatch) {
     console.warn('CSRF: Token mismatch');
     return false;
   }
 
-  // Additional verification: hash check
+  // Additional verification: hash check (constant-time)
   const expectedHash = await hashToken(tokenCookie.value, secretCookie.value);
   const actualHash = await hashToken(headerToken, secretCookie.value);
 
-  return expectedHash === actualHash;
+  return timingSafeEqual(expectedHash, actualHash);
 }
 
 /**
