@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
@@ -537,7 +536,7 @@ async function broadcastNotification(
 async function sendPushNotificationsToMerchants(
   notification: Notification,
   merchantIds: string[],
-  supabase: SupabaseClient
+  supabase: ReturnType<typeof createClient>
 ) {
   try {
     // Fetch all active push tokens for the target merchants (admin app only)

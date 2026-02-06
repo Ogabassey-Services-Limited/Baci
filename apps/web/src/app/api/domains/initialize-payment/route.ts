@@ -1,11 +1,12 @@
-import { nanoid } from 'nanoid';
-import { NextResponse } from 'next/server';
+import { customAlphabet } from 'nanoid';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
@@ -19,6 +20,11 @@ const initDomainPaymentSchema = z.object({
   years: z.coerce.number().int().min(1).optional().default(1),
 });
 
+const nanoidUppercase = customAlphabet(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+  12
+);
+
 /**
  * POST /api/domains/initialize-payment
  * Initialize a payment for domain purchase
@@ -26,7 +32,11 @@ const initDomainPaymentSchema = z.object({
  */
 export async function POST(request: Request) {
   try {
-    // Authenticate request (supports mobile Bearer token + web cookies)
+    const { valid, response } = await checkCsrfProtection(
+      request as NextRequest
+    );
+    if (!valid && response) return response;
+
     // Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
 
@@ -72,7 +82,6 @@ export async function POST(request: Request) {
     }
 
     // Get merchant
-    // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name, email, slug')
@@ -86,8 +95,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique payment reference for domain purchase
-    const reference = `DOM-${nanoid(12).toUpperCase()}`;
+    // Generate unique payment reference for domain purchase (case-preserving entropy)
+    const reference = `DOM-${nanoidUppercase()}`;
 
     // Create pending transaction record (secure RPC)
     const { error: transactionError } = await supabase.rpc(

@@ -13,14 +13,14 @@ const ExportSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { merchantId: requestedMerchantId, productData } =
-      ExportSchema.parse(body);
-
     const auth = await authenticateApiRequest(req);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const body = await req.json();
+    const { merchantId: requestedMerchantId, productData } =
+      ExportSchema.parse(body);
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {

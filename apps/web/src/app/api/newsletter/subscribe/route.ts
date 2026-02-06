@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       'resubscribed',
       'subscribed',
     ];
-    if (subscribeResult && !validResults.includes(subscribeResult as string)) {
+    if (!subscribeResult || !validResults.includes(subscribeResult as string)) {
       console.error('Unexpected subscribe_newsletter result:', subscribeResult);
       return NextResponse.json(
         { error: 'Internal server error' },

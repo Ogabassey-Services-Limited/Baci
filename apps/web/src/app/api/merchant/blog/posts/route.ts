@@ -6,6 +6,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { createClient } from '@/lib/supabase/server';
 
@@ -327,6 +328,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { vercel } from '@/lib/vercel';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
@@ -60,6 +61,11 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
+    const { valid, response } = await checkCsrfProtection(
+      request as NextRequest
+    );
+    if (!valid && response) return response;
+
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -74,7 +80,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { domain, isPrimary } = parsed.data;
+    const { domain: rawDomain, isPrimary } = parsed.data;
+    const domain = rawDomain.toLowerCase();
     const supabase = auth.supabase;
 
     // Get merchant ID

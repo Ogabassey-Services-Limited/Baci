@@ -26,11 +26,9 @@ export async function POST(
 
     // 1. Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
-    console.log('[Reminder API] Auth result:', {
-      userId: auth.user?.id,
-      email: auth.user?.email,
-      error: auth.error,
-    });
+    if (auth.error) {
+      logger.warn({ message: 'Reminder API: Auth failed', error: auth.error });
+    }
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
@@ -40,10 +38,6 @@ export async function POST(
 
     // 2. Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    console.log('[Reminder API] Merchant ID lookup:', {
-      userId: auth.user.id,
-      merchantId,
-    });
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },

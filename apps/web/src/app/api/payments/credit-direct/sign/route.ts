@@ -26,6 +26,9 @@ const creditDirectSignSchema = z.object({
  * Signs a Credit Direct BNPL transaction server-side.
  * The private key is never exposed to the client.
  *
+ * CSRF exemption: This is an unauthenticated storefront endpoint for BNPL checkout.
+ * Guest users do not have CSRF tokens.
+ *
  * Request body:
  * - customerEmail: string
  * - totalAmount: number (in NGN)
@@ -40,7 +43,12 @@ const creditDirectSignSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     // Validate request with Zod
     const parsed = creditDirectSignSchema.safeParse(body);
