@@ -117,7 +117,7 @@ BEGIN
     o.shipping_status,
     o.payment_status,
     o.subtotal,
-    o.shipping_fee,
+    o.shipping_fee AS shipping_cost,
     o.discount_amount,
     o.total,
     o.currency,
@@ -183,3 +183,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_order_tracking(TEXT, UUID, TEXT, TEXT, TEXT) TO anon, authenticated;
 
 COMMENT ON FUNCTION public.get_order_tracking IS 'Retrieve order tracking info by token (PII masked) or by email + order_id/number. SECURITY DEFINER with internal access control.';
+
+-- Step 4: Add partial index on tracking_token for fast token-based lookups
+CREATE INDEX IF NOT EXISTS idx_orders_tracking_token
+  ON orders(tracking_token)
+  WHERE tracking_token IS NOT NULL;

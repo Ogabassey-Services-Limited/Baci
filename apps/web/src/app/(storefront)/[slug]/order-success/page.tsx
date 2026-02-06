@@ -10,24 +10,25 @@ import { asRoute } from '@/lib/routes';
 interface OrderData {
   id: string;
   order_number: string;
+  short_id?: string;
   tracking_token?: string;
-  shipping: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-  };
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  shipping_address?: Record<string, unknown>;
+  payment_status?: string;
+  shipping_status?: string;
+  merchant_id?: string;
   items: Array<{
     id: string;
-    name: string;
+    product_name?: string;
+    name?: string;
     price: number;
     quantity: number;
-    image: string;
+    product_images?: string[];
   }>;
   subtotal: number;
-  shipping_fee: number;
+  shipping_cost: number;
   total: number;
 }
 
@@ -37,6 +38,7 @@ import { useAuthSafe } from '@/contexts/auth-context';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
+  const orderToken = searchParams.get('token');
   const _type = searchParams.get('type'); // Reserved for future use
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
@@ -61,8 +63,15 @@ function OrderSuccessContent() {
       }
 
       try {
-        // Use storefront endpoint (guest-accessible, no auth required)
-        const res = await fetch(`/api/storefront/orders/${orderId}`);
+        const query = new URLSearchParams();
+        if (merchant?.slug) query.set('merchant_slug', merchant.slug);
+        if (orderToken) query.set('token', orderToken);
+        const url = query.toString()
+          ? `/api/storefront/orders/${orderId}?${query.toString()}`
+          : `/api/storefront/orders/${orderId}`;
+
+        // Use storefront endpoint (guest-accessible, token-based)
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setOrder(data);
@@ -75,7 +84,7 @@ function OrderSuccessContent() {
     }
 
     fetchOrder();
-  }, [orderId]);
+  }, [orderId, merchant?.slug, orderToken]);
 
   if (loading) {
     return (
@@ -89,11 +98,11 @@ function OrderSuccessContent() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
       {/* Google Customer Reviews Opt-in */}
-      {merchant && order && order.shipping?.email && (
+      {merchant && order && order.customer_email && (
         <GoogleCustomerReviews
           merchant={merchant}
           orderId={order.id}
-          email={order.shipping.email}
+          email={order.customer_email}
           // Default to 5 days for delivery logic if not available
           deliveryDate={
             new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
@@ -139,13 +148,13 @@ function OrderSuccessContent() {
                     }).format(order.total)}
                   </span>
                 </div>
-                {order.shipping?.email && (
+                {order.customer_email && (
                   <div className="flex justify-between items-start">
                     <span className="text-sm font-medium text-gray-500">
                       Email
                     </span>
                     <span className="font-medium text-gray-900 truncate max-w-[200px]">
-                      {order.shipping.email}
+                      {order.customer_email}
                     </span>
                   </div>
                 )}

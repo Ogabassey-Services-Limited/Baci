@@ -160,17 +160,27 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/newsletter/subscribe
- * Unsubscribe an email from a merchant's newsletter
+ * Unsubscribe an email from a merchant's newsletter.
+ *
+ * CSRF exemption: Called from unsubscribe links in emails by anonymous users.
+ * Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting
+ * in proxy.ts and the RPC's idempotent behavior.
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const _token = searchParams.get('token'); // For secure unsubscribe links (reserved for future use)
+    // CSRF exemption: Unsubscribe is a public endpoint for anonymous users.
+    // Use request body to avoid PII in URL logs.
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
 
-    const validation = unsubscribeSchema.safeParse({
-      email: searchParams.get('email'),
-      merchantId: searchParams.get('merchantId'),
-    });
+    const validation = unsubscribeSchema.safeParse(body);
 
     if (!validation.success) {
       return NextResponse.json(

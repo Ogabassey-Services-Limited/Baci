@@ -1,5 +1,3 @@
-'use server';
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
@@ -190,8 +188,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/orders - Create new order from storefront
 // CSRF exemption: This endpoint is called by unauthenticated storefront guests during checkout.
-// Guest users do not have CSRF tokens. Authorization is enforced via Zod input validation
-// and a security-definer RPC that validates merchant + items server-side.
+// Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting in proxy.ts,
+// Zod input validation, and a SECURITY DEFINER RPC that validates merchant + items server-side.
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -230,6 +228,7 @@ export async function POST(request: NextRequest) {
               has_assurance: z.boolean().optional(),
               assurance_fee: z.number().nonnegative().optional(),
               variantId: z.string().optional(),
+              variant_id: z.string().optional(),
               variantAttributes: z.record(z.string()).optional(),
             })
             .refine((data) => data.product_id || data.productId || data.id, {
@@ -347,7 +346,7 @@ export async function POST(request: NextRequest) {
 
     const orderItemsPayload = items.map((item) => ({
       product_id: item.product_id || item.productId || item.id,
-      variant_id: item.variantId,
+      variant_id: item.variantId || item.variant_id,
       quantity: item.quantity,
       has_assurance: item.has_assurance || false,
       assurance_fee: item.assurance_fee || 0,
@@ -661,7 +660,6 @@ export async function POST(request: NextRequest) {
           logger.info({
             message: 'Order confirmation email queued (POD/Invoice)',
             orderId: order.id,
-            email: customer_email,
             paymentMethod: payment_method,
           });
         }

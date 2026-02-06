@@ -120,7 +120,7 @@ function OrderTrackContent() {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [_isTokenLookup, _setIsTokenLookup] = useState(false);
+  const [isTokenLookup, setIsTokenLookup] = useState(false);
   const searchParams = useSearchParams();
   const params = useParams();
   const slugParam = params?.slug;
@@ -180,6 +180,9 @@ function OrderTrackContent() {
 
   // Automatic tracking from URL params
   useEffect(() => {
+    // Reset token lookup state when URL params change
+    setIsTokenLookup(false);
+
     const qToken = searchParams.get('token');
     const qOrderId =
       searchParams.get('order_id') || searchParams.get('orderId');
@@ -189,7 +192,7 @@ function OrderTrackContent() {
 
     // Token-based lookup (from order-success link) — no email needed
     if (qToken) {
-      _setIsTokenLookup(true);
+      setIsTokenLookup(true);
       handleFetchTracking({ tracking_token: qToken });
       return;
     }
@@ -358,14 +361,14 @@ function OrderTrackContent() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Track Your Order</h1>
-        {!_isTokenLookup && (
+        {!isTokenLookup && (
           <p className="text-muted-foreground">
             Enter your order number and email to track your delivery
           </p>
         )}
       </div>
 
-      {!_isTokenLookup && (
+      {!isTokenLookup && (
         <ThemedCard className="mb-8">
           <CardContent className="pt-6">
             <form onSubmit={handleTrackOrder} className="space-y-4">

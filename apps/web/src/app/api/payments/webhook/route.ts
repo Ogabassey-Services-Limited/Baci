@@ -15,6 +15,7 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
@@ -40,7 +41,11 @@ function getVerifiedAmount(
   gatewayResponse: Record<string, unknown>
 ): { amount: number; currency?: string } | null {
   const rawAmount = gatewayResponse.amount;
-  if (typeof rawAmount !== 'number' || !Number.isFinite(rawAmount)) {
+  if (
+    typeof rawAmount !== 'number' ||
+    !Number.isFinite(rawAmount) ||
+    rawAmount <= 0
+  ) {
     return null;
   }
 
@@ -255,8 +260,8 @@ export async function POST(request: NextRequest) {
     }
     const safeReference = referenceResult.data;
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Webhook handlers have no user cookies — use service client to bypass RLS
+    const supabase = createServiceClient();
 
     // Verify payment with the appropriate gateway
     let paymentStatus: string;
@@ -376,7 +381,7 @@ export async function POST(request: NextRequest) {
         }>;
 
         // Generate order number and tracking token
-        const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+        const orderNumber = `ORD-${nanoid(12).toUpperCase()}`;
 
         // Create standard order from chat order
         const { data: newOrder, error: orderCreateError } = await supabase
@@ -1065,7 +1070,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error({
       message: 'Payment webhook error',
-      error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : error,
     });
     return NextResponse.json(
       { error: 'Webhook processing failed' },
@@ -1105,10 +1113,12 @@ export async function GET(request: NextRequest) {
     const gateway: PaymentGateway =
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
-    // Input validation for reference parameter
-    if (!reference) {
-      return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
+    // Validate reference with same Zod schema used in POST handler
+    const referenceResult = referenceSchema.safeParse(reference);
+    if (!referenceResult.success) {
+      return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
+    const safeReference = referenceResult.data;
 
     // SECURITY: Get merchant first to establish authorization context
     const { data: merchant } = await supabase
@@ -1129,7 +1139,7 @@ export async function GET(request: NextRequest) {
     const { data: transaction } = await supabase
       .from('transactions')
       .select('id, merchant_id')
-      .eq('gateway_reference', reference)
+      .eq('gateway_reference', safeReference)
       .eq('merchant_id', merchant.id) // Authorization enforced in query
       .single();
 
@@ -1144,8 +1154,8 @@ export async function GET(request: NextRequest) {
     // Transaction verified to belong to authenticated merchant
     const paymentData =
       gateway === 'paystack'
-        ? await verifyPaystackPayment(reference)
-        : await verifyKorapayPayment(reference);
+        ? await verifyPaystackPayment(safeReference)
+        : await verifyKorapayPayment(safeReference);
 
     return NextResponse.json({
       success: true,
@@ -1155,7 +1165,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error({
       message: 'Payment verification error',
-      error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : error,
     });
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }

@@ -8,6 +8,13 @@ import { createClient } from '@/lib/supabase/server';
  *
  * Updates an order with payment reference from external payment gateways.
  * Used by Credit Direct and other popup-based payment providers.
+ *
+ * Auth exemption: No auth check here — the `set_order_payment_ref` RPC
+ * is SECURITY DEFINER and validates order ownership internally.
+ *
+ * CSRF exemption: Called from popup-based payment flows (Credit Direct)
+ * where the frontend initiates payment after order creation. Abuse is
+ * mitigated by rate limiting in proxy.ts and the RPC's internal validation.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -47,10 +54,14 @@ export async function POST(request: NextRequest) {
           : error.message === 'unauthorized'
             ? 403
             : 500;
-      return NextResponse.json(
-        { error: error.message || 'Failed to update order' },
-        { status }
-      );
+      // Only expose known error messages; mask internal errors on 500
+      const clientMessage =
+        status === 404
+          ? 'Order not found'
+          : status === 403
+            ? 'Unauthorized'
+            : 'Failed to update order';
+      return NextResponse.json({ error: clientMessage }, { status });
     }
 
     return NextResponse.json({ success: Boolean(data) });

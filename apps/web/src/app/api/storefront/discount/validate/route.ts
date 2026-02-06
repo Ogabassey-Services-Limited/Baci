@@ -4,12 +4,24 @@ import { createAnonClient } from '@/lib/supabase/anon';
 
 /**
  * POST /api/storefront/discount/validate
- * Validates a discount code for storefront customers
- * Uses service role to bypass RLS for anonymous users
+ * Validates a discount code for storefront customers.
+ * Uses anon client with a SECURITY DEFINER RPC for anonymous access.
+ *
+ * CSRF exemption: Called by anonymous storefront visitors during checkout.
+ * Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting
+ * in proxy.ts and the RPC's read-only validation behavior.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { valid: false, error: 'Invalid JSON body' },
+        { status: 400 }
+      );
+    }
     const parsed = z
       .object({
         merchant_id: z.string().uuid(),
