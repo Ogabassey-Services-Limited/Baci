@@ -1,7 +1,10 @@
-import type { User } from '@supabase/supabase-js';
+import {
+  createClient as createSupabaseClient,
+  type User,
+} from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
@@ -69,9 +72,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const adminSupabase = createAdminClient();
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+    let scopedSupabase = supabase;
 
     // --- 2. User Creation / Auth ---
 
@@ -120,6 +123,35 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+
+      if (signUpData.session?.access_token) {
+        scopedSupabase = createSupabaseClient(
+          getSupabaseUrl(),
+          getSupabaseAnonKey(),
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false,
+            },
+            global: {
+              headers: {
+                Authorization: `Bearer ${signUpData.session.access_token}`,
+              },
+            },
+          }
+        );
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              'Please confirm your email to finish onboarding and sign in again.',
+            requires_confirmation: true,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // --- 3. Merchant & Domain Creation ---
@@ -139,7 +171,7 @@ export async function POST(req: NextRequest) {
       'store';
 
     // Check for existing merchant
-    const { data: existingMerchant } = await adminSupabase
+    const { data: existingMerchant } = await scopedSupabase
       .from('merchants')
       .select('id, business_name')
       .eq('user_id', user.id)
@@ -149,7 +181,7 @@ export async function POST(req: NextRequest) {
 
     if (existingMerchant) {
       // Update existing
-      const { data: updatedMerchant, error: updateError } = await adminSupabase
+      const { data: updatedMerchant, error: updateError } = await scopedSupabase
         .from('merchants')
         .update({
           email,
@@ -168,7 +200,7 @@ export async function POST(req: NextRequest) {
       merchant = updatedMerchant;
     } else {
       // Create new
-      const { data: newMerchant, error: createError } = await adminSupabase
+      const { data: newMerchant, error: createError } = await scopedSupabase
         .from('merchants')
         .insert({
           user_id: user.id,
@@ -190,7 +222,7 @@ export async function POST(req: NextRequest) {
 
     // Create Domain
     // Check if domain exists first? Unique constraint should handle it, but allow failure if we are updating.
-    await adminSupabase
+    await scopedSupabase
       .from('domains')
       .insert({
         merchant_id: merchant.id,
@@ -206,7 +238,7 @@ export async function POST(req: NextRequest) {
 
     // Upsert Staff Member (Profile Data)
     // This ensures the "Profile" screen is populated
-    const { error: staffError } = await adminSupabase
+    const { error: staffError } = await scopedSupabase
       .from('staff_members')
       .upsert(
         {
@@ -243,7 +275,7 @@ export async function POST(req: NextRequest) {
         brandColors: safeBrandColors,
         merchant: merchant as unknown as Record<string, unknown>,
       });
-      await adminSupabase.from('page_configs').insert({
+      await scopedSupabase.from('page_configs').insert({
         merchant_id: merchant.id,
         page_slug: 'home',
         page_name: 'Home',

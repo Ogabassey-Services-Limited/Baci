@@ -1,8 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type {
   AdminNotificationFilters,
@@ -519,7 +519,11 @@ async function broadcastNotification(
 
     // Send push notifications if the 'push' channel is enabled
     if (notification.channels.includes('push')) {
-      await sendPushNotificationsToMerchants(notification, merchantIds);
+      await sendPushNotificationsToMerchants(
+        notification,
+        merchantIds,
+        supabase
+      );
     }
   } catch (error) {
     // Don't fail the request if broadcast fails
@@ -532,13 +536,12 @@ async function broadcastNotification(
  */
 async function sendPushNotificationsToMerchants(
   notification: Notification,
-  merchantIds: string[]
+  merchantIds: string[],
+  supabase: SupabaseClient
 ) {
   try {
-    const adminSupabase = createAdminClient();
-
     // Fetch all active push tokens for the target merchants (admin app only)
-    const { data: tokens, error } = await adminSupabase
+    const { data: tokens, error } = await supabase
       .from('push_tokens')
       .select('token, merchant_id')
       .in('merchant_id', merchantIds)
@@ -597,7 +600,7 @@ async function sendPushNotificationsToMerchants(
       .filter((token): token is string => token !== null);
 
     if (tokensToDeactivate.length > 0) {
-      await adminSupabase
+      await supabase
         .from('push_tokens')
         .update({ is_active: false })
         .in('token', tokensToDeactivate);

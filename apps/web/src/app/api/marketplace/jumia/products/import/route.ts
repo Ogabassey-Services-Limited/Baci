@@ -1,23 +1,42 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 const ImportSchema = z.object({
-  merchantId: z.string().uuid(),
   integrationId: z.string().uuid(),
+  merchantId: z.string().uuid().optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { merchantId, integrationId } = ImportSchema.parse(body);
-    const _cookieStore = await cookies(); // Ensure async helper usage for Next 15+
+    const { integrationId, merchantId: requestedMerchantId } =
+      ImportSchema.parse(body);
+
+    const auth = await authenticateApiRequest(req);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    if (requestedMerchantId && requestedMerchantId !== merchantId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // 1. Initialize Clients
-    const supabase = createAdminClient();
-    const jumia = await JumiaClient.fromIntegration(integrationId);
+    const supabase = auth.supabase;
+    const jumia = await JumiaClient.fromIntegration(integrationId, supabase);
 
     // 2. Fetch all products from Jumia
     // Default to Active products, but could be configurable

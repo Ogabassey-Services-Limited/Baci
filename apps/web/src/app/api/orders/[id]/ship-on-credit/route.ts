@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { createVirtualBankAccount } from '@/lib/korapay';
@@ -21,13 +20,13 @@ export async function POST(
     const body = await request.json();
 
     // 1. Auth check (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // 2. Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -35,8 +34,7 @@ export async function POST(
       );
     }
 
-    // Use admin client for queries
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // 3. Get merchant details for virtual account
     const { data: merchant, error: merchantError } = await supabase

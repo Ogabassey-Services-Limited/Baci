@@ -1,7 +1,9 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { createClient } from '@/lib/supabase/server';
 
 export async function GET(
   _request: Request,
@@ -11,27 +13,22 @@ export async function GET(
     const { id } = await params;
 
     // Auth Check
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
+    const auth = await authenticateApiRequest(_request as Request);
+    if (auth.error || !auth.user || !auth.supabase)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant)
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId)
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 403 }
       );
 
-    const jumiaClient = await JumiaClient.forMerchant(merchant.id);
+    const jumiaClient = await JumiaClient.forMerchant(
+      merchantId,
+      undefined,
+      auth.supabase
+    );
     if (!jumiaClient) {
       return NextResponse.json(
         { error: 'Jumia integration not found' },

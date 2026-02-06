@@ -12,6 +12,7 @@
  * - Type-safe API responses
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import z from 'zod';
 import { withRetry } from '@/ai/provider';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -258,6 +259,7 @@ export class JumiaClient {
   private tokenExpiresAt: Date | null = null;
   private refreshToken: string;
   private environment: Environment;
+  private supabase: SupabaseClient | null;
 
   constructor(config: {
     integrationId: string;
@@ -267,6 +269,7 @@ export class JumiaClient {
     refreshToken: string;
     tokenExpiresAt: Date | null;
     environment?: Environment;
+    supabase?: SupabaseClient;
   }) {
     this.integrationId = config.integrationId;
     this.merchantId = config.merchantId;
@@ -275,11 +278,15 @@ export class JumiaClient {
     this.refreshToken = config.refreshToken;
     this.tokenExpiresAt = config.tokenExpiresAt;
     this.environment = config.environment ?? 'production';
+    this.supabase = config.supabase ?? null;
   }
 
-  static async fromIntegration(integrationId: string): Promise<JumiaClient> {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
+  static async fromIntegration(
+    integrationId: string,
+    supabase?: SupabaseClient
+  ): Promise<JumiaClient> {
+    const client = supabase ?? createAdminClient();
+    const { data, error } = await client
       .from('marketplace_integrations')
       .select('*')
       .eq('id', integrationId)
@@ -298,15 +305,17 @@ export class JumiaClient {
         ? new Date(data.token_expires_at)
         : null,
       environment: 'production',
+      supabase,
     });
   }
 
   static async forMerchant(
     merchantId: string,
-    shopId?: string
+    shopId?: string,
+    supabase?: SupabaseClient
   ): Promise<JumiaClient | null> {
-    const supabase = createAdminClient();
-    let query = supabase
+    const client = supabase ?? createAdminClient();
+    let query = client
       .from('marketplace_integrations')
       .select('*')
       .eq('merchant_id', merchantId)
@@ -327,6 +336,7 @@ export class JumiaClient {
         ? new Date(data.token_expires_at)
         : null,
       environment: 'production',
+      supabase,
     });
   }
 
@@ -374,7 +384,7 @@ export class JumiaClient {
     }
     this.tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-    const supabase = createAdminClient();
+    const supabase = this.supabase ?? createAdminClient();
     await supabase
       .from('marketplace_integrations')
       .update({

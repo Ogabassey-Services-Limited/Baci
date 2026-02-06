@@ -1,20 +1,38 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
 
 export async function GET(req: NextRequest) {
   try {
     // Next.js 16/15 pattern: handle searchParams safely during prerender
     const { searchParams } = new URL(req.url);
-    const merchantId = searchParams.get('merchantId');
+    const requestedMerchantId = searchParams.get('merchantId');
 
+    const auth = await authenticateApiRequest(req);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
-        { error: 'Merchant ID is required' },
-        { status: 400 }
+        { error: 'Merchant not found' },
+        { status: 404 }
       );
     }
 
-    const jumia = await JumiaClient.forMerchant(merchantId);
+    if (requestedMerchantId && requestedMerchantId !== merchantId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const jumia = await JumiaClient.forMerchant(
+      merchantId,
+      undefined,
+      auth.supabase
+    );
     if (!jumia) {
       return NextResponse.json([]);
     }

@@ -13,10 +13,25 @@ import {
 } from '@/lib/go54';
 import { vercel } from '@/lib/vercel';
 
-const domainActionSchema = z.object({
-  action: z.enum(['update_nameservers', 'update_lock']),
-  data: z.unknown().optional(),
+const nameserverDataSchema = z.object({
+  nameserver1: z.string(),
+  nameserver2: z.string(),
+  nameserver3: z.string().optional(),
+  nameserver4: z.string().optional(),
+  nameserver5: z.string().optional(),
 });
+
+const lockDataSchema = z.object({
+  lock: z.boolean(),
+});
+
+const domainActionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('update_nameservers'),
+    data: nameserverDataSchema,
+  }),
+  z.object({ action: z.literal('update_lock'), data: lockDataSchema }),
+]);
 
 export async function GET(
   request: NextRequest,
@@ -106,7 +121,7 @@ export async function POST(
       );
     }
 
-    const { action, data } = parsed.data;
+    const actionData = parsed.data;
 
     // Verify domain belongs to user's merchant account
     const { data: domainRecord, error: domainError } = await supabase
@@ -125,15 +140,13 @@ export async function POST(
 
     let result: unknown;
 
-    switch (action) {
+    switch (actionData.action) {
       case 'update_nameservers':
-        result = await updateDomainNameservers(domain, data);
+        result = await updateDomainNameservers(domain, actionData.data);
         break;
       case 'update_lock':
-        result = await updateDomainLock(domain, data.lock);
+        result = await updateDomainLock(domain, actionData.data.lock);
         break;
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     return NextResponse.json(result);

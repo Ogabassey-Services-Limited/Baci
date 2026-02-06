@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import {
@@ -26,23 +25,23 @@ export async function POST(
     const body = await request.json();
 
     // 1. Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
+    const auth = await authenticateApiRequest(request);
     console.log('[Reminder API] Auth result:', {
-      userId: user?.id,
-      email: user?.email,
-      error: authError,
+      userId: auth.user?.id,
+      email: auth.user?.email,
+      error: auth.error,
     });
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
-        { error: authError || 'Unauthorized' },
+        { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
     // 2. Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     console.log('[Reminder API] Merchant ID lookup:', {
-      userId: user.id,
+      userId: auth.user.id,
       merchantId,
     });
     if (!merchantId) {
@@ -52,8 +51,7 @@ export async function POST(
       );
     }
 
-    // Use admin client for queries (user already verified)
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // 3. Get merchant details for email
     const { data: merchant, error: merchantError } = await supabase

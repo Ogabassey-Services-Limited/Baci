@@ -160,14 +160,14 @@ export async function GET() {
     const auth = await authenticateApiRequest(
       new Request('http://localhost/api/merchant/features', { method: 'GET' })
     );
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -235,14 +235,14 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -374,14 +374,14 @@ export async function PATCH(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },

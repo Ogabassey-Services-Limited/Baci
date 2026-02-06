@@ -263,7 +263,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      locations: locations.slice(0, 100),
+      locations,
       totalCount: locations.length,
       states,
     });

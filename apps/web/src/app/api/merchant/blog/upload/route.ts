@@ -74,6 +74,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+    if (user && !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     if (isDevOverride) {
       // Use Admin Client for Dev Mode to bypass RLS
@@ -87,11 +90,13 @@ export async function POST(request: NextRequest) {
       supabaseClient = adminSupabase;
     } else {
       // Authenticated User Flow (supports both owners and staff members)
-      if (!user?.id) {
+      if (!user?.id || !auth.supabase) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
-      const access = await getUserAccess(user.id);
+      const authedSupabase = auth.supabase;
+      const access = await getUserAccess(authedSupabase);
       if (access) {
+        supabaseClient = authedSupabase;
         if (!hasPermission(access, 'marketing', 'edit')) {
           return NextResponse.json(
             { error: 'Permission denied' },
@@ -100,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch merchant slug if needed
-        const { data: merchantData } = await userSupabase
+        const { data: merchantData } = await supabaseClient
           .from('merchants')
           .select('slug')
           .eq('id', access.merchantId)
@@ -216,7 +221,7 @@ export async function DELETE(request: NextRequest) {
 
     // Check authentication
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
@@ -224,7 +229,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get access (supports both owners and staff members)
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },

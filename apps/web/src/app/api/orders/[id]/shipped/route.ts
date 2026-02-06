@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import {
@@ -45,16 +44,16 @@ export async function POST(
     }
 
     // Authenticate request
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
-        { error: authError || 'Unauthorized' },
+        { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
     // Get merchant ID
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -62,7 +61,7 @@ export async function POST(
       );
     }
 
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // Fetch merchant details
     const { data: merchant, error: merchantError } = await supabase

@@ -1,7 +1,22 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { vercel } from '@/lib/vercel';
+
+const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
+
+const createDomainSchema = z.object({
+  domain: z
+    .string()
+    .min(1)
+    .refine((value) => domainRegex.test(value), {
+      message: 'Invalid domain format',
+    }),
+  isPrimary: z.boolean().optional().default(false),
+});
+
+const DOMAIN_SELECT =
+  'id, domain, tld, domain_type, status, is_primary, verification_token, verification_token_expires_at, verified_at, ssl_status, purchase_price, renewal_price, registered_at, expires_at, auto_renew, nameservers, ssl_issued_at, created_at, updated_at';
 
 /**
  * GET /api/domains
@@ -9,32 +24,17 @@ import { vercel } from '@/lib/vercel';
  */
 export async function GET(request: Request) {
   try {
-    const { user, error } = await authenticateApiRequest(request);
-    if (error || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
-
-    // Get merchant ID
-    const { data: merchant, error: merchantError } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
+    const supabase = auth.supabase;
 
     // Get all domains for this merchant
-    const { data: domains, error: domainsError } = await adminSupabase
+    const { data: domains, error: domainsError } = await supabase
       .from('domains')
-      .select('*')
-      .eq('merchant_id', merchant.id)
+      .select(DOMAIN_SELECT)
       .order('created_at', { ascending: false });
 
     if (domainsError) {
@@ -60,43 +60,28 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const { user, error } = await authenticateApiRequest(request);
-    if (error || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { domain, isPrimary = false } = await request.json();
-
-    // Validate domain format
-    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-    if (!domainRegex.test(domain)) {
+    const body = await request.json();
+    const parsed = createDomainSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid domain format' },
+        { error: 'Invalid domain format', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
-    const adminSupabase = createAdminClient();
-
-    // Check if domain already exists in OUR database
-    const { data: existingDomain } = await adminSupabase
-      .from('domains')
-      .select('id')
-      .eq('domain', domain)
-      .single();
-
-    if (existingDomain) {
-      return NextResponse.json(
-        { error: 'This domain is already registered' },
-        { status: 409 }
-      );
-    }
+    const { domain, isPrimary } = parsed.data;
+    const supabase = auth.supabase;
 
     // Get merchant ID
-    const { data: merchant, error: merchantError } = await adminSupabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
       .single();
 
     if (merchantError || !merchant) {
@@ -164,7 +149,7 @@ export async function POST(request: Request) {
     ).toISOString();
 
     // Insert domain into DB
-    const { data: newDomain, error: insertError } = await adminSupabase
+    const { data: newDomain, error: insertError } = await supabase
       .from('domains')
       .insert({
         merchant_id: merchant.id,
@@ -177,10 +162,16 @@ export async function POST(request: Request) {
         verification_token_expires_at: verificationTokenExpiresAt,
         is_primary: isPrimary,
       })
-      .select()
+      .select(DOMAIN_SELECT)
       .single();
 
     if (insertError) {
+      if (insertError.code === '23505') {
+        return NextResponse.json(
+          { error: 'This domain is already registered' },
+          { status: 409 }
+        );
+      }
       console.error('Insert error:', insertError);
       return NextResponse.json(
         {

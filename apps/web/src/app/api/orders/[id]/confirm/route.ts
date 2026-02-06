@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
@@ -18,13 +17,13 @@ export async function POST(
     const { id } = await params;
 
     // Auth check (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -32,8 +31,7 @@ export async function POST(
       );
     }
 
-    // Use admin client for queries
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // Parse body for device details
     const body = await request.json();
