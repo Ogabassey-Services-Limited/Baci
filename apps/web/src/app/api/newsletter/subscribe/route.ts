@@ -73,6 +73,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (subscribeResult === 'resubscribed') {
+      // Intentionally skip welcome email for resubscribed users — they already received one.
+      // Consider adding a "welcome back" email if re-engagement metrics warrant it.
       return NextResponse.json({
         success: true,
         message: 'Welcome back! You have been resubscribed.',

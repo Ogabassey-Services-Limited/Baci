@@ -517,12 +517,14 @@ export async function POST(request: NextRequest) {
 
     // Base order payload (items stored separately in order_items table)
     // Financial breakdown follows e-commerce best practices for auditing, refunds, and analytics
+    const { nanoid } = await import('nanoid');
     const orderPayload: Record<string, unknown> = {
       merchant_id,
       customer_id,
       customer_email,
       customer_name,
       customer_phone,
+      tracking_token: nanoid(32),
       subtotal,
       shipping_fee,
       discount_amount: body.discount_amount || 0,

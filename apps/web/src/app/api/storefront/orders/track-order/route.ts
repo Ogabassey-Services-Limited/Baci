@@ -68,10 +68,11 @@ function extractFirstImageUrl(productImages: unknown): string | null {
   return null;
 }
 
-// GET - Track order by order number or ID
+// GET - Track order by tracking token, or by order number/ID + email
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const trackingToken = searchParams.get('token');
     const orderNumber = searchParams.get('order_number');
     const orderId = searchParams.get('order_id');
     const email = searchParams.get('email');
@@ -80,13 +81,6 @@ export async function GET(request: NextRequest) {
 
     const orderIdParam = orderId && isUuid(orderId) ? orderId : null;
 
-    if (!orderNumber && !orderIdParam) {
-      return NextResponse.json(
-        { error: 'order_number or order_id is required' },
-        { status: 400 }
-      );
-    }
-
     if (!merchantSlug) {
       return NextResponse.json(
         { error: 'merchant_slug is required' },
@@ -94,17 +88,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!email) {
-      return NextResponse.json({ error: 'email is required' }, { status: 400 });
+    // Two lookup modes:
+    // 1. Token-based (from order-success link) — no email/order_number needed
+    // 2. Manual form (email + order_number/order_id)
+    if (!trackingToken) {
+      if (!orderNumber && !orderIdParam) {
+        return NextResponse.json(
+          { error: 'order_number or order_id is required' },
+          { status: 400 }
+        );
+      }
+      if (!email) {
+        return NextResponse.json(
+          { error: 'email is required' },
+          { status: 400 }
+        );
+      }
     }
 
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
     const { data: orders, error } = await supabase.rpc('get_order_tracking', {
       p_merchant_slug: merchantSlug,
-      p_order_id: orderIdParam,
-      p_order_number: orderNumber,
-      p_email: email,
+      p_order_id: trackingToken ? null : orderIdParam,
+      p_order_number: trackingToken ? null : orderNumber,
+      p_email: trackingToken ? null : email,
+      p_tracking_token: trackingToken || null,
     });
 
     const order = Array.isArray(orders) ? orders[0] : null;

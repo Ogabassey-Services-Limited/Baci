@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { isProduction } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -38,10 +39,11 @@ export async function POST(request: NextRequest) {
     const devMerchantId = request.headers.get('x-dev-merchant-id');
     const devOverrideSecret = request.headers.get('x-dev-override-secret');
     const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-    const isDevEnv = process.env.NODE_ENV !== 'production';
+    const isDevEnv = !isProduction();
     const host = request.headers.get('host') || '';
     const isLocalhost =
       host.includes('localhost') || host.startsWith('127.0.0.1');
+    // BACI_DEV_OVERRIDE_SECRET is intentionally not in env.ts - only needed in dev mode
     const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
     const hasValidSecret =
       expectedSecret && devOverrideSecret === expectedSecret;
@@ -163,8 +165,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get public URL using Admin Client to ensure visibility if bucket is private
-    // (though getPublicUrl is usually static string manipulation, it's safer to use the client that knows the bucket)
+    // Get public URL (getPublicUrl is a static URL builder that works with any client)
     const { data: publicUrlData } = supabaseClient.storage
       .from('media')
       .getPublicUrl(filePath);

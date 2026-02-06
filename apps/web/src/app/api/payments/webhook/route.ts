@@ -315,18 +315,37 @@ export async function POST(request: NextRequest) {
         // Fall through to standard order handling
       } else {
         if (verifiedAmount) {
-          const chatSubtotal = Number(chatOrder.subtotal) || 0;
-          if (Math.abs(verifiedAmount.amount - chatSubtotal) > 0.01) {
+          const chatTotal =
+            (Number(chatOrder.subtotal) || 0) +
+            (Number(chatOrder.shipping_fee) || 0);
+          if (Math.abs(verifiedAmount.amount - chatTotal) > 0.01) {
             logger.error({
               message: 'Payment amount mismatch for chat order',
               reference,
               gateway,
-              expected: chatSubtotal,
+              expected: chatTotal,
               received: verifiedAmount.amount,
               currency: verifiedAmount.currency,
             });
             return NextResponse.json(
               { error: 'Payment amount mismatch' },
+              { status: 400 }
+            );
+          }
+
+          if (
+            verifiedAmount.currency &&
+            verifiedAmount.currency.toUpperCase() !== 'NGN'
+          ) {
+            logger.error({
+              message: 'Payment currency mismatch for chat order',
+              reference,
+              gateway,
+              expected: 'NGN',
+              received: verifiedAmount.currency,
+            });
+            return NextResponse.json(
+              { error: 'Payment currency mismatch' },
               { status: 400 }
             );
           }
@@ -348,8 +367,9 @@ export async function POST(request: NextRequest) {
           image_url?: string;
         }>;
 
-        // Generate order number
+        // Generate order number and tracking token
         const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+        const { nanoid } = await import('nanoid');
 
         // Create standard order from chat order
         const { data: newOrder, error: orderCreateError } = await supabase
@@ -362,6 +382,7 @@ export async function POST(request: NextRequest) {
             customer_phone: chatOrder.customer_phone,
             shipping_address: chatOrder.shipping_address,
             order_number: orderNumber,
+            tracking_token: nanoid(32),
             subtotal: chatOrder.subtotal,
             shipping_fee: chatOrder.shipping_fee || 0,
             total: (

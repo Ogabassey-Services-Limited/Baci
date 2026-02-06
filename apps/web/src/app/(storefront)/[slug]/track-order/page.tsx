@@ -130,6 +130,7 @@ function OrderTrackContent() {
       order_id?: string | null;
       order_number?: string | null;
       email?: string | null;
+      tracking_token?: string | null;
     }) => {
       setLoading(true);
       setError(null);
@@ -138,15 +139,20 @@ function OrderTrackContent() {
         if (!merchantSlug) {
           throw new Error('Store identifier is missing.');
         }
-        if (!params.email) {
+        // Token-based lookup doesn't need email; manual form does
+        if (!params.tracking_token && !params.email) {
           throw new Error('Email is required to track an order.');
         }
 
         const queryParams = new URLSearchParams();
-        if (params.order_id) queryParams.set('order_id', params.order_id);
-        if (params.order_number)
-          queryParams.set('order_number', params.order_number);
-        queryParams.set('email', params.email);
+        if (params.tracking_token) {
+          queryParams.set('token', params.tracking_token);
+        } else {
+          if (params.order_id) queryParams.set('order_id', params.order_id);
+          if (params.order_number)
+            queryParams.set('order_number', params.order_number);
+          if (params.email) queryParams.set('email', params.email);
+        }
         queryParams.set('merchant_slug', merchantSlug);
 
         const response = await fetch(
@@ -171,11 +177,18 @@ function OrderTrackContent() {
 
   // Automatic tracking from URL params
   useEffect(() => {
+    const qToken = searchParams.get('token');
     const qOrderId =
       searchParams.get('order_id') || searchParams.get('orderId');
     const qOrderNumber =
       searchParams.get('order_number') || searchParams.get('orderNumber');
     const qEmail = searchParams.get('email');
+
+    // Token-based lookup (from order-success link) — no email needed
+    if (qToken) {
+      handleFetchTracking({ tracking_token: qToken });
+      return;
+    }
 
     if (qOrderId) {
       setOrderId(qOrderId);

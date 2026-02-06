@@ -10,6 +10,7 @@ import { asRoute } from '@/lib/routes';
 interface OrderData {
   id: string;
   order_number: string;
+  tracking_token?: string;
   shipping: {
     firstName: string;
     lastName: string;
@@ -167,15 +168,11 @@ function OrderSuccessContent() {
               >
                 View My Orders
               </Link>
-            ) : orderId ? (
+            ) : order?.tracking_token ? (
               <Link
                 href={asRoute(
                   getHref(
-                    `/track-order?orderId=${orderId}${
-                      order?.shipping?.email
-                        ? `&email=${encodeURIComponent(order.shipping.email)}`
-                        : ''
-                    }`
+                    `/track-order?token=${encodeURIComponent(order.tracking_token)}`
                   )
                 )}
                 className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
