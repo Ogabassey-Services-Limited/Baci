@@ -63,12 +63,8 @@ for (const prNum of prNumbers) {
         });
       }
 
-      let usedGeneralComments = false;
       if (pr.comments?.nodes && pr.comments.nodes.length > 0) {
-        if (!usedGeneralComments) {
-          report += `### General Comments\n`;
-          usedGeneralComments = true;
-        }
+        report += `### General Comments\n`;
         pr.comments.nodes.forEach((c) => {
           const author = c.author?.login || 'unknown';
           const body = c.body ? c.body.replace(/\n/g, ' ') : '';
