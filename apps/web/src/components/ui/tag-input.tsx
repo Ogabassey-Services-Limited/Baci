@@ -70,9 +70,9 @@ export function TagInput({
   return (
     <div className={cn('space-y-2', className)}>
       {/* Screen reader announcements */}
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
+      <output className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
-      </div>
+      </output>
 
       <div className="flex gap-2">
         <Input
@@ -89,6 +89,7 @@ export function TagInput({
           variant="outline"
           size="icon"
           onClick={addTag}
+          aria-label="Add tag"
           disabled={
             !inputValue.trim() || (maxTags ? value.length >= maxTags : false)
           }
@@ -110,6 +111,7 @@ export function TagInput({
               <button
                 type="button"
                 className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors"
+                aria-label={`Remove ${tag}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(index);
