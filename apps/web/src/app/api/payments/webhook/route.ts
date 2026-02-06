@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
