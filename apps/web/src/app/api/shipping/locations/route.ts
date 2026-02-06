@@ -262,8 +262,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const MAX_LOCATIONS = 500;
+
     return NextResponse.json({
-      locations,
+      locations: locations.slice(0, MAX_LOCATIONS),
       totalCount: locations.length,
       states,
     });

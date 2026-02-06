@@ -1,8 +1,8 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
+import { walletSettingsSchema } from '@/schemas/wallet';
 
 /**
  * GET /api/wallet
@@ -163,22 +163,6 @@ export async function GET() {
   }
 }
 
-const walletSettingsSchema = z.object({
-  autoPayoutEnabled: z.boolean().optional(),
-  autoPayoutDay: z
-    .enum([
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-      'sunday',
-    ])
-    .optional(),
-  minPayoutAmount: z.number().min(100).max(10_000_000).optional(),
-});
-
 /**
  * PATCH /api/wallet
  * Update wallet settings (auto-payout preferences)
@@ -197,7 +181,12 @@ export async function PATCH(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     // Validate input
     const parsed = walletSettingsSchema.safeParse(body);
@@ -237,7 +226,7 @@ export async function PATCH(request: NextRequest) {
       updates.auto_payout_enabled = autoPayoutEnabled;
     }
     if (autoPayoutDay) {
-      updates.auto_payout_day = autoPayoutDay.toLowerCase();
+      updates.auto_payout_day = autoPayoutDay;
     }
     if (typeof minPayoutAmount === 'number') {
       updates.min_payout_amount = minPayoutAmount;

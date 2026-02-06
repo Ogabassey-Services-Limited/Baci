@@ -311,9 +311,9 @@ export class JumiaClient {
 
   static async forMerchant(
     merchantId: string,
-    shopId?: string,
-    supabase?: SupabaseClient
+    options?: { shopId?: string; supabase?: SupabaseClient }
   ): Promise<JumiaClient | null> {
+    const supabase = options?.supabase;
     const client = supabase ?? createAdminClient();
     let query = client
       .from('marketplace_integrations')
@@ -322,7 +322,7 @@ export class JumiaClient {
       .eq('platform', 'jumia')
       .eq('is_active', true);
 
-    if (shopId) query = query.eq('shop_id', shopId);
+    if (options?.shopId) query = query.eq('shop_id', options.shopId);
     const { data, error } = await query.limit(1).single();
     if (error || !data) return null;
 

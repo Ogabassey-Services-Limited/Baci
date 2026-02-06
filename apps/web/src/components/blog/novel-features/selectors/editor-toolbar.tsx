@@ -57,6 +57,7 @@ export const EditorToolbar = ({
   const [openColor, setOpenColor] = useState(false);
   const [imageUrlOpen, setImageUrlOpen] = useState(false);
   const [imageUrlValue, setImageUrlValue] = useState('');
+  const [imageUrlError, setImageUrlError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
@@ -66,17 +67,25 @@ export const EditorToolbar = ({
     if (!url) return;
 
     const sanitized = sanitizeUrl(url);
-    if (!sanitized) return;
+    if (!sanitized) {
+      setImageUrlError('Invalid image URL');
+      return;
+    }
 
     try {
       const parsed = new URL(sanitized);
-      if (!['http:', 'https:'].includes(parsed.protocol)) return;
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        setImageUrlError('Invalid image URL');
+        return;
+      }
     } catch {
+      setImageUrlError('Invalid image URL');
       return;
     }
 
     editor.chain().focus().setImage({ src: sanitized }).run();
     setImageUrlValue('');
+    setImageUrlError(null);
     setImageUrlOpen(false);
   };
 
@@ -348,13 +357,19 @@ export const EditorToolbar = ({
                 id="image-url-input"
                 placeholder="https://example.com/image.jpg"
                 value={imageUrlValue}
-                onChange={(e) => setImageUrlValue(e.target.value)}
+                onChange={(e) => {
+                  setImageUrlValue(e.target.value);
+                  if (imageUrlError) setImageUrlError(null);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     _insertImageFromUrl();
                   }
                 }}
               />
+              {imageUrlError ? (
+                <p className="text-xs text-destructive">{imageUrlError}</p>
+              ) : null}
               <Button
                 size="sm"
                 className="w-full"

@@ -47,11 +47,9 @@ export async function POST(request: Request) {
     } = ActionSchema.parse(body);
 
     // 3. Initialize Jumia Client
-    const jumiaClient = await JumiaClient.forMerchant(
-      merchant.id,
-      undefined,
-      supabase
-    );
+    const jumiaClient = await JumiaClient.forMerchant(merchant.id, {
+      supabase,
+    });
     if (!jumiaClient) {
       return NextResponse.json(
         { error: 'Jumia integration not found' },

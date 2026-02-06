@@ -50,7 +50,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate request body
-    const parsed = acceptInviteSchema.safeParse(await request.json());
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+    const parsed = acceptInviteSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invitation token is required' },

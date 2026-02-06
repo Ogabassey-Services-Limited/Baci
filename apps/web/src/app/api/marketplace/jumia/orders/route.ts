@@ -114,11 +114,9 @@ export async function POST(_request: NextRequest) {
     }
 
     // Get Jumia client for this merchant
-    const jumiaClient = await JumiaClient.forMerchant(
-      merchant.id,
-      undefined,
-      supabase
-    );
+    const jumiaClient = await JumiaClient.forMerchant(merchant.id, {
+      supabase,
+    });
 
     if (!jumiaClient) {
       return NextResponse.json(

@@ -24,11 +24,9 @@ export async function GET(
         { status: 403 }
       );
 
-    const jumiaClient = await JumiaClient.forMerchant(
-      merchantId,
-      undefined,
-      auth.supabase
-    );
+    const jumiaClient = await JumiaClient.forMerchant(merchantId, {
+      supabase: auth.supabase,
+    });
     if (!jumiaClient) {
       return NextResponse.json(
         { error: 'Jumia integration not found' },

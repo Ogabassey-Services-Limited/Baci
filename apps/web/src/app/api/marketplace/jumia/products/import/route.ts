@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
 
 const ImportSchema = z.object({
@@ -13,6 +14,14 @@ const ImportSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const auth = await authenticateApiRequest(req);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

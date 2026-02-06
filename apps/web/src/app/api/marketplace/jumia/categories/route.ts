@@ -27,11 +27,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const jumia = await JumiaClient.forMerchant(
-      merchantId,
-      undefined,
-      auth.supabase
-    );
+    const jumia = await JumiaClient.forMerchant(merchantId, {
+      supabase: auth.supabase,
+    });
     if (!jumia) {
       // Return empty if not connected, or error? Empty is safer for UI
       return NextResponse.json([]);

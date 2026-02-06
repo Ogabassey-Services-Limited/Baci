@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient, JumiaCreateProductSchema } from '@/lib/jumia/client';
 
 const ExportSchema = z.object({
@@ -13,6 +14,14 @@ const ExportSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const auth = await authenticateApiRequest(req);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -36,11 +45,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Initialize Client
     const supabase = auth.supabase;
-    const jumia = await JumiaClient.forMerchant(
-      merchantId,
-      undefined,
-      supabase
-    );
+    const jumia = await JumiaClient.forMerchant(merchantId, { supabase });
 
     if (!jumia) {
       return NextResponse.json(

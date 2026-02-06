@@ -38,12 +38,6 @@ interface OrderItemRow {
   product_images?: unknown;
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
-}
-
 // Type-guard helper to safely extract first image URL from unknown product_images
 function extractFirstImageUrl(productImages: unknown): string | null {
   if (!Array.isArray(productImages) || productImages.length === 0) {
@@ -104,6 +98,12 @@ export async function GET(request: NextRequest) {
       searchParams.get('merchant_slug') || searchParams.get('slug');
 
     // Validate input based on mode
+    let validatedMerchantSlug: string;
+    let validatedToken: string | null = null;
+    let validatedOrderId: string | null = null;
+    let validatedOrderNumber: string | null = null;
+    let validatedEmail: string | null = null;
+
     if (trackingToken) {
       const parsed = trackOrderTokenSchema.safeParse({
         token: trackingToken,
@@ -118,6 +118,8 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
+      validatedMerchantSlug = parsed.data.merchant_slug;
+      validatedToken = parsed.data.token;
     } else {
       const parsed = trackOrderEmailSchema.safeParse({
         order_number: orderNumber,
@@ -134,18 +136,20 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
+      validatedMerchantSlug = parsed.data.merchant_slug;
+      validatedOrderId = parsed.data.order_id ?? null;
+      validatedOrderNumber = parsed.data.order_number ?? null;
+      validatedEmail = parsed.data.email;
     }
-
-    const orderIdParam = orderId && isUuid(orderId) ? orderId : null;
 
     const supabase = createAnonClient();
 
     const { data: orders, error } = await supabase.rpc('get_order_tracking', {
-      p_merchant_slug: merchantSlug,
-      p_order_id: trackingToken ? null : orderIdParam,
-      p_order_number: trackingToken ? null : orderNumber,
-      p_email: trackingToken ? null : email,
-      p_tracking_token: trackingToken || null,
+      p_merchant_slug: validatedMerchantSlug,
+      p_order_id: validatedOrderId,
+      p_order_number: validatedOrderNumber,
+      p_email: validatedEmail,
+      p_tracking_token: validatedToken,
     });
 
     const order = Array.isArray(orders) ? orders[0] : null;

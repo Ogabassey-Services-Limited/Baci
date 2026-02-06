@@ -16,6 +16,7 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
+import { userAccessSchema } from '@/schemas/api-auth';
 
 function _createScopedClient(token: string): SupabaseClient {
   return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
@@ -96,11 +97,8 @@ export async function authenticateApiRequest(
 export async function getMerchantIdForApiUser(
   supabase: SupabaseClient
 ): Promise<string | null> {
-  const { data, error } = await supabase.rpc('get_user_access');
-  if (error || !data) return null;
-
-  const access = Array.isArray(data) ? data[0] : data;
-  return access?.merchant_id || null;
+  const access = await getUserAccess(supabase);
+  return access?.merchantId ?? null;
 }
 
 /**
@@ -129,18 +127,17 @@ export async function getUserAccess(
   if (error || !data) return null;
 
   const access = Array.isArray(data) ? data[0] : data;
-  if (!access?.merchant_id) return null;
+  if (!access) return null;
+
+  const parsed = userAccessSchema.safeParse(access);
+  if (!parsed.success) return null;
 
   return {
-    merchantId: access.merchant_id,
-    role:
-      access.role === 'owner'
-        ? 'owner'
-        : (access.role as 'admin' | 'manager' | 'staff'),
-    isOwner: Boolean(access.is_owner),
-    isStaff: Boolean(access.is_staff),
-    permissions:
-      (access.permissions as Record<string, Record<string, boolean>>) || {},
+    merchantId: parsed.data.merchant_id,
+    role: parsed.data.role,
+    isOwner: parsed.data.is_owner,
+    isStaff: parsed.data.is_staff,
+    permissions: parsed.data.permissions ?? {},
   };
 }
 

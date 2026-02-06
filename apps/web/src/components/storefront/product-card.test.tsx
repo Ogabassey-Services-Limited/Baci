@@ -78,10 +78,14 @@ const mockProduct: Product = {
 };
 
 describe('StorefrontProductCard', () => {
-  const mockHandler = vi.fn();
+  const mockAddToCart = vi.fn();
+  const mockUpdateQuantity = vi.fn();
+  const mockQuickView = vi.fn();
 
   beforeEach(() => {
-    mockHandler.mockReset();
+    mockAddToCart.mockReset();
+    mockUpdateQuantity.mockReset();
+    mockQuickView.mockReset();
   });
 
   it('renders product name and price', () => {
@@ -89,9 +93,9 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={mockProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
@@ -109,9 +113,9 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={saleProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
@@ -134,14 +138,14 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={noDiscountProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
     expect(screen.getByText('$100')).toBeInTheDocument();
-    expect(screen.queryByText(/-%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/-\d+%/)).not.toBeInTheDocument();
     expect(screen.queryByText(/original price/i)).not.toBeInTheDocument();
   });
 
@@ -156,13 +160,13 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={tinyDiscountProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
-    expect(screen.queryByText(/-%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/-\d+%/)).not.toBeInTheDocument();
   });
 
   it('shows out-of-stock state and disables add-to-cart when stock is 0', () => {
@@ -176,9 +180,9 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={outOfStockProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
@@ -198,9 +202,9 @@ describe('StorefrontProductCard', () => {
       <StorefrontProductCard
         product={lowStockProduct}
         staggerClass=""
-        onAddToCart={mockHandler}
-        onUpdateQuantity={mockHandler}
-        onQuickView={mockHandler}
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
       />
     );
 
