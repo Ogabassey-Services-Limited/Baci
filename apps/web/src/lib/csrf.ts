@@ -1,7 +1,6 @@
 // CSRF Protection Utilities
 // Implements Double Submit Cookie pattern for CSRF protection
 
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 const CSRF_TOKEN_NAME = 'csrf-token';
@@ -34,6 +33,7 @@ export function createCsrfTokenPair(): { token: string; secret: string } {
  * Set CSRF token in cookies (call this in server components/API routes)
  */
 export async function setCsrfToken(): Promise<string> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const { token, secret } = createCsrfTokenPair();
 
@@ -63,6 +63,7 @@ export async function setCsrfToken(): Promise<string> {
  * Note: Does not automatically generate a new token to avoid cookie modification in Server Components
  */
 export async function getCsrfToken(): Promise<string | null> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const token = cookieStore.get(CSRF_TOKEN_NAME);
 
