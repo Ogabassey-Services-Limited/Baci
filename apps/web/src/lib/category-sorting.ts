@@ -1,4 +1,4 @@
-interface SortCategoriesOptions {
+export interface SortCategoriesOptions {
   categories: string[];
   priorityList?: string[];
 }

@@ -245,8 +245,9 @@ export function StorefrontProductGrid({
     const availableCategories = Array.from(cats);
 
     const priorityList =
-      merchantContext?.navigationCategories?.map((c) => c.name.toLowerCase()) ||
-      [];
+      merchantContext?.navigationCategories
+        ?.map((c) => c.name?.toLowerCase().trim())
+        .filter((n): n is string => !!n) || [];
 
     const sorted = sortCategories({
       categories: availableCategories,

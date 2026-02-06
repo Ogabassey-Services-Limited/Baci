@@ -53,7 +53,7 @@ export function StorefrontProductCard({
 
   const discountBadgeText = discountPercentage
     ? `-${discountPercentage}%`
-    : 'SALE';
+    : null;
 
   const isLowStock =
     product.manage_stock &&

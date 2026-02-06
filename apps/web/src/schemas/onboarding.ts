@@ -14,7 +14,7 @@ import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 const _preprocessText = (val: unknown) =>
   typeof val === 'string' ? sanitizeText(val) : val;
 const _preprocessEmail = (val: unknown) =>
-  typeof val === 'string' ? sanitizeEmail(val) : val;
+  typeof val === 'string' ? sanitizeEmail(sanitizeText(val)) : val;
 const _preprocessPhone = (val: unknown) =>
   typeof val === 'string' ? sanitizePhone(val) : val;
 const _preprocessUrl = (val: unknown) =>
@@ -166,10 +166,14 @@ export const onboardingSchema = step1BaseSchema
   .extend({
     logoUrl: z.preprocess(
       _preprocessUrl,
-      z.string().trim().min(1, {
-        message:
-          'Logo is required for web setup. Please upload or generate one.',
-      })
+      z
+        .string()
+        .trim()
+        .min(1, {
+          message:
+            'Logo is required for web setup. Please upload or generate one.',
+        })
+        .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
     ),
   })
   .superRefine((data, ctx) => {
@@ -198,10 +202,14 @@ export const step1Schema = step1BaseSchema.superRefine(refineStep1Other);
 export const step2Schema = step2BaseSchema.extend({
   logoUrl: z.preprocess(
     _preprocessUrl,
-    z.string().trim().min(1, {
-      message:
-        'Logo is required for step validation. Please upload or generate one.',
-    })
+    z
+      .string()
+      .trim()
+      .min(1, {
+        message:
+          'Logo is required for step validation. Please upload or generate one.',
+      })
+      .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
   ),
 });
 

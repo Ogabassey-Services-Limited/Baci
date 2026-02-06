@@ -102,15 +102,14 @@ export async function GET(request: NextRequest) {
  * Add item to wish list (authenticated user or guest session)
  */
 export async function POST(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
     const body = await request.json();
     const { productId, merchantId, sessionToken } = body;
 
@@ -198,15 +197,14 @@ export async function POST(request: NextRequest) {
  * Remove item from wish list (with ownership verification)
  */
 export async function DELETE(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
     const sessionToken = searchParams.get('session');
