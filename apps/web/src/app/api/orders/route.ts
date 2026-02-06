@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -8,13 +7,10 @@ import {
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
-import {
-  isValidUuid,
-  sanitizeLikePattern,
-  sanitizeSearchQuery,
-} from '@/lib/sanitize-core';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import { orderCreateSchema } from '@/schemas/orders';
 
 // GIGL-specific shipment creation logic is now in its own function
 interface OrderItem {
@@ -38,22 +34,42 @@ interface ShippingAddress {
   address: string;
 }
 
+const GIGL_DEFAULT_SENDER_DETAILS = {
+  location: { Latitude: '6.5244', Longitude: '3.3792' },
+  name: 'Baci Store',
+  phone: '+234800000000',
+  stationId: 4,
+  address: 'Merchant Address',
+  locality: 'Lagos',
+} as const;
+
 // GIGL-specific shipment creation logic is now in its own function
 async function handleGiglShipment(
   order: { items: OrderItem[] },
   customer: CustomerInfo,
-  shippingAddress: ShippingAddress
+  shippingAddress: ShippingAddress,
+  merchant: {
+    business_name?: string | null;
+    rider_phone_number?: string | null;
+    business_address?: string | null;
+  }
 ) {
   try {
+    const senderName =
+      merchant.business_name || GIGL_DEFAULT_SENDER_DETAILS.name;
+    const senderPhone =
+      merchant.rider_phone_number || GIGL_DEFAULT_SENDER_DETAILS.phone;
+    const senderAddress =
+      merchant.business_address || GIGL_DEFAULT_SENDER_DETAILS.address;
     const giglShipmentPayload = {
       SenderDetails: {
-        SenderLocation: { Latitude: '6.5244', Longitude: '3.3792' },
-        SenderName: 'Baci Store',
-        SenderPhoneNumber: '+234800000000',
-        SenderStationId: 4,
-        SenderAddress: 'Merchant Address',
-        InputtedSenderAddress: 'Merchant Address',
-        SenderLocality: 'Lagos',
+        SenderLocation: GIGL_DEFAULT_SENDER_DETAILS.location,
+        SenderName: senderName,
+        SenderPhoneNumber: senderPhone,
+        SenderStationId: GIGL_DEFAULT_SENDER_DETAILS.stationId,
+        SenderAddress: senderAddress,
+        InputtedSenderAddress: senderAddress,
+        SenderLocality: GIGL_DEFAULT_SENDER_DETAILS.locality,
       },
       ReceiverDetails: {
         ReceiverLocation: { Longitude: '3.3792', Latitude: '6.5244' },
@@ -108,7 +124,7 @@ export async function GET(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('API: Auth error or no user', authError);
+      logger.error({ message: 'API: Auth error or no user', error: authError });
       return NextResponse.json(
         { error: 'Unauthorized: You must be logged in to fetch orders.' },
         { status: 401 }
@@ -123,9 +139,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      console.error('API: Merchant not found for user', {
+      logger.error({
+        message: 'API: Merchant not found for user',
         userId: user.id,
-        merchantError,
+        error: merchantError,
       });
       return NextResponse.json(
         { error: 'Merchant not found for the authenticated user.' },
@@ -169,7 +186,7 @@ export async function GET(request: NextRequest) {
     const { data: orders, error: ordersError } = await query;
 
     if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
+      logger.error({ message: 'Error fetching orders', error: ordersError });
       return NextResponse.json(
         { error: 'Failed to fetch orders from the database.' },
         { status: 500 }
@@ -178,7 +195,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ orders: orders || [] });
   } catch (error) {
-    console.error('Unexpected error in GET /api/orders:', error);
+    logger.error({ message: 'Unexpected error in GET /api/orders', error });
     return NextResponse.json(
       { error: 'An internal server error occurred.' },
       { status: 500 }
@@ -189,7 +206,7 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create new order from storefront
 // CSRF exemption: This endpoint is called by unauthenticated storefront guests during checkout.
 // Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting in proxy.ts,
-// Zod input validation, and a SECURITY DEFINER RPC that validates merchant + items server-side.
+// Zod validates input shape, while the SECURITY DEFINER RPC enforces merchant + item authorization server-side.
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -206,60 +223,7 @@ export async function POST(request: NextRequest) {
     // Detect privacy region for CCPA/GDPR compliance (LDU flag)
     const geoPrivacy = await detectPrivacyRegion(clientIp);
 
-    // 2026 Best Practice: Zod Validation
-    const OrderCreateSchema = z.object({
-      merchant_id: z.string().uuid(),
-      customer_email: z.string().email(),
-      customer_name: z.string().min(1),
-      customer_phone: z.string().optional(),
-      items: z
-        .array(
-          z
-            .object({
-              product_id: z.string().optional(),
-              productId: z.string().optional(),
-              id: z.string().optional(),
-              name: z.string().min(1),
-              productName: z.string().optional(),
-              quantity: z.number().int().positive(),
-              price: z.number().nonnegative(),
-              negotiatedPrice: z.number().nonnegative().optional(),
-              value: z.number().nonnegative().optional(),
-              has_assurance: z.boolean().optional(),
-              assurance_fee: z.number().nonnegative().optional(),
-              variantId: z.string().optional(),
-              variant_id: z.string().optional(),
-              variantAttributes: z.record(z.string()).optional(),
-            })
-            .refine((data) => data.product_id || data.productId || data.id, {
-              message:
-                'At least one product identifier (product_id, productId, or id) is required',
-            })
-        )
-        .min(1),
-      subtotal: z.union([z.string(), z.number()]),
-      shipping_fee: z.union([z.string(), z.number()]).default(0),
-      discount_amount: z.union([z.string(), z.number()]).default(0),
-      tax_amount: z.union([z.string(), z.number()]).default(0),
-      payment_method: z.string().min(1),
-      payment_status: z.string().default('unpaid'),
-      shipping_status: z.string().default('pending'),
-      shipping_address: z.any().optional(),
-      source: z.string().default('online_store'),
-      notes: z.string().optional(),
-      ad_tracking: z.any().optional(),
-      use_wallet_credit: z.boolean().default(false),
-      wallet_amount: z.number().default(0),
-      user_id: z.string().uuid().optional(),
-      // Shipping metadata
-      selected_quote_id: z.string().uuid().optional(),
-      shipping_provider: z.string().optional(),
-      tracking_number: z.string().optional(),
-      // Legacy/Optional fields
-      shipping_provider_legacy: z.string().optional(),
-    });
-
-    const parseResult = OrderCreateSchema.safeParse(json);
+    const parseResult = orderCreateSchema.safeParse(json);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -279,7 +243,6 @@ export async function POST(request: NextRequest) {
       customer_name,
       customer_phone,
       items,
-      subtotal,
       shipping_fee, // Default already handled by Zod
       payment_method,
       payment_status,
@@ -302,18 +265,11 @@ export async function POST(request: NextRequest) {
 
     const resolvedUserId = user?.id ?? user_id ?? null;
 
-    // Validate merchant_id is a valid UUID
-    if (!merchant_id || !isValidUuid(merchant_id)) {
-      return NextResponse.json(
-        { error: 'Invalid merchant ID' },
-        { status: 400 }
-      );
-    }
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, slug, support_email, email_sender_name, email'
+        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email'
       )
       .eq('id', merchant_id)
       .single();
@@ -326,21 +282,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
-      );
-    }
-
-    // Validate required fields
-    if (!customer_email || !customer_name || !items || subtotal === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Order must contain at least one item' },
-        { status: 400 }
       );
     }
 
@@ -396,14 +337,18 @@ export async function POST(request: NextRequest) {
           }
         : null;
 
-    let resolvedShippingProvider = body.shipping_provider;
-    let resolvedTrackingNumber = body.tracking_number;
-    const shippingProvider = body.shipping_provider || 'GIGL';
-    if (shippingProvider === 'GIGL') {
+    let resolvedShippingProvider = body.shipping_provider ?? null;
+    let resolvedTrackingNumber = body.tracking_number ?? null;
+    if (resolvedShippingProvider === 'GIGL' && shipping_address) {
       const shipmentDetails = await handleGiglShipment(
         { items },
         { name: customer_name, phone: customer_phone || '' },
-        shipping_address
+        shipping_address,
+        {
+          business_name: merchant.business_name,
+          rider_phone_number: merchant.rider_phone_number,
+          business_address: merchant.business_address,
+        }
       );
       if (shipmentDetails) {
         resolvedShippingProvider = shipmentDetails.shipping_provider;
@@ -449,7 +394,7 @@ export async function POST(request: NextRequest) {
         p_notes: notes || null,
         p_ad_tracking: adTrackingPayload,
         p_selected_quote_id: body.selected_quote_id || null,
-        p_shipping_provider: resolvedShippingProvider || shippingProvider,
+        p_shipping_provider: resolvedShippingProvider,
         p_tracking_number: resolvedTrackingNumber || null,
         p_user_id: resolvedUserId,
       }
@@ -458,9 +403,11 @@ export async function POST(request: NextRequest) {
     const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
 
     if (orderError || !order) {
-      console.error('Error creating order:', orderError);
+      logger.error({ message: 'Error creating order', error: orderError });
       const message = orderError?.message || 'Failed to create order';
-      const isClientError = [
+      const code =
+        typeof orderError?.code === 'string' ? orderError.code : null;
+      const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',
         'invalid_variant',
@@ -470,7 +417,11 @@ export async function POST(request: NextRequest) {
         'customer_name_required',
         'items_required',
         'user_id_mismatch',
-      ].includes(message);
+      ];
+      // create_storefront_order should return { message, code } for client errors.
+      const isClientError = code
+        ? clientErrorCodes.includes(code)
+        : clientErrorCodes.includes(message);
       return NextResponse.json(
         { error: 'Failed to create order', details: message },
         { status: isClientError ? 400 : 500 }
@@ -694,7 +645,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Unexpected error in POST /api/orders:', error);
+    logger.error({ message: 'Unexpected error in POST /api/orders', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (!creditDirectEnabled) {
       console.error('Credit Direct Sign Blocked: Feature disabled', {
         merchant: merchantSlug,
-        settings,
+        merchantId,
       });
       return NextResponse.json(
         { error: 'Credit Direct BNPL is not enabled for this merchant' },

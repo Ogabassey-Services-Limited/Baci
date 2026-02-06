@@ -73,19 +73,28 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingProduct) {
-      await supabase.from('jumia_product_mappings').upsert(
-        {
-          merchant_id: merchantId,
-          product_id: existingProduct.id,
-          jumia_sku: productData.SellerSku,
-          jumia_seller_sku: productData.SellerSku,
-          jumia_shop_id: jumia.getShopId(),
-          jumia_price: productData.Price,
-          sync_status: 'pending', // Feed processing
-          last_synced_at: new Date().toISOString(),
-        },
-        { onConflict: 'merchant_id, product_id, jumia_shop_id' }
-      ); // Adjust constraint if needed
+      const { error: upsertError } = await supabase
+        .from('jumia_product_mappings')
+        .upsert(
+          {
+            merchant_id: merchantId,
+            product_id: existingProduct.id,
+            jumia_sku: productData.SellerSku,
+            jumia_seller_sku: productData.SellerSku,
+            jumia_shop_id: jumia.getShopId(),
+            jumia_price: productData.Price,
+            sync_status: 'pending', // Feed processing
+            last_synced_at: new Date().toISOString(),
+          },
+          { onConflict: 'merchant_id, product_id, jumia_shop_id' }
+        ); // Adjust constraint if needed
+      if (upsertError) {
+        console.error('Mapping upsert failed:', upsertError.message);
+        return NextResponse.json(
+          { error: 'Failed to create product mapping' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -96,9 +105,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error('Export error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Export failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Export failed' }, { status: 500 });
   }
 }

@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { createAnonClient } from '@/lib/supabase/anon';
+import {
+  type StorefrontDiscountCodeRow,
+  storefrontDiscountValidateSchema,
+} from '@/schemas/storefront-discount';
 
 /**
  * POST /api/storefront/discount/validate
@@ -22,13 +25,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const parsed = z
-      .object({
-        merchant_id: z.string().uuid(),
-        code: z.string().min(1),
-        cart_total: z.number().nonnegative(),
-      })
-      .safeParse(body);
+    const parsed = storefrontDiscountValidateSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -45,14 +42,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAnonClient();
 
-    const { data: discountRows, error } = await supabase.rpc(
-      'get_storefront_discount_code',
-      {
-        p_merchant_id: merchant_id,
-        p_code: code,
-      }
-    );
+    const { data, error } = await supabase.rpc('get_storefront_discount_code', {
+      p_merchant_id: merchant_id,
+      p_code: code,
+    });
 
+    const discountRows = data as
+      | StorefrontDiscountCodeRow[]
+      | StorefrontDiscountCodeRow
+      | null;
     const discountCode = Array.isArray(discountRows)
       ? discountRows[0]
       : discountRows;
@@ -126,7 +124,7 @@ export async function POST(request: NextRequest) {
       discountCode.maximum_discount_amount &&
       discountAmount > Number(discountCode.maximum_discount_amount)
     ) {
-      discountAmount = Number(discountCode.maximum_discount_amount);
+      discountAmount = Math.round(Number(discountCode.maximum_discount_amount));
     }
 
     // Ensure discount doesn't exceed cart total

@@ -185,6 +185,8 @@ export async function GET(request: NextRequest) {
       | ShippingAddress
       | string;
 
+    const shouldMaskPii = !validatedToken;
+
     return NextResponse.json({
       order: {
         id: order.id,
@@ -201,8 +203,12 @@ export async function GET(request: NextRequest) {
       },
       customer: {
         name: order.customer_name,
-        email: maskEmail(order.customer_email),
-        phone: maskPhone(order.customer_phone),
+        email: shouldMaskPii
+          ? maskEmail(order.customer_email)
+          : order.customer_email,
+        phone: shouldMaskPii
+          ? maskPhone(order.customer_phone)
+          : order.customer_phone,
       },
       shipping_address: {
         address:

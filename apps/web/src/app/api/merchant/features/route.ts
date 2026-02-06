@@ -1,5 +1,4 @@
 import { revalidateTag } from 'next/cache';
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -7,7 +6,6 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Merchant Feature Settings API
@@ -98,6 +96,68 @@ export interface MerchantFeatureSettings {
   updated_at: string;
 }
 
+const ALLOWED_FIELDS = [
+  'loyalty_enabled',
+  'reviews_enabled',
+  'wishlist_enabled',
+  'order_tracking_enabled',
+  'discount_codes_enabled',
+  'guest_checkout_enabled',
+  // Payment gateways
+  'paystack_enabled',
+  'korapay_enabled',
+  'pay_on_delivery_enabled',
+  'credit_direct_enabled',
+  'credit_direct_public_key',
+  'credit_direct_min_amount',
+  'credit_direct_max_amount',
+  'preferred_local_gateway',
+  'preferred_international_gateway',
+  // Shipping
+  'shipping_providers',
+  'free_shipping_threshold',
+  'shipping_markup_percentage',
+  'checkout_collect_phone',
+  'checkout_require_account',
+  'checkout_show_order_notes',
+  'about_page_enabled',
+  'contact_page_enabled',
+  'faq_page_enabled',
+  'privacy_page_enabled',
+  'terms_page_enabled',
+  'rewards_page_enabled',
+  'show_recent_purchases',
+  'show_stock_levels',
+  'low_stock_threshold',
+  'google_analytics_id',
+  'ga4_api_secret',
+  'facebook_pixel_id',
+  'facebook_capi_token',
+  'tiktok_pixel_id',
+  'tiktok_access_token',
+  'snapchat_pixel_id',
+  'snapchat_capi_token',
+  'twitter_pixel_id',
+  'auto_generate_schema',
+  'custom_robots_txt',
+  'email_notifications_enabled',
+  'sms_notifications_enabled',
+  // Blog settings
+  'blog_enabled',
+  'auto_blog_enabled',
+  'google_reviews_enabled',
+  'google_place_id',
+  // VTU settings
+  'vtu_enabled',
+  'vtu_airtime_enabled',
+  'vtu_data_enabled',
+  'vtu_checkout_addon_enabled',
+  'vtu_checkout_addon_amounts',
+  'vtu_loyalty_reward_enabled',
+  'vtu_merchant_commission_rate',
+  'custom_settings',
+];
+
 // Default settings for new merchants
 const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   loyalty_enabled: false,
@@ -156,11 +216,9 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_settings: {},
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await authenticateApiRequest(
-      new Request('http://localhost/api/merchant/features', { method: 'GET' })
-    );
+    const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
@@ -184,12 +242,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
     // Get or create settings
     // eslint-disable-next-line prefer-const
-    let { data: settings, error } = await supabase
+    let { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .select('*')
       .eq('merchant_id', access.merchantId)
@@ -197,7 +252,7 @@ export async function GET() {
 
     if (error && error.code === 'PGRST116') {
       // No settings exist, create with defaults
-      const { data: newSettings, error: createError } = await supabase
+      const { data: newSettings, error: createError } = await auth.supabase
         .from('merchant_feature_settings')
         .insert({
           merchant_id: access.merchantId,
@@ -236,7 +291,12 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const { valid, response } = await checkCsrfProtection(request);
-    if (!valid && response) return response;
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -258,77 +318,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const updates = await request.json();
+    let updates: Record<string, unknown>;
+    try {
+      updates = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     // Validate updates - only allow known fields
-    const allowedFields = [
-      'loyalty_enabled',
-      'reviews_enabled',
-      'wishlist_enabled',
-      'order_tracking_enabled',
-      'discount_codes_enabled',
-      'guest_checkout_enabled',
-      // Payment gateways
-      'paystack_enabled',
-      'korapay_enabled',
-      'pay_on_delivery_enabled',
-      'credit_direct_enabled',
-      'credit_direct_public_key',
-      'credit_direct_min_amount',
-      'credit_direct_max_amount',
-      'preferred_local_gateway',
-      'preferred_international_gateway',
-      // Shipping
-      'shipping_providers',
-      'free_shipping_threshold',
-      'shipping_markup_percentage',
-      'checkout_collect_phone',
-      'checkout_require_account',
-      'checkout_show_order_notes',
-      'about_page_enabled',
-      'contact_page_enabled',
-      'faq_page_enabled',
-      'privacy_page_enabled',
-      'terms_page_enabled',
-      'rewards_page_enabled',
-      'show_recent_purchases',
-      'show_stock_levels',
-      'low_stock_threshold',
-      'google_analytics_id',
-      'ga4_api_secret',
-      'facebook_pixel_id',
-      'facebook_capi_token',
-      'tiktok_pixel_id',
-      'tiktok_access_token',
-      'snapchat_pixel_id',
-      'snapchat_capi_token',
-      'twitter_pixel_id',
-      'auto_generate_schema',
-      'custom_robots_txt',
-      'email_notifications_enabled',
-      'sms_notifications_enabled',
-      // Blog settings
-      'blog_enabled',
-      'auto_blog_enabled',
-      'google_reviews_enabled',
-      'google_place_id',
-      // VTU settings
-      'vtu_enabled',
-      'vtu_airtime_enabled',
-      'vtu_data_enabled',
-      'vtu_checkout_addon_enabled',
-      'vtu_checkout_addon_amounts',
-      'vtu_loyalty_reward_enabled',
-      'vtu_merchant_commission_rate',
-      'custom_settings',
-    ];
-
     const sanitizedUpdates: Record<string, unknown> = {};
     for (const key of Object.keys(updates)) {
-      if (allowedFields.includes(key)) {
+      if (ALLOWED_FIELDS.includes(key)) {
         sanitizedUpdates[key] = updates[key];
       }
     }
@@ -339,7 +339,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Upsert settings
-    const { data: settings, error } = await supabase
+    const { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .upsert(
         {
@@ -378,7 +378,12 @@ export async function PATCH(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const { valid, response } = await checkCsrfProtection(request);
-    if (!valid && response) return response;
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -400,15 +405,24 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    let newSettings: Record<string, unknown>;
+    try {
+      newSettings = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    const newSettings = await request.json();
+    const sanitizedSettings: Record<string, unknown> = {};
+    for (const key of Object.keys(newSettings)) {
+      if (ALLOWED_FIELDS.includes(key)) {
+        sanitizedSettings[key] = newSettings[key];
+      }
+    }
 
     // Merge with defaults for any missing fields
     const completeSettings = {
       ...DEFAULT_SETTINGS,
-      ...newSettings,
+      ...sanitizedSettings,
       merchant_id: access.merchantId,
       updated_at: new Date().toISOString(),
     };
@@ -416,7 +430,7 @@ export async function PUT(request: NextRequest) {
     // Sync rewards_page_enabled with loyalty_enabled
     completeSettings.rewards_page_enabled = completeSettings.loyalty_enabled;
 
-    const { data: settings, error } = await supabase
+    const { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .upsert(completeSettings, {
         onConflict: 'merchant_id',

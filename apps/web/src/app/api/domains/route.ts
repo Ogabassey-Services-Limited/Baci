@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { vercel } from '@/lib/vercel';
+import { VercelApiError, vercel } from '@/lib/vercel';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
@@ -23,7 +23,7 @@ const DOMAIN_SELECT =
  * GET /api/domains
  * List all domains for authenticated merchant
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -32,10 +32,25 @@ export async function GET(request: Request) {
 
     const supabase = auth.supabase;
 
-    // Get all domains for this merchant
+    // Get merchant for this user
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', auth.user.id)
+      .single();
+
+    if (merchantError || !merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Get all domains for this merchant (defense-in-depth, complements RLS)
     const { data: domains, error: domainsError } = await supabase
       .from('domains')
       .select(DOMAIN_SELECT)
+      .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false });
 
     if (domainsError) {
@@ -59,12 +74,15 @@ export async function GET(request: Request) {
  * POST /api/domains
  * Add a custom domain (BYOD - Bring Your Own Domain)
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { valid, response } = await checkCsrfProtection(
-      request as NextRequest
-    );
-    if (!valid && response) return response;
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -116,18 +134,12 @@ export async function POST(request: Request) {
       vercelResponse = await vercel.addDomain(domain);
     } catch (error: unknown) {
       console.error('Vercel Add Domain Error:', error);
-      // If domain is owned by another account, Vercel might return 409
-      // We should pass this error to the user
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      return NextResponse.json(
-        {
-          error:
-            errorMessage ||
-            'Failed to add domain to Vercel. It might be in use by another account.',
-        },
-        { status: 409 }
-      );
+      const status = error instanceof VercelApiError ? error.status : 500;
+      const message =
+        status === 409
+          ? 'Domain is already in use by another account.'
+          : 'Failed to add domain to Vercel.';
+      return NextResponse.json({ error: message }, { status });
     }
 
     // Determine status based on Vercel response
@@ -181,12 +193,7 @@ export async function POST(request: Request) {
       }
       console.error('Insert error:', insertError);
       return NextResponse.json(
-        {
-          error: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code,
-        },
+        { error: 'Failed to register domain' },
         { status: 500 }
       );
     }
@@ -206,7 +213,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       domain: newDomain,
       verification: verificationInstructions,
-      vercel: vercelResponse, // Return raw Vercel response for debugging
     });
   } catch (error: unknown) {
     console.error('Error adding domain:', error);

@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
@@ -28,7 +28,15 @@ const unsubscribeSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     const validation = subscribeSchema.safeParse(body);
 
     if (!validation.success) {
@@ -109,11 +117,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Send welcome email (fire and forget)
-    sendEmail({
-      to: normalizedEmail,
-      subject: `Welcome to ${merchantName}!`,
-      htmlContent: `
+    const response = NextResponse.json({
+      success: true,
+      message:
+        'Successfully subscribed! Check your email for a welcome message.',
+    });
+
+    after(() => {
+      sendEmail({
+        to: normalizedEmail,
+        subject: `Welcome to ${merchantName}!`,
+        htmlContent: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -139,16 +153,13 @@ export async function POST(request: NextRequest) {
         </body>
         </html>
       `,
-      textContent: `Welcome to ${merchantName}!\n\nThanks for subscribing to our newsletter. You'll be the first to know about new product launches, exclusive discounts, and special promotions.\n\nStay tuned for exciting updates!`,
-      emailType: 'newsletter',
-      fromName: merchantName,
-    }).catch((err) => console.error('Newsletter welcome email error:', err));
-
-    return NextResponse.json({
-      success: true,
-      message:
-        'Successfully subscribed! Check your email for a welcome message.',
+        textContent: `Welcome to ${merchantName}!\n\nThanks for subscribing to our newsletter. You'll be the first to know about new product launches, exclusive discounts, and special promotions.\n\nStay tuned for exciting updates!`,
+        emailType: 'newsletter',
+        fromName: merchantName,
+      }).catch((err) => console.error('Newsletter welcome email error:', err));
     });
+
+    return response;
   } catch (error) {
     console.error('Newsletter subscription error:', error);
     return NextResponse.json(

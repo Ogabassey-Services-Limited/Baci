@@ -30,12 +30,15 @@ const nanoidUppercase = customAlphabet(
  * Initialize a payment for domain purchase
  * This creates a pending transaction that must be completed before domain registration
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { valid, response } = await checkCsrfProtection(
-      request as NextRequest
-    );
-    if (!valid && response) return response;
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     // Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
@@ -44,7 +47,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     const parsed = initDomainPaymentSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -53,7 +61,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { domain, years } = parsed.data;
+    const { domain: rawDomain, years } = parsed.data;
+    const domain = rawDomain.toLowerCase();
     const supabase = auth.supabase;
 
     // Extract TLD and get pricing
@@ -95,6 +104,18 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate email is available before calling Paystack
+    const paymentEmail = merchant.email || auth.user.email;
+    if (!paymentEmail) {
+      return NextResponse.json(
+        {
+          error:
+            'No email available for payment. Please update your merchant email.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Generate unique payment reference for domain purchase (case-preserving entropy)
     const reference = `DOM-${nanoidUppercase()}`;
 
@@ -129,7 +150,6 @@ export async function POST(request: Request) {
     const callbackUrl = `${protocol}://${rootDomain}/dashboard/domains/callback?reference=${reference}&domain=${encodeURIComponent(domain)}&years=${years}`;
 
     // Initialize Paystack payment
-    console.log('[DomainPayment] Initializing Paystack...');
     if (!process.env.PAYSTACK_SECRET_KEY) {
       console.error('[DomainPayment] PAYSTACK_SECRET_KEY is missing');
       return NextResponse.json(
@@ -147,7 +167,7 @@ export async function POST(request: Request) {
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         },
         body: JSON.stringify({
-          email: merchant.email || auth.user.email,
+          email: paymentEmail,
           amount: Math.round(priceCalculation.sellPrice * 100), // Paystack uses kobo
           reference,
           callback_url: callbackUrl,

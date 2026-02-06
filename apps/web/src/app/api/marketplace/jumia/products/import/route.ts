@@ -43,6 +43,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Verify integrationId belongs to this merchant
+    const { data: integration, error: integrationError } = await auth.supabase
+      .from('marketplace_integrations')
+      .select('id')
+      .eq('id', integrationId)
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (integrationError || !integration) {
+      return NextResponse.json(
+        { error: 'Integration not found' },
+        { status: 403 }
+      );
+    }
+
     // 1. Initialize Clients
     const supabase = auth.supabase;
     const jumia = await JumiaClient.fromIntegration(integrationId, supabase);
@@ -60,54 +75,71 @@ export async function POST(req: NextRequest) {
 
     let created = 0;
     let linked = 0;
+    let errors = 0;
     const updated = 0;
+
+    const skus = jumiaProducts
+      .map((jp) => jp.SellerSku)
+      .filter((sku): sku is string => Boolean(sku));
+
+    const { data: existingProducts } = await supabase
+      .from('products')
+      .select('id, sku')
+      .eq('merchant_id', merchantId)
+      .in('sku', skus);
+
+    const productBySku = new Map(
+      (existingProducts || []).filter((p) => p.sku).map((p) => [p.sku, p])
+    );
+
+    const { data: existingMappings } = await supabase
+      .from('jumia_product_mappings')
+      .select('id, jumia_sku')
+      .eq('merchant_id', merchantId)
+      .in('jumia_sku', skus);
+
+    const mappedSkus = new Set(
+      (existingMappings || [])
+        .filter((m) => m.jumia_sku)
+        .map((m) => m.jumia_sku)
+    );
 
     // 3. Process each product
     for (const jp of jumiaProducts) {
       const sku = jp.SellerSku;
       if (!sku) continue;
 
-      // Check if product exists in Baci by SKU
-      const { data: existingProduct } = await supabase
-        .from('products')
-        .select('id, variants:product_variants(id, sku)')
-        .eq('merchant_id', merchantId)
-        .eq('sku', sku) // Simple SKU match on main product
-        .single();
-
-      // Also check variants if not found on main product (simplified for now to main product)
-      // For 2026 BP, we should check variants too potentially, but starting simple.
-
-      const productId = existingProduct?.id;
+      const product = productBySku.get(sku);
+      const productId = product?.id;
 
       if (productId) {
         // LINK EXISTING
-        // Check if mapping exists
-        const { data: mapping } = await supabase
-          .from('jumia_product_mappings')
-          .select('id')
-          .eq('merchant_id', merchantId)
-          .eq('jumia_sku', sku)
-          .single();
-
-        if (mapping) {
+        if (mappedSkus.has(sku)) {
           // Already linked - maybe update price?
           // For now, just skip or mark updated if we built logic
         } else {
           // Create mapping
-          await supabase.from('jumia_product_mappings').insert({
-            merchant_id: merchantId,
-            product_id: productId,
-            jumia_sku: sku,
-            jumia_seller_sku: sku,
-            jumia_shop_id: jumia.getShopId(),
-            jumia_price: Number.parseFloat(jp.Price?.toString() || '0'),
-            jumia_product_id: 'unknown-uuid-from-fetch', // Jumia fetch doesn't always return UUID in simple feed, might need to rely on SKU
-            is_active: jp.Status === 'Active',
-            sync_status: 'synced',
-            last_synced_at: new Date().toISOString(),
-          });
-          linked++;
+          const { error: mapError } = await supabase
+            .from('jumia_product_mappings')
+            .insert({
+              merchant_id: merchantId,
+              product_id: productId,
+              jumia_sku: sku,
+              jumia_seller_sku: sku,
+              jumia_shop_id: jumia.getShopId(),
+              jumia_price: Number.parseFloat(jp.Price?.toString() || '0'),
+              jumia_product_id: 'unknown-uuid-from-fetch', // Jumia fetch doesn't always return UUID in simple feed, might need to rely on SKU
+              is_active: jp.Status === 'Active',
+              sync_status: 'synced',
+              last_synced_at: new Date().toISOString(),
+            });
+          if (mapError) {
+            console.error(`Mapping insert failed for SKU ${sku}:`, mapError);
+            errors++;
+          } else {
+            linked++;
+            mappedSkus.add(sku);
+          }
         }
       } else {
         // CREATE NEW PRODUCT
@@ -132,21 +164,31 @@ export async function POST(req: NextRequest) {
           .select()
           .single();
 
-        if (newProduct && !createError) {
+        if (createError || !newProduct) {
+          console.error(`Product insert failed for SKU ${sku}:`, createError);
+          errors++;
+        } else {
           // Insert Mapping
-          await supabase.from('jumia_product_mappings').insert({
-            merchant_id: merchantId,
-            product_id: newProduct.id,
-            jumia_sku: sku,
-            jumia_seller_sku: sku,
-            jumia_shop_id: jumia.getShopId(),
-            jumia_price: price,
-            jumia_product_id: 'unknown-uuid-imp',
-            is_active: jp.Status === 'Active',
-            sync_status: 'synced',
-            last_synced_at: new Date().toISOString(),
-          });
-          created++;
+          const { error: mapError } = await supabase
+            .from('jumia_product_mappings')
+            .insert({
+              merchant_id: merchantId,
+              product_id: newProduct.id,
+              jumia_sku: sku,
+              jumia_seller_sku: sku,
+              jumia_shop_id: jumia.getShopId(),
+              jumia_price: price,
+              jumia_product_id: 'unknown-uuid-imp',
+              is_active: jp.Status === 'Active',
+              sync_status: 'synced',
+              last_synced_at: new Date().toISOString(),
+            });
+          if (mapError) {
+            console.error(`Mapping insert failed for SKU ${sku}:`, mapError);
+            errors++;
+          } else {
+            created++;
+          }
         }
       }
     }
@@ -158,13 +200,11 @@ export async function POST(req: NextRequest) {
         created,
         linked,
         updated,
+        errors,
       },
     });
   } catch (error) {
     console.error('Import error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Import failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Import failed' }, { status: 500 });
   }
 }
