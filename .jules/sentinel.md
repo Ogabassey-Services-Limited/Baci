@@ -18,3 +18,13 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-02-14 - Stored XSS in Onboarding Schemas via Zod Order
+
+**Vulnerability:** The onboarding schemas (`apps/web/src/schemas/onboarding.ts`) accepted raw user input for `businessName` and other fields without sanitization. If `transform(sanitizeText)` was applied *after* validation rules like `.min(2)`, a malicious payload (e.g., `<script>`) would pass length checks (8 chars) but become an empty string after sanitization, resulting in valid but empty/sanitized data being stored, or worse, if sanitization wasn't applied at all, stored XSS.
+
+**Learning:** Zod transforms run after validations if chained as `z.string().min().transform()`. This creates a gap where input satisfies constraints in its raw form but becomes invalid (or remains unsanitized if logic is wrong) after transformation.
+
+**Prevention:**
+1. Use `z.preprocess(sanitize, schema)` to ensure sanitization happens *before* any validation rules are checked.
+2. Example: `z.preprocess((val) => typeof val === 'string' ? sanitizeText(val) : val, z.string().min(2))`.

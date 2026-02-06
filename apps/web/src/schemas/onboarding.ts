@@ -1,4 +1,5 @@
 import z from 'zod';
+import { sanitizeEmail, sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
 import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**
@@ -7,41 +8,62 @@ import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
  */
 
 const step1BaseSchema = z.object({
-  businessName: z
-    .string()
-    .trim()
-    .min(2, { message: 'Business name must be at least 2 characters.' }),
-  businessType: z
-    .string()
-    .trim()
-    .min(1, { message: 'Please select a business type.' }),
-  otherBusinessType: z.string().trim().optional(),
-  slug: z
-    .string()
-    .trim()
-    .min(3, { message: 'Store link must be at least 3 characters.' })
-    .optional(),
+  businessName: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z
+      .string()
+      .trim()
+      .min(2, { message: 'Business name must be at least 2 characters.' })
+  ),
+  businessType: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().min(1, { message: 'Please select a business type.' })
+  ),
+  otherBusinessType: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().optional()
+  ),
+  slug: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z
+      .string()
+      .trim()
+      .min(3, { message: 'Store link must be at least 3 characters.' })
+      .optional()
+  ),
 });
 
 const step2BaseSchema = z.object({
   logoUrl: z.string().trim().optional().or(z.literal('')),
-  brandColors: z
-    .string()
-    .trim()
-    .min(1, { message: 'Brand colors are required.' }),
-  brandPreferences: z.string().trim().optional(),
+  brandColors: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().min(1, { message: 'Brand colors are required.' })
+  ),
+  brandPreferences: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().optional()
+  ),
 });
 
 const step3BaseSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .email({ message: 'Please enter a valid email address.' }),
+  email: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeEmail(val) : val),
+    z.string().trim().email({ message: 'Please enter a valid email address.' })
+  ),
   password: z.string().optional(),
   confirmPassword: z.string().optional(),
-  firstName: z.string().trim().optional(),
-  lastName: z.string().trim().optional(),
-  phone: z.string().trim().optional(),
+  firstName: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().optional()
+  ),
+  lastName: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizeText(val) : val),
+    z.string().trim().optional()
+  ),
+  phone: z.preprocess(
+    (val) => (typeof val === 'string' ? sanitizePhone(val) : val),
+    z.string().trim().optional()
+  ),
 });
 
 /**
