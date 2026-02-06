@@ -21,6 +21,10 @@ const unsubscribeSchema = z.object({
 /**
  * POST /api/newsletter/subscribe
  * Subscribe an email to a merchant's newsletter
+ *
+ * CSRF exemption: This is a public endpoint for anonymous storefront visitors.
+ * Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting
+ * in proxy.ts middleware and the RPC's idempotent upsert behavior.
  */
 export async function POST(request: NextRequest) {
   try {

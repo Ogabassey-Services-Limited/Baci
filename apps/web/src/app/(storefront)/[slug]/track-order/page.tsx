@@ -120,6 +120,7 @@ function OrderTrackContent() {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [_isTokenLookup, _setIsTokenLookup] = useState(false);
   const searchParams = useSearchParams();
   const params = useParams();
   const slugParam = params?.slug;
@@ -188,6 +189,7 @@ function OrderTrackContent() {
 
     // Token-based lookup (from order-success link) — no email needed
     if (qToken) {
+      _setIsTokenLookup(true);
       handleFetchTracking({ tracking_token: qToken });
       return;
     }
@@ -356,67 +358,71 @@ function OrderTrackContent() {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Track Your Order</h1>
-        <p className="text-muted-foreground">
-          Enter your order number and email to track your delivery
-        </p>
+        {!_isTokenLookup && (
+          <p className="text-muted-foreground">
+            Enter your order number and email to track your delivery
+          </p>
+        )}
       </div>
 
-      <ThemedCard className="mb-8">
-        <CardContent className="pt-6">
-          <form onSubmit={handleTrackOrder} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="orderNumber"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Order Number
-                </label>
-                <ThemedInput
-                  id="orderNumber"
-                  placeholder="ORD-123456"
-                  value={orderNumber}
-                  onChange={(e) => setOrderNumber(e.target.value)}
-                />
+      {!_isTokenLookup && (
+        <ThemedCard className="mb-8">
+          <CardContent className="pt-6">
+            <form onSubmit={handleTrackOrder} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="orderNumber"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Order Number
+                  </label>
+                  <ThemedInput
+                    id="orderNumber"
+                    placeholder="ORD-123456"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Email Address
+                  </label>
+                  <ThemedInput
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Email Address
-                </label>
-                <ThemedInput
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-            <ThemedButton type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  Searching...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Track Order
-                </>
-              )}
-            </ThemedButton>
-          </form>
+              <ThemedButton type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Track Order
+                  </>
+                )}
+              </ThemedButton>
+            </form>
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-        </CardContent>
-      </ThemedCard>
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+          </CardContent>
+        </ThemedCard>
+      )}
 
       {orderData && (
         <div className="space-y-6">

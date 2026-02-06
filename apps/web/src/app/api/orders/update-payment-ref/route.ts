@@ -1,5 +1,7 @@
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/orders/update-payment-ref
@@ -9,59 +11,49 @@ import { createServiceClient } from '@/lib/supabase/service';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { orderId, paymentRef, gateway } = await request.json();
+    const body = await request.json();
+    const parsed = z
+      .object({
+        orderId: z.string().uuid(),
+        paymentRef: z.string().min(1),
+        gateway: z.string().optional(),
+        tracking_token: z.string().optional(),
+      })
+      .safeParse(body);
 
-    if (!orderId || !paymentRef) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing required fields: orderId, paymentRef' },
+        { error: 'Invalid request data', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
-    const supabase = createServiceClient();
+    const { orderId, paymentRef, gateway, tracking_token } = parsed.data;
 
-    // Get current order notes
-    const { data: order, error: fetchError } = await supabase
-      .from('orders')
-      .select('notes')
-      .eq('id', orderId)
-      .single();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const { data, error } = await supabase.rpc('set_order_payment_ref', {
+      p_order_id: orderId,
+      p_payment_ref: paymentRef,
+      p_gateway: gateway || null,
+      p_tracking_token: tracking_token || null,
+    });
 
-    if (fetchError) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
-
-    // Parse existing notes and add payment reference
-    let existingNotes = {};
-    try {
-      existingNotes = JSON.parse(order.notes || '{}');
-    } catch {
-      existingNotes = {};
-    }
-
-    const updatedNotes = {
-      ...existingNotes,
-      [`${gateway || 'payment'}TransactionId`]: paymentRef,
-      paymentRefUpdatedAt: new Date().toISOString(),
-    };
-
-    // Update order with payment reference
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        notes: JSON.stringify(updatedNotes),
-      })
-      .eq('id', orderId);
-
-    if (updateError) {
-      console.error('Failed to update order payment ref:', updateError);
+    if (error) {
+      console.error('Failed to update order payment ref:', error);
+      const status =
+        error.code === 'PGRST116' || error.message === 'order_not_found'
+          ? 404
+          : error.message === 'unauthorized'
+            ? 403
+            : 500;
       return NextResponse.json(
-        { error: 'Failed to update order' },
-        { status: 500 }
+        { error: error.message || 'Failed to update order' },
+        { status }
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: Boolean(data) });
   } catch (error) {
     console.error('Update payment ref error:', error);
     return NextResponse.json(

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
@@ -376,7 +377,6 @@ export async function POST(request: NextRequest) {
 
         // Generate order number and tracking token
         const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
-        const { nanoid } = await import('nanoid');
 
         // Create standard order from chat order
         const { data: newOrder, error: orderCreateError } = await supabase
@@ -1068,10 +1068,7 @@ export async function POST(request: NextRequest) {
       error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
     });
     return NextResponse.json(
-      {
-        error: 'Webhook processing failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Webhook processing failed' },
       { status: 500 }
     );
   }
@@ -1160,12 +1157,6 @@ export async function GET(request: NextRequest) {
       message: 'Payment verification error',
       error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
     });
-    return NextResponse.json(
-      {
-        error: 'Verification failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }

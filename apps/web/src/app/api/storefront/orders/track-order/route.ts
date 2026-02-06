@@ -2,10 +2,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAnonClient } from '@/lib/supabase/anon';
 
-// Using direct Supabase client for unauthenticated order tracking.
-// This endpoint allows customers to track orders using order_number + email
-// without requiring authentication. The get_order_tracking RPC has RLS policies
-// that verify email ownership before returning order data.
+// Unauthenticated order tracking endpoint.
+// The get_order_tracking RPC is SECURITY DEFINER (bypasses table-level RLS).
+// Access control is enforced by the function's internal WHERE clauses:
+// - Token-based lookup: requires only possession of a valid tracking token
+// - Email-based lookup: requires matching email + order_id/order_number
+// PII (email, phone) is masked by the API route before returning to the client.
 
 interface TimelineEvent {
   status: string;

@@ -1,13 +1,6 @@
-'use server';
-
 import { type NextRequest, NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
-
-interface ValidationRequest {
-  merchant_id: string;
-  code: string;
-  cart_total: number;
-}
+import { z } from 'zod';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 /**
  * POST /api/storefront/discount/validate
@@ -16,27 +9,41 @@ interface ValidationRequest {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body: ValidationRequest = await request.json();
-    const { merchant_id, code, cart_total } = body;
+    const body = await request.json();
+    const parsed = z
+      .object({
+        merchant_id: z.string().uuid(),
+        code: z.string().min(1),
+        cart_total: z.number().nonnegative(),
+      })
+      .safeParse(body);
 
-    if (!code || !merchant_id || cart_total === undefined) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { valid: false, error: 'Missing required fields' },
+        {
+          valid: false,
+          error: 'Invalid input',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
-    // Use service role client to bypass RLS for anonymous storefront users
-    const supabase = createServiceClient();
+    const { merchant_id, code, cart_total } = parsed.data;
 
-    // Get discount code
-    const { data: discountCode, error } = await supabase
-      .from('discount_codes')
-      .select('*')
-      .eq('merchant_id', merchant_id)
-      .eq('code', code.toUpperCase())
-      .eq('is_active', true)
-      .single();
+    const supabase = createAnonClient();
+
+    const { data: discountRows, error } = await supabase.rpc(
+      'get_storefront_discount_code',
+      {
+        p_merchant_id: merchant_id,
+        p_code: code,
+      }
+    );
+
+    const discountCode = Array.isArray(discountRows)
+      ? discountRows[0]
+      : discountRows;
 
     if (error || !discountCode) {
       return NextResponse.json(
@@ -81,7 +88,7 @@ export async function POST(request: NextRequest) {
     // Check minimum purchase amount
     if (
       discountCode.minimum_purchase_amount &&
-      cart_total < discountCode.minimum_purchase_amount
+      cart_total < Number(discountCode.minimum_purchase_amount)
     ) {
       return NextResponse.json(
         {
@@ -96,7 +103,7 @@ export async function POST(request: NextRequest) {
     let discountAmount = 0;
     if (discountCode.discount_type === 'percentage') {
       discountAmount = Math.round(
-        (cart_total * discountCode.discount_value) / 100
+        (cart_total * Number(discountCode.discount_value)) / 100
       );
     } else {
       discountAmount = Math.round(Number(discountCode.discount_value));
@@ -105,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Apply maximum discount amount if set
     if (
       discountCode.maximum_discount_amount &&
-      discountAmount > discountCode.maximum_discount_amount
+      discountAmount > Number(discountCode.maximum_discount_amount)
     ) {
       discountAmount = Number(discountCode.maximum_discount_amount);
     }

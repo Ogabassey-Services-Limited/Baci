@@ -61,10 +61,11 @@ function OrderSuccessContent() {
       }
 
       try {
-        const res = await fetch(`/api/orders/${orderId}`);
+        // Use storefront endpoint (guest-accessible, no auth required)
+        const res = await fetch(`/api/storefront/orders/${orderId}`);
         if (res.ok) {
           const data = await res.json();
-          setOrder(data.order);
+          setOrder(data);
         }
       } catch (err) {
         console.error('Failed to fetch order', err);
