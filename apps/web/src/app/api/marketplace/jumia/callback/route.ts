@@ -4,9 +4,12 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
@@ -20,14 +23,14 @@ export async function GET(request: NextRequest) {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
-    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
+    const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
 
     // Jumia may return an error
     if (error) {
       logger.error({
         message: 'Jumia Callback OAuth error',
         error,
-        merchantId,
+        merchantId: cookieMerchantId,
       });
       return NextResponse.redirect(
         new URL(
@@ -57,8 +60,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      logger.error({
+        message: 'Jumia Callback Unauthorized',
+        error: auth.error,
+      });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=session_expired', request.url)
+      );
+    }
+
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
-      logger.error({ message: 'Jumia Callback No merchant ID in session' });
+      logger.error({ message: 'Jumia Callback Merchant not found' });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=merchant_not_found', request.url)
+      );
+    }
+
+    if (cookieMerchantId && cookieMerchantId !== merchantId) {
+      logger.error({
+        message: 'Jumia Callback Merchant mismatch',
+        cookieMerchantId,
+        merchantId,
+      });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=session_expired', request.url)
       );
@@ -84,10 +110,11 @@ export async function GET(request: NextRequest) {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || '', // Handle missing refresh token gracefully
       tokenExpiresAt: tokenExpiresAt,
+      supabase: auth.supabase,
     });
 
     const discoveredShops = await tempClient.getShops();
-    const supabase = createAdminClient();
+    const supabase = auth.supabase;
 
     if (discoveredShops.length === 0) {
       logger.warn({

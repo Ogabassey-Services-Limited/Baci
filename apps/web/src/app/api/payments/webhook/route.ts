@@ -125,7 +125,14 @@ function verifyPaystackWebhookSignature(
       .digest('hex');
 
     // Use timing-safe comparison to prevent timing attacks
-    return signature === expectedSignature;
+    const signatureBuffer = Buffer.from(String(signature), 'hex');
+    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
     logger.error({
       message: 'Paystack webhook signature verification error',
@@ -262,7 +269,7 @@ export async function POST(request: NextRequest) {
       paymentStatus = result.data.status;
       gatewayResponse = result.data as unknown as Record<string, unknown>;
     } else {
-      const result = await verifyKorapayPayment(reference);
+      const result = await verifyKorapayPayment(safeReference);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 400 });
       }

@@ -1,14 +1,20 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { isProduction } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+
+const deleteBodySchema = z.object({
+  path: z.string().min(1, 'No path provided'),
+});
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -24,6 +30,14 @@ const ALLOWED_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     // Default user client
     const userSupabase = createClient(cookieStore);
@@ -108,11 +122,11 @@ export async function POST(request: NextRequest) {
 
     // Parse form data
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-
-    if (!file) {
+    const entry = formData.get('file');
+    if (!entry || !(entry instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
+    const file = entry;
 
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -189,6 +203,14 @@ export async function POST(request: NextRequest) {
 // Delete image
 export async function DELETE(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -216,11 +238,11 @@ export async function DELETE(request: NextRequest) {
 
     const merchant = { id: access.merchantId };
 
-    const { path } = await request.json();
-
-    if (!path) {
+    const parsed = deleteBodySchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json({ error: 'No path provided' }, { status: 400 });
     }
+    const { path } = parsed.data;
 
     // Ensure the path belongs to this merchant and prevent path traversal
     const expectedPrefix = `${merchant.id}/blog/`;

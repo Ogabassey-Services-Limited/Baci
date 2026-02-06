@@ -126,7 +126,7 @@ function OrderTrackContent() {
   const merchantSlug = Array.isArray(slugParam) ? slugParam[0] : slugParam;
 
   const handleFetchTracking = useCallback(
-    async (params: {
+    async (trackingParams: {
       order_id?: string | null;
       order_number?: string | null;
       email?: string | null;
@@ -140,18 +140,20 @@ function OrderTrackContent() {
           throw new Error('Store identifier is missing.');
         }
         // Token-based lookup doesn't need email; manual form does
-        if (!params.tracking_token && !params.email) {
+        if (!trackingParams.tracking_token && !trackingParams.email) {
           throw new Error('Email is required to track an order.');
         }
 
         const queryParams = new URLSearchParams();
-        if (params.tracking_token) {
-          queryParams.set('token', params.tracking_token);
+        if (trackingParams.tracking_token) {
+          queryParams.set('token', trackingParams.tracking_token);
         } else {
-          if (params.order_id) queryParams.set('order_id', params.order_id);
-          if (params.order_number)
-            queryParams.set('order_number', params.order_number);
-          if (params.email) queryParams.set('email', params.email);
+          if (trackingParams.order_id)
+            queryParams.set('order_id', trackingParams.order_id);
+          if (trackingParams.order_number)
+            queryParams.set('order_number', trackingParams.order_number);
+          if (trackingParams.email)
+            queryParams.set('email', trackingParams.email);
         }
         queryParams.set('merchant_slug', merchantSlug);
 
@@ -211,7 +213,8 @@ function OrderTrackContent() {
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedOrderNumber = orderNumber.trim();
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       setError('Email is required to track an order.');
       return;
     }
@@ -223,7 +226,7 @@ function OrderTrackContent() {
     await handleFetchTracking({
       order_number: trimmedOrderNumber || null,
       order_id: trimmedOrderNumber ? null : orderId,
-      email,
+      email: trimmedEmail,
     });
   };
 

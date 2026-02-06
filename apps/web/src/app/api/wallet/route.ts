@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
@@ -35,9 +36,19 @@ export async function GET() {
     }
 
     // Get or create wallet
-    await supabase.rpc('get_or_create_merchant_wallet', {
-      p_merchant_id: merchant.id,
-    });
+    const { error: walletCreateError } = await supabase.rpc(
+      'get_or_create_merchant_wallet',
+      {
+        p_merchant_id: merchant.id,
+      }
+    );
+    if (walletCreateError) {
+      console.error('Failed to get or create wallet:', walletCreateError);
+      return NextResponse.json(
+        { error: 'Failed to initialize wallet' },
+        { status: 500 }
+      );
+    }
 
     // Get wallet details with summary (includes upcoming settlements)
     const { data: walletSummary, error: summaryError } = await supabase.rpc(
@@ -152,26 +163,51 @@ export async function GET() {
   }
 }
 
+const walletSettingsSchema = z.object({
+  autoPayoutEnabled: z.boolean().optional(),
+  autoPayoutDay: z
+    .enum([
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ])
+    .optional(),
+  minPayoutAmount: z.number().min(100).max(10_000_000).optional(),
+});
+
 /**
  * PATCH /api/wallet
  * Update wallet settings (auto-payout preferences)
  */
 export async function PATCH(request: NextRequest) {
-  // CSRF protection - prevents cross-site request forgery attacks
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   try {
+    // CSRF protection - prevents cross-site request forgery attacks
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     const body = await request.json();
-    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = body;
+
+    // Validate input
+    const parsed = walletSettingsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = parsed.data;
 
     // Auth check
     const {
@@ -201,27 +237,9 @@ export async function PATCH(request: NextRequest) {
       updates.auto_payout_enabled = autoPayoutEnabled;
     }
     if (autoPayoutDay) {
-      const validDays = [
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday',
-      ];
-      if (validDays.includes(autoPayoutDay.toLowerCase())) {
-        updates.auto_payout_day = autoPayoutDay.toLowerCase();
-      }
+      updates.auto_payout_day = autoPayoutDay.toLowerCase();
     }
-    if (typeof minPayoutAmount === 'number' && minPayoutAmount >= 100) {
-      // Security: cap max payout amount to prevent abuse
-      if (minPayoutAmount > 10000000) {
-        return NextResponse.json(
-          { error: 'Minimum payout amount cannot exceed ₦10,000,000' },
-          { status: 400 }
-        );
-      }
+    if (typeof minPayoutAmount === 'number') {
       updates.min_payout_amount = minPayoutAmount;
     }
 

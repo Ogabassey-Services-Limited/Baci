@@ -35,6 +35,9 @@ const onUpload = (file: File) => {
           image.onload = () => {
             resolve(url);
           };
+          image.onerror = () => {
+            resolve(url);
+          };
         } else if (res.status === 401) {
           resolve(file);
         } else {

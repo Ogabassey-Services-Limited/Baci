@@ -382,10 +382,13 @@ export const EditorToolbar = ({
           onClick={() => {
             const url = prompt('Enter YouTube URL');
             if (url) {
-              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-              (editor as any).commands.setYoutubeVideo({
-                src: url,
-              });
+              const sanitized = sanitizeUrl(url.trim());
+              if (sanitized) {
+                // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+                (editor as any).commands.setYoutubeVideo({
+                  src: sanitized,
+                });
+              }
             }
           }}
           className="h-8 w-8 p-0"
@@ -443,6 +446,7 @@ export const EditorToolbar = ({
             const pos = editor.state.selection.from;
             uploadFn(file, editor.view, pos);
           }
+          e.target.value = '';
         }}
       />
     </div>

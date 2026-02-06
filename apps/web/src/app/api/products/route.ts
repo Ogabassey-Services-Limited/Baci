@@ -532,7 +532,7 @@ export async function POST(request: NextRequest) {
     if (product?.id) {
       const embeddingText = getProductEmbeddingText({
         name: body.name,
-        description: body.description,
+        description: description,
         brand: body.brand,
         category_name: body.category,
       });
@@ -551,6 +551,7 @@ export async function POST(request: NextRequest) {
             id: product.id,
             text: embeddingText,
           }),
+          signal: AbortSignal.timeout(10_000),
         }
       ).catch((err) =>
         console.error('Failed to generate product embedding:', err)

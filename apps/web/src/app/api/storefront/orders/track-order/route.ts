@@ -1,5 +1,6 @@
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 // Using direct Supabase client for unauthenticated order tracking.
@@ -68,6 +69,28 @@ function extractFirstImageUrl(productImages: unknown): string | null {
   return null;
 }
 
+const trackOrderTokenSchema = z.object({
+  token: z.string().min(1),
+  merchant_slug: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/i),
+});
+
+const trackOrderEmailSchema = z
+  .object({
+    order_number: z.string().optional(),
+    order_id: z.string().uuid().optional(),
+    email: z.string().email(),
+    merchant_slug: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9-]+$/i),
+  })
+  .refine((data) => data.order_number || data.order_id, {
+    message: 'order_number or order_id is required',
+  });
+
 // GET - Track order by tracking token, or by order number/ID + email
 export async function GET(request: NextRequest) {
   try {
@@ -79,32 +102,40 @@ export async function GET(request: NextRequest) {
     const merchantSlug =
       searchParams.get('merchant_slug') || searchParams.get('slug');
 
+    // Validate input based on mode
+    if (trackingToken) {
+      const parsed = trackOrderTokenSchema.safeParse({
+        token: trackingToken,
+        merchant_slug: merchantSlug,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: 'Invalid input',
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      const parsed = trackOrderEmailSchema.safeParse({
+        order_number: orderNumber,
+        order_id: orderId,
+        email,
+        merchant_slug: merchantSlug,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: 'Invalid input',
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const orderIdParam = orderId && isUuid(orderId) ? orderId : null;
-
-    if (!merchantSlug) {
-      return NextResponse.json(
-        { error: 'merchant_slug is required' },
-        { status: 400 }
-      );
-    }
-
-    // Two lookup modes:
-    // 1. Token-based (from order-success link) — no email/order_number needed
-    // 2. Manual form (email + order_number/order_id)
-    if (!trackingToken) {
-      if (!orderNumber && !orderIdParam) {
-        return NextResponse.json(
-          { error: 'order_number or order_id is required' },
-          { status: 400 }
-        );
-      }
-      if (!email) {
-        return NextResponse.json(
-          { error: 'email is required' },
-          { status: 400 }
-        );
-      }
-    }
 
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
@@ -119,7 +150,7 @@ export async function GET(request: NextRequest) {
     const order = Array.isArray(orders) ? orders[0] : null;
 
     if (error || !order) {
-      console.error('Track error:', error);
+      console.error('Track order error:', error?.code ?? 'NOT_FOUND');
       return NextResponse.json(
         { error: 'Order not found. Please check your order number and email.' },
         { status: 404 }
@@ -327,13 +358,14 @@ function generateTimeline(order: {
 }
 
 function getTrackingUrl(provider: string, trackingNumber: string): string {
+  const encodedTracking = encodeURIComponent(trackingNumber);
   const providers: Record<string, string> = {
-    gigl: `https://giglogistics.com/track/${trackingNumber}`,
-    topship: `https://topship.africa/track/${trackingNumber}`,
+    gigl: `https://giglogistics.com/track/${encodedTracking}`,
+    topship: `https://topship.africa/track/${encodedTracking}`,
 
-    dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
-    fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
-    ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,
+    dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${encodedTracking}`,
+    fedex: `https://www.fedex.com/fedextrack/?trknbr=${encodedTracking}`,
+    ups: `https://www.ups.com/track?tracknum=${encodedTracking}`,
   };
 
   return providers[provider.toLowerCase()] || '#';
@@ -368,6 +400,7 @@ function calculateEstimatedDelivery(order: {
 }
 
 function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return '***';
   const [local, domain] = email.split('@');
   if (local.length <= 2) {
     return `${local[0]}***@${domain}`;

@@ -112,12 +112,13 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     return false;
   }
 
-  // Get secret from cookie using Edge-compatible request.cookies
-  const secretCookie = request.cookies.get(CSRF_SECRET_NAME);
+  // Get token from cookie using Edge-compatible request.cookies
+  // Note: secretCookie is stored for future HMAC binding but current Double Submit
+  // Cookie pattern only validates token matching (header vs cookie)
   const tokenCookie = request.cookies.get(CSRF_TOKEN_NAME);
 
-  if (!secretCookie || !tokenCookie) {
-    console.warn('CSRF: Missing cookies');
+  if (!tokenCookie) {
+    console.warn('CSRF: Missing token cookie');
     return false;
   }
 
@@ -184,5 +185,5 @@ export function getClientCsrfToken(): string | null {
 
   if (!csrfCookie) return null;
 
-  return csrfCookie.split('=')[1];
+  return csrfCookie.split('=').slice(1).join('=');
 }

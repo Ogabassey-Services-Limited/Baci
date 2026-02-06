@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import z from 'zod';
 import {
   CREDIT_DIRECT_CONFIG,
   generateSessionId,
@@ -11,11 +12,13 @@ import {
 } from '@/lib/credit-direct';
 import { createClient } from '@/lib/supabase/server';
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
-}
+// Zod validation schema
+const creditDirectSignSchema = z.object({
+  customerEmail: z.string().max(254).email(),
+  totalAmount: z.number().positive(),
+  merchantSlug: z.string().min(1),
+  orderId: z.string().uuid(),
+});
 
 /**
  * POST /api/payments/credit-direct/sign
@@ -38,47 +41,20 @@ function isUuid(value: string) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerEmail, totalAmount, merchantSlug, orderId } = body;
 
-    // Validate required fields
-    if (!customerEmail || !totalAmount || !merchantSlug || !orderId) {
+    // Validate request with Zod
+    const parsed = creditDirectSignSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
         {
-          error:
-            'Missing required fields: customerEmail, totalAmount, merchantSlug, orderId',
+          error: 'Invalid request',
+          details: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
     }
 
-    if (!isUuid(orderId)) {
-      return NextResponse.json(
-        { error: 'Invalid orderId format' },
-        { status: 400 }
-      );
-    }
-
-    // Validate email format with length limit to prevent ReDoS
-    const isValidEmail =
-      customerEmail.length <= 254 &&
-      customerEmail.includes('@') &&
-      customerEmail.indexOf('@') > 0 &&
-      customerEmail.lastIndexOf('.') > customerEmail.indexOf('@') + 1 &&
-      !/\s/.test(customerEmail);
-    if (!isValidEmail) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount is a positive number
-    if (typeof totalAmount !== 'number' || totalAmount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount: must be a positive number' },
-        { status: 400 }
-      );
-    }
+    const { customerEmail, totalAmount, merchantSlug, orderId } = parsed.data;
 
     // This is an unauthenticated endpoint for storefront checkout
     // It uses RLS-protected RPCs to fetch public merchant settings
@@ -109,19 +85,6 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid merchant configuration' },
         { status: 500 }
       );
-    }
-
-    console.log('Credit Direct Sign Debug:', {
-      requestSlug: merchantSlug,
-      foundMerchantId: merchantId,
-      settingsFound: !!settings,
-      creditDirectEnabled: settings?.credit_direct_enabled,
-      settingsError,
-    });
-
-    if (settingsError) {
-      console.error('Error fetching merchant feature settings:', settingsError);
-      // Continue with defaults if there's an error
     }
 
     const creditDirectEnabled = settings?.credit_direct_enabled ?? false;
@@ -173,6 +136,12 @@ export async function POST(request: NextRequest) {
 
     const snapshotTotal = Number(orderSnapshot.total);
     if (Number.isNaN(snapshotTotal)) {
+      return NextResponse.json(
+        { error: 'Invalid order total' },
+        { status: 400 }
+      );
+    }
+    if (snapshotTotal <= 0) {
       return NextResponse.json(
         { error: 'Invalid order total' },
         { status: 400 }

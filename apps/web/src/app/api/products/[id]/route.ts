@@ -267,7 +267,9 @@ export async function PUT(
     if (body.meta_description !== undefined) {
       updates.meta_description = body.meta_description;
     } else if (body.description !== undefined && body.description !== null) {
-      updates.meta_description = generateMetaDescription(body.description);
+      updates.meta_description = generateMetaDescription(
+        updates.description as string
+      );
     }
 
     // Pricing fields
@@ -339,7 +341,7 @@ export async function PUT(
       // Regenerate schema if core product fields changed
       const schemaName = String(body.name ?? existingProduct.name ?? '');
       const schemaDescription = String(
-        body.description ?? existingProduct.description ?? ''
+        updates.description ?? existingProduct.description ?? ''
       );
       const schemaSku = String(updates.sku ?? '');
 
@@ -471,6 +473,7 @@ export async function PUT(
             id: updatedProduct.id,
             text: embeddingText,
           }),
+          signal: AbortSignal.timeout(10_000),
         }
       ).catch((err) =>
         console.error('Failed to regenerate product embedding:', err)

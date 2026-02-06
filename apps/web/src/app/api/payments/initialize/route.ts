@@ -13,6 +13,7 @@ import { customAlphabet } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   capturePaymentWithCrypto,
   formatPhoneToE164,
@@ -176,7 +177,17 @@ function getClientIp(request: NextRequest): string {
     !ip.startsWith('127.') &&
     !ip.startsWith('192.168.') &&
     !ip.startsWith('10.') &&
-    !ip.startsWith('::')
+    !ip.startsWith('::') &&
+    !ip.startsWith('172.16.') &&
+    !ip.startsWith('172.17.') &&
+    !ip.startsWith('172.18.') &&
+    !ip.startsWith('172.19.') &&
+    !ip.startsWith('172.2') &&
+    !ip.startsWith('172.30.') &&
+    !ip.startsWith('172.31.') &&
+    !ip.startsWith('fe80:') &&
+    !ip.startsWith('fc00:') &&
+    !ip.startsWith('fd')
   ) {
     return ip;
   }
@@ -257,15 +268,6 @@ async function initializeJuicyway(
     }
   }
 
-  // Log the payment request for debugging
-  console.log('Juicyway payment request:', {
-    amount: amountInMinor,
-    currency: paymentCurrency,
-    isCryptoPayment,
-    cryptoChain: isCryptoPayment ? cryptoChain : undefined,
-    cryptoCurrency: isCryptoPayment ? cryptoCurrency : undefined,
-  });
-
   const juicywayData = await initializeJuicywayPayment({
     amount: amountInMinor, // Always send in NGN minor units (kobo), Juicyway handles conversion
     currency: paymentCurrency,
@@ -292,7 +294,7 @@ async function initializeJuicyway(
     reference,
     payment_method: { type: isCryptoPayment ? 'crypto_address' : 'card' },
     order: {
-      identifier: data.order_id || reference,
+      identifier: data.order_id,
       items: data.items || [
         {
           name: 'Order Payment',
@@ -337,12 +339,6 @@ async function initializeJuicyway(
   // This is a two-step process: 1) Initialize session, 2) Capture with crypto details
   // Juicyway may return 'pending' status initially - we retry a few times
   if (isCryptoPayment && juicywayData.id) {
-    console.log('Capturing crypto payment session:', {
-      sessionId: juicywayData.id,
-      chain: cryptoChain,
-      currency: cryptoCurrency,
-    });
-
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 2000; // 2 seconds between retries
 
@@ -372,7 +368,6 @@ async function initializeJuicyway(
 
       while (attempt < MAX_RETRIES) {
         attempt++;
-        console.log(`Crypto capture attempt ${attempt}/${MAX_RETRIES}`);
 
         captureResult = await capturePaymentWithCrypto(
           juicywayData.id,
@@ -431,16 +426,6 @@ async function initializeJuicyway(
       // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
       const paymentId = cryptoData?.payment?.id;
 
-      console.log('Crypto payment captured successfully:', {
-        sessionId: juicywayData.id,
-        paymentId,
-        address: paymentMethod.address,
-        chain: paymentMethod.chain,
-        currency: paymentMethod.currency,
-        amount: cryptoData?.payment?.amount,
-        attempts: attempt,
-      });
-
       return {
         authorization_url: '', // No redirect needed for crypto payments
         crypto_payment: {
@@ -466,16 +451,6 @@ async function initializeJuicyway(
       );
     }
   }
-
-  // For card payments, check if we have a checkout URL
-  console.log('Juicyway card payment response:', {
-    sessionId: juicywayData.id,
-    paymentMethod: juicywayData.payment_method?.type,
-    hasCheckoutUrl: !!juicywayData.checkout_url,
-    checkoutUrl: juicywayData.checkout_url,
-    links: juicywayData.links,
-    status: juicywayData.status,
-  });
 
   // If no checkout URL is returned for card payment, throw an error
   if (!juicywayData.checkout_url) {
@@ -595,6 +570,15 @@ async function initializeKorapay(
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF Protection
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     // Parse and validate request body
     const body = await request.json();
     const parseResult = PaymentInitRequestSchema.safeParse(body);
@@ -746,6 +730,13 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'paystack':
+        if (!merchant.paystack_subaccount_code) {
+          return createErrorResponse(
+            'Paystack is not configured for this merchant',
+            'GATEWAY_NOT_CONFIGURED',
+            400
+          );
+        }
         paymentResult = await initializePaystack(
           data,
           merchant,
@@ -829,7 +820,6 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to initialize payment',
         code: 'PAYMENT_INIT_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

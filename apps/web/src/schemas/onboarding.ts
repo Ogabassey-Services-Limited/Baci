@@ -18,7 +18,7 @@ const _preprocessEmail = (val: unknown) =>
 const _preprocessPhone = (val: unknown) =>
   typeof val === 'string' ? sanitizePhone(sanitizeText(val)) : val;
 const _preprocessUrl = (val: unknown) =>
-  typeof val === 'string' ? sanitizeUrl(val) : val;
+  typeof val === 'string' ? sanitizeUrl(sanitizeText(val)) : val;
 
 /**
  * --- SHARED BASE SCHEMAS ---
@@ -44,14 +44,18 @@ const step1BaseSchema = z.object({
   slug: z.preprocess(
     (val) => {
       if (typeof val !== 'string') return val;
+      // Handle empty string early
+      if (val.trim() === '') return undefined;
       const sanitized = sanitizeText(val);
       // Normalize to URL-safe slug: lowercase, replace spaces/special chars with hyphens
-      return sanitized
+      const result = sanitized
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9-]/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
+      // Return undefined if sanitization resulted in empty string
+      return result === '' ? undefined : result;
     },
     z
       .string()

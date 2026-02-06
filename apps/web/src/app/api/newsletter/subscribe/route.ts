@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { sanitizeText } from '@/lib/sanitize-core';
 import { sendEmail } from '@/lib/zeptomail';
 
 // Public endpoint — uses a stateless anon client (no cookie/session needed)
@@ -22,6 +23,11 @@ const subscribeSchema = z.object({
     .enum(['widget', 'footer', 'checkout', 'popup'])
     .optional()
     .default('widget'),
+});
+
+const unsubscribeSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  merchantId: z.string().uuid('Invalid merchant ID').optional(),
 });
 
 /**
@@ -65,6 +71,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Type guard for RPC result
+    const validResults: string[] = [
+      'already_subscribed',
+      'resubscribed',
+      'subscribed',
+    ];
+    if (subscribeResult && !validResults.includes(subscribeResult as string)) {
+      console.error('Unexpected subscribe_newsletter result:', subscribeResult);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+
     if (subscribeResult === 'already_subscribed') {
       return NextResponse.json({
         success: true,
@@ -84,13 +104,16 @@ export async function POST(request: NextRequest) {
     // Get merchant info for personalized email
     let merchantName = 'Baci';
     if (merchantId) {
-      const { data: merchant } = await supabase
+      const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
         .select('business_name')
         .eq('id', merchantId)
         .single();
+      if (merchantError) {
+        console.warn('Could not fetch merchant name:', merchantError.message);
+      }
       if (merchant?.business_name) {
-        merchantName = merchant.business_name;
+        merchantName = sanitizeText(merchant.business_name);
       }
     }
 
@@ -150,14 +173,24 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
-    const merchantId = searchParams.get('merchantId');
     const _token = searchParams.get('token'); // For secure unsubscribe links (reserved for future use)
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    const validation = unsubscribeSchema.safeParse({
+      email: searchParams.get('email'),
+      merchantId: searchParams.get('merchantId'),
+    });
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request',
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
     }
 
+    const { email, merchantId } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
     const supabase = _createAnonClient();

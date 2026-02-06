@@ -49,12 +49,7 @@ interface OtpState {
   expiresAt?: number;
 }
 
-interface GoogleAuthResponse {
-  url?: string;
-  error?: string;
-}
-
-interface AppleAuthResponse {
+interface OAuthRedirectResponse {
   url?: string;
   error?: string;
 }
@@ -239,8 +234,7 @@ export function CustomerAuthProvider({
         body: JSON.stringify({ merchantSlug, redirectUrl }),
       });
 
-      const data: GoogleAuthResponse | AppleAuthResponse =
-        await response.json();
+      const data: OAuthRedirectResponse = await response.json();
 
       if (!response.ok) {
         return {
@@ -302,8 +296,9 @@ export function CustomerAuthProvider({
         '.google.com', // Wildcard for *.google.com
         'supabase.co',
         '.supabase.co', // Wildcard for *.supabase.co
-        '127.0.0.1',
-        'localhost',
+        ...(process.env.NODE_ENV !== 'production'
+          ? ['127.0.0.1', 'localhost']
+          : []),
       ],
       'Google'
     );
@@ -321,8 +316,9 @@ export function CustomerAuthProvider({
         '.apple.com', // Wildcard for *.apple.com
         'supabase.co',
         '.supabase.co', // Wildcard for *.supabase.co
-        '127.0.0.1',
-        'localhost',
+        ...(process.env.NODE_ENV !== 'production'
+          ? ['127.0.0.1', 'localhost']
+          : []),
       ],
       'Apple'
     );

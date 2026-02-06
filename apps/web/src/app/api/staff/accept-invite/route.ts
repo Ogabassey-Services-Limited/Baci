@@ -1,6 +1,25 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
+
+interface AcceptedStaff {
+  id: string;
+  role: string;
+  merchant_id: string;
+}
+
+interface InvitePreview {
+  email: string;
+  role: string;
+  merchant_business_name: string | null;
+  invitation_expires_at: string;
+}
+
+const acceptInviteSchema = z.object({
+  token: z.string().uuid('Invalid invitation token'),
+});
 
 /**
  * POST /api/staff/accept-invite
@@ -8,6 +27,14 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -22,16 +49,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { token } = body;
-
-    if (!token) {
+    // Validate request body
+    const parsed = acceptInviteSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invitation token is required' },
         { status: 400 }
       );
     }
+    const { token } = parsed.data;
 
     if (!user.email) {
       return NextResponse.json(
@@ -48,7 +74,7 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const acceptedStaff =
+    const acceptedStaff: AcceptedStaff | null =
       Array.isArray(acceptedRows) && acceptedRows.length > 0
         ? acceptedRows[0]
         : null;
@@ -96,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Invitation accepted successfully',
-      staff: acceptedStaff,
+      staff: { id: acceptedStaff.id, role: acceptedStaff.role },
       redirectUrl: '/dashboard',
     });
   } catch (error) {
@@ -129,7 +155,7 @@ export async function GET(request: NextRequest) {
       { p_token: token }
     );
 
-    const invitation =
+    const invitation: InvitePreview | null =
       Array.isArray(previewRows) && previewRows.length > 0
         ? previewRows[0]
         : null;

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
 import { StorefrontProductCard } from './product-card';
 
@@ -79,6 +79,10 @@ const mockProduct: Product = {
 
 describe('StorefrontProductCard', () => {
   const mockHandler = vi.fn();
+
+  beforeEach(() => {
+    mockHandler.mockReset();
+  });
 
   it('renders product name and price', () => {
     render(
