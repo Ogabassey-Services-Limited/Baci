@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { VercelApiError, vercel } from '@/lib/vercel';
+import { vercel } from '@/lib/vercel';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
 
@@ -134,7 +134,10 @@ export async function POST(request: NextRequest) {
       vercelResponse = await vercel.addDomain(domain);
     } catch (error: unknown) {
       console.error('Vercel Add Domain Error:', error);
-      const status = error instanceof VercelApiError ? error.status : 500;
+      const status =
+        error instanceof Error && 'status' in error
+          ? (error as Error & { status: number }).status
+          : 500;
       const message =
         status === 409
           ? 'Domain is already in use by another account.'
