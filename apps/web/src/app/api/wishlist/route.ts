@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -101,6 +102,14 @@ export async function GET(request: NextRequest) {
  * Add item to wish list (authenticated user or guest session)
  */
 export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const body = await request.json();
     const { productId, merchantId, sessionToken } = body;
@@ -189,6 +198,14 @@ export async function POST(request: NextRequest) {
  * Remove item from wish list (with ownership verification)
  */
 export async function DELETE(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');

@@ -218,6 +218,8 @@ export function getContrastColor(hexColor: string): 'black' | 'white' {
   return luminance > 0.5 ? 'black' : 'white';
 }
 
+const formatterCache = new Map<string, Intl.NumberFormat>();
+
 /**
  * Format currency amount
  * - Takes amount in minor units (kobo/cents) by default
@@ -231,10 +233,16 @@ export const formatCurrency = (
   // Most currencies including NGN and USD use 2 decimal places
   const majorAmount = amount / 100;
 
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: currencyCode,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0, // No decimals for Naira usually, unless cents are critical
-  }).format(majorAmount);
+  let formatter = formatterCache.get(currencyCode);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    formatterCache.set(currencyCode, formatter);
+  }
+
+  return formatter.format(majorAmount);
 };

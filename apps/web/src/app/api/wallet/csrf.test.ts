@@ -97,12 +97,7 @@ describe('Wallet API CSRF Protection', () => {
   });
 
   describe('POST /api/wallet/withdraw', () => {
-    it('should call checkCsrfProtection', async () => {
-      // Setup mock for checkCsrfProtection
-      const checkCsrfMock = vi.mocked(csrf.checkCsrfProtection);
-      checkCsrfMock.mockResolvedValue({ valid: true });
-
-      // Create a mock request
+    it('should return 403 when withdrawals are disabled', async () => {
       const request = new NextRequest(
         'http://localhost:3000/api/wallet/withdraw',
         {
@@ -114,11 +109,11 @@ describe('Wallet API CSRF Protection', () => {
         }
       );
 
-      // Call the handler
-      await POST_WITHDRAW(request);
+      const response = await POST_WITHDRAW(request);
 
-      // Verify checkCsrfProtection was called
-      expect(checkCsrfMock).toHaveBeenCalledWith(request);
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe('Withdrawals are temporarily disabled');
     });
   });
 });
