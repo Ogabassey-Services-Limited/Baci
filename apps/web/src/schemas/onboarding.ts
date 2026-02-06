@@ -16,7 +16,7 @@ const _preprocessText = (val: unknown) =>
 const _preprocessEmail = (val: unknown) =>
   typeof val === 'string' ? sanitizeEmail(sanitizeText(val)) : val;
 const _preprocessPhone = (val: unknown) =>
-  typeof val === 'string' ? sanitizePhone(val) : val;
+  typeof val === 'string' ? sanitizePhone(sanitizeText(val)) : val;
 const _preprocessUrl = (val: unknown) =>
   typeof val === 'string' ? sanitizeUrl(val) : val;
 
@@ -42,11 +42,25 @@ const step1BaseSchema = z.object({
     z.string().trim().optional()
   ),
   slug: z.preprocess(
-    _preprocessText,
+    (val) => {
+      if (typeof val !== 'string') return val;
+      const sanitized = sanitizeText(val);
+      // Normalize to URL-safe slug: lowercase, replace spaces/special chars with hyphens
+      return sanitized
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9-]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    },
     z
       .string()
       .trim()
       .min(3, { message: 'Store link must be at least 3 characters.' })
+      .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, {
+        message:
+          'Store link must contain only lowercase letters, numbers, and hyphens.',
+      })
       .optional()
   ),
 });
@@ -153,6 +167,20 @@ const refineStep3Password = (
 };
 
 /**
+ * --- SHARED FIELD SCHEMAS ---
+ */
+
+const createRequiredLogoUrl = (message: string) =>
+  z.preprocess(
+    _preprocessUrl,
+    z
+      .string()
+      .trim()
+      .min(1, { message })
+      .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
+  );
+
+/**
  * --- PLATFORM SPECIFIC SCHEMAS (2026 Best Practice: Composition) ---
  */
 
@@ -164,16 +192,8 @@ export const onboardingSchema = step1BaseSchema
   .merge(step2BaseSchema)
   .merge(step3BaseSchema)
   .extend({
-    logoUrl: z.preprocess(
-      _preprocessUrl,
-      z
-        .string()
-        .trim()
-        .min(1, {
-          message:
-            'Logo is required for web setup. Please upload or generate one.',
-        })
-        .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
+    logoUrl: createRequiredLogoUrl(
+      'Logo is required for web setup. Please upload or generate one.'
     ),
   })
   .superRefine((data, ctx) => {
@@ -200,16 +220,8 @@ export const mobileOnboardingSchema = step1BaseSchema
 export const step1Schema = step1BaseSchema.superRefine(refineStep1Other);
 
 export const step2Schema = step2BaseSchema.extend({
-  logoUrl: z.preprocess(
-    _preprocessUrl,
-    z
-      .string()
-      .trim()
-      .min(1, {
-        message:
-          'Logo is required for step validation. Please upload or generate one.',
-      })
-      .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
+  logoUrl: createRequiredLogoUrl(
+    'Logo is required for step validation. Please upload or generate one.'
   ),
 });
 

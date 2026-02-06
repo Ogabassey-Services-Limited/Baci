@@ -1,12 +1,20 @@
 import { createImageUpload } from 'novel';
 import { toast } from '@/hooks/use-toast';
+import { getClientCsrfToken } from '@/lib/csrf';
 
 const onUpload = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
 
+  const csrfToken = getClientCsrfToken();
+  const headers: HeadersInit = {};
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
+  }
+
   const promise = fetch('/api/merchant/blog/upload', {
     method: 'POST',
+    headers,
     body: formData,
   });
 
@@ -29,7 +37,6 @@ const onUpload = (file: File) => {
           };
         } else if (res.status === 401) {
           resolve(file);
-          throw new Error('Not authenticated. Image loaded locally instead.');
         } else {
           const data = await res.json().catch(() => ({}));
           throw new Error(

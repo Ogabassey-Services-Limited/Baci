@@ -34,12 +34,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
 import { ColorSelector } from './color-selector';
 import { NodeSelector } from './node-selector';
@@ -290,50 +287,57 @@ export const EditorToolbar = ({
         >
           <LinkIcon className="h-4 w-4" />
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Insert Image"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Upload image from device"
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Upload from device
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setImageUrlOpen(true)}
+              aria-label="Insert image from URL"
+            >
+              <LinkIcon className="mr-2 h-4 w-4" />
+              Insert from URL
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Popover open={imageUrlOpen} onOpenChange={setImageUrlOpen}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Insert Image"
-              >
-                <ImageIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Upload from device
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setImageUrlOpen(true)}>
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Insert from URL
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <PopoverTrigger className="hidden" />
           <PopoverContent
             align="start"
             className="w-80 p-3"
             onInteractOutside={() => setImageUrlOpen(false)}
           >
             <div className="space-y-2">
-              <p className="text-sm font-medium">Image URL</p>
+              <label htmlFor="image-url-input" className="text-sm font-medium">
+                Image URL
+              </label>
               <Input
+                id="image-url-input"
                 placeholder="https://example.com/image.jpg"
                 value={imageUrlValue}
                 onChange={(e) => setImageUrlValue(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && imageUrlValue.trim()) {
-                    editor
-                      .chain()
-                      .focus()
-                      .setImage({ src: imageUrlValue.trim() })
-                      .run();
-                    setImageUrlValue('');
-                    setImageUrlOpen(false);
+                    const sanitized = sanitizeUrl(imageUrlValue.trim());
+                    if (sanitized) {
+                      editor.chain().focus().setImage({ src: sanitized }).run();
+                      setImageUrlValue('');
+                      setImageUrlOpen(false);
+                    }
                   }
                 }}
               />
@@ -343,13 +347,12 @@ export const EditorToolbar = ({
                 disabled={!imageUrlValue.trim()}
                 onClick={() => {
                   if (imageUrlValue.trim()) {
-                    editor
-                      .chain()
-                      .focus()
-                      .setImage({ src: imageUrlValue.trim() })
-                      .run();
-                    setImageUrlValue('');
-                    setImageUrlOpen(false);
+                    const sanitized = sanitizeUrl(imageUrlValue.trim());
+                    if (sanitized) {
+                      editor.chain().focus().setImage({ src: sanitized }).run();
+                      setImageUrlValue('');
+                      setImageUrlOpen(false);
+                    }
                   }
                 }}
               >

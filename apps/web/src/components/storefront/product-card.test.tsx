@@ -119,4 +119,87 @@ describe('StorefrontProductCard', () => {
     expect(screen.getByText(/original price/i)).toBeInTheDocument();
     expect(screen.getByText(/current price/i)).toBeInTheDocument();
   });
+
+  it('does not render discount badge when compare_at_price equals price', () => {
+    const noDiscountProduct = {
+      ...mockProduct,
+      compare_at_price: 100, // Same as price
+    };
+
+    render(
+      <StorefrontProductCard
+        product={noDiscountProduct}
+        staggerClass=""
+        onAddToCart={mockHandler}
+        onUpdateQuantity={mockHandler}
+        onQuickView={mockHandler}
+      />
+    );
+
+    expect(screen.getByText('$100')).toBeInTheDocument();
+    expect(screen.queryByText(/-%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/original price/i)).not.toBeInTheDocument();
+  });
+
+  it('does not render discount badge when discount rounds to 0%', () => {
+    const tinyDiscountProduct = {
+      ...mockProduct,
+      price: 9999,
+      compare_at_price: 10000, // 0.01% off — rounds to 0
+    };
+
+    render(
+      <StorefrontProductCard
+        product={tinyDiscountProduct}
+        staggerClass=""
+        onAddToCart={mockHandler}
+        onUpdateQuantity={mockHandler}
+        onQuickView={mockHandler}
+      />
+    );
+
+    expect(screen.queryByText(/-%/)).not.toBeInTheDocument();
+  });
+
+  it('shows out-of-stock state and disables add-to-cart when stock is 0', () => {
+    const outOfStockProduct = {
+      ...mockProduct,
+      stock: 0,
+      manage_stock: true,
+    };
+
+    render(
+      <StorefrontProductCard
+        product={outOfStockProduct}
+        staggerClass=""
+        onAddToCart={mockHandler}
+        onUpdateQuantity={mockHandler}
+        onQuickView={mockHandler}
+      />
+    );
+
+    const addButton = screen.getByRole('button', { name: /out of stock/i });
+    expect(addButton).toBeDisabled();
+  });
+
+  it('shows low-stock indicator at threshold', () => {
+    const lowStockProduct = {
+      ...mockProduct,
+      stock: 3,
+      manage_stock: true,
+      low_stock_threshold: 5,
+    };
+
+    render(
+      <StorefrontProductCard
+        product={lowStockProduct}
+        staggerClass=""
+        onAddToCart={mockHandler}
+        onUpdateQuantity={mockHandler}
+        onQuickView={mockHandler}
+      />
+    );
+
+    expect(screen.getByText(/low stock/i)).toBeInTheDocument();
+  });
 });

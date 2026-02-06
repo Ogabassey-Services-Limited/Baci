@@ -167,7 +167,7 @@ function OrderSuccessContent() {
               >
                 View My Orders
               </Link>
-            ) : (
+            ) : orderId ? (
               <Link
                 href={asRoute(
                   getHref(
@@ -182,7 +182,7 @@ function OrderSuccessContent() {
               >
                 Track My Order
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

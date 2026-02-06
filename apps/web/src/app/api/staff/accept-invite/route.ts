@@ -55,34 +55,42 @@ export async function POST(request: NextRequest) {
 
     if (acceptError || !acceptedStaff) {
       const message = acceptError?.message || 'Failed to accept invitation';
-      const status =
-        message === 'invite_expired' || message === 'invite_used'
-          ? 400
-          : message === 'email_mismatch'
-            ? 403
-            : message === 'already_owner' || message === 'already_staff'
-              ? 400
-              : message === 'invalid_invite'
-                ? 404
-                : 500;
-      return NextResponse.json(
-        {
-          error:
-            message === 'invite_expired'
-              ? 'This invitation has expired'
-              : message === 'invite_used'
-                ? 'This invitation has already been used'
-                : message === 'email_mismatch'
-                  ? 'This invitation was sent to a different email address'
-                  : message === 'already_owner'
-                    ? 'You are already the owner of this store'
-                    : message === 'already_staff'
-                      ? 'You are already a staff member of this store'
-                      : message === 'invalid_invite'
-                        ? 'Invalid or expired invitation'
-                        : 'Failed to accept invitation',
+
+      const errorMap: Record<string, { status: number; error: string }> = {
+        invite_expired: {
+          status: 400,
+          error: 'This invitation has expired',
         },
-        { status }
+        invite_used: {
+          status: 400,
+          error: 'This invitation has already been used',
+        },
+        email_mismatch: {
+          status: 403,
+          error: 'This invitation was sent to a different email address',
+        },
+        already_owner: {
+          status: 400,
+          error: 'You are already the owner of this store',
+        },
+        already_staff: {
+          status: 400,
+          error: 'You are already a staff member of this store',
+        },
+        invalid_invite: {
+          status: 404,
+          error: 'Invalid or expired invitation',
+        },
+      };
+
+      const errorResponse = errorMap[message] || {
+        status: 500,
+        error: 'Failed to accept invitation',
+      };
+
+      return NextResponse.json(
+        { error: errorResponse.error },
+        { status: errorResponse.status }
       );
     }
 

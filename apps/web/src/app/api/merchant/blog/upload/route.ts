@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       host.includes('localhost') || host.startsWith('127.0.0.1');
     const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
     const hasValidSecret =
-      !expectedSecret || devOverrideSecret === expectedSecret;
+      expectedSecret && devOverrideSecret === expectedSecret;
     const isDevOverride =
       !user &&
       isDevEnv &&

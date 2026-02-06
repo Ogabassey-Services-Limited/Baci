@@ -39,7 +39,7 @@ function getVerifiedAmount(
   gatewayResponse: Record<string, unknown>
 ): { amount: number; currency?: string } | null {
   const rawAmount = gatewayResponse.amount;
-  if (typeof rawAmount !== 'number') {
+  if (typeof rawAmount !== 'number' || !Number.isFinite(rawAmount)) {
     return null;
   }
 
@@ -330,6 +330,12 @@ export async function POST(request: NextRequest) {
               { status: 400 }
             );
           }
+        } else {
+          logger.warn({
+            message: 'Could not verify payment amount for chat order',
+            reference,
+            gateway,
+          });
         }
 
         // Parse items from JSONB
@@ -663,7 +669,7 @@ export async function POST(request: NextRequest) {
       if (
         expectedCurrency &&
         verifiedAmount.currency &&
-        expectedCurrency !== verifiedAmount.currency
+        expectedCurrency.toUpperCase() !== verifiedAmount.currency.toUpperCase()
       ) {
         logger.error({
           message: 'Payment currency mismatch',
@@ -677,6 +683,12 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    } else {
+      logger.warn({
+        message: 'Could not verify payment amount',
+        reference,
+        gateway,
+      });
     }
 
     // Check if already processed

@@ -9,7 +9,7 @@
  * - Proper separation of concerns
  */
 
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
@@ -647,8 +647,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate order total: Number(null) => 0, Number(undefined) => NaN
     const snapshotTotal = Number(orderSnapshot.total);
-    if (!Number.isNaN(snapshotTotal) && data.amount > snapshotTotal) {
+    if (
+      orderSnapshot.total == null ||
+      Number.isNaN(snapshotTotal) ||
+      snapshotTotal <= 0
+    ) {
+      return createErrorResponse(
+        'Invalid order total',
+        'INVALID_ORDER_TOTAL',
+        400
+      );
+    }
+    if (data.amount > snapshotTotal) {
       return createErrorResponse(
         'Amount exceeds order total',
         'AMOUNT_EXCEEDS_TOTAL',
@@ -707,10 +719,15 @@ export async function POST(request: NextRequest) {
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
 
     // Generate reference and URLs
+    // Use customAlphabet with uppercase-safe alphabet for consistent uppercase references
+    const nanoidUppercase = customAlphabet(
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      12
+    );
     const reference =
       gateway === 'juicyway'
         ? generateJuicywayReference('baci')
-        : `BAC-${nanoid(12).toUpperCase()}`;
+        : `BAC-${nanoidUppercase()}`;
     const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
 
     // Initialize payment based on gateway

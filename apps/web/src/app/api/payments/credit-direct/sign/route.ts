@@ -1,6 +1,5 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   CREDIT_DIRECT_CONFIG,
   generateSessionId,
@@ -10,6 +9,13 @@ import {
   isLiveMode,
   signTransaction,
 } from '@/lib/credit-direct';
+import { createClient } from '@/lib/supabase/server';
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
 
 /**
  * POST /api/payments/credit-direct/sign
@@ -45,6 +51,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!isUuid(orderId)) {
+      return NextResponse.json(
+        { error: 'Invalid orderId format' },
+        { status: 400 }
+      );
+    }
+
     // Validate email format with length limit to prevent ReDoS
     const isValidEmail =
       customerEmail.length <= 254 &&
@@ -67,17 +80,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseAnonKey(),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      }
-    );
+    // This is an unauthenticated endpoint for storefront checkout
+    // It uses RLS-protected RPCs to fetch public merchant settings
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // Fetch merchant + Credit Direct settings (public-safe RPC)
     const { data: settingsRows, error: settingsError } = await supabase.rpc(
@@ -97,7 +103,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const merchantId = settings.merchant_id as string;
+    const merchantId = settings.merchant_id;
+    if (typeof merchantId !== 'string' || !merchantId) {
+      return NextResponse.json(
+        { error: 'Invalid merchant configuration' },
+        { status: 500 }
+      );
+    }
 
     console.log('Credit Direct Sign Debug:', {
       requestSlug: merchantSlug,
@@ -160,7 +172,13 @@ export async function POST(request: NextRequest) {
     }
 
     const snapshotTotal = Number(orderSnapshot.total);
-    if (!Number.isNaN(snapshotTotal) && totalAmount > snapshotTotal) {
+    if (Number.isNaN(snapshotTotal)) {
+      return NextResponse.json(
+        { error: 'Invalid order total' },
+        { status: 400 }
+      );
+    }
+    if (totalAmount > snapshotTotal) {
       return NextResponse.json(
         { error: 'Amount exceeds order total' },
         { status: 400 }

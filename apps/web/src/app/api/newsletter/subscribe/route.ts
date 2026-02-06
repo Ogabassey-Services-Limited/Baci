@@ -4,6 +4,17 @@ import z from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { sendEmail } from '@/lib/zeptomail';
 
+// Public endpoint — uses a stateless anon client (no cookie/session needed)
+function _createAnonClient() {
+  return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 const subscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
   merchantId: z.string().uuid('Invalid merchant ID').optional(),
@@ -35,17 +46,7 @@ export async function POST(request: NextRequest) {
     const { email, merchantId, source } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    const supabase = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseAnonKey(),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      }
-    );
+    const supabase = _createAnonClient();
 
     const { data: subscribeResult, error: subscribeError } = await supabase.rpc(
       'subscribe_newsletter',
@@ -157,23 +158,15 @@ export async function DELETE(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const supabase = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseAnonKey(),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      }
-    );
+    const supabase = _createAnonClient();
 
-    const { data: unsubscribeResult, error: unsubscribeError } =
-      await supabase.rpc('unsubscribe_newsletter', {
+    const { error: unsubscribeError } = await supabase.rpc(
+      'unsubscribe_newsletter',
+      {
         p_email: normalizedEmail,
         p_merchant_id: merchantId || null,
-      });
+      }
+    );
 
     if (unsubscribeError) {
       console.error('Newsletter unsubscribe error:', unsubscribeError);
@@ -185,9 +178,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: unsubscribeResult
-        ? 'You have been unsubscribed.'
-        : 'You have been unsubscribed.',
+      message: 'You have been unsubscribed.',
     });
   } catch (error) {
     console.error('Newsletter unsubscribe error:', error);

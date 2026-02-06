@@ -3,6 +3,14 @@ export interface SortCategoriesOptions {
   priorityList?: string[];
 }
 
+const SMARTPHONE_SET = new Set([
+  'smartphone',
+  'smartphones',
+  'mobile phone',
+  'mobile phones',
+  'cell phone',
+]);
+
 export function sortCategories({
   categories,
   priorityList = [],
@@ -11,13 +19,7 @@ export function sortCategories({
 
   const decorated = categories.map((cat) => {
     const lower = cat.toLowerCase().trim();
-    const isSmartphone = [
-      'smartphone',
-      'smartphones',
-      'mobile phone',
-      'mobile phones',
-      'cell phone',
-    ].includes(lower);
+    const isSmartphone = SMARTPHONE_SET.has(lower);
     const priorityIndex = priorityList.indexOf(lower);
     return { original: cat, lower, isSmartphone, priorityIndex };
   });

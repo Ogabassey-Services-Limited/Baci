@@ -2,6 +2,11 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
+// Using direct Supabase client for unauthenticated order tracking.
+// This endpoint allows customers to track orders using order_number + email
+// without requiring authentication. The get_order_tracking RPC has RLS policies
+// that verify email ownership before returning order data.
+
 interface TimelineEvent {
   status: string;
   title: string;
@@ -31,6 +36,38 @@ interface OrderItemRow {
   product_images?: unknown;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+// Type-guard helper to safely extract first image URL from unknown product_images
+function extractFirstImageUrl(productImages: unknown): string | null {
+  if (!Array.isArray(productImages) || productImages.length === 0) {
+    return null;
+  }
+
+  const first = productImages[0];
+
+  // Handle string URL
+  if (typeof first === 'string') {
+    return first;
+  }
+
+  // Handle object with url property
+  if (
+    first &&
+    typeof first === 'object' &&
+    'url' in first &&
+    typeof first.url === 'string'
+  ) {
+    return first.url;
+  }
+
+  return null;
+}
+
 // GET - Track order by order number or ID
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +78,9 @@ export async function GET(request: NextRequest) {
     const merchantSlug =
       searchParams.get('merchant_slug') || searchParams.get('slug');
 
-    if (!orderNumber && !orderId) {
+    const orderIdParam = orderId && isUuid(orderId) ? orderId : null;
+
+    if (!orderNumber && !orderIdParam) {
       return NextResponse.json(
         { error: 'order_number or order_id is required' },
         { status: 400 }
@@ -63,7 +102,7 @@ export async function GET(request: NextRequest) {
 
     const { data: orders, error } = await supabase.rpc('get_order_tracking', {
       p_merchant_slug: merchantSlug,
-      p_order_id: orderId,
+      p_order_id: orderIdParam,
       p_order_number: orderNumber,
       p_email: email,
     });
@@ -130,31 +169,15 @@ export async function GET(request: NextRequest) {
         country: 'Nigeria', // Simplified as it's typically Nigeria for this platform
       },
       items: (Array.isArray(order.items) ? order.items : []).map(
-        (item: OrderItemRow) => {
-          let firstImage: string | null = null;
-          if (Array.isArray(item.product_images)) {
-            const first = item.product_images[0] as unknown;
-            if (typeof first === 'string') {
-              firstImage = first;
-            } else if (
-              first &&
-              typeof first === 'object' &&
-              'url' in (first as { url?: string })
-            ) {
-              firstImage = (first as { url?: string }).url || null;
-            }
-          }
-
-          return {
-            id: item.id,
-            product_id: item.product_id,
-            product_name: item.name,
-            quantity: item.quantity,
-            unit_price: item.price,
-            total_price: item.price * item.quantity,
-            product_image: firstImage,
-          };
-        }
+        (item: OrderItemRow) => ({
+          id: item.id,
+          product_id: item.product_id,
+          product_name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price,
+          total_price: item.price * item.quantity,
+          product_image: extractFirstImageUrl(item.product_images),
+        })
       ),
       timeline,
       shipping_tracking: shippingTracking,

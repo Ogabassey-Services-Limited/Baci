@@ -1,11 +1,14 @@
 /**
  * API Route Authentication Helper
  * Supports both Bearer token auth (mobile apps) and cookie-based auth (web).
- * 2025 Best Practice: Verify token, then use admin client for queries.
+ * - Bearer tokens: Verified with an anon-scoped client (no service role).
+ * - Cookies: Verified via the server factory (cookie forwarding).
+ * After verification, use getAdminClient() for authorized queries.
  */
 
 import {
   createClient as createSupabaseClient,
+  type SupabaseClient,
   type User,
 } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
@@ -13,6 +16,24 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+
+/**
+ * Cached stateless anon client for Bearer token verification.
+ * Reused across requests since it has no session state.
+ */
+let _anonClient: SupabaseClient | null = null;
+function _getAnonClient(): SupabaseClient {
+  if (!_anonClient) {
+    _anonClient = createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  }
+  return _anonClient;
+}
 
 export interface AuthResult {
   user: User | null;
@@ -33,19 +54,9 @@ export async function authenticateApiRequest(
   const authHeader = request.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const anonClient = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseAnonKey(),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      }
-    );
+    const anonClient = _getAnonClient();
 
-    // Verify the token using a user-scoped client (no service role)
+    // Verify the token using an anon-scoped client (no service role)
     const {
       data: { user },
       error,
