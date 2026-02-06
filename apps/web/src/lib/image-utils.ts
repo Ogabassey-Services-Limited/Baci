@@ -30,10 +30,28 @@ export const CATEGORY_BLUR_COLORS: Record<string, string> = {
  * Generate a solid color blur data URL
  * Faster than image-based blur, good for product cards
  */
+const colorBlurCache = new Map<string, string>();
+
 export function generateColorBlur(color: string = '#f4f4f5'): string {
+  const cached = colorBlurCache.get(color);
+  if (cached) {
+    return cached;
+  }
+
   // Create a 1x1 pixel SVG and encode as data URL
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="${color}" width="1" height="1"/></svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+
+  // Use window.btoa if available (client-side), fallback to Buffer (server-side)
+  // This avoids Buffer polyfill overhead in the browser
+  const base64 =
+    typeof window !== 'undefined' && typeof window.btoa === 'function'
+      ? window.btoa(svg)
+      : Buffer.from(svg).toString('base64');
+
+  const result = `data:image/svg+xml;base64,${base64}`;
+  colorBlurCache.set(color, result);
+
+  return result;
 }
 
 /**
