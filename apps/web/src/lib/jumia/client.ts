@@ -283,14 +283,20 @@ export class JumiaClient {
 
   static async fromIntegration(
     integrationId: string,
-    supabase?: SupabaseClient
+    supabase?: SupabaseClient,
+    merchantId?: string
   ): Promise<JumiaClient> {
     const client = supabase ?? createAdminClient();
-    const { data, error } = await client
+    let query = client
       .from('marketplace_integrations')
       .select('*')
-      .eq('id', integrationId)
-      .single();
+      .eq('id', integrationId);
+
+    if (merchantId) {
+      query = query.eq('merchant_id', merchantId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data)
       throw new Error(`Integration not found: ${integrationId}`);

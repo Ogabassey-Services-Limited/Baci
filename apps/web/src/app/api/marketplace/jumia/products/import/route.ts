@@ -60,7 +60,11 @@ export async function POST(req: NextRequest) {
 
     // 1. Initialize Clients
     const supabase = auth.supabase;
-    const jumia = await JumiaClient.fromIntegration(integrationId, supabase);
+    const jumia = await JumiaClient.fromIntegration(
+      integrationId,
+      supabase,
+      merchantId
+    );
 
     // 2. Fetch all products from Jumia
     // Default to Active products, but could be configurable
