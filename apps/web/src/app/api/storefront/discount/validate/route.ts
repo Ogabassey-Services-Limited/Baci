@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createAnonClient } from '@/lib/supabase/anon';
 import {
-  type StorefrontDiscountCodeRow,
+  storefrontDiscountCodeRowSchema,
   storefrontDiscountValidateSchema,
 } from '@/schemas/storefront-discount';
 
@@ -47,13 +48,19 @@ export async function POST(request: NextRequest) {
       p_code: code,
     });
 
-    const discountRows = data as
-      | StorefrontDiscountCodeRow[]
-      | StorefrontDiscountCodeRow
-      | null;
-    const discountCode = Array.isArray(discountRows)
-      ? discountRows[0]
-      : discountRows;
+    const parsedArray = storefrontDiscountCodeRowSchema.array().safeParse(data);
+    const parsedSingle = parsedArray.success
+      ? null
+      : storefrontDiscountCodeRowSchema.safeParse(data);
+    if (!parsedArray.success && (!parsedSingle || !parsedSingle.success)) {
+      return NextResponse.json(
+        { valid: false, error: 'Invalid discount code' },
+        { status: 200 }
+      );
+    }
+    const discountCode = parsedArray.success
+      ? (parsedArray.data[0] ?? null)
+      : (parsedSingle?.data ?? null);
 
     if (error || !discountCode) {
       return NextResponse.json(
@@ -86,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     // Check usage limit
     if (
-      discountCode.usage_limit &&
+      discountCode.usage_limit != null &&
       discountCode.usage_count >= discountCode.usage_limit
     ) {
       return NextResponse.json(
@@ -97,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // Check minimum purchase amount
     if (
-      discountCode.minimum_purchase_amount &&
+      discountCode.minimum_purchase_amount != null &&
       cart_total < Number(discountCode.minimum_purchase_amount)
     ) {
       return NextResponse.json(
@@ -144,7 +151,10 @@ export async function POST(request: NextRequest) {
       description: discountCode.description,
     });
   } catch (error) {
-    console.error('Error validating discount code:', error);
+    logger.error({
+      message: 'Error validating discount code',
+      error: error instanceof Error ? error : 'Unknown error',
+    });
     return NextResponse.json(
       { valid: false, error: 'Internal server error' },
       { status: 500 }

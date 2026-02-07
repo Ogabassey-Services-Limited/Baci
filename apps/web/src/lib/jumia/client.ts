@@ -32,8 +32,6 @@ const JUMIA_AUTH_BASE = {
 } as const;
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-const _MAX_RETRIES = 3;
-const _BASE_DELAY_MS = 1000;
 
 // =============================================================================
 // ZOD SCHEMAS (LITERAL MATCH WITH JUMIA DOCS)
@@ -283,9 +281,9 @@ export class JumiaClient {
 
   static async fromIntegration(
     integrationId: string,
-    supabase?: SupabaseClient,
-    merchantId?: string
+    opts?: { supabase?: SupabaseClient; merchantId?: string }
   ): Promise<JumiaClient> {
+    const { supabase, merchantId } = opts ?? {};
     const client = supabase ?? createAdminClient();
     let query = client
       .from('marketplace_integrations')
@@ -391,7 +389,7 @@ export class JumiaClient {
     this.tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
     const supabase = this.supabase ?? createAdminClient();
-    await supabase
+    const { error: updateError } = await supabase
       .from('marketplace_integrations')
       .update({
         access_token: data.access_token,
@@ -399,6 +397,13 @@ export class JumiaClient {
         token_expires_at: this.tokenExpiresAt.toISOString(),
       })
       .eq('id', this.integrationId);
+
+    if (updateError) {
+      console.error(
+        `[Jumia] Failed to persist refreshed token for integration ${this.integrationId}:`,
+        updateError
+      );
+    }
   }
 
   private async getValidToken(): Promise<string> {

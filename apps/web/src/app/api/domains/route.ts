@@ -1,20 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { vercel } from '@/lib/vercel';
-
-const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-
-const createDomainSchema = z.object({
-  domain: z
-    .string()
-    .min(1)
-    .refine((value) => domainRegex.test(value), {
-      message: 'Invalid domain format',
-    }),
-  isPrimary: z.boolean().optional().default(false),
-});
+import { createDomainSchema } from '@/schemas/domains';
 
 const DOMAIN_SELECT =
   'id, domain, tld, domain_type, status, is_primary, verification_token, verification_token_expires_at, verified_at, ssl_status, purchase_price, renewal_price, registered_at, expires_at, auto_renew, nameservers, ssl_issued_at, created_at, updated_at';
@@ -54,8 +42,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (domainsError) {
+      console.error('Error querying domains:', domainsError);
       return NextResponse.json(
-        { error: domainsError.message },
+        { error: 'Failed to fetch domains' },
         { status: 500 }
       );
     }
@@ -89,7 +78,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
+    }
     const parsed = createDomainSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -118,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     // Extract TLD
     let tld = `.${domain.split('.').slice(-1)[0]}`;
-    if (domain.includes('.ng')) {
+    if (domain.endsWith('.ng') || domain.match(/\.[a-z]+\.ng$/)) {
       const parts = domain.split('.');
       if (parts.length >= 3) {
         tld = `.${parts.slice(-2).join('.')}`;
@@ -134,10 +128,21 @@ export async function POST(request: NextRequest) {
       vercelResponse = await vercel.addDomain(domain);
     } catch (error: unknown) {
       console.error('Vercel Add Domain Error:', error);
-      const status =
-        error instanceof Error && 'status' in error
-          ? (error as Error & { status: number }).status
-          : 500;
+      let status = 500;
+      if (
+        error instanceof Error &&
+        'status' in error &&
+        typeof (error as Record<string, unknown>).status === 'number'
+      ) {
+        const rawStatus = (error as Record<string, unknown>).status as number;
+        if (
+          Number.isFinite(rawStatus) &&
+          rawStatus >= 100 &&
+          rawStatus <= 599
+        ) {
+          status = rawStatus;
+        }
+      }
       const message =
         status === 409
           ? 'Domain is already in use by another account.'
@@ -219,8 +224,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error adding domain:', error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

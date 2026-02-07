@@ -26,6 +26,8 @@ import {
 } from '@/components/themed';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { COUNTRIES } from '@/lib/countries';
+import { formatCurrency as formatCurrencyByCountry } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
@@ -105,6 +107,105 @@ const iconMap = {
   cancelled: XCircle,
 };
 
+const CURRENCY_TO_COUNTRY = new Map(
+  COUNTRIES.map((country) => [country.currency, country.code])
+);
+
+const getCountryCodeForCurrency = (currency?: string | null) =>
+  (currency ? CURRENCY_TO_COUNTRY.get(currency) : null) || 'NG';
+
+function HorizontalProgressBar({
+  status,
+  latestUpdate,
+}: {
+  status: string;
+  latestUpdate: string;
+}) {
+  const stages = [
+    { id: 'placed', label: 'Placed' },
+    { id: 'processing', label: 'Processing' },
+    { id: 'shipped', label: 'Shipped' },
+    { id: 'delivered', label: 'Delivered' },
+  ];
+
+  // Normalize status for comparison
+  const normalizedStatus = status.toLowerCase();
+
+  // Determine active index
+  let activeIndex = 0;
+  if (normalizedStatus === 'delivered' || normalizedStatus === 'completed')
+    activeIndex = 3;
+  else if (normalizedStatus === 'shipped') activeIndex = 2;
+  else if (normalizedStatus === 'processing' || normalizedStatus === 'current')
+    activeIndex = 1;
+  else activeIndex = 0; // pending/placed
+
+  return (
+    <div className="py-8 w-full max-w-2xl mx-auto px-4">
+      <div
+        className="relative flex justify-between items-center"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={stages.length - 1}
+        aria-valuenow={activeIndex}
+        aria-label="Order progress"
+      >
+        {/* Progress Line Background */}
+        <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 rounded-full z-0" />
+
+        {/* Active Progress Line */}
+        <div
+          className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
+          style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
+        />
+
+        {stages.map((stage, index) => {
+          const isCompleted = index <= activeIndex;
+
+          return (
+            <div
+              key={stage.id}
+              className="relative z-10 flex flex-col items-center"
+            >
+              <div
+                className={cn(
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
+                  isCompleted
+                    ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
+                )}
+              >
+                {isCompleted ? (
+                  <Check className="w-5 h-5 font-bold" strokeWidth={3} />
+                ) : (
+                  <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                )}
+              </div>
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
+                <p
+                  className={cn(
+                    'text-sm font-medium transition-colors duration-300',
+                    isCompleted
+                      ? 'text-[var(--store-accent)] font-bold'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {stage.label}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-16 text-center">
+        <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
+          Latest update: {latestUpdate}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderTrackPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -161,13 +262,21 @@ function OrderTrackContent() {
         const response = await fetch(
           `/api/storefront/orders/track-order?${queryParams}`
         );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to find order');
+        let data: OrderData | { error?: string };
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error(
+            'Unexpected server response. Please try again later.'
+          );
         }
 
-        setOrderData(data);
+        if (!response.ok) {
+          const errorData = data as { error?: string };
+          throw new Error(errorData.error || 'Failed to find order');
+        }
+
+        setOrderData(data as OrderData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         setOrderData(null);
@@ -246,12 +355,8 @@ function OrderTrackContent() {
     });
   };
 
-  const formatCurrency = (amount: number, currency: string = 'NGN') => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, currency: string = 'NGN') =>
+    formatCurrencyByCountry(amount, getCountryCodeForCurrency(currency));
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -270,91 +375,6 @@ function OrderTrackContent() {
       default:
         return 'var(--muted)';
     }
-  };
-
-  const HorizontalProgressBar = ({ status }: { status: string }) => {
-    const stages = [
-      { id: 'placed', label: 'Placed' },
-      { id: 'processing', label: 'Processing' },
-      { id: 'shipped', label: 'Shipped' },
-      { id: 'delivered', label: 'Delivered' },
-    ];
-
-    // Normalize status for comparison
-    const normalizedStatus = status.toLowerCase();
-
-    // Determine active index
-    let activeIndex = 0;
-    if (normalizedStatus === 'delivered' || normalizedStatus === 'completed')
-      activeIndex = 3;
-    else if (normalizedStatus === 'shipped') activeIndex = 2;
-    else if (
-      normalizedStatus === 'processing' ||
-      normalizedStatus === 'current'
-    )
-      activeIndex = 1;
-    else activeIndex = 0; // pending/placed
-
-    return (
-      <div className="py-8 w-full max-w-2xl mx-auto px-4">
-        <div className="relative flex justify-between items-center">
-          {/* Progress Line Background */}
-          <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 rounded-full z-0" />
-
-          {/* Active Progress Line */}
-          <div
-            className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
-            style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
-          />
-
-          {stages.map((stage, index) => {
-            const isCompleted = index <= activeIndex;
-
-            return (
-              <div
-                key={stage.id}
-                className="relative z-10 flex flex-col items-center"
-              >
-                <div
-                  className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
-                    isCompleted
-                      ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
-                  )}
-                >
-                  {isCompleted ? (
-                    <Check className="w-5 h-5 font-bold" strokeWidth={3} />
-                  ) : (
-                    <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  )}
-                </div>
-                <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
-                  <p
-                    className={cn(
-                      'text-sm font-medium transition-colors duration-300',
-                      isCompleted
-                        ? 'text-[var(--store-accent)] font-bold'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {stage.label}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-16 text-center">
-          <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
-            Latest update:{' '}
-            {formatDate(
-              orderData?.order?.updated_at || orderData?.order?.created_at || ''
-            )}
-          </p>
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -419,7 +439,11 @@ function OrderTrackContent() {
             </form>
 
             {error && (
-              <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm">
+              <div
+                role="alert"
+                aria-atomic="true"
+                className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm"
+              >
                 {error}
               </div>
             )}
@@ -458,9 +482,8 @@ function OrderTrackContent() {
                     style={
                       orderData.order.status !== 'cancelled'
                         ? {
-                            backgroundColor: 'var(--store-accent)',
-                            color: 'var(--store-accent-text)',
-                            opacity: 0.1,
+                            backgroundColor:
+                              'color-mix(in srgb, var(--store-accent) 10%, transparent)',
                             border: 'none',
                           }
                         : undefined
@@ -469,7 +492,7 @@ function OrderTrackContent() {
                     <span
                       style={
                         orderData.order.status !== 'cancelled'
-                          ? { opacity: 1, color: 'var(--store-accent)' }
+                          ? { color: 'var(--store-accent)' }
                           : undefined
                       }
                     >
@@ -480,7 +503,16 @@ function OrderTrackContent() {
                 </div>
               </div>
 
-              <HorizontalProgressBar status={orderData.order.status} />
+              <HorizontalProgressBar
+                status={orderData.order.status}
+                latestUpdate={formatDate(
+                  [...orderData.timeline]
+                    .reverse()
+                    .find((event) => event.timestamp)?.timestamp ||
+                    orderData.order.updated_at ||
+                    orderData.order.created_at
+                )}
+              />
 
               <Separator className="my-6" />
 
@@ -582,8 +614,8 @@ function OrderTrackContent() {
                 <div
                   className="mt-6 p-4 rounded-lg"
                   style={{
-                    backgroundColor: 'var(--store-primary)',
-                    opacity: 0.1,
+                    backgroundColor:
+                      'color-mix(in srgb, var(--store-primary) 10%, transparent)',
                   }}
                 >
                   <p
@@ -634,6 +666,7 @@ function OrderTrackContent() {
                           src={item.product_image}
                           alt={item.product_name}
                           fill
+                          sizes="64px"
                           className="object-cover"
                         />
                       </div>
