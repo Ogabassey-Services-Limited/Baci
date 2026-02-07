@@ -409,7 +409,7 @@ export default function CheckoutScreen() {
   const [shippingQuotes, setShippingQuotes] = React.useState<ShippingQuote[]>(
     []
   );
-  const [_shippingDebug, setShippingDebug] = React.useState<{
+  const [shippingDebug, setShippingDebug] = React.useState<{
     apiUrl: string;
     status: number | null;
     ok: boolean;
@@ -1333,6 +1333,33 @@ export default function CheckoutScreen() {
               );
             })
           )}
+          {__DEV__ && shippingDebug && (
+            <View style={styles.debugPanel}>
+              <Text style={styles.debugText}>
+                Quotes API: {shippingDebug.apiUrl}
+              </Text>
+              <Text style={styles.debugText}>
+                Status:{' '}
+                {shippingDebug.status !== null
+                  ? shippingDebug.status
+                  : 'network error'}
+                {shippingDebug.ok ? ' (ok)' : ' (fail)'}
+              </Text>
+              <Text style={styles.debugText}>
+                Quotes: {shippingDebug.quotes}
+              </Text>
+              {shippingDebug.warnings?.length ? (
+                <Text style={styles.debugText}>
+                  Warnings: {shippingDebug.warnings.join(', ')}
+                </Text>
+              ) : null}
+              {shippingDebug.error ? (
+                <Text style={styles.debugText}>
+                  Error: {shippingDebug.error}
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
       </View>
 
@@ -2003,6 +2030,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  debugPanel: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.amber[200],
+    backgroundColor: palette.amber[50],
+  },
+  debugText: {
+    fontSize: 12,
+    color: palette.amber[900],
   },
   reviewCard: {
     padding: 16,
