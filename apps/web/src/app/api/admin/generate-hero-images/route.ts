@@ -23,8 +23,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // TODO: Check if user is admin
-    // For now, allow any authenticated user
+    // Verify Admin Role
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('is_platform_admin')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant?.is_platform_admin) {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { category, count = 10 } = body;
@@ -108,6 +119,20 @@ export async function GET() {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify Admin Role
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('is_platform_admin')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant?.is_platform_admin) {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Get statistics per category

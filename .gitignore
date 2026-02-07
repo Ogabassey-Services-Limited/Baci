@@ -2,7 +2,7 @@
 
 # dependencies
 node_modules
-/.turbo/
+.turbo/
 /.reports/
 /.pnp
 .pnp.*

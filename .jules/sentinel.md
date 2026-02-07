@@ -18,3 +18,14 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-02-12 - Unprotected Admin AI Endpoints
+
+**Vulnerability:** The endpoints `/api/admin/generate-product-images` and `/api/admin/generate-hero-images` were accessible to any authenticated user, regardless of their role. This allowed any user to trigger expensive AI generation processes (resource exhaustion/DoS) and potentially modify product data.
+
+**Learning:** Authentication is not Authorization. Checking `if (!user)` only confirms identity, not privilege. Developers often defer implementing RBAC (`// In a real app, you'd check a role here`) and then forget, leaving critical admin tools exposed.
+
+**Prevention:**
+1.  Always implement `is_platform_admin` check immediately for admin routes.
+2.  Use middleware or a higher-order function to enforce role checks declaratively.
+3.  Treat AI generation endpoints as "high value" targets for abuse due to cost and latency.
