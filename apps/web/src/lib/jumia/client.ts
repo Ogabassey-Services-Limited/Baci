@@ -399,8 +399,9 @@ export class JumiaClient {
       .eq('id', this.integrationId);
 
     if (updateError) {
-      console.error(
-        `[Jumia] Failed to persist refreshed token for integration ${this.integrationId}:`,
+      throw new JumiaApiError(
+        500,
+        `Failed to persist refreshed token for integration ${this.integrationId}`,
         updateError
       );
     }

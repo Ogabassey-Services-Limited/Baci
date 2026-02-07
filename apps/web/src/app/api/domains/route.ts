@@ -1,11 +1,35 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { vercel } from '@/lib/vercel';
 import { createDomainSchema } from '@/schemas/domains';
 
-const DOMAIN_SELECT =
-  'id, domain, tld, domain_type, status, is_primary, verification_token, verification_token_expires_at, verified_at, ssl_status, purchase_price, renewal_price, registered_at, expires_at, auto_renew, nameservers, ssl_issued_at, created_at, updated_at';
+const DOMAIN_COLUMNS = [
+  'id',
+  'domain',
+  'tld',
+  'domain_type',
+  'status',
+  'is_primary',
+  'verification_token',
+  'verification_token_expires_at',
+  'verified_at',
+  'ssl_status',
+  'purchase_price',
+  'renewal_price',
+  'registered_at',
+  'expires_at',
+  'auto_renew',
+  'nameservers',
+  'ssl_issued_at',
+  'created_at',
+  'updated_at',
+];
+
+const DOMAIN_SELECT = DOMAIN_COLUMNS.join(', ');
 
 /**
  * GET /api/domains
@@ -20,14 +44,8 @@ export async function GET(request: NextRequest) {
 
     const supabase = auth.supabase;
 
-    // Get merchant for this user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', auth.user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantId = await getMerchantIdForApiUser(supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -38,7 +56,7 @@ export async function GET(request: NextRequest) {
     const { data: domains, error: domainsError } = await supabase
       .from('domains')
       .select(DOMAIN_SELECT)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     if (domainsError) {
@@ -96,14 +114,8 @@ export async function POST(request: NextRequest) {
     const domain = rawDomain.toLowerCase();
     const supabase = auth.supabase;
 
-    // Get merchant ID
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', auth.user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantId = await getMerchantIdForApiUser(supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -179,7 +191,7 @@ export async function POST(request: NextRequest) {
     const { data: newDomain, error: insertError } = await supabase
       .from('domains')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         domain,
         tld,
         domain_type: 'custom',

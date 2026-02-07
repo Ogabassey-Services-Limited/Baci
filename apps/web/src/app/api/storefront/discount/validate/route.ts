@@ -126,10 +126,10 @@ export async function POST(request: NextRequest) {
       discountAmount = Math.round(Number(discountCode.discount_value));
     }
 
-    // Apply maximum discount amount if set
+    // Apply maximum discount amount if set (use != null to honor 0)
     if (
-      discountCode.maximum_discount_amount &&
-      discountAmount > Number(discountCode.maximum_discount_amount)
+      discountCode.maximum_discount_amount != null &&
+      discountAmount > Math.round(Number(discountCode.maximum_discount_amount))
     ) {
       discountAmount = Math.round(Number(discountCode.maximum_discount_amount));
     }

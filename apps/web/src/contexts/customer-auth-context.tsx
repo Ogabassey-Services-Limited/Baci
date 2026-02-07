@@ -278,7 +278,7 @@ export function CustomerAuthProvider({
       window.location.href = data.url;
       return { success: true };
     } catch (error) {
-      console.error(`${providerLabel} sign-in error:`, error);
+      console.error(providerLabel, 'sign-in error:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
   };

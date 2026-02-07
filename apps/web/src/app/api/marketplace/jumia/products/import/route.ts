@@ -115,6 +115,8 @@ export async function POST(req: NextRequest) {
     let created = 0;
     let linked = 0;
     let errors = 0;
+    const warnings: string[] = [];
+    // TODO: Implement update-on-reimport to populate this counter
     const updated = 0;
 
     const skus = jumiaProducts
@@ -210,17 +212,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Upsert products (idempotent on SKU conflicts from repeated imports)
     let insertedProducts: { id: string; sku: string }[] = [];
     if (newProductRows.length) {
-      const { data: newProductsData, error: insertError } = await supabase
+      const { data: newProductsData, error: upsertError } = await supabase
         .from('products')
-        .insert(newProductRows)
+        .upsert(newProductRows, { onConflict: 'merchant_id,sku' })
         .select('id, sku');
 
-      if (insertError || !newProductsData) {
+      if (upsertError || !newProductsData) {
         logger.error({
-          message: 'Product bulk insert failed',
-          error: insertError,
+          message: 'Product bulk upsert failed',
+          error: upsertError,
         });
         errors += newProductRows.length;
       } else {
@@ -235,16 +238,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Upsert mappings (idempotent on repeated imports)
     if (mappingRows.length) {
-      const { error: mappingInsertError } = await supabase
+      const { error: mappingUpsertError } = await supabase
         .from('jumia_product_mappings')
-        .insert(mappingRows);
-
-      if (mappingInsertError) {
-        logger.error({
-          message: 'Mapping bulk insert failed',
-          error: mappingInsertError,
+        .upsert(mappingRows, {
+          onConflict: 'merchant_id,jumia_sku',
         });
+
+      if (mappingUpsertError) {
+        logger.error({
+          message: 'Mapping bulk upsert failed',
+          error: mappingUpsertError,
+        });
+        // Partial failure: products created but mappings failed
+        if (insertedProducts.length > 0) {
+          const msg = `${insertedProducts.length} products created but mapping upsert failed; re-run to link`;
+          warnings.push(msg);
+          logger.warn({ message: msg, error: mappingUpsertError });
+          // Count products as created even though mappings failed
+          created += insertedProducts.length;
+        }
         errors += mappingRows.length;
       } else {
         const newProductIds = new Set(insertedProducts.map((p) => p.id));
@@ -267,6 +281,7 @@ export async function POST(req: NextRequest) {
         updated,
         errors,
       },
+      ...(warnings.length > 0 && { warnings }),
     });
   } catch (error) {
     logger.error({ message: 'Import error', error });

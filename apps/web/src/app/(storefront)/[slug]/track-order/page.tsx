@@ -26,7 +26,6 @@ import {
 } from '@/components/themed';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { COUNTRIES } from '@/lib/countries';
 import { formatCurrency as formatCurrencyByCountry } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
@@ -107,12 +106,24 @@ const iconMap = {
   cancelled: XCircle,
 };
 
-const CURRENCY_TO_COUNTRY = new Map(
-  COUNTRIES.map((country) => [country.currency, country.code])
-);
+/** Deterministic currency→country mapping for formatting. */
+const PREFERRED_COUNTRY_FOR_CURRENCY: Record<string, string> = {
+  NGN: 'NG',
+  USD: 'US',
+  GBP: 'GB',
+  EUR: 'DE',
+  GHS: 'GH',
+  KES: 'KE',
+  ZAR: 'ZA',
+  XOF: 'SN',
+  XAF: 'CM',
+  EGP: 'EG',
+};
 
 const getCountryCodeForCurrency = (currency?: string | null) =>
-  (currency ? CURRENCY_TO_COUNTRY.get(currency) : null) || 'NG';
+  (currency ? PREFERRED_COUNTRY_FOR_CURRENCY[currency] : null) ?? 'NG';
+
+const TERMINAL_STATUSES = new Set(['cancelled', 'failed']);
 
 function HorizontalProgressBar({
   status,
@@ -130,6 +141,30 @@ function HorizontalProgressBar({
 
   // Normalize status for comparison
   const normalizedStatus = status.toLowerCase();
+  const isTerminal = TERMINAL_STATUSES.has(normalizedStatus);
+
+  // Terminal states: show alternative UI
+  if (isTerminal) {
+    const label =
+      normalizedStatus === 'cancelled' ? 'Order Cancelled' : 'Order Failed';
+    return (
+      <div className="py-8 w-full max-w-2xl mx-auto px-4">
+        <output aria-label={label} className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <XCircle className="w-7 h-7 text-red-500" />
+          </div>
+          <span className="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
+            {label}
+          </span>
+        </output>
+        <div className="mt-6 text-center">
+          <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
+            Latest update: {latestUpdate}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Determine active index
   let activeIndex = 0;
@@ -299,6 +334,11 @@ function OrderTrackContent() {
       searchParams.get('order_number') || searchParams.get('orderNumber');
     const qEmail = searchParams.get('email');
 
+    // Clear stale state when params are absent
+    if (!qEmail) setEmail('');
+    if (!qOrderId) setOrderId(null);
+    if (!qOrderNumber) setOrderNumber('');
+
     // Token-based lookup (from order-success link) — no email needed
     if (qToken) {
       setIsTokenLookup(true);
@@ -437,18 +477,27 @@ function OrderTrackContent() {
                 )}
               </ThemedButton>
             </form>
-
-            {error && (
-              <div
-                role="alert"
-                aria-atomic="true"
-                className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm"
-              >
-                {error}
-              </div>
-            )}
           </CardContent>
         </ThemedCard>
+      )}
+
+      {/* Loading indicator for token-based lookups (form is hidden) */}
+      {isTokenLookup && loading && (
+        <div className="flex items-center justify-center py-12">
+          <Clock className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Searching...</span>
+        </div>
+      )}
+
+      {/* Error banner — always visible regardless of lookup mode */}
+      {error && (
+        <div
+          role="alert"
+          aria-atomic="true"
+          className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm"
+        >
+          {error}
+        </div>
       )}
 
       {orderData && (
