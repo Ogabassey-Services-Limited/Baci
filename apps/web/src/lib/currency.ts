@@ -85,11 +85,15 @@ export function formatCurrency(
 
   try {
     // Generate cache key based on config and options
-    const cacheKey = JSON.stringify({
-      locale: config.locale,
-      currency: config.code,
-      ...options,
-    });
+    // Optimized: avoid JSON.stringify if options is empty
+    const cacheKey =
+      !options || Object.keys(options).length === 0
+        ? `${config.locale}:${config.code}`
+        : JSON.stringify({
+            locale: config.locale,
+            currency: config.code,
+            ...options,
+          });
 
     let formatter = FORMATTER_CACHE.get(cacheKey);
 
