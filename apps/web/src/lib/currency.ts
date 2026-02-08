@@ -107,7 +107,7 @@ export function formatCurrency(
         ...options,
       });
 
-      // Implement LRU policy (First-In, First-Out for eviction)
+      // LRU eviction: remove least-recently-used entry when cache is full
       if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
         const firstKey = FORMATTER_CACHE.keys().next().value;
         if (firstKey !== undefined) {

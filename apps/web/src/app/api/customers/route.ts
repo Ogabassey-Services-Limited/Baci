@@ -62,7 +62,11 @@ export async function GET(request: Request) {
   const { data: customers, error, count } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Customer query failed:', error.message);
+    return NextResponse.json(
+      { error: 'Failed to fetch customers' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({
@@ -133,7 +137,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Customer creation failed:', error.message);
+      return NextResponse.json(
+        { error: 'Failed to create customer' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ customer });
