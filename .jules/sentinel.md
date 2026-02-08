@@ -18,3 +18,11 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-05-23 - Inconsistent CSRF Protection across API Routes
+
+**Vulnerability:** The `POST /api/customers` endpoint lacked CSRF protection, while similar endpoints like `/api/products` and `/api/wallet` enforced it. This inconsistency exposes specific resources to attack even when others are protected.
+
+**Learning:** Relying on manual inclusion of security middleware in each route handler is error-prone. Without a global enforcement mechanism or automated checks, new or less-frequented routes can easily miss critical protections.
+
+**Prevention:** Implement global middleware for CSRF protection where possible, or use a linter/static analysis tool to enforce the presence of security checks in all state-changing API routes.
