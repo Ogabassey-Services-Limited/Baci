@@ -1808,12 +1808,12 @@ export default function CheckoutScreen() {
               {formatPrice(deliveryFee)}
             </Text>
           </View>
-          {orderTotals && (
+          {orderTotals && getMerchantTaxRate(paymentSettings) > 0 && (
             <View style={styles.totalRow}>
               <Text
                 style={[styles.totalLabel, { color: colors.textSecondary }]}
               >
-                VAT (7.5%)
+                VAT ({(getMerchantTaxRate(paymentSettings) * 100).toFixed(1)}%)
               </Text>
               <Text style={[styles.totalValue, { color: colors.text }]}>
                 {formatPrice(orderTotals.taxAmount)}

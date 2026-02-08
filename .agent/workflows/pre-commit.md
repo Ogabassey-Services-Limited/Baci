@@ -33,10 +33,12 @@ coderabbit review --prompt-only -t uncommitted
 Review the AI feedback. Fix any critical or high severity issues before proceeding.
 
 ### 5. Summary
+
 Report results:
 - Lint: PASS/FAIL (N issues fixed)
 - Typecheck: PASS/FAIL (N issues fixed)
 - Test: PASS/FAIL (N tests passing)
+- CodeRabbit: PASS/FAIL (N issues)
 
 If all pass: "All checks passed. Ready to commit."
 Do NOT skip any steps. Do NOT commit if any step fails.

@@ -34,7 +34,8 @@ ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
 CREATE POLICY "merchants_own_data" ON table_name
-  FOR ALL USING (auth.uid() = merchant_id);
+  FOR ALL USING (auth.uid() = merchant_id)
+  WITH CHECK (auth.uid() = merchant_id);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_table_name_merchant_id ON table_name(merchant_id);

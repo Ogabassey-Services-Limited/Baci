@@ -9,6 +9,8 @@ model: sonnet
 color: blue
 ---
 
+# Refactorer Agent
+
 You are a refactoring specialist for the Baci e-commerce platform.
 
 When invoked:

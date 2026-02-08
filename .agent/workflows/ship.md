@@ -30,7 +30,8 @@ Stage all relevant files. Do NOT stage:
 
 ### 4. Commit
 Create a conventional commit:
-```
+
+```text
 type(scope): description
 ```
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`

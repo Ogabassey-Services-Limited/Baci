@@ -5,7 +5,7 @@
 
 # AGENTS.md - Baci Ecosystem Context
 
-This file provides context and instructions for AI agents (like Google's Jules) to understand the Baci codebase and maintain our high standards for performance, SEO, and security.
+This file provides context and instructions for AI coding agents to understand the Baci codebase and maintain our high standards for performance, SEO, and security.
 
 ## Project Overview
 **Baci** is an AI-powered e-commerce builder for African merchants. It enables merchants to create professional storefronts, manage inventory, and process payments across multiple channels (Web, Mobile, WhatsApp).
@@ -91,7 +91,7 @@ Before submitting a PR, ensure:
 
 ## Monorepo Structure
 
-```
+```text
 Baci-app/
 ├── apps/
 │   ├── web/                    # Next.js 16 (builder + storefronts)

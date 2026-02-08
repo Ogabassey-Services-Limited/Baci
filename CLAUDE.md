@@ -1,10 +1,8 @@
-
-
 <!-- Source: AGENTS.md -->
 
 # AGENTS.md - Baci Ecosystem Context
 
-This file provides context and instructions for AI agents (like Google's Jules) to understand the Baci codebase and maintain our high standards for performance, SEO, and security.
+This file provides context and instructions for AI coding agents to understand the Baci codebase and maintain our high standards for performance, SEO, and security.
 
 ## Project Overview
 **Baci** is an AI-powered e-commerce builder for African merchants. It enables merchants to create professional storefronts, manage inventory, and process payments across multiple channels (Web, Mobile, WhatsApp).
@@ -323,7 +321,8 @@ export async function POST(request: NextRequest) {
     .eq('merchant_id', user.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Database error:', error.message);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
   return NextResponse.json(data);

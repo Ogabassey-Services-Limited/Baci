@@ -76,9 +76,9 @@ export function ContactPageClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          form_type: 'contact',
-          merchant_id: merchant.id,
-          data: formData,
+          merchantId: merchant.id,
+          formName: 'contact',
+          formData,
         }),
       });
 
