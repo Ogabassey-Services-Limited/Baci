@@ -1,0 +1,170 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+// Mock all heavy dependencies before importing the component
+vi.mock('next/navigation', () => ({
+  useRouter: vi.fn(() => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() })),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}));
+
+vi.mock('@/hooks/use-cart', () => ({
+  useCart: vi.fn(() => ({
+    cart: [],
+    cartTotal: 0,
+    clearCart: vi.fn(),
+    isHydrated: true,
+  })),
+}));
+
+vi.mock('@/hooks/use-merchant', () => ({
+  useMerchantSafe: vi.fn(() => ({
+    merchant: {
+      id: 'merchant-1',
+      slug: 'test-store',
+      business_name: 'Test Store',
+      vat_registration_status: 'registered',
+      vat_rate: 7.5,
+      country: 'NG',
+    },
+    basePath: '/test-store',
+  })),
+}));
+
+vi.mock('@/hooks/use-persisted-state', () => ({
+  usePersistedForm: vi.fn(() => ({
+    values: {
+      firstName: '',
+      lastName: '',
+      customerEmail: '',
+      customerPhone: '',
+      newAddressStreet: '',
+      newAddressState: '',
+      newAddressCity: '',
+      currentStep: 'contact',
+      completedSteps: { contact: false, delivery: false },
+    },
+    setValue: vi.fn(),
+    setValues: vi.fn(),
+    clear: vi.fn(),
+  })),
+}));
+
+vi.mock('@/contexts/auth-context', () => ({
+  useAuthSafe: vi.fn(() => null),
+}));
+
+vi.mock('@/hooks/use-toast', () => ({
+  toast: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: vi.fn(() => ({
+    auth: { getUser: vi.fn() },
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+  calculateCommerce: vi.fn().mockResolvedValue({
+    total: 10000,
+    taxAmount: 750,
+  }),
+}));
+
+vi.mock('@/components/ui/phone-input', () => ({
+  PhoneInput: vi.fn(({ value, onChange, ...props }) => (
+    <input
+      data-testid="phone-input"
+      value={value || ''}
+      onChange={(e) => onChange?.(e.target.value)}
+      {...props}
+    />
+  )),
+}));
+
+vi.mock('@/components/storefront/checkout-auth-modal', () => ({
+  CheckoutAuthModal: vi.fn(() => null),
+}));
+
+vi.mock('@/components/address-autocomplete', () => ({
+  AddressAutocomplete: vi.fn(({ value, onChangeText, ...props }) => (
+    <input
+      data-testid="address-input"
+      value={value || ''}
+      onChange={(e) => onChangeText?.(e.target.value)}
+      {...props}
+    />
+  )),
+}));
+
+vi.mock('@/lib/credpal', () => ({
+  openCredPalCheckout: vi.fn(),
+}));
+
+vi.mock('@/lib/credit-direct-client', () => ({
+  openCreditDirectCheckout: vi.fn(),
+}));
+
+vi.mock('@/lib/routes', () => ({
+  asRoute: vi.fn((path: string) => path),
+}));
+
+vi.mock('react-phone-number-input', () => ({
+  isValidPhoneNumber: vi.fn(() => true),
+}));
+
+vi.mock('../components/SmartQuoteLoader', () => ({
+  SmartQuoteLoader: vi.fn(() => null),
+}));
+
+vi.mock('../components/PaymentLogos', () => ({
+  PaystackLogo: vi.fn(() => null),
+  CredPalLogo: vi.fn(() => null),
+  CreditDirectLogo: vi.fn(() => null),
+  JuicywayLogo: vi.fn(() => null),
+  BankTransferLogo: vi.fn(() => null),
+}));
+
+vi.mock('../components/MobileCheckoutComponents', () => ({
+  MobileOrderSummary: vi.fn(() => null),
+}));
+
+import { CheckoutPage } from './checkout-page';
+
+describe('CheckoutPage', () => {
+  it('renders without crashing', () => {
+    render(<CheckoutPage />);
+    // The checkout page should render some form of checkout UI
+    // With an empty cart, it redirects or shows empty state
+    expect(document.body).toBeTruthy();
+  });
+
+  it('renders the contact step fields when cart has items', async () => {
+    const { useCart } = await import('@/hooks/use-cart');
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+
+    render(<CheckoutPage />);
+
+    // Contact step should show checkout form content
+    const match =
+      screen.queryByPlaceholderText(/email/i) ??
+      screen.queryAllByLabelText(/email/i)[0] ??
+      screen.queryByText(/contact/i);
+    expect(match).toBeTruthy();
+  });
+});
