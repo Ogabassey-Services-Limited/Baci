@@ -64,15 +64,17 @@ export function TagInput({
   };
 
   const removeTag = (index: number) => {
+    const tagToRemove = value[index];
     onChange(value.filter((_, i) => i !== index));
+    setAnnouncement(`Tag "${tagToRemove}" removed`);
   };
 
   return (
     <div className={cn('space-y-2', className)}>
       {/* Screen reader announcements */}
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
+      <output className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
-      </div>
+      </output>
 
       <div className="flex gap-2">
         <Input
@@ -89,11 +91,12 @@ export function TagInput({
           variant="outline"
           size="icon"
           onClick={addTag}
+          aria-label="Add tag"
           disabled={
             !inputValue.trim() || (maxTags ? value.length >= maxTags : false)
           }
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
 
@@ -114,8 +117,9 @@ export function TagInput({
                   e.stopPropagation();
                   removeTag(index);
                 }}
+                aria-label={`Remove ${tag}`}
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             </Badge>
           ))}
