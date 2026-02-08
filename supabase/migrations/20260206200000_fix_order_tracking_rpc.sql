@@ -12,7 +12,7 @@ ALTER COLUMN tracking_token SET DEFAULT replace(gen_random_uuid()::text, '-', ''
 
 -- Step 2: Backfill any existing tokens that contain hyphens (from initial migration)
 UPDATE orders
-SET tracking_token = replace(gen_random_uuid()::text, '-', '')
+SET tracking_token = replace(tracking_token, '-', '')
 WHERE tracking_token LIKE '%-%';
 
 -- Step 3: Replace get_order_tracking RPC with PII-masked version + deduplicated query
@@ -64,6 +64,8 @@ DECLARE
   v_order_id UUID;
   v_is_token_lookup BOOLEAN := FALSE;
 BEGIN
+  -- SECURITY NOTE: This public tracking RPC uses SECURITY DEFINER to bypass RLS.
+  -- Access is enforced by the lookup conditions (token or email+order match).
   -- Validate merchant_slug is required
   IF p_merchant_slug IS NULL OR trim(p_merchant_slug) = '' THEN
     RAISE EXCEPTION 'merchant_slug_required';
