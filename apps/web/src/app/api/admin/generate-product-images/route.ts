@@ -20,9 +20,19 @@ export async function POST(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // In a real app, you'd check a role here. For now, we ensure a valid user exists.
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // RBAC: Only platform admins can trigger AI image generation
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('is_platform_admin')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant?.is_platform_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // 2. Fetch products that need images

@@ -23,8 +23,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // TODO: Check if user is admin
-    // For now, allow any authenticated user
+    // RBAC: Only platform admins can trigger AI image generation
+    const { data: adminCheck } = await supabase
+      .from('merchants')
+      .select('is_platform_admin')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!adminCheck?.is_platform_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { category, count = 10 } = body;
