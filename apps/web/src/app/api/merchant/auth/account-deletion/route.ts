@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -22,18 +21,9 @@ export async function POST() {
   }
 
   try {
-    const adminSupabase = createAdminClient();
-
-    // 2. Delete the user from auth.users
-    // DB Cascades (updated via migration) will handle:
-    // - public.merchants (if owner)
-    // - public.staff_members
-    // - public.audit_logs
-    // - public.feedback
-    // - etc.
-    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(
-      user.id
-    );
+    // 2. Delete the user from auth.users via secure RPC
+    // DB Cascades (updated via migration) will handle related data.
+    const { error: deleteError } = await supabase.rpc('delete_current_user');
 
     if (deleteError) {
       throw deleteError;

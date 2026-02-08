@@ -1,10 +1,25 @@
 import { Platform } from 'react-native';
-import Purchases, {
+import type {
   CustomerInfo,
   PurchasesOffering,
   PurchasesPackage,
 } from 'react-native-purchases';
 import { create } from 'zustand';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Purchases: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const purchasesModule = await import('react-native-purchases');
+    Purchases = purchasesModule.default;
+  } catch (e) {
+    console.debug('[RevenueCat] Native module ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
 
 // Get keys from environment
 const API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS;
@@ -92,38 +107,58 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         set({
           isLoading: false,
           isInitializing: false,
-          isInitialized: true, // Mark as done to prevent spamming warnings
+          isInitialized: true,
           error: `Missing API Key for ${Platform.OS}`,
         });
         return;
       }
 
-      Purchases.configure({ apiKey });
+      // Guard: Ensure we are on native and Purchases is available
+      if (Platform.OS === 'web' || !Purchases) {
+        console.warn('[RevenueCat] Purchases module not available on this platform');
+        set({
+          isLoading: false,
+          isInitializing: false,
+          isInitialized: true,
+        });
+        return;
+      }
 
-      const info = await Purchases.getCustomerInfo();
-      const offerings = await Purchases.getOfferings();
+      try {
+        Purchases.configure({ apiKey });
 
-      set({
-        customerInfo: info,
-        currentOffering: offerings.current,
-        isPro: isProFromInfo(info),
-        isLoading: false,
-        isInitializing: false,
-        isInitialized: true,
-        error: null,
-      });
+        const info = await Purchases.getCustomerInfo();
+        const offerings = await Purchases.getOfferings();
 
-      // Reactive Pattern: Automatically sync state on server confirmation
-      // Store the listener removal function for cleanup on logout
-      customerInfoListenerRemove = Purchases.addCustomerInfoUpdateListener(
-        (newInfo) => {
-          const proStatus = isProFromInfo(newInfo);
-          set({
-            customerInfo: newInfo,
-            isPro: proStatus,
-          });
-        }
-      );
+        set({
+          customerInfo: info,
+          currentOffering: offerings.current,
+          isPro: isProFromInfo(info),
+          isLoading: false,
+          isInitializing: false,
+          isInitialized: true,
+          error: null,
+        });
+
+        // Reactive Pattern: Automatically sync state on server confirmation
+        customerInfoListenerRemove = Purchases.addCustomerInfoUpdateListener(
+          (newInfo: CustomerInfo) => {
+            const proStatus = isProFromInfo(newInfo);
+            set({
+              customerInfo: newInfo,
+              isPro: proStatus,
+            });
+          }
+        );
+      } catch (innerError: unknown) {
+        console.warn('[RevenueCat] Native configuration failed:', innerError);
+        set({
+          isLoading: false,
+          isInitializing: false,
+          isInitialized: true,
+          error: 'Native module configuration failed',
+        });
+      }
     } catch (e: unknown) {
       console.warn('[RevenueCat] Initialization notice:', e);
       set({

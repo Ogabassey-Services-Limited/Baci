@@ -12,6 +12,7 @@
  * - Type-safe API responses
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import z from 'zod';
 import { withRetry } from '@/ai/provider';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -31,8 +32,6 @@ const JUMIA_AUTH_BASE = {
 } as const;
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-const _MAX_RETRIES = 3;
-const _BASE_DELAY_MS = 1000;
 
 // =============================================================================
 // ZOD SCHEMAS (LITERAL MATCH WITH JUMIA DOCS)
@@ -258,6 +257,7 @@ export class JumiaClient {
   private tokenExpiresAt: Date | null = null;
   private refreshToken: string;
   private environment: Environment;
+  private supabase: SupabaseClient | null;
 
   constructor(config: {
     integrationId: string;
@@ -267,6 +267,7 @@ export class JumiaClient {
     refreshToken: string;
     tokenExpiresAt: Date | null;
     environment?: Environment;
+    supabase?: SupabaseClient;
   }) {
     this.integrationId = config.integrationId;
     this.merchantId = config.merchantId;
@@ -275,15 +276,25 @@ export class JumiaClient {
     this.refreshToken = config.refreshToken;
     this.tokenExpiresAt = config.tokenExpiresAt;
     this.environment = config.environment ?? 'production';
+    this.supabase = config.supabase ?? null;
   }
 
-  static async fromIntegration(integrationId: string): Promise<JumiaClient> {
-    const supabase = createAdminClient();
-    const { data, error } = await supabase
+  static async fromIntegration(
+    integrationId: string,
+    opts?: { supabase?: SupabaseClient; merchantId?: string }
+  ): Promise<JumiaClient> {
+    const { supabase, merchantId } = opts ?? {};
+    const client = supabase ?? createAdminClient();
+    let query = client
       .from('marketplace_integrations')
       .select('*')
-      .eq('id', integrationId)
-      .single();
+      .eq('id', integrationId);
+
+    if (merchantId) {
+      query = query.eq('merchant_id', merchantId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data)
       throw new Error(`Integration not found: ${integrationId}`);
@@ -298,22 +309,24 @@ export class JumiaClient {
         ? new Date(data.token_expires_at)
         : null,
       environment: 'production',
+      supabase,
     });
   }
 
   static async forMerchant(
     merchantId: string,
-    shopId?: string
+    options?: { shopId?: string; supabase?: SupabaseClient }
   ): Promise<JumiaClient | null> {
-    const supabase = createAdminClient();
-    let query = supabase
+    const supabase = options?.supabase;
+    const client = supabase ?? createAdminClient();
+    let query = client
       .from('marketplace_integrations')
       .select('*')
       .eq('merchant_id', merchantId)
       .eq('platform', 'jumia')
       .eq('is_active', true);
 
-    if (shopId) query = query.eq('shop_id', shopId);
+    if (options?.shopId) query = query.eq('shop_id', options.shopId);
     const { data, error } = await query.limit(1).single();
     if (error || !data) return null;
 
@@ -327,6 +340,7 @@ export class JumiaClient {
         ? new Date(data.token_expires_at)
         : null,
       environment: 'production',
+      supabase,
     });
   }
 
@@ -374,8 +388,8 @@ export class JumiaClient {
     }
     this.tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-    const supabase = createAdminClient();
-    await supabase
+    const supabase = this.supabase ?? createAdminClient();
+    const { error: updateError } = await supabase
       .from('marketplace_integrations')
       .update({
         access_token: data.access_token,
@@ -383,6 +397,14 @@ export class JumiaClient {
         token_expires_at: this.tokenExpiresAt.toISOString(),
       })
       .eq('id', this.integrationId);
+
+    if (updateError) {
+      throw new JumiaApiError(
+        500,
+        `Failed to persist refreshed token for integration ${this.integrationId}`,
+        updateError
+      );
+    }
   }
 
   private async getValidToken(): Promise<string> {

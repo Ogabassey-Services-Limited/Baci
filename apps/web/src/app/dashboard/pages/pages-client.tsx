@@ -124,7 +124,7 @@ export default function PagesClient() {
         setCompletedPages(pagesCompleted as Record<string, boolean>);
       }
     }
-  }, [merchant, form.reset, initialized]);
+  }, [merchant, form, initialized]);
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {
     if (togglingPage) return; // Prevent concurrent updates

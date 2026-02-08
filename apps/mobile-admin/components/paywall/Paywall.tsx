@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { PurchasesPackage } from 'react-native-purchases';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { Ionicons } from '@expo/vector-icons';
 import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -15,6 +15,7 @@ import {
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
@@ -33,6 +34,28 @@ function detectGateway(headers: Headers): PaymentGateway {
   }
   // Default to korapay for backwards compatibility
   return 'korapay';
+}
+
+function getVerifiedAmount(
+  gateway: PaymentGateway,
+  gatewayResponse: Record<string, unknown>
+): { amount: number; currency?: string } | null {
+  const rawAmount = gatewayResponse.amount;
+  if (
+    typeof rawAmount !== 'number' ||
+    !Number.isFinite(rawAmount) ||
+    rawAmount <= 0
+  ) {
+    return null;
+  }
+
+  const currency =
+    typeof gatewayResponse.currency === 'string'
+      ? gatewayResponse.currency
+      : undefined;
+  const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
+
+  return { amount, currency };
 }
 
 /**
@@ -108,7 +131,14 @@ function verifyPaystackWebhookSignature(
       .digest('hex');
 
     // Use timing-safe comparison to prevent timing attacks
-    return signature === expectedSignature;
+    const signatureBuffer = Buffer.from(String(signature), 'hex');
+    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
     logger.error({
       message: 'Paystack webhook signature verification error',
@@ -229,9 +259,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
     const safeReference = referenceResult.data;
+    reference = safeReference;
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Webhook handlers have no user cookies — use service client to bypass RLS
+    const supabase = createServiceClient();
 
     // Verify payment with the appropriate gateway
     let paymentStatus: string;
@@ -245,7 +276,7 @@ export async function POST(request: NextRequest) {
       paymentStatus = result.data.status;
       gatewayResponse = result.data as unknown as Record<string, unknown>;
     } else {
-      const result = await verifyKorapayPayment(reference);
+      const result = await verifyKorapayPayment(safeReference);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 400 });
       }
@@ -265,6 +296,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
 
     // ============================================
     // CHAT ORDER HANDLING (Virtual Account Payments)
@@ -295,6 +328,49 @@ export async function POST(request: NextRequest) {
         // Don't fail - might be a regular order with CHAT prefix by coincidence
         // Fall through to standard order handling
       } else {
+        if (verifiedAmount) {
+          const chatTotal =
+            (Number(chatOrder.subtotal) || 0) +
+            (Number(chatOrder.shipping_fee) || 0);
+          if (Math.abs(verifiedAmount.amount - chatTotal) > 0.01) {
+            logger.error({
+              message: 'Payment amount mismatch for chat order',
+              reference,
+              gateway,
+              expected: chatTotal,
+              received: verifiedAmount.amount,
+              currency: verifiedAmount.currency,
+            });
+            return NextResponse.json(
+              { error: 'Payment amount mismatch' },
+              { status: 400 }
+            );
+          }
+
+          if (
+            verifiedAmount.currency &&
+            verifiedAmount.currency.toUpperCase() !== 'NGN'
+          ) {
+            logger.error({
+              message: 'Payment currency mismatch for chat order',
+              reference,
+              gateway,
+              expected: 'NGN',
+              received: verifiedAmount.currency,
+            });
+            return NextResponse.json(
+              { error: 'Payment currency mismatch' },
+              { status: 400 }
+            );
+          }
+        } else {
+          logger.warn({
+            message: 'Could not verify payment amount for chat order',
+            reference,
+            gateway,
+          });
+        }
+
         // Parse items from JSONB
         const chatItems = (chatOrder.items || []) as Array<{
           product_id: string;
@@ -305,8 +381,8 @@ export async function POST(request: NextRequest) {
           image_url?: string;
         }>;
 
-        // Generate order number
-        const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+        // Generate order number and tracking token
+        const orderNumber = `ORD-${nanoid(12).toUpperCase()}`;
 
         // Create standard order from chat order
         const { data: newOrder, error: orderCreateError } = await supabase
@@ -319,6 +395,7 @@ export async function POST(request: NextRequest) {
             customer_phone: chatOrder.customer_phone,
             shipping_address: chatOrder.shipping_address,
             order_number: orderNumber,
+            tracking_token: nanoid(32),
             subtotal: chatOrder.subtotal,
             shipping_fee: chatOrder.shipping_fee || 0,
             total: (
@@ -405,7 +482,9 @@ export async function POST(request: NextRequest) {
         const { error: txnError } = await supabase.from('transactions').insert({
           merchant_id: chatOrder.merchant_id,
           order_id: newOrder.id,
-          amount: chatOrder.subtotal,
+          amount: (
+            Number(chatOrder.subtotal) + Number(chatOrder.shipping_fee || 0)
+          ).toString(),
           currency: 'NGN',
           status: 'completed',
           gateway: gateway,
@@ -603,21 +682,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if already processed
-    if (transaction.status === 'completed') {
-      logger.info({ message: 'Transaction already processed', reference });
-      return NextResponse.json({ message: 'Already processed' });
+    if (verifiedAmount) {
+      const transactionAmount = Number(transaction.amount) || 0;
+      const expectedCurrency =
+        typeof transaction.currency === 'string' ? transaction.currency : null;
+
+      if (Math.abs(verifiedAmount.amount - transactionAmount) > 0.01) {
+        logger.error({
+          message: 'Payment amount mismatch',
+          reference,
+          gateway,
+          expected: transactionAmount,
+          received: verifiedAmount.amount,
+          currency: verifiedAmount.currency,
+        });
+        return NextResponse.json(
+          { error: 'Payment amount mismatch' },
+          { status: 400 }
+        );
+      }
+
+      if (
+        expectedCurrency &&
+        verifiedAmount.currency &&
+        expectedCurrency.toUpperCase() !== verifiedAmount.currency.toUpperCase()
+      ) {
+        logger.error({
+          message: 'Payment currency mismatch',
+          reference,
+          gateway,
+          expected: expectedCurrency,
+          received: verifiedAmount.currency,
+        });
+        return NextResponse.json(
+          { error: 'Payment currency mismatch' },
+          { status: 400 }
+        );
+      }
+    } else {
+      logger.warn({
+        message: 'Could not verify payment amount',
+        reference,
+        gateway,
+      });
     }
 
-    // Update transaction status
-    const { error: updateError } = await supabase
+    // Atomically claim the transaction — prevents double-processing on concurrent retries
+    const { data: updatedTxn, error: updateError } = await supabase
       .from('transactions')
       .update({
         status: 'completed',
         gateway_response: gatewayResponse,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', transaction.id);
+      .eq('id', transaction.id)
+      .neq('status', 'completed')
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -626,6 +747,11 @@ export async function POST(request: NextRequest) {
         error: updateError,
       });
       throw updateError;
+    }
+
+    if (!updatedTxn) {
+      logger.info({ message: 'Transaction already processed', reference });
+      return NextResponse.json({ message: 'Already processed' });
     }
 
     // ============================================
@@ -891,6 +1017,12 @@ export async function POST(request: NextRequest) {
 
     // Record settlement for merchant wallet tracking
     try {
+      const isDomainPurchase =
+        (transaction.metadata as Record<string, unknown>)?.transaction_type ===
+        'domain_purchase';
+      const sourceType = isDomainPurchase ? 'domain_purchase' : 'order';
+      const sourceId = isDomainPurchase ? transaction.id : transaction.order_id;
+
       // Calculate fees using proper platform fee structure (2% capped at ₦2,050)
       const grossAmount = Number(transaction.amount) || 0;
       const gatewayFee = Number(transaction.gateway_fee) || 0;
@@ -903,14 +1035,16 @@ export async function POST(request: NextRequest) {
         'record_merchant_settlement',
         {
           p_merchant_id: transaction.merchant_id,
-          p_source_type: 'order',
-          p_source_id: transaction.order_id,
+          p_source_type: sourceType,
+          p_source_id: sourceId,
           p_gateway: gateway,
           p_gateway_reference: reference,
           p_gross_amount: grossAmount,
           p_gateway_fee: gatewayFee,
           p_platform_fee: platformFee,
-          p_description: `Order payment via ${gateway}`,
+          p_description: isDomainPurchase
+            ? `Domain purchase via ${gateway}`
+            : `Order payment via ${gateway}`,
         }
       );
 
@@ -949,13 +1083,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error({
       message: 'Payment webhook error',
-      error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : error,
     });
     return NextResponse.json(
-      {
-        error: 'Webhook processing failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Webhook processing failed' },
       { status: 500 }
     );
   }
@@ -992,15 +1126,12 @@ export async function GET(request: NextRequest) {
     const gateway: PaymentGateway =
       gatewayParam === 'korapay' ? 'korapay' : 'paystack';
 
-    // Input validation for reference parameter using shared schema
-    const refValidation = referenceSchema.safeParse(reference);
-    if (!refValidation.success) {
-      return NextResponse.json(
-        { error: 'Invalid or missing reference' },
-        { status: 400 }
-      );
+    // Validate reference with same Zod schema used in POST handler
+    const referenceResult = referenceSchema.safeParse(reference);
+    if (!referenceResult.success) {
+      return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
-    const validatedReference = refValidation.data;
+    const safeReference = referenceResult.data;
 
     // SECURITY: Get merchant first to establish authorization context
     const { data: merchant } = await supabase
@@ -1021,7 +1152,7 @@ export async function GET(request: NextRequest) {
     const { data: transaction } = await supabase
       .from('transactions')
       .select('id, merchant_id')
-      .eq('gateway_reference', validatedReference)
+      .eq('gateway_reference', safeReference)
       .eq('merchant_id', merchant.id) // Authorization enforced in query
       .single();
 
@@ -1036,8 +1167,8 @@ export async function GET(request: NextRequest) {
     // Transaction verified to belong to authenticated merchant
     const paymentData =
       gateway === 'paystack'
-        ? await verifyPaystackPayment(validatedReference)
-        : await verifyKorapayPayment(validatedReference);
+        ? await verifyPaystackPayment(safeReference)
+        : await verifyKorapayPayment(safeReference);
 
     return NextResponse.json({
       success: true,
@@ -1047,14 +1178,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error({
       message: 'Payment verification error',
-      error: JSON.stringify(error).replace(/[\r\n]/g, ' '),
+      error:
+        error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : error,
     });
-    return NextResponse.json(
-      {
-        error: 'Verification failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }

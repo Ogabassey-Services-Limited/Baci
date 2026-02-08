@@ -65,17 +65,27 @@ export default function BNPLCheckoutScreen() {
     return { isValid: true, error: null, data: result.data };
   }, [params]);
 
-  const {
-    orderId,
-    gateway,
-    amount,
-    merchantSlug,
-  } = validatedParams.data || {};
+  const { orderId, gateway, amount } = validatedParams.data || {};
 
   // Construct the BNPL launcher URL
-  const bnplUrl = validatedParams.isValid
-    ? `${API_BASE_URL}/${merchantSlug || 'ogabassey'}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}`
-    : '';
+  // 2026 Critical Fix: Include merchant slug in path for correct multi-tenant routing
+  // and as a query parameter for the order fetch API.
+  const bnplUrl = useMemo(() => {
+    if (!validatedParams.isValid || !orderId) return '';
+
+    const slug =
+      validatedParams.isValid && validatedParams.data
+        ? validatedParams.data.merchantSlug || 'ogabassey'
+        : 'ogabassey';
+    const baseUrl = API_BASE_URL.endsWith('/')
+      ? API_BASE_URL.slice(0, -1)
+      : API_BASE_URL;
+
+    // Pattern: [baseUrl]/[slug]/checkout/bnpl?orderId=[id]&gateway=[gateway]&merchant_slug=[slug]
+    // If baseUrl already includes the merchant (custom domain), the path /slug /checkout still works
+    // because Next.js handles the rewrite.
+    return `${baseUrl}/${slug}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}&merchant_slug=${slug}`;
+  }, [validatedParams, orderId, gateway]);
 
   // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {
@@ -140,7 +150,7 @@ export default function BNPLCheckoutScreen() {
       const urlParams = new URL(url);
       setErrorMessage(
         urlParams.searchParams.get('error') ||
-        'Payment failed. Please try again.'
+          'Payment failed. Please try again.'
       );
     }
   };
@@ -392,7 +402,7 @@ export default function BNPLCheckoutScreen() {
           Total Amount
         </Text>
         <Text style={[styles.amountValue, { color: BRAND.primary }]}>
-          ₦{parseInt(amount || '0', 10).toLocaleString()}
+          ₦{Number(amount || '0').toLocaleString()}
         </Text>
       </View>
     </SafeAreaView>

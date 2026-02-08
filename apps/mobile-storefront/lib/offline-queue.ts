@@ -198,14 +198,15 @@ class OfflineQueueManager {
 
     log.info(`Processing ${this.state.queue.length} queued mutations`);
 
-    // Process mutations in order (FIFO)
-    const queue = [...this.state.queue];
-
-    for (const mutation of queue) {
+    // Process mutations in order (FIFO), draining the live queue
+    // so items enqueued mid-flight are picked up in the same pass
+    while (this.state.queue.length > 0) {
+      const mutation = this.state.queue[0];
       const handler = this.handlers.get(mutation.type);
 
       if (!handler) {
         log.warn(`No handler for mutation type: ${mutation.type}`);
+        await this.remove(mutation.id);
         continue;
       }
 
@@ -244,7 +245,7 @@ class OfflineQueueManager {
         }
 
         // Exponential backoff before next retry
-        const delay = Math.min(1000 * Math.pow(2, mutation.retryCount), 30000);
+        const delay = Math.min(1000 * 2 ** mutation.retryCount, 30000);
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }

@@ -4,27 +4,44 @@
  * Features: Progressive negotiation, counter offers, evidence upload
  */
 
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
-  TextInput,
-  ActivityIndicator,
-  Platform,
-  KeyboardAvoidingView,
-  Alert,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import { BRAND, SHADOWS, palette } from '@/constants/Colors';
+import { BRAND, palette, SHADOWS } from '@/constants/Colors';
+import { supabase } from '@/lib/supabase';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
-import { supabase } from '@/lib/supabase';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let ImagePicker: typeof import('expo-image-picker') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    ImagePicker = await import('expo-image-picker');
+  } catch (e) {
+    console.debug(
+      '[NegotiationModal] ImagePicker module ignored or failed to load:',
+      e
+    );
+  }
+};
+
+loadNativeModules();
 
 type NegotiationStatus =
   | 'input'
@@ -73,7 +90,7 @@ export const NegotiationModal: React.FC = () => {
     style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light
   ) => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(style).catch(() => { });
+      Haptics.impactAsync(style).catch(() => {});
     }
   };
 
@@ -83,9 +100,9 @@ export const NegotiationModal: React.FC = () => {
     setStatus('processing');
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
 
-    const offerAmount = parseFloat(offer.replace(/[^0-9.]/g, ''));
+    const offerAmount = Number.parseFloat(offer.replace(/[^0-9.]/g, ''));
 
-    if (isNaN(offerAmount) || offerAmount <= 0) {
+    if (Number.isNaN(offerAmount) || offerAmount <= 0) {
       Alert.alert('Invalid Offer', 'Please enter a valid price.');
       setStatus('input');
       return;
@@ -154,7 +171,7 @@ export const NegotiationModal: React.FC = () => {
   };
 
   const handleApplyAndClose = () => {
-    const finalPrice = parseFloat(offer.replace(/[^0-9.]/g, ''));
+    const finalPrice = Number.parseFloat(offer.replace(/[^0-9.]/g, ''));
     if (type === 'single' && itemId) {
       applyNegotiatedPrice(itemId, finalPrice);
     } else {
@@ -166,7 +183,7 @@ export const NegotiationModal: React.FC = () => {
   const submitMerchantRequest = async (evidenceUrl?: string) => {
     setStatus('processing');
     const offerAmount =
-      parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
+      Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
@@ -176,10 +193,10 @@ export const NegotiationModal: React.FC = () => {
         item_info:
           type === 'single'
             ? {
-              id: itemId,
-              name: productName,
-              current_price: currentPrice,
-            }
+                id: itemId,
+                name: productName,
+                current_price: currentPrice,
+              }
             : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
@@ -209,6 +226,13 @@ export const NegotiationModal: React.FC = () => {
   };
 
   const pickImage = async () => {
+    if (!ImagePicker) {
+      Alert.alert(
+        'Not Supported',
+        'Image picking is not supported on this platform.'
+      );
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,

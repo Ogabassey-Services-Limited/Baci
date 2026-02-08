@@ -6,6 +6,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { createClient } from '@/lib/supabase/server';
 
@@ -202,14 +203,14 @@ function extractKeywords(title: string, content: string): string[] {
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -327,15 +328,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },

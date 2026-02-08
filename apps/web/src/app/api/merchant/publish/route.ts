@@ -17,14 +17,14 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -157,14 +157,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },

@@ -38,7 +38,7 @@ const serverSchema = z.object({
     .default('development'),
 
   // Internal
-  JUICYWAY_BASE_URL: z.string().default('https://api-sandbox.spendjuice.com'),
+  JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
   MYCOVER_WEBHOOK_SECRET: z.string().optional(),
 });
 

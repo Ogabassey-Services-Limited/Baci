@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import { z } from 'zod';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import {
   getDomainInformation,
   getDomainLock,
@@ -7,8 +11,27 @@ import {
   updateDomainLock,
   updateDomainNameservers,
 } from '@/lib/go54';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { vercel } from '@/lib/vercel';
+
+const nameserverDataSchema = z.object({
+  nameserver1: z.string(),
+  nameserver2: z.string(),
+  nameserver3: z.string().optional(),
+  nameserver4: z.string().optional(),
+  nameserver5: z.string().optional(),
+});
+
+const lockDataSchema = z.object({
+  lock: z.boolean(),
+});
+
+const domainActionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('update_nameservers'),
+    data: nameserverDataSchema,
+  }),
+  z.object({ action: z.literal('update_lock'), data: lockDataSchema }),
+]);
 
 export async function GET(
   request: NextRequest,
@@ -16,33 +39,28 @@ export async function GET(
 ) {
   try {
     const { domain } = await params;
-    const { user, error: authError } = await authenticateApiRequest(request);
+    const auth = await authenticateApiRequest(request);
 
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const supabase = auth.supabase;
+    const merchantId = await getMerchantIdForApiUser(supabase);
 
     // Verify domain belongs to user's merchant account
-    const { data: merchant } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    const { data: domainRecord, error: domainError } = await adminSupabase
+    const { data: domainRecord, error: domainError } = await supabase
       .from('domains')
       .select('id')
       .eq('domain', domain)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (domainError || !domainRecord) {
@@ -78,36 +96,39 @@ export async function POST(
 ) {
   try {
     const { domain } = await params;
-    const body = await request.json();
-    const { action, data } = body;
+    const auth = await authenticateApiRequest(request);
 
-    const { user, error: authError } = await authenticateApiRequest(request);
-
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const supabase = auth.supabase;
+    const merchantId = await getMerchantIdForApiUser(supabase);
 
-    // Verify domain belongs to user's merchant account
-    const { data: merchant } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    const { data: domainRecord, error: domainError } = await adminSupabase
+    const body = await request.json();
+    const parsed = domainActionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid action', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const actionData = parsed.data;
+
+    // Verify domain belongs to user's merchant account
+    const { data: domainRecord, error: domainError } = await supabase
       .from('domains')
       .select('id')
       .eq('domain', domain)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (domainError || !domainRecord) {
@@ -119,15 +140,13 @@ export async function POST(
 
     let result: unknown;
 
-    switch (action) {
+    switch (actionData.action) {
       case 'update_nameservers':
-        result = await updateDomainNameservers(domain, data);
+        result = await updateDomainNameservers(domain, actionData.data);
         break;
       case 'update_lock':
-        result = await updateDomainLock(domain, data.lock);
+        result = await updateDomainLock(domain, actionData.data.lock);
         break;
-      default:
-        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     return NextResponse.json(result);
@@ -145,32 +164,27 @@ export async function DELETE(
 ) {
   try {
     const { domain } = await params;
-    const { user, error: authError } = await authenticateApiRequest(request);
+    const auth = await authenticateApiRequest(request);
 
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const supabase = auth.supabase;
+    const merchantId = await getMerchantIdForApiUser(supabase);
 
-    const { data: merchant } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    const { error: deleteError } = await adminSupabase
+    const { error: deleteError } = await supabase
       .from('domains')
       .delete()
       .eq('domain', domain)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (deleteError) {
       return NextResponse.json(

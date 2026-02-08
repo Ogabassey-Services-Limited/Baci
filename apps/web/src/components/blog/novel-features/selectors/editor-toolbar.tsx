@@ -27,7 +27,16 @@ import { useEditor } from 'novel';
 import { useRef, useState } from 'react';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
 import { ColorSelector } from './color-selector';
 import { NodeSelector } from './node-selector';
@@ -46,9 +55,39 @@ export const EditorToolbar = ({
   const editor = _editor as any;
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
+  const [imageUrlOpen, setImageUrlOpen] = useState(false);
+  const [imageUrlValue, setImageUrlValue] = useState('');
+  const [imageUrlError, setImageUrlError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
+
+  const _insertImageFromUrl = () => {
+    const url = imageUrlValue.trim();
+    if (!url) return;
+
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) {
+      setImageUrlError('Invalid image URL');
+      return;
+    }
+
+    try {
+      const parsed = new URL(sanitized);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        setImageUrlError('Invalid image URL');
+        return;
+      }
+    } catch {
+      setImageUrlError('Invalid image URL');
+      return;
+    }
+
+    editor.chain().focus().setImage({ src: sanitized }).run();
+    setImageUrlValue('');
+    setImageUrlError(null);
+    setImageUrlOpen(false);
+  };
 
   const formatButtons = [
     {
@@ -223,11 +262,7 @@ export const EditorToolbar = ({
           size="sm"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any)
-              .chain()
-              .focus()
-              .toggleBlockquote()
-              .run()
+            (editor as any).chain().focus().toggleBlockquote().run()
           }
           className={cn('h-8 w-8 p-0', {
             'bg-accent text-accent-foreground':
@@ -243,11 +278,7 @@ export const EditorToolbar = ({
           size="sm"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any)
-              .chain()
-              .focus()
-              .setHorizontalRule()
-              .run()
+            (editor as any).chain().focus().setHorizontalRule().run()
           }
           className="h-8 w-8 p-0"
           title="Horizontal Rule"
@@ -276,15 +307,72 @@ export const EditorToolbar = ({
         >
           <LinkIcon className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          className="h-8 w-8 p-0"
-          title="Upload Image"
-        >
-          <ImageIcon className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Insert Image"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Upload image from device"
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Upload from device
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setImageUrlOpen(true)}
+              aria-label="Insert image from URL"
+            >
+              <LinkIcon className="mr-2 h-4 w-4" />
+              Insert from URL
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Popover open={imageUrlOpen} onOpenChange={setImageUrlOpen}>
+          <PopoverContent
+            align="start"
+            className="w-80 p-3"
+            onInteractOutside={() => setImageUrlOpen(false)}
+          >
+            <div className="space-y-2">
+              <label htmlFor="image-url-input" className="text-sm font-medium">
+                Image URL
+              </label>
+              <Input
+                id="image-url-input"
+                placeholder="https://example.com/image.jpg"
+                value={imageUrlValue}
+                onChange={(e) => {
+                  setImageUrlValue(e.target.value);
+                  if (imageUrlError) setImageUrlError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    _insertImageFromUrl();
+                  }
+                }}
+              />
+              {imageUrlError ? (
+                <p className="text-xs text-destructive">{imageUrlError}</p>
+              ) : null}
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={!imageUrlValue.trim()}
+                onClick={_insertImageFromUrl}
+              >
+                Insert Image
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
         <Button
           variant="ghost"
           size="sm"
@@ -306,10 +394,17 @@ export const EditorToolbar = ({
           onClick={() => {
             const url = prompt('Enter YouTube URL');
             if (url) {
-              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-              (editor as any).commands.setYoutubeVideo({
-                src: url,
-              });
+              const sanitized = sanitizeUrl(url.trim());
+              if (sanitized) {
+                // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
+                (editor as any).commands.setYoutubeVideo({
+                  src: sanitized,
+                });
+              } else {
+                alert(
+                  'Invalid YouTube URL. Please enter a valid https:// URL.'
+                );
+              }
             }
           }}
           className="h-8 w-8 p-0"
@@ -367,6 +462,7 @@ export const EditorToolbar = ({
             const pos = editor.state.selection.from;
             uploadFn(file, editor.view, pos);
           }
+          e.target.value = '';
         }}
       />
     </div>

@@ -88,6 +88,10 @@ interface Merchant {
   id: string;
   slug: string;
   name: string;
+  social_media: Record<string, string>;
+  email?: string;
+  phone?: string;
+  business_address?: string;
 }
 
 /**
@@ -104,7 +108,7 @@ export function useMerchant() {
         async () =>
           await supabase
             .from('merchants')
-            .select('id, slug, name')
+            .select('id, slug, name, social_media, email, phone, business_address')
             .eq('slug', MERCHANT_SLUG)
             .single(),
         { maxRetries: 3 }
@@ -119,6 +123,7 @@ export function useMerchant() {
       id: CONSTANT_MERCHANT_ID,
       slug: MERCHANT_SLUG,
       name: 'Store',
+      social_media: {},
     } as Merchant,
   });
 }

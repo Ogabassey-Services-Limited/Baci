@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { createNotificationSchema } from '@/schemas/notifications';
 import type {
   AdminNotificationFilters,
-  CreateNotificationInput,
   Notification,
   NotificationWithStats,
 } from '@/types/notifications';
@@ -207,6 +207,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -233,45 +241,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate request body
-    let body: CreateNotificationInput;
+    let body: unknown;
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
-
-    // Validation
-    if (!body.title?.trim()) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 });
-    }
-    if (!body.message?.trim()) {
+    const parsed = createNotificationSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Message is required' },
+        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
-    if (!body.channels?.length) {
-      return NextResponse.json(
-        { error: 'At least one channel is required' },
-        { status: 400 }
-      );
-    }
-    if (body.target_type === 'specific' && !body.target_merchant_ids?.length) {
-      return NextResponse.json(
-        { error: 'Target merchant IDs required for specific targeting' },
-        { status: 400 }
-      );
-    }
-    if (body.target_type === 'segment' && !body.target_segment) {
-      return NextResponse.json(
-        { error: 'Target segment required for segment targeting' },
-        { status: 400 }
-      );
-    }
+    const data = parsed.data;
 
     // Determine if this should be sent immediately or scheduled
-    const scheduledFor = body.scheduled_for
-      ? new Date(body.scheduled_for)
+    const scheduledFor = data.scheduled_for
+      ? new Date(data.scheduled_for)
       : null;
     const shouldSendImmediately = !scheduledFor || scheduledFor <= new Date();
 
@@ -279,19 +266,21 @@ export async function POST(request: NextRequest) {
     const { data: notification, error: createError } = await supabase
       .from('notifications')
       .insert({
-        title: body.title.trim(),
-        message: body.message.trim(),
-        notification_type: body.notification_type || 'info',
-        priority: body.priority || 'normal',
-        target_type: body.target_type || 'all',
-        target_merchant_ids: body.target_merchant_ids || [],
-        target_segment: body.target_segment || null,
-        channels: body.channels,
-        action_url: body.action_url || null,
-        action_label: body.action_label || null,
-        scheduled_for: shouldSendImmediately ? null : body.scheduled_for,
-        expires_at: body.expires_at || null,
-        template_id: body.template_id || null,
+        title: data.title,
+        message: data.message,
+        notification_type: data.notification_type,
+        priority: data.priority,
+        target_type: data.target_type,
+        target_merchant_ids: data.target_merchant_ids || [],
+        target_segment: data.target_segment || null,
+        channels: data.channels,
+        action_url: data.action_url ?? null,
+        action_label: data.action_label ?? null,
+        scheduled_for: shouldSendImmediately
+          ? null
+          : (data.scheduled_for ?? null),
+        expires_at: data.expires_at ?? null,
+        template_id: data.template_id ?? null,
         created_by: user.id,
         sent_at: shouldSendImmediately ? new Date().toISOString() : null,
       })
@@ -315,7 +304,7 @@ export async function POST(request: NextRequest) {
 
       // Fetch merchant IDs for broadcast if not already available
       let broadcastMerchantIds: string[] = [];
-      if (body.target_type === 'all') {
+      if (data.target_type === 'all') {
         // Send to all merchants
         const { data: count, error: rpcError } = await supabase.rpc(
           'send_notification_to_all_merchants',
@@ -351,15 +340,15 @@ export async function POST(request: NextRequest) {
           (m: { id: string }) => m.id
         );
       } else if (
-        body.target_type === 'specific' &&
-        body.target_merchant_ids?.length
+        data.target_type === 'specific' &&
+        data.target_merchant_ids?.length
       ) {
         // Send to specific merchants
         const { data: count, error: rpcError } = await supabase.rpc(
           'send_notification_to_merchants',
           {
             p_notification_id: notification.id,
-            p_merchant_ids: body.target_merchant_ids,
+            p_merchant_ids: data.target_merchant_ids,
           }
         );
 
@@ -370,12 +359,12 @@ export async function POST(request: NextRequest) {
           });
         }
         merchantsSent = count || 0;
-        broadcastMerchantIds = body.target_merchant_ids;
-      } else if (body.target_type === 'segment' && body.target_segment) {
+        broadcastMerchantIds = data.target_merchant_ids ?? [];
+      } else if (data.target_type === 'segment' && data.target_segment) {
         // Get merchants in segment and send
         const segmentMerchants = await getSegmentMerchantIds(
           supabase,
-          body.target_segment
+          data.target_segment
         );
         if (segmentMerchants.length > 0) {
           const { data: count, error: rpcError } = await supabase.rpc(
@@ -519,7 +508,11 @@ async function broadcastNotification(
 
     // Send push notifications if the 'push' channel is enabled
     if (notification.channels.includes('push')) {
-      await sendPushNotificationsToMerchants(notification, merchantIds);
+      await sendPushNotificationsToMerchants(
+        notification,
+        merchantIds,
+        supabase
+      );
     }
   } catch (error) {
     // Don't fail the request if broadcast fails
@@ -532,13 +525,12 @@ async function broadcastNotification(
  */
 async function sendPushNotificationsToMerchants(
   notification: Notification,
-  merchantIds: string[]
+  merchantIds: string[],
+  supabase: ReturnType<typeof createClient>
 ) {
   try {
-    const adminSupabase = createAdminClient();
-
     // Fetch all active push tokens for the target merchants (admin app only)
-    const { data: tokens, error } = await adminSupabase
+    const { data: tokens, error } = await supabase
       .from('push_tokens')
       .select('token, merchant_id')
       .in('merchant_id', merchantIds)
@@ -597,7 +589,7 @@ async function sendPushNotificationsToMerchants(
       .filter((token): token is string => token !== null);
 
     if (tokensToDeactivate.length > 0) {
-      await adminSupabase
+      await supabase
         .from('push_tokens')
         .update({ is_active: false })
         .in('token', tokensToDeactivate);

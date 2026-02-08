@@ -1,39 +1,69 @@
-import { nanoid } from 'nanoid';
-import { NextResponse } from 'next/server';
+import { customAlphabet } from 'nanoid';
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { authenticateApiRequest } from '@/lib/api-auth';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { checkCsrfProtection } from '@/lib/csrf';
+
+const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
+
+const initDomainPaymentSchema = z.object({
+  domain: z
+    .string()
+    .min(1)
+    .refine((value) => domainRegex.test(value), {
+      message: 'Invalid domain format',
+    }),
+  years: z.coerce.number().int().min(1).optional().default(1),
+});
+
+const nanoidUppercase = customAlphabet(
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+  12
+);
 
 /**
  * POST /api/domains/initialize-payment
  * Initialize a payment for domain purchase
  * This creates a pending transaction that must be completed before domain registration
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const adminSupabase = createAdminClient();
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
     // Authenticate request (supports mobile Bearer token + web cookies)
-    // Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
+    const auth = await authenticateApiRequest(request);
 
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { domain, years = 1 } = await request.json();
-
-    // Validate domain format
-    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-    if (!domainRegex.test(domain)) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const parsed = initDomainPaymentSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid domain format' },
+        { error: 'Invalid input', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { domain: rawDomain, years } = parsed.data;
+    const domain = rawDomain.toLowerCase();
+    const supabase = auth.supabase;
 
     // Extract TLD and get pricing
     let tld = `.${domain.split('.').slice(-1)[0]}`;
@@ -61,11 +91,10 @@ export async function POST(request: Request) {
     }
 
     // Get merchant
-    // Get merchant
-    const { data: merchant, error: merchantError } = await adminSupabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name, email, slug')
-      .eq('user_id', user.id)
+      .eq('user_id', auth.user.id)
       .single();
 
     if (merchantError || !merchant) {
@@ -75,35 +104,37 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique payment reference for domain purchase
-    const reference = `DOM-${nanoid(12).toUpperCase()}`;
-
-    // Create pending transaction record
-    const { error: transactionError } = await adminSupabase
-      .from('transactions')
-      .insert({
-        merchant_id: merchant.id,
-        transaction_type: 'payment', // DB check constraint requires 'payment'
-        amount: priceCalculation.sellPrice,
-        currency: 'NGN',
-        status: 'pending',
-        gateway: 'paystack', // Default to Paystack for domain purchases
-        gateway_reference: reference,
-        platform_fee: priceCalculation.profit, // Platform keeps the markup as fee
-        merchant_amount: 0, // Merchant doesn't receive anything - this is a service purchase
-        description: `Domain purchase: ${domain} for ${years} year(s)`,
-        metadata: {
-          domain,
-          tld,
-          years,
-          transaction_type: 'domain_purchase', // Store specific type in metadata
-          cost_price: priceCalculation.costPrice,
-          sell_price: priceCalculation.sellPrice,
-          category: priceCalculation.category,
+    // Validate email is available before calling Paystack
+    const paymentEmail = merchant.email || auth.user.email;
+    if (!paymentEmail) {
+      return NextResponse.json(
+        {
+          error:
+            'No email available for payment. Please update your merchant email.',
         },
-      })
-      .select()
-      .single();
+        { status: 400 }
+      );
+    }
+
+    // Generate unique payment reference for domain purchase (case-preserving entropy)
+    const reference = `DOM-${nanoidUppercase()}`;
+
+    // Create pending transaction record (secure RPC)
+    const { error: transactionError } = await supabase.rpc(
+      'create_domain_purchase_transaction',
+      {
+        p_domain: domain,
+        p_tld: tld,
+        p_years: years,
+        p_amount: priceCalculation.sellPrice,
+        p_cost_price: priceCalculation.costPrice,
+        p_sell_price: priceCalculation.sellPrice,
+        p_category: priceCalculation.category,
+        p_reference: reference,
+        p_gateway: 'paystack',
+        p_currency: 'NGN',
+      }
+    );
 
     if (transactionError) {
       console.error('Error creating transaction:', transactionError);
@@ -119,7 +150,6 @@ export async function POST(request: Request) {
     const callbackUrl = `${protocol}://${rootDomain}/dashboard/domains/callback?reference=${reference}&domain=${encodeURIComponent(domain)}&years=${years}`;
 
     // Initialize Paystack payment
-    console.log('[DomainPayment] Initializing Paystack...');
     if (!process.env.PAYSTACK_SECRET_KEY) {
       console.error('[DomainPayment] PAYSTACK_SECRET_KEY is missing');
       return NextResponse.json(
@@ -136,8 +166,9 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         },
+        signal: AbortSignal.timeout(15_000),
         body: JSON.stringify({
-          email: merchant.email || user.email,
+          email: paymentEmail,
           amount: Math.round(priceCalculation.sellPrice * 100), // Paystack uses kobo
           reference,
           callback_url: callbackUrl,
@@ -154,11 +185,15 @@ export async function POST(request: Request) {
     );
 
     if (!paystackResponse.ok) {
-      const errorData = await paystackResponse.json();
-      console.error(
-        '[DomainPayment] Paystack Init Failed:',
-        JSON.stringify(errorData)
-      );
+      let errorData: unknown;
+      try {
+        errorData = await paystackResponse.json();
+      } catch {
+        errorData = await paystackResponse
+          .text()
+          .catch(() => 'unreadable body');
+      }
+      console.error('[DomainPayment] Paystack Init Failed:', errorData);
       return NextResponse.json(
         { error: 'Failed to initialize payment gateway' },
         { status: 500 }
@@ -166,6 +201,16 @@ export async function POST(request: Request) {
     }
 
     const paystackData = await paystackResponse.json();
+    if (!paystackData?.data?.authorization_url) {
+      console.error(
+        '[DomainPayment] Unexpected Paystack response:',
+        paystackData
+      );
+      return NextResponse.json(
+        { error: 'Unexpected payment gateway response' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

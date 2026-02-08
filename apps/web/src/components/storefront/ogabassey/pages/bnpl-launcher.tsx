@@ -10,13 +10,15 @@ import { useMerchant } from '@/hooks/use-merchant';
 export function BnplLauncher() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { merchant } = useMerchant();
+    const { merchant, loading } = useMerchant();
 
     const orderId = searchParams.get('orderId');
     const gateway = searchParams.get('gateway') as
         | 'credit_direct'
         | 'credpal'
         | null;
+    const merchantSlugParam =
+        searchParams.get('merchant_slug') || searchParams.get('slug');
 
     const [status, setStatus] = useState<'loading' | 'processing' | 'error'>(
         'loading'
@@ -24,6 +26,8 @@ export function BnplLauncher() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
+        if (loading) return; // Wait for merchant data to load
+
         if (!orderId || !gateway) {
             setStatus('error');
             setErrorMessage('Missing order ID or gateway information.');
@@ -32,12 +36,27 @@ export function BnplLauncher() {
 
         const launchPayment = async () => {
             try {
-                console.log('Fetching order for BNPL:', orderId);
-                const res = await fetch(`/api/storefront/orders/${orderId}`);
-                if (!res.ok) throw new Error('Failed to fetch order details');
+                setStatus('loading'); // Reset status when retrying or re-running
+                setErrorMessage(null);
+
+                const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+                console.log(
+                    `[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`
+                );
+                const url = `/api/storefront/orders/${orderId}?merchant_slug=${slug}`;
+                console.log(`[BnplLauncher] URL: ${url}`);
+
+                const res = await fetch(url);
+                console.log(`[BnplLauncher] Response status: ${res.status}`);
+
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error(`[BnplLauncher] Fetch failed: ${res.status} ${errorText}`);
+                    throw new Error(`Failed to fetch order details (Status: ${res.status})`);
+                }
 
                 const order = await res.json();
-                console.log('Order fetched successfully:', order.id);
+                console.log('[BnplLauncher] Order fetched successfully:', order.id);
 
                 if (!order.items || order.items.length === 0) {
                     throw new Error('Order has no items.');
@@ -117,7 +136,7 @@ export function BnplLauncher() {
         };
 
         launchPayment();
-    }, [orderId, gateway, merchant?.slug, router]);
+    }, [orderId, gateway, merchant?.slug, loading, router]);
 
     if (status === 'error') {
         return (

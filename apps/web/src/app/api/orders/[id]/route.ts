@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
@@ -15,13 +14,13 @@ export async function GET(
     const { id } = await params;
 
     // Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -29,8 +28,7 @@ export async function GET(
       );
     }
 
-    // Use admin client for queries
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // Get order (ensure it belongs to this merchant)
     const { data: order, error: orderError } = await supabase
@@ -64,13 +62,13 @@ export async function PATCH(
     const body = await request.json();
 
     // Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -78,8 +76,7 @@ export async function PATCH(
       );
     }
 
-    // Use admin client for queries
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // Verify order belongs to this merchant and get current status
     const { data: existingOrder, error: checkError } = await supabase

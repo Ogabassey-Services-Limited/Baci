@@ -1,45 +1,68 @@
-import { NextResponse } from 'next/server';
-import { authenticateApiRequest } from '@/lib/api-auth';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { vercel } from '@/lib/vercel';
+import { createDomainSchema } from '@/schemas/domains';
+
+const DOMAIN_COLUMNS = [
+  'id',
+  'domain',
+  'tld',
+  'domain_type',
+  'status',
+  'is_primary',
+  'verification_token',
+  'verification_token_expires_at',
+  'verified_at',
+  'ssl_status',
+  'purchase_price',
+  'renewal_price',
+  'registered_at',
+  'expires_at',
+  'auto_renew',
+  'nameservers',
+  'ssl_issued_at',
+  'created_at',
+  'updated_at',
+];
+
+const DOMAIN_SELECT = DOMAIN_COLUMNS.join(', ');
 
 /**
  * GET /api/domains
  * List all domains for authenticated merchant
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { user, error } = await authenticateApiRequest(request);
-    if (error || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
+    const supabase = auth.supabase;
 
-    // Get merchant ID
-    const { data: merchant, error: merchantError } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantId = await getMerchantIdForApiUser(supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    // Get all domains for this merchant
-    const { data: domains, error: domainsError } = await adminSupabase
+    // Get all domains for this merchant (defense-in-depth, complements RLS)
+    const { data: domains, error: domainsError } = await supabase
       .from('domains')
-      .select('*')
-      .eq('merchant_id', merchant.id)
+      .select(DOMAIN_SELECT)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     if (domainsError) {
+      console.error('Error querying domains:', domainsError);
       return NextResponse.json(
-        { error: domainsError.message },
+        { error: 'Failed to fetch domains' },
         { status: 500 }
       );
     }
@@ -58,48 +81,41 @@ export async function GET(request: Request) {
  * POST /api/domains
  * Add a custom domain (BYOD - Bring Your Own Domain)
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { user, error } = await authenticateApiRequest(request);
-    if (error || !user) {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { domain, isPrimary = false } = await request.json();
-
-    // Validate domain format
-    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-    if (!domainRegex.test(domain)) {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
+    }
+    const parsed = createDomainSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid domain format' },
+        { error: 'Invalid domain format', details: parsed.error.flatten() },
         { status: 400 }
       );
     }
 
-    const adminSupabase = createAdminClient();
+    const { domain: rawDomain, isPrimary } = parsed.data;
+    const domain = rawDomain.toLowerCase();
+    const supabase = auth.supabase;
 
-    // Check if domain already exists in OUR database
-    const { data: existingDomain } = await adminSupabase
-      .from('domains')
-      .select('id')
-      .eq('domain', domain)
-      .single();
-
-    if (existingDomain) {
-      return NextResponse.json(
-        { error: 'This domain is already registered' },
-        { status: 409 }
-      );
-    }
-
-    // Get merchant ID
-    const { data: merchant, error: merchantError } = await adminSupabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantId = await getMerchantIdForApiUser(supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -108,7 +124,7 @@ export async function POST(request: Request) {
 
     // Extract TLD
     let tld = `.${domain.split('.').slice(-1)[0]}`;
-    if (domain.includes('.ng')) {
+    if (domain.endsWith('.ng') || domain.match(/\.[a-z]+\.ng$/)) {
       const parts = domain.split('.');
       if (parts.length >= 3) {
         tld = `.${parts.slice(-2).join('.')}`;
@@ -124,18 +140,26 @@ export async function POST(request: Request) {
       vercelResponse = await vercel.addDomain(domain);
     } catch (error: unknown) {
       console.error('Vercel Add Domain Error:', error);
-      // If domain is owned by another account, Vercel might return 409
-      // We should pass this error to the user
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      return NextResponse.json(
-        {
-          error:
-            errorMessage ||
-            'Failed to add domain to Vercel. It might be in use by another account.',
-        },
-        { status: 409 }
-      );
+      let status = 500;
+      if (
+        error instanceof Error &&
+        'status' in error &&
+        typeof (error as Record<string, unknown>).status === 'number'
+      ) {
+        const rawStatus = (error as Record<string, unknown>).status as number;
+        if (
+          Number.isFinite(rawStatus) &&
+          rawStatus >= 100 &&
+          rawStatus <= 599
+        ) {
+          status = rawStatus;
+        }
+      }
+      const message =
+        status === 409
+          ? 'Domain is already in use by another account.'
+          : 'Failed to add domain to Vercel.';
+      return NextResponse.json({ error: message }, { status });
     }
 
     // Determine status based on Vercel response
@@ -164,10 +188,10 @@ export async function POST(request: Request) {
     ).toISOString();
 
     // Insert domain into DB
-    const { data: newDomain, error: insertError } = await adminSupabase
+    const { data: newDomain, error: insertError } = await supabase
       .from('domains')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         domain,
         tld,
         domain_type: 'custom',
@@ -177,18 +201,19 @@ export async function POST(request: Request) {
         verification_token_expires_at: verificationTokenExpiresAt,
         is_primary: isPrimary,
       })
-      .select()
+      .select(DOMAIN_SELECT)
       .single();
 
     if (insertError) {
+      if (insertError.code === '23505') {
+        return NextResponse.json(
+          { error: 'This domain is already registered' },
+          { status: 409 }
+        );
+      }
       console.error('Insert error:', insertError);
       return NextResponse.json(
-        {
-          error: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code,
-        },
+        { error: 'Failed to register domain' },
         { status: 500 }
       );
     }
@@ -208,12 +233,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       domain: newDomain,
       verification: verificationInstructions,
-      vercel: vercelResponse, // Return raw Vercel response for debugging
     });
   } catch (error: unknown) {
     console.error('Error adding domain:', error);
-    const errorMessage =
-      error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

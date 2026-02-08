@@ -92,11 +92,17 @@ const FailedOrderItem = memo(function FailedOrderItem({
   shadows,
   onPress,
 }: FailedOrderItemProps) {
+  const STATUS_LABELS: Record<string, string> = {
+    bnpl_pending: 'BNPL Drop-off',
+    failed: 'Payment Failed',
+    pending: 'Abandoned Transfer',
+    expired: 'Payment Expired',
+  };
+
   const errorMessage =
     item.gateway_response?.message ||
-    (item.payment_status === 'bnpl_pending'
-      ? 'BNPL Drop-off'
-      : 'Payment Failed');
+    STATUS_LABELS[item.payment_status] ||
+    'Payment Failed';
 
   const displayName = item.customer_name || 'Guest';
 
@@ -133,7 +139,19 @@ const FailedOrderItem = memo(function FailedOrderItem({
           {item.customer_email}
         </Text>
 
-        <Text style={[styles.errorText, { color: '#EF4444' }]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.errorText,
+            {
+              color:
+                item.payment_status === 'pending' ||
+                  item.payment_status === 'expired'
+                  ? '#D97706'
+                  : '#EF4444',
+            },
+          ]}
+          numberOfLines={1}
+        >
           {formatCurrency(item.total)} •{' '}
           {item.attempt_count > 1
             ? `${item.attempt_count} attempts`
@@ -145,7 +163,10 @@ const FailedOrderItem = memo(function FailedOrderItem({
         {item.customer_phone && (
           <>
             <Pressable
-              style={[styles.miniActionButton, { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 }]}
+              style={[
+                styles.miniActionButton,
+                { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 },
+              ]}
               onPress={(e) => {
                 e.stopPropagation();
                 handleWhatsApp(item.customer_phone!);
@@ -157,7 +178,10 @@ const FailedOrderItem = memo(function FailedOrderItem({
               <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
             </Pressable>
             <Pressable
-              style={[styles.miniActionButton, { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 }]}
+              style={[
+                styles.miniActionButton,
+                { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 },
+              ]}
               onPress={(e) => {
                 e.stopPropagation();
                 handleCall(item.customer_phone!);
@@ -171,7 +195,10 @@ const FailedOrderItem = memo(function FailedOrderItem({
           </>
         )}
         <Pressable
-          style={[styles.miniActionButton, { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 }]}
+          style={[
+            styles.miniActionButton,
+            { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 },
+          ]}
           onPress={(e) => {
             e.stopPropagation();
             handleEmail(item.customer_email);
@@ -256,7 +283,10 @@ const CustomerItem = memo(function CustomerItem({
         {item.phone && (
           <>
             <Pressable
-              style={[styles.miniActionButton, { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 }]}
+              style={[
+                styles.miniActionButton,
+                { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 },
+              ]}
               onPress={(e) => {
                 e.stopPropagation();
                 handleWhatsApp(item.phone!);
@@ -268,7 +298,10 @@ const CustomerItem = memo(function CustomerItem({
               <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
             </Pressable>
             <Pressable
-              style={[styles.miniActionButton, { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 }]}
+              style={[
+                styles.miniActionButton,
+                { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 },
+              ]}
               onPress={(e) => {
                 e.stopPropagation();
                 handleCall(item.phone!);
@@ -282,7 +315,10 @@ const CustomerItem = memo(function CustomerItem({
           </>
         )}
         <Pressable
-          style={[styles.miniActionButton, { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 }]}
+          style={[
+            styles.miniActionButton,
+            { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 },
+          ]}
           onPress={(e) => {
             e.stopPropagation();
             handleEmail(item.email);
@@ -436,10 +472,7 @@ export default function CustomersScreen() {
   );
 
   // Memoized keyExtractor callbacks
-  const customerKeyExtractor = useCallback(
-    (item: Customer) => item.id,
-    []
-  );
+  const customerKeyExtractor = useCallback((item: Customer) => item.id, []);
 
   const failedOrderKeyExtractor = useCallback(
     (item: FailedOrder) => item.id,
@@ -448,7 +481,10 @@ export default function CustomersScreen() {
 
   // getItemLayout for consistent item heights (improves scroll performance)
   const getItemLayout = useCallback(
-    (_data: ArrayLike<Customer | FailedOrder> | null | undefined, index: number) => ({
+    (
+      _data: ArrayLike<Customer | FailedOrder> | null | undefined,
+      index: number
+    ) => ({
       length: CUSTOMER_ITEM_HEIGHT,
       offset: CUSTOMER_ITEM_HEIGHT * index,
       index,
@@ -507,7 +543,12 @@ export default function CustomersScreen() {
               accessibilityLabel="Clear search"
               accessibilityRole="button"
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
             >
               <Ionicons
                 name="close-circle"
@@ -524,7 +565,6 @@ export default function CustomersScreen() {
         <Pressable
           style={[
             styles.tab,
-            { minHeight: 44 },
             activeTab === 'failed' && {
               backgroundColor: colors.gold,
               borderColor: colors.gold,
@@ -550,7 +590,6 @@ export default function CustomersScreen() {
         <Pressable
           style={[
             styles.tab,
-            { minHeight: 44 },
             activeTab === 'all' && {
               backgroundColor: colors.gold,
               borderColor: colors.gold,
@@ -766,11 +805,13 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   tab: {
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 16,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: 'transparent', // Default transparent border
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
     fontSize: TYPOGRAPHY.size.sm,

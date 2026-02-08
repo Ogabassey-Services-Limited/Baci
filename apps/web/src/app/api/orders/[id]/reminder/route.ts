@@ -1,15 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generatePaymentReminderEmail,
   generatePaymentReminderText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';
+import { orderReminderSchema } from '@/schemas/order-reminder';
 
 /**
  * POST /api/orders/[id]/reminder
@@ -22,29 +23,30 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id: orderId } = await params;
-    const body = await request.json();
 
     // 1. Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    console.log('[Reminder API] Auth result:', {
-      userId: user?.id,
-      email: user?.email,
-      error: authError,
-    });
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error) {
+      logger.warn({ message: 'Reminder API: Auth failed', error: auth.error });
+    }
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
-        { error: authError || 'Unauthorized' },
+        { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
     // 2. Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
-    console.log('[Reminder API] Merchant ID lookup:', {
-      userId: user.id,
-      merchantId,
-    });
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -52,8 +54,22 @@ export async function POST(
       );
     }
 
-    // Use admin client for queries (user already verified)
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
+
+    // Parse body after auth to avoid processing unauthenticated requests
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+    const parsed = orderReminderSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
 
     // 3. Get merchant details for email
     const { data: merchant, error: merchantError } = await supabase
@@ -84,14 +100,14 @@ export async function POST(
       .eq('merchant_id', merchant.id)
       .single();
 
-    console.log('[Reminder API] Order lookup:', {
-      orderId,
-      merchantId: merchant.id,
-      found: !!order,
-      error: orderError,
-    });
-
-    if (orderError || !order) {
+    if (!order) {
+      if (orderError && orderError.code !== 'PGRST116') {
+        logger.warn({
+          message: 'Reminder API: Order lookup failed',
+          orderId,
+          error: orderError,
+        });
+      }
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -114,7 +130,7 @@ export async function POST(
     const paymentLink = `${merchantUrl}/checkout/resume/${orderId}`;
 
     // 7. Determine channel (email by default)
-    const channel = body.channel || 'email';
+    const channel = parsed.data.channel || 'email';
 
     // 8. Calculate balance
     const balanceDue = Number(order.total) - Number(order.amount_paid || 0);
@@ -166,11 +182,13 @@ export async function POST(
       }
     } else if (channel === 'whatsapp' && order.customer_phone) {
       // TODO: Integrate WhatsApp API (Twilio, Meta, etc.)
-      // For now, return the message for manual sending
-      sendResult = { success: true, error: '' };
+      sendResult = {
+        success: false,
+        error: 'WhatsApp channel not yet implemented',
+      };
     } else if (channel === 'sms' && order.customer_phone) {
       // TODO: Integrate SMS API (Twilio, Termii, etc.)
-      sendResult = { success: true, error: '' };
+      sendResult = { success: false, error: 'SMS channel not yet implemented' };
     } else {
       return NextResponse.json(
         { error: `No valid contact for channel: ${channel}` },
@@ -180,11 +198,20 @@ export async function POST(
 
     // 10. Log reminder
     if (sendResult.success) {
-      await supabase.from('order_reminders').insert({
-        order_id: orderId,
-        channel,
-        payment_link: paymentLink,
-      });
+      const { error: insertError } = await supabase
+        .from('order_reminders')
+        .insert({
+          order_id: orderId,
+          channel,
+          payment_link: paymentLink,
+        });
+      if (insertError) {
+        logger.warn({
+          message: 'Failed to log reminder',
+          orderId,
+          error: insertError,
+        });
+      }
     }
 
     return NextResponse.json({

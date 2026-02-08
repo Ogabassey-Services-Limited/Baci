@@ -68,5 +68,14 @@ export const SelfFulfillmentSchema = z.object({
   dispatchNotes: z.string().optional(),
 });
 
+/**
+ * Schema for shipping locations query params
+ */
+export const locationsQuerySchema = z.object({
+  state: z.string().optional(),
+  search: z.string().min(2).optional(),
+});
+
 export type BookingRequestInput = z.infer<typeof BookingRequestSchema>;
 export type SelfFulfillmentInput = z.infer<typeof SelfFulfillmentSchema>;
+export type LocationsQueryInput = z.infer<typeof locationsQuerySchema>;

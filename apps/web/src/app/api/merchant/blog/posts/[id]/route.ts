@@ -43,14 +43,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const auth = await authenticateApiRequest(_request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -95,14 +95,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -237,14 +237,14 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const auth = await authenticateApiRequest(_request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },

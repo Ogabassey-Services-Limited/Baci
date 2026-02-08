@@ -72,6 +72,7 @@ export async function POST(request: Request) {
       tokenExpiresAt: integration.expires_at
         ? new Date(integration.expires_at)
         : null,
+      supabase,
     });
 
     // 3. Push Status Update if changed

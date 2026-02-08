@@ -11,6 +11,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
+import { sortCategories } from '@/lib/category-sorting';
 import { findDarkestColor } from '@/lib/color-utils';
 import { type Product, sampleProductsByCategory } from '@/lib/products';
 import { DidYouMeanBanner } from './did-you-mean-banner';
@@ -243,57 +244,13 @@ export function StorefrontProductGrid({
     );
     const availableCategories = Array.from(cats);
 
-    // Get priority list from navigation categories if available
     const priorityList =
-      merchantContext?.navigationCategories?.map((c) => c.name.toLowerCase()) ||
-      [];
+      merchantContext?.navigationCategories
+        ?.map((c) => c.name?.toLowerCase().trim())
+        .filter((n): n is string => !!n) || [];
 
-    console.log('[ProductGrid] Debug Priority:', {
-      priorityList,
-      availableCategories,
-      merchantContextCats: merchantContext?.navigationCategories,
-    });
-
-    // Sort logic: All -> Smartphones -> Navigation Priority Order -> Remaining Alphabetical
-    const sorted = availableCategories.sort((a, b) => {
-      const aName = a.toLowerCase().trim();
-      const bName = b.toLowerCase().trim();
-
-      // 1. Force 'Smartphones' (singular or plural) OR any phone related to the top
-      const isASmartphone =
-        aName === 'smartphone' ||
-        aName === 'smartphones' ||
-        aName.includes('phone') ||
-        aName.includes('mobile');
-      const isBSmartphone =
-        bName === 'smartphone' ||
-        bName === 'smartphones' ||
-        bName.includes('phone') ||
-        bName.includes('mobile');
-
-      if (isASmartphone && !isBSmartphone) return -1;
-      if (!isASmartphone && isBSmartphone) return 1;
-      if (isASmartphone && isBSmartphone) return a.localeCompare(b);
-
-      // 2. Navigation Priority List
-      const aIndex = priorityList.findIndex(
-        (p) => aName === p || aName.includes(p)
-      );
-      const bIndex = priorityList.findIndex(
-        (p) => bName === p || bName.includes(p)
-      );
-
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-
-      // 3. Alphabetical
-      return a.localeCompare(b);
-    });
-
-    console.log('[ProductGrid] Debug Categories:', {
-      availableCategories,
-      sorted,
+    const sorted = sortCategories({
+      categories: availableCategories,
       priorityList,
     });
 

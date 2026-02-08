@@ -10,7 +10,7 @@ export const SHIPPING_STATUS_CONFIG: Record<
   ShippingStatus,
   { label: string; colorKey: string }
 > = {
-  pending: { label: 'Pending', colorKey: 'pending' },
+  pending: { label: 'Unfulfilled', colorKey: 'pending' },
   processing: { label: 'Processing', colorKey: 'processing' },
   shipped: { label: 'Shipped', colorKey: 'shipped' },
   delivered: { label: 'Delivered', colorKey: 'delivered' },
@@ -25,7 +25,7 @@ export const PAYMENT_STATUS_CONFIG: Record<
 > = {
   paid: { label: 'Paid', colorKey: 'success' },
   unpaid: { label: 'Unpaid', colorKey: 'error' },
-  pending: { label: 'Pending', colorKey: 'pending' },
+  pending: { label: 'Awaiting Payment', colorKey: 'pending' },
   failed: { label: 'Failed', colorKey: 'error' },
   refunded: { label: 'Refunded', colorKey: 'textMuted' },
   partially_paid: { label: 'Partial', colorKey: 'warning' },

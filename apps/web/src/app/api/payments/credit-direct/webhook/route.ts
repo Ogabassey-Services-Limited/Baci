@@ -139,6 +139,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true, warning: 'Order not found' });
     }
 
+    let parsedNotes: Record<string, unknown> = {};
+    try {
+      parsedNotes = JSON.parse(order.notes || '{}') as Record<string, unknown>;
+    } catch {
+      parsedNotes = {};
+    }
+    const signedAmount =
+      typeof parsedNotes.creditDirectSignedAmount === 'number'
+        ? parsedNotes.creditDirectSignedAmount
+        : null;
+
     // Idempotency: If order is already paid, skip processing (webhook retry)
     if (
       order.payment_status === 'paid' &&
@@ -196,7 +207,39 @@ export async function POST(request: NextRequest) {
       case 'Checkout_Merchant_Payment_Completed': {
         // Credit Direct has paid the merchant in full
         // Mark order as fully paid and create transaction record
-        const totalAmount = Number(order.total) || 0;
+        const webhookTotal = payload.products.reduce(
+          (sum, product) => sum + product.productAmount,
+          0
+        );
+        const expectedAmount = signedAmount ?? (Number(order.total) || 0);
+        if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) {
+          logger.error({
+            message: 'Invalid expected amount for Credit Direct payment',
+            orderId: order.id,
+            expectedAmount,
+          });
+          return NextResponse.json(
+            { error: 'Invalid payment amount' },
+            { status: 400 }
+          );
+        }
+        if (
+          webhookTotal > 0 &&
+          Math.abs(webhookTotal - expectedAmount) > 0.01
+        ) {
+          logger.error({
+            message: 'BNPL amount does not match expected total',
+            orderId: order.id,
+            webhookTotal,
+            expectedAmount,
+          });
+          return NextResponse.json(
+            { error: 'Payment amount mismatch' },
+            { status: 400 }
+          );
+        }
+
+        const totalAmount = expectedAmount;
         const platformFee = calculatePlatformFee(totalAmount);
         const merchantAmount = calculateMerchantAmount(totalAmount);
 

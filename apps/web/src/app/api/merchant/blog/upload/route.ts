@@ -1,13 +1,20 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { isProduction } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+
+const deleteBodySchema = z.object({
+  path: z.string().min(1, 'No path provided'),
+});
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -23,6 +30,14 @@ const ALLOWED_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     // Default user client
     const userSupabase = createClient(cookieStore);
@@ -36,14 +51,31 @@ export async function POST(request: NextRequest) {
 
     // Check for Dev Mode Override
     const devMerchantId = request.headers.get('x-dev-merchant-id');
+    const devOverrideSecret = request.headers.get('x-dev-override-secret');
     const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-    const isDevOverride = !user && devMerchantId === DEV_MERCHANT_ID;
+    const isDevEnv = !isProduction();
+    const host = request.headers.get('host') || '';
+    const isLocalhost =
+      host.includes('localhost') || host.startsWith('127.0.0.1');
+    // BACI_DEV_OVERRIDE_SECRET is intentionally not in env.ts - only needed in dev mode
+    const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
+    const hasValidSecret =
+      expectedSecret && devOverrideSecret === expectedSecret;
+    const isDevOverride =
+      !user &&
+      isDevEnv &&
+      isLocalhost &&
+      devMerchantId === DEV_MERCHANT_ID &&
+      hasValidSecret;
 
     if (!user && !isDevOverride) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
+    }
+    if (user && !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (isDevOverride) {
@@ -58,11 +90,13 @@ export async function POST(request: NextRequest) {
       supabaseClient = adminSupabase;
     } else {
       // Authenticated User Flow (supports both owners and staff members)
-      if (!user?.id) {
+      if (!user?.id || !auth.supabase) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
-      const access = await getUserAccess(user.id);
+      const authedSupabase = auth.supabase;
+      const access = await getUserAccess(authedSupabase);
       if (access) {
+        supabaseClient = authedSupabase;
         if (!hasPermission(access, 'marketing', 'edit')) {
           return NextResponse.json(
             { error: 'Permission denied' },
@@ -71,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch merchant slug if needed
-        const { data: merchantData } = await userSupabase
+        const { data: merchantData } = await supabaseClient
           .from('merchants')
           .select('slug')
           .eq('id', access.merchantId)
@@ -93,11 +127,11 @@ export async function POST(request: NextRequest) {
 
     // Parse form data
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-
-    if (!file) {
+    const entry = formData.get('file');
+    if (!entry || !(entry instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
+    const file = entry;
 
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -126,8 +160,8 @@ export async function POST(request: NextRequest) {
     const extension = mimeToExt[file.type] || 'jpg';
     const filename = `${nanoid(12)}.${extension}`;
 
-    // NOTE: Path matches Mobile App expectations
-    const filePath = `blog/${merchant.id}/${filename}`;
+    // Path: merchant_id/blog/filename (merchant ID first for storage policy)
+    const filePath = `${merchant.id}/blog/${filename}`;
 
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -135,7 +169,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage (using appropriate client)
     const { error: uploadError } = await supabaseClient.storage
-      .from('merchant-assets')
+      .from('media')
       .upload(filePath, buffer, {
         contentType: file.type,
         cacheControl: '31536000', // 1 year cache
@@ -150,10 +184,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get public URL using Admin Client to ensure visibility if bucket is private
-    // (though getPublicUrl is usually static string manipulation, it's safer to use the client that knows the bucket)
+    // Get public URL (getPublicUrl is a static URL builder that works with any client)
     const { data: publicUrlData } = supabaseClient.storage
-      .from('merchant-assets')
+      .from('media')
       .getPublicUrl(filePath);
 
     return NextResponse.json({
@@ -175,12 +208,20 @@ export async function POST(request: NextRequest) {
 // Delete image
 export async function DELETE(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Check authentication
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
@@ -188,7 +229,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get access (supports both owners and staff members)
-    const access = await getUserAccess(auth.user.id);
+    const access = await getUserAccess(auth.supabase);
     if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -202,14 +243,14 @@ export async function DELETE(request: NextRequest) {
 
     const merchant = { id: access.merchantId };
 
-    const { path } = await request.json();
-
-    if (!path) {
+    const parsed = deleteBodySchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json({ error: 'No path provided' }, { status: 400 });
     }
+    const { path } = parsed.data;
 
     // Ensure the path belongs to this merchant and prevent path traversal
-    const expectedPrefix = `blog/${merchant.id}/`;
+    const expectedPrefix = `${merchant.id}/blog/`;
     // Reject paths with traversal sequences or that don't match expected format
     if (
       typeof path !== 'string' ||
@@ -223,7 +264,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete from Supabase Storage
     const { error: deleteError } = await supabase.storage
-      .from('merchant-assets')
+      .from('media')
       .remove([path]);
 
     if (deleteError) {

@@ -12,11 +12,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
-import * as Print from 'expo-print';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseSavedRiders } from '@/lib/validators/storage';
 import {
   ActivityIndicator,
   Alert,
@@ -32,10 +27,33 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { z } from 'zod';
-import SafeImage from '@/components/ui/SafeImage';
-import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Print: typeof import('expo-print') | null = null;
+let Sharing: typeof import('expo-sharing') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [prnt, shr] = await Promise.all([
+      import('expo-print'),
+      import('expo-sharing'),
+    ]);
+    Print = prnt;
+    Sharing = shr;
+  } catch (_e) {
+    console.debug('[OrderDetails] Native modules ignored or failed to load');
+  }
+};
+
+loadNativeModules();
+
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import SafeImage from '@/components/ui/SafeImage';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
@@ -49,6 +67,7 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { parseSavedRiders } from '@/lib/validators/storage';
 
 // Route param validation - order ID must be a valid UUID
 const routeParamsSchema = z.object({
@@ -283,7 +302,9 @@ export default function OrderDetailsScreen() {
     // Normalize array params to single values for validation
     const normalizedParams = {
       id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
-      action: Array.isArray(rawParams.action) ? rawParams.action[0] : rawParams.action,
+      action: Array.isArray(rawParams.action)
+        ? rawParams.action[0]
+        : rawParams.action,
     };
     const result = routeParamsSchema.safeParse(normalizedParams);
     return result.success ? result.data : null;
@@ -342,34 +363,37 @@ export default function OrderDetailsScreen() {
 
     if (!anyModalOpen) return;
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      // Close modals in priority order (most specific first)
-      if (showRecordPaymentModal) {
-        setShowRecordPaymentModal(false);
-        return true; // Prevent default back behavior
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        // Close modals in priority order (most specific first)
+        if (showRecordPaymentModal) {
+          setShowRecordPaymentModal(false);
+          return true; // Prevent default back behavior
+        }
+        if (showPaymentOptionModal) {
+          setShowPaymentOptionModal(false);
+          return true;
+        }
+        if (showFulfillmentModal) {
+          setShowFulfillmentModal(false);
+          return true;
+        }
+        if (showRiderModal) {
+          setShowRiderModal(false);
+          return true;
+        }
+        if (showCreditModal) {
+          setShowCreditModal(false);
+          return true;
+        }
+        if (showStatusModal) {
+          setShowStatusModal(false);
+          return true;
+        }
+        return false; // Let default back behavior happen
       }
-      if (showPaymentOptionModal) {
-        setShowPaymentOptionModal(false);
-        return true;
-      }
-      if (showFulfillmentModal) {
-        setShowFulfillmentModal(false);
-        return true;
-      }
-      if (showRiderModal) {
-        setShowRiderModal(false);
-        return true;
-      }
-      if (showCreditModal) {
-        setShowCreditModal(false);
-        return true;
-      }
-      if (showStatusModal) {
-        setShowStatusModal(false);
-        return true;
-      }
-      return false; // Let default back behavior happen
-    });
+    );
 
     return () => backHandler.remove();
   }, [
@@ -708,7 +732,8 @@ Thank you for choosing Ogabassey!
                 if (__DEV__) {
                   if (!res.ok)
                     console.log('UseOrder: Delivered email failed', res.status);
-                  else console.log('UseOrder: Delivered email sent successfully');
+                  else
+                    console.log('UseOrder: Delivered email sent successfully');
                 }
               })
               .catch((err) => {
@@ -750,7 +775,8 @@ Thank you for choosing Ogabassey!
                 if (__DEV__) {
                   if (!res.ok)
                     console.log('UseOrder: Cancelled email failed', res.status);
-                  else console.log('UseOrder: Cancelled email sent successfully');
+                  else
+                    console.log('UseOrder: Cancelled email sent successfully');
                 }
               })
               .catch((err) => {
@@ -876,6 +902,13 @@ Thank you for choosing Ogabassey!
     if (!order) return;
     try {
       const html = generateReceiptHtml(order);
+      if (!Print || !Sharing) {
+        Alert.alert(
+          'Error',
+          'Export modules are not available on this platform.'
+        );
+        return;
+      }
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, {
         UTI: '.pdf',

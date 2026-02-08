@@ -1,25 +1,36 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
+import { after, type NextRequest, NextResponse } from 'next/server';
+import { sanitizeText } from '@/lib/sanitize-core';
+import { createAnonClient } from '@/lib/supabase/anon';
 import { sendEmail } from '@/lib/zeptomail';
+import { subscribeSchema, unsubscribeSchema } from '@/schemas/newsletter';
 
-const subscribeSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  merchantId: z.string().uuid('Invalid merchant ID').optional(),
-  source: z
-    .enum(['widget', 'footer', 'checkout', 'popup'])
-    .optional()
-    .default('widget'),
-});
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * POST /api/newsletter/subscribe
  * Subscribe an email to a merchant's newsletter
+ *
+ * CSRF exemption: This is a public endpoint for anonymous storefront visitors.
+ * Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting
+ * in proxy.ts middleware and the RPC's idempotent upsert behavior.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     const validation = subscribeSchema.safeParse(body);
 
     if (!validation.success) {
@@ -35,110 +46,82 @@ export async function POST(request: NextRequest) {
     const { email, merchantId, source } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Use Service Role Key to bypass RLS policies
-    const supabase = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseServiceRoleKey(),
+    const supabase = createAnonClient();
+
+    const { data: subscribeResult, error: subscribeError } = await supabase.rpc(
+      'subscribe_newsletter',
       {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
+        p_email: normalizedEmail,
+        p_merchant_id: merchantId || null,
+        p_source: source,
       }
     );
 
-    // Check if subscriber already exists for this merchant
-    let query = supabase
-      .from('newsletter_subscribers')
-      .select('id, status')
-      .eq('email', normalizedEmail);
-
-    if (merchantId) {
-      query = query.eq('merchant_id', merchantId);
-    } else {
-      query = query.is('merchant_id', null);
-    }
-
-    const { data: existing } = await query.single();
-
-    if (existing) {
-      if (existing.status === 'unsubscribed') {
-        // Resubscribe
-        const { error: updateError } = await supabase
-          .from('newsletter_subscribers')
-          .update({
-            status: 'subscribed',
-            resubscribed_at: new Date().toISOString(),
-            source,
-          })
-          .eq('id', existing.id);
-
-        if (updateError) {
-          console.error('Newsletter resubscribe error:', updateError);
-          return NextResponse.json(
-            { error: 'Failed to resubscribe. Please try again.' },
-            { status: 500 }
-          );
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: 'Welcome back! You have been resubscribed.',
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: 'You are already subscribed.',
-      });
-    }
-
-    // Create new subscriber
-    const { error: insertError } = await supabase
-      .from('newsletter_subscribers')
-      .insert({
-        email: normalizedEmail,
-        merchant_id: merchantId || null,
-        source,
-        status: 'subscribed',
-        subscribed_at: new Date().toISOString(),
-      });
-
-    if (insertError) {
-      // Handle unique constraint violation gracefully
-      if (insertError.code === '23505') {
-        return NextResponse.json({
-          success: true,
-          message: 'You are already subscribed.',
-        });
-      }
-
-      console.error('Newsletter subscription error:', insertError);
+    if (subscribeError) {
+      console.error('Newsletter subscription error:', subscribeError);
       return NextResponse.json(
         { error: 'Failed to subscribe. Please try again.' },
         { status: 500 }
       );
     }
 
+    // Type guard for RPC result
+    const validResults: string[] = [
+      'already_subscribed',
+      'resubscribed',
+      'subscribed',
+    ];
+    if (!subscribeResult || !validResults.includes(subscribeResult as string)) {
+      console.error('Unexpected subscribe_newsletter result:', subscribeResult);
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+
+    if (subscribeResult === 'already_subscribed') {
+      return NextResponse.json({
+        success: true,
+        message: 'You are already subscribed.',
+      });
+    }
+
+    if (subscribeResult === 'resubscribed') {
+      // Intentionally skip welcome email for resubscribed users — they already received one.
+      // Consider adding a "welcome back" email if re-engagement metrics warrant it.
+      return NextResponse.json({
+        success: true,
+        message: 'Welcome back! You have been resubscribed.',
+      });
+    }
+
     // Get merchant info for personalized email
     let merchantName = 'Baci';
     if (merchantId) {
-      const { data: merchant } = await supabase
+      const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
         .select('business_name')
         .eq('id', merchantId)
         .single();
+      if (merchantError) {
+        console.warn('Could not fetch merchant name:', merchantError.message);
+      }
       if (merchant?.business_name) {
-        merchantName = merchant.business_name;
+        merchantName = sanitizeText(merchant.business_name);
       }
     }
 
-    // Send welcome email (fire and forget)
-    sendEmail({
-      to: normalizedEmail,
-      subject: `Welcome to ${merchantName}!`,
-      htmlContent: `
+    const response = NextResponse.json({
+      success: true,
+      message:
+        'Successfully subscribed! Check your email for a welcome message.',
+    });
+
+    after(() => {
+      sendEmail({
+        to: normalizedEmail,
+        subject: `Welcome to ${merchantName}!`,
+        htmlContent: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -149,7 +132,7 @@ export async function POST(request: NextRequest) {
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #6366f1; margin: 0;">Welcome!</h1>
           </div>
-          <p>Thanks for subscribing to <strong>${merchantName}</strong>'s newsletter!</p>
+          <p>Thanks for subscribing to <strong>${escapeHtml(merchantName)}</strong>'s newsletter!</p>
           <p>You'll be the first to know about:</p>
           <ul style="padding-left: 20px;">
             <li>New product launches</li>
@@ -159,21 +142,18 @@ export async function POST(request: NextRequest) {
           <p>Stay tuned for exciting updates!</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           <p style="font-size: 12px; color: #666; text-align: center;">
-            You received this email because you subscribed to ${merchantName}'s newsletter.
+            You received this email because you subscribed to ${escapeHtml(merchantName)}'s newsletter.
           </p>
         </body>
         </html>
       `,
-      textContent: `Welcome to ${merchantName}!\n\nThanks for subscribing to our newsletter. You'll be the first to know about new product launches, exclusive discounts, and special promotions.\n\nStay tuned for exciting updates!`,
-      emailType: 'newsletter',
-      fromName: merchantName,
-    }).catch((err) => console.error('Newsletter welcome email error:', err));
-
-    return NextResponse.json({
-      success: true,
-      message:
-        'Successfully subscribed! Check your email for a welcome message.',
+        textContent: `Welcome to ${merchantName}!\n\nThanks for subscribing to our newsletter. You'll be the first to know about new product launches, exclusive discounts, and special promotions.\n\nStay tuned for exciting updates!`,
+        emailType: 'newsletter',
+        fromName: merchantName,
+      }).catch((err) => console.error('Newsletter welcome email error:', err));
     });
+
+    return response;
   } catch (error) {
     console.error('Newsletter subscription error:', error);
     return NextResponse.json(
@@ -185,53 +165,53 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/newsletter/subscribe
- * Unsubscribe an email from a merchant's newsletter
+ * Unsubscribe an email from a merchant's newsletter.
+ *
+ * CSRF exemption: Called from unsubscribe links in emails by anonymous users.
+ * Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting
+ * in proxy.ts and the RPC's idempotent behavior.
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
-    const merchantId = searchParams.get('merchantId');
-    const _token = searchParams.get('token'); // For secure unsubscribe links (reserved for future use)
-
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    // CSRF exemption: Unsubscribe is a public endpoint for anonymous users.
+    // Use request body to avoid PII in URL logs.
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
     }
 
+    const validation = unsubscribeSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request',
+          details: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { email, merchantId } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Use Service Role Key to bypass RLS policies
-    const supabase = createSupabaseClient(
-      getSupabaseUrl(),
-      getSupabaseServiceRoleKey(),
+    const supabase = createAnonClient();
+
+    const { error: unsubscribeError } = await supabase.rpc(
+      'unsubscribe_newsletter',
       {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
+        p_email: normalizedEmail,
+        p_merchant_id: merchantId || null,
       }
     );
 
-    // Update subscriber status to unsubscribed
-    let query = supabase
-      .from('newsletter_subscribers')
-      .update({
-        status: 'unsubscribed',
-        unsubscribed_at: new Date().toISOString(),
-      })
-      .eq('email', normalizedEmail);
-
-    if (merchantId) {
-      query = query.eq('merchant_id', merchantId);
-    } else {
-      query = query.is('merchant_id', null);
-    }
-
-    const { error: updateError } = await query;
-
-    if (updateError) {
-      console.error('Newsletter unsubscribe error:', updateError);
+    if (unsubscribeError) {
+      console.error('Newsletter unsubscribe error:', unsubscribeError);
       return NextResponse.json(
         { error: 'Failed to unsubscribe. Please try again.' },
         { status: 500 }

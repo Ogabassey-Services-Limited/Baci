@@ -1,18 +1,27 @@
 /**
  * API Route Authentication Helper
  * Supports both Bearer token auth (mobile apps) and cookie-based auth (web).
- * 2025 Best Practice: Verify token, then use admin client for queries.
+ * - Bearer tokens: Verified with an anon-scoped client (no service role).
+ * - Cookies: Verified via the server factory (cookie forwarding).
+ * After verification, use the returned supabase client for RLS-safe queries.
  */
 
-import type { User } from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAnonClient } from '@/lib/supabase/anon';
+import { createScopedClient } from '@/lib/supabase/scoped';
 import { createClient } from '@/lib/supabase/server';
+import { userAccessSchema } from '@/schemas/api-auth';
+
+function _createScopedClient(token: string): SupabaseClient {
+  return createScopedClient(token);
+}
 
 export interface AuthResult {
   user: User | null;
   error: string | null;
+  supabase: SupabaseClient | null;
 }
 
 /**
@@ -29,19 +38,19 @@ export async function authenticateApiRequest(
   const authHeader = request.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
-    const adminClient = createAdminClient();
+    const anonClient = createAnonClient();
 
-    // Verify the token using admin client
+    // Verify the token using an anon-scoped client (no service role)
     const {
       data: { user },
       error,
-    } = await adminClient.auth.getUser(token);
+    } = await anonClient.auth.getUser(token);
 
     if (error || !user) {
-      return { user: null, error: 'Invalid or expired token' };
+      return { user: null, error: 'Invalid or expired token', supabase: null };
     }
 
-    return { user, error: null };
+    return { user, error: null, supabase: _createScopedClient(token) };
   }
 
   // Fallback to cookie-based auth (web)
@@ -54,59 +63,27 @@ export async function authenticateApiRequest(
     } = await supabase.auth.getUser();
 
     if (error || !user) {
-      return { user: null, error: 'Not authenticated' };
+      return { user: null, error: 'Not authenticated', supabase: null };
     }
 
-    return { user, error: null };
+    return { user, error: null, supabase };
   } catch {
-    return { user: null, error: 'Authentication failed' };
+    return { user: null, error: 'Authentication failed', supabase: null };
   }
-}
-
-/**
- * Get the admin Supabase client for server-side queries.
- * Use this after authenticating the user to bypass RLS.
- */
-export function getAdminClient() {
-  return createAdminClient();
 }
 
 /**
  * Get the merchant ID for an authenticated API user.
  * Supports both merchant owners and staff members.
  *
- * @param userId - The authenticated user's ID
+ * @param supabase - Scoped Supabase client (RLS enforced)
  * @returns The merchant ID if found, null otherwise
  */
 export async function getMerchantIdForApiUser(
-  userId: string
+  supabase: SupabaseClient
 ): Promise<string | null> {
-  const supabase = createAdminClient();
-
-  // 1. Check if user is the merchant owner
-  const { data: ownedMerchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', userId)
-    .single();
-
-  if (ownedMerchant) {
-    return ownedMerchant.id;
-  }
-
-  // 2. Fallback: check if user is an active staff member
-  const { data: staffMember } = await supabase
-    .from('staff_members')
-    .select('merchant_id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .single();
-
-  if (staffMember) {
-    return staffMember.merchant_id;
-  }
-
-  return null;
+  const access = await getUserAccess(supabase);
+  return access?.merchantId ?? null;
 }
 
 /**
@@ -125,77 +102,28 @@ export interface UserAccess {
  * Get full access information for an authenticated API user.
  * Returns role, permissions, and flags for authorization decisions.
  *
- * @param userId - The authenticated user's ID
+ * @param supabase - Scoped Supabase client (RLS enforced)
  * @returns UserAccess object if authorized, null otherwise
  */
 export async function getUserAccess(
-  userId: string
+  supabase: SupabaseClient
 ): Promise<UserAccess | null> {
-  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc('get_user_access');
+  if (error || !data) return null;
 
-  // 1. Check if user is the merchant owner
-  const { data: ownedMerchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', userId)
-    .single();
+  const access = Array.isArray(data) ? data[0] : data;
+  if (!access) return null;
 
-  if (ownedMerchant) {
-    return {
-      merchantId: ownedMerchant.id,
-      role: 'owner',
-      isOwner: true,
-      isStaff: false,
-      permissions: { '*': { '*': true } }, // Owners have full access
-    };
-  }
+  const parsed = userAccessSchema.safeParse(access);
+  if (!parsed.success) return null;
 
-  // 2. Fallback: check if user is an active staff member
-  const { data: staffMember } = await supabase
-    .from('staff_members')
-    .select('merchant_id, role, permissions')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .single();
-
-  if (staffMember) {
-    // Get default permissions for this role
-    const { data: rolePerms } = await supabase
-      .from('role_permissions')
-      .select('permissions')
-      .eq('role', staffMember.role)
-      .single();
-
-    // Merge role defaults with custom overrides
-    const defaultPerms = (rolePerms?.permissions || {}) as Record<
-      string,
-      Record<string, boolean>
-    >;
-    const customPerms = (staffMember.permissions || {}) as Record<
-      string,
-      Record<string, boolean>
-    >;
-    const mergedPermissions: Record<string, Record<string, boolean>> = {
-      ...defaultPerms,
-    };
-
-    for (const [resource, actions] of Object.entries(customPerms)) {
-      mergedPermissions[resource] = {
-        ...mergedPermissions[resource],
-        ...actions,
-      };
-    }
-
-    return {
-      merchantId: staffMember.merchant_id,
-      role: staffMember.role as 'admin' | 'manager' | 'staff',
-      isOwner: false,
-      isStaff: true,
-      permissions: mergedPermissions,
-    };
-  }
-
-  return null;
+  return {
+    merchantId: parsed.data.merchant_id,
+    role: parsed.data.role,
+    isOwner: parsed.data.is_owner,
+    isStaff: parsed.data.is_staff,
+    permissions: parsed.data.permissions ?? {},
+  };
 }
 
 /**

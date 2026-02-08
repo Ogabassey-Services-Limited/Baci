@@ -99,9 +99,20 @@ export function ReviewsList({
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <View style={styles.summaryLeft}>
             <Text style={[styles.averageRating, { color: colors.text }]}>
-              {stats.average_rating.toFixed(1)}
+              {typeof stats.average_rating === 'number' &&
+              Number.isFinite(stats.average_rating)
+                ? stats.average_rating.toFixed(1)
+                : '0.0'}
             </Text>
-            {renderStars(Math.round(stats.average_rating), 18)}
+            {renderStars(
+              Math.round(
+                typeof stats.average_rating === 'number' &&
+                Number.isFinite(stats.average_rating)
+                  ? stats.average_rating
+                  : 0
+              ),
+              18
+            )}
             <Text
               style={[styles.totalReviews, { color: colors.textSecondary }]}
             >
@@ -113,8 +124,8 @@ export function ReviewsList({
             {[5, 4, 3, 2, 1].map((rating) =>
               renderRatingBar(
                 rating,
-                stats.rating_distribution[String(rating)] || 0,
-                stats.review_count
+                stats.rating_distribution?.[String(rating)] || 0,
+                stats.review_count || 0
               )
             )}
           </View>

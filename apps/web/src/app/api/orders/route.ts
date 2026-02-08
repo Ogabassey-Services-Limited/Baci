@@ -1,8 +1,5 @@
-'use server';
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -10,14 +7,11 @@ import {
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
-import {
-  isValidUuid,
-  sanitizeLikePattern,
-  sanitizeSearchQuery,
-} from '@/lib/sanitize-core';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
+import { orderCreateSchema } from '@/schemas/orders';
 
 // GIGL-specific shipment creation logic is now in its own function
 interface OrderItem {
@@ -39,28 +33,87 @@ interface CustomerInfo {
 
 interface ShippingAddress {
   address: string;
+  city?: string;
+  state?: string;
 }
+
+const GIGL_DEFAULT_SENDER_DETAILS = {
+  location: { Latitude: '6.5244', Longitude: '3.3792' },
+  name: 'Baci Store',
+  phone: 'PLACEHOLDER_PHONE',
+  stationId: 4,
+  address: 'Merchant Address',
+  locality: 'Lagos',
+} as const;
 
 // GIGL-specific shipment creation logic is now in its own function
 async function handleGiglShipment(
   order: { items: OrderItem[] },
   customer: CustomerInfo,
-  shippingAddress: ShippingAddress
+  shippingAddress: ShippingAddress,
+  merchant: {
+    business_name?: string | null;
+    rider_phone_number?: string | null;
+    business_address?: string | null;
+  }
 ) {
   try {
+    const senderName =
+      merchant.business_name || GIGL_DEFAULT_SENDER_DETAILS.name;
+    const senderPhone =
+      merchant.rider_phone_number || GIGL_DEFAULT_SENDER_DETAILS.phone;
+    const senderAddress =
+      merchant.business_address || GIGL_DEFAULT_SENDER_DETAILS.address;
+    if (!senderPhone || senderPhone === GIGL_DEFAULT_SENDER_DETAILS.phone) {
+      logger.warn({
+        message: 'GIGL sender phone missing or placeholder',
+        senderName,
+      });
+      return null;
+    }
+    let receiverLocation = { Longitude: '3.3792', Latitude: '6.5244' };
+    let receiverStationId = 4;
+
+    if (shippingAddress.city && shippingAddress.state) {
+      try {
+        const locations = await giglProvider.getLocations();
+        const matched = locations.find(
+          (location) =>
+            location.city?.toLowerCase() ===
+              shippingAddress.city?.toLowerCase() ||
+            location.state?.toLowerCase() ===
+              shippingAddress.state?.toLowerCase()
+        );
+        if (matched?.latitude && matched?.longitude) {
+          receiverLocation = {
+            Longitude: String(matched.longitude),
+            Latitude: String(matched.latitude),
+          };
+        }
+        if (matched?.stationId) {
+          receiverStationId = matched.stationId;
+        }
+      } catch (stationError) {
+        logger.warn({
+          message: 'Failed to resolve GIGL receiver station, using fallback',
+          error: stationError,
+        });
+      }
+    }
+
     const giglShipmentPayload = {
       SenderDetails: {
-        SenderLocation: { Latitude: '6.5244', Longitude: '3.3792' },
-        SenderName: 'Baci Store',
-        SenderPhoneNumber: '+234800000000',
-        SenderStationId: 4,
-        SenderAddress: 'Merchant Address',
-        InputtedSenderAddress: 'Merchant Address',
-        SenderLocality: 'Lagos',
+        SenderLocation: GIGL_DEFAULT_SENDER_DETAILS.location,
+        SenderName: senderName,
+        SenderPhoneNumber: senderPhone,
+        SenderStationId: GIGL_DEFAULT_SENDER_DETAILS.stationId,
+        SenderAddress: senderAddress,
+        InputtedSenderAddress: senderAddress,
+        SenderLocality: GIGL_DEFAULT_SENDER_DETAILS.locality,
       },
       ReceiverDetails: {
-        ReceiverLocation: { Longitude: '3.3792', Latitude: '6.5244' },
-        ReceiverStationId: 4,
+        ReceiverLocation: receiverLocation,
+        ReceiverStationId: receiverStationId,
         ReceiverName: customer.name,
         ReceiverPhoneNumber: customer.phone,
         ReceiverAddress: shippingAddress.address,
@@ -111,7 +164,7 @@ export async function GET(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
-      console.error('API: Auth error or no user', authError);
+      logger.error({ message: 'API: Auth error or no user', error: authError });
       return NextResponse.json(
         { error: 'Unauthorized: You must be logged in to fetch orders.' },
         { status: 401 }
@@ -126,9 +179,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      console.error('API: Merchant not found for user', {
+      logger.error({
+        message: 'API: Merchant not found for user',
         userId: user.id,
-        merchantError,
+        error: merchantError,
       });
       return NextResponse.json(
         { error: 'Merchant not found for the authenticated user.' },
@@ -172,7 +226,7 @@ export async function GET(request: NextRequest) {
     const { data: orders, error: ordersError } = await query;
 
     if (ordersError) {
-      console.error('Error fetching orders:', ordersError);
+      logger.error({ message: 'Error fetching orders', error: ordersError });
       return NextResponse.json(
         { error: 'Failed to fetch orders from the database.' },
         { status: 500 }
@@ -181,7 +235,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ orders: orders || [] });
   } catch (error) {
-    console.error('Unexpected error in GET /api/orders:', error);
+    logger.error({ message: 'Unexpected error in GET /api/orders', error });
     return NextResponse.json(
       { error: 'An internal server error occurred.' },
       { status: 500 }
@@ -190,10 +244,13 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/orders - Create new order from storefront
+// CSRF exemption: This endpoint is called by unauthenticated storefront guests during checkout.
+// Guest users do not have CSRF tokens. Abuse is mitigated by rate limiting in proxy.ts,
+// Zod validates input shape, while the SECURITY DEFINER RPC enforces merchant + item authorization server-side.
 export async function POST(request: NextRequest) {
   try {
-    // Use service role client for order creation to bypass RLS (storefront guests can't insert orders)
-    const supabase = createServiceClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const json = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
@@ -206,59 +263,7 @@ export async function POST(request: NextRequest) {
     // Detect privacy region for CCPA/GDPR compliance (LDU flag)
     const geoPrivacy = await detectPrivacyRegion(clientIp);
 
-    // 2026 Best Practice: Zod Validation
-    const OrderCreateSchema = z.object({
-      merchant_id: z.string().uuid(),
-      customer_email: z.string().email(),
-      customer_name: z.string().min(1),
-      customer_phone: z.string().optional(),
-      items: z
-        .array(
-          z
-            .object({
-              product_id: z.string().optional(),
-              productId: z.string().optional(),
-              id: z.string().optional(),
-              name: z.string().min(1),
-              productName: z.string().optional(),
-              quantity: z.number().int().positive(),
-              price: z.number().nonnegative(),
-              negotiatedPrice: z.number().nonnegative().optional(),
-              value: z.number().nonnegative().optional(),
-              has_assurance: z.boolean().optional(),
-              assurance_fee: z.number().nonnegative().optional(),
-              variantId: z.string().optional(),
-              variantAttributes: z.record(z.string()).optional(),
-            })
-            .refine((data) => data.product_id || data.productId || data.id, {
-              message:
-                'At least one product identifier (product_id, productId, or id) is required',
-            })
-        )
-        .min(1),
-      subtotal: z.union([z.string(), z.number()]),
-      shipping_fee: z.union([z.string(), z.number()]).default(0),
-      discount_amount: z.union([z.string(), z.number()]).default(0),
-      tax_amount: z.union([z.string(), z.number()]).default(0),
-      payment_method: z.string().min(1),
-      payment_status: z.string().default('unpaid'),
-      shipping_status: z.string().default('pending'),
-      shipping_address: z.any().optional(),
-      source: z.string().default('online_store'),
-      notes: z.string().optional(),
-      ad_tracking: z.any().optional(),
-      use_wallet_credit: z.boolean().default(false),
-      wallet_amount: z.number().default(0),
-      user_id: z.string().uuid().optional(),
-      // Shipping metadata
-      selected_quote_id: z.string().uuid().optional(),
-      shipping_provider: z.string().optional(),
-      tracking_number: z.string().optional(),
-      // Legacy/Optional fields
-      shipping_provider_legacy: z.string().optional(),
-    });
-
-    const parseResult = OrderCreateSchema.safeParse(json);
+    const parseResult = orderCreateSchema.safeParse(json);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -268,6 +273,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = parseResult.data;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const {
       merchant_id,
@@ -275,7 +283,6 @@ export async function POST(request: NextRequest) {
       customer_name,
       customer_phone,
       items,
-      subtotal,
       shipping_fee, // Default already handled by Zod
       payment_method,
       payment_status,
@@ -292,18 +299,17 @@ export async function POST(request: NextRequest) {
       user_id,
     } = body;
 
-    // Validate merchant_id is a valid UUID
-    if (!merchant_id || !isValidUuid(merchant_id)) {
-      return NextResponse.json(
-        { error: 'Invalid merchant ID' },
-        { status: 400 }
-      );
+    if (user && user_id && user_id !== user.id) {
+      return NextResponse.json({ error: 'User mismatch' }, { status: 403 });
     }
+
+    const resolvedUserId = user?.id ?? user_id ?? null;
+
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, slug, support_email, email_sender_name, email'
+        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email'
       )
       .eq('id', merchant_id)
       .single();
@@ -319,280 +325,88 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate required fields
-    if (!customer_email || !customer_name || !items || subtotal === undefined) {
+    const orderItemsPayload = items.map((item) => ({
+      product_id: item.product_id || item.productId || item.id,
+      variant_id: item.variantId || item.variant_id,
+      quantity: item.quantity,
+      has_assurance: item.has_assurance || false,
+      assurance_fee: item.assurance_fee || 0,
+    }));
+
+    if (orderItemsPayload.some((item) => !item.product_id)) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Invalid order items' },
         { status: 400 }
       );
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Order must contain at least one item' },
-        { status: 400 }
-      );
-    }
-
-    // Pre-checkout stock validation: Check all items have sufficient stock before creating order
-    // Pre-checkout stock validation: Check all items have sufficient stock before creating order
-    const productIds = items
-      .map((item) => item.product_id || item.productId || item.id)
-      .filter(Boolean);
-    const variantIds = items.map((item) => item.variantId).filter(Boolean);
-
-    if (productIds.length > 0) {
-      // Fetch product stock and variant stock in parallel
-      const [productsResponse, variantsResponse] = await Promise.all([
-        supabase
-          .from('products')
-          .select('id, name, stock_quantity')
-          .in('id', productIds),
-        variantIds.length > 0
-          ? supabase
-              .from('product_variants')
-              .select('id, product_id, stock_quantity')
-              .in('id', variantIds)
-          : Promise.resolve({
-              data: [] as {
-                id: string;
-                product_id: string;
-                stock_quantity: number;
-              }[],
-              error: null,
-            }),
-      ]);
-
-      const products = productsResponse.data;
-      const variants = variantsResponse.data;
-      const stockError = productsResponse.error || variantsResponse.error;
-
-      if (stockError) {
-        logger.error({
-          message: 'Failed to check product or variant stock',
-          error: stockError,
-        });
-        // Continue without stock check if query fails (graceful degradation)
-      } else if (products) {
-        const outOfStockItems: Array<{
-          name: string;
-          available: number;
-          requested: number;
-        }> = [];
-
-        for (const item of items) {
-          const itemProductId = item.product_id || item.productId || item.id;
-          const itemVariantId = item.variantId;
-
-          let availableStock = 0;
-          let found = false;
-
-          // Check variant stock first if variantId is provided
-          if (itemVariantId && variants) {
-            const variant = variants.find((v) => v.id === itemVariantId);
-            if (variant) {
-              availableStock = variant.stock_quantity ?? 0;
-              found = true;
-            }
-          }
-
-          // Fallback to product stock if no variant or variant not found
-          if (!found) {
-            const product = products.find((p) => p.id === itemProductId);
-            if (product) {
-              availableStock = product.stock_quantity ?? 0;
-              found = true;
-            }
-          }
-
-          if (found) {
-            const requestedQty = item.quantity || 1;
-            if (availableStock < requestedQty) {
-              outOfStockItems.push({
-                name: item.name || 'Unknown Product',
-                available: availableStock,
-                requested: requestedQty,
-              });
-            }
-          }
-        }
-
-        if (outOfStockItems.length > 0) {
-          return NextResponse.json(
-            {
-              error: 'Insufficient stock',
-              details: outOfStockItems.map((i) =>
-                i.available === 0
-                  ? `${i.name} is out of stock`
-                  : `${i.name}: only ${i.available} available (requested ${i.requested})`
-              ),
-            },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // Calculate total (subtotal + shipping - discount)
-    const discountAmount = Number.parseFloat(
+    const shippingFeeValue = Number.parseFloat(shipping_fee.toString());
+    const discountAmountValue = Number.parseFloat(
       (body.discount_amount || 0).toString()
     );
-    const total =
-      Number.parseFloat(subtotal.toString()) +
-      Number.parseFloat(shipping_fee.toString()) -
-      discountAmount;
+    const taxAmountValue = Number.parseFloat((body.tax_amount || 0).toString());
 
-    // Create or get customer record
-    let customer_id = null;
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id, user_id, first_name, last_name, phone')
-      .eq('merchant_id', merchant_id)
-      .eq('email', customer_email)
-      .single();
-
-    if (existingCustomer) {
-      customer_id = existingCustomer.id;
-
-      // 2025 FIX: Backfill missing profile data for existing customers
-      // This handles cases where a customer exists via email (newsletter/auth) but hasn't completed their profile
-      // biome-ignore lint/suspicious/noExplicitAny: Dynamic updates object requires loose typing
-      const updates: Record<string, any> = {};
-      const nameParts = customer_name.split(' ');
-      const inputFirstName = nameParts[0] || '';
-      const inputLastName = nameParts.slice(1).join(' ') || '';
-
-      if (!existingCustomer.first_name && inputFirstName)
-        updates.first_name = inputFirstName;
-      if (!existingCustomer.last_name && inputLastName)
-        updates.last_name = inputLastName;
-      if (!existingCustomer.phone && customer_phone)
-        updates.phone = customer_phone;
-
-      // Link user_id if logged in and not already linked (2025: unified customer identity)
-      if (user_id && !existingCustomer.user_id) {
-        updates.user_id = user_id;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        // Fire and forget update
-        void supabase
-          .from('customers')
-          .update(updates)
-          .eq('id', existingCustomer.id);
-
-        logger.info({
-          message: 'Backfilled customer profile data from order',
-          customerId: customer_id,
-          updates: Object.keys(updates),
-        });
-      }
-    } else {
-      // Create new customer
-      const nameParts = customer_name.split(' ');
-      const first_name = nameParts[0] || '';
-      const last_name = nameParts.slice(1).join(' ') || '';
-
-      const { data: newCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({
-          merchant_id,
-          email: customer_email,
-          first_name,
-          last_name,
-          phone: customer_phone,
-          // Link to auth user if logged in (2025: unified customer identity)
-          ...(user_id && { user_id }),
-        })
-        .select('id')
-        .single();
-
-      if (customerError) {
-        console.error('Error creating customer:', customerError);
-        // Continue without customer_id if customer creation fails
-      } else {
-        customer_id = newCustomer.id;
-      }
+    if (
+      Number.isNaN(shippingFeeValue) ||
+      Number.isNaN(discountAmountValue) ||
+      Number.isNaN(taxAmountValue)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid pricing values' },
+        { status: 400 }
+      );
     }
 
-    // Base order payload (items stored separately in order_items table)
-    // Financial breakdown follows e-commerce best practices for auditing, refunds, and analytics
-    const orderPayload: Record<string, unknown> = {
-      merchant_id,
-      customer_id,
-      customer_email,
-      customer_name,
-      customer_phone,
-      subtotal,
-      shipping_fee,
-      discount_amount: body.discount_amount || 0,
-      tax_amount: body.tax_amount || 0,
-      total,
-      payment_method,
-      payment_status,
-      shipping_status,
-      shipping_address,
-      source,
-      notes,
-      // Store ad tracking data for offline conversion attribution
-      // This is stored as JSONB and used when sending CAPI events after payment
-      // Enhanced with server-captured IP/User Agent for better Event Match Quality
-      ad_tracking: ad_tracking
+    const adTrackingPayload = ad_tracking
+      ? {
+          ...ad_tracking,
+          userIp: clientIp || ad_tracking.userIp,
+          userAgent: clientUserAgent || ad_tracking.userAgent,
+          limitedDataUse:
+            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+          geoCountry: geoPrivacy.country,
+          geoRegion: geoPrivacy.region,
+        }
+      : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
         ? {
-            ...ad_tracking,
-            // Server-side captured data for better EMQ
-            userIp: clientIp || ad_tracking.userIp,
-            userAgent: clientUserAgent || ad_tracking.userAgent,
-            // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse:
-              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-            // Store geo info for analytics
+            userIp: clientIp,
+            userAgent: clientUserAgent,
+            limitedDataUse: geoPrivacy.shouldApplyLDU,
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-              userIp: clientIp,
-              userAgent: clientUserAgent,
-              limitedDataUse: geoPrivacy.shouldApplyLDU,
-              geoCountry: geoPrivacy.country,
-              geoRegion: geoPrivacy.region,
-            }
-          : null,
-      // Shipping metadata (2025: Fix for Topship tracking)
-      selected_quote_id: body.selected_quote_id,
-      shipping_provider: body.shipping_provider,
-      tracking_number: body.tracking_number,
-    };
+        : null;
 
-    // Dynamically handle shipping based on request shipping_provider
-    const shippingProvider = body.shipping_provider || 'GIGL';
-    if (shippingProvider === 'GIGL') {
+    let resolvedShippingProvider = body.shipping_provider ?? null;
+    let resolvedTrackingNumber = body.tracking_number ?? null;
+    if (resolvedShippingProvider === 'GIGL' && shipping_address) {
       const shipmentDetails = await handleGiglShipment(
         { items },
         { name: customer_name, phone: customer_phone || '' },
-        shipping_address
+        shipping_address,
+        {
+          business_name: merchant.business_name,
+          rider_phone_number: merchant.rider_phone_number,
+          business_address: merchant.business_address,
+        }
       );
       if (shipmentDetails) {
-        orderPayload.shipping_provider = shipmentDetails.shipping_provider;
-        orderPayload.tracking_number = shipmentDetails.tracking_number;
+        resolvedShippingProvider = shipmentDetails.shipping_provider;
+        resolvedTrackingNumber = shipmentDetails.tracking_number;
       }
     }
 
-    // Handle Pay on Delivery (POD) Logic
+    let effectivePaymentStatus = payment_status;
     if (payment_method === 'pod') {
-      orderPayload.payment_status = 'pending'; // Ensure it's pending for POD
+      effectivePaymentStatus = 'pending';
 
-      // Trigger Rider Notification (Placeholder)
       if (merchant?.rider_phone_number) {
         logger.info({
           message: 'Rider Notification Triggered (POD)',
           riderPhone: merchant.rider_phone_number,
           customerName: customer_name,
           customerAddress: shipping_address?.address,
-          orderTotal: total,
         });
-        // TODO: Integrate with WhatsApp API provider here
       } else {
         logger.warn({
           message: 'Rider Notification Skipped (No Phone Number)',
@@ -601,125 +415,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create order
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderPayload)
-      .select()
-      .single();
+    const { data: orderRows, error: orderError } = await supabase.rpc(
+      'create_storefront_order',
+      {
+        p_merchant_id: merchant_id,
+        p_customer_email: customer_email,
+        p_customer_name: customer_name,
+        p_customer_phone: customer_phone || null,
+        p_items: orderItemsPayload,
+        p_shipping_fee: shippingFeeValue,
+        p_discount_amount: discountAmountValue,
+        p_tax_amount: taxAmountValue,
+        p_payment_method: payment_method,
+        p_payment_status: effectivePaymentStatus,
+        p_shipping_status: shipping_status,
+        p_shipping_address: shipping_address || null,
+        p_source: source,
+        p_notes: notes || null,
+        p_ad_tracking: adTrackingPayload,
+        p_selected_quote_id: body.selected_quote_id || null,
+        p_shipping_provider: resolvedShippingProvider,
+        p_tracking_number: resolvedTrackingNumber || null,
+        p_user_id: resolvedUserId,
+      }
+    );
 
-    if (orderError) {
-      console.error('Error creating order:', orderError);
+    const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
+
+    if (orderError || !order) {
+      logger.error({ message: 'Error creating order', error: orderError });
+      const message = orderError?.message || 'Failed to create order';
+      const code =
+        typeof orderError?.code === 'string' ? orderError.code : null;
+      const clientErrorCodes = [
+        'invalid_items',
+        'invalid_quantity',
+        'invalid_variant',
+        'insufficient_stock',
+        'merchant_not_found',
+        'customer_email_required',
+        'customer_name_required',
+        'items_required',
+        'user_id_mismatch',
+        '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
+      ];
+      // create_storefront_order should return { message, code } for client errors.
+      const isClientError = code
+        ? clientErrorCodes.includes(code)
+        : clientErrorCodes.includes(message);
       return NextResponse.json(
-        { error: 'Failed to create order', details: orderError.message },
-        { status: 500 }
+        { error: 'Failed to create order', details: message },
+        { status: isClientError ? 400 : 500 }
       );
     }
 
-    // Insert order items into the new normalized table
-    if (order) {
-      const orderItems = items.map(
-        (
-          item: OrderItem & { has_assurance?: boolean; assurance_fee?: number }
-        ) => ({
-          order_id: order.id,
-          product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
-          name: item.name || item.productName || 'Unknown Product',
-          quantity: item.quantity || 1,
-          price: item.negotiatedPrice || item.price || 0, // Use negotiated price if available
-          has_assurance: item.has_assurance || false,
-          assurance_fee: item.assurance_fee || 0,
-        })
-      );
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) {
-        console.error(
-          'Error creating order items:',
-          itemsError,
-          JSON.stringify(orderItems)
-        );
-        logger.error({
-          message: 'Error creating order items',
-          error: itemsError,
-          orderId: order.id,
-          itemCount: orderItems.length,
-        });
-        // Note: In a production environment, we should use a transaction or rollback the order creation.
-      } else {
-        // Update product stock atomically using RPC function
-        // PERFORMANCE: Parallelize stock updates instead of sequential for...of loop
-        const stockUpdatePromises = orderItems
-          .filter((item) => item.product_id)
-          .map(async (item) => {
-            // Find the original item to get the variantId
-            const originalItem = items.find(
-              (i) => (i.product_id || i.productId || i.id) === item.product_id
-            );
-
-            const { data: stockResult, error: stockError } = await supabase.rpc(
-              'decrement_product_stock',
-              {
-                product_id_param: item.product_id,
-                quantity_param: item.quantity,
-                variant_id_param: originalItem?.variantId || null,
-              }
-            );
-
-            if (stockError) {
-              console.error('Error updating stock:', stockError);
-              return {
-                success: false,
-                productId: item.product_id,
-                error: stockError,
-              };
-            }
-
-            if (stockResult && stockResult.length > 0) {
-              const result = stockResult[0];
-              if (!result.success) {
-                logger.warn({
-                  message: 'Stock update failed for product',
-                  productId: item.product_id,
-                  reason: result.message,
-                });
-              }
-              return { success: result.success, productId: item.product_id };
-            }
-
-            return { success: true, productId: item.product_id };
-          });
-
-        // Wait for all stock updates to complete in parallel
-        await Promise.all(stockUpdatePromises);
-      }
-
-      // Create transaction record for POD orders (2025 best practice: single source of truth)
-      if (payment_method === 'pod') {
-        const serviceClient = createServiceClient();
-        await serviceClient.from('transactions').insert({
-          merchant_id: merchant.id,
-          order_id: order.id,
-          transaction_type: 'payment',
-          amount: total,
-          currency: 'NGN',
-          status: 'pending', // POD is pending until delivery
-          gateway: 'pod',
-          gateway_reference: `POD-${order.id.slice(0, 8).toUpperCase()}`,
-          platform_fee: 0,
-          merchant_amount: total,
-          description: `Pay on Delivery for order ${order.order_number || order.id}`,
-          metadata: {
-            customer_email: customer_email,
-            customer_name: customer_name,
-            payment_type: 'pay_on_delivery',
-          },
-        });
-      }
-    }
+    const orderTotal = Number(order.total ?? 0);
+    const orderSubtotal = Number(order.subtotal ?? 0);
+    const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
+    const customer_id = order.customer_id || null;
 
     // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
     // Process wallet credit redemption atomically after order creation
@@ -738,7 +491,7 @@ export async function POST(request: NextRequest) {
             p_customer_id: customer_id,
             p_merchant_id: merchant_id,
             p_order_id: order.id,
-            p_amount: Math.min(wallet_amount, total), // Can't redeem more than order total
+            p_amount: Math.min(wallet_amount, orderTotal), // Can't redeem more than order total
             p_order_reference: order.order_number || order.id,
           });
 
@@ -788,44 +541,33 @@ export async function POST(request: NextRequest) {
 
     // Calculate amount due to payment gateway (total - wallet credit used)
     const walletAmountUsed = walletRedemptionResult?.amountRedeemed || 0;
-    const amountDueToGateway = total - walletAmountUsed;
+    const amountDueToGateway = orderTotal - walletAmountUsed;
+    let walletFinalized = false;
 
     // If wallet fully covers the order, mark as paid immediately (2025 best practice)
     if (walletAmountUsed > 0 && amountDueToGateway <= 0) {
-      await supabase
-        .from('orders')
-        .update({
-          payment_status: 'paid',
-          payment_method: 'wallet',
-        })
-        .eq('id', order.id);
+      const { error: walletFinalizeError } = await supabase.rpc(
+        'finalize_wallet_order_payment',
+        {
+          p_order_id: order.id,
+          p_amount: walletAmountUsed,
+        }
+      );
 
-      // Create transaction record for wallet payment (2025 best practice: single source of truth)
-      const serviceClient = createServiceClient();
-      await serviceClient.from('transactions').insert({
-        merchant_id: merchant.id,
-        order_id: order.id,
-        transaction_type: 'payment',
-        amount: walletAmountUsed,
-        currency: 'NGN',
-        status: 'completed',
-        gateway: 'wallet',
-        gateway_reference: `WALLET-${order.id.slice(0, 8).toUpperCase()}`,
-        platform_fee: 0,
-        merchant_amount: walletAmountUsed,
-        description: `Wallet payment for order ${order.order_number || order.id}`,
-        metadata: {
-          customer_email: customer_email,
-          customer_name: customer_name,
-          wallet_credit_used: walletAmountUsed,
-        },
-      });
-
-      logger.info({
-        message: 'Order fully paid with wallet credit',
-        orderId: order.id,
-        walletAmountUsed,
-      });
+      if (walletFinalizeError) {
+        logger.error({
+          message: 'Failed to finalize wallet payment',
+          error: walletFinalizeError,
+          orderId: order.id,
+        });
+      } else {
+        walletFinalized = true;
+        logger.info({
+          message: 'Order fully paid with wallet credit',
+          orderId: order.id,
+          walletAmountUsed,
+        });
+      }
     }
 
     // NOTE: Order confirmation email is NOT sent here at order creation.
@@ -837,7 +579,7 @@ export async function POST(request: NextRequest) {
     // Exceptions (send immediately):
     // - POD (Pay on Delivery) or Invoice: no payment gateway redirect
     // - Wallet-paid orders: payment already confirmed via wallet redemption
-    const isWalletFullyPaid = walletAmountUsed > 0 && amountDueToGateway <= 0;
+    const isWalletFullyPaid = walletFinalized;
     if (
       payment_method === 'pod' ||
       payment_method === 'invoice' ||
@@ -862,9 +604,9 @@ export async function POST(request: NextRequest) {
               order.order_number || order.id.slice(0, 8).toUpperCase(),
             customerName: customer_name,
             items: emailItems,
-            subtotal: Number.parseFloat(subtotal.toString()),
-            shippingFee: Number.parseFloat(shipping_fee.toString()),
-            total: Number.parseFloat(total.toString()),
+            subtotal: orderSubtotal,
+            shippingFee: orderShippingFee,
+            total: orderTotal,
             shippingAddress: {
               address: shipping_address?.address || '',
               city: shipping_address?.city || '',
@@ -910,7 +652,6 @@ export async function POST(request: NextRequest) {
           logger.info({
             message: 'Order confirmation email queued (POD/Invoice)',
             orderId: order.id,
-            email: customer_email,
             paymentMethod: payment_method,
           });
         }
@@ -923,10 +664,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const responseOrder = isWalletFullyPaid
+      ? { ...order, payment_status: 'paid', payment_method: 'wallet' }
+      : order;
+
     // Return order with wallet info for checkout UI
     return NextResponse.json(
       {
-        order,
+        order: responseOrder,
         // Wallet redemption details for UI display
         wallet: walletRedemptionResult
           ? {
@@ -941,7 +686,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Unexpected error in POST /api/orders:', error);
+    logger.error({ message: 'Unexpected error in POST /api/orders', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

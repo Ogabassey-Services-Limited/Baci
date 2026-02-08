@@ -494,7 +494,6 @@ export default function ProductsScreen() {
         {
           backgroundColor: isActive ? color : colors.card,
           borderColor: isActive ? color : colors.border,
-          minHeight: 44,
         },
         shadows.sm,
       ]}
@@ -540,7 +539,6 @@ export default function ProductsScreen() {
           styles.tabButton,
           isActive && { backgroundColor: colors.gold },
           !isActive && { backgroundColor: colors.card },
-          { minHeight: 44 },
         ]}
         onPress={() => setActiveTab(id)}
         accessibilityLabel={`${label}${isActive ? ', currently selected' : ''}`}
@@ -1137,10 +1135,12 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabText: {
     fontSize: TYPOGRAPHY.size.sm,

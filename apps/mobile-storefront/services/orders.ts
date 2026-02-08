@@ -16,24 +16,25 @@ import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
 import { z } from 'zod';
 import {
-  fetchWithRetry,
+  ApiError,
   DEFAULT_TIMEOUT,
-  TimeoutError,
+  fetchWithRetry,
   NetworkError,
   RetryExhaustedError,
-  ApiError,
+  TimeoutError,
 } from '@/lib/api';
 import { createLogger } from '@/lib/logger';
 import { offlineQueue } from '@/lib/offline-queue';
 import { supabase } from '@/lib/supabase';
 
 const log = createLogger('Order');
+
 import { trackError, trackEvent } from '@/services/analytics';
 
 // Get API URL from config
 const API_URL =
-  Constants.expoConfig?.extra?.apiUrl ||
   process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.apiUrl ||
   'https://ogabassey.usebaci.com';
 
 const MERCHANT_ID =
@@ -49,6 +50,9 @@ const OrderItemSchema = z.object({
   price: z.number().min(0),
   image_url: z.string().optional(),
   variant: z.string().optional(),
+  variant_id: z.string().optional(),
+  has_assurance: z.boolean().optional(),
+  assurance_fee: z.number().min(0).optional(),
 });
 
 // Order creation request schema
@@ -173,7 +177,10 @@ export async function createOrder(
       name: item.name,
       quantity: item.quantity,
       price: item.price,
-      value: Math.round(item.price * item.quantity), // Round to avoid floating point errors in shipping calculations
+      value: Math.round(item.price * item.quantity),
+      variant_id: item.variant_id,
+      has_assurance: item.has_assurance || false,
+      assurance_fee: item.assurance_fee || 0,
     })),
     subtotal: request.subtotal,
     shipping_fee: request.shipping_fee,

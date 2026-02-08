@@ -1,17 +1,20 @@
 import crypto from 'node:crypto';
-import { cookies } from 'next/headers';
+import {
+  createClient as createSupabaseDirectClient,
+  type SupabaseClient,
+} from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { normalizeEventType } from '@/lib/analytics/send-to-ad-platforms';
 import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
 import { logger } from '@/lib/logger';
 import { snapchatCAPI } from '@/lib/snapchat-capi';
-import { createClient } from '@/lib/supabase/server';
 import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
 
 /**
  * Unified Conversions API Endpoint
  *
- * Server-side endpoint that forwards conversion events to ALL ad platforms.
- * This is the recommended approach for iOS 14.5+ compliance.
+ * Server-side endpoint that forwards conversion events to ALL ad platforms
+ * AND logs them to the local analytics_events table for dashboard metrics.
  *
  * Supported platforms:
  * - Meta/Facebook Conversions API
@@ -33,6 +36,7 @@ interface ConversionRequest {
   event_time: number;
   event_source: 'mobile_app' | 'web' | 'server';
   platform?: 'ios' | 'android' | 'web';
+  merchant_id?: string; // Preferred: pass merchant UUID directly
   user_data: {
     em?: string; // email (will be hashed)
     ph?: string; // phone (will be hashed)
@@ -96,6 +100,137 @@ const EVENT_MAPPING = {
   },
 } as const;
 
+// ---------------------------------------------------------------------------
+// Service role client for local DB logging (bypasses RLS)
+// ---------------------------------------------------------------------------
+
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin() {
+  if (!supabaseAdmin) {
+    supabaseAdmin = createSupabaseDirectClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+    );
+  }
+  return supabaseAdmin;
+}
+
+// ---------------------------------------------------------------------------
+// Merchant resolution: prefer merchant_id from body, fall back to slug lookup
+// ---------------------------------------------------------------------------
+
+interface MerchantRecord {
+  id: string;
+  facebook_pixel_id: string | null;
+  facebook_capi_token: string | null;
+  tiktok_pixel_id: string | null;
+  tiktok_access_token: string | null;
+  snapchat_pixel_id: string | null;
+  snapchat_capi_token: string | null;
+  google_ads_id: string | null;
+  google_ads_conversion_id: string | null;
+}
+
+const MERCHANT_SELECT = `
+  id,
+  facebook_pixel_id,
+  facebook_capi_token,
+  tiktok_pixel_id,
+  tiktok_access_token,
+  snapchat_pixel_id,
+  snapchat_capi_token,
+  google_ads_id,
+  google_ads_conversion_id
+`;
+
+async function resolveMerchant(
+  merchantId: string | undefined,
+  origin: string
+): Promise<MerchantRecord | null> {
+  const supabase = getSupabaseAdmin();
+
+  // Prefer direct merchant_id lookup
+  if (merchantId) {
+    const { data, error } = await supabase
+      .from('merchants')
+      .select(MERCHANT_SELECT)
+      .eq('id', merchantId)
+      .single();
+
+    if (!error && data) return data as MerchantRecord;
+  }
+
+  // Fallback: extract slug from origin header
+  const slugMatch = origin.match(/^https?:\/\/([^.]+)\./);
+  const slug = slugMatch?.[1] || 'ogabassey';
+
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(MERCHANT_SELECT)
+    .eq('slug', slug)
+    .single();
+
+  if (error || !data) return null;
+  return data as MerchantRecord;
+}
+
+// ---------------------------------------------------------------------------
+// Local DB logging
+// ---------------------------------------------------------------------------
+
+async function logEventLocally(
+  merchantId: string,
+  eventName: string,
+  eventId: string,
+  eventSource: string,
+  customData: ConversionRequest['custom_data']
+): Promise<void> {
+  const dbEventType = normalizeEventType(eventName);
+  if (!dbEventType) return; // Unknown event, skip DB logging
+
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('analytics_events')
+      .upsert(
+        {
+          merchant_id: merchantId,
+          event_type: dbEventType,
+          event_id: eventId,
+          source: eventSource || 'web',
+          event_data: {
+            order_id: customData.order_id,
+            total: customData.value,
+            currency: customData.currency || 'NGN',
+            item_count: customData.contents?.length,
+            items: customData.contents,
+          },
+          event_timestamp: new Date().toISOString(),
+        },
+        {
+          onConflict: 'merchant_id,event_id,event_type',
+          ignoreDuplicates: true,
+        }
+      );
+
+    if (error) {
+      logger.warn({
+        message: 'Failed to log conversion event locally',
+        error,
+        eventType: dbEventType,
+        merchantId,
+      });
+    }
+  } catch (err) {
+    // Never block the response for a logging failure
+    logger.warn({ message: 'Local event logging exception', error: err });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST handler
+// ---------------------------------------------------------------------------
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ConversionRequest;
@@ -105,6 +240,7 @@ export async function POST(request: NextRequest) {
       event_time: _eventTime,
       event_source,
       platform,
+      merchant_id: bodyMerchantId,
       user_data,
       custom_data,
       targets = ['facebook', 'tiktok', 'snapchat', 'google'],
@@ -121,36 +257,15 @@ export async function POST(request: NextRequest) {
     // This is CRITICAL for deduplication with client-side SDKs
     const eventId = clientEventId || generateEventId();
 
-    // Get merchant from slug (ogabassey is the default for this mobile app)
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Use the merchant slug from the request origin or default to ogabassey
+    // Resolve merchant (prefer merchant_id from body, fall back to origin slug)
     const origin = request.headers.get('origin') || '';
-    const merchantSlug = origin.includes('ogabassey')
-      ? 'ogabassey'
-      : 'ogabassey';
+    const merchant = await resolveMerchant(bodyMerchantId, origin);
 
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(`
-        id,
-        facebook_pixel_id,
-        facebook_capi_token,
-        tiktok_pixel_id,
-        tiktok_access_token,
-        snapchat_pixel_id,
-        snapchat_capi_token,
-        google_ads_id,
-        google_ads_conversion_id
-      `)
-      .eq('slug', merchantSlug)
-      .single();
-
-    if (merchantError || !merchant) {
+    if (!merchant) {
       logger.error({
         message: 'Failed to fetch merchant for analytics',
-        error: merchantError,
+        merchantId: bodyMerchantId,
+        origin,
       });
       // Don't fail - just return success
       return NextResponse.json({
@@ -159,6 +274,17 @@ export async function POST(request: NextRequest) {
         results: {},
       });
     }
+
+    // =========================================================================
+    // LOCAL DB LOGGING (non-blocking, fire-and-forget)
+    // =========================================================================
+    logEventLocally(
+      merchant.id,
+      event_name,
+      eventId,
+      event_source,
+      custom_data
+    );
 
     // Prepare user data with hashing
     const _hashedEmail = user_data.em ? sha256Hash(user_data.em) : undefined;
@@ -172,7 +298,6 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || undefined;
 
     const currency = custom_data.currency || 'NGN';
-    // eventId is already defined above
 
     // Track results for each platform
     const results: Record<string, { success: boolean; error?: string }> = {};
@@ -207,8 +332,8 @@ export async function POST(request: NextRequest) {
                   price: 0,
                 }));
                 results.facebook = await facebookCAPI.purchase(
-                  merchant.facebook_pixel_id as string,
-                  merchant.facebook_capi_token as string,
+                  merchant.facebook_pixel_id,
+                  merchant.facebook_capi_token,
                   fbUserData,
                   custom_data.order_id || eventId,
                   custom_data.value,
@@ -220,8 +345,8 @@ export async function POST(request: NextRequest) {
             case 'AddToCart':
               if (custom_data.contents?.[0]) {
                 results.facebook = await facebookCAPI.addToCart(
-                  merchant.facebook_pixel_id as string,
-                  merchant.facebook_capi_token as string,
+                  merchant.facebook_pixel_id,
+                  merchant.facebook_capi_token,
                   fbUserData,
                   custom_data.contents[0].id,
                   custom_data.contents[0].id,
@@ -232,8 +357,8 @@ export async function POST(request: NextRequest) {
               break;
             case 'InitiateCheckout':
               results.facebook = await facebookCAPI.initiateCheckout(
-                merchant.facebook_pixel_id as string,
-                merchant.facebook_capi_token as string,
+                merchant.facebook_pixel_id,
+                merchant.facebook_capi_token,
                 fbUserData,
                 custom_data.value || 0,
                 currency,
@@ -243,8 +368,8 @@ export async function POST(request: NextRequest) {
             case 'ViewContent':
               if (custom_data.contents?.[0]) {
                 results.facebook = await facebookCAPI.viewContent(
-                  merchant.facebook_pixel_id as string,
-                  merchant.facebook_capi_token as string,
+                  merchant.facebook_pixel_id,
+                  merchant.facebook_capi_token,
                   fbUserData,
                   custom_data.contents[0].id,
                   custom_data.contents[0].id,
@@ -295,8 +420,8 @@ export async function POST(request: NextRequest) {
                   price: 0,
                 }));
                 results.tiktok = await tiktokEventsAPI.purchase(
-                  merchant.tiktok_pixel_id as string,
-                  merchant.tiktok_access_token as string,
+                  merchant.tiktok_pixel_id,
+                  merchant.tiktok_access_token,
                   ttUserData,
                   custom_data.order_id,
                   custom_data.value,
@@ -308,8 +433,8 @@ export async function POST(request: NextRequest) {
             case 'begin_checkout':
               if (custom_data.contents) {
                 results.tiktok = await tiktokEventsAPI.initiateCheckout(
-                  merchant.tiktok_pixel_id as string,
-                  merchant.tiktok_access_token as string,
+                  merchant.tiktok_pixel_id,
+                  merchant.tiktok_access_token,
                   ttUserData,
                   custom_data.value || 0,
                   currency,
@@ -352,8 +477,8 @@ export async function POST(request: NextRequest) {
                 custom_data.contents
               ) {
                 results.snapchat = await snapchatCAPI.purchase(
-                  merchant.snapchat_pixel_id as string,
-                  merchant.snapchat_capi_token as string,
+                  merchant.snapchat_pixel_id,
+                  merchant.snapchat_capi_token,
                   snapUserData,
                   custom_data.order_id,
                   custom_data.value,
@@ -365,8 +490,8 @@ export async function POST(request: NextRequest) {
             case 'begin_checkout':
               if (custom_data.contents) {
                 results.snapchat = await snapchatCAPI.startCheckout(
-                  merchant.snapchat_pixel_id as string,
-                  merchant.snapchat_capi_token as string,
+                  merchant.snapchat_pixel_id,
+                  merchant.snapchat_capi_token,
                   snapUserData,
                   custom_data.value || 0,
                   currency,
@@ -377,8 +502,8 @@ export async function POST(request: NextRequest) {
             case 'add_to_cart':
               if (custom_data.contents?.[0]) {
                 results.snapchat = await snapchatCAPI.addToCart(
-                  merchant.snapchat_pixel_id as string,
-                  merchant.snapchat_capi_token as string,
+                  merchant.snapchat_pixel_id,
+                  merchant.snapchat_capi_token,
                   snapUserData,
                   custom_data.contents[0].id,
                   custom_data.value || 0,
@@ -420,6 +545,7 @@ export async function POST(request: NextRequest) {
       eventName: event_name,
       source: event_source,
       platform,
+      merchantId: merchant.id,
       value: custom_data.value,
       currency,
       resultsStatus: Object.keys(results).map(

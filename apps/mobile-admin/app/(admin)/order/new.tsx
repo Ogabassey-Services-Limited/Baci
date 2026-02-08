@@ -116,55 +116,55 @@ const CHANNELS: {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }[] = [
-  {
-    id: 'physical',
-    label: 'Physical sales',
-    icon: 'storefront',
-    color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
-  },
-  {
-    id: 'instagram',
-    label: 'Instagram',
-    icon: 'logo-instagram',
-    color: BRAND_COLORS?.instagram || '#E4405F',
-  },
-  {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: 'logo-whatsapp',
-    color: BRAND_COLORS?.whatsapp || '#25D366',
-  },
-  {
-    id: 'facebook',
-    label: 'Facebook',
-    icon: 'logo-facebook',
-    color: BRAND_COLORS?.facebook || '#1877F2',
-  },
-  {
-    id: 'tiktok',
-    label: 'Tiktok',
-    icon: 'logo-tiktok',
-    color: BRAND_COLORS?.tiktok || '#000000',
-  },
-  {
-    id: 'jumia',
-    label: 'Jumia',
-    icon: 'cart',
-    color: BRAND_COLORS?.jumia || '#F68B1E',
-  },
-  {
-    id: 'jiji',
-    label: 'Jiji',
-    icon: 'pricetag',
-    color: BRAND_COLORS?.jiji || '#3DB83A',
-  },
-  {
-    id: 'konga',
-    label: 'Konga',
-    icon: 'bag',
-    color: BRAND_COLORS?.konga || '#ED017F',
-  },
-];
+    {
+      id: 'physical',
+      label: 'Physical sales',
+      icon: 'storefront',
+      color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
+    },
+    {
+      id: 'instagram',
+      label: 'Instagram',
+      icon: 'logo-instagram',
+      color: BRAND_COLORS?.instagram || '#E4405F',
+    },
+    {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      icon: 'logo-whatsapp',
+      color: BRAND_COLORS?.whatsapp || '#25D366',
+    },
+    {
+      id: 'facebook',
+      label: 'Facebook',
+      icon: 'logo-facebook',
+      color: BRAND_COLORS?.facebook || '#1877F2',
+    },
+    {
+      id: 'tiktok',
+      label: 'Tiktok',
+      icon: 'logo-tiktok',
+      color: BRAND_COLORS?.tiktok || '#000000',
+    },
+    {
+      id: 'jumia',
+      label: 'Jumia',
+      icon: 'cart',
+      color: BRAND_COLORS?.jumia || '#F68B1E',
+    },
+    {
+      id: 'jiji',
+      label: 'Jiji',
+      icon: 'pricetag',
+      color: BRAND_COLORS?.jiji || '#3DB83A',
+    },
+    {
+      id: 'konga',
+      label: 'Konga',
+      icon: 'bag',
+      color: BRAND_COLORS?.konga || '#ED017F',
+    },
+  ];
 
 const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer', icon: 'card-outline' },
@@ -505,17 +505,17 @@ export default function NewOrderScreen() {
           notes: sanitizedNotes,
           shipping_address: sameAsCustomer
             ? ({
-                name: sanitizedCustomerName,
-                phone: sanitizedCustomerPhone || '',
-                address: sanitizedCustomerAddress,
-              } satisfies ShippingAddress)
+              name: sanitizedCustomerName,
+              phone: sanitizedCustomerPhone || '',
+              address: sanitizedCustomerAddress,
+            } satisfies ShippingAddress)
             : ({
-                name: sanitizedDeliveryName,
-                phone: sanitizedDeliveryPhone,
-                address: sanitizedDeliveryAddress,
-                city: sanitizedDeliveryCity,
-                state: sanitizedDeliveryState,
-              } satisfies ShippingAddress),
+              name: sanitizedDeliveryName,
+              phone: sanitizedDeliveryPhone,
+              address: sanitizedDeliveryAddress,
+              city: sanitizedDeliveryCity,
+              state: sanitizedDeliveryState,
+            } satisfies ShippingAddress),
         })
         .select()
         .single();
@@ -2697,11 +2697,11 @@ export default function NewOrderScreen() {
                       prev.map((item) =>
                         item.product_id === editingItem.product_id
                           ? {
-                              ...item,
-                              price: finalPrice,
-                              quantity: finalQty,
-                              details: editDetails,
-                            }
+                            ...item,
+                            price: finalPrice,
+                            quantity: finalQty,
+                            details: editDetails,
+                          }
                           : item
                       )
                     );

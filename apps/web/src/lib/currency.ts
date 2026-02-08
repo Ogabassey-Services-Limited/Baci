@@ -85,11 +85,15 @@ export function formatCurrency(
 
   try {
     // Generate cache key based on config and options
-    const cacheKey = JSON.stringify({
-      locale: config.locale,
-      currency: config.code,
-      ...options,
-    });
+    // Optimized: avoid JSON.stringify for the common case (no custom options)
+    const cacheKey =
+      !options || Object.keys(options).length === 0
+        ? `${config.locale}:${config.code}`
+        : JSON.stringify({
+            locale: config.locale,
+            currency: config.code,
+            ...options,
+          });
 
     let formatter = FORMATTER_CACHE.get(cacheKey);
 
@@ -103,7 +107,7 @@ export function formatCurrency(
         ...options,
       });
 
-      // Implement LRU policy (First-In, First-Out for eviction)
+      // LRU eviction: remove least-recently-used entry when cache is full
       if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
         const firstKey = FORMATTER_CACHE.keys().next().value;
         if (firstKey !== undefined) {

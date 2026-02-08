@@ -51,6 +51,10 @@ export function StorefrontProductCard({
         ) || null // Convert 0 to null to hide 0% badges
       : null;
 
+  const discountBadgeText = discountPercentage
+    ? `-${discountPercentage}%`
+    : null;
+
   const isLowStock =
     product.manage_stock &&
     product.stock <= (product.low_stock_threshold ?? 5) &&
@@ -121,7 +125,7 @@ export function StorefrontProductCard({
           <div className="absolute top-2 left-2 flex flex-col gap-1">
             {discountPercentage && (
               <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
-                SALE
+                {discountBadgeText}
               </span>
             )}
             {isLowStock && (
@@ -158,12 +162,24 @@ export function StorefrontProductCard({
         </p>
 
         <div className="flex items-center justify-between mt-4">
-          <p
-            className="text-lg font-bold"
-            style={{ color: 'var(--store-primary)' }}
-          >
-            {formatCurrency(product.price)}
-          </p>
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="sr-only">Current price:</span>
+            <p
+              className="text-lg font-bold"
+              style={{ color: 'var(--store-primary)' }}
+            >
+              {formatCurrency(product.price)}
+            </p>
+            {product.compare_at_price &&
+              product.compare_at_price > product.price && (
+                <>
+                  <span className="sr-only">Original price:</span>
+                  <p className="text-sm text-muted-foreground line-through">
+                    {formatCurrency(product.compare_at_price)}
+                  </p>
+                </>
+              )}
+          </div>
 
           {cartItem ? (
             <div className="flex items-center gap-1">

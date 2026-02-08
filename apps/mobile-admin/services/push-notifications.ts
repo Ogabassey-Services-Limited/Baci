@@ -11,32 +11,71 @@
  */
 
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsType from 'expo-notifications';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Device: any = null;
+let Notifications: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [dev, notif] = await Promise.all([
+      import('expo-device'),
+      import('expo-notifications')
+    ]);
+    Device = dev;
+    Notifications = notif;
+
+    // Configure notification behavior after successful load
+    if (Notifications) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  } catch (e) {
+    console.debug('[Push] Native modules ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
+
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 // Configure notification behavior for foreground notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Notifications) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (e) {
+    console.debug('[Push] setNotificationHandler failed or deferred');
+  }
+}
 
 export interface PushNotificationState {
   token: string | null;
   isRegistered: boolean;
-  permissionStatus: Notifications.PermissionStatus | null;
+  permissionStatus: NotificationsType.PermissionStatus | null;
 }
 
 /**
  * Request push notification permissions
  */
-export async function requestPermissions(): Promise<Notifications.PermissionStatus> {
+export async function requestPermissions(): Promise<NotificationsType.PermissionStatus> {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
   if (existingStatus !== 'granted') {
@@ -104,7 +143,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'New Orders',
     description: 'Notifications when you receive new orders',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications?.AndroidImportance?.HIGH || 4,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#10B981', // Green for positive
     sound: 'default',
@@ -114,7 +153,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('payments', {
     name: 'Payments',
     description: 'Payment received notifications',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: Notifications?.AndroidImportance?.HIGH || 4,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#10B981',
     sound: 'default',
@@ -124,7 +163,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('stock', {
     name: 'Stock Alerts',
     description: 'Low stock and inventory notifications',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications?.AndroidImportance?.DEFAULT || 3,
     vibrationPattern: [0, 200],
     lightColor: '#F59E0B', // Amber for warning
   });
@@ -133,7 +172,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('admin', {
     name: 'Platform Updates',
     description: 'Messages from Baci platform',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications?.AndroidImportance?.DEFAULT || 3,
     sound: 'default',
   });
 
@@ -141,7 +180,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('general', {
     name: 'General',
     description: 'Other notifications',
-    importance: Notifications.AndroidImportance.LOW,
+    importance: Notifications?.AndroidImportance?.LOW || 2,
   });
 }
 
@@ -218,7 +257,7 @@ export async function removePushTokenFromServer(
  * Handle notification tap - returns navigation params
  */
 export function getNotificationNavigationParams(
-  response: Notifications.NotificationResponse
+  response: NotificationsType.NotificationResponse
 ): { screen: string; params?: Record<string, string> } | null {
   const data = response.notification.request.content.data;
 
@@ -272,7 +311,7 @@ export async function scheduleLocalNotification(
       sound: 'default',
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      type: Notifications?.SchedulableTriggerInputTypes?.TIME_INTERVAL || 'timeInterval',
       seconds: triggerSeconds,
     },
   });

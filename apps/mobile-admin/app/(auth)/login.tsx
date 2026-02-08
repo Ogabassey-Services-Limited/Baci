@@ -5,10 +5,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -43,11 +43,29 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
-import {
-  GoogleSignin,
-  isSuccessResponse,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
+// Dynamic import and fallbacks for native modules to prevent evaluation-time crashes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let GoogleSignin: Record<string, (...args: any[]) => any> | null = null;
+let isSuccessResponse: (res: unknown) => res is { data: { idToken: string } } =
+  (_res): _res is { data: { idToken: string } } => false;
+let statusCodes: Record<string, string> = {
+  SIGN_IN_CANCELLED: 'CANCELLED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+};
+
+try {
+  if (Platform.OS !== 'web') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const GoogleSigninModule = require('@react-native-google-signin/google-signin');
+    GoogleSignin = GoogleSigninModule.GoogleSignin;
+    isSuccessResponse = GoogleSigninModule.isSuccessResponse;
+    statusCodes = GoogleSigninModule.statusCodes;
+  }
+} catch (_e) {
+  console.debug('[GoogleSignIn] Native module ignored during evaluation');
+}
+
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { BaciLogo } from '@/components/BaciLogo';
@@ -85,13 +103,7 @@ if (__DEV__) {
   });
 }
 
-// Configure Google Sign-In once
-GoogleSignin.configure({
-  iosClientId: googleConfig.iosClientId,
-  webClientId: googleConfig.webClientId,
-  offlineAccess: true, // Required for ID token on Android
-  scopes: ['profile', 'email'], // Explicit scopes for 2026 best practice
-});
+// Google Sign-In configuration moved to useEffect to prevent evaluation-time crashes
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -107,7 +119,30 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
+  useEffect(() => {
+    // 2026 Best Practice: Configure native modules only on supported platforms
+    if (Platform.OS !== 'web' && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          iosClientId: googleConfig.iosClientId,
+          webClientId: googleConfig.webClientId,
+          offlineAccess: true,
+          scopes: ['profile', 'email'],
+        });
+      } catch (e) {
+        console.warn('[GoogleSignIn] Configuration deferred or failed:', e);
+      }
+    }
+  }, []);
+
   const handleGoogleSignIn = async () => {
+    if (Platform.OS === 'web' || !GoogleSignin) {
+      Alert.alert(
+        'Platform Not Supported',
+        'Google Sign-in is currently only supported on mobile devices.'
+      );
+      return;
+    }
     setIsGoogleLoading(true);
     setError(null);
 
@@ -315,7 +350,9 @@ export default function LoginScreen() {
                   onPress={() => setShowPassword(!showPassword)}
                   style={styles.eyeButton}
                   accessibilityRole="button"
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  accessibilityLabel={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -351,7 +388,9 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={isAnyLoading}
               accessibilityRole="button"
-              accessibilityLabel={isLoading ? 'Signing in' : 'Sign in to your account'}
+              accessibilityLabel={
+                isLoading ? 'Signing in' : 'Sign in to your account'
+              }
               accessibilityState={{ disabled: isAnyLoading }}
             >
               {isLoading ? (
@@ -387,7 +426,11 @@ export default function LoginScreen() {
                 onPress={handleGoogleSignIn}
                 disabled={isAnyLoading}
                 accessibilityRole="button"
-                accessibilityLabel={isGoogleLoading ? 'Signing in with Google' : 'Sign in with Google'}
+                accessibilityLabel={
+                  isGoogleLoading
+                    ? 'Signing in with Google'
+                    : 'Sign in with Google'
+                }
                 accessibilityState={{ disabled: isAnyLoading }}
               >
                 {isGoogleLoading ? (
@@ -414,7 +457,11 @@ export default function LoginScreen() {
                   onPress={handleAppleSignIn}
                   disabled={isAnyLoading}
                   accessibilityRole="button"
-                  accessibilityLabel={isAppleLoading ? 'Signing in with Apple' : 'Sign in with Apple'}
+                  accessibilityLabel={
+                    isAppleLoading
+                      ? 'Signing in with Apple'
+                      : 'Sign in with Apple'
+                  }
                   accessibilityState={{ disabled: isAnyLoading }}
                 >
                   {isAppleLoading ? (

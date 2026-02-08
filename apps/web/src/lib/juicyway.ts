@@ -19,7 +19,7 @@ import { logger } from './logger';
 // =============================================================================
 
 const JUICYWAY_BASE_URL =
-  process.env.JUICYWAY_BASE_URL || 'https://api-sandbox.spendjuice.com';
+  process.env.JUICYWAY_BASE_URL || 'https://api.spendjuice.com';
 const JUICYWAY_SECRET_KEY = process.env.JUICYWAY_SECRET_KEY || '';
 
 // =============================================================================
@@ -489,6 +489,40 @@ export async function verifyPayment(paymentId: string): Promise<
 }
 
 /**
+ * Fetch a payment session by ID (GET /payment-sessions/{id})
+ * Used to poll for crypto address after capture returns 'pending'
+ */
+export async function getPaymentSession(
+  sessionId: string
+): Promise<JuicywayResult<JuicywayCryptoPaymentResponse>> {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(sessionId)) {
+    return {
+      success: false,
+      error: 'Invalid session ID format (must be UUID)',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await juicywayRequest<JuicywayCryptoPaymentResponse>(
+    `/payment-sessions/${sessionId}`,
+    { method: 'GET' }
+  );
+
+  if (!result.success) {
+    return result;
+  }
+
+  const rawResult = result.data.data || result.data;
+
+  return {
+    success: true,
+    data: rawResult as JuicywayCryptoPaymentResponse,
+  };
+}
+
+/**
  * Capture a payment session with crypto/stablecoin details
  * This generates a blockchain address for the customer to send funds to
  *
@@ -525,11 +559,15 @@ export async function capturePaymentWithCrypto(
     };
   }
 
+  const mode = JUICYWAY_BASE_URL.includes('sandbox') ? 'sandbox' : 'live';
+
   logger.info({
     message: 'Capturing payment with crypto',
     paymentId,
     chain,
     currency,
+    mode,
+    baseUrl: JUICYWAY_BASE_URL,
   });
 
   const result = await juicywayRequest<JuicywayCryptoPaymentResponse>(
@@ -553,12 +591,16 @@ export async function capturePaymentWithCrypto(
   const rawResult = result.data.data || result.data;
 
   logger.info({
-    message: 'Crypto payment captured',
+    message: 'Crypto capture raw response',
     paymentId,
+    mode,
+    rawStatus: (rawResult as Record<string, unknown>).status,
+    paymentStatus: (rawResult as JuicywayCryptoPaymentResponse).payment?.status,
     address: (rawResult as JuicywayCryptoPaymentResponse).payment
       ?.payment_method?.address,
     chain: (rawResult as JuicywayCryptoPaymentResponse).payment?.payment_method
       ?.chain,
+    fullResponse: JSON.stringify(rawResult).substring(0, 500),
   });
 
   return {
@@ -651,6 +693,10 @@ export function formatPhoneToE164(phone: string, countryCode = '+234'): string {
 
   // Remove leading zero if present
   const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
+
+  // If no digits remain, or result is just country code, return undefined to signal 'missing'
+  if (!normalized) return '';
+
   return `${countryCode}${normalized}`;
 }
 

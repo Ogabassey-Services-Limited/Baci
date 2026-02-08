@@ -290,10 +290,12 @@ export function getWebhookSecret(): string {
 }
 
 /**
- * Check if Credit Direct is in live mode
+ * Check if Credit Direct is in live mode.
+ * Defaults to true — live keys are rejected by the test server.
+ * Set CREDIT_DIRECT_IS_LIVE=false explicitly to use test mode with test keys.
  */
 export function isLiveMode(): boolean {
-  return process.env.CREDIT_DIRECT_IS_LIVE === 'true';
+  return process.env.CREDIT_DIRECT_IS_LIVE !== 'false';
 }
 
 // ============================================================================

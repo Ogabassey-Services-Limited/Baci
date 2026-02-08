@@ -4,9 +4,12 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
@@ -19,31 +22,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state');
-    const error = searchParams.get('error');
-    const merchantId = request.cookies.get('jumia_merchant_id')?.value;
+    const rawError = searchParams.get('error');
+    const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
 
-    // Jumia may return an error
-    if (error) {
-      logger.error({
-        message: 'Jumia Callback OAuth error',
-        error,
-        merchantId,
-      });
-      return NextResponse.redirect(
-        new URL(
-          `/dashboard/channels?error=${encodeURIComponent(error)}`,
-          request.url
-        )
-      );
-    }
+    // ── Security checks FIRST — must not be bypassable by query params ──
 
-    if (!code) {
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=no_code', request.url)
-      );
-    }
-
-    // Verify state matches
+    // 1. CSRF: verify state matches (OAuth 2.0 §10.12)
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
 
     if (!storedState || storedState !== state) {
@@ -57,10 +41,70 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!merchantId) {
-      logger.error({ message: 'Jumia Callback No merchant ID in session' });
+    // 2. Auth: verify user session
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      logger.error({
+        message: 'Jumia Callback Unauthorized',
+        error: auth.error,
+      });
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=session_expired', request.url)
+      );
+    }
+
+    // 3. Merchant: verify ownership
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
+      logger.error({ message: 'Jumia Callback Merchant not found' });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=merchant_not_found', request.url)
+      );
+    }
+
+    if (cookieMerchantId && cookieMerchantId !== merchantId) {
+      logger.error({
+        message: 'Jumia Callback Merchant mismatch',
+        cookieMerchantId,
+        merchantId,
+      });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=session_expired', request.url)
+      );
+    }
+
+    // ── OAuth response handling (after security checks pass) ──
+
+    // Map OAuth error to a known safe value to prevent reflection of arbitrary user input
+    const KNOWN_OAUTH_ERRORS = new Set([
+      'access_denied',
+      'invalid_request',
+      'unauthorized_client',
+      'server_error',
+      'temporarily_unavailable',
+      'invalid_scope',
+    ]);
+
+    if (rawError) {
+      const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
+        ? rawError
+        : 'oauth_error';
+      logger.error({
+        message: 'Jumia Callback OAuth error',
+        error: safeError,
+        merchantId,
+      });
+      return NextResponse.redirect(
+        new URL(
+          `/dashboard/channels?error=${encodeURIComponent(safeError)}`,
+          request.url
+        )
+      );
+    }
+
+    if (!code || code.length > 2048) {
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=no_code', request.url)
       );
     }
 
@@ -84,10 +128,11 @@ export async function GET(request: NextRequest) {
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || '', // Handle missing refresh token gracefully
       tokenExpiresAt: tokenExpiresAt,
+      supabase: auth.supabase,
     });
 
     const discoveredShops = await tempClient.getShops();
-    const supabase = createAdminClient();
+    const supabase = auth.supabase;
 
     if (discoveredShops.length === 0) {
       logger.warn({

@@ -738,7 +738,7 @@ export default function ProductDetailScreen() {
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((s) => {
                 const rating =
-                  reviewStats?.average_rating || product.rating || 4.5;
+                  reviewStats?.average_rating ?? product.rating ?? 4.5;
                 return (
                   <Ionicons
                     key={s}
@@ -752,8 +752,9 @@ export default function ProductDetailScreen() {
               })}
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
-              {reviewStats
-                ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count} reviews)`
+              {typeof reviewStats?.average_rating === 'number' &&
+              Number.isFinite(reviewStats.average_rating)
+                ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count ?? 0} reviews)`
                 : product.rating
                   ? `${product.rating} (${product.review_count || 0} reviews)`
                   : 'No reviews yet'}
@@ -1461,7 +1462,7 @@ const styles = StyleSheet.create({
   addToCartBtn: {
     flex: 1,
     height: 54,
-    borderRadius: 27,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.md,

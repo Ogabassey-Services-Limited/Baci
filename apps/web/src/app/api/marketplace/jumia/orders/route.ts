@@ -5,9 +5,9 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyJumiaOrder } from '@/lib/expo-push';
 import { JumiaClient } from '@/lib/jumia/client';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('jumia_orders')
-      .select('*')
+      .select(
+        'id, merchant_id, jumia_order_id, jumia_order_number, jumia_shop_id, status, customer_name, customer_phone, shipping_address, items, total_amount, currency, created_at_jumia, synced_at, updated_at, baci_order_id, notification_sent'
+      )
       .eq('merchant_id', merchant.id)
       .order('synced_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -86,6 +88,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(_request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(_request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -113,7 +123,9 @@ export async function POST(_request: NextRequest) {
     }
 
     // Get Jumia client for this merchant
-    const jumiaClient = await JumiaClient.forMerchant(merchant.id);
+    const jumiaClient = await JumiaClient.forMerchant(merchant.id, {
+      supabase,
+    });
 
     if (!jumiaClient) {
       return NextResponse.json(
@@ -135,7 +147,6 @@ export async function POST(_request: NextRequest) {
     const jumiaOrders = result.orders;
 
     // Sync to our database
-    const adminSupabase = createAdminClient();
     let newOrdersCount = 0;
 
     for (const order of jumiaOrders) {
@@ -144,7 +155,7 @@ export async function POST(_request: NextRequest) {
         : 'Unknown Customer';
 
       // Upsert order
-      const { data: existingOrder } = await adminSupabase
+      const { data: existingOrder } = await supabase
         .from('jumia_orders')
         .select('id, notification_sent')
         .eq('jumia_order_id', order.id)
@@ -152,28 +163,26 @@ export async function POST(_request: NextRequest) {
 
       const isNewOrder = !existingOrder;
 
-      const { error: upsertError } = await adminSupabase
-        .from('jumia_orders')
-        .upsert(
-          {
-            merchant_id: merchant.id,
-            jumia_order_id: order.id,
-            jumia_order_number: String(order.number),
-            jumia_shop_id: jumiaClient.getShopId(),
-            status: order.status,
-            customer_name: customerName,
-            customer_phone: '', // List API doesn't provide phone directly
-            shipping_address: order.shippingAddress || {},
-            items: [], // List API doesn't provide items directly, fetch via /order/items if needed
-            total_amount: order.totalAmount.value,
-            currency: order.totalAmount.currency,
-            created_at_jumia: order.createdAt,
-            notification_sent: existingOrder?.notification_sent || false,
-          },
-          {
-            onConflict: 'jumia_order_id',
-          }
-        );
+      const { error: upsertError } = await supabase.from('jumia_orders').upsert(
+        {
+          merchant_id: merchant.id,
+          jumia_order_id: order.id,
+          jumia_order_number: String(order.number),
+          jumia_shop_id: jumiaClient.getShopId(),
+          status: order.status,
+          customer_name: customerName,
+          customer_phone: '', // List API doesn't provide phone directly
+          shipping_address: order.shippingAddress || {},
+          items: [], // List API doesn't provide items directly, fetch via /order/items if needed
+          total_amount: order.totalAmount.value,
+          currency: order.totalAmount.currency,
+          created_at_jumia: order.createdAt,
+          notification_sent: existingOrder?.notification_sent || false,
+        },
+        {
+          onConflict: 'jumia_order_id',
+        }
+      );
 
       if (upsertError) {
         console.error('[Jumia Orders] Upsert error:', upsertError);
@@ -192,7 +201,7 @@ export async function POST(_request: NextRequest) {
         );
 
         // Mark as notified
-        await adminSupabase
+        await supabase
           .from('jumia_orders')
           .update({ notification_sent: true })
           .eq('jumia_order_id', order.id);
@@ -200,7 +209,7 @@ export async function POST(_request: NextRequest) {
     }
 
     // Update last_sync_at on integration
-    await adminSupabase
+    await supabase
       .from('marketplace_integrations')
       .update({ last_sync_at: new Date().toISOString(), sync_error: null })
       .eq('merchant_id', merchant.id)
@@ -231,8 +240,7 @@ export async function POST(_request: NextRequest) {
           .single();
 
         if (merchant) {
-          const adminSupabase = createAdminClient();
-          await adminSupabase
+          await supabase
             .from('marketplace_integrations')
             .update({
               sync_error:
@@ -246,22 +254,6 @@ export async function POST(_request: NextRequest) {
       // Ignore error logging failure
     }
 
-    console.error('[Jumia Orders] Sync error:', error);
-
-    // Detailed error for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Sync failed';
-    const errorDetails =
-      error && typeof error === 'object' && 'issues' in error
-        ? // biome-ignore lint/suspicious/noExplicitAny: Zod validation error
-          JSON.stringify((error as any).issues)
-        : undefined;
-
-    return NextResponse.json(
-      {
-        error: errorMessage,
-        details: errorDetails,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Order sync failed' }, { status: 500 });
   }
 }

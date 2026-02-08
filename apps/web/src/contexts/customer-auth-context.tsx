@@ -49,7 +49,7 @@ interface OtpState {
   expiresAt?: number;
 }
 
-interface GoogleAuthResponse {
+interface OAuthRedirectResponse {
   url?: string;
   error?: string;
 }
@@ -64,6 +64,7 @@ interface CustomerAuthContextType {
   sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   // Customer data actions
   refreshCustomer: () => Promise<void>;
@@ -203,11 +204,12 @@ export function CustomerAuthProvider({
     }
   }, [merchantSlug]);
 
-  // Sign in with Google OAuth
-  const signInWithGoogle = useCallback(async (): Promise<{
-    success: boolean;
-    error?: string;
-  }> => {
+  // Shared OAuth sign-in helper
+  const signInWithOAuth = async (
+    endpointPath: string,
+    allowedHosts: string[],
+    providerLabel: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       // Use the current browser origin to support custom domains (e.g., ogabassey.com)
       // This automatically handles: localhost, subdomains (*.usebaci.com), and custom domains
@@ -226,59 +228,101 @@ export function CustomerAuthProvider({
           ? `${window.location.origin}${redirectPath}`
           : '/account/callback';
 
-      const response = await fetch('/api/storefront/auth/google', {
+      const response = await fetch(endpointPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ merchantSlug, redirectUrl }),
       });
 
-      const data: GoogleAuthResponse = await response.json();
+      const data: OAuthRedirectResponse = await response.json();
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.error || 'Failed to initiate Google sign-in',
+          error: data.error || `Failed to initiate ${providerLabel} sign-in`,
         };
       }
 
-      // Redirect to Google OAuth URL
-      if (data.url) {
-        // Validate that the URL is a Google OAuth URL
-        try {
-          const url = new URL(data.url);
-          const validHosts = [
-            'accounts.google.com',
-            'www.google.com',
-            'supabase.co',
-            '127.0.0.1',
-            'localhost',
-          ];
-          const isValidDomain =
-            validHosts.some((h) => url.hostname === h) ||
-            url.hostname.endsWith('.google.com') ||
-            url.hostname.endsWith('.supabase.co');
-
-          if (!isValidDomain) {
-            return {
-              success: false,
-              error: 'Invalid OAuth provider URL',
-            };
-          }
-        } catch {
-          return {
-            success: false,
-            error: 'Invalid OAuth URL format',
-          };
-        }
-        window.location.href = data.url;
+      // Check for data.url before redirecting
+      if (!data.url) {
+        return {
+          success: false,
+          error: 'Missing OAuth redirect URL',
+        };
       }
 
+      // Validate that the URL is from an allowed OAuth provider
+      try {
+        const url = new URL(data.url);
+        const isValidDomain = allowedHosts.some((h) => {
+          if (h.startsWith('.')) {
+            // Wildcard domain like .google.com or .supabase.co
+            return url.hostname.endsWith(h);
+          }
+          return url.hostname === h;
+        });
+
+        if (!isValidDomain) {
+          return {
+            success: false,
+            error: 'Invalid OAuth provider URL',
+          };
+        }
+      } catch {
+        return {
+          success: false,
+          error: 'Invalid OAuth URL format',
+        };
+      }
+
+      window.location.href = data.url;
       return { success: true };
     } catch (error) {
-      console.error('Google sign-in error:', error);
+      console.error(providerLabel, 'sign-in error:', error);
       return { success: false, error: 'Network error. Please try again.' };
     }
-  }, [merchantSlug]);
+  };
+
+  // Sign in with Google OAuth
+  const signInWithGoogle = (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    return signInWithOAuth(
+      '/api/storefront/auth/google',
+      [
+        'accounts.google.com',
+        'www.google.com',
+        '.google.com', // Wildcard for *.google.com
+        'supabase.co',
+        '.supabase.co', // Wildcard for *.supabase.co
+        ...(process.env.NODE_ENV !== 'production'
+          ? ['127.0.0.1', 'localhost']
+          : []),
+      ],
+      'Google'
+    );
+  };
+
+  // Sign in with Apple OAuth
+  const signInWithApple = (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    return signInWithOAuth(
+      '/api/storefront/auth/apple',
+      [
+        'appleid.apple.com',
+        '.apple.com', // Wildcard for *.apple.com
+        'supabase.co',
+        '.supabase.co', // Wildcard for *.supabase.co
+        ...(process.env.NODE_ENV !== 'production'
+          ? ['127.0.0.1', 'localhost']
+          : []),
+      ],
+      'Apple'
+    );
+  };
 
   // Refresh customer data
   const refreshCustomer = useCallback(async () => {
@@ -330,6 +374,7 @@ export function CustomerAuthProvider({
         sendOtp,
         verifyOtp,
         signInWithGoogle,
+        signInWithApple,
         logout,
         refreshCustomer,
         updateCustomer,

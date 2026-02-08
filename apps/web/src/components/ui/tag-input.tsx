@@ -28,7 +28,7 @@ export function TagInput({
   // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
   const flashAnnouncement = (msg: string) => {
     setAnnouncement('');
-    // Use microtask to ensure DOM change is detected between empty and message strings
+    // Schedule before next paint to ensure DOM change is detected between empty and message strings
     requestAnimationFrame(() => {
       setAnnouncement(msg);
     });
@@ -64,15 +64,17 @@ export function TagInput({
   };
 
   const removeTag = (index: number) => {
+    const removedTag = value[index];
     onChange(value.filter((_, i) => i !== index));
+    flashAnnouncement(`Tag "${removedTag}" removed`);
   };
 
   return (
     <div className={cn('space-y-2', className)}>
       {/* Screen reader announcements */}
-      <div className="sr-only" aria-live="polite" aria-atomic="true">
+      <output className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
-      </div>
+      </output>
 
       <div className="flex gap-2">
         <Input
@@ -83,6 +85,7 @@ export function TagInput({
           onKeyDown={handleKeyDown}
           className="flex-1"
           disabled={maxTags ? value.length >= maxTags : false}
+          aria-label="Tag input"
         />
         <Button
           type="button"
@@ -92,6 +95,7 @@ export function TagInput({
           disabled={
             !inputValue.trim() || (maxTags ? value.length >= maxTags : false)
           }
+          aria-label="Add tag"
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -114,6 +118,7 @@ export function TagInput({
                   e.stopPropagation();
                   removeTag(index);
                 }}
+                aria-label={`Remove ${tag}`}
               >
                 <X className="h-3 w-3" />
               </button>

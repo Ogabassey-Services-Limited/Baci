@@ -1,5 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { logger } from '@/lib/logger';
+import { createAnonClient } from '@/lib/supabase/anon';
+import {
+  trackOrderEmailSchema,
+  trackOrderTokenSchema,
+} from '@/schemas/track-order';
+
+// Unauthenticated order tracking endpoint.
+// The get_order_tracking RPC is SECURITY DEFINER (bypasses table-level RLS).
+// Access control is enforced by the function's internal WHERE clauses:
+// - Token-based lookup: requires only possession of a valid tracking token
+// - Email-based lookup: requires matching email + order_id/order_number
+// PII (email, phone) is masked by the API route before returning to the client.
 
 interface TimelineEvent {
   status: string;
@@ -21,73 +33,114 @@ interface ShippingAddress {
   state?: string;
 }
 
-interface OrderItemWithProduct {
+interface OrderItemRow {
   id: string;
   product_id: string;
   name: string;
   quantity: number;
   price: number;
-  products: {
-    images: string[] | null;
-  } | null;
+  product_images?: unknown;
 }
 
-// GET - Track order by order number or ID
+// Type-guard helper to safely extract first image URL from unknown product_images
+function extractFirstImageUrl(productImages: unknown): string | null {
+  if (!Array.isArray(productImages) || productImages.length === 0) {
+    return null;
+  }
+
+  const first = productImages[0];
+
+  // Handle string URL
+  if (typeof first === 'string') {
+    return first;
+  }
+
+  // Handle object with url property
+  if (
+    first &&
+    typeof first === 'object' &&
+    'url' in first &&
+    typeof first.url === 'string'
+  ) {
+    return first.url;
+  }
+
+  return null;
+}
+
+// GET - Track order by tracking token, or by order number/ID + email
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const trackingToken = searchParams.get('token');
     const orderNumber = searchParams.get('order_number');
     const orderId = searchParams.get('order_id');
     const email = searchParams.get('email');
+    const merchantSlug =
+      searchParams.get('merchant_slug') || searchParams.get('slug');
 
-    if (!orderNumber && !orderId) {
-      return NextResponse.json(
-        { error: 'order_number or order_id is required' },
-        { status: 400 }
-      );
+    // Validate input based on mode
+    let validatedMerchantSlug: string;
+    let validatedToken: string | null = null;
+    let validatedOrderId: string | null = null;
+    let validatedOrderNumber: string | null = null;
+    let validatedEmail: string | null = null;
+
+    if (trackingToken) {
+      const parsed = trackOrderTokenSchema.safeParse({
+        token: trackingToken,
+        merchant_slug: merchantSlug,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: 'Invalid input',
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+      validatedMerchantSlug = parsed.data.merchant_slug;
+      validatedToken = parsed.data.token;
+    } else {
+      const parsed = trackOrderEmailSchema.safeParse({
+        order_number: orderNumber,
+        order_id: orderId,
+        email,
+        merchant_slug: merchantSlug,
+      });
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: 'Invalid input',
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+      validatedMerchantSlug = parsed.data.merchant_slug;
+      validatedOrderId = parsed.data.order_id ?? null;
+      validatedOrderNumber = parsed.data.order_number ?? null;
+      validatedEmail = parsed.data.email;
     }
 
-    const supabase = createAdminClient();
+    const supabase = createAnonClient();
 
-    // Build query
-    let query = supabase.from('orders').select(`
-        *,
-        order_items (
-          id,
-          product_id,
-          name,
-          quantity,
-          price,
-          products (
-            images
-          )
-        ),
-        merchants (
-          id,
-          business_name,
-          slug,
-          logo_url,
-          support_email,
-          support_phone,
-          phone
-        )
-      `);
+    const { data: orders, error } = await supabase.rpc('get_order_tracking', {
+      p_merchant_slug: validatedMerchantSlug,
+      p_order_id: validatedOrderId,
+      p_order_number: validatedOrderNumber,
+      p_email: validatedEmail,
+      p_tracking_token: validatedToken,
+    });
 
-    if (orderId) {
-      query = query.eq('id', orderId);
-    } else if (orderNumber) {
-      query = query.eq('order_number', orderNumber);
-    }
-
-    // If email provided, verify it matches (for security)
-    if (email) {
-      query = query.eq('customer_email', email.toLowerCase());
-    }
-
-    const { data: order, error } = await query.single();
+    const order = Array.isArray(orders) ? orders[0] : null;
 
     if (error || !order) {
-      console.error('Track error:', error);
+      logger.error({
+        message: 'Track order error',
+        code: error?.code ?? 'NOT_FOUND',
+      });
       return NextResponse.json(
         { error: 'Order not found. Please check your order number and email.' },
         { status: 404 }
@@ -117,6 +170,10 @@ export async function GET(request: NextRequest) {
       | ShippingAddress
       | string;
 
+    // PII masking policy: token-based lookups return full PII (secret bearer token),
+    // email-based lookups return masked data to limit exposure.
+    const shouldMaskPii = !validatedToken;
+
     return NextResponse.json({
       order: {
         id: order.id,
@@ -133,8 +190,12 @@ export async function GET(request: NextRequest) {
       },
       customer: {
         name: order.customer_name,
-        email: maskEmail(order.customer_email),
-        phone: maskPhone(order.customer_phone),
+        email: shouldMaskPii
+          ? maskEmail(order.customer_email)
+          : order.customer_email,
+        phone: shouldMaskPii
+          ? maskPhone(order.customer_phone)
+          : order.customer_phone,
       },
       shipping_address: {
         address:
@@ -145,31 +206,29 @@ export async function GET(request: NextRequest) {
         state: typeof shippingAddress === 'object' ? shippingAddress.state : '',
         country: 'Nigeria', // Simplified as it's typically Nigeria for this platform
       },
-      items: (order.order_items as unknown as OrderItemWithProduct[])?.map(
-        (item) => ({
+      items: (Array.isArray(order.items) ? order.items : []).map(
+        (item: OrderItemRow) => ({
           id: item.id,
           product_id: item.product_id,
           product_name: item.name,
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,
-          product_image: Array.isArray(item.products?.images)
-            ? item.products?.images[0]
-            : null,
+          product_image: extractFirstImageUrl(item.product_images),
         })
       ),
       timeline,
       shipping_tracking: shippingTracking,
       estimated_delivery: estimatedDelivery,
       merchant: {
-        name: order.merchants?.business_name,
-        logo: order.merchants?.logo_url,
-        support_email: order.merchants?.support_email,
-        support_phone: order.merchants?.support_phone || order.merchants?.phone,
+        name: order.merchant_business_name,
+        logo: order.merchant_logo_url,
+        support_email: order.merchant_support_email,
+        support_phone: order.merchant_support_phone || order.merchant_phone,
       },
     });
   } catch (error) {
-    console.error('Error tracking order:', error);
+    logger.error({ message: 'Error tracking order', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -297,13 +356,14 @@ function generateTimeline(order: {
 }
 
 function getTrackingUrl(provider: string, trackingNumber: string): string {
+  const encodedTracking = encodeURIComponent(trackingNumber);
   const providers: Record<string, string> = {
-    gigl: `https://giglogistics.com/track/${trackingNumber}`,
-    topship: `https://topship.africa/track/${trackingNumber}`,
+    gigl: `https://giglogistics.com/track/${encodedTracking}`,
+    topship: `https://topship.africa/track/${encodedTracking}`,
 
-    dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
-    fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
-    ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,
+    dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${encodedTracking}`,
+    fedex: `https://www.fedex.com/fedextrack/?trknbr=${encodedTracking}`,
+    ups: `https://www.ups.com/track?tracknum=${encodedTracking}`,
   };
 
   return providers[provider.toLowerCase()] || '#';
@@ -338,6 +398,7 @@ function calculateEstimatedDelivery(order: {
 }
 
 function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return '***';
   const [local, domain] = email.split('@');
   if (local.length <= 2) {
     return `${local[0]}***@${domain}`;

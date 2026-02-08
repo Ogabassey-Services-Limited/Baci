@@ -1,25 +1,28 @@
 /**
  * Checkout Screen
  * Multi-step checkout: Address -> Payment -> Confirmation
- *
- * 2026 Best Practices:
- * - react-hook-form for form management
- * - Zod resolver for validation
- * - Analytics tracking and push notifications
- * - Duplicate order prevention (ref-based lock)
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import React, { useEffect, useRef } from 'react';
+import {
+  type Control,
+  Controller,
+  type FieldErrors,
+  useForm,
+} from 'react-hook-form';
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  FlatList,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -27,13 +30,31 @@ import {
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { z } from 'zod';
+import {
+  PaymentMethodSelector,
+  type PaymentMethodType,
+  type PaymentTab,
+} from '@/components/checkout/PaymentMethodSelector';
+import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
+import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
-import { TextContentTypes, type TextContentType } from '@/hooks/use-keyboard';
-import { calculateCommerce } from '@/lib/supabase';
+import Colors, {
+  BRAND,
+  palette,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+} from '@/constants/Colors';
+import { type TextContentType, TextContentTypes } from '@/hooks/use-keyboard';
+import {
+  getEnabledPaymentMethods,
+  useMerchantPaymentSettings,
+} from '@/hooks/useMerchantPaymentSettings';
+import { calculateCommerce, supabase } from '@/lib/supabase';
 import { ShippingAddressSchema } from '@/lib/validation';
 import {
   trackCheckoutStarted,
@@ -43,20 +64,53 @@ import {
 } from '@/services/analytics';
 import { createOrder, OrderError } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
-import { useAuthStore } from '@/stores/auth-store';
-import { formatPrice, useCartStore } from '@/stores/cart-store';
-import {
-  PaymentMethodSelector,
-  type PaymentMethodType,
-  type PaymentTab,
-} from '@/components/checkout/PaymentMethodSelector';
+import { type Customer, useAuthStore } from '@/stores/auth-store';
+import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
-// Infer type from Zod schema
 type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
 
-// Payment method labels for display
+type ThemeColors = (typeof Colors)[keyof typeof Colors];
+
+type TextInputAutoComplete = React.ComponentProps<
+  typeof TextInput
+>['autoComplete'];
+
+interface ShippingQuote {
+  id: string | number;
+  displayName: string;
+  price: number;
+  carrierName?: string;
+  provider?: string;
+  estimatedDays?: number;
+  deliveryRange?: string;
+  serviceTier?: string;
+  isStationPickup?: boolean;
+}
+
+interface QuoteResponse {
+  quotes: {
+    all: ShippingQuote[];
+  };
+}
+
+interface ShippingLocation {
+  state: string;
+  city: string;
+}
+
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.apiUrl ||
+  'https://ogabassey.usebaci.com';
+
+const MERCHANT_ID =
+  Constants.expoConfig?.extra?.merchantId ||
+  '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
+
 const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   paystack: 'Card Payment (Paystack)',
   korapay: 'Card Payment (Korapay)',
@@ -64,6 +118,240 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   pay_on_delivery: 'Pay on Delivery',
   credpal: 'CredPal (Buy Now Pay Later)',
   credit_direct: 'Credit Direct (Installments)',
+  juicyway: 'Crypto (Juicyway)',
+};
+
+const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
+  address: 'Delivery',
+  payment: 'Payment',
+  review: 'Review',
+};
+
+const GOOGLE_STATE_ALIASES: Record<string, string> = {
+  'federal capital territory': 'FCT - Abuja',
+  fct: 'FCT - Abuja',
+  abuja: 'FCT - Abuja',
+  'lagos state': 'Lagos',
+  'rivers state': 'Rivers',
+  'ogun state': 'Ogun',
+  'oyo state': 'Oyo',
+  'kano state': 'Kano',
+  'kaduna state': 'Kaduna',
+  'enugu state': 'Enugu',
+  'delta state': 'Delta',
+  'edo state': 'Edo',
+  'anambra state': 'Anambra',
+};
+
+const TEXT_CONTENT_TYPE_MAP: Partial<
+  Record<keyof ShippingAddressInput, TextContentType>
+> = {
+  email: TextContentTypes.emailAddress,
+  firstName: TextContentTypes.givenName,
+  lastName: TextContentTypes.familyName,
+  phone: TextContentTypes.telephoneNumber,
+  address: TextContentTypes.fullStreetAddress,
+  city: TextContentTypes.addressCity,
+};
+
+const AUTO_COMPLETE_MAP: Partial<
+  Record<keyof ShippingAddressInput, TextInputAutoComplete>
+> = {
+  email: 'email',
+  firstName: 'name-given',
+  lastName: 'name-family',
+  phone: 'tel',
+  address: 'street-address',
+  city: 'postal-address-locality',
+};
+
+function normalizeStateName(
+  googleState: string,
+  knownStates: string[]
+): string {
+  const trimmed = googleState.trim();
+  if (knownStates.includes(trimmed)) return trimmed;
+  const lower = trimmed.toLowerCase();
+  const exactMatch = knownStates.find((s) => s.toLowerCase() === lower);
+  if (exactMatch) return exactMatch;
+  const alias = GOOGLE_STATE_ALIASES[lower];
+  if (alias && knownStates.includes(alias)) return alias;
+  const withoutSuffix = lower.replace(/\s+state$/i, '');
+  const suffixMatch = knownStates.find(
+    (s) => s.toLowerCase() === withoutSuffix
+  );
+  if (suffixMatch) return suffixMatch;
+  return trimmed;
+}
+
+function FormField({
+  name,
+  label,
+  placeholder,
+  control,
+  errors,
+  colors,
+  keyboardType = 'default',
+  multiline = false,
+  containerStyle,
+  returnKeyType = 'next',
+  onSubmitEditing,
+  transformText,
+  maxLength,
+  autoCapitalize,
+}: {
+  name: keyof ShippingAddressInput;
+  label: string;
+  placeholder: string;
+  control: Control<ShippingAddressInput>;
+  errors: FieldErrors<ShippingAddressInput>;
+  colors: ThemeColors;
+  keyboardType?: 'default' | 'phone-pad' | 'email-address';
+  multiline?: boolean;
+  containerStyle?: ViewStyle;
+  returnKeyType?: 'next' | 'done' | 'go';
+  onSubmitEditing?: () => void;
+  transformText?: (value: string, previous: string) => string;
+  maxLength?: number;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+}) {
+  return (
+    <View style={[styles.inputGroup, containerStyle]}>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        {label}
+      </Text>
+      <Controller
+        control={control}
+        name={name}
+        render={({ field: { onChange, onBlur, value } }) => {
+          const stringValue = typeof value === 'string' ? value : '';
+
+          return (
+            <TextInput
+              style={[
+                styles.input,
+                multiline && styles.multilineInput,
+                { backgroundColor: colors.card, color: colors.text },
+                { borderColor: errors[name] ? '#EF4444' : colors.border },
+              ]}
+              value={stringValue}
+              onChangeText={(text) => {
+                const currentValue = stringValue;
+                const processed = transformText
+                  ? transformText(text, currentValue)
+                  : text;
+                if (processed !== currentValue) {
+                  onChange(processed);
+                }
+              }}
+              onBlur={onBlur}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              placeholderTextColor={colors.textSecondary}
+              keyboardType={keyboardType}
+              multiline={multiline}
+              numberOfLines={multiline ? 2 : 1}
+              accessibilityLabel={label}
+              accessibilityHint={`Enter your ${label}`}
+              textContentType={TEXT_CONTENT_TYPE_MAP[name]}
+              autoComplete={AUTO_COMPLETE_MAP[name]}
+              autoCapitalize={autoCapitalize}
+              returnKeyType={multiline ? 'default' : returnKeyType}
+              blurOnSubmit={!multiline}
+              onSubmitEditing={onSubmitEditing}
+            />
+          );
+        }}
+      />
+      {errors[name] && (
+        <Text style={styles.fieldError} accessibilityLiveRegion="polite">
+          {errors[name]?.message}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+type FetchQuotesArgs = {
+  apiUrl: string;
+  state: string;
+  city: string;
+  items: CartItem[];
+  customer: Customer | null;
+  watchedFirstName: string;
+  watchedLastName: string;
+  watchedPhone: string;
+  watchedAddress: string;
+  watchedEmail: string;
+  setIsLoadingQuotes: (value: boolean) => void;
+  setSelectedQuoteId: (value: string) => void;
+  setShippingQuotes: (value: ShippingQuote[]) => void;
+};
+
+const fetchShippingQuotes = async ({
+  apiUrl,
+  state,
+  city,
+  items,
+  customer,
+  watchedFirstName,
+  watchedLastName,
+  watchedPhone,
+  watchedAddress,
+  watchedEmail,
+  setIsLoadingQuotes,
+  setSelectedQuoteId,
+  setShippingQuotes,
+}: FetchQuotesArgs) => {
+  if (!state || !city || items.length === 0) return;
+
+  setIsLoadingQuotes(true);
+  setSelectedQuoteId('');
+
+  try {
+    const res = await fetch(`${apiUrl}/api/shipping/quotes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        receiver: {
+          name:
+            `${watchedFirstName} ${watchedLastName}`.trim() ||
+            'Valued Customer',
+          email: customer?.email || watchedEmail || 'guest@example.com',
+          phone: watchedPhone || '',
+          address: watchedAddress || `${city}, ${state}`,
+          city,
+          state,
+          country: 'Nigeria',
+        },
+        items: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          weight: 1,
+          value: item.negotiatedPrice || item.price,
+        })),
+      }),
+    });
+
+    if (res.ok) {
+      const data: QuoteResponse & { warnings?: string[] } = await res.json();
+      const quotes = data.quotes?.all || [];
+      setShippingQuotes(quotes);
+
+      if (quotes.length > 0) {
+        const cheapest = quotes.reduce((prev, current) =>
+          prev.price <= current.price ? prev : current
+        );
+        setSelectedQuoteId(String(cheapest.id));
+      }
+    } else {
+      setShippingQuotes([]);
+    }
+  } catch (_error) {
+    setShippingQuotes([]);
+  } finally {
+    setIsLoadingQuotes(false);
+  }
 };
 
 export default function CheckoutScreen() {
@@ -75,6 +363,9 @@ export default function CheckoutScreen() {
   const clearCart = useCartStore((state) => state.clearCart);
   const customer = useAuthStore((state) => state.customer);
 
+  const { data: paymentSettings } = useMerchantPaymentSettings();
+  const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
+
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [orderTotals, setOrderTotals] = React.useState<{
@@ -85,40 +376,77 @@ export default function CheckoutScreen() {
     React.useState<PaymentMethodType>('paystack');
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
 
-  // React Hook Form with Zod resolver
+  const [shippingStates, setShippingStates] = React.useState<string[]>([]);
+  const [shippingCities, setShippingCities] = React.useState<string[]>([]);
+  const [shippingQuotes, setShippingQuotes] = React.useState<ShippingQuote[]>(
+    []
+  );
+  const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>('');
+  const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
+  const [isLoadingCities, setIsLoadingCities] = React.useState(false);
+  const [isLoadingQuotes, setIsLoadingQuotes] = React.useState(false);
+  const [showStatePicker, setShowStatePicker] = React.useState(false);
+  const [showCityPicker, setShowCityPicker] = React.useState(false);
+  const [citySearch, setCitySearch] = React.useState('');
+  const [saveDetails, setSaveDetails] = React.useState(false);
+  const [accountPassword, setAccountPassword] = React.useState('');
+
+  // Crypto payment inline modal state
+  const [cryptoPayment, setCryptoPayment] = React.useState<{
+    orderId: string;
+    orderNumber: string;
+    address: string;
+    chain: string;
+    currency: string;
+    amount: number;
+    cryptoAmount: string;
+    confirmationTime: string;
+    reference: string;
+    paymentId: string;
+  } | null>(null);
+  const [copiedCryptoField, setCopiedCryptoField] = React.useState<
+    string | null
+  >(null);
+
   const {
     control,
     handleSubmit,
     formState: { errors },
     watch,
     getValues,
+    setValue,
   } = useForm<ShippingAddressInput>({
     // Cast to any for Zod 4 compatibility with @hookform/resolvers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ShippingAddressSchema as any),
     defaultValues: {
+      email: customer?.email || '',
       firstName: customer?.first_name || '',
       lastName: customer?.last_name || '',
       phone: customer?.phone || '',
       address: '',
       city: '',
-      state: 'Lagos',
+      state: '',
       notes: '',
     },
-    mode: 'onBlur', // Validate on blur for better UX
+    mode: 'onBlur',
   });
 
-  // Watch state for delivery fee calculation
   const watchedState = watch('state');
+  const watchedCity = watch('city');
+  const watchedAddress = watch('address');
+  const watchedPhone = watch('phone');
+  const watchedFirstName = watch('firstName');
+  const watchedLastName = watch('lastName');
+  const watchedEmail = watch('email');
 
-  // Track if checkout_started has been fired
   const hasTrackedStart = useRef(false);
-
-  // 2026 Best Practice: Ref-based lock to prevent duplicate order submissions
-  // This prevents race conditions from rapid button presses
   const isOrderInFlight = useRef(false);
+  // Sentinel: stores the city Google Places suggested, so we can match it
+  // against the Topship cities list once they load.
+  // null = no pending suggestion, '' = state=city edge case (open picker)
+  const googleSuggestedCityRef = useRef<string | null>(null);
 
-  // Track checkout started on mount
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
       trackCheckoutStarted({
@@ -130,7 +458,25 @@ export default function CheckoutScreen() {
     }
   }, [items, subtotal]);
 
-  const handleBack = useCallback(() => {
+  // Reset payment method if current selection is not in enabled list
+  useEffect(() => {
+    if (
+      enabledPaymentMethods.length > 0 &&
+      !enabledPaymentMethods.includes(selectedPayment)
+    ) {
+      setSelectedPayment(enabledPaymentMethods[0]);
+      // Reset to full tab if BNPL methods are disabled
+      if (paymentTab === 'installments') {
+        const hasBNPL = enabledPaymentMethods.some(
+          (m) => m === 'credpal' || m === 'credit_direct'
+        );
+        if (!hasBNPL) setPaymentTab('full');
+      }
+    }
+  }, [enabledPaymentMethods, selectedPayment, paymentTab]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization
+  const handleBack = () => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -138,22 +484,17 @@ export default function CheckoutScreen() {
     } else {
       router.back();
     }
-  }, [step]);
+  };
 
-  // 2026 Best Practice: Handle Android back button in checkout
-  // Prevents accidental exits during order processing
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        // If order is being processed, block back button entirely
         if (isOrderInFlight.current) {
-          return true; // Consume the event, don't go back
+          return true;
         }
-
-        // If on first step, show confirmation before leaving checkout
         if (step === 'address') {
           Alert.alert(
             'Leave Checkout?',
@@ -167,20 +508,145 @@ export default function CheckoutScreen() {
               },
             ]
           );
-          return true; // Consume the event, handled with alert
+          return true;
         }
-
-        // On other steps, go to previous step
         handleBack();
-        return true; // Consume the event
+        return true;
       }
     );
 
     return () => backHandler.remove();
   }, [step, handleBack]);
 
-  // Calculate totals via Brain
-  const deliveryFee = watchedState === 'Lagos' ? 2500 : 5000;
+  useEffect(() => {
+    const fetchLocations = async () => {
+      setIsLoadingLocations(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/shipping/locations`);
+        if (res.ok) {
+          const data = await res.json();
+          setShippingStates(data.states || []);
+        }
+      } catch (_error) {
+        // Silent fail
+      } finally {
+        setIsLoadingLocations(false);
+      }
+    };
+    fetchLocations();
+  }, []);
+
+  useEffect(() => {
+    if (!watchedState) {
+      setShippingCities([]);
+      setIsLoadingCities(false);
+      return;
+    }
+    setShippingCities([]);
+    setIsLoadingCities(true);
+    const fetchCities = async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/shipping/locations?state=${encodeURIComponent(
+            watchedState
+          )}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const normalizedState = watchedState.trim().toLowerCase();
+          const cities = [
+            ...new Set(
+              (data.locations as ShippingLocation[])
+                .filter((location) => {
+                  const locationState = location.state?.trim().toLowerCase();
+                  return locationState
+                    ? locationState === normalizedState
+                    : true;
+                })
+                .map((location) => location.city)
+            ),
+          ].sort();
+          setShippingCities(cities);
+        } else {
+          setShippingCities([]);
+        }
+      } catch (_error) {
+        setShippingCities([]);
+      } finally {
+        setIsLoadingCities(false);
+      }
+    };
+    fetchCities();
+  }, [watchedState]);
+
+  // Sentinel: when Topship cities finish loading, match the Google-suggested city
+  useEffect(() => {
+    if (isLoadingCities || shippingCities.length === 0) return;
+
+    const suggestedCity = googleSuggestedCityRef.current;
+    if (suggestedCity === null) return; // No pending Google suggestion
+
+    // Clear so this only runs once per selection
+    googleSuggestedCityRef.current = null;
+
+    if (suggestedCity === '') {
+      // State = City edge case: open picker for user to search
+      setShowCityPicker(true);
+      return;
+    }
+
+    // Search for a case-insensitive match in the Topship cities list
+    const match = shippingCities.find(
+      (c) => c.toLowerCase() === suggestedCity.toLowerCase()
+    );
+
+    if (match) {
+      // Perfect match - auto-select it
+      setValue('city', match, { shouldValidate: true });
+    } else {
+      // No match - open picker with Google city pre-filled as search
+      setCitySearch(suggestedCity);
+      setShowCityPicker(true);
+    }
+  }, [shippingCities, isLoadingCities, setValue]);
+
+  useEffect(() => {
+    if (watchedState && watchedCity) {
+      fetchShippingQuotes({
+        apiUrl: API_BASE_URL,
+        state: watchedState,
+        city: watchedCity,
+        items,
+        customer,
+        watchedFirstName,
+        watchedLastName,
+        watchedPhone,
+        watchedAddress,
+        watchedEmail,
+        setIsLoadingQuotes,
+        setSelectedQuoteId,
+        setShippingQuotes,
+      });
+    } else {
+      setShippingQuotes([]);
+      setSelectedQuoteId('');
+    }
+  }, [
+    watchedState,
+    watchedCity,
+    items,
+    customer,
+    watchedFirstName,
+    watchedLastName,
+    watchedPhone,
+    watchedAddress,
+    watchedEmail,
+  ]);
+
+  const selectedQuote = shippingQuotes.find(
+    (quote) => String(quote.id) === String(selectedQuoteId)
+  );
+  const deliveryFee = selectedQuote?.price ?? 0;
 
   useEffect(() => {
     const fetchTotals = async () => {
@@ -188,20 +654,21 @@ export default function CheckoutScreen() {
         const result = await calculateCommerce('calculate_order', {
           subtotal,
           shippingFee: deliveryFee,
-          taxRate: 0.075, // Nigeria Standard
+          taxRate: 0.075,
         });
         setOrderTotals(result);
       } catch {
-        // Silent fail - use fallback calculation
+        // Silent fail
       }
     };
     fetchTotals();
   }, [subtotal, deliveryFee]);
 
   const total = orderTotals?.total || subtotal + deliveryFee;
+  // Show subtotal + delivery (no VAT) in steps 1 & 2; full total in Review
+  const displayTotal = step === 'review' ? total : subtotal + deliveryFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
-    // Track shipping info completed
     trackCheckoutStep('shipping_info', {
       state: data.state,
       city: data.city,
@@ -210,13 +677,11 @@ export default function CheckoutScreen() {
   };
 
   const handleContinue = () => {
-    // 2026 Best Practice: Dismiss keyboard before continuing
     Keyboard.dismiss();
 
     if (step === 'address') {
       handleSubmit(onAddressSubmit)();
     } else if (step === 'payment') {
-      // Track payment method selected
       trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
@@ -224,21 +689,27 @@ export default function CheckoutScreen() {
     }
   };
 
+  const handleSelectState = (state: string) => {
+    setValue('state', state, { shouldValidate: true });
+    setValue('city', '', { shouldValidate: true });
+    setShowStatePicker(false);
+  };
 
+  const handleSelectCity = (city: string) => {
+    setValue('city', city, { shouldValidate: true });
+    setShowCityPicker(false);
+    setCitySearch('');
+  };
 
-  const handlePlaceOrder = async () => {
-    // 2026 Critical Fix: Prevent duplicate order submission
-    // Set both ref AND state synchronously before any async work
-    // This closes the race condition window completely
+  // 2026 Fix: Renamed to onCheckoutSubmit to work with handleSubmit
+  const onCheckoutSubmit = async (address: ShippingAddressInput) => {
     if (isOrderInFlight.current || isProcessing) {
       return;
     }
 
-    // Set ref immediately to block concurrent calls
     isOrderInFlight.current = true;
     setIsProcessing(true);
 
-    // Check for empty cart (e.g., if user navigated back after clearing cart)
     if (items.length === 0) {
       isOrderInFlight.current = false;
       setIsProcessing(false);
@@ -251,31 +722,34 @@ export default function CheckoutScreen() {
     }
 
     try {
-      // Track review step completion
       trackCheckoutStep('review');
 
-      const address = getValues();
-      const customerEmail = customer?.email || '';
+      // 2026 Fix: Use validated address from handleSubmit instead of getValues()
+      // const address = getValues(); // Removed to prevent bypass
+      const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
 
-      // Check if BNPL payment method selected
       const isBNPL =
         selectedPayment === 'credpal' || selectedPayment === 'credit_direct';
 
       if (isBNPL) {
-        // For BNPL, create order first then redirect to payment
         const orderResponse = await createOrder({
           customer_email: customerEmail,
           customer_name: customerName,
           customer_phone: customerPhone,
           items: items.map((item) => ({
-            id: item.id,
-            product_id: item.id,
+            id: item.product_id,
+            product_id: item.product_id,
             name: item.name,
             quantity: item.quantity,
             price: item.price,
             image_url: item.image_url,
+            variant_id: item.variant_id,
+            has_assurance: item.hasAssurance || false,
+            assurance_fee: item.hasAssurance
+              ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+              : 0,
           })),
           subtotal,
           shipping_fee: deliveryFee,
@@ -285,7 +759,6 @@ export default function CheckoutScreen() {
           source: 'mobile_app',
         });
 
-        // Navigate to BNPL checkout screen with real order ID
         router.push({
           pathname: '/bnpl-checkout',
           params: {
@@ -295,26 +768,29 @@ export default function CheckoutScreen() {
             customerEmail,
             customerName,
             customerPhone,
-            merchantSlug: 'ogabassey',
+            merchantSlug: MERCHANT_SLUG,
           },
         });
         setIsProcessing(false);
         return;
       }
 
-      // 2026 Best Practice: Create order via API (not simulated)
-      // Cart is only cleared AFTER successful order confirmation
       const orderResponse = await createOrder({
         customer_email: customerEmail,
         customer_name: customerName,
         customer_phone: customerPhone,
         items: items.map((item) => ({
-          id: item.id,
-          product_id: item.id,
+          id: item.product_id,
+          product_id: item.product_id,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
           image_url: item.image_url,
+          variant_id: item.variant_id,
+          has_assurance: item.hasAssurance || false,
+          assurance_fee: item.hasAssurance
+            ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+            : 0,
         })),
         subtotal,
         shipping_fee: deliveryFee,
@@ -328,7 +804,6 @@ export default function CheckoutScreen() {
       const orderNumber =
         order.order_number || order.id.slice(0, 8).toUpperCase();
 
-      // Track order completed with real order data
       trackOrderCompleted({
         orderId: order.id,
         orderNumber,
@@ -341,19 +816,169 @@ export default function CheckoutScreen() {
         paymentMethod: selectedPayment,
       });
 
-      // Send local push notification
       await scheduleLocalNotification(
         'Order Received! 📦',
         `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
         { type: 'order_update', orderNumber, orderId: order.id },
-        1 // Trigger after 1 second
+        1
       );
 
-      // 2026 Best Practice: Clear cart ONLY after successful order creation
-      // This is atomic - if order fails, cart is preserved
-      clearCart();
+      // Silent account creation for guests who opted in
+      if (saveDetails && accountPassword.length >= 6) {
+        try {
+          await supabase.auth.signUp({
+            email: customerEmail,
+            password: accountPassword,
+            options: {
+              data: {
+                first_name: address.firstName,
+                last_name: address.lastName,
+                phone: address.phone,
+              },
+            },
+          });
+        } catch {
+          // Non-blocking: order already placed, account creation is best-effort
+        }
+      }
 
-      // Navigate to success screen with order details
+      // Route based on payment method
+      const isOnlinePayment =
+        selectedPayment === 'paystack' || selectedPayment === 'korapay';
+      const isBankTransfer = selectedPayment === 'bank_transfer';
+      const isJuicyway = selectedPayment === 'juicyway';
+
+      // Juicyway crypto: initialize inline and show wallet address modal
+      if (isJuicyway) {
+        const initResponse = await fetch(
+          `${API_BASE_URL}/api/payments/initialize`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              merchant_id: MERCHANT_ID,
+              order_id: order.id,
+              amount: orderResponse.amountDueToGateway,
+              currency: 'NGN',
+              customer_email: customerEmail,
+              customer_name: customerName,
+              customer_phone: customerPhone,
+              gateway: 'juicyway',
+              crypto_chain: 'TRX',
+              crypto_currency: 'USDT',
+            }),
+          }
+        );
+
+        const initData = await initResponse.json();
+
+        if (!initResponse.ok || !initData.success) {
+          throw new OrderError(
+            initData.error || 'Failed to initialize crypto payment',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        if (!initData.crypto_payment?.address) {
+          throw new OrderError(
+            'Failed to generate crypto wallet address. Please try again.',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        setIsProcessing(false);
+        isOrderInFlightRef.current = false;
+
+        const cp = initData.crypto_payment;
+        setCryptoPayment({
+          orderId: order.id,
+          orderNumber,
+          address: cp.address,
+          chain: cp.chain || 'TRX',
+          currency: cp.currency || 'USDT',
+          amount: cp.amount || orderResponse.amountDueToGateway,
+          cryptoAmount: cp.crypto_amount || '',
+          confirmationTime: cp.confirmation_time || '',
+          reference: initData.reference || '',
+          paymentId: cp.payment_id || '',
+        });
+        return;
+      }
+
+      if (isOnlinePayment || isBankTransfer) {
+        // Initialize payment gateway
+        const gateway = isBankTransfer ? 'paystack' : selectedPayment;
+        const initResponse = await fetch(
+          `${API_BASE_URL}/api/payments/initialize`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              merchant_id: MERCHANT_ID,
+              order_id: order.id,
+              amount: orderResponse.amountDueToGateway,
+              currency: 'NGN',
+              customer_email: customerEmail,
+              customer_name: customerName,
+              customer_phone: customerPhone,
+              gateway,
+              ...(isBankTransfer && { payment_type: 'dva' }),
+            }),
+          }
+        );
+
+        const initData = await initResponse.json();
+
+        if (!initResponse.ok || !initData.success) {
+          throw new OrderError(
+            initData.error || 'Failed to initialize payment',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        setIsProcessing(false);
+
+        if (isBankTransfer) {
+          router.push({
+            pathname: '/bank-transfer',
+            params: {
+              orderId: order.id,
+              orderNumber,
+              reference: initData.reference,
+              amount: String(orderResponse.amountDueToGateway),
+              bankName:
+                initData.dva?.bank_name ||
+                initData.virtual_account?.bank_name ||
+                '',
+              accountNumber:
+                initData.dva?.account_number ||
+                initData.virtual_account?.account_number ||
+                '',
+              accountName:
+                initData.dva?.account_name ||
+                initData.virtual_account?.account_name ||
+                '',
+            },
+          });
+        } else {
+          const authUrl = initData.authorization_url || initData.checkout_url;
+          router.push({
+            pathname: '/payment-gateway',
+            params: {
+              orderId: order.id,
+              orderNumber,
+              gateway: selectedPayment,
+              authorizationUrl: authUrl,
+              reference: initData.reference,
+              amount: String(orderResponse.amountDueToGateway),
+            },
+          });
+        }
+        return;
+      }
+
+      // Pay on delivery — clear cart and go to success
+      clearCart();
       router.replace({
         pathname: '/order-success',
         params: {
@@ -362,7 +987,6 @@ export default function CheckoutScreen() {
         },
       });
     } catch (error) {
-      // Handle OrderError with user-friendly messages
       if (error instanceof OrderError) {
         trackError('checkout_failed', error.message, {
           step: 'place_order',
@@ -370,7 +994,6 @@ export default function CheckoutScreen() {
           errorCode: error.code,
         });
 
-        // Show specific error messages based on error code
         switch (error.code) {
           case 'NETWORK_ERROR':
             Alert.alert(
@@ -404,7 +1027,6 @@ export default function CheckoutScreen() {
             );
         }
       } else {
-        // Track unknown error
         trackError(
           'checkout_failed',
           error instanceof Error ? error.message : 'Unknown error',
@@ -420,252 +1042,634 @@ export default function CheckoutScreen() {
     }
   };
 
-  // 2026 Accessibility: Step names for better screen reader experience
-  const STEP_NAMES = {
-    address: 'Delivery Address',
-    payment: 'Payment Method',
-    review: 'Review Order',
-  };
+  // 2026 Fix: Wrap submission in handleSubmit to enforce validation
+  const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (errors) => {
+    console.log('Validation errors:', errors);
+    Alert.alert(
+      'Incomplete Details',
+      'Please fill in all required fields (Address, City, Phone) to place your order.',
+      [{ text: 'OK' }]
+    );
+  });
 
-  const renderStepIndicator = () => (
-    <View
-      style={styles.stepIndicator}
-      accessibilityRole="progressbar"
-      accessibilityLabel={`Checkout progress: Step ${step === 'address' ? '1' : step === 'payment' ? '2' : '3'} of 3, ${STEP_NAMES[step]}`}
-      accessibilityValue={{
-        min: 1,
-        max: 3,
-        now: step === 'address' ? 1 : step === 'payment' ? 2 : 3,
-        text: STEP_NAMES[step],
-      }}
-    >
-      {(['address', 'payment', 'review'] as const).map((s, index) => {
-        const isActive = s === step;
-        const isCompleted =
-          (s === 'address' && (step === 'payment' || step === 'review')) ||
-          (s === 'payment' && step === 'review');
+  const renderStepIndicator = () => {
+    const steps: CheckoutStep[] = ['address', 'payment', 'review'];
+    const currentIndex = steps.indexOf(step);
 
-        return (
-          <React.Fragment key={s}>
-            <View
-              style={[
-                styles.stepDot,
-                {
-                  backgroundColor:
-                    isActive || isCompleted ? BRAND.primary : colors.border,
-                },
-              ]}
-              accessible={true}
-              accessibilityLabel={`Step ${index + 1}: ${STEP_NAMES[s]}${isCompleted ? ', completed' : isActive ? ', current step' : ''}`}
-              accessibilityState={{ selected: isActive, checked: isCompleted }}
-            >
-              {isCompleted ? (
-                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-              ) : (
-                <Text
-                  style={[
-                    styles.stepNumber,
-                    { color: isActive ? '#FFFFFF' : colors.textSecondary },
-                  ]}
-                >
-                  {index + 1}
-                </Text>
-              )}
-            </View>
-            {index < 2 && (
+    return (
+      <View style={styles.stepIndicator}>
+        <View style={styles.stepHeaderRow}>
+          <Text style={[styles.stepTitle, { color: colors.text }]}>
+            Checkout
+          </Text>
+          <View style={styles.stepBadge}>
+            <Ionicons name="checkmark" size={12} color={BRAND.primary} />
+            <Text style={styles.stepBadgeText}>
+              {items.length} item{items.length === 1 ? '' : 's'}
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
+          Step {currentIndex + 1} of 3
+        </Text>
+        <View style={styles.stepProgress}>
+          <View
+            style={[
+              styles.stepProgressActive,
+              { width: `${((currentIndex + 1) / 3) * 100}%` },
+            ]}
+          />
+        </View>
+        <View style={styles.stepPills}>
+          {steps.map((s, index) => {
+            const isActive = s === step;
+            const isCompleted = index < currentIndex;
+            return (
               <View
+                key={s}
                 style={[
-                  styles.stepLine,
+                  styles.stepPill,
                   {
-                    backgroundColor: isCompleted
-                      ? BRAND.primary
-                      : colors.border,
+                    backgroundColor: isActive ? palette.red[50] : colors.card,
+                    borderColor:
+                      isActive || isCompleted ? BRAND.primary : colors.border,
                   },
                 ]}
-                importantForAccessibility="no"
-              />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </View>
-  );
-
-  // 2026 Best Practice: Map field names to iOS textContentType for autofill
-  const TEXT_CONTENT_TYPE_MAP: Partial<
-    Record<keyof ShippingAddressInput, TextContentType>
-  > = {
-    firstName: TextContentTypes.givenName,
-    lastName: TextContentTypes.familyName,
-    phone: TextContentTypes.telephoneNumber,
-    address: TextContentTypes.fullStreetAddress,
-    city: TextContentTypes.addressCity,
+              >
+                <View
+                  style={[
+                    styles.stepPillDot,
+                    {
+                      backgroundColor:
+                        isActive || isCompleted ? BRAND.primary : colors.border,
+                    },
+                  ]}
+                >
+                  {isCompleted ? (
+                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.stepPillNumber,
+                        { color: isActive ? '#FFFFFF' : colors.textSecondary },
+                      ]}
+                    >
+                      {index + 1}
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepPillText,
+                    { color: isActive ? colors.text : colors.textSecondary },
+                  ]}
+                >
+                  {STEP_PILL_LABELS[s]}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
   };
-
-  // React Native TextInput autoComplete prop type
-  type TextInputAutoComplete = React.ComponentProps<
-    typeof TextInput
-  >['autoComplete'];
-
-  // 2026 Best Practice: Map field names to Android autoComplete for autofill
-  const AUTO_COMPLETE_MAP: Partial<
-    Record<keyof ShippingAddressInput, TextInputAutoComplete>
-  > = {
-    firstName: 'name-given',
-    lastName: 'name-family',
-    phone: 'tel',
-    address: 'street-address',
-    city: 'postal-address-locality', // Valid React Native autoComplete value for city
-  };
-
-  // Form field component with error handling and 2026 keyboard/autofill best practices
-  const FormField = ({
-    name,
-    label,
-    placeholder,
-    keyboardType = 'default',
-    multiline = false,
-    style,
-    returnKeyType = 'next',
-    onSubmitEditing,
-  }: {
-    name: keyof ShippingAddressInput;
-    label: string;
-    placeholder: string;
-    keyboardType?: 'default' | 'phone-pad' | 'email-address';
-    multiline?: boolean;
-    style?: object;
-    returnKeyType?: 'next' | 'done' | 'go';
-    onSubmitEditing?: () => void;
-  }) => (
-    <View style={[styles.inputGroup, style]}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            style={[
-              styles.input,
-              multiline && styles.multilineInput,
-              { backgroundColor: colors.card, color: colors.text },
-              { borderColor: errors[name] ? '#EF4444' : colors.border },
-            ]}
-            value={value}
-            onChangeText={onChange}
-            onBlur={onBlur}
-            placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
-            keyboardType={keyboardType}
-            multiline={multiline}
-            numberOfLines={multiline ? 2 : 1}
-            accessibilityLabel={label}
-            accessibilityHint={`Enter your ${label}`}
-            // 2026 Best Practice: textContentType for iOS autofill
-            textContentType={TEXT_CONTENT_TYPE_MAP[name]}
-            // 2026 Best Practice: autoComplete for Android autofill
-            autoComplete={AUTO_COMPLETE_MAP[name]}
-            // 2026 Best Practice: Better keyboard UX
-            returnKeyType={multiline ? 'default' : returnKeyType}
-            blurOnSubmit={!multiline}
-            onSubmitEditing={onSubmitEditing}
-          />
-        )}
-      />
-      {errors[name] && (
-        <Text style={styles.fieldError} accessibilityLiveRegion="polite">
-          {errors[name]?.message}
-        </Text>
-      )}
-    </View>
-  );
 
   const renderAddressForm = () => (
     <ScrollView
       style={styles.formContainer}
+      contentContainerStyle={styles.formContent}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     >
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Delivery Address
-      </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Delivery Address
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          Use your default details or edit for this delivery.
+        </Text>
+      </View>
 
-      <View style={styles.row}>
-        <View style={styles.halfInput}>
-          <FormField name="firstName" label="First Name" placeholder="John" />
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            overflow: 'visible',
+            zIndex: 20,
+            position: 'relative',
+          },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <Ionicons name="person-outline" size={16} color={BRAND.primary} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Contact
+          </Text>
         </View>
-        <View style={styles.halfInput}>
-          <FormField name="lastName" label="Last Name" placeholder="Doe" />
+        <View style={styles.cardBody}>
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <FormField
+                name="firstName"
+                label="First Name"
+                placeholder="John"
+                control={control}
+                errors={errors}
+                colors={colors}
+                maxLength={50}
+                transformText={(text) => text.replace(/\d/g, '')}
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <FormField
+                name="lastName"
+                label="Last Name"
+                placeholder="Doe"
+                control={control}
+                errors={errors}
+                colors={colors}
+                maxLength={50}
+                transformText={(text) => text.replace(/\d/g, '')}
+              />
+            </View>
+          </View>
+
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { value, onChange } }) => (
+              <PhoneInput
+                value={value}
+                onChangeText={onChange}
+                label="Phone Number"
+                placeholder="8012345678"
+                error={errors.phone?.message}
+                containerStyle={styles.inputGroup}
+              />
+            )}
+          />
+
+          <FormField
+            name="email"
+            label="Email Address"
+            placeholder="you@example.com"
+            control={control}
+            errors={errors}
+            colors={colors}
+            keyboardType="email-address"
+            maxLength={255}
+            autoCapitalize="none"
+            transformText={(text) => text.toLowerCase()}
+          />
+
+          {/* Save Details Checkbox — guests only */}
+          {!customer && (
+            <View style={styles.saveDetailsSection}>
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={() => setSaveDetails(!saveDetails)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveDetails }}
+                accessibilityLabel="Save my details for faster checkout"
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    saveDetails && styles.checkboxChecked,
+                    {
+                      borderColor: saveDetails ? BRAND.primary : colors.border,
+                    },
+                  ]}
+                >
+                  {saveDetails && (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  )}
+                </View>
+                <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                  Save my details for faster checkout
+                </Text>
+              </Pressable>
+
+              {saveDetails && (
+                <>
+                  <View
+                    style={[
+                      styles.accountInfoBanner,
+                      { backgroundColor: `${BRAND.primary}10` },
+                    ]}
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={18}
+                      color={BRAND.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.accountInfoText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      This will create an account so you can track your order
+                      and checkout faster next time.
+                    </Text>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text
+                      style={[styles.label, { color: colors.textSecondary }]}
+                    >
+                      Create a Password
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          borderColor:
+                            accountPassword.length > 0 &&
+                            accountPassword.length < 6
+                              ? '#EF4444'
+                              : colors.border,
+                        },
+                      ]}
+                      value={accountPassword}
+                      onChangeText={setAccountPassword}
+                      placeholder="Min. 6 characters"
+                      placeholderTextColor={colors.textSecondary}
+                      secureTextEntry
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      accessibilityLabel="Create a password"
+                    />
+                    {accountPassword.length > 0 &&
+                      accountPassword.length < 6 && (
+                        <Text style={styles.fieldError}>
+                          Password must be at least 6 characters
+                        </Text>
+                      )}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
         </View>
       </View>
 
-      <FormField
-        name="phone"
-        label="Phone Number"
-        placeholder="08012345678"
-        keyboardType="phone-pad"
-      />
-
-      <FormField
-        name="address"
-        label="Street Address"
-        placeholder="123 Example Street, Lekki Phase 1"
-        multiline
-      />
-
-      <View style={styles.row}>
-        <View style={styles.halfInput}>
-          <FormField name="city" label="City" placeholder="Lagos" />
-        </View>
-        <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            State
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            zIndex: 10,
+            position: 'relative',
+          },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <Ionicons name="location-outline" size={16} color={BRAND.primary} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Delivery
           </Text>
+        </View>
+        <View style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}>
           <Controller
             control={control}
-            name="state"
-            render={({ field: { value } }) => (
-              <View
-                style={[
-                  styles.input,
-                  styles.selectInput,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Text style={{ color: colors.text }}>{value}</Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={18}
-                  color={colors.textSecondary}
-                />
-              </View>
+            name="address"
+            render={({ field: { value, onChange } }) => (
+              <AddressAutocomplete
+                value={value}
+                onChangeText={onChange}
+                onSelect={(place) => {
+                  onChange(place.formattedAddress || '');
+                  const normalizedState = place.state
+                    ? normalizeStateName(place.state, shippingStates)
+                    : '';
+                  // Store Google city for sentinel matching against Topship list
+                  if (place.city) {
+                    const normalizedCity = place.city.trim().toLowerCase();
+                    if (
+                      normalizedState &&
+                      normalizedCity === normalizedState.toLowerCase()
+                    ) {
+                      // State = City edge case: sentinel will open picker
+                      googleSuggestedCityRef.current = '';
+                    } else {
+                      googleSuggestedCityRef.current = place.city;
+                    }
+                  }
+                  // Clear city - sentinel will set it after Topship cities load
+                  setValue('city', '', { shouldValidate: false });
+                  if (normalizedState) {
+                    setValue('state', normalizedState, {
+                      shouldValidate: true,
+                    });
+                  }
+                }}
+                label="Street Address"
+                placeholder="Start typing your address..."
+              />
             )}
+          />
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                City
+              </Text>
+              <Controller
+                control={control}
+                name="city"
+                render={({ field: { value } }) => (
+                  <>
+                    <Pressable
+                      onPress={() => setShowCityPicker(true)}
+                      style={[
+                        styles.input,
+                        styles.selectInput,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: errors.city ? '#EF4444' : colors.border,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Select city"
+                    >
+                      <Text
+                        style={{
+                          color: value ? colors.text : colors.textSecondary,
+                        }}
+                      >
+                        {value || 'Select city'}
+                      </Text>
+                      {isLoadingCities ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.textSecondary}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </Pressable>
+                    {errors.city && (
+                      <Text
+                        style={styles.fieldError}
+                        accessibilityLiveRegion="polite"
+                      >
+                        {errors.city?.message}
+                      </Text>
+                    )}
+                  </>
+                )}
+              />
+            </View>
+            <View style={styles.halfInput}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                State
+              </Text>
+              <Controller
+                control={control}
+                name="state"
+                render={({ field: { value } }) => (
+                  <>
+                    <Pressable
+                      onPress={() => setShowStatePicker(true)}
+                      style={[
+                        styles.input,
+                        styles.selectInput,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: errors.state ? '#EF4444' : colors.border,
+                        },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Select state"
+                    >
+                      <Text
+                        style={{
+                          color: value ? colors.text : colors.textSecondary,
+                        }}
+                      >
+                        {value || 'Select state'}
+                      </Text>
+                      {isLoadingLocations ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.textSecondary}
+                        />
+                      ) : (
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={colors.textSecondary}
+                        />
+                      )}
+                    </Pressable>
+                    {errors.state && (
+                      <Text
+                        style={styles.fieldError}
+                        accessibilityLiveRegion="polite"
+                      >
+                        {errors.state?.message}
+                      </Text>
+                    )}
+                  </>
+                )}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <Ionicons name="cube-outline" size={16} color={BRAND.primary} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Shipping
+          </Text>
+        </View>
+        <View style={styles.cardBody}>
+          {!watchedState || !watchedCity ? (
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Select your state and city to see delivery options.
+            </Text>
+          ) : isLoadingQuotes ? (
+            <View style={styles.quoteLoadingRow}>
+              <ActivityIndicator size="small" color={BRAND.primary} />
+              <Text
+                style={[styles.helperText, { color: colors.textSecondary }]}
+              >
+                Fetching delivery options...
+              </Text>
+            </View>
+          ) : shippingQuotes.length === 0 ? (
+            <Pressable
+              onPress={() => {
+                if (watchedState && watchedCity) {
+                  fetchShippingQuotes({
+                    apiUrl: API_BASE_URL,
+                    state: watchedState,
+                    city: watchedCity,
+                    items,
+                    customer,
+                    watchedFirstName,
+                    watchedLastName,
+                    watchedPhone,
+                    watchedAddress,
+                    watchedEmail,
+                    setIsLoadingQuotes,
+                    setSelectedQuoteId,
+                    setShippingQuotes,
+                  });
+                }
+              }}
+              style={styles.retryCard}
+              accessibilityRole="button"
+              accessibilityLabel="Reload delivery rates"
+            >
+              <View style={styles.retryIconWrap}>
+                <Ionicons name="car-outline" size={22} color="#B45309" />
+              </View>
+              <View style={styles.retryTextWrap}>
+                <Text style={styles.retryTitle}>Oops! Rates took a detour</Text>
+                <Text style={styles.retrySubtitle}>
+                  Our delivery partners are a bit slow today. Tap here to try
+                  again.
+                </Text>
+              </View>
+              <View style={styles.retryBadge}>
+                <Text style={styles.retryBadgeText}>Refresh Rates</Text>
+              </View>
+            </Pressable>
+          ) : (
+            shippingQuotes.map((quote) => {
+              const isSelected = String(quote.id) === String(selectedQuoteId);
+              const eta =
+                quote.deliveryRange ||
+                (quote.estimatedDays
+                  ? `${quote.estimatedDays} days`
+                  : 'ETA unavailable');
+
+              const carrier = quote.carrierName || quote.provider || 'Delivery';
+
+              return (
+                <Pressable
+                  key={String(quote.id)}
+                  onPress={() => setSelectedQuoteId(String(quote.id))}
+                  style={[
+                    styles.quoteRow,
+                    {
+                      borderColor: isSelected ? BRAND.primary : colors.border,
+                      backgroundColor: isSelected
+                        ? palette.red[50]
+                        : colors.card,
+                    },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
+                >
+                  <View style={styles.quoteInfo}>
+                    <View style={styles.quoteHeader}>
+                      <Text style={[styles.quoteTitle, { color: colors.text }]}>
+                        {quote.displayName}
+                      </Text>
+                      {carrier.includes('GIG') && (
+                        <View style={styles.quoteBadgeDark}>
+                          <Text style={styles.quoteBadgeText}>GIGL</Text>
+                        </View>
+                      )}
+                      {carrier.toLowerCase().includes('topship') && (
+                        <View style={styles.quoteBadge}>
+                          <Text style={styles.quoteBadgeText}>Topship</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.quoteMeta,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {carrier} • Est. {eta}
+                    </Text>
+                  </View>
+                  <View style={styles.quoteRight}>
+                    <Text style={[styles.quotePrice, { color: colors.text }]}>
+                      {formatPrice(quote.price)}
+                    </Text>
+                    <Ionicons
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={isSelected ? BRAND.primary : colors.textSecondary}
+                    />
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.cardHeader}>
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={16}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Delivery Notes
+          </Text>
+        </View>
+        <View style={styles.cardBody}>
+          <FormField
+            name="notes"
+            label="Notes (Optional)"
+            placeholder="Any special instructions for delivery"
+            multiline
+            control={control}
+            errors={errors}
+            colors={colors}
           />
         </View>
       </View>
-
-      <FormField
-        name="notes"
-        label="Delivery Notes (Optional)"
-        placeholder="Any special instructions for delivery"
-        multiline
-      />
     </ScrollView>
   );
 
   const renderPaymentOptions = () => (
     <ScrollView
       style={styles.formContainer}
+      contentContainerStyle={styles.formContent}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
     >
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>
-        Payment Method
-      </Text>
+      <View style={styles.sectionHeader}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Payment Method
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          Choose how you want to pay for this order.
+        </Text>
+      </View>
 
       <PaymentMethodSelector
         selectedMethod={selectedPayment}
@@ -673,6 +1677,7 @@ export default function CheckoutScreen() {
         selectedTab={paymentTab}
         onSelectTab={setPaymentTab}
         orderTotal={total}
+        enabledMethods={enabledPaymentMethods}
       />
     </ScrollView>
   );
@@ -683,15 +1688,22 @@ export default function CheckoutScreen() {
     return (
       <ScrollView
         style={styles.formContainer}
+        contentContainerStyle={styles.formContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Order Review
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Review Order
+          </Text>
+          <Text
+            style={[styles.sectionSubtitle, { color: colors.textSecondary }]}
+          >
+            Confirm your details before placing the order.
+          </Text>
+        </View>
 
-        {/* Delivery Address Summary */}
         <View
           style={[
             styles.reviewCard,
@@ -712,6 +1724,9 @@ export default function CheckoutScreen() {
             {address.firstName} {address.lastName}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+            {address.email}
+          </Text>
+          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {address.phone}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
@@ -719,7 +1734,6 @@ export default function CheckoutScreen() {
           </Text>
         </View>
 
-        {/* Payment Method Summary */}
         <View
           style={[
             styles.reviewCard,
@@ -741,7 +1755,6 @@ export default function CheckoutScreen() {
           </Text>
         </View>
 
-        {/* Order Items Summary */}
         <View
           style={[
             styles.reviewCard,
@@ -771,7 +1784,6 @@ export default function CheckoutScreen() {
           ))}
         </View>
 
-        {/* Order Total */}
         <View
           style={[
             styles.totalCard,
@@ -833,7 +1845,7 @@ export default function CheckoutScreen() {
       />
 
       <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: colors.muted }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {renderStepIndicator()}
@@ -842,7 +1854,6 @@ export default function CheckoutScreen() {
         {step === 'payment' && renderPaymentOptions()}
         {step === 'review' && renderReview()}
 
-        {/* Bottom Action */}
         <SafeAreaView
           edges={['bottom']}
           style={[
@@ -850,46 +1861,455 @@ export default function CheckoutScreen() {
             { backgroundColor: colors.card, borderTopColor: colors.border },
           ]}
         >
-          {step === 'review' ? (
-            <Pressable
-              style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
-              onPress={handlePlaceOrder}
-              disabled={isProcessing}
-              accessibilityRole="button"
-              accessibilityLabel={`Place order for ${formatPrice(total)}`}
-              accessibilityState={{
-                disabled: isProcessing,
-                busy: isProcessing,
-              }}
-            >
-              {isProcessing ? (
-                // 2026 Critical Fix: Show loading text for better user feedback
-                <View style={styles.processingContainer}>
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                  <Text style={styles.actionButtonText}>Processing...</Text>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.actionButtonText}>Place Order</Text>
-                  <Text style={styles.actionButtonPrice}>
-                    {formatPrice(total)}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          ) : (
-            <Pressable
-              style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
-              onPress={handleContinue}
-              accessibilityRole="button"
-              accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
-            >
-              <Text style={styles.actionButtonText}>Continue</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-            </Pressable>
-          )}
+          <View style={styles.bottomBar}>
+            <View style={styles.bottomSummary}>
+              <Text
+                style={[styles.bottomLabel, { color: colors.textSecondary }]}
+              >
+                Total
+              </Text>
+              <Text style={[styles.bottomValue, { color: colors.text }]}>
+                {formatPrice(displayTotal)}
+              </Text>
+              <Text
+                style={[styles.bottomSubtle, { color: colors.textSecondary }]}
+              >
+                {items.length} item{items.length === 1 ? '' : 's'}
+              </Text>
+            </View>
+
+            {step === 'review' ? (
+              <Pressable
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: BRAND.primary },
+                ]}
+                onPress={handlePlaceOrder}
+                disabled={isProcessing}
+                accessibilityRole="button"
+                accessibilityLabel={`Place order for ${formatPrice(total)}`}
+                accessibilityState={{
+                  disabled: isProcessing,
+                  busy: isProcessing,
+                }}
+              >
+                {isProcessing ? (
+                  <View style={styles.processingContainer}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.actionButtonText}>Processing...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.actionButtonText}>Place Order</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                  </>
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: BRAND.primary },
+                ]}
+                onPress={handleContinue}
+                accessibilityRole="button"
+                accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
+              >
+                <Text style={styles.actionButtonText}>Continue</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </Pressable>
+            )}
+          </View>
         </SafeAreaView>
+
+        {/* State Picker */}
+        <Modal
+          visible={showStatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowStatePicker(false)}
+        >
+          <View style={styles.pickerOverlay}>
+            <View
+              style={[styles.pickerSheet, { backgroundColor: colors.card }]}
+            >
+              <View style={styles.pickerHeader}>
+                <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                  Select State
+                </Text>
+                <Pressable
+                  onPress={() => setShowStatePicker(false)}
+                  hitSlop={12}
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              </View>
+              <FlatList
+                data={shippingStates}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.pickerItem}
+                    onPress={() => handleSelectState(item)}
+                  >
+                    <Text
+                      style={[styles.pickerItemText, { color: colors.text }]}
+                    >
+                      {item}
+                    </Text>
+                  </Pressable>
+                )}
+                ListEmptyComponent={
+                  <Text
+                    style={[styles.helperText, { color: colors.textSecondary }]}
+                  >
+                    No states available.
+                  </Text>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* City Picker */}
+        <Modal
+          visible={showCityPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowCityPicker(false);
+            setCitySearch('');
+          }}
+        >
+          <View style={styles.pickerOverlay}>
+            <View
+              style={[styles.pickerSheet, { backgroundColor: colors.card }]}
+            >
+              <View style={styles.pickerHeader}>
+                <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                  Select City
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    setShowCityPicker(false);
+                    setCitySearch('');
+                  }}
+                  hitSlop={12}
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={colors.textSecondary}
+                  />
+                </Pressable>
+              </View>
+              <View
+                style={[
+                  styles.citySearchContainer,
+                  { borderColor: colors.border },
+                ]}
+              >
+                <Ionicons
+                  name="search"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+                <TextInput
+                  style={[styles.citySearchInput, { color: colors.text }]}
+                  placeholder="Search or type your city..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={citySearch}
+                  onChangeText={setCitySearch}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                />
+                {citySearch.length > 0 && (
+                  <Pressable onPress={() => setCitySearch('')} hitSlop={8}>
+                    <Ionicons
+                      name="close-circle"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </Pressable>
+                )}
+              </View>
+              <FlatList
+                data={
+                  citySearch
+                    ? shippingCities.filter((c) =>
+                        c.toLowerCase().includes(citySearch.toLowerCase())
+                      )
+                    : shippingCities
+                }
+                keyExtractor={(item) => item}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.pickerItem}
+                    onPress={() => handleSelectCity(item)}
+                  >
+                    <Text
+                      style={[styles.pickerItemText, { color: colors.text }]}
+                    >
+                      {item}
+                    </Text>
+                  </Pressable>
+                )}
+                ListHeaderComponent={null}
+                ListEmptyComponent={
+                  !citySearch.trim() ? (
+                    <Text
+                      style={[
+                        styles.helperText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      No cities available. Type your city above.
+                    </Text>
+                  ) : null
+                }
+              />
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
+
+      {/* Crypto Payment Modal */}
+      {cryptoPayment && (
+        <Modal visible animationType="slide" transparent={false}>
+          <SafeAreaView
+            style={[styles.container, { backgroundColor: colors.background }]}
+          >
+            {/* Header */}
+            <View
+              style={[styles.cryptoHeader, { backgroundColor: BRAND.primary }]}
+            >
+              <View style={styles.cryptoHeaderLeft}>
+                <View style={styles.cryptoHeaderIcon}>
+                  <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
+                </View>
+                <Text style={styles.cryptoHeaderTitle}>Pay with Crypto</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  Alert.alert(
+                    'Leave Payment?',
+                    'Your order has been created. You can complete the crypto payment later.',
+                    [
+                      { text: 'Stay', style: 'cancel' },
+                      {
+                        text: 'Leave',
+                        style: 'destructive',
+                        onPress: () => {
+                          setCryptoPayment(null);
+                          clearCart();
+                          router.replace({
+                            pathname: '/order-success',
+                            params: {
+                              orderId: cryptoPayment.orderId,
+                              orderNumber: cryptoPayment.orderNumber,
+                              paymentMethod: 'juicyway',
+                            },
+                          });
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={styles.cryptoCloseBtn}
+              >
+                <Ionicons name="close" size={18} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.cryptoContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Amount */}
+              <View
+                style={[
+                  styles.cryptoAmountCard,
+                  { backgroundColor: colors.card },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cryptoAmountLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Send Exactly
+                </Text>
+                <Text
+                  style={[styles.cryptoAmountValue, { color: colors.text }]}
+                >
+                  {cryptoPayment.cryptoAmount ||
+                    (cryptoPayment.amount / 100).toLocaleString()}{' '}
+                  <Text style={{ color: BRAND.primary }}>
+                    {cryptoPayment.currency}
+                  </Text>
+                </Text>
+                <View style={styles.cryptoChainBadge}>
+                  <View style={styles.cryptoPulseDot} />
+                  <Text style={styles.cryptoChainText}>
+                    Network:{' '}
+                    {cryptoPayment.chain === 'TRX'
+                      ? 'Tron (TRC-20)'
+                      : cryptoPayment.chain === 'ETH'
+                        ? 'Ethereum (ERC-20)'
+                        : cryptoPayment.chain}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Wallet Address */}
+              <View
+                style={[
+                  styles.cryptoAddressCard,
+                  { backgroundColor: colors.card },
+                ]}
+              >
+                <Text style={styles.cryptoFieldLabel}>RECIPIENT ADDRESS</Text>
+                <View style={styles.cryptoAddressRow}>
+                  <Text
+                    style={[styles.cryptoAddressText, { color: colors.text }]}
+                    selectable
+                    numberOfLines={2}
+                  >
+                    {cryptoPayment.address}
+                  </Text>
+                  <Pressable
+                    style={[
+                      styles.cryptoCopyBtn,
+                      {
+                        backgroundColor:
+                          copiedCryptoField === 'address'
+                            ? '#DEF7EC'
+                            : `${BRAND.primary}15`,
+                      },
+                    ]}
+                    onPress={async () => {
+                      try {
+                        await Clipboard.setStringAsync(cryptoPayment.address);
+                        setCopiedCryptoField('address');
+                        setTimeout(() => setCopiedCryptoField(null), 2000);
+                      } catch {
+                        // Clipboard not available
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={
+                        copiedCryptoField === 'address'
+                          ? 'checkmark'
+                          : 'copy-outline'
+                      }
+                      size={18}
+                      color={
+                        copiedCryptoField === 'address'
+                          ? '#059669'
+                          : BRAND.primary
+                      }
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Warning */}
+              <View style={styles.cryptoWarning}>
+                <Ionicons name="warning" size={18} color="#F59E0B" />
+                <Text style={styles.cryptoWarningText}>
+                  Only send {cryptoPayment.currency} on the{' '}
+                  {cryptoPayment.chain} network. Using the wrong network will
+                  result in permanent loss.
+                </Text>
+              </View>
+
+              {/* Confirmation Time */}
+              {cryptoPayment.confirmationTime ? (
+                <View
+                  style={[
+                    styles.cryptoInfoCard,
+                    { backgroundColor: `${BRAND.primary}10` },
+                  ]}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={18}
+                    color={BRAND.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.cryptoInfoText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Expected confirmation: {cryptoPayment.confirmationTime}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Reference */}
+              {cryptoPayment.reference ? (
+                <Text
+                  style={[
+                    styles.cryptoReference,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Ref: {cryptoPayment.reference}
+                </Text>
+              ) : null}
+            </ScrollView>
+
+            {/* Bottom Action */}
+            <View
+              style={[
+                styles.cryptoBottomAction,
+                {
+                  backgroundColor: colors.card,
+                  borderTopColor: colors.border,
+                },
+              ]}
+            >
+              <Pressable
+                style={[
+                  styles.cryptoDoneBtn,
+                  { backgroundColor: BRAND.primary },
+                ]}
+                onPress={() => {
+                  clearCart();
+                  setCryptoPayment(null);
+                  router.replace({
+                    pathname: '/order-success',
+                    params: {
+                      orderId: cryptoPayment.orderId,
+                      orderNumber: cryptoPayment.orderNumber,
+                      paymentMethod: 'juicyway',
+                    },
+                  });
+                }}
+              >
+                <Text style={styles.cryptoDoneBtnText}>
+                  I've Sent the Payment
+                </Text>
+              </Pressable>
+              <Text
+                style={[styles.cryptoHelpText, { color: colors.textSecondary }]}
+              >
+                Tap above after sending. Your order will be confirmed once the
+                payment is detected on the blockchain.
+              </Text>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      )}
     </>
   );
 }
@@ -906,36 +2326,116 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stepIndicator: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+  },
+  stepHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.xs,
+  },
+  stepTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  stepBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: palette.red[50],
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+  },
+  stepBadgeText: {
+    fontSize: 12,
+    color: BRAND.primary,
+    fontWeight: '600',
+  },
+  stepSubtitle: {
+    fontSize: 13,
+    marginBottom: SPACING.sm,
+  },
+  stepProgress: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: palette.gray[200],
+    overflow: 'hidden',
+    marginBottom: SPACING.sm,
+  },
+  stepProgressActive: {
+    height: 6,
+    backgroundColor: BRAND.primary,
+  },
+  stepPills: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  stepPill: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: RADIUS.xl,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+    gap: 6,
   },
-  stepDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
+  stepPillDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  stepNumber: {
+  stepPillNumber: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  stepLine: {
-    flex: 1,
-    height: 2,
-    marginHorizontal: 8,
+  stepPillText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   formContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: SPACING.md,
+  },
+  formContent: {
+    paddingBottom: 140,
+  },
+  sectionHeader: {
+    marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 20,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    marginTop: 6,
+  },
+  card: {
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  cardBody: {
+    gap: SPACING.sm,
   },
   row: {
     flexDirection: 'row',
@@ -945,7 +2445,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   label: {
     fontSize: 13,
@@ -968,45 +2468,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  paymentOption: {
+  helperText: {
+    fontSize: 12,
+  },
+  quoteRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginBottom: 12,
+    justifyContent: 'space-between',
   },
-  paymentIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  paymentInfo: {
+  quoteInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginRight: 12,
   },
-  paymentLabel: {
-    fontSize: 15,
-    fontWeight: '600',
+  quoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
   },
-  paymentDescription: {
+  quoteTitle: {
     fontSize: 13,
+    fontWeight: '700',
   },
-  radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    justifyContent: 'center',
+  quoteMeta: {
+    fontSize: 12,
+  },
+  quoteRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  quotePrice: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  quoteBadge: {
+    backgroundColor: '#DBEAFE',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  quoteBadgeDark: {
+    backgroundColor: '#111827',
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  quoteBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  quoteLoadingRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    gap: 8,
   },
   reviewCard: {
     padding: 16,
@@ -1087,8 +2606,32 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
+    padding: SPACING.md,
     borderTopWidth: 1,
+    ...SHADOWS.lg,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  bottomSummary: {
+    minWidth: 120,
+  },
+  bottomLabel: {
+    fontSize: 11,
+    color: palette.gray[500],
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  bottomValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.gray[900],
+  },
+  bottomSubtle: {
+    fontSize: 12,
+    marginTop: 2,
   },
   actionButton: {
     flexDirection: 'row',
@@ -1096,32 +2639,300 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
+    flex: 1,
   },
   actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
-  // 2026 Critical Fix: Processing state container for loading feedback
   processingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  actionButtonPrice: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    opacity: 0.9,
-  },
-  // 2026 Best Practice: More visible error styling
   fieldError: {
-    color: '#DC2626', // Darker red for better contrast (WCAG AA)
+    color: '#DC2626',
     fontSize: 13,
     fontWeight: '500',
     marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '70%',
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  pickerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pickerItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  pickerItemText: {
+    fontSize: 14,
+  },
+  citySearchContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  citySearchInput: {
+    flex: 1,
+    fontSize: 14,
+  },
+  retryCard: {
+    borderWidth: 2,
+    borderColor: '#FCD34D',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    gap: 10,
+  },
+  retryIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryTextWrap: {
+    alignItems: 'center',
+  },
+  retryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  retrySubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  retryBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  retryBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  saveDetailsSection: {
+    gap: SPACING.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    minHeight: 44,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: BRAND.primary,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  accountInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  accountInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Crypto payment modal styles
+  cryptoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  cryptoHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  cryptoHeaderIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cryptoCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoContent: {
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  cryptoAmountCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    gap: 4,
+  },
+  cryptoAmountLabel: {
+    fontSize: 13,
+  },
+  cryptoAmountValue: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  cryptoChainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  cryptoPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  cryptoChainText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  cryptoAddressCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  cryptoFieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  cryptoAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  cryptoAddressText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 20,
+  },
+  cryptoCopyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoWarning: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#FFF8E1',
+  },
+  cryptoWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  cryptoInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  cryptoInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  cryptoReference: {
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  cryptoBottomAction: {
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    gap: SPACING.sm,
+  },
+  cryptoDoneBtn: {
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  cryptoDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cryptoHelpText: {
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

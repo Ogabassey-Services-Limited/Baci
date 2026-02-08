@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   sanitizeEmail,
   sanitizeLikePattern,
@@ -61,7 +62,11 @@ export async function GET(request: Request) {
   const { data: customers, error, count } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Customer query failed:', error.message);
+    return NextResponse.json(
+      { error: 'Failed to fetch customers' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({
@@ -75,7 +80,15 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -124,7 +137,11 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Customer creation failed:', error.message);
+      return NextResponse.json(
+        { error: 'Failed to create customer' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ customer });

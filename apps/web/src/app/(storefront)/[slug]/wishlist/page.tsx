@@ -21,6 +21,7 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
+import { getClientCsrfToken } from '@/lib/csrf';
 import type { Product } from '@/lib/products';
 
 interface WishListItem {
@@ -152,9 +153,13 @@ export default function WishListPage() {
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
+      const csrfToken = getClientCsrfToken();
       const emailParam = buildEmailParam(customerEmail);
       const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
         method: 'DELETE',
+        headers: {
+          'x-csrf-token': csrfToken || '',
+        },
       });
 
       if (!response.ok) {
@@ -208,9 +213,13 @@ export default function WishListPage() {
       addToCart(product, 1);
 
       // Remove from wishlist
+      const csrfToken = getClientCsrfToken();
       const emailParam = buildEmailParam(customerEmail);
       const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
         method: 'DELETE',
+        headers: {
+          'x-csrf-token': csrfToken || '',
+        },
       });
 
       if (response.ok) {
@@ -241,9 +250,13 @@ export default function WishListPage() {
     // Generate a share token by creating a server-side shareable link
     // This avoids exposing email addresses in URLs which is a PII concern
     try {
+      const csrfToken = getClientCsrfToken();
       const response = await fetch('/api/wishlist/share', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken || '',
+        },
         body: JSON.stringify({ email: customerEmail, merchantSlug }),
       });
 

@@ -10,13 +10,16 @@ export interface FailedOrder {
   customer_email: string;
   customer_phone: string;
   total: number;
-  payment_status: 'bnpl_pending' | 'failed';
+  payment_status: 'bnpl_pending' | 'failed' | 'pending' | 'expired';
   payment_method: string;
   created_at: string;
   gateway_response?: any;
   gateway?: string;
   attempt_count: number;
 }
+
+/** Stale threshold: pending orders older than this are likely abandoned */
+const STALE_PENDING_MINUTES = 30;
 
 export function useFailedOrders() {
   const { merchant } = useMerchant();
@@ -25,8 +28,15 @@ export function useFailedOrders() {
   return useQuery({
     queryKey: ['failed-orders', merchantId],
     queryFn: async () => {
-      // Fetch orders with failed or bnpl_pending status
-      // We also try to join with transactions to get the gateway response if available
+      const staleCutoff = new Date(
+        Date.now() - STALE_PENDING_MINUTES * 60 * 1000
+      ).toISOString();
+
+      // Fetch orders that need merchant follow-up:
+      // - failed: payment attempt failed (card declined, etc.)
+      // - bnpl_pending: BNPL started but not completed
+      // - expired: DVA/payment link expired without payment
+      // - pending older than 30min: likely abandoned bank transfer
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -47,7 +57,9 @@ export function useFailedOrders() {
           )
         `)
         .eq('merchant_id', merchantId)
-        .in('payment_status', ['bnpl_pending', 'failed'])
+        .or(
+          `payment_status.in.(bnpl_pending,failed,expired),and(payment_status.eq.pending,created_at.lt.${staleCutoff})`
+        )
         .order('created_at', { ascending: false });
 
       if (error) throw error;

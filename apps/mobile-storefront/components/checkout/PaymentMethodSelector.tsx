@@ -11,13 +11,19 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const _credpalLogoSource = require('@/assets/images/credpal.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const _creditDirectLogoSource = require('@/assets/images/creditdirect.jpg');
+
 export type PaymentMethodType =
   | 'paystack'
   | 'korapay'
   | 'bank_transfer'
   | 'pay_on_delivery'
   | 'credpal'
-  | 'credit_direct';
+  | 'credit_direct'
+  | 'juicyway';
 
 export type PaymentTab = 'full' | 'installments';
 
@@ -27,7 +33,7 @@ export interface PaymentMethod {
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
   tab: PaymentTab;
-  logoUrl?: string;
+  logoUrl?: string | number;
   disabled?: boolean;
   disabledReason?: string;
 }
@@ -59,6 +65,13 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     icon: 'cash-outline',
     tab: 'full',
   },
+  {
+    id: 'juicyway',
+    label: 'Pay with Crypto',
+    description: 'USDT, USDC via Juicyway',
+    icon: 'logo-bitcoin',
+    tab: 'full',
+  },
   // BNPL / Installment Methods
   {
     id: 'credpal',
@@ -66,6 +79,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Pay in 3-12 monthly installments',
     icon: 'calendar-outline',
     tab: 'installments',
+    logoUrl: _credpalLogoSource,
   },
   {
     id: 'credit_direct',
@@ -73,6 +87,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Split payment into easy installments',
     icon: 'wallet-outline',
     tab: 'installments',
+    logoUrl: _creditDirectLogoSource,
   },
 ];
 
@@ -83,6 +98,7 @@ interface PaymentMethodSelectorProps {
   onSelectTab: (tab: PaymentTab) => void;
   orderTotal: number;
   showInstallmentCalculator?: boolean;
+  enabledMethods?: PaymentMethodType[];
 }
 
 export function PaymentMethodSelector({
@@ -92,6 +108,7 @@ export function PaymentMethodSelector({
   onSelectTab,
   orderTotal,
   showInstallmentCalculator = true,
+  enabledMethods,
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -100,83 +117,85 @@ export function PaymentMethodSelector({
   const isBNPLEligible =
     orderTotal >= BNPL_MIN_AMOUNT && orderTotal <= BNPL_MAX_AMOUNT;
 
-  const filteredMethods = PAYMENT_METHODS.filter(
-    (m) => m.tab === selectedTab
-  ).map((method) => {
-    // Add eligibility check for BNPL methods
-    if (method.tab === 'installments' && !isBNPLEligible) {
-      return {
-        ...method,
-        disabled: true,
-        disabledReason:
-          orderTotal < BNPL_MIN_AMOUNT
-            ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
-            : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
-      };
-    }
-    return method;
-  });
+  // Hide installments tab if no BNPL methods are enabled
+  const hasBNPLMethods =
+    !enabledMethods ||
+    enabledMethods.some((m) => m === 'credpal' || m === 'credit_direct');
 
-  // Calculate installment examples
-  const installmentExamples = [
-    { months: 3, monthly: Math.ceil(orderTotal / 3) },
-    { months: 6, monthly: Math.ceil(orderTotal / 6) },
-    { months: 12, monthly: Math.ceil(orderTotal / 12) },
-  ];
+  const filteredMethods = PAYMENT_METHODS.filter((m) => m.tab === selectedTab)
+    .filter((m) => !enabledMethods || enabledMethods.includes(m.id))
+    .map((method) => {
+      // Add eligibility check for BNPL methods
+      if (method.tab === 'installments' && !isBNPLEligible) {
+        return {
+          ...method,
+          disabled: true,
+          disabledReason:
+            orderTotal < BNPL_MIN_AMOUNT
+              ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
+              : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
+        };
+      }
+      return method;
+    });
 
   return (
     <View style={styles.container}>
-      {/* Tab Selector */}
-      <View
-        style={[styles.tabContainer, { backgroundColor: colors.card }]}
-        accessibilityRole="tablist"
-        accessibilityLabel="Payment type"
-      >
-        <Pressable
-          style={[
-            styles.tab,
-            selectedTab === 'full' && [
-              styles.activeTab,
-              { backgroundColor: BRAND.primary },
-            ],
-          ]}
-          onPress={() => onSelectTab('full')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: selectedTab === 'full' }}
-          accessibilityLabel="Full payment"
+      {/* Tab Selector — only show if BNPL methods are enabled */}
+      {hasBNPLMethods && (
+        <View
+          style={[styles.tabContainer, { backgroundColor: colors.card }]}
+          accessibilityRole="tablist"
+          accessibilityLabel="Payment type"
         >
-          <Text
+          <Pressable
             style={[
-              styles.tabText,
-              { color: selectedTab === 'full' ? '#FFF' : colors.text },
+              styles.tab,
+              selectedTab === 'full' && [
+                styles.activeTab,
+                { backgroundColor: BRAND.primary },
+              ],
             ]}
+            onPress={() => onSelectTab('full')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selectedTab === 'full' }}
+            accessibilityLabel="Full payment"
           >
-            Full Payment
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.tab,
-            selectedTab === 'installments' && [
-              styles.activeTab,
-              { backgroundColor: BRAND.primary },
-            ],
-          ]}
-          onPress={() => onSelectTab('installments')}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: selectedTab === 'installments' }}
-          accessibilityLabel="Pay in installments"
-        >
-          <Text
+            <Text
+              style={[
+                styles.tabText,
+                { color: selectedTab === 'full' ? '#FFF' : colors.text },
+              ]}
+            >
+              Full Payment
+            </Text>
+          </Pressable>
+          <Pressable
             style={[
-              styles.tabText,
-              { color: selectedTab === 'installments' ? '#FFF' : colors.text },
+              styles.tab,
+              selectedTab === 'installments' && [
+                styles.activeTab,
+                { backgroundColor: BRAND.primary },
+              ],
             ]}
+            onPress={() => onSelectTab('installments')}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selectedTab === 'installments' }}
+            accessibilityLabel="Pay in installments"
           >
-            Pay in Installments
-          </Text>
-        </Pressable>
-      </View>
+            <Text
+              style={[
+                styles.tabText,
+                {
+                  color: selectedTab === 'installments' ? '#FFF' : colors.text,
+                },
+              ]}
+            >
+              Pay in Installments
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Installment Calculator */}
       {selectedTab === 'installments' && showInstallmentCalculator && (
@@ -207,28 +226,15 @@ export function PaymentMethodSelector({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Split {formatPrice(orderTotal)} into easy payments:
+                  Split your order into 3-12 monthly installments.
                 </Text>
-                <View style={styles.installmentExamples}>
-                  {installmentExamples.map((example) => (
-                    <Text
-                      key={example.months}
-                      style={[
-                        styles.installmentExample,
-                        { color: BRAND.primary },
-                      ]}
-                    >
-                      {example.months}mo: {formatPrice(example.monthly)}/mo
-                    </Text>
-                  ))}
-                </View>
                 <Text
                   style={[
                     styles.installmentNote,
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Interest rates vary. Final rate determined at checkout.
+                  Interest rates vary. Final breakdown shown at checkout.
                 </Text>
               </>
             ) : (
@@ -292,7 +298,7 @@ export function PaymentMethodSelector({
               >
                 {method.logoUrl ? (
                   <Image
-                    source={{ uri: method.logoUrl }}
+                    source={method.logoUrl}
                     style={styles.methodLogo}
                     contentFit="contain"
                   />
@@ -358,6 +364,19 @@ export function PaymentMethodSelector({
           <Ionicons name="warning" size={18} color="#F59E0B" />
           <Text style={[styles.bankInfoText, { color: '#92400E' }]}>
             Available in Lagos only. A 5% processing fee may apply.
+          </Text>
+        </View>
+      )}
+
+      {/* Crypto Info */}
+      {selectedMethod === 'juicyway' && selectedTab === 'full' && (
+        <View
+          style={[styles.bankInfo, { backgroundColor: `${BRAND.primary}10` }]}
+        >
+          <Ionicons name="logo-bitcoin" size={18} color={BRAND.primary} />
+          <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
+            Pay with Bitcoin, Ethereum, USDT, or other cryptocurrencies. Payment
+            is verified on the blockchain.
           </Text>
         </View>
       )}

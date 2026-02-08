@@ -239,6 +239,7 @@ export async function calculateCommerce(
     }
 
     if (error) {
+      console.log('[calculateCommerce] Full Error Object:', JSON.stringify(error, null, 2));
       log.error(`Commerce Brain Error [${action}]:`, error);
 
       // Track commerce brain failure

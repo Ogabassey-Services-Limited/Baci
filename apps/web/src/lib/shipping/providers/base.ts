@@ -161,6 +161,7 @@ export abstract class BaseShippingProvider implements ShippingProvider {
       const response = await fetch(url, {
         ...fetchOptions,
         signal: controller.signal,
+        cache: 'no-store',
       });
       return response;
     } finally {

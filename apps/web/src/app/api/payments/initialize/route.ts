@@ -9,7 +9,7 @@
  * - Proper separation of concerns
  */
 
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
@@ -18,6 +18,7 @@ import {
   formatPhoneToE164,
   generatePaymentReference as generateJuicywayReference,
   getChainConfirmationTime,
+  getPaymentSession,
   initializePayment as initializeJuicywayPayment,
   isSupportedCurrency as isJuicywayCurrency,
   JUICYWAY_CHAIN_SUPPORT,
@@ -86,16 +87,18 @@ const OrderItemSchema = z.object({
 
 const PaymentInitRequestSchema = z.object({
   merchant_id: z.string().uuid(),
-  order_id: z.string().uuid().optional(),
+  order_id: z.string().uuid(),
   amount: z.number().positive(),
   currency: z.string().default('NGN'),
   customer_email: z.string().email(),
   customer_name: z.string().min(1),
-  customer_phone: z.string().optional(),
+  customer_phone: z.string().min(1, 'Phone number is required'),
   gateway: z.enum(PAYMENT_GATEWAYS).optional(),
   billing_address: BillingAddressSchema,
   items: z.array(OrderItemSchema).optional(),
   channels: z.array(z.string()).optional(),
+  // Payment type: 'dva' for Dedicated Virtual Account (bank transfer)
+  payment_type: z.enum(['dva']).optional(),
   // Crypto payment options (only for juicyway gateway)
   crypto_chain: z.enum(['TRX', 'ETH', 'MATIC', 'AVAXC']).optional(),
   crypto_currency: z.enum(['USDT', 'USDC']).optional(),
@@ -177,7 +180,17 @@ function getClientIp(request: NextRequest): string {
     !ip.startsWith('127.') &&
     !ip.startsWith('192.168.') &&
     !ip.startsWith('10.') &&
-    !ip.startsWith('::')
+    !ip.startsWith('::') &&
+    !ip.startsWith('172.16.') &&
+    !ip.startsWith('172.17.') &&
+    !ip.startsWith('172.18.') &&
+    !ip.startsWith('172.19.') &&
+    !ip.startsWith('172.2') &&
+    !ip.startsWith('172.30.') &&
+    !ip.startsWith('172.31.') &&
+    !ip.startsWith('fe80:') &&
+    !ip.startsWith('fc00:') &&
+    !ip.startsWith('fd')
   ) {
     return ip;
   }
@@ -208,6 +221,11 @@ interface PaymentResult {
     account_number: string;
     account_name: string;
   };
+  dva?: {
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+  };
   crypto_payment?: {
     address: string;
     chain: JuicywayCryptoChain;
@@ -227,15 +245,18 @@ async function initializeJuicyway(
   request: NextRequest,
   data: PaymentInitRequest,
   merchant: { business_name: string },
-  redirectUrl: string
+  redirectUrl: string,
+  reference: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const fees = calculateKorapayFee(data.amount);
-  const reference = generateJuicywayReference('baci');
   const { firstName, lastName } = parseCustomerName(data.customer_name);
   const amountInMinor = Math.round(data.amount * 100);
 
   // Determine if this is a crypto payment
-  const isCryptoPayment = data.crypto_chain && data.crypto_currency;
+  // 2026 Resilience: Default to crypto (USDT/TRX) if gateway is juicyway but no details provided
+  // to avoid "Card payment checkout not available" errors.
+  const isCryptoPayment = (data.crypto_chain && data.crypto_currency) || true;
   const cryptoChain = (data.crypto_chain || 'TRX') as JuicywayCryptoChain;
   const cryptoCurrency = (data.crypto_currency || 'USDT') as JuicywayStablecoin;
 
@@ -256,15 +277,6 @@ async function initializeJuicyway(
       );
     }
   }
-
-  // Log the payment request for debugging
-  console.log('Juicyway payment request:', {
-    amount: amountInMinor,
-    currency: paymentCurrency,
-    isCryptoPayment,
-    cryptoChain: isCryptoPayment ? cryptoChain : undefined,
-    cryptoCurrency: isCryptoPayment ? cryptoCurrency : undefined,
-  });
 
   const juicywayData = await initializeJuicywayPayment({
     amount: amountInMinor, // Always send in NGN minor units (kobo), Juicyway handles conversion
@@ -292,7 +304,7 @@ async function initializeJuicyway(
     reference,
     payment_method: { type: isCryptoPayment ? 'crypto_address' : 'card' },
     order: {
-      identifier: data.order_id || reference,
+      identifier: data.order_id,
       items: data.items || [
         {
           name: 'Order Payment',
@@ -304,7 +316,7 @@ async function initializeJuicyway(
     // direction is required for crypto payments
     ...(isCryptoPayment && { direction: 'incoming' as const }),
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       platform_fee: fees.platformFee,
       merchant_amount: fees.merchantAmount,
@@ -334,23 +346,17 @@ async function initializeJuicyway(
   }
 
   // For crypto payments, we need to capture the payment to get the wallet address
-  // This is a two-step process: 1) Initialize session, 2) Capture with crypto details
-  // Juicyway may return 'pending' status initially - we retry a few times
-  if (isCryptoPayment && juicywayData.id) {
-    console.log('Capturing crypto payment session:', {
-      sessionId: juicywayData.id,
-      chain: cryptoChain,
-      currency: cryptoCurrency,
-    });
-
-    const MAX_RETRIES = 3;
-    const RETRY_DELAY_MS = 2000; // 2 seconds between retries
+  // Two-step process: 1) POST capture with crypto details, 2) Poll with GET if pending
+  if (isCryptoPayment) {
+    if (!juicywayData.id) {
+      throw new Error(
+        'Crypto payment session failed: no session ID returned by Juicyway. Please try again.'
+      );
+    }
+    const MAX_POLL_ATTEMPTS = 10;
+    const POLL_DELAY_MS = 2000;
 
     try {
-      let captureResult:
-        | Awaited<ReturnType<typeof capturePaymentWithCrypto>>
-        | undefined;
-      let attempt = 0;
       let paymentMethod:
         | {
             address: string;
@@ -370,76 +376,91 @@ async function initializeJuicyway(
           }
         | undefined;
 
-      while (attempt < MAX_RETRIES) {
-        attempt++;
-        console.log(`Crypto capture attempt ${attempt}/${MAX_RETRIES}`);
+      // Step 1: POST capture once to initiate address generation
+      const captureResult = await capturePaymentWithCrypto(
+        juicywayData.id,
+        cryptoChain,
+        cryptoCurrency
+      );
 
-        captureResult = await capturePaymentWithCrypto(
-          juicywayData.id,
-          cryptoChain,
-          cryptoCurrency
+      if (!captureResult.success) {
+        throw new Error(
+          captureResult.error || 'Failed to initiate crypto payment capture'
         );
+      }
 
-        if (!captureResult.success) {
-          console.error(
-            `Capture attempt ${attempt} failed:`,
-            captureResult.error
+      cryptoData = captureResult.data;
+      paymentMethod = cryptoData.payment?.payment_method;
+
+      const juicywayMode =
+        (process.env.JUICYWAY_BASE_URL || '').includes('sandbox') ||
+        !process.env.JUICYWAY_BASE_URL
+          ? 'sandbox'
+          : 'live';
+
+      console.log('Crypto capture response:', {
+        status: cryptoData.payment?.status,
+        hasAddress: !!paymentMethod?.address,
+        paymentId: cryptoData.payment?.id,
+        mode: juicywayMode,
+        fullCaptureData: JSON.stringify(cryptoData).substring(0, 500),
+      });
+
+      // Step 2: If address not ready, poll with GET instead of re-POSTing
+      if (!paymentMethod?.address) {
+        let pollAttempt = 0;
+
+        while (pollAttempt < MAX_POLL_ATTEMPTS) {
+          pollAttempt++;
+          await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
+
+          const pollResult = await getPaymentSession(juicywayData.id);
+
+          if (!pollResult.success) {
+            console.error(
+              'Poll attempt %d failed:',
+              pollAttempt,
+              pollResult.error
+            );
+            continue;
+          }
+
+          const polledData = pollResult.data;
+          cryptoData = polledData;
+          paymentMethod = polledData.payment?.payment_method;
+
+          console.log(
+            'Poll attempt %d: Status=%s, Address=%s',
+            pollAttempt,
+            polledData.payment?.status,
+            paymentMethod?.address ? 'ready' : 'pending'
           );
-          if (attempt === MAX_RETRIES) {
+
+          if (paymentMethod?.address) {
+            break;
+          }
+
+          if (pollAttempt === MAX_POLL_ATTEMPTS) {
+            console.error(
+              'No crypto address after all poll attempts. Full Data:',
+              JSON.stringify(polledData, null, 2)
+            );
             throw new Error(
-              captureResult.error || 'Failed to generate crypto payment address'
+              `Failed to generate crypto payment address: status ${polledData.payment?.status || 'unknown'} after ${MAX_POLL_ATTEMPTS} attempts (mode: ${juicywayMode})`
             );
           }
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
-          continue;
         }
-
-        cryptoData = captureResult.data;
-        paymentMethod = cryptoData.payment?.payment_method;
-
-        if (paymentMethod?.address) {
-          // Success! We have the address
-          break;
-        }
-
-        // Address not ready yet, check status
-        console.log(
-          `Attempt ${attempt}: Status=${cryptoData.payment?.status}, Address not ready`
-        );
-
-        if (attempt === MAX_RETRIES) {
-          console.error(
-            'No crypto address after all retries. Full Data:',
-            JSON.stringify(cryptoData, null, 2)
-          );
-          throw new Error(
-            `Failed to generate crypto payment address: partial response. Status: ${cryptoData.payment?.status}`
-          );
-        }
-
-        // Wait before retry
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       }
 
       // At this point, we should have paymentMethod with address
       if (!paymentMethod?.address) {
-        throw new Error('Crypto address generation failed after retries');
+        throw new Error('Crypto address generation failed after polling');
       }
 
       // IMPORTANT: We need BOTH the session ID and the payment ID:
       // - session_id (juicywayData.id): Used for initial tracking
       // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
       const paymentId = cryptoData?.payment?.id;
-
-      console.log('Crypto payment captured successfully:', {
-        sessionId: juicywayData.id,
-        paymentId,
-        address: paymentMethod.address,
-        chain: paymentMethod.chain,
-        currency: paymentMethod.currency,
-        amount: cryptoData?.payment?.amount,
-        attempts: attempt,
-      });
 
       return {
         authorization_url: '', // No redirect needed for crypto payments
@@ -467,16 +488,6 @@ async function initializeJuicyway(
     }
   }
 
-  // For card payments, check if we have a checkout URL
-  console.log('Juicyway card payment response:', {
-    sessionId: juicywayData.id,
-    paymentMethod: juicywayData.payment_method?.type,
-    hasCheckoutUrl: !!juicywayData.checkout_url,
-    checkoutUrl: juicywayData.checkout_url,
-    links: juicywayData.links,
-    status: juicywayData.status,
-  });
-
   // If no checkout URL is returned for card payment, throw an error
   if (!juicywayData.checkout_url) {
     console.error('Juicyway did not return a checkout URL for card payment', {
@@ -503,40 +514,77 @@ async function initializePaystack(
   data: PaymentInitRequest,
   merchant: { paystack_subaccount_code: string | null },
   redirectUrl: string,
-  reference: string
+  reference: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const amountInKobo = Math.round(data.amount * 100);
   const fees = calculatePaystackFee(amountInKobo);
 
+  // 2026 Resilience: Ensure phone number is formatted to E.164 for Paystack compatibility
+  const customerPhone = data.customer_phone
+    ? formatPhoneToE164(data.customer_phone)
+    : undefined;
+
+  // Debug log to confirm what we have after formatting
+  console.log('[PaymentInit] Paystack Phone Debug:', {
+    original: data.customer_phone,
+    formatted: customerPhone,
+    type: typeof customerPhone,
+  });
+
+  if (!customerPhone || customerPhone.length < 5) {
+    throw new Error(
+      'Invalid phone number provided. Please enter a valid mobile number.'
+    );
+  }
+
   const paystackData = await initializePaystackPayment({
     email: data.customer_email,
     amount: amountInKobo,
+    phone: customerPhone,
     reference,
     callback_url: redirectUrl,
     subaccount: merchant.paystack_subaccount_code as string,
     transaction_charge: fees.platformFee,
     bearer: 'account',
-    channels: (data.channels || [
-      'card',
-      'bank',
-      'ussd',
-      'bank_transfer',
-      'mobile_money',
-      'qr',
-    ]) as (
+    channels: (data.channels || ['card', 'bank', 'ussd', 'bank_transfer']) as (
       | 'card'
       | 'bank'
       | 'ussd'
-      | 'qr'
-      | 'mobile_money'
       | 'bank_transfer'
     )[],
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       customer_name: data.customer_name,
+      customer_phone: customerPhone,
+      gateway: data.gateway,
+      // 2026 Fix: Redundant phone fields in metadata to satisfy different Paystack requirement settings
+      phone: customerPhone,
+      phone_number: customerPhone,
       platform_fee: fees.platformFee / 100,
-      merchant_amount: fees.merchantAmount / 100,
+      custom_fields: [
+        {
+          display_name: 'Phone Number',
+          variable_name: 'phone_number',
+          value: customerPhone?.replace(/^\+234/, '0') || 'N/A', // Convert E.164 to local format for specific merchant configs
+        },
+        {
+          display_name: 'Mobile Number',
+          variable_name: 'mobile_number',
+          value: customerPhone?.replace(/^\+234/, '0') || 'N/A',
+        },
+        {
+          display_name: 'Application ID',
+          variable_name: 'application_id',
+          value: 'baci_storefront',
+        },
+        {
+          display_name: 'Platform',
+          variable_name: 'platform',
+          value: 'baci_web',
+        },
+      ],
     },
   });
 
@@ -554,7 +602,8 @@ async function initializeKorapay(
   merchant: { business_name: string },
   redirectUrl: string,
   reference: string,
-  notificationUrl: string
+  notificationUrl: string,
+  merchantId: string
 ): Promise<PaymentResult> {
   const fees = calculateKorapayFee(data.amount);
 
@@ -571,7 +620,7 @@ async function initializeKorapay(
     notification_url: notificationUrl,
     merchant_bears_cost: true,
     metadata: {
-      merchant_id: data.merchant_id,
+      merchant_id: merchantId,
       order_id: data.order_id,
       platform_fee: fees.platformFee,
       merchant_amount: fees.merchantAmount,
@@ -593,8 +642,17 @@ async function initializeKorapay(
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF exemption: This is a public storefront endpoint for checkout payment.
+    // Guest users do not have CSRF tokens. The route validates order ownership
+    // via get_order_payment_snapshot RPC (order_id + email match).
+
     // Parse and validate request body
-    const body = await request.json();
+    const body = await request.clone().json();
+    console.log(
+      '[PaymentInit] Raw Request Body:',
+      JSON.stringify(body, null, 2)
+    );
+
     const parseResult = PaymentInitRequestSchema.safeParse(body);
 
     if (!parseResult.success) {
@@ -614,16 +672,72 @@ export async function POST(request: NextRequest) {
       ? data.currency
       : 'NGN';
 
-    // Initialize Supabase clients
+    // Initialize Supabase client
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const adminSupabase = createAdminClient();
+
+    // Validate order context (order + email) before initiating payment
+    const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
+      'get_order_payment_snapshot',
+      {
+        p_order_id: data.order_id,
+        p_email: data.customer_email,
+      }
+    );
+
+    const orderSnapshot = Array.isArray(snapshotRows) ? snapshotRows[0] : null;
+
+    if (snapshotError || !orderSnapshot) {
+      return createErrorResponse(
+        'Order not found or email mismatch',
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    if (orderSnapshot.merchant_id !== data.merchant_id) {
+      return createErrorResponse(
+        'Merchant mismatch for this order',
+        'MERCHANT_MISMATCH',
+        403
+      );
+    }
+
+    // Validate order total: Number(null) => 0, Number(undefined) => NaN
+    const snapshotTotal = Number(orderSnapshot.total);
+    if (
+      orderSnapshot.total == null ||
+      Number.isNaN(snapshotTotal) ||
+      snapshotTotal <= 0
+    ) {
+      return createErrorResponse(
+        'Invalid order total',
+        'INVALID_ORDER_TOTAL',
+        400
+      );
+    }
+    if (data.amount > snapshotTotal) {
+      return createErrorResponse(
+        'Amount exceeds order total',
+        'AMOUNT_EXCEEDS_TOTAL',
+        400
+      );
+    }
+
+    const merchantId = orderSnapshot.merchant_id;
+
+    // Use admin client for merchant config lookups.
+    // The cookie-based client may be anonymous (e.g. mobile app requests)
+    // and RLS on merchants table requires authenticated owner/staff access.
+    // This is safe because the order→merchant relationship is already
+    // validated above via the SECURITY DEFINER RPC.
+    const adminClient = createAdminClient();
 
     // Fetch merchant
-    const { data: merchant, error: merchantError } = await supabase
+    const { data: merchant, error: merchantError } = await adminClient
       .from('merchants')
       .select('id, business_name, slug, paystack_subaccount_code')
-      .eq('id', data.merchant_id)
+      .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
@@ -635,12 +749,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch gateway settings
-    const { data: featureSettings } = await supabase
+    const { data: featureSettings } = await adminClient
       .from('merchant_feature_settings')
       .select(
         'paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway'
       )
-      .eq('merchant_id', data.merchant_id)
+      .eq('merchant_id', merchantId)
       .single();
 
     const gatewaySettings: GatewaySettings = featureSettings
@@ -656,11 +770,8 @@ export async function POST(request: NextRequest) {
         }
       : DEFAULT_GATEWAY_SETTINGS;
 
-    // Generate reference and URLs
-    const reference = `BAC-${nanoid(12).toUpperCase()}`;
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
 
     // Select gateway
@@ -670,89 +781,152 @@ export async function POST(request: NextRequest) {
         ? data.gateway
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
 
+    // Generate reference and URLs
+    // Use customAlphabet with uppercase-safe alphabet for consistent uppercase references
+    const nanoidUppercase = customAlphabet(
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      12
+    );
+    const reference =
+      gateway === 'juicyway'
+        ? generateJuicywayReference('baci')
+        : `BAC-${nanoidUppercase()}`;
+    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
+
     // Initialize payment based on gateway
     let paymentResult: PaymentResult;
 
-    switch (gateway) {
-      case 'juicyway':
-        paymentResult = await initializeJuicyway(
-          request,
-          data,
-          merchant,
-          redirectUrl
-        );
-        break;
+    try {
+      switch (gateway) {
+        case 'juicyway':
+          if (!process.env.JUICYWAY_SECRET_KEY) {
+            return createErrorResponse(
+              'Crypto payments (Juicyway) are not configured. Please contact support or use another payment method.',
+              'GATEWAY_NOT_CONFIGURED',
+              400
+            );
+          }
+          paymentResult = await initializeJuicyway(
+            request,
+            data,
+            merchant,
+            redirectUrl,
+            reference,
+            merchantId
+          );
+          break;
 
-      case 'paystack':
-        paymentResult = await initializePaystack(
-          data,
-          merchant,
-          redirectUrl,
-          reference
-        );
-        break;
-      case 'credit_direct':
-      case 'credpal':
-        // For client-side BNPL gateways, we redirect to the specialized launcher page
-        // This page handles the client-side SDK loading and prevents checkout crashes
-        paymentResult = {
-          authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
-          checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
-          reference, // Use the generated reference
-          platformFee: 0, // Fees calculated client-side or by gateway
-          merchantAmount: data.amount, // Full amount (fees handled separately)
-        };
-        break;
+        case 'paystack':
+          if (!merchant.paystack_subaccount_code) {
+            return createErrorResponse(
+              'Paystack is not configured for this merchant',
+              'GATEWAY_NOT_CONFIGURED',
+              400
+            );
+          }
 
-      default:
-        paymentResult = await initializeKorapay(
-          data,
-          merchant,
-          redirectUrl,
-          reference,
-          notificationUrl
-        );
-        break;
+          // DVA (Dedicated Virtual Account) for bank transfer payments
+          if (data.payment_type === 'dva') {
+            const { createDedicatedVirtualAccount } = await import(
+              '@/lib/agentic/paystack'
+            );
+            const { firstName, lastName } = parseCustomerName(
+              data.customer_name
+            );
+
+            const dvaResult = await createDedicatedVirtualAccount({
+              email: data.customer_email,
+              first_name: firstName,
+              last_name: lastName,
+              phone: data.customer_phone || '',
+            });
+
+            const fees = calculatePaystackFee(Math.round(data.amount * 100));
+            paymentResult = {
+              authorization_url: '',
+              dva: {
+                bank_name: dvaResult.bank_name,
+                account_number: dvaResult.account_number,
+                account_name: dvaResult.account_name,
+              },
+              reference,
+              platformFee: fees.platformFee / 100,
+              merchantAmount: fees.merchantAmount / 100,
+            };
+          } else {
+            paymentResult = await initializePaystack(
+              data,
+              merchant,
+              redirectUrl,
+              reference,
+              merchantId
+            );
+          }
+          break;
+        case 'credit_direct':
+        case 'credpal':
+          // For client-side BNPL gateways, we redirect to the specialized launcher page
+          // This page handles the client-side SDK loading and prevents checkout crashes
+          paymentResult = {
+            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+            reference, // Use the generated reference
+            platformFee: 0, // Fees calculated client-side or by gateway
+            merchantAmount: data.amount, // Full amount (fees handled separately)
+          };
+          break;
+
+        default:
+          paymentResult = await initializeKorapay(
+            data,
+            merchant,
+            redirectUrl,
+            reference,
+            notificationUrl,
+            merchantId
+          );
+          break;
+      }
+    } catch (gatewayError) {
+      const message =
+        gatewayError instanceof Error ? gatewayError.message : 'Unknown error';
+      console.error(
+        'Gateway initialization failed [%s]:',
+        gateway,
+        gatewayError
+      );
+      return createErrorResponse(
+        `Payment gateway (${gateway}) initialization failed: ${message}`,
+        'GATEWAY_INIT_ERROR',
+        502
+      );
     }
 
-    // Create transaction record (use admin client to bypass RLS)
-    const { error: transactionError } = await adminSupabase
-      .from('transactions')
-      .insert({
-        merchant_id: data.merchant_id,
-        order_id: data.order_id,
-        transaction_type: 'payment',
-        amount: data.amount,
-        currency: validCurrency,
-        status: 'pending',
-        gateway,
-        gateway_reference: paymentResult.reference,
-        platform_fee: paymentResult.platformFee,
-        merchant_amount: paymentResult.merchantAmount,
-        description: `Payment for order ${data.order_id || 'N/A'}`,
-        metadata: {
-          customer_email: data.customer_email,
-          customer_name: data.customer_name,
-          ...(paymentResult.sessionId && {
-            session_id: paymentResult.sessionId,
-          }),
-        },
-      });
+    // Create transaction record (via RPC) and update order status
+    const { error: transactionError } = await supabase.rpc(
+      'create_payment_transaction',
+      {
+        p_merchant_id: merchantId,
+        p_order_id: data.order_id,
+        p_amount: data.amount,
+        p_currency: validCurrency,
+        p_gateway: gateway,
+        p_reference: paymentResult.reference,
+        p_platform_fee: paymentResult.platformFee,
+        p_merchant_amount: paymentResult.merchantAmount,
+        p_customer_email: data.customer_email,
+        p_customer_name: data.customer_name,
+        p_session_id: paymentResult.sessionId || null,
+      }
+    );
 
     if (transactionError) {
       console.error('Error creating transaction record:', transactionError);
-    }
-
-    // Update order with payment reference (use admin client to bypass RLS)
-    if (data.order_id) {
-      await adminSupabase
-        .from('orders')
-        .update({
-          payment_reference: paymentResult.reference,
-          payment_status: 'pending',
-          currency: validCurrency,
-        })
-        .eq('id', data.order_id);
+      return createErrorResponse(
+        'Failed to create transaction',
+        'TRANSACTION_CREATE_FAILED',
+        500
+      );
     }
 
     // Return success response
@@ -764,6 +938,9 @@ export async function POST(request: NextRequest) {
       authorization_url: paymentResult.authorization_url,
       ...(paymentResult.virtual_account && {
         virtual_account: paymentResult.virtual_account,
+      }),
+      ...(paymentResult.dva && {
+        dva: paymentResult.dva,
       }),
       ...(paymentResult.crypto_payment && {
         crypto_payment: paymentResult.crypto_payment,
@@ -778,7 +955,6 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to initialize payment',
         code: 'PAYMENT_INIT_ERROR',
-        details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );

@@ -15,18 +15,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  FlatList,
-  type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
+  SectionList,
+  type SectionListData,
+  type SectionListRenderItemInfo,
   StatusBar,
   StyleSheet,
   Text,
@@ -39,16 +40,16 @@ import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
-import {
-  type Order,
-  useOrders,
-  useUpdateOrderStatus,
-} from '@/hooks/useOrders';
+import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  groupOrdersByRelativeDate,
+  type OrderSection,
+} from '@/utils/date-utils';
 import { exportOrdersRPC } from '@/utils/export-orders';
 
 // Item height for getItemLayout optimization
-const ORDER_ITEM_HEIGHT = 120;
+const _ORDER_ITEM_HEIGHT = 120;
 
 // Helper functions moved outside component
 const formatPrice = (amount: number) => {
@@ -90,12 +91,14 @@ interface OrderItemProps {
       };
     }
   ) => void;
-  getShippingStatusConfig: (
-    status: ShippingStatus
-  ) => { color: string; label: string };
-  getPaymentStatusConfig: (
-    status: PaymentStatus
-  ) => { color: string; label: string };
+  getShippingStatusConfig: (status: ShippingStatus) => {
+    color: string;
+    label: string;
+  };
+  getPaymentStatusConfig: (status: PaymentStatus) => {
+    color: string;
+    label: string;
+  };
   getSourceConfig: (source: string | null) => {
     icon: keyof typeof Ionicons.glyphMap;
     color: string;
@@ -624,7 +627,7 @@ export default function OrdersScreen() {
 
   // Memoized renderItem callback
   const renderOrder = useCallback(
-    ({ item }: ListRenderItemInfo<Order>) => (
+    ({ item }: SectionListRenderItemInfo<Order, OrderSection>) => (
       <OrderItem
         item={item}
         colors={colors}
@@ -650,14 +653,25 @@ export default function OrdersScreen() {
   // Memoized keyExtractor callback
   const orderKeyExtractor = useCallback((item: Order) => item.id, []);
 
-  // getItemLayout for consistent item heights
-  const getItemLayout = useCallback(
-    (_data: ArrayLike<Order> | null | undefined, index: number) => ({
-      length: ORDER_ITEM_HEIGHT,
-      offset: ORDER_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
+  // Group orders by relative date for section list
+  const sections = useMemo(() => {
+    return groupOrdersByRelativeDate(allOrders);
+  }, [allOrders]);
+
+  // Section header renderer
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: SectionListData<Order, OrderSection> }) => (
+      <View
+        style={[styles.sectionHeader, { backgroundColor: colors.background }]}
+      >
+        <Text
+          style={[styles.sectionHeaderText, { color: colors.textSecondary }]}
+        >
+          {section.title}
+        </Text>
+      </View>
+    ),
+    [colors]
   );
 
   const FilterTab = ({
@@ -681,7 +695,6 @@ export default function OrdersScreen() {
           styles.filterTab,
           {
             backgroundColor: isActive ? colors.gold : colors.card,
-            minHeight: 44,
           },
         ]}
         onPress={() =>
@@ -924,11 +937,12 @@ export default function OrdersScreen() {
         </ScrollView>
       </View>
 
-      <FlatList
-        data={allOrders}
+      <SectionList
+        sections={sections}
         renderItem={renderOrder}
+        renderSectionHeader={renderSectionHeader}
         keyExtractor={orderKeyExtractor}
-        getItemLayout={getItemLayout}
+        stickySectionHeadersEnabled={true}
         contentContainerStyle={styles.listContent}
         removeClippedSubviews={true}
         maxToRenderPerBatch={10}
@@ -1312,9 +1326,13 @@ const styles = StyleSheet.create({
     paddingRight: SPACING.xl,
   },
   filterTab: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterText: {
     fontSize: TYPOGRAPHY.size.sm,
@@ -1431,5 +1449,16 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: SPACING.lg,
     alignItems: 'center',
+  },
+  sectionHeader: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 2,
+    paddingTop: SPACING.xs,
+  },
+  sectionHeaderText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });

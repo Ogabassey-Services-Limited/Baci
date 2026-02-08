@@ -33,19 +33,20 @@ export const OtpSchema = z
 // ============================================
 
 // Nigerian phone number validation
-// Accepts: 08012345678, +2348012345678, 2348012345678
+// Accepts: 08012345678, +2348012345678, 2348012345678, 8031234567, (0803) 123 4567
 const NigerianPhoneSchema = z
   .string()
   .min(1, 'Phone number is required')
   .refine(
     (phone) => {
-      // Remove spaces and dashes
-      const cleaned = phone.replace(/[\s-]/g, '');
+      // Remove spaces, dashes, parentheses, and dots
+      const cleaned = phone.replace(/[\s\-().]/g, '');
       // Nigerian phone patterns
       const patterns = [
         /^0[789][01]\d{8}$/, // 08012345678, 09012345678, 07012345678
         /^\+234[789][01]\d{8}$/, // +2348012345678
         /^234[789][01]\d{8}$/, // 2348012345678
+        /^[789][01]\d{8}$/, // 8031234567 (10-digit, no leading 0)
       ];
       return patterns.some((pattern) => pattern.test(cleaned));
     },
@@ -56,16 +57,27 @@ const NigerianPhoneSchema = z
 
 export const ShippingAddressSchema = z.object({
   // 2026 Best Practice: Clear, actionable error messages
+  email: z
+    .string()
+    .min(1, 'Email address is required')
+    .email('Please enter a valid email address')
+    .max(255, 'Email is too long'),
   firstName: z
     .string()
     .min(1, 'Please enter your first name')
     .min(2, 'First name must be at least 2 characters')
-    .max(50, 'First name is too long (max 50 characters)'),
+    .max(50, 'First name is too long (max 50 characters)')
+    .refine((value) => !/\d/.test(value), {
+      message: 'First name cannot contain numbers',
+    }),
   lastName: z
     .string()
     .min(1, 'Please enter your last name')
     .min(2, 'Last name must be at least 2 characters')
-    .max(50, 'Last name is too long (max 50 characters)'),
+    .max(50, 'Last name is too long (max 50 characters)')
+    .refine((value) => !/\d/.test(value), {
+      message: 'Last name cannot contain numbers',
+    }),
   phone: NigerianPhoneSchema,
   address: z
     .string()
@@ -489,7 +501,7 @@ export function parseApiResponse<T>(
     console.warn(
       'API response validation failed',
       context ? `(${context})` : '',
-      result.error.issues.map(i => JSON.stringify(i))
+      result.error.issues.map((i) => JSON.stringify(i))
     );
     return null;
   }

@@ -11,6 +11,7 @@ export function normalizeSocialUrl(
     | 'twitter'
     | 'youtube'
     | 'linkedin'
+    | 'snapchat'
 ): string | undefined {
   if (!input || !input.trim()) return undefined;
 
@@ -32,7 +33,9 @@ export function normalizeSocialUrl(
     case 'tiktok':
       return `https://www.tiktok.com/@${handle}`;
     case 'twitter':
-      return `https://twitter.com/${handle}`;
+      return `https://x.com/${handle}`;
+    case 'snapchat':
+      return `https://www.snapchat.com/@${handle}`;
     case 'youtube':
       // YouTube handles usually start with @
       return `https://youtube.com/@${handle}`;

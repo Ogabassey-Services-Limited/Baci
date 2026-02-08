@@ -1,7 +1,6 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
-  getAdminClient,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import {
@@ -50,21 +49,23 @@ export async function POST(
     }
 
     // Authenticate request (supports mobile Bearer token + web cookies)
-    const { user, error: authError } = await authenticateApiRequest(request);
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       logger.warn({
         message: 'RecordPayment auth failed',
-        error: authError,
+        error: auth.error,
         orderId: id,
       });
       return NextResponse.json(
-        { error: authError || 'Unauthorized' },
+        { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const user = auth.user;
+
     // Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(user.id);
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({
         message: 'RecordPayment merchant not found',
@@ -77,8 +78,7 @@ export async function POST(
       );
     }
 
-    // Use admin client for queries
-    const supabase = getAdminClient();
+    const supabase = auth.supabase;
 
     // Fetch full Merchant details for email
     const { data: merchant, error: merchantError } = await supabase

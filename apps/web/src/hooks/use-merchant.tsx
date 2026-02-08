@@ -57,6 +57,7 @@ export interface MerchantData {
     youtube?: string;
     pinterest?: string;
     linkedin?: string;
+    snapchat?: string;
   };
   // Contact info for footer
   support_email?: string;
@@ -496,7 +497,7 @@ export const MerchantProvider = ({
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, user, initialMerchant, supabase.from]);
+  }, [slug, authLoading, user, initialMerchant, supabase]);
 
   useEffect(() => {
     loadData();

@@ -1,23 +1,52 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient, JumiaCreateProductSchema } from '@/lib/jumia/client';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { logger } from '@/lib/logger';
 
 const ExportSchema = z.object({
-  merchantId: z.string().uuid(),
+  merchantId: z.string().uuid().optional(),
   productData: JumiaCreateProductSchema,
 });
 
 export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
+    const auth = await authenticateApiRequest(req);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { merchantId, productData } = ExportSchema.parse(body);
-    const _cookieStore = await cookies();
+    const { merchantId: requestedMerchantId, productData } =
+      ExportSchema.parse(body);
+
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    if (requestedMerchantId && requestedMerchantId !== merchantId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // 1. Initialize Client
-    const supabase = createAdminClient();
-    const jumia = await JumiaClient.forMerchant(merchantId);
+    const supabase = auth.supabase;
+    const jumia = await JumiaClient.forMerchant(merchantId, { supabase });
 
     if (!jumia) {
       return NextResponse.json(
@@ -45,19 +74,28 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingProduct) {
-      await supabase.from('jumia_product_mappings').upsert(
-        {
-          merchant_id: merchantId,
-          product_id: existingProduct.id,
-          jumia_sku: productData.SellerSku,
-          jumia_seller_sku: productData.SellerSku,
-          jumia_shop_id: jumia.getShopId(),
-          jumia_price: productData.Price,
-          sync_status: 'pending', // Feed processing
-          last_synced_at: new Date().toISOString(),
-        },
-        { onConflict: 'merchant_id, product_id, jumia_shop_id' }
-      ); // Adjust constraint if needed
+      const { error: upsertError } = await supabase
+        .from('jumia_product_mappings')
+        .upsert(
+          {
+            merchant_id: merchantId,
+            product_id: existingProduct.id,
+            jumia_sku: productData.SellerSku,
+            jumia_seller_sku: productData.SellerSku,
+            jumia_shop_id: jumia.getShopId(),
+            jumia_price: productData.Price,
+            sync_status: 'pending', // Feed processing
+            last_synced_at: new Date().toISOString(),
+          },
+          { onConflict: 'merchant_id, product_id, jumia_shop_id' }
+        ); // Adjust constraint if needed
+      if (upsertError) {
+        logger.error({ message: 'Mapping upsert failed', error: upsertError });
+        return NextResponse.json(
+          { error: 'Failed to create product mapping' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -67,10 +105,7 @@ export async function POST(req: NextRequest) {
         'Product export initiated. Check Jumia Vendor Center for status.',
     });
   } catch (error) {
-    console.error('Export error:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Export failed' },
-      { status: 500 }
-    );
+    logger.error({ message: 'Export error', error });
+    return NextResponse.json({ error: 'Export failed' }, { status: 500 });
   }
 }

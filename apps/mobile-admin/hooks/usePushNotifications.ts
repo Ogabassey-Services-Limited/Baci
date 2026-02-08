@@ -7,7 +7,18 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+
+// Dynamic imports for native modules to prevent evaluation-time crashes
+let Notifications: any = null;
+try {
+  if (Platform.OS !== 'web') {
+    Notifications = require('expo-notifications');
+  }
+} catch (e) {
+  console.debug('[PushHook] Native module ignored during evaluation');
+}
+import type * as NotificationsType from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -40,10 +51,8 @@ export function usePushNotifications(): UsePushNotificationsResult {
   const router = useRouter();
 
   // Refs for notification listeners
-  const notificationListener = useRef<Notifications.EventSubscription | null>(
-    null
-  );
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   /**
    * Register for push notifications
@@ -120,9 +129,11 @@ export function usePushNotifications(): UsePushNotificationsResult {
    * Set up notification listeners
    */
   useEffect(() => {
+    if (!Notifications) return;
+
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
+      Notifications.addNotificationReceivedListener((notification: any) => {
         if (__DEV__) {
           console.log(
             '[Push] Notification received:',
@@ -134,7 +145,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
     // Listener for when user taps on a notification
     responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
+      Notifications.addNotificationResponseReceivedListener((response: any) => {
         if (__DEV__) {
           console.log('[Push] Notification tapped');
         }

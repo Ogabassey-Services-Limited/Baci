@@ -29,7 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 // useSafeAreaInsets kept for future use
 // import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckoutIdentityModal } from '@/components/checkout/CheckoutIdentityModal';
+import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
@@ -167,7 +167,6 @@ export default function CartScreen() {
 
   const handleCheckout = () => {
     triggerHaptic();
-    // Show identity modal instead of navigating directly
     setIsIdentityModalOpen(true);
   };
 
@@ -544,25 +543,27 @@ export default function CartScreen() {
             ]}
             onPress={openTotalNegotiation}
           >
-            <Ionicons
-              name="cash-outline"
-              size={22}
-              color={
-                items.some((i) => i.negotiationStatus === 'accepted')
-                  ? palette.gray[400]
-                  : BRAND.primary
-              }
-            />
-            <Text
-              style={[
-                styles.bulkButtonText,
-                items.some((i) => i.negotiationStatus === 'accepted') && {
-                  color: palette.gray[400],
-                },
-              ]}
-            >
-              Negotiate
-            </Text>
+            <View style={styles.bulkButtonContent}>
+              <Ionicons
+                name="cash-outline"
+                size={22}
+                color={
+                  items.some((i) => i.negotiationStatus === 'accepted')
+                    ? palette.gray[400]
+                    : BRAND.primary
+                }
+              />
+              <Text
+                style={[
+                  styles.bulkButtonText,
+                  items.some((i) => i.negotiationStatus === 'accepted') && {
+                    color: palette.gray[400],
+                  },
+                ]}
+              >
+                Negotiate
+              </Text>
+            </View>
           </Pressable>
 
           {/* Checkout Button - Bulletproof Visibility Version */}
@@ -626,7 +627,7 @@ export default function CartScreen() {
             {/* Header */}
             <View style={styles.warningHeader}>
               <View style={styles.warningIconCircle}>
-                <Ionicons name="pricetag" size={24} color="#D97706" />
+                <Ionicons name="cash-outline" size={24} color="#B45309" />
               </View>
               <Text style={styles.warningTitle}>Choose Negotiation Mode</Text>
             </View>
@@ -1026,6 +1027,12 @@ const styles = StyleSheet.create({
     borderColor: palette.gray[200],
     marginLeft: 8, // Shifted right as requested
   },
+  bulkButtonContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
   checkoutButtonContainer: {
     flex: 1,
     height: 56,
@@ -1267,8 +1274,8 @@ const styles = StyleSheet.create({
   },
   warningModal: {
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     width: '100%',
     maxWidth: 400,
     ...SHADOWS.xl,
@@ -1276,28 +1283,28 @@ const styles = StyleSheet.create({
   warningHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 18,
   },
   warningIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
   warningTitle: {
     flex: 1,
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: 'Inter_700Bold',
     color: palette.gray[900],
   },
   warningDescription: {
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 24,
     color: palette.gray[600],
-    marginBottom: 24,
+    marginBottom: 22,
   },
   warningDescriptionBold: {
     fontFamily: 'Inter_600SemiBold',
@@ -1307,8 +1314,8 @@ const styles = StyleSheet.create({
   },
   warningPrimaryButton: {
     backgroundColor: BRAND.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
   },
   warningPrimaryButtonText: {
@@ -1317,13 +1324,15 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   warningSecondaryButton: {
-    backgroundColor: palette.gray[100],
+    backgroundColor: '#F3F4F6',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   warningSecondaryButtonText: {
     fontSize: 16,
@@ -1331,11 +1340,11 @@ const styles = StyleSheet.create({
     color: palette.gray[800],
   },
   warningCancelButton: {
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   warningCancelButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_500Medium',
     color: palette.gray[500],
   },

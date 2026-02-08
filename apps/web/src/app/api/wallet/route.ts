@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
+import { walletSettingsSchema } from '@/schemas/wallet';
 
 /**
  * GET /api/wallet
@@ -35,9 +36,19 @@ export async function GET() {
     }
 
     // Get or create wallet
-    await supabase.rpc('get_or_create_merchant_wallet', {
-      p_merchant_id: merchant.id,
-    });
+    const { error: walletCreateError } = await supabase.rpc(
+      'get_or_create_merchant_wallet',
+      {
+        p_merchant_id: merchant.id,
+      }
+    );
+    if (walletCreateError) {
+      console.error('Failed to get or create wallet:', walletCreateError);
+      return NextResponse.json(
+        { error: 'Failed to initialize wallet' },
+        { status: 500 }
+      );
+    }
 
     // Get wallet details with summary (includes upcoming settlements)
     const { data: walletSummary, error: summaryError } = await supabase.rpc(
@@ -157,21 +168,18 @@ export async function GET() {
  * Update wallet settings (auto-payout preferences)
  */
 export async function PATCH(request: NextRequest) {
-  // CSRF protection - prevents cross-site request forgery attacks
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   try {
+    // CSRF protection - prevents cross-site request forgery attacks
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const body = await request.json();
-    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = body;
 
     // Auth check
     const {
@@ -195,26 +203,32 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Validate input
+    const parsed = walletSettingsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = parsed.data;
+
     // Build update object
     const updates: Record<string, unknown> = {};
     if (typeof autoPayoutEnabled === 'boolean') {
       updates.auto_payout_enabled = autoPayoutEnabled;
     }
     if (autoPayoutDay) {
-      const validDays = [
-        'monday',
-        'tuesday',
-        'wednesday',
-        'thursday',
-        'friday',
-        'saturday',
-        'sunday',
-      ];
-      if (validDays.includes(autoPayoutDay.toLowerCase())) {
-        updates.auto_payout_day = autoPayoutDay.toLowerCase();
-      }
+      updates.auto_payout_day = autoPayoutDay;
     }
-    if (typeof minPayoutAmount === 'number' && minPayoutAmount >= 100) {
+    if (typeof minPayoutAmount === 'number') {
       updates.min_payout_amount = minPayoutAmount;
     }
 

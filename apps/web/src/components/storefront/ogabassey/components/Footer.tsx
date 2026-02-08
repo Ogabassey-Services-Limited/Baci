@@ -12,6 +12,7 @@ import {
   Phone,
   Twitter,
   Youtube,
+  Ghost,
 } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
@@ -34,7 +35,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const renderSocialLink = (
     input: string | undefined,
     label: string,
-    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin',
+    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin' | 'snapchat',
     Icon: React.ElementType
   ) => {
     const url = normalizeSocialUrl(input, platform);
@@ -92,7 +93,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
               {renderSocialLink(socialLinks.tiktok, 'TikTok', 'tiktok', Music)}
               {renderSocialLink(
                 socialLinks.twitter,
-                'Twitter',
+                'X (Twitter)',
                 'twitter',
                 Twitter
               )}
@@ -107,6 +108,12 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 'LinkedIn',
                 'linkedin',
                 Linkedin
+              )}
+              {renderSocialLink(
+                socialLinks.snapchat,
+                'Snapchat',
+                'snapchat',
+                Ghost
               )}
             </div>
           </div>

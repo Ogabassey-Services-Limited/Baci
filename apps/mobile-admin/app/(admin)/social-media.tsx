@@ -36,6 +36,7 @@ export default function SocialMediaScreen() {
     facebook: '',
     tiktok: '',
     linkedin: '',
+    snapchat: '',
   });
 
   // Fetch merchant data
@@ -64,6 +65,7 @@ export default function SocialMediaScreen() {
         facebook: sm?.facebook || '',
         tiktok: sm?.tiktok || '',
         linkedin: sm?.linkedin || '',
+        snapchat: sm?.snapchat || '',
       });
     }
   }, [merchant]);
@@ -223,6 +225,43 @@ export default function SocialMediaScreen() {
               </View>
             </View>
 
+            {/* Snapchat */}
+            <View style={styles.inputGroup}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Snapchat Handle
+                </Text>
+                <View style={{ backgroundColor: colors.primary, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>NEW</Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.inputContainer,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="logo-snapchat"
+                  size={20}
+                  color={colors.textMuted}
+                />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={socialMedia.snapchat}
+                  onChangeText={(t) =>
+                    setSocialMedia((p) => ({ ...p, snapchat: t }))
+                  }
+                  placeholder="@username"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
             {/* Facebook */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -317,6 +356,7 @@ export default function SocialMediaScreen() {
                 />
               </View>
             </View>
+
           </View>
         </ScrollView>
       </SafeAreaView>

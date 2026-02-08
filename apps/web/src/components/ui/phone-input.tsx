@@ -141,18 +141,23 @@ const CountrySelect = ({
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
-        <Command>
+      <PopoverContent className="w-[300px] p-2 overflow-visible bg-[var(--store-background,#fff)] text-[var(--store-background-text,#111)] border border-[color-mix(in_srgb,var(--store-primary,#ef4444)_20%,transparent)] shadow-xl rounded-xl">
+        <Command className="bg-transparent text-[var(--store-background-text,#111)] overflow-visible">
           <CommandList>
             <ScrollArea className="h-72">
-              <CommandInput placeholder="Search country..." />
-              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandInput
+                className="text-[var(--store-background-text,#111)] placeholder:text-[color-mix(in_srgb,var(--store-background-text,#111)_60%,transparent)]"
+                placeholder="Search country..."
+              />
+              <CommandEmpty className="text-[color-mix(in_srgb,var(--store-background-text,#111)_70%,transparent)]">
+                No country found.
+              </CommandEmpty>
               <CommandGroup>
                 {options
                   .filter((x) => x.value)
                   .map((option) => (
                     <CommandItem
-                      className="gap-2"
+                      className="gap-2 text-[var(--store-background-text,#111)] data-[selected=true]:bg-[var(--store-primary,#ef4444)] data-[selected=true]:text-[var(--store-primary-text,#fff)]"
                       key={option.value}
                       onSelect={() => handleSelect(option.value)}
                     >
@@ -162,7 +167,7 @@ const CountrySelect = ({
                       />
                       <span className="flex-1 text-sm">{option.label}</span>
                       {option.value && (
-                        <span className="text-foreground/50 text-sm">
+                        <span className="text-[color-mix(in_srgb,var(--store-background-text,#111)_55%,transparent)] text-sm">
                           {`+${RPNInput.getCountryCallingCode(option.value)}`}
                         </span>
                       )}

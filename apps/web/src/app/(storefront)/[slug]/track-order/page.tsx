@@ -16,7 +16,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import {
   ThemedBadge,
@@ -26,6 +26,7 @@ import {
 } from '@/components/themed';
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { formatCurrency as formatCurrencyByCountry } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
@@ -105,6 +106,141 @@ const iconMap = {
   cancelled: XCircle,
 };
 
+/** Deterministic currency→country mapping for formatting. */
+const PREFERRED_COUNTRY_FOR_CURRENCY: Record<string, string> = {
+  NGN: 'NG',
+  USD: 'US',
+  GBP: 'GB',
+  EUR: 'DE',
+  GHS: 'GH',
+  KES: 'KE',
+  ZAR: 'ZA',
+  XOF: 'SN',
+  XAF: 'CM',
+  EGP: 'EG',
+};
+
+const getCountryCodeForCurrency = (currency?: string | null) =>
+  (currency ? PREFERRED_COUNTRY_FOR_CURRENCY[currency] : null) ?? 'NG';
+
+const TERMINAL_STATUSES = new Set(['cancelled', 'failed']);
+
+function HorizontalProgressBar({
+  status,
+  latestUpdate,
+}: {
+  status: string;
+  latestUpdate: string;
+}) {
+  const stages = [
+    { id: 'placed', label: 'Placed' },
+    { id: 'processing', label: 'Processing' },
+    { id: 'shipped', label: 'Shipped' },
+    { id: 'delivered', label: 'Delivered' },
+  ];
+
+  // Normalize status for comparison
+  const normalizedStatus = status.toLowerCase();
+  const isTerminal = TERMINAL_STATUSES.has(normalizedStatus);
+
+  // Terminal states: show alternative UI
+  if (isTerminal) {
+    const label =
+      normalizedStatus === 'cancelled' ? 'Order Cancelled' : 'Order Failed';
+    return (
+      <div className="py-8 w-full max-w-2xl mx-auto px-4">
+        <output aria-label={label} className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <XCircle className="w-7 h-7 text-red-500" />
+          </div>
+          <span className="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800">
+            {label}
+          </span>
+        </output>
+        <div className="mt-6 text-center">
+          <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
+            Latest update: {latestUpdate}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Determine active index
+  let activeIndex = 0;
+  if (normalizedStatus === 'delivered' || normalizedStatus === 'completed')
+    activeIndex = 3;
+  else if (normalizedStatus === 'shipped') activeIndex = 2;
+  else if (normalizedStatus === 'processing' || normalizedStatus === 'current')
+    activeIndex = 1;
+  else activeIndex = 0; // pending/placed
+
+  return (
+    <div className="py-8 w-full max-w-2xl mx-auto px-4">
+      <div
+        className="relative flex justify-between items-center"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={stages.length - 1}
+        aria-valuenow={activeIndex}
+        aria-label="Order progress"
+      >
+        {/* Progress Line Background */}
+        <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 rounded-full z-0" />
+
+        {/* Active Progress Line */}
+        <div
+          className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
+          style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
+        />
+
+        {stages.map((stage, index) => {
+          const isCompleted = index <= activeIndex;
+
+          return (
+            <div
+              key={stage.id}
+              className="relative z-10 flex flex-col items-center"
+            >
+              <div
+                className={cn(
+                  'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
+                  isCompleted
+                    ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
+                )}
+              >
+                {isCompleted ? (
+                  <Check className="w-5 h-5 font-bold" strokeWidth={3} />
+                ) : (
+                  <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+                )}
+              </div>
+              <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
+                <p
+                  className={cn(
+                    'text-sm font-medium transition-colors duration-300',
+                    isCompleted
+                      ? 'text-[var(--store-accent)] font-bold'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {stage.label}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-16 text-center">
+        <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
+          Latest update: {latestUpdate}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderTrackPage() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
@@ -116,37 +252,66 @@ export default function OrderTrackPage() {
 function OrderTrackContent() {
   const [orderNumber, setOrderNumber] = useState('');
   const [email, setEmail] = useState('');
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isTokenLookup, setIsTokenLookup] = useState(false);
   const searchParams = useSearchParams();
+  const params = useParams();
+  const slugParam = params?.slug;
+  const merchantSlug = Array.isArray(slugParam) ? slugParam[0] : slugParam;
 
   const handleFetchTracking = useCallback(
-    async (params: {
+    async (trackingParams: {
       order_id?: string | null;
       order_number?: string | null;
       email?: string | null;
+      tracking_token?: string | null;
     }) => {
       setLoading(true);
       setError(null);
 
       try {
+        if (!merchantSlug) {
+          throw new Error('Store identifier is missing.');
+        }
+        // Token-based lookup doesn't need email; manual form does
+        if (!trackingParams.tracking_token && !trackingParams.email) {
+          throw new Error('Email is required to track an order.');
+        }
+
         const queryParams = new URLSearchParams();
-        if (params.order_id) queryParams.set('order_id', params.order_id);
-        if (params.order_number)
-          queryParams.set('order_number', params.order_number);
-        if (params.email) queryParams.set('email', params.email);
+        if (trackingParams.tracking_token) {
+          queryParams.set('token', trackingParams.tracking_token);
+        } else {
+          if (trackingParams.order_id)
+            queryParams.set('order_id', trackingParams.order_id);
+          if (trackingParams.order_number)
+            queryParams.set('order_number', trackingParams.order_number);
+          if (trackingParams.email)
+            queryParams.set('email', trackingParams.email);
+        }
+        queryParams.set('merchant_slug', merchantSlug);
 
         const response = await fetch(
           `/api/storefront/orders/track-order?${queryParams}`
         );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to find order');
+        let data: OrderData | { error?: string };
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error(
+            'Unexpected server response. Please try again later.'
+          );
         }
 
-        setOrderData(data);
+        if (!response.ok) {
+          const errorData = data as { error?: string };
+          throw new Error(errorData.error || 'Failed to find order');
+        }
+
+        setOrderData(data as OrderData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         setOrderData(null);
@@ -154,23 +319,46 @@ function OrderTrackContent() {
         setLoading(false);
       }
     },
-    []
+    [merchantSlug]
   );
 
   // Automatic tracking from URL params
   useEffect(() => {
+    // Reset token lookup state when URL params change
+    setIsTokenLookup(false);
+
+    const qToken = searchParams.get('token');
     const qOrderId =
       searchParams.get('order_id') || searchParams.get('orderId');
     const qOrderNumber =
       searchParams.get('order_number') || searchParams.get('orderNumber');
     const qEmail = searchParams.get('email');
 
-    if (qOrderId || qOrderNumber) {
+    // Clear stale state when params are absent
+    if (!qEmail) setEmail('');
+    if (!qOrderId) setOrderId(null);
+    if (!qOrderNumber) setOrderNumber('');
+
+    // Token-based lookup (from order-success link) — no email needed
+    if (qToken) {
+      setIsTokenLookup(true);
+      handleFetchTracking({ tracking_token: qToken });
+      return;
+    }
+
+    if (qOrderId) {
+      setOrderId(qOrderId);
+    }
+
+    if (qEmail) {
+      setEmail(qEmail);
+    }
+
+    if ((qOrderId || qOrderNumber) && qEmail) {
       if (qOrderId) {
         handleFetchTracking({ order_id: qOrderId, email: qEmail });
       } else if (qOrderNumber) {
         setOrderNumber(qOrderNumber);
-        if (qEmail) setEmail(qEmail);
         handleFetchTracking({ order_number: qOrderNumber, email: qEmail });
       }
     }
@@ -178,7 +366,22 @@ function OrderTrackContent() {
 
   const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    await handleFetchTracking({ order_number: orderNumber, email: email });
+    const trimmedOrderNumber = orderNumber.trim();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Email is required to track an order.');
+      return;
+    }
+    if (!trimmedOrderNumber && !orderId) {
+      setError('Order number is required.');
+      return;
+    }
+
+    await handleFetchTracking({
+      order_number: trimmedOrderNumber || null,
+      order_id: trimmedOrderNumber ? null : orderId,
+      email: trimmedEmail,
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -192,12 +395,8 @@ function OrderTrackContent() {
     });
   };
 
-  const formatCurrency = (amount: number, currency: string = 'NGN') => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, currency: string = 'NGN') =>
+    formatCurrencyByCountry(amount, getCountryCodeForCurrency(currency));
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -218,156 +417,88 @@ function OrderTrackContent() {
     }
   };
 
-  const HorizontalProgressBar = ({ status }: { status: string }) => {
-    const stages = [
-      { id: 'placed', label: 'Placed' },
-      { id: 'processing', label: 'Processing' },
-      { id: 'shipped', label: 'Shipped' },
-      { id: 'delivered', label: 'Delivered' },
-    ];
-
-    // Normalize status for comparison
-    const normalizedStatus = status.toLowerCase();
-
-    // Determine active index
-    let activeIndex = 0;
-    if (normalizedStatus === 'delivered' || normalizedStatus === 'completed')
-      activeIndex = 3;
-    else if (normalizedStatus === 'shipped') activeIndex = 2;
-    else if (
-      normalizedStatus === 'processing' ||
-      normalizedStatus === 'current'
-    )
-      activeIndex = 1;
-    else activeIndex = 0; // pending/placed
-
-    return (
-      <div className="py-8 w-full max-w-2xl mx-auto px-4">
-        <div className="relative flex justify-between items-center">
-          {/* Progress Line Background */}
-          <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 -translate-y-1/2 rounded-full z-0" />
-
-          {/* Active Progress Line */}
-          <div
-            className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
-            style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
-          />
-
-          {stages.map((stage, index) => {
-            const isCompleted = index <= activeIndex;
-
-            return (
-              <div
-                key={stage.id}
-                className="relative z-10 flex flex-col items-center"
-              >
-                <div
-                  className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
-                    isCompleted
-                      ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
-                  )}
-                >
-                  {isCompleted ? (
-                    <Check className="w-5 h-5 font-bold" strokeWidth={3} />
-                  ) : (
-                    <div className="w-2.5 h-2.5 rounded-full bg-gray-300 dark:bg-gray-600" />
-                  )}
-                </div>
-                <div className="absolute top-12 left-1/2 -translate-x-1/2 w-32 text-center pointer-events-none">
-                  <p
-                    className={cn(
-                      'text-sm font-medium transition-colors duration-300',
-                      isCompleted
-                        ? 'text-[var(--store-accent)] font-bold'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {stage.label}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-16 text-center">
-          <p className="text-sm text-muted-foreground bg-gray-50 dark:bg-gray-900 inline-block px-4 py-1.5 rounded-full border border-gray-100 dark:border-gray-800">
-            Latest update:{' '}
-            {formatDate(
-              orderData?.order?.updated_at || orderData?.order?.created_at || ''
-            )}
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold mb-2">Track Your Order</h1>
-        <p className="text-muted-foreground">
-          Enter your order number and email to track your delivery
-        </p>
+        {!isTokenLookup && (
+          <p className="text-muted-foreground">
+            Enter your order number and email to track your delivery
+          </p>
+        )}
       </div>
 
-      <ThemedCard className="mb-8">
-        <CardContent className="pt-6">
-          <form onSubmit={handleTrackOrder} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label
-                  htmlFor="orderNumber"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Order Number
-                </label>
-                <ThemedInput
-                  id="orderNumber"
-                  placeholder="ORD-123456"
-                  value={orderNumber}
-                  onChange={(e) => setOrderNumber(e.target.value)}
-                />
+      {!isTokenLookup && (
+        <ThemedCard className="mb-8">
+          <CardContent className="pt-6">
+            <form onSubmit={handleTrackOrder} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="orderNumber"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Order Number
+                  </label>
+                  <ThemedInput
+                    id="orderNumber"
+                    placeholder="ORD-123456"
+                    value={orderNumber}
+                    onChange={(e) => setOrderNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Email Address
+                  </label>
+                  <ThemedInput
+                    id="email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
               </div>
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium mb-1"
-                >
-                  Email Address
-                </label>
-                <ThemedInput
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-            </div>
-            <ThemedButton type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
-                  Searching...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Track Order
-                </>
-              )}
-            </ThemedButton>
-          </form>
+              <ThemedButton type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Clock className="mr-2 h-4 w-4 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="mr-2 h-4 w-4" />
+                    Track Order
+                  </>
+                )}
+              </ThemedButton>
+            </form>
+          </CardContent>
+        </ThemedCard>
+      )}
 
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 text-red-600 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-        </CardContent>
-      </ThemedCard>
+      {/* Loading indicator for token-based lookups (form is hidden) */}
+      {isTokenLookup && loading && (
+        <div className="flex items-center justify-center py-12">
+          <Clock className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Searching...</span>
+        </div>
+      )}
+
+      {/* Error banner — always visible regardless of lookup mode */}
+      {error && (
+        <div
+          role="alert"
+          aria-atomic="true"
+          className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm"
+        >
+          {error}
+        </div>
+      )}
 
       {orderData && (
         <div className="space-y-6">
@@ -400,9 +531,8 @@ function OrderTrackContent() {
                     style={
                       orderData.order.status !== 'cancelled'
                         ? {
-                            backgroundColor: 'var(--store-accent)',
-                            color: 'var(--store-accent-text)',
-                            opacity: 0.1,
+                            backgroundColor:
+                              'color-mix(in srgb, var(--store-accent) 10%, transparent)',
                             border: 'none',
                           }
                         : undefined
@@ -411,7 +541,7 @@ function OrderTrackContent() {
                     <span
                       style={
                         orderData.order.status !== 'cancelled'
-                          ? { opacity: 1, color: 'var(--store-accent)' }
+                          ? { color: 'var(--store-accent)' }
                           : undefined
                       }
                     >
@@ -422,7 +552,16 @@ function OrderTrackContent() {
                 </div>
               </div>
 
-              <HorizontalProgressBar status={orderData.order.status} />
+              <HorizontalProgressBar
+                status={orderData.order.status}
+                latestUpdate={formatDate(
+                  [...orderData.timeline]
+                    .reverse()
+                    .find((event) => event.timestamp)?.timestamp ||
+                    orderData.order.updated_at ||
+                    orderData.order.created_at
+                )}
+              />
 
               <Separator className="my-6" />
 
@@ -524,8 +663,8 @@ function OrderTrackContent() {
                 <div
                   className="mt-6 p-4 rounded-lg"
                   style={{
-                    backgroundColor: 'var(--store-primary)',
-                    opacity: 0.1,
+                    backgroundColor:
+                      'color-mix(in srgb, var(--store-primary) 10%, transparent)',
                   }}
                 >
                   <p
@@ -576,6 +715,7 @@ function OrderTrackContent() {
                           src={item.product_image}
                           alt={item.product_name}
                           fill
+                          sizes="64px"
                           className="object-cover"
                         />
                       </div>

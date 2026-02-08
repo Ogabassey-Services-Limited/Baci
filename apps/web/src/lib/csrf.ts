@@ -1,7 +1,6 @@
 // CSRF Protection Utilities
 // Implements Double Submit Cookie pattern for CSRF protection
 
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 const CSRF_TOKEN_NAME = 'csrf-token';
@@ -31,33 +30,10 @@ export function createCsrfTokenPair(): { token: string; secret: string } {
 }
 
 /**
- * Hash token with secret for verification using Web Crypto API
- */
-async function hashToken(token: string, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const data = encoder.encode(token);
-
-  const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-
-  const signature = await crypto.subtle.sign('HMAC', key, data);
-  const hashArray = Array.from(new Uint8Array(signature));
-  return btoa(String.fromCharCode(...hashArray))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
-
-/**
  * Set CSRF token in cookies (call this in server components/API routes)
  */
 export async function setCsrfToken(): Promise<string> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const { token, secret } = createCsrfTokenPair();
 
@@ -87,10 +63,42 @@ export async function setCsrfToken(): Promise<string> {
  * Note: Does not automatically generate a new token to avoid cookie modification in Server Components
  */
 export async function getCsrfToken(): Promise<string | null> {
+  const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
   const token = cookieStore.get(CSRF_TOKEN_NAME);
 
   return token?.value ?? null;
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ * Uses HMAC-based comparison which is inherently constant-time.
+ */
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode('csrf-compare'),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const [macA, macB] = await Promise.all([
+    crypto.subtle.sign('HMAC', key, encoder.encode(a)),
+    crypto.subtle.sign('HMAC', key, encoder.encode(b)),
+  ]);
+
+  // HMAC outputs are always 32 bytes regardless of input length,
+  // so XOR loop is constant-time. Length mismatch produces different
+  // HMACs, which the comparison catches without an early return.
+  const viewA = new Uint8Array(macA);
+  const viewB = new Uint8Array(macB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i] ^ viewB[i];
+  }
+  return result === 0;
 }
 
 /**
@@ -105,26 +113,18 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     return false;
   }
 
-  // Get secret from cookie using Edge-compatible request.cookies
-  const secretCookie = request.cookies.get(CSRF_SECRET_NAME);
+  // Get token from cookie using Edge-compatible request.cookies
+  // Note: secretCookie is stored for future HMAC binding but current Double Submit
+  // Cookie pattern only validates token matching (header vs cookie)
   const tokenCookie = request.cookies.get(CSRF_TOKEN_NAME);
 
-  if (!secretCookie || !tokenCookie) {
-    console.warn('CSRF: Missing cookies');
+  if (!tokenCookie) {
+    console.warn('CSRF: Missing token cookie');
     return false;
   }
 
-  // Verify token matches
-  if (headerToken !== tokenCookie.value) {
-    console.warn('CSRF: Token mismatch');
-    return false;
-  }
-
-  // Additional verification: hash check
-  const expectedHash = await hashToken(tokenCookie.value, secretCookie.value);
-  const actualHash = await hashToken(headerToken, secretCookie.value);
-
-  return expectedHash === actualHash;
+  // Verify header token matches cookie token (constant-time)
+  return await timingSafeEqual(headerToken, tokenCookie.value);
 }
 
 /**
@@ -186,5 +186,5 @@ export function getClientCsrfToken(): string | null {
 
   if (!csrfCookie) return null;
 
-  return csrfCookie.split('=')[1];
+  return csrfCookie.split('=').slice(1).join('=');
 }

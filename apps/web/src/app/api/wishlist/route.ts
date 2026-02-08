@@ -1,7 +1,15 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
+
+const wishlistCreateSchema = z.object({
+  productId: z.string().uuid('Invalid product ID'),
+  merchantId: z.string().uuid('Invalid merchant ID'),
+  sessionToken: z.string().min(16).optional(),
+});
 
 /**
  * Hash a session token for privacy (don't store raw tokens)
@@ -27,7 +35,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionToken = searchParams.get('session');
-    const emailParam = searchParams.get('email');
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -42,9 +49,6 @@ export async function GET(request: NextRequest) {
     if (user?.email) {
       // Authenticated user - use their email
       customerIdentifier = user.email;
-    } else if (emailParam) {
-      // Email-based lookup (for storefront wishlist page)
-      customerIdentifier = emailParam;
     } else if (sessionToken && sessionToken.length >= 16) {
       // Guest user - use hashed session token as identifier
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
@@ -102,30 +106,22 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { productId, merchantId, sessionToken } = body;
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
 
-    if (!productId || !merchantId) {
+    const parsed = wishlistCreateSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
         { error: 'Product ID and Merchant ID are required' },
         { status: 400 }
       );
     }
-
-    // Validate UUID formats
-    if (!isValidUUID(productId)) {
-      return NextResponse.json(
-        { error: 'Invalid product ID format' },
-        { status: 400 }
-      );
-    }
-
-    if (!isValidUUID(merchantId)) {
-      return NextResponse.json(
-        { error: 'Invalid merchant ID format' },
-        { status: 400 }
-      );
-    }
+    const { productId, merchantId, sessionToken } = parsed.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -190,10 +186,16 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
     const sessionToken = searchParams.get('session');
-    const emailParam = searchParams.get('email');
 
     if (!itemId) {
       return NextResponse.json(
@@ -221,8 +223,6 @@ export async function DELETE(request: NextRequest) {
 
     if (user?.email) {
       customerIdentifier = user.email;
-    } else if (emailParam) {
-      customerIdentifier = emailParam;
     } else if (sessionToken && sessionToken.length >= 16) {
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
     } else {

@@ -5,7 +5,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -13,6 +12,7 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,13 +21,31 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let ImagePicker: typeof import('expo-image-picker') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    ImagePicker = await import('expo-image-picker');
+  } catch (e) {
+    console.debug(
+      '[SwapScreen] ImagePicker module ignored or failed to load:',
+      e
+    );
+  }
+};
+
+loadNativeModules();
+
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 import {
   type AIAnalysisResult,
   AIGradeDeviceApiResponseSchema,
   parseApiResponse,
 } from '@/lib/validation';
-import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Swap');
 
@@ -73,6 +91,13 @@ export default function SwapScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const pickVideo = async () => {
+    if (!ImagePicker) {
+      Alert.alert(
+        'Not Supported',
+        'Video selection is not supported on this platform.'
+      );
+      return;
+    }
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -101,6 +126,13 @@ export default function SwapScreen() {
   };
 
   const recordVideo = async () => {
+    if (!ImagePicker) {
+      Alert.alert(
+        'Not Supported',
+        'Video recording is not supported on this platform.'
+      );
+      return;
+    }
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
