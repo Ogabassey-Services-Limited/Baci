@@ -6,6 +6,7 @@ import { Loader2, Pencil } from 'lucide-react';
 import { Component, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
+import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import {
   deriveThemeFromColors,
   generateFeatures,
@@ -378,9 +379,22 @@ export function OnboardingPuckPreview({
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="min-h-full" style={themeStyles}>
-              <PreviewErrorBoundary>
-                <Render config={builderConfig} data={patchedPuckData} />
-              </PreviewErrorBoundary>
+              <MerchantProvider
+                initialMerchant={
+                  {
+                    id: 'preview-merchant-id',
+                    user_id: 'preview-user-id',
+                    business_name: businessName || 'Your Store',
+                    business_type: businessType || 'other',
+                    slug: 'preview-store',
+                    brand_colors: brandColors,
+                  } as MerchantData
+                }
+              >
+                <PreviewErrorBoundary>
+                  <Render config={builderConfig} data={patchedPuckData} />
+                </PreviewErrorBoundary>
+              </MerchantProvider>
             </div>
           </div>
         </div>
@@ -460,9 +474,22 @@ export function OnboardingPuckPreview({
             ...themeStyles,
           }}
         >
-          <PreviewErrorBoundary>
-            <Render config={builderConfig} data={patchedPuckData} />
-          </PreviewErrorBoundary>
+          <MerchantProvider
+            initialMerchant={
+              {
+                id: 'preview-merchant-id',
+                user_id: 'preview-user-id',
+                business_name: businessName || 'Your Store',
+                business_type: businessType || 'other',
+                slug: 'preview-store',
+                brand_colors: brandColors,
+              } as MerchantData
+            }
+          >
+            <PreviewErrorBoundary>
+              <Render config={builderConfig} data={patchedPuckData} />
+            </PreviewErrorBoundary>
+          </MerchantProvider>
         </div>
       </div>
     </div>

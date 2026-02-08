@@ -18,6 +18,7 @@ export default function DebugAuthPage() {
       `${new Date().toISOString().split('T')[1]} - ${msg}`,
     ]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
   useEffect(() => {
     // Get session on mount
     supabase.auth.getSession().then(({ data, error }) => {
@@ -27,12 +28,7 @@ export default function DebugAuthPage() {
         addLog(`Session found: ${data.session ? 'YES' : 'NO'}`);
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
-    addLog, // Get session on mount
-    supabase.auth.getSession,
-  ]);
+  }, []);
 
   useEffect(() => {
     // Set cookies separately to avoid synchronous state updates
