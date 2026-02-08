@@ -4,24 +4,44 @@
  */
 
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { createLogger } from './logger';
 import { supabase } from './supabase';
 
 const log = createLogger('Notifications');
 
-// Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Device: any = null;
+let Notifications: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [dev, notif] = await Promise.all([
+      import('expo-device'),
+      import('expo-notifications')
+    ]);
+    Device = dev;
+    Notifications = notif;
+
+    // Configure notification behavior after successful load
+    if (Notifications) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  } catch (e) {
+    log.debug('Native modules ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
 
 /**
  * Register for push notifications and get the Expo push token
@@ -33,6 +53,11 @@ Notifications.setNotificationHandler({
 export async function registerForPushNotificationsAsync(): Promise<
   string | null
 > {
+  if (!Device || !Notifications) {
+    log.warn('Push notification modules not loaded');
+    return null;
+  }
+
   // Push notifications only work on physical devices
   if (!Device.isDevice) {
     log.warn('Push notifications require a physical device');
@@ -78,7 +103,7 @@ export async function registerForPushNotificationsAsync(): Promise<
  * Configure Android notification channel (required for Android 8+)
  */
 export async function setupNotificationChannels() {
-  if (Platform.OS === 'android') {
+  if (Platform.OS === 'android' && Notifications) {
     // Orders channel - high priority for new order alerts
     await Notifications.setNotificationChannelAsync('orders', {
       name: 'Orders',
@@ -149,7 +174,7 @@ export async function registerPushTokenWithBackend(
         body: JSON.stringify({
           token,
           platform: Platform.OS as 'ios' | 'android',
-          device_name: Device.modelName || `${Device.brand} ${Device.modelId}`,
+          device_name: (Device && Device.modelName) || `${Device?.brand || 'Unknown'} ${Device?.modelId || ''}`,
           merchant_id: merchantId,
         }),
       }
@@ -172,8 +197,9 @@ export async function registerPushTokenWithBackend(
  * Add notification response listener
  */
 export function addNotificationResponseListener(
-  callback: (response: Notifications.NotificationResponse) => void
+  callback: (response: any) => void
 ) {
+  if (!Notifications) return { remove: () => { } };
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
@@ -181,8 +207,9 @@ export function addNotificationResponseListener(
  * Add notification received listener (foreground)
  */
 export function addNotificationReceivedListener(
-  callback: (notification: Notifications.Notification) => void
+  callback: (notification: any) => void
 ) {
+  if (!Notifications) return { remove: () => { } };
   return Notifications.addNotificationReceivedListener(callback);
 }
 

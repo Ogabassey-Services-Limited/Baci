@@ -34,8 +34,8 @@ config.resolver = {
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
-  // 2026: Disable package exports as it often causes duplicate bundling in monorepos
-  unstable_enablePackageExports: false,
+  // 2026: Enable package exports as it is now the standard for modern libraries
+  unstable_enablePackageExports: true,
 };
 
 module.exports = config;

@@ -5,8 +5,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,16 +18,35 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
-import {
-  BRAND,
-  SHADOWS,
-  palette,
-} from '@/constants/Colors';
-import { formatPrice } from '@/stores/cart-store';
 
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Haptics: typeof import('expo-haptics') | null = null;
+let ImagePicker: typeof import('expo-image-picker') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [haptic, picker] = await Promise.all([
+      import('expo-haptics'),
+      import('expo-image-picker'),
+    ]);
+    Haptics = haptic;
+    ImagePicker = picker;
+  } catch (e) {
+    console.debug(
+      '[NegotiationModal] Native modules ignored or failed to load:',
+      e
+    );
+  }
+};
+
+loadNativeModules();
+
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
+import { formatPrice } from '@/stores/cart-store';
 
 const log = createLogger('NegotiationModal');
 
@@ -64,8 +81,6 @@ export function NegotiationModal({
   type = 'single',
   itemId,
 }: NegotiationModalProps) {
-
-
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [offer, setOffer] = useState('');
   const [message, setMessage] = useState('');
@@ -88,10 +103,12 @@ export function NegotiationModal({
   }, [visible]);
 
   const triggerHaptic = (
-    style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light
+    style?: import('expo-haptics').ImpactFeedbackStyle
   ) => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(style).catch(() => { });
+    if (Platform.OS === 'ios' && Haptics) {
+      Haptics.impactAsync(style ?? Haptics.ImpactFeedbackStyle.Light).catch(
+        () => {}
+      );
     }
   };
 
@@ -101,11 +118,11 @@ export function NegotiationModal({
     if (!offer) return;
 
     setStatus('processing');
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic(Haptics?.ImpactFeedbackStyle?.Medium);
 
-    const offerAmount = parseFloat(offer.replace(/[^0-9.]/g, ''));
+    const offerAmount = Number.parseFloat(offer.replace(/[^0-9.]/g, ''));
 
-    if (isNaN(offerAmount) || offerAmount <= 0) {
+    if (Number.isNaN(offerAmount) || offerAmount <= 0) {
       Alert.alert('Invalid Offer', 'Please enter a valid price.');
       setStatus('input');
       return;
@@ -118,7 +135,7 @@ export function NegotiationModal({
       // 5% Hard Floor - instant acceptance
       if (discountPercentage <= 0.05) {
         setStatus('success');
-        triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+        triggerHaptic(Haptics?.ImpactFeedbackStyle?.Heavy);
         onSuccess(offerAmount);
         return;
       }
@@ -154,7 +171,7 @@ export function NegotiationModal({
         setCounterOffer(proposedCounter);
         setMessage(replyMessage);
         setAttemptCount((prev) => prev + 1);
-        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+        triggerHaptic(Haptics?.ImpactFeedbackStyle?.Medium);
       }
     }, 1500);
   };
@@ -162,7 +179,7 @@ export function NegotiationModal({
   const submitMerchantRequest = async (evidenceUrl?: string) => {
     setStatus('processing');
     const offerAmount =
-      parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
+      Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
@@ -172,10 +189,10 @@ export function NegotiationModal({
         item_info:
           type === 'single'
             ? {
-              id: itemId || productId,
-              name: productName,
-              current_price: currentPrice,
-            }
+                id: itemId || productId,
+                name: productName,
+                current_price: currentPrice,
+              }
             : null,
         offered_price: offerAmount,
         evidence_url: evidenceUrl || null,
@@ -188,7 +205,7 @@ export function NegotiationModal({
       setMessage(
         "Request submitted! We'll notify you as soon as the merchant reviews your offer."
       );
-      triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+      triggerHaptic(Haptics?.ImpactFeedbackStyle?.Heavy);
     } catch (error) {
       log.error('Failed to submit request:', error);
       Alert.alert('Error', 'Failed to submit request. Please try again.');
@@ -199,7 +216,7 @@ export function NegotiationModal({
   const handleAcceptCounter = () => {
     if (counterOffer) {
       setStatus('success');
-      triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+      triggerHaptic(Haptics?.ImpactFeedbackStyle?.Heavy);
       onSuccess(counterOffer);
     }
   };
@@ -213,6 +230,13 @@ export function NegotiationModal({
   };
 
   const pickImage = async () => {
+    if (!ImagePicker) {
+      Alert.alert(
+        'Not Supported',
+        'Image picking is not supported on this platform.'
+      );
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.8,
@@ -293,7 +317,7 @@ export function NegotiationModal({
                     placeholder="Enter amount..."
                     placeholderTextColor={palette.gray[400]}
                     keyboardType="numeric"
-                  // autoFocus removed for accessibility compliance (jsx-a11y/no-autofocus)
+                    // autoFocus removed for accessibility compliance (jsx-a11y/no-autofocus)
                   />
                 </View>
                 <Pressable

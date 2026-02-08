@@ -10,24 +10,44 @@
  */
 
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
 import { createLogger } from '@/lib/logger';
 const log = createLogger('PushNotifications');
 
-// Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Device: any = null;
+let Notifications: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [dev, notif] = await Promise.all([
+      import('expo-device'),
+      import('expo-notifications')
+    ]);
+    Device = dev;
+    Notifications = notif;
+
+    // Configure notification behavior after successful load
+    if (Notifications) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+    }
+  } catch (e) {
+    log.debug('Native modules ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
 
 export interface PushNotificationState {
   token: string | null;
@@ -38,7 +58,8 @@ export interface PushNotificationState {
 /**
  * Request push notification permissions
  */
-export async function requestPermissions(): Promise<Notifications.PermissionStatus> {
+export async function requestPermissions(): Promise<Notifications.PermissionStatus | null> {
+  if (!Notifications) return null;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
   if (existingStatus !== 'granted') {
@@ -54,7 +75,9 @@ export async function requestPermissions(): Promise<Notifications.PermissionStat
  * Returns null if registration fails or device doesn't support push
  */
 export async function registerForPushNotifications(): Promise<string | null> {
-  // Push notifications require a physical device
+  // Push notifications require a physical device and loaded modules
+  if (!Device || !Notifications) return null;
+
   if (!Device.isDevice) {
     log.warn('Push notifications require a physical device');
     return null;
@@ -100,6 +123,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * Set up Android notification channels
  */
 async function setupAndroidChannels(): Promise<void> {
+  if (!Notifications) return;
   // Orders channel - high priority for order updates
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'Order Updates',
@@ -142,7 +166,7 @@ export async function savePushTokenToServer(
         merchant_id: merchantId || null,
         token: token,
         platform: Platform.OS,
-        device_name: Device.modelName || 'Unknown',
+        device_name: Device?.modelName || 'Unknown',
         is_active: true,
         last_used_at: new Date().toISOString(),
       },
@@ -237,7 +261,8 @@ export async function scheduleLocalNotification(
   body: string,
   data?: Record<string, unknown>,
   triggerSeconds: number = 1
-): Promise<string> {
+): Promise<string | null> {
+  if (!Notifications) return null;
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title,
@@ -260,6 +285,7 @@ export async function scheduleLocalNotification(
 export async function cancelNotification(
   notificationId: string
 ): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 
@@ -267,6 +293,7 @@ export async function cancelNotification(
  * Cancel all scheduled notifications
  */
 export async function cancelAllNotifications(): Promise<void> {
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
@@ -274,6 +301,7 @@ export async function cancelAllNotifications(): Promise<void> {
  * Get the current badge count
  */
 export async function getBadgeCount(): Promise<number> {
+  if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
 
@@ -281,6 +309,7 @@ export async function getBadgeCount(): Promise<number> {
  * Set the badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
+  if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
 

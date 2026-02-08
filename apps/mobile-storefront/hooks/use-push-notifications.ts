@@ -4,9 +4,9 @@
  */
 
 import type { EventSubscription } from 'expo-modules-core';
-import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import {
   clearBadge,
@@ -18,6 +18,20 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Notifications: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    Notifications = await import('expo-notifications');
+  } catch (e) {
+    console.debug('[PushHook] Notifications module ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
 
 interface UsePushNotificationsReturn {
   pushToken: string | null;
@@ -112,16 +126,18 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   // Set up notification listeners on mount
   useEffect(() => {
+    if (!Notifications) return;
+
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification) => {
+      Notifications.addNotificationReceivedListener((notification: any) => {
         log.info('Notification received:', notification);
         // You can show an in-app toast/banner here if desired
       });
 
     // Listener for when user taps on a notification
     responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response) => {
+      Notifications.addNotificationResponseReceivedListener((response: any) => {
         log.info('Notification tapped:', response);
         handleNotificationResponse(response, navigate);
         // Clear badge when user interacts with notification
@@ -129,7 +145,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       });
 
     // Check for notification that launched the app
-    Notifications.getLastNotificationResponseAsync().then((response) => {
+    Notifications.getLastNotificationResponseAsync().then((response: any) => {
       if (response) {
         log.info('App launched from notification:', response);
         handleNotificationResponse(response, navigate);

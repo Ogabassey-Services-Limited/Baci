@@ -23,33 +23,34 @@
  */
 
 import { createLogger } from '@/lib/logger';
+
 const log = createLogger('AdTracking');
 
 // Firebase Analytics removed due to native conflict. Using PostHog and Server-side CAPI instead.
 const _analytics = () => ({
-  setUserId: async (_: string) => { },
-  resetAnalyticsData: async () => { },
+  setUserId: async (_: string) => {},
+  resetAnalyticsData: async () => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logViewItem: async (_: any) => { },
+  logViewItem: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logAddToCart: async (_: any) => { },
+  logAddToCart: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logBeginCheckout: async (_: any) => { },
+  logBeginCheckout: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logPurchase: async (_: any) => { },
+  logPurchase: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logAddPaymentInfo: async (_: any) => { },
+  logAddPaymentInfo: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logSearch: async (_: any) => { },
-  logAppOpen: async () => { },
+  logSearch: async (_: any) => {},
+  logAppOpen: async () => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logScreenView: async (_: any) => { },
+  logScreenView: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logSignUp: async (_: any) => { },
+  logSignUp: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logLogin: async (_: any) => { },
+  logLogin: async (_: any) => {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logEvent: async (_: string, __?: any) => { },
+  logEvent: async (_: string, __?: any) => {},
 });
 
 import Constants from 'expo-constants';
@@ -59,12 +60,36 @@ import {
   requestTrackingPermissionsAsync,
 } from 'expo-tracking-transparency';
 import { Platform } from 'react-native';
-import {
-  AEMReporterIOS,
-  AppEventsLogger,
-  Settings as FBSettings,
-} from 'react-native-fbsdk-next';
-import TikTokBusiness from 'react-native-tiktok-business';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let FBSettings: any = null;
+let AppEventsLogger: any = null;
+let AEMReporterIOS: any = null;
+let TikTokBusiness: any = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [fb, tt] = await Promise.all([
+      import('react-native-fbsdk-next'),
+      import('react-native-tiktok-business'),
+    ]);
+
+    if (fb) {
+      FBSettings = fb.Settings;
+      AppEventsLogger = fb.AppEventsLogger;
+      AEMReporterIOS = fb.AEMReporterIOS;
+    }
+
+    if (tt) {
+      TikTokBusiness = tt.default || tt;
+    }
+  } catch (e) {
+    console.debug('[AdTracking] Native modules ignored or failed to load:', e);
+  }
+};
+
+loadNativeModules();
 
 // Import PostHog analytics (product analytics, not ad tracking)
 import {
@@ -101,6 +126,17 @@ let cachedUserData: {
   firstName?: string;
   lastName?: string;
 } = {};
+
+// Store merchant ID for analytics attribution
+let cachedMerchantId: string | null = null;
+
+/**
+ * Set the merchant ID for analytics attribution.
+ * Call this once when the storefront loads.
+ */
+export function setMerchantId(merchantId: string): void {
+  cachedMerchantId = merchantId;
+}
 
 // =============================================================================
 // EVENT ID GENERATION (Critical for deduplication)
@@ -141,27 +177,31 @@ function generateEventIdSync(): string {
 export async function initAdTracking(): Promise<void> {
   if (isInitialized) return;
 
+  // Ensure modules are loaded
+  if (Platform.OS !== 'web' && (!FBSettings || !TikTokBusiness)) {
+    await loadNativeModules();
+  }
+
   try {
     // 1. Check ATT permission on iOS
     if (Platform.OS === 'ios') {
       const { status } = await getTrackingPermissionsAsync();
       isTrackingAllowed = status === 'granted';
-      FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
-      // AEMReporterIOS.configure() - removed, not available in current SDK version
+      if (FBSettings) {
+        FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
+      }
     } else {
       isTrackingAllowed = true;
     }
 
     // 2. Initialize Facebook SDK (backup tracking)
-    if (FB_APP_ID && FB_CLIENT_TOKEN) {
+    if (FB_APP_ID && FB_CLIENT_TOKEN && FBSettings) {
       FBSettings.initializeSDK();
       log.info('Facebook SDK initialized (backup)');
     }
 
-    // 3. Firebase Analytics is auto-initialized
-
     // 4. Initialize TikTok SDK (backup tracking)
-    if (TIKTOK_APP_ID && TIKTOK_ACCESS_TOKEN) {
+    if (TIKTOK_APP_ID && TIKTOK_ACCESS_TOKEN && TikTokBusiness) {
       try {
         await TikTokBusiness.init({
           appId: TIKTOK_APP_ID,
@@ -196,7 +236,9 @@ export async function requestTrackingPermission(): Promise<string> {
   try {
     const { status } = await requestTrackingPermissionsAsync();
     isTrackingAllowed = status === 'granted';
-    FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
+    if (FBSettings) {
+      FBSettings.setAdvertiserTrackingEnabled(isTrackingAllowed);
+    }
     return status;
   } catch (error) {
     log.error('ATT request error:', error);
@@ -250,7 +292,7 @@ export async function identifyUser(
   // await analytics().setUserId(userId);
 
   // Facebook (only if ATT allowed)
-  if (isTrackingAllowed && properties?.email) {
+  if (isTrackingAllowed && properties?.email && AppEventsLogger) {
     AppEventsLogger.setUserData({
       email: properties.email,
       firstName: properties.firstName,
@@ -268,7 +310,9 @@ export async function resetUserIdentity(): Promise<void> {
   posthogReset();
   // No-op for Firebase
   // await analytics().resetAnalyticsData();
-  AppEventsLogger.clearUserID();
+  if (AppEventsLogger) {
+    AppEventsLogger.clearUserID();
+  }
 }
 
 // =============================================================================
@@ -311,6 +355,8 @@ async function sendServerConversion(
         event_time: Math.floor(Date.now() / 1000),
         event_source: 'mobile_app',
         platform: Platform.OS,
+        // merchant_id enables correct DB logging & multi-tenant support
+        ...(cachedMerchantId && { merchant_id: cachedMerchantId }),
         user_data: {
           em: data.email || cachedUserData.email,
           ph: data.phone || cachedUserData.phone,
@@ -358,18 +404,20 @@ function sendClientBackup(
   params: Record<string, string | number>
 ): void {
   // Facebook (backup) - include event_id for deduplication
-  AppEventsLogger.logEvent(fbEvent, value, {
-    ...params,
-    _eventId: eventId, // Facebook uses _eventId for dedup
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent(fbEvent, value, {
+      ...params,
+      _eventId: eventId, // Facebook uses _eventId for dedup
+    });
+  }
 
   // AEM for iOS (privacy-preserving backup)
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent(fbEvent, value, currency, params);
   }
 
   // TikTok (backup) - Cast to any due to SDK type mismatch
-  if (isTikTokInitialized && ttEvent) {
+  if (isTikTokInitialized && ttEvent && TikTokBusiness) {
     (
       TikTokBusiness.trackEvent as (
         name: string,
@@ -669,16 +717,18 @@ export async function trackPurchase(order: {
 
   // 4. CLIENT-SIDE (BACKUP) - with same event_id
   // Facebook
-  AppEventsLogger.logPurchase(order.total, currency, {
-    fb_order_id: order.orderId,
-    fb_content_type: 'product',
-    fb_content_id: JSON.stringify(order.items.map((i) => i.id)),
-    fb_num_items: totalItems,
-    _eventId: eventId,
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logPurchase(order.total, currency, {
+      fb_order_id: order.orderId,
+      fb_content_type: 'product',
+      fb_content_id: JSON.stringify(order.items.map((i) => i.id)),
+      fb_num_items: totalItems,
+      _eventId: eventId,
+    });
+  }
 
   // AEM for iOS
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_purchase', order.total, currency, {
       fb_order_id: order.orderId,
       fb_num_items: order.items.length,
