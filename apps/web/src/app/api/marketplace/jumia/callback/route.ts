@@ -22,25 +22,37 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     const state = searchParams.get('state');
-    const error = searchParams.get('error');
+    const rawError = searchParams.get('error');
     const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
 
-    // Jumia may return an error
-    if (error) {
+    // Map OAuth error to a known safe value to prevent reflection of arbitrary user input
+    const KNOWN_OAUTH_ERRORS = new Set([
+      'access_denied',
+      'invalid_request',
+      'unauthorized_client',
+      'server_error',
+      'temporarily_unavailable',
+      'invalid_scope',
+    ]);
+
+    if (rawError) {
+      const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
+        ? rawError
+        : 'oauth_error';
       logger.error({
         message: 'Jumia Callback OAuth error',
-        error,
+        error: safeError,
         merchantId: cookieMerchantId,
       });
       return NextResponse.redirect(
         new URL(
-          `/dashboard/channels?error=${encodeURIComponent(error)}`,
+          `/dashboard/channels?error=${encodeURIComponent(safeError)}`,
           request.url
         )
       );
     }
 
-    if (!code) {
+    if (!code || code.length > 2048) {
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=no_code', request.url)
       );
