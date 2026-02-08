@@ -52,6 +52,7 @@ import Colors, {
 import { type TextContentType, TextContentTypes } from '@/hooks/use-keyboard';
 import {
   getEnabledPaymentMethods,
+  getMerchantTaxRate,
   useMerchantPaymentSettings,
 } from '@/hooks/useMerchantPaymentSettings';
 import { calculateCommerce, supabase } from '@/lib/supabase';
@@ -651,10 +652,11 @@ export default function CheckoutScreen() {
   useEffect(() => {
     const fetchTotals = async () => {
       try {
+        const taxRate = getMerchantTaxRate(paymentSettings);
         const result = await calculateCommerce('calculate_order', {
           subtotal,
           shippingFee: deliveryFee,
-          taxRate: 0.075,
+          taxRate,
         });
         setOrderTotals(result);
       } catch {
@@ -662,7 +664,7 @@ export default function CheckoutScreen() {
       }
     };
     fetchTotals();
-  }, [subtotal, deliveryFee]);
+  }, [subtotal, deliveryFee, paymentSettings]);
 
   const total = orderTotals?.total || subtotal + deliveryFee;
   // Show subtotal + delivery (no VAT) in steps 1 & 2; full total in Review

@@ -88,10 +88,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
               </div>
 
               <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-primary dark:text-white leading-[1.3] text-center">
-                <span className="block whitespace-nowrap overflow-visible">
+                <span className="block sm:whitespace-nowrap overflow-visible">
                   Build Your <TypingAnimation /> Store
                 </span>
-                <span className="block whitespace-nowrap mt-2">
+                <span className="block sm:whitespace-nowrap mt-2">
                   with Bac
                   <span className="relative inline-block">
                     ı

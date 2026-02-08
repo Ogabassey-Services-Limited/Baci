@@ -406,8 +406,15 @@ export default function OnboardingForm() {
       );
     if (step === 2) return !errors.logoUrl && !errors.brandColors;
     if (step === 3) {
-      // For step 3, check: email valid, password strong enough (8+ chars), passwords match
+      // For step 3, check: email valid
       const hasValidEmail = !!formEmail && !errors.email;
+
+      // If user is already authenticated (e.g. via Magic Link), password is not required
+      if (user) {
+        return hasValidEmail;
+      }
+
+      // If no user, check password strong enough (8+ chars), and passwords match
       const hasStrongPassword = !!formPassword && formPassword.length >= 8;
       const passwordsMatch = formPassword === formConfirmPassword;
       const noPasswordErrors = !errors.password && !errors.confirmPassword;

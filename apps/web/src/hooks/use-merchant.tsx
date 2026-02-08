@@ -97,6 +97,13 @@ export interface MerchantData {
   snapchat_capi_token?: string;
   twitter_pixel_id?: string;
   virtual_terminal_code?: string;
+  // VAT settings
+  vat_registration_status?:
+    | 'not_registered'
+    | 'registered'
+    | 'exempt'
+    | 'pending';
+  vat_rate?: number;
 }
 
 export type StaffRole =
