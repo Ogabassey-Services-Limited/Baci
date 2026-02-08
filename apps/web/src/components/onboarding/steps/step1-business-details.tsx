@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -44,8 +44,11 @@ interface Step1Props {
 }
 
 export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
-  const { control, watch, setValue } = useFormContext<OnboardingFormValues>();
-  const businessTypeValue = watch('businessType');
+  const { control, setValue } = useFormContext<OnboardingFormValues>();
+  const businessTypeValue = useWatch({
+    control,
+    name: 'businessType',
+  });
   const businessTypes = useMemo(() => getAllBusinessTypes(), []);
 
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
@@ -62,7 +65,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
             </FormLabel>
             <Select
               onValueChange={field.onChange}
-              defaultValue={field.value}
+              value={field.value}
               name="businessType"
             >
               <FormControl>

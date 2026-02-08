@@ -127,7 +127,7 @@ export function TypingAnimation() {
   }, []);
 
   return (
-    <span className="inline-flex justify-start min-w-[180px] sm:min-w-[220px] relative z-10">
+    <span className="inline-flex justify-center min-w-[80px] sm:min-w-[220px] relative z-10">
       <span className="sr-only">E-commerce</span>
       <span
         aria-hidden="true"

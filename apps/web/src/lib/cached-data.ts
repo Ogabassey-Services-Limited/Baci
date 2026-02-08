@@ -124,6 +124,13 @@ export interface CachedMerchant {
   favicon_svg_url?: string;
   favicon_png_32_url?: string;
   favicon_apple_touch_url?: string;
+  // VAT settings
+  vat_registration_status?:
+    | 'not_registered'
+    | 'registered'
+    | 'exempt'
+    | 'pending';
+  vat_rate?: number;
   // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic JSON types
   feature_settings?: any;
 }
@@ -162,6 +169,8 @@ export const getCachedMerchant = unstable_cache(
         favicon_svg_url,
         favicon_png_32_url,
         favicon_apple_touch_url,
+        vat_registration_status,
+        vat_rate,
         feature_settings:merchant_feature_settings(*)
       `)
       .eq('slug', slug)
@@ -295,6 +304,8 @@ export const getCachedMerchantByDomain = unstable_cache(
         favicon_svg_url,
         favicon_png_32_url,
         favicon_apple_touch_url,
+        vat_registration_status,
+        vat_rate,
         feature_settings:merchant_feature_settings(*)
       `)
       .eq('id', domainData.merchant_id)
@@ -402,7 +413,9 @@ export const getCachedMerchantById = unstable_cache(
         hero_slides,
         favicon_svg_url,
         favicon_png_32_url,
-        favicon_apple_touch_url
+        favicon_apple_touch_url,
+        vat_registration_status,
+        vat_rate
       `)
       .eq('id', merchantId)
       .single();

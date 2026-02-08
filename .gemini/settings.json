@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "context7": {
-      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "command": "/usr/local/bin/npx",
       "args": [
         "-y",
         "@upstash/context7-mcp"
@@ -12,7 +12,7 @@
       }
     },
     "supabase": {
-      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "command": "/usr/local/bin/npx",
       "args": [
         "-y",
         "supabase-mcp"
@@ -23,5 +23,6 @@
         "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}"
       }
     }
-  }
+  },
+  "contextFileName": "AGENTS.md"
 }

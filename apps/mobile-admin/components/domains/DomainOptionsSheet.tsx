@@ -4,24 +4,13 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-
-interface Domain {
-  id: string;
-  domain: string;
-  is_primary: boolean;
-  status: 'active' | 'pending' | 'failed' | 'verifying';
-  domain_type: 'subdomain' | 'custom' | 'purchased';
-  created_at: string;
-}
+import type { Domain, DomainAction } from './domain-types';
 
 interface DomainOptionsSheetProps {
   visible: boolean;
   domain: Domain | null;
   onClose: () => void;
-  onAction: (
-    action: 'visit' | 'verify' | 'set_primary' | 'delete',
-    domain: Domain
-  ) => void;
+  onAction: (action: DomainAction, domain: Domain) => void;
 }
 
 export default function DomainOptionsSheet({
@@ -47,7 +36,7 @@ export default function DomainOptionsSheet({
   }, []);
 
   const handleAction = useCallback(
-    (action: 'visit' | 'verify' | 'set_primary' | 'delete') => {
+    (action: DomainAction) => {
       if (!domain) return;
       onClose();
       // Clear any existing timeout before setting a new one

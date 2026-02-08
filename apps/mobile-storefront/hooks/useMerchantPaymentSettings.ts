@@ -14,6 +14,8 @@ interface PaymentSettings {
   credpal_enabled: boolean;
   credit_direct_enabled: boolean;
   pay_on_delivery_enabled: boolean;
+  vat_registration_status: string;
+  vat_rate: number;
 }
 
 /**
@@ -35,6 +37,19 @@ export function useMerchantPaymentSettings() {
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
+}
+
+/**
+ * Get the tax rate for order calculations.
+ * Returns 0 if merchant is not VAT-registered, otherwise the merchant's rate as a decimal.
+ */
+export function getMerchantTaxRate(
+  settings: PaymentSettings | undefined | null
+): number {
+  if (!settings || settings.vat_registration_status !== 'registered') {
+    return 0;
+  }
+  return (settings.vat_rate ?? 7.5) / 100;
 }
 
 /**

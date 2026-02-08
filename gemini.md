@@ -149,3 +149,39 @@ Configuration-driven system to manage business types.
 ### How to Verify Mobile Builds
 1.  Check `baci-mobile-storefront/app.json` for the correct `bundleIdentifier`.
 2.  Ensure `expo.extra.supabaseUrl` matches the project environment.
+
+---
+
+## Testing & Modularity Enforcement
+
+### Mandatory Test Coverage
+
+Every new or significantly modified file MUST have a colocated test file:
+
+| Source File | Test File |
+|-------------|-----------|
+| `MyComponent.tsx` | `MyComponent.test.tsx` |
+| `useMyHook.ts` | `useMyHook.test.ts` |
+| `my-util.ts` | `my-util.test.ts` |
+| `route.ts` (API) | `route.test.ts` |
+| `my-schema.ts` (Zod) | `my-schema.test.ts` |
+
+**Requires tests:** New components, hooks, utilities, API routes, Zod schemas, bug fixes.
+**Exempt:** Type files, config constants, barrel re-exports, CSS, docs.
+
+### Test Quality Standards
+
+- AAA pattern: Arrange, Act, Assert
+- Descriptive names: `it('returns 401 when user is not authenticated')`
+- Test both success AND error paths
+- No implementation details — test behavior only
+- No flaky tests (no timing dependencies, no randomness)
+- Use `screen.getByRole()` over `getByTestId()`
+
+### Modularity Rules
+
+- One component, hook, or utility per file. Max 300 lines per file
+- Extract shared logic into `packages/shared/src/`
+- Move inline Zod schemas to `schemas/` directory
+- No God components — split if doing 3+ unrelated things
+- Extract complex `useEffect` logic into custom hooks

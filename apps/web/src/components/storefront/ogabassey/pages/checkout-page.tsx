@@ -857,13 +857,17 @@ export const CheckoutPage: React.FC = () => {
   const remainingAmount = total - walletAmountUsed;
 
 
+  const taxRate = merchant?.vat_registration_status === 'registered'
+    ? (merchant.vat_rate ?? 7.5) / 100
+    : 0;
+
   useEffect(() => {
     const fetchTotals = async () => {
       try {
         const result = await calculateCommerce('calculate_order', {
           subtotal: cartTotal,
           shippingFee: deliveryCost,
-          taxRate: 0.075 // Nigeria Standard
+          taxRate,
         });
         setOrderTotals(result);
       } catch (err) {
@@ -871,7 +875,7 @@ export const CheckoutPage: React.FC = () => {
       }
     };
     fetchTotals();
-  }, [cartTotal, deliveryCost]);
+  }, [cartTotal, deliveryCost, taxRate]);
 
   // Handler for direct payment execution (CredPal/Credit Direct)
   const executeDirectPayment = async () => {
