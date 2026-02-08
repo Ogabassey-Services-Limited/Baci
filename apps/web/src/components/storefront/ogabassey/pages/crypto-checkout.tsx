@@ -230,7 +230,7 @@ export function CryptoCheckoutPage() {
       setStatus('confirmed');
       window.parent?.postMessage(
         JSON.stringify({ type: 'crypto_success', orderId: cryptoData?.orderId }),
-        '*'
+        window.location.origin
       );
       setTimeout(() => {
         const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
