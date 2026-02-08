@@ -25,6 +25,56 @@ export async function GET(request: NextRequest) {
     const rawError = searchParams.get('error');
     const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
 
+    // ── Security checks FIRST — must not be bypassable by query params ──
+
+    // 1. CSRF: verify state matches (OAuth 2.0 §10.12)
+    const storedState = request.cookies.get('jumia_oauth_state')?.value;
+
+    if (!storedState || storedState !== state) {
+      logger.error({
+        message: 'Jumia Callback State mismatch',
+        state: `${state?.slice(0, 8)}...`,
+        storedState: `${storedState?.slice(0, 8)}...`,
+      });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=invalid_state', request.url)
+      );
+    }
+
+    // 2. Auth: verify user session
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      logger.error({
+        message: 'Jumia Callback Unauthorized',
+        error: auth.error,
+      });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=session_expired', request.url)
+      );
+    }
+
+    // 3. Merchant: verify ownership
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
+      logger.error({ message: 'Jumia Callback Merchant not found' });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=merchant_not_found', request.url)
+      );
+    }
+
+    if (cookieMerchantId && cookieMerchantId !== merchantId) {
+      logger.error({
+        message: 'Jumia Callback Merchant mismatch',
+        cookieMerchantId,
+        merchantId,
+      });
+      return NextResponse.redirect(
+        new URL('/dashboard/channels?error=session_expired', request.url)
+      );
+    }
+
+    // ── OAuth response handling (after security checks pass) ──
+
     // Map OAuth error to a known safe value to prevent reflection of arbitrary user input
     const KNOWN_OAUTH_ERRORS = new Set([
       'access_denied',
@@ -42,7 +92,7 @@ export async function GET(request: NextRequest) {
       logger.error({
         message: 'Jumia Callback OAuth error',
         error: safeError,
-        merchantId: cookieMerchantId,
+        merchantId,
       });
       return NextResponse.redirect(
         new URL(
@@ -55,50 +105,6 @@ export async function GET(request: NextRequest) {
     if (!code || code.length > 2048) {
       return NextResponse.redirect(
         new URL('/dashboard/channels?error=no_code', request.url)
-      );
-    }
-
-    // Verify state matches
-    const storedState = request.cookies.get('jumia_oauth_state')?.value;
-
-    if (!storedState || storedState !== state) {
-      logger.error({
-        message: 'Jumia Callback State mismatch',
-        state: `${state?.slice(0, 8)}...`,
-        storedState: `${storedState?.slice(0, 8)}...`,
-      });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=invalid_state', request.url)
-      );
-    }
-
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      logger.error({
-        message: 'Jumia Callback Unauthorized',
-        error: auth.error,
-      });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
-      );
-    }
-
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    if (!merchantId) {
-      logger.error({ message: 'Jumia Callback Merchant not found' });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=merchant_not_found', request.url)
-      );
-    }
-
-    if (cookieMerchantId && cookieMerchantId !== merchantId) {
-      logger.error({
-        message: 'Jumia Callback Merchant mismatch',
-        cookieMerchantId,
-        merchantId,
-      });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
       );
     }
 
