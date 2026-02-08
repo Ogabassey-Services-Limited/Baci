@@ -57,7 +57,10 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     console.log(
-      `[API/Orders] Fetching order ${id}. User present: ${!!user}, merchant_slug: ${merchantSlug}`
+      '[API/Orders] Fetching order %s. User present: %s, merchant_slug: %s',
+      id,
+      !!user,
+      merchantSlug
     );
 
     if (user) {
@@ -94,10 +97,12 @@ export async function GET(
       if (orderError || !order) {
         // Fall through to public lookup if not found by session (e.g. guest order, different account)
         console.debug(
-          `[API/Orders] Order ${id} not found via session lookup. Error: ${orderError?.message}`
+          '[API/Orders] Order %s not found via session lookup. Error:',
+          id,
+          orderError?.message
         );
       } else {
-        console.log(`[API/Orders] Found order ${id} via session lookup.`);
+        console.log('[API/Orders] Found order %s via session lookup.', id);
         const { data: items, error: itemsError } = await supabase
           .from('order_items')
           .select('id, product_id, product_name:name, quantity, price')
@@ -123,10 +128,15 @@ export async function GET(
     // Use admin client to fetch order by ID, validating merchant ownership.
     // This enables BNPL launcher and other checkout flows that don't have
     // auth cookies or tracking tokens (e.g. mobile WebView, guest checkout).
-    const proxyMerchantSlug = request.headers.get('x-merchant-slug');
+    const rawProxySlug = request.headers.get('x-merchant-slug');
+    // Sanitize header value before logging to prevent log injection
+    const proxyMerchantSlug = rawProxySlug
+      ? rawProxySlug.replace(/[\n\r\t]/g, '').slice(0, 100)
+      : null;
     if (proxyMerchantSlug && isValidUuid(id)) {
       console.log(
-        `[API/Orders] Attempting header-based lookup for slug: ${proxyMerchantSlug}`
+        '[API/Orders] Attempting header-based lookup for slug:',
+        proxyMerchantSlug
       );
       const admin = createAdminClient();
 
@@ -138,7 +148,9 @@ export async function GET(
 
       if (merchant) {
         console.log(
-          `[API/Orders] Found merchant ${merchant.id} for slug ${proxyMerchantSlug}`
+          '[API/Orders] Found merchant %s for slug %s',
+          merchant.id,
+          proxyMerchantSlug
         );
         const { data: order, error: orderError } = await admin
           .from('orders')
@@ -153,7 +165,8 @@ export async function GET(
 
         if (!orderError && order) {
           console.log(
-            `[API/Orders] Found order ${id} via header-based lookup.`
+            '[API/Orders] Found order %s via header-based lookup.',
+            id
           );
           const { data: items } = await admin
             .from('order_items')
@@ -168,12 +181,15 @@ export async function GET(
           });
         } else {
           console.debug(
-            `[API/Orders] Order ${id} not found for merchant ${merchant.id} via header.`
+            '[API/Orders] Order %s not found for merchant %s via header.',
+            id,
+            merchant.id
           );
         }
       } else {
         console.debug(
-          `[API/Orders] Merchant not found for header slug: ${proxyMerchantSlug}`
+          '[API/Orders] Merchant not found for header slug: %s',
+          proxyMerchantSlug
         );
       }
       // Fall through to other lookup methods if merchant/order not found
@@ -189,7 +205,8 @@ export async function GET(
     // Direct lookup by merchant_slug + order UUID (for BNPL launcher, guest checkout flows)
     if (!token && !email && isValidUuid(id)) {
       console.log(
-        `[API/Orders] Attempting slug-based public lookup for merchant_slug: ${merchantSlug}`
+        '[API/Orders] Attempting slug-based public lookup for merchant_slug: %s',
+        merchantSlug
       );
       const admin = createAdminClient();
       const { data: merchantRow } = await admin
@@ -200,7 +217,9 @@ export async function GET(
 
       if (merchantRow) {
         console.log(
-          `[API/Orders] Found merchant ${merchantRow.id} for slug ${merchantSlug}`
+          '[API/Orders] Found merchant %s for slug %s',
+          merchantRow.id,
+          merchantSlug
         );
         const { data: order, error: orderError } = await admin
           .from('orders')
@@ -214,7 +233,7 @@ export async function GET(
           .single();
 
         if (!orderError && order) {
-          console.log(`[API/Orders] Found order ${id} via slug-based lookup.`);
+          console.log('[API/Orders] Found order %s via slug-based lookup.', id);
           const { data: items } = await admin
             .from('order_items')
             .select('id, product_id, product_name:name, quantity, price')
@@ -228,12 +247,16 @@ export async function GET(
           });
         } else {
           console.warn(
-            `[API/Orders] Order ${id} not found for merchant ${merchantRow.id} via slug. Error: ${orderError?.message}`
+            '[API/Orders] Order %s not found for merchant %s via slug. Error:',
+            id,
+            merchantRow.id,
+            orderError?.message
           );
         }
       } else {
         console.warn(
-          `[API/Orders] Merchant row not found for slug: ${merchantSlug}`
+          '[API/Orders] Merchant row not found for slug: %s',
+          merchantSlug
         );
       }
 

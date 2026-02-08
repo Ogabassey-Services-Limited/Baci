@@ -195,11 +195,11 @@ export default function AccountScreen() {
                 );
                 if (!url) return null;
 
-                let icon = 'logo-instagram';
+                let icon: string;
                 let label =
                   platform.charAt(0).toUpperCase() + platform.slice(1);
                 const subLabel = `@${handle} • Official`;
-                let color = '#E1306C';
+                let color: string;
 
                 switch (platform) {
                   case 'instagram':

@@ -53,8 +53,7 @@ export function Footer() {
       const url = normalizeSocialUrl(handle, platform as SocialPlatform);
       if (!url) return null;
 
-      let icon: React.ComponentProps<typeof Ionicons>['name'] =
-        'logo-instagram';
+      let icon: React.ComponentProps<typeof Ionicons>['name'];
 
       switch (platform) {
         case 'instagram':

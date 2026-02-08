@@ -418,7 +418,8 @@ async function initializeJuicyway(
 
           if (!pollResult.success) {
             console.error(
-              `Poll attempt ${pollAttempt} failed:`,
+              'Poll attempt %d failed:',
+              pollAttempt,
               pollResult.error
             );
             continue;
@@ -429,7 +430,10 @@ async function initializeJuicyway(
           paymentMethod = polledData.payment?.payment_method;
 
           console.log(
-            `Poll attempt ${pollAttempt}: Status=${polledData.payment?.status}, Address=${paymentMethod?.address ? 'ready' : 'pending'}`
+            'Poll attempt %d: Status=%s, Address=%s',
+            pollAttempt,
+            polledData.payment?.status,
+            paymentMethod?.address ? 'ready' : 'pending'
           );
 
           if (paymentMethod?.address) {
@@ -887,7 +891,8 @@ export async function POST(request: NextRequest) {
       const message =
         gatewayError instanceof Error ? gatewayError.message : 'Unknown error';
       console.error(
-        `Gateway initialization failed [${gateway}]:`,
+        'Gateway initialization failed [%s]:',
+        gateway,
         gatewayError
       );
       return createErrorResponse(

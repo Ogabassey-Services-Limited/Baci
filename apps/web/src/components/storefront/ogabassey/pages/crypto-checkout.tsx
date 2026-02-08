@@ -201,7 +201,7 @@ export function CryptoCheckoutPage() {
         // Post message for mobile WebView to detect
         window.parent?.postMessage(
           JSON.stringify({ type: 'crypto_success', orderId: cryptoData?.orderId }),
-          '*'
+          window.location.origin
         );
         // Redirect after short delay
         setTimeout(() => {
