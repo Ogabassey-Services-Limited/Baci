@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
+import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
@@ -49,7 +50,11 @@ import Colors, {
   SPACING,
 } from '@/constants/Colors';
 import { type TextContentType, TextContentTypes } from '@/hooks/use-keyboard';
-import { calculateCommerce } from '@/lib/supabase';
+import {
+  getEnabledPaymentMethods,
+  useMerchantPaymentSettings,
+} from '@/hooks/useMerchantPaymentSettings';
+import { calculateCommerce, supabase } from '@/lib/supabase';
 import { ShippingAddressSchema } from '@/lib/validation';
 import {
   trackCheckoutStarted,
@@ -100,6 +105,12 @@ const API_BASE_URL =
   Constants.expoConfig?.extra?.apiUrl ||
   'https://ogabassey.usebaci.com';
 
+const MERCHANT_ID =
+  Constants.expoConfig?.extra?.merchantId ||
+  '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
+
 const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   paystack: 'Card Payment (Paystack)',
   korapay: 'Card Payment (Korapay)',
@@ -107,6 +118,7 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   pay_on_delivery: 'Pay on Delivery',
   credpal: 'CredPal (Buy Now Pay Later)',
   credit_direct: 'Credit Direct (Installments)',
+  juicyway: 'Crypto (Juicyway)',
 };
 
 const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
@@ -134,6 +146,7 @@ const GOOGLE_STATE_ALIASES: Record<string, string> = {
 const TEXT_CONTENT_TYPE_MAP: Partial<
   Record<keyof ShippingAddressInput, TextContentType>
 > = {
+  email: TextContentTypes.emailAddress,
   firstName: TextContentTypes.givenName,
   lastName: TextContentTypes.familyName,
   phone: TextContentTypes.telephoneNumber,
@@ -144,6 +157,7 @@ const TEXT_CONTENT_TYPE_MAP: Partial<
 const AUTO_COMPLETE_MAP: Partial<
   Record<keyof ShippingAddressInput, TextInputAutoComplete>
 > = {
+  email: 'email',
   firstName: 'name-given',
   lastName: 'name-family',
   phone: 'tel',
@@ -170,12 +184,6 @@ function normalizeStateName(
   return trimmed;
 }
 
-/**
- * Regex that matches characters forbidden in name fields (digits + whitespace).
- * Used by blockDigits to strip these before they can render.
- */
-const BLOCKED_NAME_CHARS = /[\d\s]/g;
-
 function FormField({
   name,
   label,
@@ -189,8 +197,8 @@ function FormField({
   returnKeyType = 'next',
   onSubmitEditing,
   transformText,
-  blockDigits = false,
   maxLength,
+  autoCapitalize,
 }: {
   name: keyof ShippingAddressInput;
   label: string;
@@ -204,11 +212,9 @@ function FormField({
   returnKeyType?: 'next' | 'done' | 'go';
   onSubmitEditing?: () => void;
   transformText?: (value: string, previous: string) => string;
-  blockDigits?: boolean;
   maxLength?: number;
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
 }) {
-  const inputRef = useRef<TextInput>(null);
-
   return (
     <View style={[styles.inputGroup, containerStyle]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -217,51 +223,45 @@ function FormField({
       <Controller
         control={control}
         name={name}
-        render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            ref={inputRef}
-            style={[
-              styles.input,
-              multiline && styles.multilineInput,
-              { backgroundColor: colors.card, color: colors.text },
-              { borderColor: errors[name] ? '#EF4444' : colors.border },
-            ]}
-            value={typeof value === 'string' ? value : ''}
-            onChangeText={(text) => {
-              const currentValue = typeof value === 'string' ? value : '';
-              let processed = transformText
-                ? transformText(text, currentValue)
-                : text;
+        render={({ field: { onChange, onBlur, value } }) => {
+          const stringValue = typeof value === 'string' ? value : '';
 
-              if (blockDigits) {
-                // Strip digits and spaces before they can render
-                processed = processed.replace(BLOCKED_NAME_CHARS, '');
-                // Immediately revert native text if anything was stripped
-                if (processed !== text) {
-                  inputRef.current?.setNativeProps({ text: processed });
+          return (
+            <TextInput
+              style={[
+                styles.input,
+                multiline && styles.multilineInput,
+                { backgroundColor: colors.card, color: colors.text },
+                { borderColor: errors[name] ? '#EF4444' : colors.border },
+              ]}
+              value={stringValue}
+              onChangeText={(text) => {
+                const currentValue = stringValue;
+                const processed = transformText
+                  ? transformText(text, currentValue)
+                  : text;
+                if (processed !== currentValue) {
+                  onChange(processed);
                 }
-              }
-
-              if (processed !== currentValue) {
-                onChange(processed);
-              }
-            }}
-            onBlur={onBlur}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
-            keyboardType={keyboardType}
-            multiline={multiline}
-            numberOfLines={multiline ? 2 : 1}
-            accessibilityLabel={label}
-            accessibilityHint={`Enter your ${label}`}
-            textContentType={TEXT_CONTENT_TYPE_MAP[name]}
-            autoComplete={AUTO_COMPLETE_MAP[name]}
-            returnKeyType={multiline ? 'default' : returnKeyType}
-            blurOnSubmit={!multiline}
-            onSubmitEditing={onSubmitEditing}
-          />
-        )}
+              }}
+              onBlur={onBlur}
+              maxLength={maxLength}
+              placeholder={placeholder}
+              placeholderTextColor={colors.textSecondary}
+              keyboardType={keyboardType}
+              multiline={multiline}
+              numberOfLines={multiline ? 2 : 1}
+              accessibilityLabel={label}
+              accessibilityHint={`Enter your ${label}`}
+              textContentType={TEXT_CONTENT_TYPE_MAP[name]}
+              autoComplete={AUTO_COMPLETE_MAP[name]}
+              autoCapitalize={autoCapitalize}
+              returnKeyType={multiline ? 'default' : returnKeyType}
+              blurOnSubmit={!multiline}
+              onSubmitEditing={onSubmitEditing}
+            />
+          );
+        }}
       />
       {errors[name] && (
         <Text style={styles.fieldError} accessibilityLiveRegion="polite">
@@ -282,19 +282,10 @@ type FetchQuotesArgs = {
   watchedLastName: string;
   watchedPhone: string;
   watchedAddress: string;
+  watchedEmail: string;
   setIsLoadingQuotes: (value: boolean) => void;
   setSelectedQuoteId: (value: string) => void;
   setShippingQuotes: (value: ShippingQuote[]) => void;
-  setShippingDebug: (
-    value: {
-      apiUrl: string;
-      status: number | null;
-      ok: boolean;
-      quotes: number;
-      warnings?: string[];
-      error?: string;
-    } | null
-  ) => void;
 };
 
 const fetchShippingQuotes = async ({
@@ -307,10 +298,10 @@ const fetchShippingQuotes = async ({
   watchedLastName,
   watchedPhone,
   watchedAddress,
+  watchedEmail,
   setIsLoadingQuotes,
   setSelectedQuoteId,
   setShippingQuotes,
-  setShippingDebug,
 }: FetchQuotesArgs) => {
   if (!state || !city || items.length === 0) return;
 
@@ -326,7 +317,7 @@ const fetchShippingQuotes = async ({
           name:
             `${watchedFirstName} ${watchedLastName}`.trim() ||
             'Valued Customer',
-          email: customer?.email || 'guest@example.com',
+          email: customer?.email || watchedEmail || 'guest@example.com',
           phone: watchedPhone || '',
           address: watchedAddress || `${city}, ${state}`,
           city,
@@ -346,13 +337,6 @@ const fetchShippingQuotes = async ({
       const data: QuoteResponse & { warnings?: string[] } = await res.json();
       const quotes = data.quotes?.all || [];
       setShippingQuotes(quotes);
-      setShippingDebug({
-        apiUrl,
-        status: res.status,
-        ok: true,
-        quotes: quotes.length,
-        warnings: data.warnings,
-      });
 
       if (quotes.length > 0) {
         const cheapest = quotes.reduce((prev, current) =>
@@ -361,25 +345,10 @@ const fetchShippingQuotes = async ({
         setSelectedQuoteId(String(cheapest.id));
       }
     } else {
-      const errorText = await res.text();
       setShippingQuotes([]);
-      setShippingDebug({
-        apiUrl,
-        status: res.status,
-        ok: false,
-        quotes: 0,
-        error: errorText.slice(0, 300),
-      });
     }
   } catch (_error) {
     setShippingQuotes([]);
-    setShippingDebug({
-      apiUrl,
-      status: null,
-      ok: false,
-      quotes: 0,
-      error: _error instanceof Error ? _error.message : 'Unknown error',
-    });
   } finally {
     setIsLoadingQuotes(false);
   }
@@ -393,6 +362,9 @@ export default function CheckoutScreen() {
   const subtotal = useCartStore((state) => state.subtotal());
   const clearCart = useCartStore((state) => state.clearCart);
   const customer = useAuthStore((state) => state.customer);
+
+  const { data: paymentSettings } = useMerchantPaymentSettings();
+  const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -409,14 +381,6 @@ export default function CheckoutScreen() {
   const [shippingQuotes, setShippingQuotes] = React.useState<ShippingQuote[]>(
     []
   );
-  const [shippingDebug, setShippingDebug] = React.useState<{
-    apiUrl: string;
-    status: number | null;
-    ok: boolean;
-    quotes: number;
-    warnings?: string[];
-    error?: string;
-  } | null>(null);
   const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>('');
   const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
   const [isLoadingCities, setIsLoadingCities] = React.useState(false);
@@ -424,6 +388,25 @@ export default function CheckoutScreen() {
   const [showStatePicker, setShowStatePicker] = React.useState(false);
   const [showCityPicker, setShowCityPicker] = React.useState(false);
   const [citySearch, setCitySearch] = React.useState('');
+  const [saveDetails, setSaveDetails] = React.useState(false);
+  const [accountPassword, setAccountPassword] = React.useState('');
+
+  // Crypto payment inline modal state
+  const [cryptoPayment, setCryptoPayment] = React.useState<{
+    orderId: string;
+    orderNumber: string;
+    address: string;
+    chain: string;
+    currency: string;
+    amount: number;
+    cryptoAmount: string;
+    confirmationTime: string;
+    reference: string;
+    paymentId: string;
+  } | null>(null);
+  const [copiedCryptoField, setCopiedCryptoField] = React.useState<
+    string | null
+  >(null);
 
   const {
     control,
@@ -437,6 +420,7 @@ export default function CheckoutScreen() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ShippingAddressSchema as any),
     defaultValues: {
+      email: customer?.email || '',
       firstName: customer?.first_name || '',
       lastName: customer?.last_name || '',
       phone: customer?.phone || '',
@@ -454,6 +438,7 @@ export default function CheckoutScreen() {
   const watchedPhone = watch('phone');
   const watchedFirstName = watch('firstName');
   const watchedLastName = watch('lastName');
+  const watchedEmail = watch('email');
 
   const hasTrackedStart = useRef(false);
   const isOrderInFlight = useRef(false);
@@ -473,6 +458,24 @@ export default function CheckoutScreen() {
     }
   }, [items, subtotal]);
 
+  // Reset payment method if current selection is not in enabled list
+  useEffect(() => {
+    if (
+      enabledPaymentMethods.length > 0 &&
+      !enabledPaymentMethods.includes(selectedPayment)
+    ) {
+      setSelectedPayment(enabledPaymentMethods[0]);
+      // Reset to full tab if BNPL methods are disabled
+      if (paymentTab === 'installments') {
+        const hasBNPL = enabledPaymentMethods.some(
+          (m) => m === 'credpal' || m === 'credit_direct'
+        );
+        if (!hasBNPL) setPaymentTab('full');
+      }
+    }
+  }, [enabledPaymentMethods, selectedPayment, paymentTab]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization
   const handleBack = () => {
     if (step === 'payment') {
       setStep('address');
@@ -619,10 +622,10 @@ export default function CheckoutScreen() {
         watchedLastName,
         watchedPhone,
         watchedAddress,
+        watchedEmail,
         setIsLoadingQuotes,
         setSelectedQuoteId,
         setShippingQuotes,
-        setShippingDebug,
       });
     } else {
       setShippingQuotes([]);
@@ -637,6 +640,7 @@ export default function CheckoutScreen() {
     watchedLastName,
     watchedPhone,
     watchedAddress,
+    watchedEmail,
   ]);
 
   const selectedQuote = shippingQuotes.find(
@@ -661,6 +665,8 @@ export default function CheckoutScreen() {
   }, [subtotal, deliveryFee]);
 
   const total = orderTotals?.total || subtotal + deliveryFee;
+  // Show subtotal + delivery (no VAT) in steps 1 & 2; full total in Review
+  const displayTotal = step === 'review' ? total : subtotal + deliveryFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
     trackCheckoutStep('shipping_info', {
@@ -695,7 +701,8 @@ export default function CheckoutScreen() {
     setCitySearch('');
   };
 
-  const handlePlaceOrder = async () => {
+  // 2026 Fix: Renamed to onCheckoutSubmit to work with handleSubmit
+  const onCheckoutSubmit = async (address: ShippingAddressInput) => {
     if (isOrderInFlight.current || isProcessing) {
       return;
     }
@@ -717,8 +724,9 @@ export default function CheckoutScreen() {
     try {
       trackCheckoutStep('review');
 
-      const address = getValues();
-      const customerEmail = customer?.email || '';
+      // 2026 Fix: Use validated address from handleSubmit instead of getValues()
+      // const address = getValues(); // Removed to prevent bypass
+      const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
 
@@ -731,12 +739,17 @@ export default function CheckoutScreen() {
           customer_name: customerName,
           customer_phone: customerPhone,
           items: items.map((item) => ({
-            id: item.id,
-            product_id: item.id,
+            id: item.product_id,
+            product_id: item.product_id,
             name: item.name,
             quantity: item.quantity,
             price: item.price,
             image_url: item.image_url,
+            variant_id: item.variant_id,
+            has_assurance: item.hasAssurance || false,
+            assurance_fee: item.hasAssurance
+              ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+              : 0,
           })),
           subtotal,
           shipping_fee: deliveryFee,
@@ -755,7 +768,7 @@ export default function CheckoutScreen() {
             customerEmail,
             customerName,
             customerPhone,
-            merchantSlug: 'ogabassey',
+            merchantSlug: MERCHANT_SLUG,
           },
         });
         setIsProcessing(false);
@@ -767,12 +780,17 @@ export default function CheckoutScreen() {
         customer_name: customerName,
         customer_phone: customerPhone,
         items: items.map((item) => ({
-          id: item.id,
-          product_id: item.id,
+          id: item.product_id,
+          product_id: item.product_id,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
           image_url: item.image_url,
+          variant_id: item.variant_id,
+          has_assurance: item.hasAssurance || false,
+          assurance_fee: item.hasAssurance
+            ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+            : 0,
         })),
         subtotal,
         shipping_fee: deliveryFee,
@@ -805,8 +823,162 @@ export default function CheckoutScreen() {
         1
       );
 
-      clearCart();
+      // Silent account creation for guests who opted in
+      if (saveDetails && accountPassword.length >= 6) {
+        try {
+          await supabase.auth.signUp({
+            email: customerEmail,
+            password: accountPassword,
+            options: {
+              data: {
+                first_name: address.firstName,
+                last_name: address.lastName,
+                phone: address.phone,
+              },
+            },
+          });
+        } catch {
+          // Non-blocking: order already placed, account creation is best-effort
+        }
+      }
 
+      // Route based on payment method
+      const isOnlinePayment =
+        selectedPayment === 'paystack' || selectedPayment === 'korapay';
+      const isBankTransfer = selectedPayment === 'bank_transfer';
+      const isJuicyway = selectedPayment === 'juicyway';
+
+      // Juicyway crypto: initialize inline and show wallet address modal
+      if (isJuicyway) {
+        const initResponse = await fetch(
+          `${API_BASE_URL}/api/payments/initialize`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              merchant_id: MERCHANT_ID,
+              order_id: order.id,
+              amount: orderResponse.amountDueToGateway,
+              currency: 'NGN',
+              customer_email: customerEmail,
+              customer_name: customerName,
+              customer_phone: customerPhone,
+              gateway: 'juicyway',
+              crypto_chain: 'TRX',
+              crypto_currency: 'USDT',
+            }),
+          }
+        );
+
+        const initData = await initResponse.json();
+
+        if (!initResponse.ok || !initData.success) {
+          throw new OrderError(
+            initData.error || 'Failed to initialize crypto payment',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        if (!initData.crypto_payment?.address) {
+          throw new OrderError(
+            'Failed to generate crypto wallet address. Please try again.',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        setIsProcessing(false);
+        isOrderInFlightRef.current = false;
+
+        const cp = initData.crypto_payment;
+        setCryptoPayment({
+          orderId: order.id,
+          orderNumber,
+          address: cp.address,
+          chain: cp.chain || 'TRX',
+          currency: cp.currency || 'USDT',
+          amount: cp.amount || orderResponse.amountDueToGateway,
+          cryptoAmount: cp.crypto_amount || '',
+          confirmationTime: cp.confirmation_time || '',
+          reference: initData.reference || '',
+          paymentId: cp.payment_id || '',
+        });
+        return;
+      }
+
+      if (isOnlinePayment || isBankTransfer) {
+        // Initialize payment gateway
+        const gateway = isBankTransfer ? 'paystack' : selectedPayment;
+        const initResponse = await fetch(
+          `${API_BASE_URL}/api/payments/initialize`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              merchant_id: MERCHANT_ID,
+              order_id: order.id,
+              amount: orderResponse.amountDueToGateway,
+              currency: 'NGN',
+              customer_email: customerEmail,
+              customer_name: customerName,
+              customer_phone: customerPhone,
+              gateway,
+              ...(isBankTransfer && { payment_type: 'dva' }),
+            }),
+          }
+        );
+
+        const initData = await initResponse.json();
+
+        if (!initResponse.ok || !initData.success) {
+          throw new OrderError(
+            initData.error || 'Failed to initialize payment',
+            'PAYMENT_INIT_ERROR'
+          );
+        }
+
+        setIsProcessing(false);
+
+        if (isBankTransfer) {
+          router.push({
+            pathname: '/bank-transfer',
+            params: {
+              orderId: order.id,
+              orderNumber,
+              reference: initData.reference,
+              amount: String(orderResponse.amountDueToGateway),
+              bankName:
+                initData.dva?.bank_name ||
+                initData.virtual_account?.bank_name ||
+                '',
+              accountNumber:
+                initData.dva?.account_number ||
+                initData.virtual_account?.account_number ||
+                '',
+              accountName:
+                initData.dva?.account_name ||
+                initData.virtual_account?.account_name ||
+                '',
+            },
+          });
+        } else {
+          const authUrl = initData.authorization_url || initData.checkout_url;
+          router.push({
+            pathname: '/payment-gateway',
+            params: {
+              orderId: order.id,
+              orderNumber,
+              gateway: selectedPayment,
+              authorizationUrl: authUrl,
+              reference: initData.reference,
+              amount: String(orderResponse.amountDueToGateway),
+            },
+          });
+        }
+        return;
+      }
+
+      // Pay on delivery — clear cart and go to success
+      clearCart();
       router.replace({
         pathname: '/order-success',
         params: {
@@ -869,6 +1041,16 @@ export default function CheckoutScreen() {
       isOrderInFlight.current = false;
     }
   };
+
+  // 2026 Fix: Wrap submission in handleSubmit to enforce validation
+  const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (errors) => {
+    console.log('Validation errors:', errors);
+    Alert.alert(
+      'Incomplete Details',
+      'Please fill in all required fields (Address, City, Phone) to place your order.',
+      [{ text: 'OK' }]
+    );
+  });
 
   const renderStepIndicator = () => {
     const steps: CheckoutStep[] = ['address', 'payment', 'review'];
@@ -997,8 +1179,8 @@ export default function CheckoutScreen() {
                 control={control}
                 errors={errors}
                 colors={colors}
-                blockDigits
                 maxLength={50}
+                transformText={(text) => text.replace(/\d/g, '')}
               />
             </View>
             <View style={styles.halfInput}>
@@ -1009,8 +1191,8 @@ export default function CheckoutScreen() {
                 control={control}
                 errors={errors}
                 colors={colors}
-                blockDigits
                 maxLength={50}
+                transformText={(text) => text.replace(/\d/g, '')}
               />
             </View>
           </View>
@@ -1029,6 +1211,111 @@ export default function CheckoutScreen() {
               />
             )}
           />
+
+          <FormField
+            name="email"
+            label="Email Address"
+            placeholder="you@example.com"
+            control={control}
+            errors={errors}
+            colors={colors}
+            keyboardType="email-address"
+            maxLength={255}
+            autoCapitalize="none"
+            transformText={(text) => text.toLowerCase()}
+          />
+
+          {/* Save Details Checkbox — guests only */}
+          {!customer && (
+            <View style={styles.saveDetailsSection}>
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={() => setSaveDetails(!saveDetails)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveDetails }}
+                accessibilityLabel="Save my details for faster checkout"
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    saveDetails && styles.checkboxChecked,
+                    {
+                      borderColor: saveDetails ? BRAND.primary : colors.border,
+                    },
+                  ]}
+                >
+                  {saveDetails && (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  )}
+                </View>
+                <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                  Save my details for faster checkout
+                </Text>
+              </Pressable>
+
+              {saveDetails && (
+                <>
+                  <View
+                    style={[
+                      styles.accountInfoBanner,
+                      { backgroundColor: `${BRAND.primary}10` },
+                    ]}
+                  >
+                    <Ionicons
+                      name="information-circle"
+                      size={18}
+                      color={BRAND.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.accountInfoText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      This will create an account so you can track your order
+                      and checkout faster next time.
+                    </Text>
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text
+                      style={[styles.label, { color: colors.textSecondary }]}
+                    >
+                      Create a Password
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          backgroundColor: colors.card,
+                          color: colors.text,
+                          borderColor:
+                            accountPassword.length > 0 &&
+                            accountPassword.length < 6
+                              ? '#EF4444'
+                              : colors.border,
+                        },
+                      ]}
+                      value={accountPassword}
+                      onChangeText={setAccountPassword}
+                      placeholder="Min. 6 characters"
+                      placeholderTextColor={colors.textSecondary}
+                      secureTextEntry
+                      autoComplete="new-password"
+                      textContentType="newPassword"
+                      accessibilityLabel="Create a password"
+                    />
+                    {accountPassword.length > 0 &&
+                      accountPassword.length < 6 && (
+                        <Text style={styles.fieldError}>
+                          Password must be at least 6 characters
+                        </Text>
+                      )}
+                  </View>
+                </>
+              )}
+            </View>
+          )}
         </View>
       </View>
 
@@ -1242,10 +1529,10 @@ export default function CheckoutScreen() {
                     watchedLastName,
                     watchedPhone,
                     watchedAddress,
+                    watchedEmail,
                     setIsLoadingQuotes,
                     setSelectedQuoteId,
                     setShippingQuotes,
-                    setShippingDebug,
                   });
                 }
               }}
@@ -1333,33 +1620,6 @@ export default function CheckoutScreen() {
               );
             })
           )}
-          {__DEV__ && shippingDebug && (
-            <View style={styles.debugPanel}>
-              <Text style={styles.debugText}>
-                Quotes API: {shippingDebug.apiUrl}
-              </Text>
-              <Text style={styles.debugText}>
-                Status:{' '}
-                {shippingDebug.status !== null
-                  ? shippingDebug.status
-                  : 'network error'}
-                {shippingDebug.ok ? ' (ok)' : ' (fail)'}
-              </Text>
-              <Text style={styles.debugText}>
-                Quotes: {shippingDebug.quotes}
-              </Text>
-              {shippingDebug.warnings?.length ? (
-                <Text style={styles.debugText}>
-                  Warnings: {shippingDebug.warnings.join(', ')}
-                </Text>
-              ) : null}
-              {shippingDebug.error ? (
-                <Text style={styles.debugText}>
-                  Error: {shippingDebug.error}
-                </Text>
-              ) : null}
-            </View>
-          )}
         </View>
       </View>
 
@@ -1417,6 +1677,7 @@ export default function CheckoutScreen() {
         selectedTab={paymentTab}
         onSelectTab={setPaymentTab}
         orderTotal={total}
+        enabledMethods={enabledPaymentMethods}
       />
     </ScrollView>
   );
@@ -1461,6 +1722,9 @@ export default function CheckoutScreen() {
           </View>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {address.firstName} {address.lastName}
+          </Text>
+          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+            {address.email}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {address.phone}
@@ -1605,7 +1869,7 @@ export default function CheckoutScreen() {
                 Total
               </Text>
               <Text style={[styles.bottomValue, { color: colors.text }]}>
-                {formatPrice(total)}
+                {formatPrice(displayTotal)}
               </Text>
               <Text
                 style={[styles.bottomSubtle, { color: colors.textSecondary }]}
@@ -1814,6 +2078,238 @@ export default function CheckoutScreen() {
           </View>
         </Modal>
       </KeyboardAvoidingView>
+
+      {/* Crypto Payment Modal */}
+      {cryptoPayment && (
+        <Modal visible animationType="slide" transparent={false}>
+          <SafeAreaView
+            style={[styles.container, { backgroundColor: colors.background }]}
+          >
+            {/* Header */}
+            <View
+              style={[styles.cryptoHeader, { backgroundColor: BRAND.primary }]}
+            >
+              <View style={styles.cryptoHeaderLeft}>
+                <View style={styles.cryptoHeaderIcon}>
+                  <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
+                </View>
+                <Text style={styles.cryptoHeaderTitle}>Pay with Crypto</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  Alert.alert(
+                    'Leave Payment?',
+                    'Your order has been created. You can complete the crypto payment later.',
+                    [
+                      { text: 'Stay', style: 'cancel' },
+                      {
+                        text: 'Leave',
+                        style: 'destructive',
+                        onPress: () => {
+                          setCryptoPayment(null);
+                          clearCart();
+                          router.replace({
+                            pathname: '/order-success',
+                            params: {
+                              orderId: cryptoPayment.orderId,
+                              orderNumber: cryptoPayment.orderNumber,
+                              paymentMethod: 'juicyway',
+                            },
+                          });
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={styles.cryptoCloseBtn}
+              >
+                <Ionicons name="close" size={18} color="#FFFFFF" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.cryptoContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Amount */}
+              <View
+                style={[
+                  styles.cryptoAmountCard,
+                  { backgroundColor: colors.card },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cryptoAmountLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Send Exactly
+                </Text>
+                <Text
+                  style={[styles.cryptoAmountValue, { color: colors.text }]}
+                >
+                  {cryptoPayment.cryptoAmount ||
+                    (cryptoPayment.amount / 100).toLocaleString()}{' '}
+                  <Text style={{ color: BRAND.primary }}>
+                    {cryptoPayment.currency}
+                  </Text>
+                </Text>
+                <View style={styles.cryptoChainBadge}>
+                  <View style={styles.cryptoPulseDot} />
+                  <Text style={styles.cryptoChainText}>
+                    Network:{' '}
+                    {cryptoPayment.chain === 'TRX'
+                      ? 'Tron (TRC-20)'
+                      : cryptoPayment.chain === 'ETH'
+                        ? 'Ethereum (ERC-20)'
+                        : cryptoPayment.chain}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Wallet Address */}
+              <View
+                style={[
+                  styles.cryptoAddressCard,
+                  { backgroundColor: colors.card },
+                ]}
+              >
+                <Text style={styles.cryptoFieldLabel}>RECIPIENT ADDRESS</Text>
+                <View style={styles.cryptoAddressRow}>
+                  <Text
+                    style={[styles.cryptoAddressText, { color: colors.text }]}
+                    selectable
+                    numberOfLines={2}
+                  >
+                    {cryptoPayment.address}
+                  </Text>
+                  <Pressable
+                    style={[
+                      styles.cryptoCopyBtn,
+                      {
+                        backgroundColor:
+                          copiedCryptoField === 'address'
+                            ? '#DEF7EC'
+                            : `${BRAND.primary}15`,
+                      },
+                    ]}
+                    onPress={async () => {
+                      try {
+                        await Clipboard.setStringAsync(cryptoPayment.address);
+                        setCopiedCryptoField('address');
+                        setTimeout(() => setCopiedCryptoField(null), 2000);
+                      } catch {
+                        // Clipboard not available
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={
+                        copiedCryptoField === 'address'
+                          ? 'checkmark'
+                          : 'copy-outline'
+                      }
+                      size={18}
+                      color={
+                        copiedCryptoField === 'address'
+                          ? '#059669'
+                          : BRAND.primary
+                      }
+                    />
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* Warning */}
+              <View style={styles.cryptoWarning}>
+                <Ionicons name="warning" size={18} color="#F59E0B" />
+                <Text style={styles.cryptoWarningText}>
+                  Only send {cryptoPayment.currency} on the{' '}
+                  {cryptoPayment.chain} network. Using the wrong network will
+                  result in permanent loss.
+                </Text>
+              </View>
+
+              {/* Confirmation Time */}
+              {cryptoPayment.confirmationTime ? (
+                <View
+                  style={[
+                    styles.cryptoInfoCard,
+                    { backgroundColor: `${BRAND.primary}10` },
+                  ]}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={18}
+                    color={BRAND.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.cryptoInfoText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Expected confirmation: {cryptoPayment.confirmationTime}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Reference */}
+              {cryptoPayment.reference ? (
+                <Text
+                  style={[
+                    styles.cryptoReference,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Ref: {cryptoPayment.reference}
+                </Text>
+              ) : null}
+            </ScrollView>
+
+            {/* Bottom Action */}
+            <View
+              style={[
+                styles.cryptoBottomAction,
+                {
+                  backgroundColor: colors.card,
+                  borderTopColor: colors.border,
+                },
+              ]}
+            >
+              <Pressable
+                style={[
+                  styles.cryptoDoneBtn,
+                  { backgroundColor: BRAND.primary },
+                ]}
+                onPress={() => {
+                  clearCart();
+                  setCryptoPayment(null);
+                  router.replace({
+                    pathname: '/order-success',
+                    params: {
+                      orderId: cryptoPayment.orderId,
+                      orderNumber: cryptoPayment.orderNumber,
+                      paymentMethod: 'juicyway',
+                    },
+                  });
+                }}
+              >
+                <Text style={styles.cryptoDoneBtnText}>
+                  I've Sent the Payment
+                </Text>
+              </Pressable>
+              <Text
+                style={[styles.cryptoHelpText, { color: colors.textSecondary }]}
+              >
+                Tap above after sending. Your order will be confirmed once the
+                payment is detected on the blockchain.
+              </Text>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      )}
     </>
   );
 }
@@ -2030,18 +2526,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  debugPanel: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: palette.amber[200],
-    backgroundColor: palette.amber[50],
-  },
-  debugText: {
-    fontSize: 12,
-    color: palette.amber[900],
   },
   reviewCard: {
     padding: 16,
@@ -2261,5 +2745,194 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#B45309',
+  },
+  saveDetailsSection: {
+    gap: SPACING.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    minHeight: 44,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: BRAND.primary,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  accountInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  accountInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  // Crypto payment modal styles
+  cryptoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  cryptoHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  cryptoHeaderIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cryptoCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoContent: {
+    padding: SPACING.lg,
+    gap: SPACING.md,
+  },
+  cryptoAmountCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    alignItems: 'center',
+    gap: 4,
+  },
+  cryptoAmountLabel: {
+    fontSize: 13,
+  },
+  cryptoAmountValue: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  cryptoChainBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  cryptoPulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  cryptoChainText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  cryptoAddressCard: {
+    padding: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  cryptoFieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  cryptoAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  cryptoAddressText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 20,
+  },
+  cryptoCopyBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cryptoWarning: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#FFF8E1',
+  },
+  cryptoWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  cryptoInfoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  cryptoInfoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  cryptoReference: {
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  cryptoBottomAction: {
+    padding: SPACING.lg,
+    borderTopWidth: 1,
+    gap: SPACING.sm,
+  },
+  cryptoDoneBtn: {
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  cryptoDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cryptoHelpText: {
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
   },
 });
