@@ -4,7 +4,22 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Clipboard: typeof import('expo-clipboard') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const cb = await import('expo-clipboard');
+    Clipboard = cb;
+  } catch (_e) {
+    console.debug('[ConnectDomain] Clipboard module ignored or failed to load');
+  }
+};
+
+loadNativeModules();
+
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -86,7 +101,7 @@ export default function ConnectDomainScreen() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await Clipboard.setStringAsync(text);
+      await Clipboard?.setStringAsync(text);
       Alert.alert('Copied', 'Text copied to clipboard');
     } catch {
       Alert.alert('Error', 'Failed to copy to clipboard');

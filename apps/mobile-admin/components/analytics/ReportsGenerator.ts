@@ -1,5 +1,27 @@
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
+
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Print: typeof import('expo-print') | null = null;
+let Sharing: typeof import('expo-sharing') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const [prnt, shr] = await Promise.all([
+      import('expo-print'),
+      import('expo-sharing'),
+    ]);
+    Print = prnt;
+    Sharing = shr;
+  } catch (_e) {
+    console.debug(
+      '[ReportsGenerator] Native modules ignored or failed to load'
+    );
+  }
+};
+
+loadNativeModules();
+
 import type { AnalyticsData } from '../../app/(admin)/analytics';
 import { formatCurrency } from '../../lib/utils';
 
@@ -50,6 +72,7 @@ export async function generateReport(type: ReportType, options: ReportOptions) {
       : getTaxLedgerHTML(options);
 
   try {
+    if (!Print || !Sharing) throw new Error('Native modules not loaded');
     const { uri } = await Print.printToFileAsync({ html });
     await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
   } catch (error) {

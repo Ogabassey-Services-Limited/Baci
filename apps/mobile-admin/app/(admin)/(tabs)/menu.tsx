@@ -86,7 +86,7 @@ export default function MenuScreen() {
           id: 'social-media',
           icon: 'share-social-outline',
           label: 'Social Media',
-          description: 'Instagram, TikTok, X, Linkedin',
+          description: 'Instagram, TikTok, X, Snapchat, Linkedin',
           onPress: () => router.push('/social-media'),
         },
         {
@@ -289,13 +289,13 @@ export default function MenuScreen() {
 
     const expiryDate = activeEntitlement?.expirationDate
       ? new Date(activeEntitlement.expirationDate).toLocaleDateString(
-          undefined,
-          {
-            day: '2-digit',
-            month: '2-digit',
-            year: '2-digit',
-          }
-        )
+        undefined,
+        {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+        }
+      )
       : null;
 
     if (isPro) {

@@ -3,12 +3,25 @@
  * Manage payment accounts for staff and branch locations
  */
 
-import * as Clipboard from 'expo-clipboard';
+// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+let Clipboard: typeof import('expo-clipboard') | null = null;
+
+const loadNativeModules = async () => {
+  if (Platform.OS === 'web') return;
+  try {
+    const cb = await import('expo-clipboard');
+    Clipboard = cb;
+  } catch (_e) {
+    console.debug('[StaffAccounts] Clipboard module ignored or failed to load');
+  }
+};
+
+loadNativeModules();
+
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { z } from 'zod';
 import {
   ActivityIndicator,
   Alert,
@@ -24,10 +37,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { z } from 'zod';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/hooks/useTheme';
 import { useStaff } from '@/hooks/useStaff';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 interface StaffAccount {
@@ -226,7 +240,7 @@ export default function StaffAccountsScreen() {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await Clipboard.setStringAsync(text);
+      await Clipboard?.setStringAsync(text);
       Alert.alert('Copied!', 'Account number copied to clipboard.');
     } catch (_error) {
       Alert.alert('Error', 'Failed to copy to clipboard');

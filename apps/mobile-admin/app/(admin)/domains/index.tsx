@@ -45,9 +45,18 @@ export default function DomainsDashboard() {
     primaryDomain: merchantPrimaryDomain,
   } = useMerchant();
   const router = useRouter();
+  // 2026 UX Tip: Seed initial domains from useMerchant to prevent the "empty -> loading -> data" flash
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Sync merchant domains if we have them but local state is empty
+  useEffect(() => {
+    if (merchantPrimaryDomain && domains.length === 0) {
+      setDomains([merchantPrimaryDomain as unknown as Domain]);
+      setLoading(false); // We have at least one domain, we can show the list immediately
+    }
+  }, [merchantPrimaryDomain, domains.length]);
 
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -57,7 +66,8 @@ export default function DomainsDashboard() {
 
   const fetchDomains = useCallback(async () => {
     if (!merchant?.id) {
-      setLoading(false);
+      // Only stop loading if we don't have a merchant yet
+      if (!merchantPrimaryDomain) setLoading(false);
       setRefreshing(false);
       return;
     }
@@ -79,7 +89,7 @@ export default function DomainsDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [merchant?.id]);
+  }, [merchant?.id, merchantPrimaryDomain]);
 
   useEffect(() => {
     fetchDomains();
