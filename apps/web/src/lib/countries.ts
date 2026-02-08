@@ -98,15 +98,29 @@ export const COUNTRIES: Country[] = [
   },
 ];
 
+// Pre-compute lookup maps for O(1) access
+// Optimization: Using Maps avoids O(N) linear search in getCountryByCode,
+// which is called frequently by currency formatting utilities.
+const CODE_MAP = new Map<string, Country>();
+const NAME_MAP = new Map<string, Country>();
+
+for (const country of COUNTRIES) {
+  CODE_MAP.set(country.code, country);
+  NAME_MAP.set(country.name.toLowerCase(), country);
+}
+
 export function getCountryByCode(codeOrName: string): Country | undefined {
   if (!codeOrName) return undefined;
 
-  const normalizedInput = codeOrName.toUpperCase();
-  const normalizedInputTitle = codeOrName.toLowerCase();
+  // Try direct code lookup (most common case)
+  const upper = codeOrName.toUpperCase();
+  const byCode = CODE_MAP.get(upper);
+  if (byCode) return byCode;
 
-  return COUNTRIES.find(
-    (country) =>
-      country.code === normalizedInput ||
-      country.name.toLowerCase() === normalizedInputTitle
-  );
+  // Fallback to name lookup
+  const lower = codeOrName.toLowerCase();
+  const byName = NAME_MAP.get(lower);
+  if (byName) return byName;
+
+  return undefined;
 }
