@@ -13,15 +13,15 @@ import Constants from 'expo-constants';
 import { create } from 'zustand';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
-import { useCartStore } from './cart-store';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
+import { useCartStore } from './cart-store';
 
 const log = createLogger('AuthStore');
 
 // Get merchant slug from app config
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
-interface Customer {
+export interface Customer {
   id: string;
   email: string;
   first_name?: string;

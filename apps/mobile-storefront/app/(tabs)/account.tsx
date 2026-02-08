@@ -22,6 +22,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, SHADOWS } from '@/constants/Colors';
+import { useMerchant } from '@/hooks/use-products';
+import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -43,6 +45,7 @@ export default function AccountScreen() {
 
   const customer = useAuthStore((state) => state.customer);
   const signOut = useAuthStore((state) => state.signOut);
+  const { data: merchant } = useMerchant();
 
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | undefined>(
     customer?.loyalty_points
@@ -183,54 +186,76 @@ export default function AccountScreen() {
     {
       title: 'Connect With Us',
       items: [
-        {
-          id: 'instagram',
-          icon: 'logo-instagram',
-          label: 'Instagram',
-          subLabel: '@ogabasseyy • Community',
-          action: () => {
-            const username = 'ogabasseyy';
-            const appUrl = `instagram://user?username=${username}`;
-            const webUrl = `https://instagram.com/${username}`;
-            Linking.canOpenURL(appUrl).then((supported) => {
-              Linking.openURL(supported ? appUrl : webUrl);
-            });
-          },
-          color: '#E1306C',
-        },
+        ...(merchant?.social_media
+          ? Object.entries(merchant.social_media)
+              .map(([platform, handle]) => {
+                const url = normalizeSocialUrl(
+                  handle,
+                  platform as SocialPlatform
+                );
+                if (!url) return null;
+
+                let icon = 'logo-instagram';
+                let label =
+                  platform.charAt(0).toUpperCase() + platform.slice(1);
+                const subLabel = `@${handle} • Official`;
+                let color = '#E1306C';
+
+                switch (platform) {
+                  case 'instagram':
+                    icon = 'logo-instagram';
+                    color = '#E1306C';
+                    break;
+                  case 'tiktok':
+                    icon = 'logo-tiktok';
+                    color = '#000000';
+                    break;
+                  case 'twitter':
+                    icon = 'logo-twitter';
+                    label = 'X (Twitter)';
+                    color = '#000000';
+                    break;
+                  case 'facebook':
+                    icon = 'logo-facebook';
+                    color = '#1877F2';
+                    break;
+                  case 'youtube':
+                    icon = 'logo-youtube';
+                    color = '#FF0000';
+                    break;
+                  case 'snapchat':
+                    icon = 'logo-snapchat';
+                    color = '#FFFC00';
+                    break;
+                  case 'linkedin':
+                    icon = 'logo-linkedin';
+                    color = '#0A66C2';
+                    break;
+                  default:
+                    return null;
+                }
+
+                return {
+                  id: platform,
+                  icon,
+                  label,
+                  subLabel,
+                  action: () => Linking.openURL(url),
+                  color,
+                };
+              })
+              .filter((item): item is AccountMenuItem => !!item)
+          : []),
         {
           id: 'whatsapp',
           icon: 'logo-whatsapp',
           label: 'WhatsApp Support',
           subLabel: 'Chat with our experts',
-          action: () => Linking.openURL('https://wa.me/2348146978921'),
+          action: () =>
+            Linking.openURL(
+              `https://wa.me/${merchant?.phone?.replace(/\D/g, '') || '2348146978921'}`
+            ),
           color: '#25D366',
-        },
-        {
-          id: 'youtube',
-          icon: 'logo-youtube',
-          label: 'YouTube',
-          subLabel: '@ogabassey • Channel',
-          action: () => {
-            const username = '@ogabassey';
-            const appUrl = `vnd.youtube://www.youtube.com/user/${username}`;
-            const webUrl = `https://www.youtube.com/${username}`;
-            Linking.canOpenURL(appUrl).then((supported) => {
-              Linking.openURL(supported ? appUrl : webUrl);
-            });
-          },
-          color: '#FF0000',
-        },
-        {
-          id: 'tiktok',
-          icon: 'logo-tiktok',
-          label: 'TikTok',
-          subLabel: '@ogabasseyy • Official',
-          action: () => {
-            const url = 'https://www.tiktok.com/@ogabasseyy';
-            Linking.openURL(url);
-          },
-          color: '#000000',
         },
       ],
       visible: true,
@@ -262,7 +287,7 @@ export default function AccountScreen() {
             <View
               style={[
                 styles.menuIconWrapper,
-                { backgroundColor: item.color + '15' },
+                { backgroundColor: `${item.color}15` },
               ]}
             >
               <Ionicons

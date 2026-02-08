@@ -10,11 +10,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import {
   Appearance,
+  type ColorSchemeName,
   Pressable,
   StyleSheet,
   Text,
   View,
-  type ColorSchemeName,
 } from 'react-native';
 import Colors from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
@@ -56,17 +56,80 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
-  errorType: 'network' | 'supabase' | 'general';
+  errorType: 'network' | 'auth' | 'supabase' | 'general';
   colorScheme: ColorSchemeName;
 }
 
 // 2026 Best Practice: Define explicit type for error content
-type ErrorIconName = 'alert-circle-outline' | 'wifi-outline' | 'server-outline';
+type ErrorIconName =
+  | 'alert-circle-outline'
+  | 'wifi-outline'
+  | 'server-outline'
+  | 'log-in-outline';
 interface ErrorContent {
   icon: ErrorIconName;
   title: string;
   message: string;
   buttonText: string;
+}
+
+/** Network-related typed error codes from CommerceError / OrderError */
+const NETWORK_ERROR_CODES = new Set([
+  'NETWORK_ERROR',
+  'TIMEOUT_ERROR',
+  'FETCH_ERROR',
+]);
+const AUTH_ERROR_CODES = new Set(['AUTH_ERROR']);
+const SERVER_ERROR_CODES = new Set(['SERVER_ERROR']);
+
+/**
+ * Extract a typed error code from an Error if it has a `code` property
+ * (duck-typing for CommerceError / OrderError without instanceof)
+ */
+function getErrorCode(error: Error): string | undefined {
+  if (
+    'code' in error &&
+    typeof (error as { code: unknown }).code === 'string'
+  ) {
+    return (error as { code: string }).code;
+  }
+  return undefined;
+}
+
+/** Classify an error into a UI-friendly error type */
+function classifyError(error: Error): State['errorType'] {
+  // Prefer typed error codes over string matching
+  const code = getErrorCode(error);
+  if (code) {
+    if (NETWORK_ERROR_CODES.has(code)) return 'network';
+    if (AUTH_ERROR_CODES.has(code)) return 'auth';
+    if (SERVER_ERROR_CODES.has(code)) return 'supabase';
+  }
+
+  // Fall back to string matching for untyped errors
+  const msg = error.message.toLowerCase();
+
+  if (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('timeout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('no internet')
+  ) {
+    return 'network';
+  }
+
+  if (
+    msg.includes('supabase') ||
+    msg.includes('postgresterror') ||
+    msg.includes('autherror') ||
+    msg.includes('pgrst')
+  ) {
+    return 'supabase';
+  }
+
+  return 'general';
 }
 
 export class GlobalErrorBoundary extends Component<Props, State> {
@@ -99,33 +162,10 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    // Determine error type based on error message content
-    let errorType: 'network' | 'supabase' | 'general' = 'general';
-
-    const errorMessage = error.message.toLowerCase();
-
-    if (
-      errorMessage.includes('network') ||
-      errorMessage.includes('fetch') ||
-      errorMessage.includes('timeout') ||
-      errorMessage.includes('econnrefused') ||
-      errorMessage.includes('failed to fetch') ||
-      errorMessage.includes('no internet')
-    ) {
-      errorType = 'network';
-    } else if (
-      errorMessage.includes('supabase') ||
-      errorMessage.includes('postgresterror') ||
-      errorMessage.includes('autherror') ||
-      errorMessage.includes('pgrst')
-    ) {
-      errorType = 'supabase';
-    }
-
     return {
       hasError: true,
       error,
-      errorType,
+      errorType: classifyError(error),
     };
   }
 
@@ -154,6 +194,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
           message:
             'Unable to connect to the server. Please check your internet connection and try again.',
           buttonText: 'Retry',
+        };
+      case 'auth':
+        return {
+          icon: 'log-in-outline' as const,
+          title: 'Session Expired',
+          message:
+            'Your session has expired. Please sign in again to continue.',
+          buttonText: 'Sign In',
         };
       case 'supabase':
         return {
@@ -292,43 +340,38 @@ export function ErrorFallback({
   // Log error for debugging
   logError(error, undefined, 'expo-router-fallback');
 
-  // Determine error content based on error type
-  const errorMessage = error.message.toLowerCase();
-  let content: ErrorContent = {
-    icon: 'alert-circle-outline',
-    title: 'Something Went Wrong',
-    message:
-      'An unexpected error occurred. We apologize for the inconvenience.',
-    buttonText: 'Retry',
-  };
-
-  if (
-    errorMessage.includes('network') ||
-    errorMessage.includes('fetch') ||
-    errorMessage.includes('timeout') ||
-    errorMessage.includes('failed to fetch') ||
-    errorMessage.includes('no internet')
-  ) {
-    content = {
+  // Determine error content using typed error classification
+  const errorType = classifyError(error);
+  const contentMap: Record<State['errorType'], ErrorContent> = {
+    network: {
       icon: 'wifi-outline',
       title: 'Connection Error',
       message:
         'Unable to connect to the server. Please check your internet connection and try again.',
       buttonText: 'Retry',
-    };
-  } else if (
-    errorMessage.includes('supabase') ||
-    errorMessage.includes('postgresterror') ||
-    errorMessage.includes('autherror')
-  ) {
-    content = {
+    },
+    auth: {
+      icon: 'log-in-outline',
+      title: 'Session Expired',
+      message: 'Your session has expired. Please sign in again to continue.',
+      buttonText: 'Sign In',
+    },
+    supabase: {
       icon: 'server-outline',
       title: 'Service Unavailable',
       message:
         'Our servers are temporarily unavailable. Please try again in a moment.',
       buttonText: 'Try Again',
-    };
-  }
+    },
+    general: {
+      icon: 'alert-circle-outline',
+      title: 'Something Went Wrong',
+      message:
+        'An unexpected error occurred. We apologize for the inconvenience.',
+      buttonText: 'Retry',
+    },
+  };
+  const content = contentMap[errorType];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

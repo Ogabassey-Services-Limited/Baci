@@ -4,57 +4,16 @@
  */
 
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { router, type Href } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, SPACING } from '@/constants/Colors';
+import { useMerchant } from '@/hooks/use-products';
 import { createLogger } from '@/lib/logger';
+import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
 
 const log = createLogger('Footer');
-
-const SOCIAL_LINKS = [
-  {
-    name: 'Instagram',
-    icon: 'logo-instagram',
-    color: '#E1306C',
-    url: 'https://instagram.com/ogabasseyy',
-    handle: 'ogabasseyy',
-    scheme: 'instagram://user?username=',
-  },
-  {
-    name: 'TikTok',
-    icon: 'logo-tiktok',
-    color: '#000000',
-    url: 'https://www.tiktok.com/@ogabasseyy',
-    handle: 'ogabasseyy',
-    scheme: 'snssdk1233://',
-  },
-  {
-    name: 'X',
-    icon: 'logo-twitter',
-    color: '#000000',
-    url: 'https://x.com/ogabasseyy',
-    handle: 'ogabasseyy',
-    scheme: 'twitter://user?screen_name=',
-  },
-  {
-    name: 'Facebook',
-    icon: 'logo-facebook',
-    color: '#1877F2',
-    url: 'https://www.facebook.com/ogabasseyyy/',
-    handle: 'ogabasseyyy',
-    scheme: 'fb://facewebmodal/f?href=',
-  },
-  {
-    name: 'YouTube',
-    icon: 'logo-youtube',
-    color: '#FF0000',
-    url: 'https://www.youtube.com/@ogabassey',
-    handle: '@ogabassey',
-    scheme: 'vnd.youtube://www.youtube.com/',
-  },
-];
 
 const MENU_LINKS = [
   { label: 'About Us', route: '/about' },
@@ -68,77 +27,69 @@ const SUPPORT_LINKS = [
   { label: 'Saved Items', route: '/saved' },
 ];
 
-const CONTACT_INFO = {
-  address: '2 Olaide Tomori St, Ikeja, Lagos',
-  phone: '+234 814 697 8921',
-  email: 'support@ogabassey.com',
-};
-
 export function Footer() {
+  const { data: merchant } = useMerchant();
   const currentYear = new Date().getFullYear();
 
   const handleExternalLink = async (url: string) => {
-    let social: (typeof SOCIAL_LINKS)[number] | undefined;
     try {
-      const parsedUrl = new URL(url);
-      const hostname = parsedUrl.hostname.toLowerCase();
-
-      social = SOCIAL_LINKS.find((s) => {
-        try {
-          const socialHost = new URL(s.url).hostname.toLowerCase();
-          // Strict host matching to prevent subdomain takeovers/phishing
-          // Allow exact match or immediate subdomain (e.g. www.x.com)
-          if (hostname === socialHost) return true;
-          if (hostname.endsWith(`.${socialHost}`)) return true;
-
-          // Special case for X/Twitter redirection
-          if (s.name === 'X' && (hostname === 'x.com' || hostname.endsWith('.x.com'))) {
-            return true;
-          }
-
-          // Special case for YouTube variants
-          if (
-            s.name === 'YouTube' &&
-            (hostname === 'youtube.com' ||
-              hostname.endsWith('.youtube.com') ||
-              hostname === 'youtu.be')
-          ) {
-            return true;
-          }
-
-          return false;
-        } catch {
-          return false;
-        }
-      });
-    } catch {
-      social = undefined;
-    }
-
-    if (social && social.scheme) {
-      let appUrl = '';
-      if (social.name === 'Instagram')
-        appUrl = `${social.scheme}${social.handle}`;
-      else if (social.name === 'X') appUrl = `${social.scheme}${social.handle}`;
-      else if (social.name === 'Facebook')
-        appUrl = `${social.scheme}${social.url}`;
-      else if (social.name === 'YouTube')
-        appUrl = `${social.scheme}user/${social.handle}`;
-      else if (social.name === 'TikTok') appUrl = social.url; // TikTok handles its web URL well
-
-      try {
-        const canOpen = await Linking.canOpenURL(appUrl);
-        if (canOpen) {
-          Linking.openURL(appUrl);
-          return;
-        }
-      } catch (err) {
-        log.warn('Deep link error:', err);
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        // Fallback for web if app scheme not supported/installed
+        await Linking.openURL(url);
       }
+    } catch (err) {
+      log.warn('External link error:', err);
+      // Last resort fallback
+      Linking.openURL(url);
     }
+  };
 
-    // Default fallback
-    Linking.openURL(url);
+  const socialMedia = merchant?.social_media || {};
+  const socialLinks = Object.entries(socialMedia)
+    .map(([platform, handle]) => {
+      const url = normalizeSocialUrl(handle, platform as SocialPlatform);
+      if (!url) return null;
+
+      let icon: React.ComponentProps<typeof Ionicons>['name'] =
+        'logo-instagram';
+
+      switch (platform) {
+        case 'instagram':
+          icon = 'logo-instagram';
+          break;
+        case 'tiktok':
+          icon = 'logo-tiktok';
+          break;
+        case 'twitter':
+          icon = 'logo-twitter'; // Still using twitter icon for X rebranding in Ionicons
+          break;
+        case 'facebook':
+          icon = 'logo-facebook';
+          break;
+        case 'youtube':
+          icon = 'logo-youtube';
+          break;
+        case 'snapchat':
+          icon = 'logo-snapchat';
+          break;
+        case 'linkedin':
+          icon = 'logo-linkedin';
+          break;
+        default:
+          return null;
+      }
+
+      return { platform, handle, url, icon };
+    })
+    .filter((link): link is NonNullable<typeof link> => link !== null);
+
+  const contactInfo = {
+    address: merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos',
+    phone: merchant?.phone || '+234 814 697 8921',
+    email: merchant?.email || 'support@ogabassey.com',
   };
 
   const handleInternalLink = (route: string) => {
@@ -154,18 +105,18 @@ export function Footer() {
           Making Smartphones Accessible and Affordable
         </Text>
         <View style={styles.socialRow}>
-          {SOCIAL_LINKS.map((social) => (
+          {socialLinks.map((social) => (
             <Pressable
-              key={social.name}
+              key={social.platform}
               style={({ pressed }) => [
                 styles.socialButton,
                 pressed && styles.socialPressed,
               ]}
               onPress={() => handleExternalLink(social.url)}
               hitSlop={8}
-              accessibilityLabel={social.name}
+              accessibilityLabel={social.platform}
             >
-              <Ionicons name={social.icon as React.ComponentProps<typeof Ionicons>['name']} size={18} color="#9CA3AF" />
+              <Ionicons name={social.icon} size={18} color="#9CA3AF" />
             </Pressable>
           ))}
         </View>
@@ -208,23 +159,23 @@ export function Footer() {
         <View style={styles.contactList}>
           <View style={styles.contactItem}>
             <Feather name="map-pin" size={14} color={BRAND.primary} />
-            <Text style={styles.contactText}>{CONTACT_INFO.address}</Text>
+            <Text style={styles.contactText}>{contactInfo.address}</Text>
           </View>
           <Pressable
             style={styles.contactItem}
             onPress={() =>
-              handleExternalLink(`tel:${CONTACT_INFO.phone.replace(/\s/g, '')}`)
+              handleExternalLink(`tel:${contactInfo.phone.replace(/\s/g, '')}`)
             }
           >
             <Feather name="phone" size={14} color={BRAND.primary} />
-            <Text style={styles.contactText}>{CONTACT_INFO.phone}</Text>
+            <Text style={styles.contactText}>{contactInfo.phone}</Text>
           </Pressable>
           <Pressable
             style={styles.contactItem}
-            onPress={() => handleExternalLink(`mailto:${CONTACT_INFO.email}`)}
+            onPress={() => handleExternalLink(`mailto:${contactInfo.email}`)}
           >
             <Feather name="mail" size={14} color={BRAND.primary} />
-            <Text style={styles.contactText}>{CONTACT_INFO.email}</Text>
+            <Text style={styles.contactText}>{contactInfo.email}</Text>
           </Pressable>
         </View>
       </View>

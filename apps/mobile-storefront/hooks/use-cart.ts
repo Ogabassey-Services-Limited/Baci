@@ -54,23 +54,31 @@ const showToast = (message: string, type: 'error' | 'success' = 'error') => {
   }
 };
 
+const DEFAULT_OFFLINE_STOCK = 5;
+
 /**
  * Check stock availability from the database
  * 2026 Best Practice: Verify network before database operations
+ *
+ * @param cachedStock - Last known stock from TanStack Query cache, used as
+ *   fallback when offline or on query error instead of a hard-coded limit.
  */
 async function checkStock(
   productId: string,
-  requestedQuantity: number
+  requestedQuantity: number,
+  cachedStock?: number
 ): Promise<StockCheckResult> {
+  const fallbackStock = cachedStock ?? DEFAULT_OFFLINE_STOCK;
+
   // 2026 Best Practice: Check network before database call
   const isOnline = await checkNetwork();
   if (!isOnline) {
-    // If offline, return limited stock to prevent over-ordering
-    // User can still add items but with reasonable limits
-    log.warn('Offline: Stock check skipped, using conservative estimate');
+    log.warn(
+      `Offline: Stock check skipped, using ${cachedStock != null ? 'cached' : 'default'} estimate (${fallbackStock})`
+    );
     return {
-      available: requestedQuantity <= 5,
-      currentStock: 5,
+      available: requestedQuantity <= fallbackStock,
+      currentStock: fallbackStock,
       requestedQuantity,
     };
   }
@@ -83,10 +91,9 @@ async function checkStock(
 
   if (error) {
     log.error('Stock check failed:', error);
-    // If we can't check stock, use conservative estimate to prevent over-ordering
     return {
-      available: requestedQuantity <= 5,
-      currentStock: 5,
+      available: requestedQuantity <= fallbackStock,
+      currentStock: fallbackStock,
       requestedQuantity,
     };
   }
@@ -117,6 +124,25 @@ export function useCart() {
   // Track pending operations for rollback
   const pendingRollbacks = useRef<Map<string, () => void>>(new Map());
 
+  /** Look up last-known stock_quantity from TanStack Query product cache */
+  function getCachedStock(productId: string): number | undefined {
+    const queries = queryClient.getQueriesData<{ stock_quantity?: number }[]>({
+      queryKey: ['products'],
+    });
+    for (const [, data] of queries) {
+      if (!Array.isArray(data)) continue;
+      const product = data.find(
+        (p) =>
+          p &&
+          typeof p === 'object' &&
+          'id' in p &&
+          (p as { id: string }).id === productId
+      );
+      if (product?.stock_quantity != null) return product.stock_quantity;
+    }
+    return undefined;
+  }
+
   /**
    * Add to cart with optimistic update and stock validation
    */
@@ -126,8 +152,12 @@ export function useCart() {
       const existingItem = getItem(item.product_id, item.variant_id);
       const totalQuantity = (existingItem?.quantity || 0) + item.quantity;
 
-      // Validate stock in background
-      const stockCheck = await checkStock(item.product_id, totalQuantity);
+      // Validate stock in background, with cached fallback for offline
+      const stockCheck = await checkStock(
+        item.product_id,
+        totalQuantity,
+        getCachedStock(item.product_id)
+      );
 
       if (!stockCheck.available) {
         throw new Error(
@@ -221,8 +251,12 @@ export function useCart() {
       const item = items.find((i) => i.id === id);
       if (!item) throw new Error('Item not found');
 
-      // Validate stock for the new quantity
-      const stockCheck = await checkStock(item.product_id, quantity);
+      // Validate stock for the new quantity, with cached fallback for offline
+      const stockCheck = await checkStock(
+        item.product_id,
+        quantity,
+        getCachedStock(item.product_id)
+      );
 
       if (!stockCheck.available) {
         throw new Error(

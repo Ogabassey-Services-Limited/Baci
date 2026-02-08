@@ -24,6 +24,7 @@ import {
   isTrackingEnabled,
   requestTrackingPermission,
   resetUserIdentity,
+  setMerchantId,
   trackAddToCart,
   trackCheckoutStarted,
   trackCustomEvent,
@@ -75,6 +76,14 @@ export function useAnalytics() {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const customer = useAuthStore((state) => state.customer);
+  const merchantId = useAuthStore((state) => state.merchantId);
+
+  // Set merchant ID for analytics attribution
+  useEffect(() => {
+    if (merchantId) {
+      setMerchantId(merchantId);
+    }
+  }, [merchantId]);
 
   // Auto-track screen views on route change
   useEffect(() => {
