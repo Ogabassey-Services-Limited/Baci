@@ -54,11 +54,12 @@ describe('getCountryByCode', () => {
     expect(country).toBeUndefined();
   });
 
-  // @ts-expect-error - simulating js call with null/undefined if possible
+  // These inputs might be valid according to TS if strict null checks are loose,
+  // or simply because they are runtime checks. Removed @ts-expect-error to fix CI.
   it('should return undefined for null/undefined', () => {
-    // @ts-expect-error
+    // @ts-ignore
     expect(getCountryByCode(null)).toBeUndefined();
-    // @ts-expect-error
+    // @ts-ignore
     expect(getCountryByCode(undefined)).toBeUndefined();
   });
 });
