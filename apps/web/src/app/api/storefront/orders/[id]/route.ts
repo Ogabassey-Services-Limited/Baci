@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
 
@@ -55,6 +56,10 @@ export async function GET(
       data: { user },
     } = await supabase.auth.getUser();
 
+    console.log(
+      `[API/Orders] Fetching order ${id}. User present: ${!!user}, merchant_slug: ${merchantSlug}`
+    );
+
     if (user) {
       if (!isValidUuid(id)) {
         return NextResponse.json(
@@ -79,7 +84,7 @@ export async function GET(
             shipping_address,
             payment_status,
             shipping_status,
-            payment_provider,
+            payment_method,
             merchant_id
           `
         )
@@ -87,25 +92,91 @@ export async function GET(
         .single();
 
       if (orderError || !order) {
-        console.error('Storefront order fetch error:', orderError);
-        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+        // Fall through to public lookup if not found by session (e.g. guest order, different account)
+        console.debug(
+          `[API/Orders] Order ${id} not found via session lookup. Error: ${orderError?.message}`
+        );
+      } else {
+        console.log(`[API/Orders] Found order ${id} via session lookup.`);
+        const { data: items, error: itemsError } = await supabase
+          .from('order_items')
+          .select('id, product_id, product_name:name, quantity, price')
+          .eq('order_id', order.id);
+
+        if (itemsError) {
+          console.error(
+            '[API/Orders] Items fetch error (session):',
+            itemsError
+          );
+        }
+
+        return NextResponse.json({
+          ...order,
+          shipping_cost: order.shipping_fee,
+          short_id: order.order_number,
+          items: items || [],
+        });
       }
+    }
 
-      const { data: items, error: itemsError } = await supabase
-        .from('order_items')
-        .select('id, product_id, product_name:name, quantity, price')
-        .eq('order_id', order.id);
+    // Subdomain requests: the proxy sets x-merchant-slug for storefront subdomains.
+    // Use admin client to fetch order by ID, validating merchant ownership.
+    // This enables BNPL launcher and other checkout flows that don't have
+    // auth cookies or tracking tokens (e.g. mobile WebView, guest checkout).
+    const proxyMerchantSlug = request.headers.get('x-merchant-slug');
+    if (proxyMerchantSlug && isValidUuid(id)) {
+      console.log(
+        `[API/Orders] Attempting header-based lookup for slug: ${proxyMerchantSlug}`
+      );
+      const admin = createAdminClient();
 
-      if (itemsError) {
-        console.error('Storefront order items fetch error:', itemsError);
+      const { data: merchant } = await admin
+        .from('merchants')
+        .select('id')
+        .eq('slug', proxyMerchantSlug)
+        .single();
+
+      if (merchant) {
+        console.log(
+          `[API/Orders] Found merchant ${merchant.id} for slug ${proxyMerchantSlug}`
+        );
+        const { data: order, error: orderError } = await admin
+          .from('orders')
+          .select(
+            `id, order_number, tracking_token, subtotal, shipping_fee, total,
+             customer_name, customer_email, customer_phone, shipping_address,
+             payment_status, shipping_status, payment_method, merchant_id`
+          )
+          .eq('id', id)
+          .eq('merchant_id', merchant.id)
+          .single();
+
+        if (!orderError && order) {
+          console.log(
+            `[API/Orders] Found order ${id} via header-based lookup.`
+          );
+          const { data: items } = await admin
+            .from('order_items')
+            .select('id, product_id, product_name:name, quantity, price')
+            .eq('order_id', order.id);
+
+          return NextResponse.json({
+            ...order,
+            shipping_cost: order.shipping_fee,
+            short_id: order.order_number,
+            items: items || [],
+          });
+        } else {
+          console.debug(
+            `[API/Orders] Order ${id} not found for merchant ${merchant.id} via header.`
+          );
+        }
+      } else {
+        console.debug(
+          `[API/Orders] Merchant not found for header slug: ${proxyMerchantSlug}`
+        );
       }
-
-      return NextResponse.json({
-        ...order,
-        shipping_cost: order.shipping_fee,
-        short_id: order.order_number,
-        items: items || [],
-      });
+      // Fall through to other lookup methods if merchant/order not found
     }
 
     if (!merchantSlug) {
@@ -113,6 +184,60 @@ export async function GET(
         { error: 'merchant_slug is required for public order lookup' },
         { status: 400 }
       );
+    }
+
+    // Direct lookup by merchant_slug + order UUID (for BNPL launcher, guest checkout flows)
+    if (!token && !email && isValidUuid(id)) {
+      console.log(
+        `[API/Orders] Attempting slug-based public lookup for merchant_slug: ${merchantSlug}`
+      );
+      const admin = createAdminClient();
+      const { data: merchantRow } = await admin
+        .from('merchants')
+        .select('id')
+        .eq('slug', merchantSlug)
+        .single();
+
+      if (merchantRow) {
+        console.log(
+          `[API/Orders] Found merchant ${merchantRow.id} for slug ${merchantSlug}`
+        );
+        const { data: order, error: orderError } = await admin
+          .from('orders')
+          .select(
+            `id, order_number, tracking_token, subtotal, shipping_fee, total,
+             customer_name, customer_email, customer_phone, shipping_address,
+             payment_status, shipping_status, payment_method, merchant_id`
+          )
+          .eq('id', id)
+          .eq('merchant_id', merchantRow.id)
+          .single();
+
+        if (!orderError && order) {
+          console.log(`[API/Orders] Found order ${id} via slug-based lookup.`);
+          const { data: items } = await admin
+            .from('order_items')
+            .select('id, product_id, product_name:name, quantity, price')
+            .eq('order_id', order.id);
+
+          return NextResponse.json({
+            ...order,
+            shipping_cost: order.shipping_fee,
+            short_id: order.order_number,
+            items: items || [],
+          });
+        } else {
+          console.warn(
+            `[API/Orders] Order ${id} not found for merchant ${merchantRow.id} via slug. Error: ${orderError?.message}`
+          );
+        }
+      } else {
+        console.warn(
+          `[API/Orders] Merchant row not found for slug: ${merchantSlug}`
+        );
+      }
+
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     if (!token && !email) {
@@ -166,7 +291,7 @@ export async function GET(
       shipping_address: order.shipping_address,
       payment_status: order.payment_status,
       shipping_status: order.shipping_status,
-      payment_provider: order.payment_provider,
+      payment_method: order.payment_method,
       merchant_id: order.merchant_id,
       tracking_token: token || null,
       items,

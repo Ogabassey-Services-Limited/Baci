@@ -17,12 +17,13 @@ const _preprocessEmail = (val: unknown) =>
   typeof val === 'string' ? sanitizeEmail(sanitizeText(val)) : val;
 const _preprocessPhone = (val: unknown) =>
   typeof val === 'string' ? sanitizePhone(sanitizeText(val)) : val;
+const INVALID_URL_SENTINEL = '__invalid_url__';
 const _preprocessUrl = (val: unknown) => {
   if (typeof val !== 'string') return val;
   const trimmed = sanitizeText(val);
   const sanitized = sanitizeUrl(trimmed);
-  if (!sanitized && trimmed.length > 0) return trimmed;
-  return sanitized;
+  if (!trimmed) return '';
+  return sanitized || INVALID_URL_SENTINEL;
 };
 
 /**
@@ -185,8 +186,10 @@ const createRequiredLogoUrl = (message: string) =>
     z
       .string()
       .trim()
-      .min(1, { message })
-      .url({ message: 'Invalid logo URL. Please provide a valid URL.' })
+      .refine((val) => val.length > 0, { message })
+      .refine((val) => val !== INVALID_URL_SENTINEL, {
+        message: 'Invalid logo URL. Please provide a valid URL.',
+      })
   );
 
 /**

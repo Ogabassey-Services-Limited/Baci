@@ -262,11 +262,7 @@ export const EditorToolbar = ({
           size="sm"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any)
-              .chain()
-              .focus()
-              .toggleBlockquote()
-              .run()
+            (editor as any).chain().focus().toggleBlockquote().run()
           }
           className={cn('h-8 w-8 p-0', {
             'bg-accent text-accent-foreground':
@@ -282,11 +278,7 @@ export const EditorToolbar = ({
           size="sm"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any)
-              .chain()
-              .focus()
-              .setHorizontalRule()
-              .run()
+            (editor as any).chain().focus().setHorizontalRule().run()
           }
           className="h-8 w-8 p-0"
           title="Horizontal Rule"
@@ -408,6 +400,10 @@ export const EditorToolbar = ({
                 (editor as any).commands.setYoutubeVideo({
                   src: sanitized,
                 });
+              } else {
+                alert(
+                  'Invalid YouTube URL. Please enter a valid https:// URL.'
+                );
               }
             }
           }}

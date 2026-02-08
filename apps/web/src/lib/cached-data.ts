@@ -103,6 +103,7 @@ export interface CachedMerchant {
     youtube?: string;
     pinterest?: string;
     linkedin?: string;
+    snapchat?: string;
   } | null;
   brand_colors: {
     primary: string;

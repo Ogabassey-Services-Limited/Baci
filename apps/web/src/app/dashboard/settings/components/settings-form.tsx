@@ -6,7 +6,12 @@ import a11yPlugin from 'colord/plugins/a11y';
 import ColorThief from 'colorthief';
 import {
   CheckCircle,
+  Facebook,
+  Ghost,
+  Instagram,
+  Linkedin,
   Loader2,
+  Music,
   Pencil,
   Plus,
   Shuffle,
@@ -133,6 +138,7 @@ export function SettingsForm({
     youtube: initialMerchant?.social_media?.youtube || '',
     pinterest: initialMerchant?.social_media?.pinterest || '',
     linkedin: initialMerchant?.social_media?.linkedin || '',
+    snapchat: initialMerchant?.social_media?.snapchat || '',
   });
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
@@ -774,7 +780,101 @@ export function SettingsForm({
                   onBlur={() => autoSave({ social_media: socialMedia })}
                 />
               </div>
-              {/* Simplified for brevity (Add other social inputs as needed or keep simple) */}
+
+              <div className="space-y-2">
+                <Label htmlFor="instagram" className="flex items-center gap-2">
+                  <Instagram className="w-4 h-4" />
+                  Instagram
+                </Label>
+                <Input
+                  id="instagram"
+                  placeholder="@username"
+                  value={socialMedia.instagram}
+                  onChange={(e) =>
+                    setSocialMedia({
+                      ...socialMedia,
+                      instagram: e.target.value,
+                    })
+                  }
+                  onBlur={() => autoSave({ social_media: socialMedia })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="facebook" className="flex items-center gap-2">
+                  <Facebook className="w-4 h-4" />
+                  Facebook
+                </Label>
+                <Input
+                  id="facebook"
+                  placeholder="Facebook URL"
+                  value={socialMedia.facebook}
+                  onChange={(e) =>
+                    setSocialMedia({
+                      ...socialMedia,
+                      facebook: e.target.value,
+                    })
+                  }
+                  onBlur={() => autoSave({ social_media: socialMedia })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tiktok" className="flex items-center gap-2">
+                  <Music className="w-4 h-4" />
+                  TikTok
+                </Label>
+                <Input
+                  id="tiktok"
+                  placeholder="@username"
+                  value={socialMedia.tiktok}
+                  onChange={(e) =>
+                    setSocialMedia({
+                      ...socialMedia,
+                      tiktok: e.target.value,
+                    })
+                  }
+                  onBlur={() => autoSave({ social_media: socialMedia })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="linkedin" className="flex items-center gap-2">
+                  <Linkedin className="w-4 h-4" />
+                  LinkedIn
+                </Label>
+                <Input
+                  id="linkedin"
+                  placeholder="LinkedIn Company URL"
+                  value={socialMedia.linkedin}
+                  onChange={(e) =>
+                    setSocialMedia({
+                      ...socialMedia,
+                      linkedin: e.target.value,
+                    })
+                  }
+                  onBlur={() => autoSave({ social_media: socialMedia })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="snapchat" className="flex items-center gap-2">
+                  <Ghost className="w-4 h-4" />
+                  Snapchat
+                </Label>
+                <Input
+                  id="snapchat"
+                  placeholder="@username"
+                  value={socialMedia.snapchat}
+                  onChange={(e) =>
+                    setSocialMedia({
+                      ...socialMedia,
+                      snapchat: e.target.value,
+                    })
+                  }
+                  onBlur={() => autoSave({ social_media: socialMedia })}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -7,3 +7,5 @@ export const userAccessSchema = z.object({
   is_staff: z.boolean(),
   permissions: z.record(z.record(z.boolean())).optional(),
 });
+
+export type UserAccess = z.infer<typeof userAccessSchema>;

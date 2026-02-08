@@ -88,9 +88,7 @@ export async function GET(request: NextRequest) {
         .lt('sale_date', startDateStr),
 
       // Merchant health breakdown
-      supabase
-        .from('merchant_health')
-        .select('health_status'),
+      supabase.from('merchant_health').select('health_status'),
 
       // Growth metrics
       supabase
@@ -114,10 +112,7 @@ export async function GET(request: NextRequest) {
         .not('slug', 'is', null),
 
       // Platform revenue from fees
-      supabase
-        .from('platform_revenue')
-        .select('*')
-        .gte('date', startDateStr),
+      supabase.from('platform_revenue').select('*').gte('date', startDateStr),
     ]);
 
     // REFACTORED: Use Cached RPC for heavy aggregation (5 min cache)

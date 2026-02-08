@@ -4,11 +4,22 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
+import { jumiaMerchantIdQuerySchema } from '@/schemas/marketplace';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const requestedMerchantId = searchParams.get('merchantId');
+    const parsedQuery = jumiaMerchantIdQuerySchema.safeParse({
+      merchantId: searchParams.get('merchantId') ?? undefined,
+    });
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        { error: 'Invalid merchantId', details: parsedQuery.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { merchantId: requestedMerchantId } = parsedQuery.data;
 
     const auth = await authenticateApiRequest(req);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -45,7 +56,7 @@ export async function GET(req: NextRequest) {
     ) {
       throw error;
     }
-    console.error('Jumia Categories Error:', error);
+    logger.error({ message: 'Jumia Categories Error', error });
     return NextResponse.json(
       { error: 'Failed to fetch categories' },
       { status: 500 }

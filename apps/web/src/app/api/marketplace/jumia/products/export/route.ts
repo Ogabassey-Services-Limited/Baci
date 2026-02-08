@@ -6,6 +6,7 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient, JumiaCreateProductSchema } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
 
 const ExportSchema = z.object({
   merchantId: z.string().uuid().optional(),
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
           { onConflict: 'merchant_id, product_id, jumia_shop_id' }
         ); // Adjust constraint if needed
       if (upsertError) {
-        console.error('Mapping upsert failed:', upsertError.message);
+        logger.error({ message: 'Mapping upsert failed', error: upsertError });
         return NextResponse.json(
           { error: 'Failed to create product mapping' },
           { status: 500 }
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
         'Product export initiated. Check Jumia Vendor Center for status.',
     });
   } catch (error) {
-    console.error('Export error:', error);
+    logger.error({ message: 'Export error', error });
     return NextResponse.json({ error: 'Export failed' }, { status: 500 });
   }
 }

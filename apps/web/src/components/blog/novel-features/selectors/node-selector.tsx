@@ -64,11 +64,7 @@ const items: SelectorItem[] = [
     icon: CheckSquare,
     command: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)
-        ?.chain()
-        .focus()
-        .toggleTaskList()
-        .run(),
+      (editor as any)?.chain().focus().toggleTaskList().run(),
     isActive: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
       (editor as any)?.isActive('taskItem') ?? false,
@@ -78,11 +74,7 @@ const items: SelectorItem[] = [
     icon: ListOrdered,
     command: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)
-        ?.chain()
-        .focus()
-        .toggleBulletList()
-        .run(),
+      (editor as any)?.chain().focus().toggleBulletList().run(),
     isActive: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
       (editor as any)?.isActive('bulletList') ?? false,
@@ -92,11 +84,7 @@ const items: SelectorItem[] = [
     icon: ListOrdered,
     command: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)
-        ?.chain()
-        .focus()
-        .toggleOrderedList()
-        .run(),
+      (editor as any)?.chain().focus().toggleOrderedList().run(),
     isActive: (editor) =>
       // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
       (editor as any)?.isActive('orderedList') ?? false,

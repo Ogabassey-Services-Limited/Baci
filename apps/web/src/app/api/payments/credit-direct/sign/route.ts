@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import {
   CREDIT_DIRECT_CONFIG,
   generateSessionId,
@@ -11,14 +10,7 @@ import {
   signTransaction,
 } from '@/lib/credit-direct';
 import { createClient } from '@/lib/supabase/server';
-
-// Zod validation schema
-const creditDirectSignSchema = z.object({
-  customerEmail: z.string().max(254).email(),
-  totalAmount: z.number().positive(),
-  merchantSlug: z.string().min(1),
-  orderId: z.string().uuid(),
-});
+import { creditDirectSignSchema } from '@/schemas/credit-direct';
 
 /**
  * POST /api/payments/credit-direct/sign
@@ -196,14 +188,14 @@ export async function POST(request: NextRequest) {
       privateKey
     );
 
-    // Get public key (prefer merchant-specific, fallback to environment)
+    // Get public key (prefer environment — must match private key, fallback to DB)
     let publicKey: string;
-    if (merchantPublicKey) {
-      publicKey = merchantPublicKey;
-    } else {
-      try {
-        publicKey = getPublicKey();
-      } catch {
+    try {
+      publicKey = getPublicKey();
+    } catch {
+      if (merchantPublicKey) {
+        publicKey = merchantPublicKey;
+      } else {
         return NextResponse.json(
           { error: 'Credit Direct public key not configured' },
           { status: 500 }
@@ -219,6 +211,7 @@ export async function POST(request: NextRequest) {
         p_email: customerEmail,
         p_merchant_id: merchantId,
         p_session_id: sessionId,
+        p_signed_amount: totalAmount,
       }
     );
 

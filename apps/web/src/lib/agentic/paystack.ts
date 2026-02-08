@@ -162,20 +162,51 @@ export async function createDedicatedVirtualAccount(
 
   const customerCode = await getOrCreatePaystackCustomer(customer);
 
-  // Create DVA
-  const res = await paystackRequest('/dedicated_account', 'POST', {
+  // Create DVA — include customer details for bank verification
+  const baseDvaPayload: Record<string, string> = {
     customer: customerCode,
-    preferred_bank: 'wema-bank',
-  });
+  };
+  if (customer.first_name) baseDvaPayload.first_name = customer.first_name;
+  if (customer.last_name) baseDvaPayload.last_name = customer.last_name;
+  if (customer.phone) baseDvaPayload.phone = customer.phone;
+
+  const tryCreateDva = (bank: string) =>
+    paystackRequest('/dedicated_account', 'POST', {
+      ...baseDvaPayload,
+      preferred_bank: bank,
+    });
+
+  let res: {
+    status: boolean;
+    message?: string;
+    data: {
+      account_number: string;
+      account_name: string;
+      bank?: { name: string };
+      assignment?: { bank_name: string };
+      currency?: string;
+    };
+  };
+  try {
+    res = await tryCreateDva('wema-bank');
+  } catch (error) {
+    // Fallback: try titan-paycom if wema-bank fails
+    logger.warn({
+      message: 'DVA wema-bank failed, trying titan-paycom',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    res = await tryCreateDva('titan-paycom');
+  }
 
   if (!res.status) {
-    throw new Error(`Failed to assign DVA: ${res.message}`);
+    const safeMessage = sanitizeForLog(res.message || 'Unknown DVA error', 200);
+    throw new Error(`Failed to assign DVA: ${safeMessage}`);
   }
 
   return {
     account_number: res.data.account_number,
     account_name: res.data.account_name,
-    bank_name: res.data.bank.name,
+    bank_name: res.data.bank?.name || res.data.assignment?.bank_name || 'Bank',
     currency: res.data.currency || 'NGN',
     assigned: true,
   };

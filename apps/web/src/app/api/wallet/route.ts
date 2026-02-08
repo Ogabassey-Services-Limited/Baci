@@ -181,23 +181,6 @@ export async function PATCH(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    // Validate input
-    const parsed = walletSettingsSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
-    }
-    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = parsed.data;
-
     // Auth check
     const {
       data: { user },
@@ -219,6 +202,23 @@ export async function PATCH(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Validate input
+    const parsed = walletSettingsSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { autoPayoutEnabled, autoPayoutDay, minPayoutAmount } = parsed.data;
 
     // Build update object
     const updates: Record<string, unknown> = {};

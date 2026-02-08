@@ -4,6 +4,7 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
 import { jumiaMerchantIdQuerySchema } from '@/schemas/marketplace';
 
 export async function GET(req: NextRequest) {
@@ -55,7 +56,7 @@ export async function GET(req: NextRequest) {
     ) {
       throw error;
     }
-    console.error('Jumia Brands Error:', error);
+    logger.error({ message: 'Jumia Brands Error', error });
     return NextResponse.json(
       { error: 'Failed to fetch brands' },
       { status: 500 }

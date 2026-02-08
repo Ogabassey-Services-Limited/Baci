@@ -1,19 +1,25 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
+import { jumiaOrderIdParamSchema } from '@/schemas/marketplace';
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> } // Params are now Promises in Next.js 15+, handling compatible way
 ) {
   try {
-    const { id } = await params;
+    const parsedParams = jumiaOrderIdParamSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+    }
+    const { id } = parsedParams.data;
 
     // Auth Check
-    const auth = await authenticateApiRequest(_request as Request);
+    const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -38,8 +44,10 @@ export async function GET(
 
     return NextResponse.json({ items });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Failed to fetch items';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    logger.error({ message: 'Jumia Order Items Error', error });
+    return NextResponse.json(
+      { error: 'Failed to fetch items' },
+      { status: 500 }
+    );
   }
 }

@@ -18,8 +18,8 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/orders': { maxRequests: 10, windowMs: 60000 }, // 10 requests per minute
   '/api/products': { maxRequests: 30, windowMs: 60000 }, // 30 requests per minute
   '/api/storefront': { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
-  '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60000 },
-  '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60000 },
+  '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60000 }, // 3 requests per minute (OTP send)
+  '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute (OTP verify)
   '/api/customers': { maxRequests: 20, windowMs: 60000 }, // 20 requests per minute
   '/api/newsletter': { maxRequests: 5, windowMs: 900000 }, // 5 requests per 15 minutes
   '/api/wallet': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute

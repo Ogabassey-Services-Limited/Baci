@@ -6,6 +6,7 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
 /**
  * Merchant Feature Settings API
@@ -80,6 +81,12 @@ export interface MerchantFeatureSettings {
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
 
+  // Blog settings
+  blog_enabled: boolean;
+  auto_blog_enabled: boolean;
+  google_reviews_enabled: boolean;
+  google_place_id: string | null;
+
   // VTU (Value Top-Up) Settings
   vtu_enabled: boolean;
   vtu_airtime_enabled: boolean;
@@ -95,68 +102,6 @@ export interface MerchantFeatureSettings {
   created_at: string;
   updated_at: string;
 }
-
-const ALLOWED_FIELDS = [
-  'loyalty_enabled',
-  'reviews_enabled',
-  'wishlist_enabled',
-  'order_tracking_enabled',
-  'discount_codes_enabled',
-  'guest_checkout_enabled',
-  // Payment gateways
-  'paystack_enabled',
-  'korapay_enabled',
-  'pay_on_delivery_enabled',
-  'credit_direct_enabled',
-  'credit_direct_public_key',
-  'credit_direct_min_amount',
-  'credit_direct_max_amount',
-  'preferred_local_gateway',
-  'preferred_international_gateway',
-  // Shipping
-  'shipping_providers',
-  'free_shipping_threshold',
-  'shipping_markup_percentage',
-  'checkout_collect_phone',
-  'checkout_require_account',
-  'checkout_show_order_notes',
-  'about_page_enabled',
-  'contact_page_enabled',
-  'faq_page_enabled',
-  'privacy_page_enabled',
-  'terms_page_enabled',
-  'rewards_page_enabled',
-  'show_recent_purchases',
-  'show_stock_levels',
-  'low_stock_threshold',
-  'google_analytics_id',
-  'ga4_api_secret',
-  'facebook_pixel_id',
-  'facebook_capi_token',
-  'tiktok_pixel_id',
-  'tiktok_access_token',
-  'snapchat_pixel_id',
-  'snapchat_capi_token',
-  'twitter_pixel_id',
-  'auto_generate_schema',
-  'custom_robots_txt',
-  'email_notifications_enabled',
-  'sms_notifications_enabled',
-  // Blog settings
-  'blog_enabled',
-  'auto_blog_enabled',
-  'google_reviews_enabled',
-  'google_place_id',
-  // VTU settings
-  'vtu_enabled',
-  'vtu_airtime_enabled',
-  'vtu_data_enabled',
-  'vtu_checkout_addon_enabled',
-  'vtu_checkout_addon_amounts',
-  'vtu_loyalty_reward_enabled',
-  'vtu_merchant_commission_rate',
-  'custom_settings',
-];
 
 // Default settings for new merchants
 const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
@@ -205,6 +150,11 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_robots_txt: null,
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
+  // Blog defaults
+  blog_enabled: false,
+  auto_blog_enabled: false,
+  google_reviews_enabled: false,
+  google_place_id: null,
   // VTU defaults
   vtu_enabled: false,
   vtu_airtime_enabled: true,
@@ -325,13 +275,19 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    // Validate updates - only allow known fields
-    const sanitizedUpdates: Record<string, unknown> = {};
-    for (const key of Object.keys(updates)) {
-      if (ALLOWED_FIELDS.includes(key)) {
-        sanitizedUpdates[key] = updates[key];
-      }
+    const parsedUpdates = merchantFeatureSettingsSchema
+      .partial()
+      .safeParse(updates);
+    if (!parsedUpdates.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: parsedUpdates.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
     }
+    const sanitizedUpdates = parsedUpdates.data;
 
     // Sync rewards_page_enabled with loyalty_enabled
     if ('loyalty_enabled' in sanitizedUpdates) {
@@ -412,12 +368,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const sanitizedSettings: Record<string, unknown> = {};
-    for (const key of Object.keys(newSettings)) {
-      if (ALLOWED_FIELDS.includes(key)) {
-        sanitizedSettings[key] = newSettings[key];
-      }
+    const parsedSettings = merchantFeatureSettingsSchema
+      .partial()
+      .safeParse(newSettings);
+    if (!parsedSettings.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: parsedSettings.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
     }
+    const sanitizedSettings = parsedSettings.data;
 
     // Merge with defaults for any missing fields
     const completeSettings = {

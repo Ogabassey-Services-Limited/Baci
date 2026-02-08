@@ -167,6 +167,7 @@ describe('StorefrontProductCard', () => {
     );
 
     expect(screen.queryByText(/-\d+%/)).not.toBeInTheDocument();
+    expect(screen.getByText('$9999')).toBeInTheDocument();
   });
 
   it('shows out-of-stock state and disables add-to-cart when stock is 0', () => {

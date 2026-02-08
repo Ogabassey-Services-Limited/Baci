@@ -1214,6 +1214,7 @@ export const CheckoutPage: React.FC = () => {
           });
           setShowCryptoSelector(true);
           setIsProcessing(false);
+          isOrderInFlightRef.current = false;
           return;
         }
 
@@ -1255,6 +1256,7 @@ export const CheckoutPage: React.FC = () => {
             paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
           });
           setIsProcessing(false);
+          isOrderInFlightRef.current = false;
           return;
         } else if (paymentResult.success && paymentResult.authorization_url) {
           // NOTE: Don't clear cart here - it causes a flash of empty state
@@ -1299,9 +1301,11 @@ export const CheckoutPage: React.FC = () => {
               variant: 'destructive',
             });
             setIsProcessing(false);
+            isOrderInFlightRef.current = false;
           },
           onClose: () => {
             setIsProcessing(false);
+            isOrderInFlightRef.current = false;
           },
           onPopup: (transactionId) => {
             console.log('Credit Direct popup opened:', transactionId);
@@ -1321,6 +1325,7 @@ export const CheckoutPage: React.FC = () => {
             variant: 'destructive',
           });
           setIsProcessing(false);
+          isOrderInFlightRef.current = false;
           return;
         }
 
@@ -1346,9 +1351,11 @@ export const CheckoutPage: React.FC = () => {
               variant: 'destructive',
             });
             setIsProcessing(false);
+            isOrderInFlightRef.current = false;
           },
           onClose: () => {
             setIsProcessing(false);
+            isOrderInFlightRef.current = false;
           },
         });
         // Don't proceed further - callbacks handle the flow
@@ -1394,7 +1401,10 @@ export const CheckoutPage: React.FC = () => {
 
   // Dedicated Virtual Account (DVA) Handler
   const handleBankTransfer = async (order: any, paymentAmount: number) => {
-    if (!merchant) return;
+    if (!merchant) {
+      isOrderInFlightRef.current = false;
+      return;
+    }
 
     setIsInitializingDva(true);
     try {
@@ -1415,7 +1425,10 @@ export const CheckoutPage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to initialize bank transfer');
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error || 'Failed to initialize bank transfer'
+        );
       }
 
       const result = await response.json();
@@ -1426,6 +1439,7 @@ export const CheckoutPage: React.FC = () => {
           reference: result.reference,
         });
         setDvaCountdown(3600);
+        isOrderInFlightRef.current = false;
       } else {
         throw new Error('DVA not returned by the gateway');
       }
@@ -1436,6 +1450,7 @@ export const CheckoutPage: React.FC = () => {
         description: error instanceof Error ? error.message : 'Failed to initialize bank transfer',
         variant: 'destructive',
       });
+      isOrderInFlightRef.current = false;
     } finally {
       setIsProcessing(false);
       setIsInitializingDva(false);
@@ -1611,6 +1626,7 @@ export const CheckoutPage: React.FC = () => {
                 onClick={() => {
                   setShowCryptoSelector(false);
                   setPendingCryptoOrder(null);
+                  isOrderInFlightRef.current = false;
                 }}
                 className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
               >

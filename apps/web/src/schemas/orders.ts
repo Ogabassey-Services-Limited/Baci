@@ -30,10 +30,10 @@ export const orderCreateSchema = z.object({
         })
     )
     .min(1),
-  subtotal: z.union([z.string(), z.number()]),
-  shipping_fee: z.union([z.string(), z.number()]).default(0),
-  discount_amount: z.union([z.string(), z.number()]).default(0),
-  tax_amount: z.union([z.string(), z.number()]).default(0),
+  subtotal: z.coerce.number().nonnegative(),
+  shipping_fee: z.coerce.number().nonnegative().default(0),
+  discount_amount: z.coerce.number().nonnegative().default(0),
+  tax_amount: z.coerce.number().nonnegative().default(0),
   payment_method: z.string().min(1),
   payment_status: z.string().default('unpaid'),
   shipping_status: z.string().default('pending'),
@@ -54,6 +54,7 @@ export const orderCreateSchema = z.object({
       userAgent: z.string().optional(),
       limitedDataUse: z.boolean().optional(),
     })
+    // Opaque tracking fields may be forwarded to third-party analytics.
     .passthrough()
     .optional(),
   use_wallet_credit: z.boolean().default(false),

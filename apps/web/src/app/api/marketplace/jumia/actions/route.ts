@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 const ActionSchema = z.object({
@@ -12,8 +14,16 @@ const ActionSchema = z.object({
   itemIds: z.array(z.string()).optional(), // If not provided, fetches ALL items for order
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -124,9 +134,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Action failed';
+    logger.error({ message: 'Jumia Action Error', error });
     const status = (error as { status?: number })?.status || 500;
+    const errorMessage =
+      error instanceof z.ZodError
+        ? 'Validation failed'
+        : status === 500
+          ? 'Action failed'
+          : error instanceof Error
+            ? error.message
+            : 'Action failed';
 
     return NextResponse.json(
       {

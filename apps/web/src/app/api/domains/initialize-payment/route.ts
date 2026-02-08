@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
         },
+        signal: AbortSignal.timeout(15_000),
         body: JSON.stringify({
           email: paymentEmail,
           amount: Math.round(priceCalculation.sellPrice * 100), // Paystack uses kobo
@@ -184,11 +185,15 @@ export async function POST(request: NextRequest) {
     );
 
     if (!paystackResponse.ok) {
-      const errorData = await paystackResponse.json();
-      console.error(
-        '[DomainPayment] Paystack Init Failed:',
-        JSON.stringify(errorData)
-      );
+      let errorData: unknown;
+      try {
+        errorData = await paystackResponse.json();
+      } catch {
+        errorData = await paystackResponse
+          .text()
+          .catch(() => 'unreadable body');
+      }
+      console.error('[DomainPayment] Paystack Init Failed:', errorData);
       return NextResponse.json(
         { error: 'Failed to initialize payment gateway' },
         { status: 500 }
@@ -196,6 +201,16 @@ export async function POST(request: NextRequest) {
     }
 
     const paystackData = await paystackResponse.json();
+    if (!paystackData?.data?.authorization_url) {
+      console.error(
+        '[DomainPayment] Unexpected Paystack response:',
+        paystackData
+      );
+      return NextResponse.json(
+        { error: 'Unexpected payment gateway response' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

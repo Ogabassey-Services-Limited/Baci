@@ -182,6 +182,7 @@ export async function openCreditDirectCheckout(
       publicKey: signData.publicKey ? 'Present' : 'Missing',
       signature: signData.signature ? 'Present' : 'Missing',
       sessionId: signData.sessionId,
+      isLive: signData.isLive,
     });
 
     const checkout = new window.Connect({

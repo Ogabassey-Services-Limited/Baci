@@ -149,6 +149,7 @@ export interface PaymentInitData {
   transaction_charge?: number; // Platform fee in kobo
   bearer?: 'account' | 'subaccount'; // Who bears the transaction charges
   channels?: PaymentChannel[];
+  phone?: string; // Optional phone number for customer creation/updates
 }
 
 // =============================================================================

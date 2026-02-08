@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyJumiaOrder } from '@/lib/expo-push';
 import { JumiaClient } from '@/lib/jumia/client';
 import { createClient } from '@/lib/supabase/server';
@@ -87,6 +88,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(_request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(_request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -245,22 +254,6 @@ export async function POST(_request: NextRequest) {
       // Ignore error logging failure
     }
 
-    console.error('[Jumia Orders] Sync error:', error);
-
-    // Detailed error for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Sync failed';
-    const errorDetails =
-      error && typeof error === 'object' && 'issues' in error
-        ? // biome-ignore lint/suspicious/noExplicitAny: Zod validation error
-          JSON.stringify((error as any).issues)
-        : undefined;
-
-    return NextResponse.json(
-      {
-        error: errorMessage,
-        details: errorDetails,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Order sync failed' }, { status: 500 });
   }
 }

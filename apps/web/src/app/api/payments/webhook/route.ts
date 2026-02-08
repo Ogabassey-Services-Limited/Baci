@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid reference' }, { status: 400 });
     }
     const safeReference = referenceResult.data;
+    reference = safeReference;
 
     // Webhook handlers have no user cookies — use service client to bypass RLS
     const supabase = createServiceClient();
@@ -481,7 +482,9 @@ export async function POST(request: NextRequest) {
         const { error: txnError } = await supabase.from('transactions').insert({
           merchant_id: chatOrder.merchant_id,
           order_id: newOrder.id,
-          amount: chatOrder.subtotal,
+          amount: (
+            Number(chatOrder.subtotal) + Number(chatOrder.shipping_fee || 0)
+          ).toString(),
           currency: 'NGN',
           status: 'completed',
           gateway: gateway,
@@ -724,21 +727,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Check if already processed
-    if (transaction.status === 'completed') {
-      logger.info({ message: 'Transaction already processed', reference });
-      return NextResponse.json({ message: 'Already processed' });
-    }
-
-    // Update transaction status
-    const { error: updateError } = await supabase
+    // Atomically claim the transaction — prevents double-processing on concurrent retries
+    const { data: updatedTxn, error: updateError } = await supabase
       .from('transactions')
       .update({
         status: 'completed',
         gateway_response: gatewayResponse,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', transaction.id);
+      .eq('id', transaction.id)
+      .neq('status', 'completed')
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       logger.error({
@@ -747,6 +747,11 @@ export async function POST(request: NextRequest) {
         error: updateError,
       });
       throw updateError;
+    }
+
+    if (!updatedTxn) {
+      logger.info({ message: 'Transaction already processed', reference });
+      return NextResponse.json({ message: 'Already processed' });
     }
 
     // ============================================
@@ -1012,6 +1017,12 @@ export async function POST(request: NextRequest) {
 
     // Record settlement for merchant wallet tracking
     try {
+      const isDomainPurchase =
+        (transaction.metadata as Record<string, unknown>)?.transaction_type ===
+        'domain_purchase';
+      const sourceType = isDomainPurchase ? 'domain_purchase' : 'order';
+      const sourceId = isDomainPurchase ? transaction.id : transaction.order_id;
+
       // Calculate fees using proper platform fee structure (2% capped at ₦2,050)
       const grossAmount = Number(transaction.amount) || 0;
       const gatewayFee = Number(transaction.gateway_fee) || 0;
@@ -1024,14 +1035,16 @@ export async function POST(request: NextRequest) {
         'record_merchant_settlement',
         {
           p_merchant_id: transaction.merchant_id,
-          p_source_type: 'order',
-          p_source_id: transaction.order_id,
+          p_source_type: sourceType,
+          p_source_id: sourceId,
           p_gateway: gateway,
           p_gateway_reference: reference,
           p_gross_amount: grossAmount,
           p_gateway_fee: gatewayFee,
           p_platform_fee: platformFee,
-          p_description: `Order payment via ${gateway}`,
+          p_description: isDomainPurchase
+            ? `Domain purchase via ${gateway}`
+            : `Order payment via ${gateway}`,
         }
       );
 

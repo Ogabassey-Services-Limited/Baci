@@ -8,6 +8,7 @@ import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderCreateSchema } from '@/schemas/orders';
@@ -32,12 +33,14 @@ interface CustomerInfo {
 
 interface ShippingAddress {
   address: string;
+  city?: string;
+  state?: string;
 }
 
 const GIGL_DEFAULT_SENDER_DETAILS = {
   location: { Latitude: '6.5244', Longitude: '3.3792' },
   name: 'Baci Store',
-  phone: '+234800000000',
+  phone: 'PLACEHOLDER_PHONE',
   stationId: 4,
   address: 'Merchant Address',
   locality: 'Lagos',
@@ -61,6 +64,43 @@ async function handleGiglShipment(
       merchant.rider_phone_number || GIGL_DEFAULT_SENDER_DETAILS.phone;
     const senderAddress =
       merchant.business_address || GIGL_DEFAULT_SENDER_DETAILS.address;
+    if (!senderPhone || senderPhone === GIGL_DEFAULT_SENDER_DETAILS.phone) {
+      logger.warn({
+        message: 'GIGL sender phone missing or placeholder',
+        senderName,
+      });
+      return null;
+    }
+    let receiverLocation = { Longitude: '3.3792', Latitude: '6.5244' };
+    let receiverStationId = 4;
+
+    if (shippingAddress.city && shippingAddress.state) {
+      try {
+        const locations = await giglProvider.getLocations();
+        const matched = locations.find(
+          (location) =>
+            location.city?.toLowerCase() ===
+              shippingAddress.city?.toLowerCase() ||
+            location.state?.toLowerCase() ===
+              shippingAddress.state?.toLowerCase()
+        );
+        if (matched?.latitude && matched?.longitude) {
+          receiverLocation = {
+            Longitude: String(matched.longitude),
+            Latitude: String(matched.latitude),
+          };
+        }
+        if (matched?.stationId) {
+          receiverStationId = matched.stationId;
+        }
+      } catch (stationError) {
+        logger.warn({
+          message: 'Failed to resolve GIGL receiver station, using fallback',
+          error: stationError,
+        });
+      }
+    }
+
     const giglShipmentPayload = {
       SenderDetails: {
         SenderLocation: GIGL_DEFAULT_SENDER_DETAILS.location,
@@ -72,8 +112,8 @@ async function handleGiglShipment(
         SenderLocality: GIGL_DEFAULT_SENDER_DETAILS.locality,
       },
       ReceiverDetails: {
-        ReceiverLocation: { Longitude: '3.3792', Latitude: '6.5244' },
-        ReceiverStationId: 4,
+        ReceiverLocation: receiverLocation,
+        ReceiverStationId: receiverStationId,
         ReceiverName: customer.name,
         ReceiverPhoneNumber: customer.phone,
         ReceiverAddress: shippingAddress.address,
@@ -417,6 +457,7 @@ export async function POST(request: NextRequest) {
         'customer_name_required',
         'items_required',
         'user_id_mismatch',
+        '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.
       const isClientError = code

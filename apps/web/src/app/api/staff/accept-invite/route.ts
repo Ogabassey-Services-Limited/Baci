@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         : null;
 
     if (acceptError || !acceptedStaff) {
-      const message = acceptError?.message || 'Failed to accept invitation';
+      const message = acceptError?.message || 'invalid_invite';
 
       const errorMap: Record<string, { status: number; error: string }> = {
         invite_expired: {
@@ -150,11 +150,16 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Token is required' }, { status: 400 });
+    const parsed = acceptInviteSchema.safeParse({
+      token: searchParams.get('token'),
+    });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'A valid invitation token is required' },
+        { status: 400 }
+      );
     }
+    const { token } = parsed.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -180,7 +185,7 @@ export async function GET(request: NextRequest) {
       valid: true,
       email: invitation.email,
       role: invitation.role,
-      merchantName: invitation.merchant_business_name || 'Unknown Store',
+      merchantName: invitation.merchant_business_name ?? 'Unknown Store',
       expiresAt: invitation.invitation_expires_at,
     });
   } catch (error) {

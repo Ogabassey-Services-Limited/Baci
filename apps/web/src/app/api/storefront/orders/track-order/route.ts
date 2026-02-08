@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { logger } from '@/lib/logger';
 import { createAnonClient } from '@/lib/supabase/anon';
+import {
+  trackOrderEmailSchema,
+  trackOrderTokenSchema,
+} from '@/schemas/track-order';
 
 // Unauthenticated order tracking endpoint.
 // The get_order_tracking RPC is SECURITY DEFINER (bypasses table-level RLS).
@@ -63,28 +67,6 @@ function extractFirstImageUrl(productImages: unknown): string | null {
 
   return null;
 }
-
-const trackOrderTokenSchema = z.object({
-  token: z.string().min(1),
-  merchant_slug: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/i),
-});
-
-const trackOrderEmailSchema = z
-  .object({
-    order_number: z.string().optional(),
-    order_id: z.string().uuid().optional(),
-    email: z.string().email(),
-    merchant_slug: z
-      .string()
-      .min(1)
-      .regex(/^[a-z0-9-]+$/i),
-  })
-  .refine((data) => data.order_number || data.order_id, {
-    message: 'order_number or order_id is required',
-  });
 
 // GET - Track order by tracking token, or by order number/ID + email
 export async function GET(request: NextRequest) {
@@ -155,7 +137,10 @@ export async function GET(request: NextRequest) {
     const order = Array.isArray(orders) ? orders[0] : null;
 
     if (error || !order) {
-      console.error('Track order error:', error?.code ?? 'NOT_FOUND');
+      logger.error({
+        message: 'Track order error',
+        code: error?.code ?? 'NOT_FOUND',
+      });
       return NextResponse.json(
         { error: 'Order not found. Please check your order number and email.' },
         { status: 404 }
@@ -185,6 +170,8 @@ export async function GET(request: NextRequest) {
       | ShippingAddress
       | string;
 
+    // PII masking policy: token-based lookups return full PII (secret bearer token),
+    // email-based lookups return masked data to limit exposure.
     const shouldMaskPii = !validatedToken;
 
     return NextResponse.json({
@@ -241,7 +228,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error tracking order:', error);
+    logger.error({ message: 'Error tracking order', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

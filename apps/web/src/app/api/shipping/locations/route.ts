@@ -6,6 +6,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { topshipProvider } from '@/lib/shipping/providers/topship';
+import { locationsQuerySchema } from '@/schemas/shipping';
 
 // Static fallback list of Nigerian states (2025)
 const NIGERIAN_STATES_FALLBACK = [
@@ -148,8 +149,17 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const state = searchParams.get('state');
-    const search = searchParams.get('search');
+    const parsed = locationsQuerySchema.safeParse({
+      state: searchParams.get('state') ?? undefined,
+      search: searchParams.get('search') ?? undefined,
+    });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid query parameters', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { state, search } = parsed.data;
 
     // Try to get states from Topship, fall back to static list
     let states: string[] = NIGERIAN_STATES_FALLBACK;
@@ -262,19 +272,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const MAX_LOCATIONS = 500;
-
     return NextResponse.json({
-      locations: locations.slice(0, MAX_LOCATIONS),
+      locations,
       totalCount: locations.length,
       states,
     });
   } catch (error) {
     console.error('Error getting locations:', error);
-    return NextResponse.json({
-      locations: [],
-      totalCount: 0,
-      states: NIGERIAN_STATES_FALLBACK,
-    });
+    return NextResponse.json(
+      {
+        locations: [],
+        totalCount: 0,
+        states: NIGERIAN_STATES_FALLBACK,
+      },
+      { status: 500 }
+    );
   }
 }

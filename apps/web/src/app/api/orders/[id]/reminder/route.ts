@@ -100,15 +100,14 @@ export async function POST(
       .eq('merchant_id', merchant.id)
       .single();
 
-    if (orderError) {
-      logger.warn({
-        message: 'Reminder API: Order lookup failed',
-        orderId,
-        error: orderError,
-      });
-    }
-
-    if (orderError || !order) {
+    if (!order) {
+      if (orderError && orderError.code !== 'PGRST116') {
+        logger.warn({
+          message: 'Reminder API: Order lookup failed',
+          orderId,
+          error: orderError,
+        });
+      }
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 

@@ -1,22 +1,16 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { sendEmail } from '@/lib/zeptomail';
+import { subscribeSchema, unsubscribeSchema } from '@/schemas/newsletter';
 
-const subscribeSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  merchantId: z.string().uuid('Invalid merchant ID').optional(),
-  source: z
-    .enum(['widget', 'footer', 'checkout', 'popup'])
-    .optional()
-    .default('widget'),
-});
-
-const unsubscribeSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  merchantId: z.string().uuid('Invalid merchant ID').optional(),
-});
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * POST /api/newsletter/subscribe
@@ -138,7 +132,7 @@ export async function POST(request: NextRequest) {
           <div style="text-align: center; margin-bottom: 30px;">
             <h1 style="color: #6366f1; margin: 0;">Welcome!</h1>
           </div>
-          <p>Thanks for subscribing to <strong>${merchantName}</strong>'s newsletter!</p>
+          <p>Thanks for subscribing to <strong>${escapeHtml(merchantName)}</strong>'s newsletter!</p>
           <p>You'll be the first to know about:</p>
           <ul style="padding-left: 20px;">
             <li>New product launches</li>
@@ -148,7 +142,7 @@ export async function POST(request: NextRequest) {
           <p>Stay tuned for exciting updates!</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           <p style="font-size: 12px; color: #666; text-align: center;">
-            You received this email because you subscribed to ${merchantName}'s newsletter.
+            You received this email because you subscribed to ${escapeHtml(merchantName)}'s newsletter.
           </p>
         </body>
         </html>

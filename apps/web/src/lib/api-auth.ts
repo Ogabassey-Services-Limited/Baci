@@ -6,31 +6,16 @@
  * After verification, use the returned supabase client for RLS-safe queries.
  */
 
-import {
-  createClient as createSupabaseClient,
-  type SupabaseClient,
-  type User,
-} from '@supabase/supabase-js';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createAnonClient } from '@/lib/supabase/anon';
+import { createScopedClient } from '@/lib/supabase/scoped';
 import { createClient } from '@/lib/supabase/server';
 import { userAccessSchema } from '@/schemas/api-auth';
 
 function _createScopedClient(token: string): SupabaseClient {
-  return createSupabaseClient(getSupabaseUrl(), getSupabaseAnonKey(), {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
+  return createScopedClient(token);
 }
 
 export interface AuthResult {

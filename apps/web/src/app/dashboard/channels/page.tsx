@@ -79,7 +79,7 @@ export default function ChannelsPage() {
             : `Error: ${error}`),
       });
     }
-  }, [searchParams, fetchIntegrations, router.replace]);
+  }, [searchParams, fetchIntegrations, router]);
 
   useEffect(() => {
     fetchIntegrations();
