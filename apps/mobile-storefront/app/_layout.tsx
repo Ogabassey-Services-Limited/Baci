@@ -24,6 +24,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { enableScreens } from 'react-native-screens';
+
 enableScreens();
 
 // 2026 Best Practice: Remove commented debug code from production files
@@ -31,10 +32,10 @@ enableScreens();
 
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ChatWidget } from '@/components/chat/ChatWidget';
-import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
+import { ChatWidget } from '@/components/chat/ChatWidget';
 import { ErrorFallback, GlobalErrorBoundary } from '@/components/ErrorBoundary';
+import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -349,6 +350,14 @@ function RootLayoutNav() {
                 name="bnpl-checkout/index"
                 options={{
                   title: 'Buy Now Pay Later',
+                  animation: 'slide_from_right',
+                  gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen
+                name="crypto-payment/index"
+                options={{
+                  title: 'Crypto Payment',
                   animation: 'slide_from_right',
                   gestureEnabled: false,
                 }}

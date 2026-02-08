@@ -1,7 +1,6 @@
 /**
- * BNPL Checkout Screen
- * Handles Buy Now Pay Later checkout via WebView
- * Supports CredPal and Credit Direct payment gateways
+ * Payment Gateway WebView Screen
+ * Handles card payment checkout via Paystack, Korapay, and Juicyway
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -22,26 +21,26 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 
-// 2026 Critical Fix: Zod schema for route parameter validation
-const BNPLParamsSchema = z.object({
+const PaymentGatewayParamsSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
-  // Zod 4: Use message option instead of errorMap
-  gateway: z.enum(['credpal', 'credit_direct'] as const, {
+  orderNumber: z.string().optional(),
+  gateway: z.enum(['paystack', 'korapay', 'juicyway'] as const, {
     message: 'Invalid payment gateway',
   }),
-  amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
-  customerEmail: z.string().email().optional(),
-  customerName: z.string().optional(),
-  merchantSlug: z.string().optional(),
+  authorizationUrl: z.string().url('Invalid authorization URL'),
+  reference: z.string().min(1, 'Reference is required'),
+  amount: z.string().optional(),
 });
 
-// API base URL - use environment variable in production
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+const GATEWAY_LABELS: Record<string, string> = {
+  paystack: 'Paystack',
+  korapay: 'Korapay',
+  juicyway: 'Juicyway',
+};
 
-export default function BNPLCheckoutScreen() {
+export default function PaymentGatewayScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  // 2026 Best Practice: Use Record type for route params to satisfy expo-router constraints
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
   const clearCart = useCartStore((state) => state.clearCart);
@@ -51,13 +50,11 @@ export default function BNPLCheckoutScreen() {
   >('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 2026 Critical Fix: Validate route params with Zod
   const validatedParams = useMemo(() => {
-    const result = BNPLParamsSchema.safeParse(params);
+    const result = PaymentGatewayParamsSchema.safeParse(params);
     if (!result.success) {
       return {
         isValid: false,
-        // Zod 4: Use .issues instead of .errors
         error: result.error.issues[0]?.message || 'Invalid parameters',
         data: null,
       };
@@ -65,29 +62,11 @@ export default function BNPLCheckoutScreen() {
     return { isValid: true, error: null, data: result.data };
   }, [params]);
 
-  const { orderId, gateway, amount } = validatedParams.data || {};
+  const { orderId, orderNumber, gateway, authorizationUrl, reference, amount } =
+    validatedParams.data || {};
 
-  // Construct the BNPL launcher URL
-  // 2026 Critical Fix: Include merchant slug in path for correct multi-tenant routing
-  // and as a query parameter for the order fetch API.
-  const bnplUrl = useMemo(() => {
-    if (!validatedParams.isValid || !orderId) return '';
+  const gatewayName = GATEWAY_LABELS[gateway || ''] || 'Payment';
 
-    const slug =
-      validatedParams.isValid && validatedParams.data
-        ? validatedParams.data.merchantSlug || 'ogabassey'
-        : 'ogabassey';
-    const baseUrl = API_BASE_URL.endsWith('/')
-      ? API_BASE_URL.slice(0, -1)
-      : API_BASE_URL;
-
-    // Pattern: [baseUrl]/[slug]/checkout/bnpl?orderId=[id]&gateway=[gateway]&merchant_slug=[slug]
-    // If baseUrl already includes the merchant (custom domain), the path /slug /checkout still works
-    // because Next.js handles the rewrite.
-    return `${baseUrl}/${slug}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}&merchant_slug=${slug}`;
-  }, [validatedParams, orderId, gateway]);
-
-  // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {
     return (
       <SafeAreaView
@@ -103,10 +82,10 @@ export default function BNPLCheckoutScreen() {
             {validatedParams.error}
           </Text>
           <Pressable
-            style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+            style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
             onPress={() => router.back()}
           >
-            <Text style={styles.retryText}>Go Back</Text>
+            <Text style={styles.actionButtonText}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -116,67 +95,52 @@ export default function BNPLCheckoutScreen() {
   const handleNavigationChange = (navState: WebViewNavigation) => {
     const { url } = navState;
 
-    // Check for success redirect
-    if (url.includes('/order-success') || url.includes('success=true')) {
+    // Paystack/Korapay redirect to /checkout/success?reference=...
+    // Crypto checkout redirects to /order-success?type=crypto&orderId=...
+    if (
+      url.includes('/checkout/success') ||
+      url.includes('/order-success') ||
+      url.includes('trxref=')
+    ) {
       setStatus('success');
       clearCart();
-
-      // Extract reference from URL if present
-      const urlParams = new URL(url);
-      const reference = urlParams.searchParams.get('reference');
-
-      // Navigate to order success screen
       setTimeout(() => {
         router.replace({
           pathname: '/order-success',
           params: {
             orderId,
-            reference: reference || undefined,
+            orderNumber: orderNumber || '',
+            reference: reference || '',
             paymentMethod: gateway,
           },
         });
-      }, 1000);
+      }, 1500);
     }
 
-    // Check for cancellation
-    if (url.includes('/checkout') && url.includes('cancelled=true')) {
+    // Cancelled
+    if (url.includes('cancelled=true') || url.includes('cancel')) {
       setStatus('error');
       setErrorMessage('Payment was cancelled.');
-    }
-
-    // Check for error
-    if (url.includes('error=') || url.includes('/checkout?error')) {
-      setStatus('error');
-      const urlParams = new URL(url);
-      setErrorMessage(
-        urlParams.searchParams.get('error') ||
-          'Payment failed. Please try again.'
-      );
     }
   };
 
   const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-
-      if (data.type === 'bnpl_success') {
+      if (data.type === 'crypto_success') {
         setStatus('success');
         clearCart();
         setTimeout(() => {
           router.replace({
             pathname: '/order-success',
             params: {
-              orderId,
-              reference: data.reference,
+              orderId: data.orderId || orderId,
+              orderNumber: orderNumber || '',
+              reference: reference || '',
               paymentMethod: gateway,
             },
           });
-        }, 1000);
-      } else if (data.type === 'bnpl_error') {
-        setStatus('error');
-        setErrorMessage(data.message || 'Payment failed.');
-      } else if (data.type === 'bnpl_close') {
-        handleClose();
+        }, 1500);
       }
     } catch {
       // Ignore non-JSON messages
@@ -186,11 +150,11 @@ export default function BNPLCheckoutScreen() {
   const handleClose = () => {
     Alert.alert(
       'Cancel Payment?',
-      'Are you sure you want to cancel this payment?',
+      'Your order has been created. If you leave, you can complete payment later from your orders page.',
       [
         { text: 'Continue Payment', style: 'cancel' },
         {
-          text: 'Cancel',
+          text: 'Leave',
           style: 'destructive',
           onPress: () => router.back(),
         },
@@ -204,49 +168,12 @@ export default function BNPLCheckoutScreen() {
     webViewRef.current?.reload();
   };
 
-  const gatewayName = gateway === 'credpal' ? 'CredPal' : 'Credit Direct';
-
-  // Inject JavaScript to capture BNPL callbacks
-  const injectedJavaScript = `
-    (function() {
-      // Override console.log to capture BNPL events
-      const originalLog = console.log;
-      console.log = function(...args) {
-        originalLog.apply(console, args);
-        const message = args.join(' ');
-        if (message.includes('Credit Direct') || message.includes('CredPal')) {
-          window.ReactNativeWebView?.postMessage(JSON.stringify({
-            type: 'bnpl_log',
-            message: message
-          }));
-        }
-      };
-
-      // Listen for success/error events
-      window.addEventListener('message', function(event) {
-        if (event.data && typeof event.data === 'object') {
-          window.ReactNativeWebView?.postMessage(JSON.stringify(event.data));
-        }
-      });
-
-      // Intercept page navigation
-      const originalPushState = history.pushState;
-      history.pushState = function() {
-        originalPushState.apply(history, arguments);
-        window.ReactNativeWebView?.postMessage(JSON.stringify({
-          type: 'navigation',
-          url: window.location.href
-        }));
-      };
-    })();
-    true;
-  `;
-
   if (status === 'success') {
     return (
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.statusContainer}>
           <View style={[styles.statusIcon, { backgroundColor: '#DEF7EC' }]}>
             <Ionicons name="checkmark-circle" size={48} color="#059669" />
@@ -255,13 +182,12 @@ export default function BNPLCheckoutScreen() {
             Payment Successful!
           </Text>
           <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            Your {gatewayName} payment has been approved. Redirecting to order
-            confirmation...
+            Redirecting to your order confirmation...
           </Text>
           <ActivityIndicator
             size="small"
             color={BRAND.primary}
-            style={styles.statusLoader}
+            style={{ marginTop: SPACING.lg }}
           />
         </View>
       </SafeAreaView>
@@ -295,16 +221,18 @@ export default function BNPLCheckoutScreen() {
           </Text>
           <View style={styles.errorActions}>
             <Pressable
-              style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
+              style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
               onPress={handleRetry}
             >
-              <Text style={styles.retryButtonText}>Try Again</Text>
+              <Text style={styles.actionButtonText}>Try Again</Text>
             </Pressable>
             <Pressable
-              style={[styles.cancelButton, { borderColor: colors.border }]}
+              style={[styles.secondaryButton, { borderColor: colors.border }]}
               onPress={() => router.back()}
             >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+              <Text
+                style={[styles.secondaryButtonText, { color: colors.text }]}
+              >
                 Go Back
               </Text>
             </Pressable>
@@ -331,24 +259,17 @@ export default function BNPLCheckoutScreen() {
         }}
       />
 
-      {/* Loading overlay */}
       {status === 'loading' && (
         <View style={styles.loadingOverlay}>
           <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
             <ActivityIndicator size="large" color={BRAND.primary} />
             <Text style={[styles.loadingText, { color: colors.text }]}>
-              Launching {gatewayName}...
-            </Text>
-            <Text
-              style={[styles.loadingSubtext, { color: colors.textSecondary }]}
-            >
-              Please wait while we prepare your installment checkout
+              Loading {gatewayName}...
             </Text>
           </View>
         </View>
       )}
 
-      {/* Security badge */}
       <View
         style={[
           styles.securityBadge,
@@ -361,22 +282,19 @@ export default function BNPLCheckoutScreen() {
         </Text>
       </View>
 
-      {/* BNPL WebView */}
       <WebView
         ref={webViewRef}
-        source={{ uri: bnplUrl }}
+        source={{ uri: authorizationUrl || '' }}
         style={styles.webView}
         onLoadStart={() => setStatus('loading')}
         onLoadEnd={() => setStatus('ready')}
         onNavigationStateChange={handleNavigationChange}
         onMessage={handleWebViewMessage}
-        injectedJavaScript={injectedJavaScript}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
         scalesPageToFit={true}
         mixedContentMode="compatibility"
-        allowsInlineMediaPlayback={true}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           setStatus('error');
@@ -391,20 +309,22 @@ export default function BNPLCheckoutScreen() {
         )}
       />
 
-      {/* Amount display */}
-      <View
-        style={[
-          styles.amountBanner,
-          { backgroundColor: colors.card, borderTopColor: colors.border },
-        ]}
-      >
-        <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
-          Total Amount
-        </Text>
-        <Text style={[styles.amountValue, { color: BRAND.primary }]}>
-          ₦{Number(amount || '0').toLocaleString()}
-        </Text>
-      </View>
+      {amount && (
+        <View
+          style={[
+            styles.amountBanner,
+            { backgroundColor: colors.card, borderTopColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
+            Total Amount
+          </Text>
+          <Text style={[styles.amountValue, { color: BRAND.primary }]}>
+            {'\u20A6'}
+            {Number.parseInt(amount, 10).toLocaleString()}
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -456,11 +376,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     textAlign: 'center',
   },
-  loadingSubtext: {
-    fontSize: 13,
-    marginTop: SPACING.xs,
-    textAlign: 'center',
-  },
   amountBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -501,35 +416,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  statusLoader: {
-    marginTop: SPACING.lg,
-  },
   errorActions: {
     marginTop: SPACING.xl,
     gap: SPACING.sm,
     width: '100%',
   },
-  retryButton: {
+  actionButton: {
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  retryButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  cancelButton: {
+  secondaryButton: {
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     borderWidth: 1,
   },
-  cancelButtonText: {
+  secondaryButtonText: {
     fontSize: 16,
     fontWeight: '500',
   },
-  // 2026 Critical Fix: Styles for invalid params error state
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -547,10 +458,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    marginBottom: SPACING.lg,
   },
 });

@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,8 @@ export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scaleAnim = useRef(new Animated.Value(0)).current;
+  const { orderNumber, reference } =
+    useLocalSearchParams<Record<string, string>>();
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -93,7 +95,7 @@ export default function OrderSuccessScreen() {
                 Order Number
               </Text>
               <Text style={[styles.orderValue, { color: colors.text }]}>
-                #OGB-{Math.random().toString(36).substr(2, 8).toUpperCase()}
+                #{orderNumber || 'Processing...'}
               </Text>
             </View>
 
@@ -112,6 +114,29 @@ export default function OrderSuccessScreen() {
                 2-4 Business Days
               </Text>
             </View>
+
+            {reference ? (
+              <>
+                <View
+                  style={[styles.divider, { backgroundColor: colors.border }]}
+                />
+                <View style={styles.orderRow}>
+                  <Ionicons
+                    name="card-outline"
+                    size={20}
+                    color={BRAND.primary}
+                  />
+                  <Text
+                    style={[styles.orderLabel, { color: colors.textSecondary }]}
+                  >
+                    Payment Ref
+                  </Text>
+                  <Text style={[styles.orderValue, { color: colors.text }]}>
+                    {reference}
+                  </Text>
+                </View>
+              </>
+            ) : null}
           </View>
 
           {/* What's Next */}
