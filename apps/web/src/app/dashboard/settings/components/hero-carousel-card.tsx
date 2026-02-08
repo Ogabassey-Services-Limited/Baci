@@ -27,45 +27,60 @@ export function HeroCarouselCard({
 }: HeroCarouselCardProps) {
   const { toast } = useToast();
 
-  const handleSlideChange = (
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+  const updateSlide = (
     index: number,
     field: keyof HeroSlide,
     value: string
   ) => {
-    const newSlides = [...slides];
-    newSlides[index] = { ...newSlides[index], [field]: value };
-    onSlidesChange(newSlides);
+    onSlidesChange(
+      slides.map((s, i) => (i === index ? { ...s, [field]: value } : s))
+    );
   };
+
+  const handleSlideChange = updateSlide;
 
   const handleImageUpload = (
     index: number,
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const dataUri = reader.result as string;
-        handleSlideChange(index, 'imageUrl', dataUri);
-        try {
-          const uploadedUrl = await uploadImage(dataUri, 'hero-images');
-          if (uploadedUrl) {
-            handleSlideChange(index, 'imageUrl', uploadedUrl);
-          }
-        } catch (error) {
-          logger.error({
-            error: error as Error,
-            message: 'Hero image upload failed',
-          });
-          toast({
-            title: 'Upload Failed',
-            description: 'Could not upload hero image.',
-            variant: 'destructive',
-          });
-        }
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: 'File Too Large',
+        description: 'Hero images must be under 5 MB.',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    const previousUrl = slides[index]?.imageUrl ?? '';
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const dataUri = reader.result as string;
+      updateSlide(index, 'imageUrl', dataUri);
+      try {
+        const uploadedUrl = await uploadImage(dataUri, 'hero-images');
+        if (uploadedUrl) {
+          updateSlide(index, 'imageUrl', uploadedUrl);
+        }
+      } catch (error) {
+        updateSlide(index, 'imageUrl', previousUrl);
+        logger.error({
+          error: error instanceof Error ? error : new Error(String(error)),
+          message: 'Hero image upload failed',
+        });
+        toast({
+          title: 'Upload Failed',
+          description: 'Could not upload hero image.',
+          variant: 'destructive',
+        });
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const addSlide = () => {
@@ -105,6 +120,7 @@ export function HeroCarouselCard({
                     alt={`Slide ${index + 1}`}
                     width={128}
                     height={80}
+                    sizes="128px"
                     className="object-cover w-full h-full"
                   />
                 ) : (

@@ -24,12 +24,16 @@ export const extractColorsFromImage = (
       try {
         const colorThief = new ColorThief();
         const palette = colorThief.getPalette(img, 5);
+        const safePalette = palette ?? [
+          [0, 0, 0],
+          [0, 0, 0],
+        ];
 
         const toHex = (rgb: number[]) =>
           `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 
-        const primaryRgb = palette[0] || [0, 0, 0];
-        const accentRgb = palette[1] || primaryRgb;
+        const primaryRgb = safePalette[0] || [0, 0, 0];
+        const accentRgb = safePalette[1] || primaryRgb;
 
         resolve({
           primary: toHex(primaryRgb),

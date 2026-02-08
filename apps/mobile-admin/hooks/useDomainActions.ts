@@ -6,14 +6,10 @@ import { supabase } from '@/lib/supabase';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
 
 interface UseDomainActionsParams {
-  merchantId: string | undefined;
   onRefresh: () => void;
 }
 
-export function useDomainActions({
-  merchantId,
-  onRefresh,
-}: UseDomainActionsParams) {
+export function useDomainActions({ onRefresh }: UseDomainActionsParams) {
   const [actionLoading, setActionLoading] = useState(false);
 
   const handleSetPrimary = async (domain: Domain) => {
@@ -27,6 +23,15 @@ export function useDomainActions({
 
     setActionLoading(true);
     try {
+      // Unset any existing primary domain (RLS scopes to the merchant)
+      const { error: unsetError } = await supabase
+        .from('domains')
+        .update({ is_primary: false })
+        .eq('is_primary', true);
+
+      if (unsetError) throw unsetError;
+
+      // Set the new primary
       const { error } = await supabase
         .from('domains')
         .update({ is_primary: true })
@@ -113,16 +118,25 @@ export function useDomainActions({
         }
       );
 
-      const data = await response.json();
+      let data: { success?: boolean; error?: string } | null = null;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch {
+          // JSON parse failed — handled below
+        }
+      }
 
-      if (response.ok && data.success) {
+      if (response.ok && data?.success) {
         Alert.alert('Success', 'Domain verified successfully!');
         onRefresh();
       } else {
-        Alert.alert(
-          'Verification Failed',
-          data.error || 'Could not verify domain.'
-        );
+        const message =
+          data?.error ||
+          (await response.text().catch(() => '')) ||
+          'Could not verify domain.';
+        Alert.alert('Verification Failed', message);
       }
     } catch (error) {
       console.error('Verify error:', error);
@@ -132,22 +146,39 @@ export function useDomainActions({
     }
   };
 
-  const openDomainUrl = (domain: string) => {
-    const url = `https://${domain}`;
-    Linking.canOpenURL(url).then((supported) => {
+  const openDomainUrl = async (domainName: string) => {
+    const url = `https://${domainName}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
       if (supported) {
-        Linking.openURL(url);
+        await Linking.openURL(url);
       } else {
         Alert.alert('Error', 'Cannot open this URL');
       }
-    });
+    } catch (error) {
+      console.error('Open URL error:', error);
+      Alert.alert(
+        'Error',
+        `Cannot open this URL${error instanceof Error ? `: ${error.message}` : ''}`
+      );
+    }
   };
 
   const handleOptionAction = (action: DomainAction, domain: Domain) => {
-    if (action === 'visit') openDomainUrl(domain.domain);
-    if (action === 'verify') handleVerify(domain);
-    if (action === 'set_primary') handleSetPrimary(domain);
-    if (action === 'delete') handleDelete(domain);
+    switch (action) {
+      case 'visit':
+        openDomainUrl(domain.domain);
+        break;
+      case 'verify':
+        handleVerify(domain);
+        break;
+      case 'set_primary':
+        handleSetPrimary(domain);
+        break;
+      case 'delete':
+        handleDelete(domain);
+        break;
+    }
   };
 
   return {

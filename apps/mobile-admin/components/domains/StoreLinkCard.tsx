@@ -14,22 +14,32 @@ export function StoreLinkCard({
 }: StoreLinkCardProps) {
   const { colors, shadows } = useTheme();
 
+  const storeUrl =
+    primaryDomain ||
+    (merchantSlug ? `${merchantSlug}.usebaci.com` : 'Loading...');
+
   return (
     <View
       style={[styles.storeCard, { backgroundColor: colors.card }, shadows.sm]}
+      accessibilityLabel={`Store link: ${storeUrl}`}
     >
       <View
         style={[styles.storeIcon, { backgroundColor: colors.primaryLight }]}
       >
-        <Ionicons name="storefront" size={28} color={colors.primary} />
+        <Ionicons
+          name="storefront"
+          size={28}
+          color={colors.primary}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
       </View>
       <View style={styles.storeInfo}>
         <Text style={[styles.storeLabel, { color: colors.text }]}>
           Baci Store Link
         </Text>
         <Text style={[styles.storeUrl, { color: colors.textSecondary }]}>
-          {primaryDomain ||
-            (merchantSlug ? `${merchantSlug}.usebaci.com` : 'Loading...')}
+          {storeUrl}
         </Text>
       </View>
     </View>
@@ -52,9 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
-  storeInfo: {
-    marginLeft: SPACING.md,
-  },
+  storeInfo: {},
   storeLabel: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.sm,

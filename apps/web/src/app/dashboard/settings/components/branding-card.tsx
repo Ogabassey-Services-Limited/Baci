@@ -1,3 +1,5 @@
+'use client';
+
 import { CheckCircle, Loader2, Pencil, Shuffle, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { ColorPicker } from '@/components/color-picker';
@@ -51,12 +53,12 @@ export function BrandingCard({
           <div
             className={cn(
               'relative border-2 border-dashed rounded-lg p-4 h-48 w-full flex flex-col items-center justify-center text-center transition-colors',
-              merchantState?.logo_url
+              merchantState.logo_url
                 ? 'border-green-500 bg-green-50/50'
                 : 'border-muted-foreground/50'
             )}
           >
-            {merchantState?.logo_url ? (
+            {merchantState.logo_url ? (
               <>
                 <Image
                   src={merchantState.logo_url}
@@ -113,8 +115,7 @@ export function BrandingCard({
                           <div
                             className="w-full h-full rounded-full"
                             style={{
-                              backgroundColor:
-                                brandColors[role as keyof typeof brandColors],
+                              backgroundColor: brandColors[role],
                             }}
                           />
                           <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -124,17 +125,12 @@ export function BrandingCard({
                       </PopoverTrigger>
                       <PopoverContent className="w-auto">
                         <ColorPicker
-                          color={brandColors[role as keyof typeof brandColors]}
+                          color={brandColors[role]}
                           onChange={(newColor) => onColorChange(role, newColor)}
                         />
                       </PopoverContent>
                     </Popover>
-                    <span
-                      className="text-xs font-medium capitalize h-4 block"
-                      style={{
-                        color: brandColors[role as keyof typeof brandColors],
-                      }}
-                    >
+                    <span className="text-xs font-medium capitalize h-4 block text-muted-foreground">
                       {role}
                     </span>
                   </div>

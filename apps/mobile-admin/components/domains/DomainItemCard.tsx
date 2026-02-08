@@ -4,6 +4,22 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import type { Domain } from './domain-types';
 
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
+
+function getStatusColors(
+  status: Domain['status'],
+  colors: ThemeColors
+): { bg: string; fg: string } {
+  switch (status) {
+    case 'active':
+      return { bg: colors.successLight, fg: colors.success };
+    case 'failed':
+      return { bg: colors.errorLight, fg: colors.error };
+    default:
+      return { bg: colors.warningLight, fg: colors.warning };
+  }
+}
+
 interface DomainItemCardProps {
   domain: Domain;
   onOpenOptions: (domain: Domain) => void;
@@ -16,6 +32,7 @@ export function DomainItemCard({
   actionLoading,
 }: DomainItemCardProps) {
   const { colors, shadows } = useTheme();
+  const statusColors = getStatusColors(domain.status, colors);
 
   return (
     <View
@@ -24,29 +41,9 @@ export function DomainItemCard({
       <View style={styles.domainInfo}>
         <View style={styles.domainHeader}>
           <View
-            style={[
-              styles.iconContainer,
-              {
-                backgroundColor:
-                  domain.status === 'active'
-                    ? colors.successLight
-                    : domain.status === 'failed'
-                      ? colors.errorLight
-                      : colors.warningLight,
-              },
-            ]}
+            style={[styles.iconContainer, { backgroundColor: statusColors.bg }]}
           >
-            <Ionicons
-              name="globe-outline"
-              size={24}
-              color={
-                domain.status === 'active'
-                  ? colors.success
-                  : domain.status === 'failed'
-                    ? colors.error
-                    : colors.warning
-              }
-            />
+            <Ionicons name="globe-outline" size={24} color={statusColors.fg} />
           </View>
 
           <View>
@@ -71,29 +68,10 @@ export function DomainItemCard({
               <View
                 style={[
                   styles.statusBadge,
-                  {
-                    backgroundColor:
-                      domain.status === 'active'
-                        ? colors.successLight
-                        : domain.status === 'failed'
-                          ? colors.errorLight
-                          : colors.warningLight,
-                  },
+                  { backgroundColor: statusColors.bg },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color:
-                        domain.status === 'active'
-                          ? colors.success
-                          : domain.status === 'failed'
-                            ? colors.error
-                            : colors.warning,
-                    },
-                  ]}
-                >
+                <Text style={[styles.statusText, { color: statusColors.fg }]}>
                   {domain.status.charAt(0).toUpperCase() +
                     domain.status.slice(1)}
                 </Text>
@@ -107,6 +85,8 @@ export function DomainItemCard({
         style={styles.optionsButton}
         onPress={() => onOpenOptions(domain)}
         disabled={actionLoading}
+        accessibilityRole="button"
+        accessibilityLabel={`Open options for ${domain.domain}`}
       >
         <Ionicons
           name="ellipsis-vertical"

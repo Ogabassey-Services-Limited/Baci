@@ -85,7 +85,6 @@ export default function DomainsDashboard() {
   }, [fetchDomains]);
 
   const { actionLoading, handleOptionAction } = useDomainActions({
-    merchantId: merchant?.id,
     onRefresh: fetchDomains,
   });
 

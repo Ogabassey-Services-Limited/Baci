@@ -53,7 +53,7 @@ export function StoreFeaturesCard({
     } catch (error) {
       setBlogEnabled(!enabled);
       logger.error({
-        error: error as Error,
+        error: error instanceof Error ? error : new Error(String(error)),
         message: 'Failed to update blog setting',
       });
       toast({

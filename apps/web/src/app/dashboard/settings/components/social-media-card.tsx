@@ -10,7 +10,7 @@ import {
   Music,
   Twitter,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -24,11 +24,44 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
+const SOCIAL_FIELDS = [
+  {
+    id: 'twitter',
+    label: 'Twitter',
+    icon: Twitter,
+    placeholder: '@username',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    icon: Instagram,
+    placeholder: '@username',
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    icon: Facebook,
+    placeholder: 'Facebook URL',
+  },
+  { id: 'tiktok', label: 'TikTok', icon: Music, placeholder: '@username' },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    icon: Linkedin,
+    placeholder: 'LinkedIn Company URL',
+  },
+  {
+    id: 'snapchat',
+    label: 'Snapchat',
+    icon: Ghost,
+    placeholder: '@username',
+  },
+] as const;
+
 interface SocialMediaCardProps {
   initialSocialMedia: Record<string, string>;
   updateMerchant: (
-    // biome-ignore lint/suspicious/noExplicitAny: updateMerchant accepts dynamic merchant data
-    data: any,
+    data: { social_media: Record<string, string> },
     options?: { skipReload?: boolean }
   ) => Promise<void>;
   onSocialMediaChange: (socialMedia: Record<string, string>) => void;
@@ -48,7 +81,7 @@ export function SocialMediaCard({
 
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resetStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const latestDataRef = useRef<Record<string, unknown> | null>(null);
+  const latestDataRef = useRef<Record<string, string>>(initialSocialMedia);
 
   useEffect(() => {
     return () => {
@@ -61,82 +94,49 @@ export function SocialMediaCard({
     };
   }, []);
 
-  const autoSave = useCallback(
-    (data: { social_media?: Record<string, string> }) => {
-      latestDataRef.current = data;
+  const autoSave = () => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
 
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      const dataToSave = latestDataRef.current;
 
-      autoSaveTimeoutRef.current = setTimeout(async () => {
-        const dataToSave = latestDataRef.current;
-        if (!dataToSave) return;
-
-        setSaveStatus('saving');
-        try {
-          await updateMerchant(dataToSave, { skipReload: true });
-          setSaveStatus('saved');
-          if (resetStatusTimeoutRef.current) {
-            clearTimeout(resetStatusTimeoutRef.current);
-          }
-          resetStatusTimeoutRef.current = setTimeout(
-            () => setSaveStatus('idle'),
-            2000
-          );
-        } catch (e) {
-          logger.error({ error: e as Error, message: 'Autosave failed' });
-          setSaveStatus('idle');
-          toast({
-            title: 'Autosave Failed',
-            description: 'Changes could not be saved automatically.',
-            variant: 'destructive',
-          });
+      setSaveStatus('saving');
+      try {
+        await updateMerchant(
+          { social_media: dataToSave },
+          { skipReload: true }
+        );
+        setSaveStatus('saved');
+        if (resetStatusTimeoutRef.current) {
+          clearTimeout(resetStatusTimeoutRef.current);
         }
-      }, 500);
-    },
-    [updateMerchant, toast]
-  );
+        resetStatusTimeoutRef.current = setTimeout(
+          () => setSaveStatus('idle'),
+          2000
+        );
+      } catch (e) {
+        logger.error({
+          error: e instanceof Error ? e : new Error(String(e)),
+          message: 'Autosave failed',
+        });
+        setSaveStatus('idle');
+        toast({
+          title: 'Autosave Failed',
+          description: 'Changes could not be saved automatically.',
+          variant: 'destructive',
+        });
+      }
+    }, 500);
+  };
 
   const handleChange = (field: string, value: string) => {
     const updated = { ...socialMedia, [field]: value };
     setSocialMedia(updated);
+    latestDataRef.current = updated;
     onSocialMediaChange(updated);
   };
-
-  const fields = [
-    {
-      id: 'twitter',
-      label: 'Twitter',
-      icon: Twitter,
-      placeholder: '@username',
-    },
-    {
-      id: 'instagram',
-      label: 'Instagram',
-      icon: Instagram,
-      placeholder: '@username',
-    },
-    {
-      id: 'facebook',
-      label: 'Facebook',
-      icon: Facebook,
-      placeholder: 'Facebook URL',
-    },
-    { id: 'tiktok', label: 'TikTok', icon: Music, placeholder: '@username' },
-    {
-      id: 'linkedin',
-      label: 'LinkedIn',
-      icon: Linkedin,
-      placeholder: 'LinkedIn Company URL',
-    },
-    {
-      id: 'snapchat',
-      label: 'Snapchat',
-      icon: Ghost,
-      placeholder: '@username',
-    },
-  ];
 
   return (
     <Card className="glass">
@@ -144,7 +144,8 @@ export function SocialMediaCard({
         <div className="flex items-center justify-between">
           <CardTitle>Social Media</CardTitle>
           {saveStatus !== 'idle' && (
-            <span
+            <output
+              aria-live="polite"
               className={cn(
                 'text-xs font-medium flex items-center gap-1 transition-opacity',
                 saveStatus === 'saving'
@@ -154,14 +155,15 @@ export function SocialMediaCard({
             >
               {saveStatus === 'saving' ? (
                 <>
-                  <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                  Saving...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-3 w-3" /> Saved
+                  <CheckCircle className="h-3 w-3" aria-hidden /> Saved
                 </>
               )}
-            </span>
+            </output>
           )}
         </div>
         <CardDescription>
@@ -171,7 +173,7 @@ export function SocialMediaCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid md:grid-cols-2 gap-4">
-          {fields.map(({ id, label, icon: Icon, placeholder }) => (
+          {SOCIAL_FIELDS.map(({ id, label, icon: Icon, placeholder }) => (
             <div key={id} className="space-y-2">
               <Label htmlFor={id} className="flex items-center gap-2">
                 <Icon className="w-4 h-4" />
@@ -182,7 +184,7 @@ export function SocialMediaCard({
                 placeholder={placeholder}
                 value={socialMedia[id] || ''}
                 onChange={(e) => handleChange(id, e.target.value)}
-                onBlur={() => autoSave({ social_media: socialMedia })}
+                onBlur={autoSave}
               />
             </div>
           ))}
