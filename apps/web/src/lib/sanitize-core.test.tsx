@@ -45,6 +45,14 @@ describe('sanitizeSearchQuery', () => {
     expect(result).not.toContain(';');
   });
 
+  it('should remove PostgREST control characters', () => {
+    const result = sanitizeSearchQuery('foo),stock.gt.0');
+    expect(result).not.toContain(')');
+    expect(result).not.toContain(',');
+    // Should remove both ) and ,
+    expect(result).toBe('foostock.gt.0');
+  });
+
   it('should allow safe search terms', () => {
     const result = sanitizeSearchQuery('iPhone 15 Pro Max');
     expect(result).toBe('iPhone 15 Pro Max');
