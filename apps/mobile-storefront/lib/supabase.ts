@@ -91,6 +91,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Important for React Native
+    flowType: 'pkce', // Required for mobile OAuth deep linking
   },
 });
 
@@ -234,47 +235,68 @@ export async function calculateCommerce(
       });
       result = response.data;
       error = response.error;
+    } catch (e) {
+      error = e;
     } finally {
       clearTimeout(timeoutId);
     }
 
     if (error) {
-      console.log('[calculateCommerce] Full Error Object:', JSON.stringify(error, null, 2));
       log.error(`Commerce Brain Error [${action}]:`, error);
 
-      // Track commerce brain failure
-      const { trackError } = await import('@/services/analytics');
-      const errorMessage = (error as { message?: string })?.message || 'Unknown error';
-      trackError('commerce_brain_error', errorMessage, {
-        action,
-        duration_ms: Date.now() - startTime,
-      });
+      // Track commerce brain failure with safe dynamic import
+      try {
+        const { trackError } = await import('@/services/analytics');
+        const errorMessage =
+          (error as { message?: string })?.message || 'Unknown error';
+        trackError('commerce_brain_error', errorMessage, {
+          action,
+          duration_ms: Date.now() - startTime,
+        });
+      } catch (trackErr) {
+        log.warn('Failed to track error:', trackErr);
+      }
 
-      throw error;
+      if (error instanceof Error) throw error;
+      throw new CommerceError(
+        (error as { message?: string })?.message ||
+          'Commerce calculation failed',
+        'COMMERCE_BRAIN_ERROR'
+      );
     }
 
     // Track successful commerce brain call
-    const { trackEvent } = await import('@/services/analytics');
-    trackEvent('commerce_brain_called', {
-      action,
-      success: true,
-      duration_ms: Date.now() - startTime,
-    });
+    try {
+      const { trackEvent } = await import('@/services/analytics');
+      trackEvent('commerce_brain_called', {
+        action,
+        success: true,
+        duration_ms: Date.now() - startTime,
+      });
+    } catch (trackErr) {
+      log.warn('Failed to track event:', trackErr);
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return result as any;
   } catch (error) {
-    // Track commerce brain failure for network errors
-    const { trackError } = await import('@/services/analytics');
-    trackError(
-      'commerce_brain_error',
-      error instanceof Error ? error.message : 'Unknown error',
-      {
-        action,
-        duration_ms: Date.now() - startTime,
-      }
-    );
+    if (error instanceof CommerceError) throw error;
 
-    throw error;
+    // Track external failures (network, etc)
+    try {
+      const { trackError } = await import('@/services/analytics');
+      trackError(
+        'commerce_brain_error',
+        error instanceof Error ? error.message : 'Unknown error',
+        {
+          action,
+          duration_ms: Date.now() - startTime,
+        }
+      );
+    } catch (trackErr) {
+      log.warn('Failed to track catch error:', trackErr);
+    }
+
+    if (error instanceof Error) throw error;
+    throw new CommerceError('Unknown commerce error', 'UNKNOWN_ERROR');
   }
 }
