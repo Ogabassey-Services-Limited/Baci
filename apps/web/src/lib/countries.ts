@@ -98,15 +98,23 @@ export const COUNTRIES: Country[] = [
   },
 ];
 
+// Pre-compute maps for O(1) lookup
+const CODE_MAP = new Map<string, Country>();
+const NAME_MAP = new Map<string, Country>();
+
+COUNTRIES.forEach((country) => {
+  CODE_MAP.set(country.code, country);
+  NAME_MAP.set(country.name.toLowerCase(), country);
+});
+
 export function getCountryByCode(codeOrName: string): Country | undefined {
   if (!codeOrName) return undefined;
 
-  const normalizedInput = codeOrName.toUpperCase();
-  const normalizedInputTitle = codeOrName.toLowerCase();
+  // Try exact code match (case-insensitive)
+  const codeMatch = CODE_MAP.get(codeOrName.toUpperCase());
+  if (codeMatch) return codeMatch;
 
-  return COUNTRIES.find(
-    (country) =>
-      country.code === normalizedInput ||
-      country.name.toLowerCase() === normalizedInputTitle
-  );
+  // Try name match (case-insensitive)
+  const nameMatch = NAME_MAP.get(codeOrName.toLowerCase());
+  return nameMatch;
 }
