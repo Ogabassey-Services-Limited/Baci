@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
-import { StorefrontProductCard } from './product-card';
 import { StorefrontProductGrid } from './product-grid';
 
 // Mock dependencies
@@ -211,7 +211,9 @@ describe('StorefrontProductGrid', () => {
       expect(screen.getByText(expectedText)).toBeInTheDocument();
 
       // Check that it is indeed in a live region (roughly)
-      const liveRegion = screen.getByText(expectedText).closest('[aria-live="polite"]');
+      const liveRegion = screen
+        .getByText(expectedText)
+        .closest('[aria-live="polite"]');
       expect(liveRegion).toBeInTheDocument();
     });
   });
