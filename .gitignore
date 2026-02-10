@@ -176,6 +176,7 @@ knip-results.json
 /.codex/config.toml.bak
 /.gemini/settings.json
 /.gemini/settings.json.bak
+/.mcp.json
 /.mcp.json.bak
 /.vscode/mcp.json
 /.vscode/mcp.json.bak

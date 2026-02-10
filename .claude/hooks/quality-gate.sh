@@ -48,6 +48,7 @@ trap 'rm -f "$MISSING_TESTS_FILE"' EXIT
     */ui/*) continue ;;                                      # shadcn base components
     */contexts/*) continue ;;                                # React context providers
     */templates/*) continue ;;                               # Store templates
+    */__mocks__/*) continue ;;                               # Test mock files
   esac
   # Derive expected test file path using bash parameter expansion
   DIR=$(dirname "$FILE")

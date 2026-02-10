@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "supabase": {
-      "command": "npx",
+      "command": "/usr/local/bin/npx",
       "args": [
         "-y",
         "supabase-mcp"
@@ -23,14 +23,14 @@
       }
     },
     "context7": {
-      "command": "npx",
+      "command": "/usr/local/bin/npx",
       "args": [
         "-y",
         "@upstash/context7-mcp"
       ],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}",
-        "CONTEXT7_API_URL": "${CONTEXT7_API_URL}"
+        "CONTEXT7_API_URL": "https://context7.com/api/v1"
       },
       "type": "stdio"
     }
