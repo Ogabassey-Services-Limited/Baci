@@ -5,61 +5,69 @@ import {
   generateRequestRef,
   isValidPhoneNumber,
   type NetworkProvider,
+  type PurchaseResult,
   purchaseAirtime,
   purchaseData,
 } from '@/lib/kuda';
+import { purchaseBill } from '@/lib/kuda-bills';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { createClient } from '@/lib/supabase/server';
+import { COMMISSION_CATEGORY_MAP, purchaseSchema } from '@/schemas/vtu';
 
-interface PurchaseRequest {
-  merchantSlug: string;
-  phoneNumber: string;
-  amount: number;
-  type: 'airtime' | 'data';
-  networkProvider: NetworkProvider;
-  dataPlanCode?: string;
-  orderId?: string;
-  customerId?: string;
-  source?: 'checkout' | 'loyalty_reward' | 'direct' | 'gift';
-}
+const TYPE_LABELS: Record<string, string> = {
+  airtime: 'Airtime',
+  data: 'Data',
+  electricity: 'Electricity',
+  cable_tv: 'TV Subscription',
+  betting: 'Betting Top-up',
+};
 
-// POST /api/vtu/purchase - Purchase airtime or data
+// POST /api/vtu/purchase - Purchase airtime, data, or bill payment
 export async function POST(request: Request) {
   try {
-    const body: PurchaseRequest = await request.json();
+    const body = await request.json();
+    const parsed = purchaseSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     const {
       merchantSlug,
-      phoneNumber,
       amount,
       type,
+      phoneNumber,
       networkProvider,
       dataPlanCode,
+      billItemIdentifier,
+      customerIdentifier,
+      billerName,
       orderId,
       customerId,
-      source = 'direct',
-    } = body;
+      source,
+    } = parsed.data;
 
-    // Validate required fields
-    if (!merchantSlug || !phoneNumber || !amount || !type || !networkProvider) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    const isTelco = type === 'airtime' || type === 'data';
+
+    // Validate phone number for telco types
+    let formattedPhone = '';
+    if (isTelco && phoneNumber) {
+      formattedPhone = formatPhoneNumber(phoneNumber);
+      if (!isValidPhoneNumber(formattedPhone)) {
+        return NextResponse.json(
+          { error: 'Invalid phone number' },
+          { status: 400 }
+        );
+      }
     }
 
-    // Validate phone number
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (!isValidPhoneNumber(formattedPhone)) {
+    // Validate amount range
+    if (amount < 50 || amount > 500000) {
       return NextResponse.json(
-        { error: 'Invalid phone number' },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount
-    if (amount < 50 || amount > 50000) {
-      return NextResponse.json(
-        { error: 'Amount must be between ₦50 and ₦50,000' },
+        { error: 'Amount must be between ₦50 and ₦500,000' },
         { status: 400 }
       );
     }
@@ -67,7 +75,7 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get merchant and verify VTU is enabled (include bank details for payout)
+    // Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
@@ -83,11 +91,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get VTU settings (including customer cashback settings)
+    // Get VTU settings
     const { data: settings } = await supabase
       .from('merchant_feature_settings')
       .select(
-        'vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_merchant_commission_rate, vtu_customer_cashback_enabled, vtu_customer_cashback_rate'
+        'vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_electricity_enabled, vtu_tv_enabled, vtu_betting_enabled, vtu_merchant_commission_rate, vtu_customer_cashback_enabled, vtu_customer_cashback_rate'
       )
       .eq('merchant_id', merchant.id)
       .single();
@@ -99,45 +107,48 @@ export async function POST(request: Request) {
       );
     }
 
-    if (type === 'airtime' && !settings.vtu_airtime_enabled) {
+    // Check type-specific feature flags
+    const typeFlags: Record<string, boolean | null> = {
+      airtime: settings.vtu_airtime_enabled,
+      data: settings.vtu_data_enabled,
+      electricity: settings.vtu_electricity_enabled,
+      cable_tv: settings.vtu_tv_enabled,
+      betting: settings.vtu_betting_enabled,
+    };
+
+    if (typeFlags[type] === false) {
       return NextResponse.json(
-        { error: 'Airtime purchases are not enabled' },
+        { error: `${TYPE_LABELS[type]} purchases are not enabled` },
         { status: 403 }
       );
     }
 
-    if (type === 'data' && !settings.vtu_data_enabled) {
-      return NextResponse.json(
-        { error: 'Data purchases are not enabled' },
-        { status: 403 }
-      );
-    }
-
-    // Calculate commissions based on provider and type
-    // Merchant split percentage can be configured (default 50%)
+    // Calculate commissions
     const merchantSplitPercentage = settings.vtu_merchant_commission_rate
-      ? settings.vtu_merchant_commission_rate * 100 // Convert from decimal to percentage
-      : 50; // Default 50% split
+      ? settings.vtu_merchant_commission_rate * 100
+      : 50;
 
-    // Use the centralized Commerce Brain (Edge Function) for commission calculations
+    const commissionCategory = COMMISSION_CATEGORY_MAP[type];
+    const commissionProvider = isTelco
+      ? (networkProvider ?? '')
+      : (billerName ?? 'DEFAULT');
+
     const commissions = await calculateCommerce('calculate_vtu', {
       amount,
-      provider: networkProvider,
-      category: type === 'airtime' ? 'AIRTIME' : 'DATA',
+      provider: commissionProvider,
+      category: commissionCategory,
       merchantSplit: merchantSplitPercentage,
     });
 
-    // Calculate customer cashback (if enabled)
-    // Merchant can share a percentage of their commission with customers
+    // Calculate customer cashback
     const customerCashbackEnabled =
       settings.vtu_customer_cashback_enabled ?? false;
-    const customerCashbackRate = settings.vtu_customer_cashback_rate ?? 50; // Default 50% of merchant's share
+    const customerCashbackRate = settings.vtu_customer_cashback_rate ?? 50;
 
     let customerCashback = 0;
     let effectiveMerchantEarning = commissions.merchantEarning;
 
     if (customerCashbackEnabled && customerId) {
-      // Customer gets a percentage of merchant's commission
       customerCashback =
         Math.round(
           ((commissions.merchantEarning * customerCashbackRate) / 100) * 100
@@ -148,7 +159,7 @@ export async function POST(request: Request) {
     // Generate request reference
     const requestRef = generateRequestRef();
 
-    // Create transaction record first (pending status)
+    // Create transaction record (pending)
     const { data: transaction, error: txError } = await supabase
       .from('vtu_transactions')
       .insert({
@@ -156,15 +167,18 @@ export async function POST(request: Request) {
         customer_id: customerId || null,
         order_id: orderId || null,
         type,
-        network_provider: networkProvider,
-        phone_number: formattedPhone,
+        network_provider: isTelco ? networkProvider : (billerName ?? ''),
+        phone_number: isTelco ? formattedPhone : (customerIdentifier ?? ''),
         amount,
         request_reference: requestRef,
         status: 'pending',
         source,
         platform_commission: commissions.platformEarning,
-        merchant_commission: effectiveMerchantEarning, // After customer cashback deduction
+        merchant_commission: effectiveMerchantEarning,
         customer_cashback: customerCashback,
+        biller_name: billerName || null,
+        biller_item_code: billItemIdentifier || null,
+        customer_identifier: customerIdentifier || null,
         metadata: {
           dataPlanCode,
           originalPhoneNumber: phoneNumber,
@@ -185,19 +199,37 @@ export async function POST(request: Request) {
     }
 
     // Execute the purchase
-    let result: Awaited<ReturnType<typeof purchaseAirtime>>;
+    let result: PurchaseResult;
+
     if (type === 'airtime') {
-      result = await purchaseAirtime(formattedPhone, amount, networkProvider);
-    } else if (type === 'data' && dataPlanCode) {
+      result = await purchaseAirtime(
+        formattedPhone,
+        amount,
+        networkProvider as NetworkProvider
+      );
+    } else if (type === 'data') {
+      if (!dataPlanCode) {
+        return NextResponse.json(
+          { error: 'Data plan code is required for data purchases' },
+          { status: 400 }
+        );
+      }
       result = await purchaseData(
         formattedPhone,
         dataPlanCode,
         amount,
-        networkProvider
+        networkProvider as NetworkProvider
+      );
+    } else if (billItemIdentifier && customerIdentifier) {
+      // Electricity, Cable TV, Betting — generic bill purchase
+      result = await purchaseBill(
+        billItemIdentifier,
+        customerIdentifier,
+        amount
       );
     } else {
       return NextResponse.json(
-        { error: 'Data plan code is required for data purchases' },
+        { error: 'Missing bill item or customer identifier' },
         { status: 400 }
       );
     }
@@ -214,21 +246,16 @@ export async function POST(request: Request) {
 
     if (!result.success) {
       return NextResponse.json(
-        {
-          error: result.message,
-          reference: requestRef,
-        },
+        { error: result.message, reference: requestRef },
         { status: 400 }
       );
     }
 
-    // WALLET CREDIT: Add merchant's commission share to their wallet
-    // Weekly auto-payout or manual withdrawal when balance >= ₦1,000
+    // Credit wallets
     let merchantWalletCredited = false;
     let customerWalletCredited = false;
     let customerNewBalance = 0;
 
-    // Credit merchant wallet (with effective amount after customer cashback)
     if (effectiveMerchantEarning > 0) {
       try {
         const { error: walletError } = await supabase.rpc(
@@ -238,7 +265,7 @@ export async function POST(request: Request) {
             p_amount: effectiveMerchantEarning,
             p_source_type: 'vtu_transaction',
             p_source_id: transaction.id,
-            p_description: `VTU Commission - ${type} ${networkProvider} ₦${amount}${customerCashback > 0 ? ` (after ₦${customerCashback} customer cashback)` : ''}`,
+            p_description: `VTU Commission - ${TYPE_LABELS[type]} ${commissionProvider} ₦${amount}${customerCashback > 0 ? ` (after ₦${customerCashback} cashback)` : ''}`,
           }
         );
 
@@ -252,7 +279,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Credit customer wallet with cashback (if enabled and customer exists)
     if (customerCashback > 0 && customerId) {
       try {
         const { data: customerWalletResult, error: customerWalletError } =
@@ -262,7 +288,7 @@ export async function POST(request: Request) {
             p_amount: customerCashback,
             p_source_type: 'vtu_transaction',
             p_source_id: transaction.id,
-            p_description: `Cashback - ${type} ${networkProvider} ₦${amount}`,
+            p_description: `Cashback - ${TYPE_LABELS[type]} ${commissionProvider} ₦${amount}`,
           });
 
         if (customerWalletError) {
@@ -279,7 +305,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update transaction with wallet credit info
+    // Update transaction with wallet info
     if (merchantWalletCredited || customerWalletCredited) {
       await supabase
         .from('vtu_transactions')
@@ -296,17 +322,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `${type === 'airtime' ? 'Airtime' : 'Data'} purchase successful`,
+      message: `${TYPE_LABELS[type]} purchase successful`,
       reference: requestRef,
       transactionId: result.transactionId,
       amount,
-      phoneNumber: formattedPhone,
-      provider: networkProvider,
+      phoneNumber: isTelco ? formattedPhone : undefined,
+      provider: commissionProvider,
       commission: {
         merchantEarning: effectiveMerchantEarning,
         merchantWalletCredited,
       },
-      // Include cashback info if customer received any
       ...(customerCashback > 0 && {
         cashback: {
           amount: customerCashback,

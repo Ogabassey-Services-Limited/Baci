@@ -40,12 +40,55 @@ export function useCryptoPayment({
     useState<PendingCryptoOrder | null>(null);
   const [isInitializingCrypto, setIsInitializingCrypto] = useState(false);
 
+  const handleCryptoBack = () => {
+    setCryptoPaymentData(null);
+    setShowCryptoSelector(true);
+  };
+
   const handleCryptoCurrencyChange = (currency: CryptoCurrency) => {
     setSelectedCryptoCurrency(currency);
     const supportedChains = CRYPTO_CHAIN_SUPPORT[currency];
     if (!supportedChains.includes(selectedCryptoChain)) {
       setSelectedCryptoChain(supportedChains[0]);
     }
+  };
+
+  const pollForCryptoAddress = async (
+    sessionId: string,
+    paymentId: string,
+  ): Promise<{
+    address: string;
+    chain?: string;
+    currency?: string;
+    qrcode?: string;
+  } | null> => {
+    const MAX_ADDRESS_POLLS = 45; // ~90 seconds with 2s intervals
+    const POLL_INTERVAL = 2000;
+    const id = paymentId || sessionId;
+
+    for (let attempt = 0; attempt < MAX_ADDRESS_POLLS; attempt++) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+      try {
+        const res = await fetch(
+          `/api/payments/status?gateway=juicyway&session_id=${sessionId}&payment_id=${id}&check_address=true`,
+        );
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        if (data.crypto_address?.address) {
+          return data.crypto_address;
+        }
+
+        // Stop if the payment itself failed
+        if (data.status === 'failed' || data.status === 'cancelled') {
+          return null;
+        }
+      } catch {
+        // Network error — keep trying
+      }
+    }
+    return null;
   };
 
   const initializeCryptoPayment = async () => {
@@ -85,18 +128,54 @@ export function useCryptoPayment({
 
       if (paymentResult.success && paymentResult.crypto_payment) {
         setShowCryptoSelector(false);
-        setCryptoPaymentData({
-          address: paymentResult.crypto_payment.address,
-          chain: paymentResult.crypto_payment.chain,
-          currency: paymentResult.crypto_payment.currency,
-          amount: paymentResult.crypto_payment.amount / 100,
-          confirmation_time: paymentResult.crypto_payment.confirmation_time,
-          orderId: pendingCryptoOrder.orderId,
-          reference: paymentResult.reference,
-          sessionId: paymentResult.session_id || '',
-          paymentId: paymentResult.crypto_payment.payment_id || '',
-          qrcode: paymentResult.crypto_payment.qrcode,
-        });
+
+        const cryptoAmount = paymentResult.crypto_payment.amount / 100;
+        const sessionId = paymentResult.session_id || '';
+        const paymentId = paymentResult.crypto_payment.payment_id || '';
+
+        // If the address is ready, set it immediately
+        if (
+          paymentResult.crypto_payment.address &&
+          !paymentResult.crypto_address_pending
+        ) {
+          setCryptoPaymentData({
+            address: paymentResult.crypto_payment.address,
+            chain: paymentResult.crypto_payment.chain,
+            currency: paymentResult.crypto_payment.currency,
+            amount: cryptoAmount,
+            confirmation_time: paymentResult.crypto_payment.confirmation_time,
+            orderId: pendingCryptoOrder.orderId,
+            reference: paymentResult.reference,
+            sessionId,
+            paymentId,
+            qrcode: paymentResult.crypto_payment.qrcode,
+            trackingToken: pendingCryptoOrder.trackingToken,
+          });
+        } else {
+          // Address still being generated — poll the status endpoint
+          const address = await pollForCryptoAddress(sessionId, paymentId);
+          if (address) {
+            setCryptoPaymentData({
+              address: address.address,
+              chain: address.chain || paymentResult.crypto_payment.chain,
+              currency:
+                address.currency || paymentResult.crypto_payment.currency,
+              amount: cryptoAmount,
+              confirmation_time:
+                paymentResult.crypto_payment.confirmation_time,
+              orderId: pendingCryptoOrder.orderId,
+              reference: paymentResult.reference,
+              sessionId,
+              paymentId,
+              qrcode: address.qrcode,
+              trackingToken: pendingCryptoOrder.trackingToken,
+            });
+          } else {
+            throw new Error(
+              'Crypto wallet address generation timed out. Please try again.',
+            );
+          }
+        }
       } else {
         throw new Error('Failed to generate crypto payment address');
       }
@@ -180,9 +259,12 @@ export function useCryptoPayment({
       setCryptoVerificationStatus('confirmed');
       clearCheckoutSession();
       clearCart();
+      const tokenParam = cryptoPaymentData!.trackingToken
+        ? `&trackingToken=${cryptoPaymentData!.trackingToken}`
+        : '';
       routerPush(
         getHref(
-          `/order-success?type=crypto&orderId=${cryptoPaymentData!.orderId}&reference=${cryptoPaymentData!.reference}`,
+          `/order-success?type=crypto&orderId=${cryptoPaymentData!.orderId}&reference=${cryptoPaymentData!.reference}${tokenParam}`,
         ),
       );
     };
@@ -263,6 +345,7 @@ export function useCryptoPayment({
     setPendingCryptoOrder,
     isInitializingCrypto,
     handleCryptoCurrencyChange,
+    handleCryptoBack,
     initializeCryptoPayment,
     verifyCryptoPayment,
   };

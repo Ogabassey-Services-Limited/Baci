@@ -54,6 +54,7 @@ import { getRootDomain } from '@/env';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import { getClientCsrfToken } from '@/lib/csrf';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
@@ -313,8 +314,15 @@ export default function EditBlogPostPage() {
       formDataUpload.append('file', file);
 
       try {
+        const csrfToken = getClientCsrfToken();
+        const headers: HeadersInit = {};
+        if (csrfToken) {
+          headers['x-csrf-token'] = csrfToken;
+        }
+
         const response = await fetch('/api/merchant/blog/upload', {
           method: 'POST',
+          headers,
           body: formDataUpload,
         });
 
@@ -349,8 +357,15 @@ export default function EditBlogPostPage() {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
 
+    const csrfToken = getClientCsrfToken();
+    const headers: HeadersInit = {};
+    if (csrfToken) {
+      headers['x-csrf-token'] = csrfToken;
+    }
+
     const response = await fetch('/api/merchant/blog/upload', {
       method: 'POST',
+      headers,
       body: formDataUpload,
     });
 

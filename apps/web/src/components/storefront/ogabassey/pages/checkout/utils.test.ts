@@ -37,8 +37,8 @@ describe('getDeliveryDateRange', () => {
 });
 
 describe('CRYPTO_CHAIN_SUPPORT', () => {
-  it('USDT supports TRX and ETH chains', () => {
-    expect(CRYPTO_CHAIN_SUPPORT.USDT).toEqual(['TRX', 'ETH']);
+  it('USDT supports all four chains', () => {
+    expect(CRYPTO_CHAIN_SUPPORT.USDT).toEqual(['TRX', 'ETH', 'MATIC', 'AVAXC']);
   });
 
   it('USDC supports ETH, MATIC, and AVAXC chains', () => {

@@ -17,7 +17,7 @@ export function getDeliveryDateRange(): string {
 
 /** Which chains each stablecoin supports. */
 export const CRYPTO_CHAIN_SUPPORT: Record<CryptoCurrency, CryptoChain[]> = {
-  USDT: ['TRX', 'ETH'],
+  USDT: ['TRX', 'ETH', 'MATIC', 'AVAXC'],
   USDC: ['ETH', 'MATIC', 'AVAXC'],
 };
 

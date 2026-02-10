@@ -41,6 +41,7 @@ export interface CryptoPaymentData {
   sessionId: string;
   paymentId: string;
   qrcode?: string;
+  trackingToken?: string;
 }
 
 export interface DvaData {
@@ -66,6 +67,7 @@ export interface PendingCryptoOrder {
     zip_code: string;
   };
   items: Array<{ name: string; type: 'physical' | 'digital' }>;
+  trackingToken?: string;
 }
 
 export interface ResumedOrder {

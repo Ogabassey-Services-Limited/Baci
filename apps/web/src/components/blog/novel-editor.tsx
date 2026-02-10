@@ -88,9 +88,9 @@ export default function NovelEditor({
     <div className="relative w-full max-w-screen-lg">
       <EditorRoot>
         <EditorContent
+          immediatelyRender={false}
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
           initialContent={initialValue as any}
-          // @ts-expect-error: Tiptap version mismatch between novel and root dependencies
           extensions={extensions}
           className="relative min-h-[500px] w-full max-w-screen-lg border-muted bg-background sm:rounded-lg sm:border sm:shadow-sm"
           editorProps={{
@@ -120,12 +120,7 @@ export default function NovelEditor({
             />
           }
           slotAfter={
-            <EditorBubble
-              tippyOptions={{
-                placement: 'top',
-              }}
-              className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl"
-            >
+            <EditorBubble className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl">
               <Separator orientation="vertical" />
               <NodeSelector open={openNode} onOpenChange={setOpenNode} />
               <Separator orientation="vertical" />

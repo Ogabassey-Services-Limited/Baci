@@ -1,6 +1,14 @@
 'use client';
 
-import { Check, Clock, Copy, CreditCard, Loader2, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Copy,
+  CreditCard,
+  Loader2,
+  X,
+} from 'lucide-react';
 import { CHAIN_DISPLAY_NAMES } from '../utils';
 import type { CryptoPaymentData, CryptoVerificationStatus } from '../types';
 
@@ -13,6 +21,7 @@ interface CryptoPaymentModalProps {
   onCopyToClipboard: (text: string) => void;
   onClose: () => void;
   onCloseConfirm: () => void;
+  onBack?: () => void;
 }
 
 export function CryptoPaymentModal({
@@ -24,6 +33,7 @@ export function CryptoPaymentModal({
   onCopyToClipboard,
   onClose,
   onCloseConfirm,
+  onBack,
 }: CryptoPaymentModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -31,9 +41,20 @@ export function CryptoPaymentModal({
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-              <CreditCard size={16} className="text-white" />
-            </div>
+            {onBack && !isVerifying ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                aria-label="Change network or coin"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            ) : (
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <CreditCard size={16} className="text-white" />
+              </div>
+            )}
             <h2 className="font-bold text-white">Pay with Crypto</h2>
           </div>
           <button

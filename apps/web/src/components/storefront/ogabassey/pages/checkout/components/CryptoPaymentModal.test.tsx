@@ -207,6 +207,52 @@ describe('CryptoPaymentModal', () => {
     });
   });
 
+  describe('Back Button', () => {
+    it('renders back button when onBack prop is provided and not verifying', () => {
+      const onBack = vi.fn();
+      render(<CryptoPaymentModal {...defaultProps} onBack={onBack} />);
+      const backButton = screen.getByRole('button', {
+        name: 'Change network or coin',
+      });
+      expect(backButton).toBeInTheDocument();
+    });
+
+    it('calls onBack when back button is clicked', () => {
+      const onBack = vi.fn();
+      render(<CryptoPaymentModal {...defaultProps} onBack={onBack} />);
+      const backButton = screen.getByRole('button', {
+        name: 'Change network or coin',
+      });
+      fireEvent.click(backButton);
+      expect(onBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not render back button when onBack prop is not provided', () => {
+      render(<CryptoPaymentModal {...defaultProps} />);
+      expect(
+        screen.queryByRole('button', { name: 'Change network or coin' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('does not render back button when isVerifying is true', () => {
+      const onBack = vi.fn();
+      render(
+        <CryptoPaymentModal {...defaultProps} onBack={onBack} isVerifying={true} />,
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Change network or coin' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows credit card icon when back button is not shown', () => {
+      render(<CryptoPaymentModal {...defaultProps} />);
+      const buttons = screen.getAllByRole('button');
+      // The header should have a credit card icon when no back button
+      const header = buttons[0]?.parentElement?.parentElement;
+      expect(header?.querySelector('svg.lucide-credit-card')).toBeDefined();
+    });
+  });
+
   describe('Accessibility', () => {
     it('renders modal with proper backdrop', () => {
       const { container } = render(

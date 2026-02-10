@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { revalidateMerchant } from '@/lib/cache-revalidation';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -141,6 +142,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Invalidate merchant caches so the store becomes visible immediately
+    revalidateMerchant(merchant.id);
+
     return NextResponse.json({
       success: true,
       message: 'Store published successfully',
@@ -208,6 +212,9 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Invalidate merchant caches so the store goes offline immediately
+    revalidateMerchant(merchant.id);
 
     return NextResponse.json({
       success: true,

@@ -96,10 +96,7 @@ export function CryptoSelectorModal({
                     <p className="text-lg font-bold text-gray-900">{chain}</p>
                     <p className="text-xs text-gray-500">
                       {CHAIN_DISPLAY_NAMES[chain]
-                        ?.replace(
-                          ` (${chain === 'TRX' ? 'TRC-20' : 'ERC-20'})`,
-                          '',
-                        ) || chain}
+                        ?.replace(/\s*\([^)]*\)/, '') || chain}
                     </p>
                   </div>
                 </button>

@@ -95,19 +95,19 @@ describe('useCryptoPayment', () => {
       expect(result.current.selectedCryptoChain).toBe('ETH');
     });
 
-    it('should reset to TRX when switching to USDT with unsupported MATIC chain', () => {
+    it('should reset to ETH when switching to USDC with unsupported TRX chain', () => {
       const { result } = renderHook(() => useCryptoPayment(defaultOptions));
 
-      act(() => {
-        result.current.setSelectedCryptoChain('MATIC');
-      });
-
-      act(() => {
-        result.current.handleCryptoCurrencyChange('USDT');
-      });
-
-      expect(result.current.selectedCryptoCurrency).toBe('USDT');
+      // TRX is the default chain for USDT
       expect(result.current.selectedCryptoChain).toBe('TRX');
+
+      act(() => {
+        result.current.handleCryptoCurrencyChange('USDC');
+      });
+
+      expect(result.current.selectedCryptoCurrency).toBe('USDC');
+      // TRX is not supported on USDC, so it resets to ETH (first in USDC list)
+      expect(result.current.selectedCryptoChain).toBe('ETH');
     });
   });
 

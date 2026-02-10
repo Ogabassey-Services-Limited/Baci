@@ -330,6 +330,9 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     }
 
     const paymentAmount = amountDueToGateway ?? total;
+    const trackingParam = order.tracking_token
+      ? `&trackingToken=${order.tracking_token}`
+      : '';
 
     if (walletResult?.amountUsed) {
       setWalletBalance(walletResult.newBalance);
@@ -338,7 +341,11 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     // 2. Route to payment gateway
     if (paymentAmount <= 0) {
       clearCheckoutSession();
-      routerPush(getHref(`/order-success?orderId=${order.id}&wallet=true`));
+      routerPush(
+        getHref(
+          `/order-success?orderId=${order.id}&wallet=true${trackingParam}`,
+        ),
+      );
       setTimeout(clearCart, 500);
       return;
     }
@@ -371,6 +378,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           name: item.name,
           type: 'physical' as const,
         })),
+        trackingToken: order.tracking_token,
       });
       crypto.setShowCryptoSelector(true);
       setIsProcessing(false);
@@ -400,6 +408,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           reference: result.reference,
           sessionId: result.session_id || '',
           paymentId: result.crypto_payment.payment_id || '',
+          trackingToken: order.tracking_token,
         });
         setIsProcessing(false);
         isOrderInFlightRef.current = false;
@@ -448,7 +457,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           clearCart();
           routerPush(
             getHref(
-              `/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`,
+              `/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}${trackingParam}`,
             ),
           );
         },
@@ -500,7 +509,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
           clearCart();
           routerPush(
             getHref(
-              `/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`,
+              `/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}${trackingParam}`,
             ),
           );
         },
@@ -527,14 +536,16 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     if (paymentMethod === 'invoice') {
       clearCheckoutSession();
       routerPush(
-        getHref(`/order-success?type=invoice&orderId=${order.id}`),
+        getHref(
+          `/order-success?type=invoice&orderId=${order.id}${trackingParam}`,
+        ),
       );
       setTimeout(clearCart, 500);
     } else if (paymentMethod === 'payforme') {
       clearCheckoutSession();
       routerPush(
         getHref(
-          `/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(payForMeDetails.name)}`,
+          `/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(payForMeDetails.name)}${trackingParam}`,
         ),
       );
       setTimeout(clearCart, 500);
@@ -542,7 +553,9 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
       // Default: POD or other
       clearCheckoutSession();
       routerPush(
-        getHref(`/order-success?type=standard&orderId=${order.id}`),
+        getHref(
+          `/order-success?type=standard&orderId=${order.id}${trackingParam}`,
+        ),
       );
       setTimeout(clearCart, 500);
     }

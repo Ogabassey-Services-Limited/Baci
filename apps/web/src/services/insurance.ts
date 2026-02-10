@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { createMyCoverClient } from '@/lib/mycover';
@@ -7,6 +8,9 @@ import { createClient } from '@/lib/supabase/server';
 // This is often specific to the distributor and insurance plan
 const DEFAULT_GADGET_PRODUCT_ID =
   process.env.MYCOVER_GADGET_PRODUCT_ID || 'uuid-placeholder';
+
+// Default MyCover GIT (Goods in Transit) Product ID
+const DEFAULT_GIT_PRODUCT_ID = process.env.MYCOVER_GIT_PRODUCT_ID || undefined;
 
 export interface DeviceInsuranceDetails {
   imei: string;
@@ -192,6 +196,183 @@ export async function purchaseOrderInsurance(
   }
 
   return { success: true, results };
+}
+
+/**
+ * Auto-purchase shipping insurance (Goods in Transit) for a paid order.
+ * Called from payment webhooks via after() when an order transitions to "paid".
+ *
+ * This uses GIT (Goods in Transit) insurance which only requires
+ * customer + shipping details (no device IMEI/serial needed).
+ */
+export async function purchaseInsuranceForPaidOrder(
+  supabase: SupabaseClient,
+  orderId: string,
+  merchantId: string
+): Promise<void> {
+  // 1. Initialize MyCover client — skip gracefully if not configured
+  const myCover = createMyCoverClient();
+  if (!myCover) {
+    logger.warn({
+      message: '[Insurance] MyCover not configured, skipping auto-purchase',
+      orderId,
+    });
+    return;
+  }
+
+  // 2. Fetch order with items that have assurance
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select(
+      `
+      id,
+      merchant_id,
+      customer_name,
+      customer_email,
+      customer_phone,
+      shipping_address,
+      order_items (
+        id,
+        name,
+        price,
+        quantity,
+        has_assurance,
+        assurance_fee
+      )
+    `
+    )
+    .eq('id', orderId)
+    .single();
+
+  if (orderError || !order) {
+    logger.error({
+      message: '[Insurance] Failed to fetch order for insurance purchase',
+      orderId,
+      error: orderError,
+    });
+    return;
+  }
+
+  // 3. Filter items with assurance enabled
+  const insuredItems = (
+    order.order_items as DatabaseOrderItem[] | null
+  )?.filter((item) => item.has_assurance);
+
+  if (!insuredItems || insuredItems.length === 0) {
+    return; // No insured items — nothing to do
+  }
+
+  // 4. Idempotency: check if policy already exists for this order
+  const { data: existingPolicy } = await supabase
+    .from('order_insurance_policies')
+    .select('id')
+    .eq('order_id', orderId)
+    .maybeSingle();
+
+  if (existingPolicy) {
+    logger.info({
+      message: '[Insurance] Policy already exists for order, skipping',
+      orderId,
+    });
+    return;
+  }
+
+  // 5. Build purchase params from order data
+  const nameParts = (order.customer_name || 'Customer').split(' ');
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(' ') || '.';
+
+  const shippingAddr = order.shipping_address as {
+    address?: string;
+    city?: string;
+    state?: string;
+  } | null;
+
+  const deliveryAddress =
+    [shippingAddr?.address, shippingAddr?.city, shippingAddr?.state]
+      .filter(Boolean)
+      .join(', ') || 'Nigeria';
+
+  // Calculate total value of insured items
+  const totalInsuredValue = insuredItems.reduce(
+    (sum, item) =>
+      sum + (item.price as number) * ((item.quantity as number) || 1),
+    0
+  );
+
+  const totalAssuranceFee = insuredItems.reduce(
+    (sum, item) => sum + ((item.assurance_fee as number) || 0),
+    0
+  );
+
+  const itemDetails = insuredItems.map((item) => ({
+    description: item.name as string,
+    value: (item.price as number) * ((item.quantity as number) || 1),
+    quantity: (item.quantity as number) || 1,
+  }));
+
+  try {
+    const policy = await myCover.purchaseShippingInsurance({
+      first_name: firstName,
+      last_name: lastName,
+      email: order.customer_email || '',
+      phone_number: order.customer_phone || '',
+      address: deliveryAddress,
+      pickup_location: 'Lagos, Nigeria', // Merchant warehouse (default)
+      drop_off_location: deliveryAddress,
+      shipping_date: new Date().toISOString().split('T')[0],
+      vehicle_type: 'Car',
+      item_value: totalInsuredValue,
+      item_details: itemDetails,
+      ...(DEFAULT_GIT_PRODUCT_ID && { product_id: DEFAULT_GIT_PRODUCT_ID }),
+    });
+
+    // 6. Save policy to database
+    const { error: dbError } = await supabase
+      .from('order_insurance_policies')
+      .insert({
+        order_id: orderId,
+        merchant_id: merchantId,
+        mycover_policy_id: policy.id,
+        mycover_policy_number: policy.policy_number,
+        mycover_purchase_id: policy.purchase_id,
+        coverage_amount: totalInsuredValue,
+        premium_amount: totalAssuranceFee,
+        status: 'active',
+        customer_name: order.customer_name,
+        customer_email: order.customer_email,
+        customer_phone: order.customer_phone,
+        shipping_address: shippingAddr,
+        items_insured: itemDetails,
+        policy_start_date: policy.start_date,
+        policy_expiry_date: policy.expiration_date,
+      });
+
+    if (dbError) {
+      logger.error({
+        message: '[Insurance] Policy purchased but failed to save to DB',
+        orderId,
+        policyId: policy.id,
+        error: dbError,
+      });
+      return;
+    }
+
+    logger.info({
+      message: '[Insurance] Shipping insurance purchased successfully',
+      orderId,
+      policyNumber: policy.policy_number,
+      premium: policy.genius_price,
+      coverage: totalInsuredValue,
+    });
+  } catch (error) {
+    logger.error({
+      message: '[Insurance] Failed to purchase shipping insurance',
+      orderId,
+      error,
+    });
+    // Do NOT rethrow — this runs in after(), failure should not affect payment
+  }
 }
 
 /**

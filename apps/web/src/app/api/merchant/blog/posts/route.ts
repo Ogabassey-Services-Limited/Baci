@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
@@ -6,9 +5,9 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Blog Posts API - List and Create
@@ -222,8 +221,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = auth.supabase;
 
     // Parse query params
     const { searchParams } = new URL(request.url);
@@ -235,10 +233,13 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'created_at';
     const sortOrder = searchParams.get('sortOrder') === 'asc';
 
+    const blogPostColumns =
+      'id, title, slug, excerpt, featured_image_url, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at';
+
     // Build query
     let query = supabase
       .from('blog_posts')
-      .select('*', { count: 'exact' })
+      .select(blogPostColumns, { count: 'exact' })
       .eq('merchant_id', access.merchantId);
 
     // Apply filters
@@ -277,24 +278,24 @@ export async function GET(request: NextRequest) {
       // 2. Fetch total count
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', access.merchantId),
       // 3. Fetch published count
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', access.merchantId)
         .eq('status', 'published'),
       // 4. Fetch draft count
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', access.merchantId)
         .eq('status', 'draft'),
       // 5. Fetch archived count
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', access.merchantId)
         .eq('status', 'archived'),
     ]);
@@ -351,8 +352,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = auth.supabase;
 
     // Get merchant business name if needed (optional, or we can use metadata)
     const { data: merchantData } = await supabase
@@ -502,6 +502,9 @@ export async function POST(request: NextRequest) {
         console.error('Failed to generate blog embedding:', err)
       );
     }
+
+    // Invalidate blog caches so storefront shows the new post immediately
+    revalidateBlogPosts(merchant.id, postData.slug);
 
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {

@@ -152,7 +152,7 @@ async function getToken(): Promise<string> {
 /**
  * Make authenticated request to Kuda API
  */
-async function kudaRequest<T = unknown>(
+export async function kudaRequest<T = unknown>(
   serviceType: KudaServiceType,
   data: Record<string, unknown> = {},
   requestRef?: string

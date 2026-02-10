@@ -534,6 +534,7 @@ export const CheckoutPage: React.FC = () => {
           copiedText={copiedText}
           onVerify={crypto.verifyCryptoPayment}
           onCopyToClipboard={copyToClipboard}
+          onBack={crypto.handleCryptoBack}
           onClose={() => {
             crypto.setCryptoPaymentData(null);
             crypto.setCryptoVerificationStatus('idle');

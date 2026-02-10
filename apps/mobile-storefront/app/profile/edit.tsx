@@ -11,7 +11,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router, Stack } from 'expo-router';
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -26,8 +27,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useToast } from '@/components/ui/Toast';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
@@ -61,8 +62,9 @@ export default function ProfileEditScreen() {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Cast to any for Zod 4 compatibility with @hookform/resolvers
-    resolver: zodResolver(ProfileSchema as any),
+    // BUG-3-005: Cast required for Zod v3 / @hookform/resolvers v4 compatibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(ProfileSchema as unknown as z.ZodType<any, any, any>),
     defaultValues: {
       first_name: customer?.first_name || '',
       last_name: customer?.last_name || '',
@@ -107,7 +109,7 @@ export default function ProfileEditScreen() {
     placeholder: string;
     keyboardType?: 'default' | 'phone-pad' | 'email-address';
     autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-    textContentType?: string;
+    textContentType?: React.ComponentProps<typeof TextInput>['textContentType'];
   }) => (
     <View style={styles.inputGroup}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -134,7 +136,7 @@ export default function ProfileEditScreen() {
             accessibilityLabel={label}
             accessibilityHint={`Enter your ${label.toLowerCase()}`}
             // 2026 Best Practice: textContentType for iOS autofill
-            textContentType={textContentType as React.ComponentProps<typeof TextInput>['textContentType']}
+            textContentType={textContentType}
           />
         )}
       />
