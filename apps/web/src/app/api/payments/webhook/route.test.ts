@@ -206,10 +206,10 @@ function setupSuccessfulTransactionMocks(
       };
 
       // Track call count to return appropriate chain
-      let callCount = 0;
+      let _callCount = 0;
       return {
         select: vi.fn(() => {
-          callCount++;
+          _callCount++;
           return selectChain;
         }),
         update: vi.fn(() => updateChain),
@@ -810,8 +810,8 @@ describe('POST /api/payments/webhook', () => {
 
       // Setup complex mock for success path with order
       let transactionCallCount = 0;
-      let merchantCallCount = 0;
-      let orderCallCount = 0;
+      let _merchantCallCount = 0;
+      let _orderCallCount = 0;
 
       vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
         if (table === 'transactions') {
@@ -852,7 +852,7 @@ describe('POST /api/payments/webhook', () => {
         }
 
         if (table === 'orders') {
-          orderCallCount++;
+          _orderCallCount++;
           // Order update
           return {
             update: vi.fn().mockReturnThis(),
@@ -878,7 +878,7 @@ describe('POST /api/payments/webhook', () => {
         }
 
         if (table === 'merchants') {
-          merchantCallCount++;
+          _merchantCallCount++;
           // Merchant fetch
           return {
             select: vi.fn().mockReturnThis(),
