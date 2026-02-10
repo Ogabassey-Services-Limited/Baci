@@ -92,80 +92,70 @@ export async function POST(request: NextRequest) {
     // Normalize: START_CHECKOUT -> begin_checkout, etc.
     const event_type = normalizeEventType(inputEventType) || inputEventType;
 
-    // Build event_data based on event type
-    const event_data: Record<string, unknown> = {
-      session_id,
-      user_agent,
-      referrer,
-      page_url,
-    };
+    // Build event_data using only known, safe property names (whitelist)
+    // This prevents remote property injection from user-controlled keys
+    const cleanedEventData: Record<string, unknown> = {};
 
-    // Add event-type specific data
+    // Base fields (always present)
+    if (session_id !== undefined) cleanedEventData.session_id = session_id;
+    if (user_agent !== undefined) cleanedEventData.user_agent = user_agent;
+    if (referrer !== undefined) cleanedEventData.referrer = referrer;
+    if (page_url !== undefined) cleanedEventData.page_url = page_url;
+
+    // Add event-type specific data using only known property names
     switch (event_type) {
       case 'product_view':
       case 'add_to_cart':
       case 'remove_from_cart':
       case 'add_to_wishlist':
-        Object.assign(event_data, {
-          product_id,
-          product_name,
-          product_category,
-          product_price,
-          quantity,
-          currency,
-        });
+        if (product_id !== undefined) cleanedEventData.product_id = product_id;
+        if (product_name !== undefined)
+          cleanedEventData.product_name = product_name;
+        if (product_category !== undefined)
+          cleanedEventData.product_category = product_category;
+        if (product_price !== undefined)
+          cleanedEventData.product_price = product_price;
+        if (quantity !== undefined) cleanedEventData.quantity = quantity;
+        if (currency !== undefined) cleanedEventData.currency = currency;
         break;
 
       case 'begin_checkout':
-      case 'purchase':
-        Object.assign(event_data, {
-          order_id: order_id || custom_data?.order_id,
-          total: total || custom_data?.value,
-          subtotal,
-          shipping,
-          tax,
-          currency: currency || custom_data?.currency || 'NGN',
-          item_count: item_count || custom_data?.contents?.length,
-          items: items || custom_data?.contents,
-        });
+      case 'purchase': {
+        const resolvedOrderId = order_id || custom_data?.order_id;
+        const resolvedTotal = total || custom_data?.value;
+        const resolvedItemCount = item_count || custom_data?.contents?.length;
+        const resolvedItems = items || custom_data?.contents;
+        if (resolvedOrderId !== undefined)
+          cleanedEventData.order_id = resolvedOrderId;
+        if (resolvedTotal !== undefined) cleanedEventData.total = resolvedTotal;
+        if (subtotal !== undefined) cleanedEventData.subtotal = subtotal;
+        if (shipping !== undefined) cleanedEventData.shipping = shipping;
+        if (tax !== undefined) cleanedEventData.tax = tax;
+        cleanedEventData.currency = currency || custom_data?.currency || 'NGN';
+        if (resolvedItemCount !== undefined)
+          cleanedEventData.item_count = resolvedItemCount;
+        if (resolvedItems !== undefined) cleanedEventData.items = resolvedItems;
         break;
+      }
 
       case 'search':
-        Object.assign(event_data, {
-          search_term,
-          results_count,
-        });
+        if (search_term !== undefined)
+          cleanedEventData.search_term = search_term;
+        if (results_count !== undefined)
+          cleanedEventData.results_count = results_count;
         break;
 
       case 'page_view':
-        // page_url is already in event_data
+        // page_url is already set above
         break;
 
       default:
-        // For other conversion events, merge custom_data if present
+        // For other conversion events, store custom_data as a nested object
+        // under a fixed key (never spread user-controlled keys as properties)
         if (custom_data) {
-          Object.assign(event_data, custom_data);
+          cleanedEventData.custom_data = custom_data;
         }
         break;
-    }
-
-    // Dangerous keys that could cause prototype pollution
-    const BLOCKED_KEYS = new Set([
-      '__proto__',
-      'constructor',
-      'prototype',
-      '__defineGetter__',
-      '__defineSetter__',
-      '__lookupGetter__',
-      '__lookupSetter__',
-    ]);
-
-    // Build clean object: remove undefined values and block prototype-polluting keys
-    const cleanedEventData = Object.create(null) as Record<string, unknown>;
-    for (const [key, value] of Object.entries(event_data)) {
-      if (value !== undefined && !BLOCKED_KEYS.has(key)) {
-        cleanedEventData[key] = value;
-      }
     }
 
     // Insert into analytics_events table (with dedup via upsert when event_id present)

@@ -444,7 +444,7 @@ describe('POST /api/events', () => {
       );
     });
 
-    it('merges custom_data for unknown event types', async () => {
+    it('stores custom_data as nested object for unknown event types', async () => {
       // Arrange
       const request = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
@@ -461,12 +461,14 @@ describe('POST /api/events', () => {
       // Act
       await POST(request);
 
-      // Assert
+      // Assert — custom_data stored under fixed key to prevent property injection
       expect(mockInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           event_data: {
-            custom_field: 'value',
-            another_field: 123,
+            custom_data: {
+              custom_field: 'value',
+              another_field: 123,
+            },
           },
         })
       );

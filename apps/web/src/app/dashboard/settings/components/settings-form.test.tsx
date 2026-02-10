@@ -43,10 +43,14 @@ vi.mock('colord/plugins/a11y', () => ({
 }));
 vi.mock('colord', () => ({ extend: vi.fn() }));
 
-vi.mock('./settings-utils', async () => {
-  const actual = await vi.importActual('./settings-utils');
+vi.mock('./settings-utils', () => {
+  // Fully mock to avoid transitive sharp/native dependency in CI
+  const z = require('zod');
   return {
-    ...actual,
+    settingsSchema: z.object({
+      business_name: z.string().min(2),
+      country: z.string().min(2),
+    }),
     extractColorsFromImage: vi.fn(),
     sanitizeSocialMedia: (sm: Record<string, string>) => sm,
   };
