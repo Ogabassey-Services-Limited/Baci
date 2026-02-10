@@ -4,6 +4,14 @@
 
 import z from 'zod';
 
+// Use non-greedy match with length limit per tag to prevent catastrophic backtracking
+// Defined outside function to avoid recompilation on every call
+const HTML_TAG_REGEX = /<[^>]{0,1000}>/g;
+
+// UUID validation regex
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Strips HTML tags from a string by iteratively applying the regex until no more matches.
  * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
@@ -16,8 +24,6 @@ export function stripHtmlTags(text: string | null | undefined): string {
   const maxLength = 100000;
   const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
 
-  // Use non-greedy match with length limit per tag to prevent catastrophic backtracking
-  const htmlTagRegex = /<[^>]{0,1000}>/g;
   let result = truncated;
   let previous: string;
   let iterations = 0;
@@ -27,7 +33,7 @@ export function stripHtmlTags(text: string | null | undefined): string {
   // This handles cases like <scr<script>ipt> which become <script> after one pass
   do {
     previous = result;
-    result = result.replace(htmlTagRegex, '');
+    result = result.replace(HTML_TAG_REGEX, '');
     iterations++;
   } while (result !== previous && iterations < maxIterations);
 
@@ -366,9 +372,7 @@ export function sanitizeLikePattern(pattern: string): string {
  * Validate UUID format
  */
 export function isValidUuid(uuid: string): boolean {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
+  return UUID_REGEX.test(uuid);
 }
 
 /**
