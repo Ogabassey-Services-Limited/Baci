@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
-import { isDomainIdentifier } from '@/lib/validation';
 import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
@@ -16,48 +14,11 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(identifier: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const lookupKey = identifier.toLowerCase();
-
-  // Handle custom domains (e.g., ogabassey.com) vs path-based slugs (e.g., ogabassey)
-  if (isDomainIdentifier(identifier)) {
-    // First, find the merchant_id from the domains table
-    const { data: domainData } = await supabase
-      .from('domains')
-      .select('merchant_id')
-      .eq('domain', lookupKey)
-      .eq('status', 'active')
-      .single();
-
-    if (!domainData) return null;
-
-    // Fetch full merchant data using the merchant_id
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('*')
-      .eq('id', domainData.merchant_id)
-      .single();
-
-    return merchant;
-  }
-
-  // Path-based slug lookup
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('*')
-    .eq('slug', lookupKey)
-    .single();
-
-  return merchant;
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return {
@@ -88,7 +49,7 @@ export async function generateMetadata({
 
 export default async function AboutPage({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

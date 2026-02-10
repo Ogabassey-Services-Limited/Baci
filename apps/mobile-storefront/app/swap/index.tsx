@@ -220,11 +220,11 @@ export default function SwapScreen() {
 
     const message = encodeURIComponent(
       `Hello! I did an AI trade-in check.\n\n` +
-        `Device: ${result.model}\n` +
-        `Grade: ${result.grade}\n` +
-        `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
-        `Observations: ${result.observations.join(', ')}\n\n` +
-        `I'd like to proceed with the swap.`
+      `Device: ${result.model}\n` +
+      `Grade: ${result.grade}\n` +
+      `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
+      `Observations: ${result.observations.join(', ')}\n\n` +
+      `I'd like to proceed with the swap.`
     );
 
     Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);
@@ -259,6 +259,7 @@ export default function SwapScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom', 'left', 'right']}
     >
       <Stack.Screen
         options={{
@@ -659,10 +660,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+    marginTop: 0, // Snapped to top for ultra-tight feel
+    marginBottom: SPACING.md, // Balanced spacing
   },
   headerText: {
     flex: 1,

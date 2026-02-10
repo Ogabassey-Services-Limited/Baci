@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { normalizeSocialUrl } from '@/lib/social';
-import { createClient } from '@/lib/supabase/server';
-import { isDomainIdentifier } from '@/lib/validation';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 import { StorefrontPageWrapper } from '../storefront-page-wrapper';
 
@@ -12,44 +10,11 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(identifier: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const lookupKey = identifier.toLowerCase();
-
-  if (isDomainIdentifier(identifier)) {
-    const { data: domainData } = await supabase
-      .from('domains')
-      .select('merchant_id')
-      .eq('domain', lookupKey)
-      .eq('status', 'active')
-      .single();
-
-    if (!domainData) return null;
-
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('*')
-      .eq('id', domainData.merchant_id)
-      .single();
-
-    return merchant;
-  }
-
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('*')
-    .eq('slug', lookupKey)
-    .single();
-
-  return merchant;
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return { title: 'Contact Us' };
@@ -72,7 +37,7 @@ export async function generateMetadata({
 
 export default async function ContactPage({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

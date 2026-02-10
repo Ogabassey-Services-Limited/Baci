@@ -34,6 +34,17 @@ interface OrderItem {
   price: number;
   image_url?: string;
   variant_name?: string;
+  has_assurance?: boolean;
+}
+
+interface InsurancePolicy {
+  mycover_policy_number: string | null;
+  coverage_amount: number;
+  premium_amount: number;
+  status: string;
+  claim_status: string | null;
+  policy_start_date: string | null;
+  policy_expiry_date: string | null;
 }
 
 interface OrderDetails {
@@ -75,6 +86,8 @@ export default function OrderDetailsScreen() {
   const colors = Colors[colorScheme ?? 'light'];
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
+  const [insurancePolicy, setInsurancePolicy] =
+    useState<InsurancePolicy | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,7 +124,8 @@ export default function OrderDetailsScreen() {
             quantity,
             price,
             image_url,
-            variant_name
+            variant_name,
+            has_assurance
           )
         `)
         .eq('id', id)
@@ -123,6 +137,25 @@ export default function OrderDetailsScreen() {
         ...data,
         items: data.order_items || [],
       });
+
+      // Fetch insurance policy if any items have assurance
+      const hasAssurance = (data.order_items || []).some(
+        (item: { has_assurance?: boolean }) => item.has_assurance
+      );
+      if (hasAssurance) {
+        const { data: policy } = await supabase
+          .from('order_insurance_policies')
+          .select(
+            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
+          )
+          .eq('order_id', id)
+          .maybeSingle();
+
+        if (policy) {
+          setInsurancePolicy(policy as InsurancePolicy);
+        }
+      }
+
       setError(null);
     } catch (err) {
       log.error('Error fetching order:', err);
@@ -309,7 +342,11 @@ export default function OrderDetailsScreen() {
                       ]}
                     >
                       <Ionicons
-                        name={step.icon as React.ComponentProps<typeof Ionicons>['name']}
+                        name={
+                          step.icon as React.ComponentProps<
+                            typeof Ionicons
+                          >['name']
+                        }
                         size={16}
                         color={isCompleted ? '#FFF' : colors.textSecondary}
                       />
@@ -415,6 +452,151 @@ export default function OrderDetailsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Insurance Coverage */}
+      {insurancePolicy && (
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <View style={styles.insuranceHeader}>
+            <Ionicons name="shield-checkmark" size={20} color="#059669" />
+            <Text
+              style={[
+                styles.sectionTitle,
+                { color: colors.text, marginBottom: 0, marginLeft: 8 },
+              ]}
+            >
+              Insurance Coverage
+            </Text>
+          </View>
+          <View style={styles.insuranceContent}>
+            {insurancePolicy.mycover_policy_number && (
+              <View style={styles.insuranceRow}>
+                <Text
+                  style={[
+                    styles.insuranceLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Policy No.
+                </Text>
+                <Text style={[styles.insuranceValue, { color: colors.text }]}>
+                  {insurancePolicy.mycover_policy_number}
+                </Text>
+              </View>
+            )}
+            <View style={styles.insuranceRow}>
+              <Text
+                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+              >
+                Coverage
+              </Text>
+              <Text style={[styles.insuranceValue, { color: colors.text }]}>
+                {formatPrice(insurancePolicy.coverage_amount)}
+              </Text>
+            </View>
+            <View style={styles.insuranceRow}>
+              <Text
+                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+              >
+                Premium
+              </Text>
+              <Text style={[styles.insuranceValue, { color: colors.text }]}>
+                {formatPrice(insurancePolicy.premium_amount)}
+              </Text>
+            </View>
+            <View style={styles.insuranceRow}>
+              <Text
+                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
+              >
+                Status
+              </Text>
+              <View
+                style={[
+                  styles.insuranceStatusBadge,
+                  {
+                    backgroundColor:
+                      insurancePolicy.status === 'active'
+                        ? '#DCFCE7'
+                        : '#FEF3C7',
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color:
+                      insurancePolicy.status === 'active'
+                        ? '#059669'
+                        : '#D97706',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {insurancePolicy.status}
+                </Text>
+              </View>
+            </View>
+            {insurancePolicy.claim_status && (
+              <View style={styles.insuranceRow}>
+                <Text
+                  style={[
+                    styles.insuranceLabel,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Claim
+                </Text>
+                <Text
+                  style={[
+                    styles.insuranceValue,
+                    { color: colors.text, textTransform: 'capitalize' },
+                  ]}
+                >
+                  {insurancePolicy.claim_status}
+                </Text>
+              </View>
+            )}
+            <Text
+              style={[
+                styles.insuranceProvider,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Protected by MyCover.ai / Sovereign Trust Insurance
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* Assurance pending state — order has assurance items but no policy yet */}
+      {!insurancePolicy &&
+        order.payment_status === 'paid' &&
+        order.items.some((item) => item.has_assurance) && (
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <View style={styles.insuranceHeader}>
+              <Ionicons
+                name="shield-outline"
+                size={20}
+                color={colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: colors.text, marginBottom: 0, marginLeft: 8 },
+                ]}
+              >
+                Insurance Coverage
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.insuranceProvider,
+                { color: colors.textSecondary, marginTop: 12 },
+              ]}
+            >
+              Your shipping protection is being processed...
+            </Text>
+          </View>
+        )}
 
       {/* Shipping Address */}
       <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -708,6 +890,36 @@ const styles = StyleSheet.create({
   supportButtonText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  insuranceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  insuranceContent: {
+    marginTop: 12,
+    gap: 10,
+  },
+  insuranceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  insuranceLabel: {
+    fontSize: 14,
+  },
+  insuranceValue: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  insuranceStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  insuranceProvider: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 16,

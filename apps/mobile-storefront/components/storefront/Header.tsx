@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
-import { router, type Href } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +25,6 @@ interface HeaderProps {
 }
 
 // Background pattern from web (SVG Data URI)
-
 
 export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
   const insets = useSafeAreaInsets();
@@ -113,11 +112,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
               >
                 <Ionicons name="cart-outline" size={26} color="#FFF" />
                 {itemCount > 0 && (
-                  <View
-                    style={styles.badge}
-                    importantForAccessibility="no-hide-descendants"
-                    accessibilityElementsHidden={true}
-                  >
+                  <View style={styles.badge} accessibilityElementsHidden={true}>
                     <Text style={styles.badgeText}>{itemCount}</Text>
                   </View>
                 )}
@@ -197,7 +192,6 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
               {itemCount > 0 && (
                 <View
                   style={[styles.badge, { backgroundColor: '#000' }]}
-                  importantForAccessibility="no-hide-descendants"
                   accessibilityElementsHidden={true}
                 >
                   <Text style={styles.badgeText}>{itemCount}</Text>
@@ -244,11 +238,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
           >
             <Ionicons name="cart-outline" size={24} color={BRAND.primary} />
             {itemCount > 0 && (
-              <View
-                style={styles.badge}
-                importantForAccessibility="no-hide-descendants"
-                accessibilityElementsHidden={true}
-              >
+              <View style={styles.badge} accessibilityElementsHidden={true}>
                 <Text style={styles.badgeText}>{itemCount}</Text>
               </View>
             )}

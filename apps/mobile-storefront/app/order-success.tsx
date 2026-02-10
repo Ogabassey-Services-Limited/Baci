@@ -5,18 +5,26 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useAuthStore } from '@/stores/auth-store';
+import { PermissionModal } from '@/components/ui/PermissionModal';
+import { usePermissionBooster } from '@/hooks/use-permission-booster';
 
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scaleAnim = useRef(new Animated.Value(0)).current;
-  const { orderNumber, reference } =
+  const { orderNumber, reference, trackingToken } =
     useLocalSearchParams<Record<string, string>>();
+  const customer = useAuthStore((s) => s.customer);
+
+  const { requestPermission, triggerSystemPrompt, markDenied } =
+    usePermissionBooster();
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
     Animated.spring(scaleAnim, {
@@ -25,14 +33,44 @@ export default function OrderSuccessScreen() {
       friction: 7,
       useNativeDriver: true,
     }).start();
+
+    // Check for notification permissions (Soft Ask)
+    const checkPermissions = async () => {
+      // Small delay to let the success animation play (better UX)
+      setTimeout(async () => {
+        const result = await requestPermission('notifications');
+        if (result === 'soft-ask-needed') {
+          setShowPermissionModal(true);
+        }
+      }, 1500);
+    };
+
+    checkPermissions();
   }, [scaleAnim]);
+
+  const handlePermissionGrant = async () => {
+    setShowPermissionModal(false);
+    await triggerSystemPrompt('notifications');
+  };
+
+  const handlePermissionDeny = () => {
+    setShowPermissionModal(false);
+    markDenied('notifications');
+  };
 
   const handleContinueShopping = () => {
     router.replace('/(tabs)');
   };
 
   const handleViewOrders = () => {
-    router.replace('/orders');
+    if (!customer && trackingToken) {
+      router.replace({
+        pathname: '/track-order',
+        params: { trackingToken },
+      });
+    } else {
+      router.replace('/orders');
+    }
   };
 
   return (
@@ -213,7 +251,14 @@ export default function OrderSuccessScreen() {
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </SafeAreaView >
+
+      <PermissionModal
+        visible={showPermissionModal}
+        type="notifications"
+        onGrant={handlePermissionGrant}
+        onDeny={handlePermissionDeny}
+      />
     </>
   );
 }

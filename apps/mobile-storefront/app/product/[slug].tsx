@@ -25,6 +25,7 @@ import {
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProductDetail');
+
 import Animated, {
   Easing,
   Extrapolate,
@@ -38,18 +39,15 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
+import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { ConditionSelector } from '@/components/product/ConditionSelector';
+import { ImageZoomModal } from '@/components/product/ImageZoomModal';
+import { NegotiationModal } from '@/components/product/NegotiationModal';
 import { ReviewsList } from '@/components/product/ReviewsList';
 import { VariantSelector } from '@/components/product/VariantSelector';
-import { NegotiationModal } from '@/components/product/NegotiationModal';
-import { ImageZoomModal } from '@/components/product/ImageZoomModal';
-import { OfflineEmptyState } from '@/components/OfflineNotice';
-import { useColorScheme } from '@/components/useColorScheme';
+import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
-import { useNetworkState } from '@/hooks/use-network-state';
-import { useReviews, markReviewHelpful } from '@/hooks/use-reviews';
-import type { ProductCondition } from '@/types/product';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
   RADIUS,
@@ -57,10 +55,13 @@ import Colors, {
   SPACING,
   TYPOGRAPHY,
 } from '@/constants/Colors';
-import { useProduct } from '@/hooks/use-products';
 import { useHaptics } from '@/hooks/use-haptics';
+import { useNetworkState } from '@/hooks/use-network-state';
+import { useProduct } from '@/hooks/use-products';
+import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
+import type { ProductCondition } from '@/types/product';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -196,14 +197,14 @@ export default function ProductDetailScreen() {
     setLocalQty(cleanText);
 
     // Auto-update store if it's a valid positive number
-    const num = parseInt(cleanText, 10);
+    const num = Number.parseInt(cleanText, 10);
     if (!isNaN(num) && num > 0 && cartItem) {
       updateQuantity(cartItem.id, num);
     }
   };
 
   const handleLocalQtyBlur = () => {
-    const num = parseInt(localQty, 10);
+    const num = Number.parseInt(localQty, 10);
     if (isNaN(num) || num <= 0) {
       // Revert to current cart quantity if invalid
       setLocalQty(quantityInCart.toString());
@@ -422,11 +423,12 @@ export default function ProductDetailScreen() {
   }
 
   // Use color-specific images if selected, otherwise default product images
+  // BUG-2-001 FIX: Filter null/undefined images and fallback to placeholder
   const images = colorImages?.length
-    ? colorImages
+    ? colorImages.filter(Boolean)
     : product.images?.length
-      ? product.images
-      : [product.image];
+      ? product.images.filter(Boolean)
+      : [product.image].filter(Boolean);
 
   // Calculate effective price based on selected condition, storage, and variant
   const calculateEffectivePrice = () => {
@@ -537,7 +539,6 @@ export default function ProductDetailScreen() {
       handleAddToCart();
     }
   };
-
 
   const handleShare = async () => {
     try {
@@ -690,6 +691,10 @@ export default function ProductDetailScreen() {
                             : colors.border,
                       },
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
+                    accessibilityState={{ selected: selectedImageIndex === idx }}
+                    accessibilityHint="Double tap to show this image in the main view"
                   >
                     <Image
                       source={{ uri: img }}
@@ -753,7 +758,7 @@ export default function ProductDetailScreen() {
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
               {typeof reviewStats?.average_rating === 'number' &&
-              Number.isFinite(reviewStats.average_rating)
+                Number.isFinite(reviewStats.average_rating)
                 ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count ?? 0} reviews)`
                 : product.rating
                   ? `${product.rating} (${product.review_count || 0} reviews)`

@@ -9,10 +9,7 @@ import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
-import {
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
@@ -68,19 +65,6 @@ import {
   isValidMerchantIdentifier,
 } from '@/lib/validation';
 
-/**
- * Shared helper to resolve merchant by identifier (slug or custom domain)
- * 2026 Best Practice: Centralize lookup logic to ensure consistent routing behavior
- */
-async function getMerchantByIdentifier(identifier: string) {
-  if (!isValidMerchantIdentifier(identifier)) return null;
-
-  if (isDomainIdentifier(identifier)) {
-    return await getCachedMerchantByDomain(identifier.toLowerCase());
-  }
-  return await getCachedMerchant(identifier.toLowerCase());
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -94,7 +78,7 @@ export async function generateMetadata({
   }
 
   // Fetch merchant data (returns CachedMerchant | null)
-  const merchant = await getMerchantByIdentifier(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     return { title: 'Store Not Found' };
@@ -199,7 +183,7 @@ export default async function StorefrontLayout({
   }
 
   // Use appropriate lookup method based on identifier type
-  const merchant = await getMerchantByIdentifier(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     notFound();

@@ -5,7 +5,7 @@
 
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, type Href } from 'expo-router';
+import { type Href, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -21,7 +21,7 @@ const ELITE_HEIGHT = 220; // Wide horizontal rectangle matching web parity
 const CAROUSEL_HEIGHT = 450;
 const STANDARD_HEIGHT = 220;
 
-interface HeroSlide {
+export interface HeroSlide {
   title: string;
   subtitle: string;
   image: string;
@@ -34,15 +34,7 @@ interface HeroProps {
   autoplayDelay?: number;
 }
 
-const DEFAULT_SLIDES: HeroSlide[] = [
-  {
-    title: 'New Collection',
-    subtitle: 'Discover the latest trends and styles for the season.',
-    image: 'https://placehold.co/800x1000/F3F4F6/000000?text=New+Collection',
-    ctaText: 'Shop Now',
-    ctaLink: '/category/all',
-  },
-];
+const DEFAULT_SLIDES: HeroSlide[] = [];
 
 // Default Blurhash for hero images (neutral gradient)
 const DEFAULT_HERO_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
@@ -178,6 +170,9 @@ export function Hero({
     }, autoplayDelay);
     return () => clearInterval(interval);
   }, [currentIndex, slides.length, autoplayDelay]);
+
+  // Don't render if no slides available (prevents "New Collection" placeholder flash)
+  if (slides.length === 0) return null;
 
   const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {

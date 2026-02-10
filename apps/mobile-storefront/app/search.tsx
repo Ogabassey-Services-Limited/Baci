@@ -15,9 +15,9 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { syncStorage as storage } from '@/lib/storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 // OfflineNotice removed as it was unused.
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -25,6 +25,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useCategories, useProducts } from '@/hooks/use-products';
+import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
 
 // 2026 Best Practice: Persist search history in storage
@@ -90,10 +91,10 @@ export default function SearchScreen() {
             // Invalid JSON, use defaults
             return;
           }
+          // BUG-2-003 FIX: Allow empty arrays, remove length check
           // Type guard: ensure parsed is string array
           if (
             Array.isArray(parsed) &&
-            parsed.length > 0 &&
             parsed.every((item): item is string => typeof item === 'string')
           ) {
             setRecentSearches(parsed);
@@ -302,8 +303,40 @@ export default function SearchScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top']}
       >
-        {/* Search Header */}
-        <View style={styles.header}>{/* ... header code ... */}</View>
+        {/* BUG-2-008 FIX: Implement proper search header with TextInput */}
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </Pressable>
+          <View
+            style={[
+              styles.searchInputContainer,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="search-outline" size={18} color={colors.icon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={() => {
+                if (query.trim().length >= 2) {
+                  setIsSearching(true);
+                  saveToHistory(query);
+                }
+              }}
+              returnKeyType="search"
+              autoFocus
+            />
+            {query.length > 0 && (
+              <Pressable onPress={() => setQuery('')}>
+                <Ionicons name="close-circle" size={18} color={colors.icon} />
+              </Pressable>
+            )}
+          </View>
+        </View>
 
         {/* Filter Bar - Show only when searching */}
         {isSearching && (
