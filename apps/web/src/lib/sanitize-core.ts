@@ -303,7 +303,8 @@ export const orderSchema = z.object({
  */
 export function sanitizeSearchQuery(query: string): string {
   // Remove special characters that could be used for injection
-  let sanitized = query.replace(/[<>'"`;\\]/g, '');
+  // Added: , ( ) | to prevent PostgREST filter injection
+  let sanitized = query.replace(/[<>'"`;\\,()|]/g, '');
 
   // Trim and limit length
   sanitized = sanitized.trim().substring(0, 200);

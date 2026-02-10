@@ -18,3 +18,11 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-02-09 - PostgREST Parameter Injection in Search
+
+**Vulnerability:** The `sanitizeSearchQuery` function stripped SQL characters (`'`, `;`) but allowed PostgREST control characters (`,`, `(`, `)`, `|`). This allowed attackers to inject additional filter conditions into the Supabase query when the search term was interpolated into a `.or()` filter string.
+
+**Learning:** When using ORMs or query builders like Supabase/PostgREST that parse complex filter strings, standard SQL injection prevention (stripping quote chars) is insufficient. You must also sanitize the query builder's specific control characters.
+
+**Prevention:** Always identify the specific syntax used by your data layer (here, PostgREST filter syntax) and sanitize or reject characters that have special meaning in that syntax.

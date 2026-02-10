@@ -59,6 +59,16 @@ describe('sanitizeSearchQuery', () => {
     const result = sanitizeSearchQuery('   ');
     expect(result).toBe('');
   });
+
+  it('should remove PostgREST control characters', () => {
+    const result = sanitizeSearchQuery('apple,sku.ilike.%banana');
+    expect(result).not.toContain(',');
+    expect(result).toBe('applesku.ilike.%banana');
+
+    expect(sanitizeSearchQuery('test(group)')).not.toContain('(');
+    expect(sanitizeSearchQuery('test(group)')).not.toContain(')');
+    expect(sanitizeSearchQuery('test|or')).not.toContain('|');
+  });
 });
 
 describe('stripHtmlTags', () => {
