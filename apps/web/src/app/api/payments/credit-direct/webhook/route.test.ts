@@ -137,7 +137,7 @@ function createMockSupabaseClient() {
   };
 
   return {
-    from: vi.fn(() => mockChain),
+    from: vi.fn((_table: string) => mockChain),
   };
 }
 

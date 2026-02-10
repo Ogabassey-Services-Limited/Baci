@@ -398,29 +398,20 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       if (callCount === 3) {
         // Third call: transactions query (has TWO .eq() calls)
-        const chain = {
+        return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn(() => {
-            const innerChain = { eq: vi.fn().mockReturnThis() };
-            Object.assign(
-              innerChain,
-              Promise.resolve({ data: [], error: null })
-            );
-            return innerChain;
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
           }),
         };
-        return chain;
       }
       // Fourth call: transaction insert
-      const chain = {
-        insert: vi.fn().mockReturnThis(),
+      return {
+        insert: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Database error' },
+        }),
       };
-      // Make the chain itself a thenable/awaitable
-      Object.assign(
-        chain,
-        Promise.resolve({ data: null, error: { message: 'Database error' } })
-      );
-      return chain;
     });
     mockSupabaseClient.from = mockFrom;
 
@@ -757,34 +748,35 @@ describe('POST /api/orders/[id]/record-payment', () => {
       }
       if (callCount === 3) {
         // Third call: transactions query (existing payment of 4000)
-        const chain = {
+        // Route does: .select('amount').eq('order_id', id).eq('status', 'completed')
+        return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{ amount: 4000 }],
+              error: null,
+            }),
+          }),
         };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: [{ amount: 4000 }], error: null })
-        );
-        return chain;
       }
       if (callCount === 4) {
         // Fourth call: transaction insert (new payment of 5000)
-        const chain = {
-          insert: vi.fn().mockReturnThis(),
+        return {
+          insert: vi.fn().mockResolvedValue({
+            data: { id: 'txn-123' },
+            error: null,
+          }),
         };
-        Object.assign(
-          chain,
-          Promise.resolve({ data: { id: 'txn-123' }, error: null })
-        );
-        return chain;
       }
       // Fifth call: order update
-      const chain = {
-        update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
+      return {
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        }),
       };
-      Object.assign(chain, Promise.resolve({ data: mockOrder, error: null }));
-      return chain;
     });
     mockSupabaseClient.from = mockFrom;
 

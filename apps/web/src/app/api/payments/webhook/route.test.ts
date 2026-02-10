@@ -1028,16 +1028,26 @@ describe('GET /api/payments/webhook', () => {
         error: null,
       });
 
-      // Mock merchant found
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: { id: 'merchant-123' },
-        error: null,
-      });
-
-      // Mock transaction not found
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Not found' },
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'merchant-123' },
+              error: null,
+            }),
+          };
+        }
+        // transactions - not found
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Not found' },
+          }),
+        };
       });
 
       const url =
@@ -1059,16 +1069,26 @@ describe('GET /api/payments/webhook', () => {
         error: null,
       });
 
-      // Mock merchant found
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: { id: 'merchant-123' },
-        error: null,
-      });
-
-      // Mock transaction not found (because merchant_id doesn't match)
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Not found' },
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'merchant-123' },
+              error: null,
+            }),
+          };
+        }
+        // transactions - not found (merchant_id doesn't match)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Not found' },
+          }),
+        };
       });
 
       const url =
@@ -1092,19 +1112,29 @@ describe('GET /api/payments/webhook', () => {
         error: null,
       });
 
-      // Mock merchant found
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: { id: 'merchant-123' },
-        error: null,
-      });
-
-      // Mock transaction found
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: {
-          id: 'txn-123',
-          merchant_id: 'merchant-123',
-        },
-        error: null,
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'merchant-123' },
+              error: null,
+            }),
+          };
+        }
+        // transactions - found
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 'txn-123',
+              merchant_id: 'merchant-123',
+            },
+            error: null,
+          }),
+        };
       });
 
       // Mock Korapay verification
@@ -1148,17 +1178,29 @@ describe('GET /api/payments/webhook', () => {
         error: null,
       });
 
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: { id: 'merchant-123' },
-        error: null,
-      });
-
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: {
-          id: 'txn-123',
-          merchant_id: 'merchant-123',
-        },
-        error: null,
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'merchant-123' },
+              error: null,
+            }),
+          };
+        }
+        // transactions - found
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 'txn-123',
+              merchant_id: 'merchant-123',
+            },
+            error: null,
+          }),
+        };
       });
 
       const { verifyTransaction } = await import('@/lib/paystack');
