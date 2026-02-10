@@ -151,8 +151,8 @@ export default function ImeiCheckerScreen() {
       ) {
         setError(
           validated?.error ||
-            rawData?.error ||
-            'Unable to check IMEI. Please try again.'
+          rawData?.error ||
+          'Unable to check IMEI. Please try again.'
         );
         return;
       }
@@ -207,6 +207,7 @@ export default function ImeiCheckerScreen() {
     return (
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom', 'left', 'right']}
       >
         <Stack.Screen
           options={{
@@ -446,6 +447,7 @@ export default function ImeiCheckerScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom', 'left', 'right']}
     >
       <Stack.Screen
         options={{
@@ -752,12 +754,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.md,
+    padding: SPACING.sm, // Reduced padding for tighter layout
+    paddingTop: 0,
     paddingBottom: 100,
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: 0,
+    marginTop: -8, // Pull content up significantly
   },
   badge: {
     flexDirection: 'row',
@@ -766,7 +770,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: 20,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm, // Reduced from MD
   },
   badgeText: {
     fontSize: 11,
@@ -982,9 +986,9 @@ const styles = StyleSheet.create({
   resultHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.lg,
+    padding: SPACING.md, // Reduced from LG
     borderRadius: RADIUS.lg,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm, // Reduced from MD
   },
   deviceImageContainer: {
     width: 80,

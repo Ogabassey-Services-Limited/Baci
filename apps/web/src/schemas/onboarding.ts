@@ -1,10 +1,5 @@
 import z from 'zod';
-import {
-  sanitizeEmail,
-  sanitizePhone,
-  sanitizeText,
-  sanitizeUrl,
-} from '@/lib/sanitize-core';
+import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
 import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**

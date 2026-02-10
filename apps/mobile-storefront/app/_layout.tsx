@@ -44,7 +44,7 @@ import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { initAnalytics } from '@/services/analytics';
-import { createOrder } from '@/services/orders';
+import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
 
 // Custom error boundary with network error handling
@@ -105,13 +105,16 @@ export default function RootLayout() {
   });
 
   const initialize = useAuthStore((state) => state.initialize);
+  const cleanup = useAuthStore((state) => state.cleanup); // BUG-4-004: Get cleanup function
   const { register: registerPushNotifications } = usePushNotifications();
 
   // Initialize auth, analytics, and offline queue on app start
   useEffect(() => {
     const initializeApp = async () => {
-      // Initialize auth
-      initialize();
+      // Initialize auth if not already done
+      if (!useAuthStore.getState().isInitialized) {
+        await initialize();
+      }
 
       // Initialize analytics (PostHog)
       await initAnalytics();
@@ -123,7 +126,7 @@ export default function RootLayout() {
 
       // Register handler for queued order creation
       offlineQueue.registerHandler('create_order', async (orderData) => {
-        return await createOrder(orderData);
+        return await createOrder(orderData as CreateOrderRequest);
       });
 
       // Initialize ad tracking (Facebook, Google, ATT)
@@ -141,11 +144,12 @@ export default function RootLayout() {
 
     initializeApp();
 
-    // Cleanup offline queue on unmount
+    // BUG-4-004: Cleanup auth subscription and offline queue on unmount
     return () => {
+      cleanup();
       offlineQueue.destroy();
     };
-  }, [initialize]);
+  }, [initialize, cleanup]);
 
   // Register for push notifications after auth initializes
   useEffect(() => {
@@ -210,9 +214,13 @@ function RootLayoutNav() {
                 animation: 'slide_from_right',
                 gestureEnabled: true,
                 gestureDirection: 'horizontal',
+                headerBackTitle: '', // Fix: Hide "index" or other route names from back buttons
               }}
             >
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="(tabs)"
+                options={{ headerShown: false, headerBackTitle: '' }}
+              />
               <Stack.Screen
                 name="product/[slug]"
                 options={{
@@ -312,6 +320,13 @@ function RootLayoutNav() {
               />
               {/* 2026 Best Practice: Service screens with consistent animations */}
               <Stack.Screen
+                name="utilities"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="swap/index"
                 options={{
                   title: 'Swap & Trade-in',
@@ -360,6 +375,13 @@ function RootLayoutNav() {
                   title: 'Crypto Payment',
                   animation: 'slide_from_right',
                   gestureEnabled: false,
+                }}
+              />
+              <Stack.Screen
+                name="profile/index"
+                options={{
+                  title: 'My Account',
+                  animation: 'slide_from_right',
                 }}
               />
               <Stack.Screen

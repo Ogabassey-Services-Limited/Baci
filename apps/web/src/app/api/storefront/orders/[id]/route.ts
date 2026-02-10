@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isValidUuid } from '@/lib/sanitize-core';
+import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
@@ -58,9 +58,9 @@ export async function GET(
 
     console.log(
       '[API/Orders] Fetching order %s. User present: %s, merchant_slug: %s',
-      id,
+      sanitizeForLog(id),
       !!user,
-      merchantSlug
+      sanitizeForLog(merchantSlug)
     );
 
     if (user) {
@@ -98,11 +98,14 @@ export async function GET(
         // Fall through to public lookup if not found by session (e.g. guest order, different account)
         console.debug(
           '[API/Orders] Order %s not found via session lookup. Error:',
-          id,
+          sanitizeForLog(id),
           orderError?.message
         );
       } else {
-        console.log('[API/Orders] Found order %s via session lookup.', id);
+        console.log(
+          '[API/Orders] Found order %s via session lookup.',
+          sanitizeForLog(id)
+        );
         const { data: items, error: itemsError } = await supabase
           .from('order_items')
           .select('id, product_id, product_name:name, quantity, price')
@@ -166,7 +169,7 @@ export async function GET(
         if (!orderError && order) {
           console.log(
             '[API/Orders] Found order %s via header-based lookup.',
-            id
+            sanitizeForLog(id)
           );
           const { data: items } = await admin
             .from('order_items')
@@ -182,7 +185,7 @@ export async function GET(
         } else {
           console.debug(
             '[API/Orders] Order %s not found for merchant %s via header.',
-            id,
+            sanitizeForLog(id),
             merchant.id
           );
         }
@@ -206,7 +209,7 @@ export async function GET(
     if (!token && !email && isValidUuid(id)) {
       console.log(
         '[API/Orders] Attempting slug-based public lookup for merchant_slug: %s',
-        merchantSlug
+        sanitizeForLog(merchantSlug)
       );
       const admin = createAdminClient();
       const { data: merchantRow } = await admin
@@ -218,8 +221,8 @@ export async function GET(
       if (merchantRow) {
         console.log(
           '[API/Orders] Found merchant %s for slug %s',
-          merchantRow.id,
-          merchantSlug
+          sanitizeForLog(merchantRow.id),
+          sanitizeForLog(merchantSlug)
         );
         const { data: order, error: orderError } = await admin
           .from('orders')
@@ -233,7 +236,10 @@ export async function GET(
           .single();
 
         if (!orderError && order) {
-          console.log('[API/Orders] Found order %s via slug-based lookup.', id);
+          console.log(
+            '[API/Orders] Found order %s via slug-based lookup.',
+            sanitizeForLog(id)
+          );
           const { data: items } = await admin
             .from('order_items')
             .select('id, product_id, product_name:name, quantity, price')
@@ -248,7 +254,7 @@ export async function GET(
         } else {
           console.warn(
             '[API/Orders] Order %s not found for merchant %s via slug. Error:',
-            id,
+            sanitizeForLog(id),
             merchantRow.id,
             orderError?.message
           );
@@ -256,7 +262,7 @@ export async function GET(
       } else {
         console.warn(
           '[API/Orders] Merchant row not found for slug: %s',
-          merchantSlug
+          sanitizeForLog(merchantSlug)
         );
       }
 

@@ -54,31 +54,37 @@ const showToast = (message: string, type: 'error' | 'success' = 'error') => {
   }
 };
 
-const DEFAULT_OFFLINE_STOCK = 5;
-
 /**
  * Check stock availability from the database
  * 2026 Best Practice: Verify network before database operations
  *
  * @param cachedStock - Last known stock from TanStack Query cache, used as
- *   fallback when offline or on query error instead of a hard-coded limit.
+ *   fallback when offline or on query error. If no cached value exists,
+ *   stock check will fail to prevent overselling.
  */
 async function checkStock(
   productId: string,
   requestedQuantity: number,
   cachedStock?: number
 ): Promise<StockCheckResult> {
-  const fallbackStock = cachedStock ?? DEFAULT_OFFLINE_STOCK;
-
   // 2026 Best Practice: Check network before database call
   const isOnline = await checkNetwork();
   if (!isOnline) {
+    if (cachedStock === undefined) {
+      // No cached stock available - block add-to-cart to prevent overselling
+      log.error(
+        'Offline: No cached stock data available, blocking add-to-cart'
+      );
+      throw new Error(
+        'Cannot verify stock while offline. Please try again when connected.'
+      );
+    }
     log.warn(
-      `Offline: Stock check skipped, using ${cachedStock != null ? 'cached' : 'default'} estimate (${fallbackStock})`
+      `Offline: Stock check skipped, using cached estimate (${cachedStock})`
     );
     return {
-      available: requestedQuantity <= fallbackStock,
-      currentStock: fallbackStock,
+      available: requestedQuantity <= cachedStock,
+      currentStock: cachedStock,
       requestedQuantity,
     };
   }
@@ -91,9 +97,14 @@ async function checkStock(
 
   if (error) {
     log.error('Stock check failed:', error);
+    if (cachedStock === undefined) {
+      // No cached stock available - block add-to-cart to prevent overselling
+      throw new Error('Cannot verify stock availability. Please try again.');
+    }
+    // Fall back to cached stock on database error
     return {
-      available: requestedQuantity <= fallbackStock,
-      currentStock: fallbackStock,
+      available: requestedQuantity <= cachedStock,
+      currentStock: cachedStock,
       requestedQuantity,
     };
   }
@@ -206,13 +217,15 @@ export function useCart() {
     },
 
     // Cleanup on success
-    onSuccess: (_, __, context) => {
+    onSuccess: (data, _item, context) => {
       if (context?.rollbackId) {
         pendingRollbacks.current.delete(context.rollbackId);
       }
 
-      // Invalidate product queries to refresh stock data
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Invalidate specific product query to refresh stock data
+      queryClient.invalidateQueries({
+        queryKey: ['product', data.item.product_id],
+      });
     },
   });
 
@@ -283,8 +296,14 @@ export function useCart() {
       showToast('Stock Error: Quantity adjusted to available stock', 'error');
     },
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    onSuccess: (data) => {
+      // Invalidate specific product query to refresh stock data
+      const item = items.find((i) => i.id === data.id);
+      if (item) {
+        queryClient.invalidateQueries({
+          queryKey: ['product', item.product_id],
+        });
+      }
     },
   });
 

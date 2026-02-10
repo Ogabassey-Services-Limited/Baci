@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -62,6 +63,9 @@ export async function POST() {
         { status: 500 }
       );
     }
+
+    // Invalidate product caches after bulk publish
+    revalidateProducts(merchant.id);
 
     return NextResponse.json({
       success: true,

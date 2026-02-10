@@ -65,6 +65,11 @@ export const merchantFeatureSettingsSchema = z.object({
   vtu_checkout_addon_amounts: z.array(z.number()),
   vtu_loyalty_reward_enabled: z.boolean(),
   vtu_merchant_commission_rate: z.number(),
+  vtu_electricity_enabled: z.boolean(),
+  vtu_tv_enabled: z.boolean(),
+  vtu_betting_enabled: z.boolean(),
+  vtu_customer_cashback_enabled: z.boolean(),
+  vtu_customer_cashback_rate: z.number(),
   // Custom
   custom_settings: z.record(z.unknown()),
 });

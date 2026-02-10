@@ -1,0 +1,350 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Biller, PurchaseResult } from './kuda';
+import { getBillersByCategory, purchaseBill } from './kuda-bills';
+
+// Mock the kuda module
+vi.mock('./kuda', () => ({
+  KudaServiceType: {
+    ADMIN_PURCHASE_BILL: 'ADMIN_PURCHASE_BILL',
+  },
+  generateRequestRef: vi.fn(() => 'BACI-1234567890-abcd1234'),
+  getBillersByType: vi.fn(),
+  kudaRequest: vi.fn(),
+  verifyBillCustomer: vi.fn(),
+}));
+
+// Import mocked functions after vi.mock
+import {
+  generateRequestRef,
+  getBillersByType,
+  KudaServiceType,
+  kudaRequest,
+} from './kuda';
+
+describe('getBillersByCategory', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('maps "airtime" to Kuda "Airtime" category', async () => {
+    // Arrange
+    const mockBillers: Biller[] = [
+      {
+        billerId: '1',
+        billerName: 'MTN Airtime',
+        billerType: 'Airtime',
+        categoryId: 'airtime',
+        categoryName: 'Airtime',
+      },
+    ];
+    vi.mocked(getBillersByType).mockResolvedValue(mockBillers);
+
+    // Act
+    const result = await getBillersByCategory('airtime');
+
+    // Assert
+    expect(getBillersByType).toHaveBeenCalledWith('Airtime');
+    expect(result).toEqual(mockBillers);
+  });
+
+  it('maps "data" to Kuda "Internet Data" category', async () => {
+    // Arrange
+    const mockBillers: Biller[] = [
+      {
+        billerId: '2',
+        billerName: 'MTN Data',
+        billerType: 'Data',
+        categoryId: 'data',
+        categoryName: 'Internet Data',
+      },
+    ];
+    vi.mocked(getBillersByType).mockResolvedValue(mockBillers);
+
+    // Act — uses the API string 'data', NOT BillType.DATA ('internet_data')
+    const result = await getBillersByCategory('data');
+
+    // Assert
+    expect(getBillersByType).toHaveBeenCalledWith('Internet Data');
+    expect(result).toEqual(mockBillers);
+  });
+
+  it('maps "electricity" to Kuda "Electricity" category', async () => {
+    // Arrange
+    const mockBillers: Biller[] = [
+      {
+        billerId: '3',
+        billerName: 'EKEDC',
+        billerType: 'Electricity',
+        categoryId: 'electricity',
+        categoryName: 'Electricity',
+      },
+    ];
+    vi.mocked(getBillersByType).mockResolvedValue(mockBillers);
+
+    // Act
+    const result = await getBillersByCategory('electricity');
+
+    // Assert
+    expect(getBillersByType).toHaveBeenCalledWith('Electricity');
+    expect(result).toEqual(mockBillers);
+  });
+
+  it('maps "cable_tv" to Kuda "CableTv" category', async () => {
+    // Arrange
+    const mockBillers: Biller[] = [
+      {
+        billerId: '4',
+        billerName: 'DSTV',
+        billerType: 'CableTv',
+        categoryId: 'cable_tv',
+        categoryName: 'CableTv',
+      },
+    ];
+    vi.mocked(getBillersByType).mockResolvedValue(mockBillers);
+
+    // Act
+    const result = await getBillersByCategory('cable_tv');
+
+    // Assert
+    expect(getBillersByType).toHaveBeenCalledWith('CableTv');
+    expect(result).toEqual(mockBillers);
+  });
+
+  it('maps "betting" to Kuda "Betting" category', async () => {
+    // Arrange
+    const mockBillers: Biller[] = [
+      {
+        billerId: '5',
+        billerName: 'Bet9ja',
+        billerType: 'Betting',
+        categoryId: 'betting',
+        categoryName: 'Betting',
+      },
+    ];
+    vi.mocked(getBillersByType).mockResolvedValue(mockBillers);
+
+    // Act
+    const result = await getBillersByCategory('betting');
+
+    // Assert
+    expect(getBillersByType).toHaveBeenCalledWith('Betting');
+    expect(result).toEqual(mockBillers);
+  });
+
+  it('throws error for unknown category', () => {
+    // Arrange
+    const unknownCategory = 'invalid_category';
+
+    // Act & Assert
+    expect(() => getBillersByCategory(unknownCategory)).toThrow(
+      'Unknown bill category: invalid_category'
+    );
+    expect(getBillersByType).not.toHaveBeenCalled();
+  });
+
+  it('throws error for empty string category', () => {
+    // Act & Assert
+    expect(() => getBillersByCategory('')).toThrow('Unknown bill category: ');
+    expect(getBillersByType).not.toHaveBeenCalled();
+  });
+});
+
+describe('purchaseBill', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(generateRequestRef).mockReturnValue('BACI-1234567890-abcd1234');
+  });
+
+  it('returns success result when purchase succeeds', async () => {
+    // Arrange
+    const mockResponse = {
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        transactionReference: 'TXN-123456',
+        status: 'successful',
+      },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(generateRequestRef).toHaveBeenCalled();
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      {
+        Amount: '5000',
+        BillItemIdentifier: 'EKEDC-PREPAID',
+        PhoneNumber: '1234567890',
+        CustomerIdentifier: '1234567890',
+      },
+      'BACI-1234567890-abcd1234'
+    );
+
+    expect(result).toEqual<PurchaseResult>({
+      success: true,
+      reference: 'BACI-1234567890-abcd1234',
+      transactionId: 'TXN-123456',
+      message: 'Bill purchase successful',
+      status: 'successful',
+      amount: 5000,
+    });
+  });
+
+  it('returns failed result when Kuda API returns status false', async () => {
+    // Arrange
+    const mockResponse = {
+      status: false,
+      message: 'Insufficient balance',
+      data: undefined,
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    const result = await purchaseBill('DSTV-COMPACT', '9876543210', 3500);
+
+    // Assert
+    expect(result).toEqual<PurchaseResult>({
+      success: false,
+      reference: 'BACI-1234567890-abcd1234',
+      transactionId: undefined,
+      message: 'Insufficient balance',
+      status: 'failed',
+      amount: 3500,
+    });
+  });
+
+  it('catches and returns failed result when kudaRequest throws an error', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockRejectedValue(
+      new Error('Network connection failed')
+    );
+
+    // Act
+    const result = await purchaseBill('BET9JA', '1122334455', 1000);
+
+    // Assert
+    expect(result).toEqual<PurchaseResult>({
+      success: false,
+      reference: 'BACI-1234567890-abcd1234',
+      message: 'Network connection failed',
+      status: 'failed',
+      amount: 1000,
+    });
+  });
+
+  it('handles non-Error thrown objects gracefully', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockRejectedValue('Unknown error string');
+
+    // Act
+    const result = await purchaseBill('EKEDC-POSTPAID', '5555555555', 2000);
+
+    // Assert
+    expect(result).toEqual<PurchaseResult>({
+      success: false,
+      reference: 'BACI-1234567890-abcd1234',
+      message: 'Bill purchase failed',
+      status: 'failed',
+      amount: 2000,
+    });
+  });
+
+  it('passes amount as string to Kuda API', async () => {
+    // Arrange
+    const mockResponse = {
+      status: true,
+      message: 'Success',
+      data: { transactionReference: 'TXN-789', status: 'successful' },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    await purchaseBill('GOTV-PLUS', '1111111111', 150000);
+
+    // Assert
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      expect.objectContaining({
+        Amount: '150000',
+      }),
+      expect.any(String)
+    );
+  });
+
+  it('includes generated reference in request', async () => {
+    // Arrange
+    const customRef = 'BACI-9999999999-xyz789';
+    vi.mocked(generateRequestRef).mockReturnValue(customRef);
+    const mockResponse = {
+      status: true,
+      message: 'Success',
+      data: { transactionReference: 'TXN-999', status: 'successful' },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    const result = await purchaseBill('STARTIMES', '7777777777', 4500);
+
+    // Assert
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      expect.any(Object),
+      customRef
+    );
+    expect(result.reference).toBe(customRef);
+  });
+
+  it('uses customerIdentification for both PhoneNumber and CustomerIdentifier', async () => {
+    // Arrange
+    const mockResponse = {
+      status: true,
+      message: 'Success',
+      data: { transactionReference: 'TXN-555', status: 'successful' },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+    const customerIdentification = '08012345678';
+
+    // Act
+    await purchaseBill('IKEJA-ELECTRIC', customerIdentification, 10000);
+
+    // Assert
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      {
+        Amount: '10000',
+        BillItemIdentifier: 'IKEJA-ELECTRIC',
+        PhoneNumber: customerIdentification,
+        CustomerIdentifier: customerIdentification,
+      },
+      expect.any(String)
+    );
+  });
+
+  it('preserves amount in result regardless of success', async () => {
+    // Arrange - success case
+    const successResponse = {
+      status: true,
+      message: 'Success',
+      data: { transactionReference: 'TXN-111', status: 'successful' },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(successResponse);
+
+    // Act
+    const successResult = await purchaseBill('BILL-1', 'CUST-1', 7500);
+
+    // Assert
+    expect(successResult.amount).toBe(7500);
+
+    // Arrange - failure case
+    vi.mocked(kudaRequest).mockRejectedValue(new Error('Failed'));
+
+    // Act
+    const failureResult = await purchaseBill('BILL-2', 'CUST-2', 8500);
+
+    // Assert
+    expect(failureResult.amount).toBe(8500);
+  });
+});

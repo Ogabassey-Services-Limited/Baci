@@ -10,8 +10,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { useHaptics } from '@/hooks/use-haptics';
+import { colors, styles } from '../styles';
 import type { SubmitButtonProps } from '../types';
-import { styles, colors } from '../styles';
 
 /**
  * Primary submit button with loading state
@@ -22,10 +23,17 @@ export function SubmitButton({
   label = 'Sign In & Checkout',
   loadingLabel = 'Signing in',
 }: SubmitButtonProps) {
+  const haptics = useHaptics();
+
+  const handlePress = () => {
+    haptics.light();
+    onPress();
+  };
+
   return (
     <TouchableOpacity
       style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={isLoading}
       activeOpacity={0.8}
       accessibilityRole="button"

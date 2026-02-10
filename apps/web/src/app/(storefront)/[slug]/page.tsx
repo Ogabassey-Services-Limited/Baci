@@ -5,10 +5,7 @@ import { Suspense } from 'react';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import {
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
   generateLocalBusinessSchema,
@@ -16,10 +13,7 @@ import {
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
-import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
 
 export async function generateMetadata({
@@ -37,10 +31,8 @@ export async function generateMetadata({
     };
   }
 
-  // Use appropriate lookup method based on identifier type - normalize to lowercase
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug.toLowerCase())
-    : await getCachedMerchant(slug.toLowerCase());
+  // Use request-scoped lookup (deduplicates with layout, retries on transient errors)
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     return {
@@ -138,11 +130,8 @@ export default async function StorefrontPage({
     notFound();
   }
 
-  // CRITICAL: Merchant lookup - required for page shell
-  const lookupKey = slug.toLowerCase();
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(lookupKey)
-    : await getCachedMerchant(lookupKey);
+  // CRITICAL: Merchant lookup — request-scoped (deduplicates with layout)
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     notFound();

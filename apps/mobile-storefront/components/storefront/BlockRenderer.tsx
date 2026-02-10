@@ -1,9 +1,9 @@
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { ProductGridSkeleton } from '@/components/ui/Skeleton';
+import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks/use-products';
+import { useCategories, useMerchant, useProducts } from '@/hooks/use-products';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import type {
@@ -12,7 +12,7 @@ import type {
   ProductGridBlock,
 } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
-import { Hero } from './Hero';
+import { Hero, type HeroSlide } from './Hero';
 import { ProductCard } from './ProductCard';
 import { UtilityPanel } from './UtilityPanel';
 
@@ -216,11 +216,14 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const { data: categories = [] } = useCategories();
+  const { data: merchant, isLoading: isMerchantLoading } = useMerchant();
 
   const selectedCategoryName = useMemo(() => {
     if (!selectedCategoryId) return 'Airtime';
     // Check remote categories
-    const cat = (categories as Category[]).find((c) => c.id === selectedCategoryId);
+    const cat = (categories as Category[]).find(
+      (c) => c.id === selectedCategoryId
+    );
     if (cat) return cat.name;
     // Check hardcoded utility IDs
     if (selectedCategoryId === 'u-airtime') return 'Airtime';
@@ -233,16 +236,37 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
   return (
     <View>
-      {blocks.map((block) => {
+      {(blocks || []).map((block) => {
         switch (block.type) {
-          case 'HeroCarousel':
+          case 'HeroCarousel': {
+            if (isMerchantLoading) {
+              return <HeroSkeleton key={block.props.id} />;
+            }
+
+            const heroBlock = block as HeroCarouselBlock;
+            const mobileSlides = merchant?.hero_slides;
+
+            const slides =
+              mobileSlides && mobileSlides.length > 0
+                ? mobileSlides.map((s: Record<string, string>) => ({
+                    title: s.headline || s.title || '',
+                    subtitle: s.description || s.subtitle || '',
+                    image: s.imageUrl || s.image || '',
+                    ctaText: s.cta || s.ctaText || 'Shop Now',
+                    ctaLink: s.link || s.ctaLink || '/category/all',
+                  }))
+                : null;
+
+            if (!slides || slides.length === 0) return null;
+
             return (
               <Hero
                 key={block.props.id}
-                slides={(block as HeroCarouselBlock).props.slides}
-                autoplayDelay={(block as HeroCarouselBlock).props.autoplayDelay}
+                slides={slides as HeroSlide[]}
+                autoplayDelay={heroBlock.props.autoplayDelay}
               />
             );
+          }
           case 'CategoryRail':
             return (
               <UtilityPanel
@@ -251,7 +275,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 selectedCategoryId={selectedCategoryId}
                 onCategorySelect={onCategorySelect}
                 selectedCategoryName={selectedCategoryName}
-                slug={(block as Block & { props: { slug?: string } }).props.slug}
+                slug={
+                  (block as Block & { props: { slug?: string } }).props.slug
+                }
               />
             );
           case 'ProductGrid':

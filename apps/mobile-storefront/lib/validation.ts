@@ -28,6 +28,11 @@ export const OtpSchema = z
   .length(6, 'Verification code must be 6 digits')
   .regex(/^\d{6}$/, 'Verification code must be numbers only');
 
+export const PasswordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(100, 'Password is too long');
+
 // ============================================
 // CHECKOUT SCHEMAS
 // ============================================
@@ -173,6 +178,7 @@ export const CalculateOrderInput = z.object({
   subtotal: z.number().positive(),
   shippingFee: z.number().min(0).optional(),
   taxRate: z.number().min(0).max(1).optional(),
+  assuranceFee: z.number().min(0).optional(),
 });
 
 export const CalculateOrderOutput = z.object({

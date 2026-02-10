@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
 import type { CategoryNavItem } from '@/lib/cached-categories';
+import type { HeroSlide } from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 
@@ -104,6 +105,8 @@ export interface MerchantData {
     | 'exempt'
     | 'pending';
   vat_rate?: number;
+  hero_slides?: HeroSlide[];
+  mobile_hero_slides?: HeroSlide[];
 }
 
 export type StaffRole =

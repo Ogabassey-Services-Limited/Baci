@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { InvoiceModal } from '../components/InvoiceModal';
 import { useV2Order } from '../providers/v2-order-context';
 
@@ -53,6 +54,7 @@ const GoogleIcon = ({ className }: { className?: string }) => (
 export const OrderSuccessPage: React.FC = () => {
   const router = useRouter();
   const { getOrder } = useV2Order();
+  const { isAuthenticated } = useCustomerAuth();
   const searchParams = useSearchParams();
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
 
@@ -60,6 +62,7 @@ export const OrderSuccessPage: React.FC = () => {
   const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
 
   const orderId = searchParams.get('orderId');
+  const trackingToken = searchParams.get('trackingToken');
   const successType = searchParams.get('type') || 'standard'; // standard, invoice, payforme
   const payerName = searchParams.get('payerName') || 'Friend';
 
@@ -190,7 +193,13 @@ export const OrderSuccessPage: React.FC = () => {
             Continue Shopping
           </Link>
           <button
-            onClick={() => router.push(getUrl('/account/orders') as any)}
+            onClick={() => {
+              if (!isAuthenticated && trackingToken) {
+                router.push(getUrl(`/track-order?token=${trackingToken}`) as any);
+              } else {
+                router.push(getUrl('/account/orders') as any);
+              }
+            }}
             className="flex-1 bg-[var(--store-primary)] text-white font-bold py-3.5 px-6 rounded-xl hover:bg-[var(--store-primary)]/90 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             See Order Details <ArrowRight size={18} />

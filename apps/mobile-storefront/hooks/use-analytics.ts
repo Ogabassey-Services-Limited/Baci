@@ -101,6 +101,7 @@ export function useAnalytics() {
   }, [pathname]);
 
   // Identify user when they log in
+  // BUG-4-003 FIX: Use specific properties in deps to avoid stale context
   useEffect(() => {
     if (user?.id && customer) {
       identifyUser(user.id, {
@@ -109,8 +110,18 @@ export function useAnalytics() {
         lastName: customer.last_name,
         phone: customer.phone,
       });
+    } else if (!user?.id && !customer) {
+      // Reset identity on logout
+      resetUserIdentity();
     }
-  }, [user?.id, customer]);
+  }, [
+    user?.id,
+    customer?.id,
+    customer?.email,
+    customer?.first_name,
+    customer?.last_name,
+    customer?.phone,
+  ]);
 
   // Product viewed
   const onProductViewed = useCallback((product: Product) => {

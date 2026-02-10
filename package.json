@@ -42,11 +42,33 @@
       "diff": "^8.0.3",
       "react-native-screens": "4.19.0",
       "react-native-reanimated": "4.2.1",
-      "react-native-svg": "15.15.1"
+      "react-native-svg": "15.15.1",
+      "@tiptap/core": "^3.19.0",
+      "@tiptap/react": "^3.19.0",
+      "@tiptap/pm": "^3.19.0",
+      "@tiptap/starter-kit": "^3.19.0",
+      "@tiptap/suggestion": "^3.19.0",
+      "@tiptap/extension-character-count": "^3.19.0",
+      "@tiptap/extension-code-block-lowlight": "^3.19.0",
+      "@tiptap/extension-color": "^3.19.0",
+      "@tiptap/extension-highlight": "^3.19.0",
+      "@tiptap/extension-horizontal-rule": "^3.19.0",
+      "@tiptap/extension-image": "^3.19.0",
+      "@tiptap/extension-link": "^3.19.0",
+      "@tiptap/extension-placeholder": "^3.19.0",
+      "@tiptap/extension-task-item": "^3.19.0",
+      "@tiptap/extension-task-list": "^3.19.0",
+      "@tiptap/extension-text-style": "^3.19.0",
+      "@tiptap/extension-underline": "^3.19.0",
+      "@tiptap/extension-youtube": "^3.19.0",
+      "axios": "^1.13.5",
+      "langsmith": "^0.4.6"
     },
     "patchedDependencies": {
       "react-native-worklets": "patches/react-native-worklets.patch",
-      "react-native-svg": "patches/react-native-svg.patch"
+      "react-native-svg": "patches/react-native-svg.patch",
+      "expo-clipboard@8.0.8": "patches/expo-clipboard@8.0.8.patch",
+      "novel@1.0.2": "patches/novel@1.0.2.patch"
     }
   },
   "dependencies": {

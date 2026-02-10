@@ -18,6 +18,18 @@ const nextConfig: NextConfig = {
   // Enable 'use cache' directive for Dynamic IO (Next.js 16)
   cacheComponents: true,
 
+  // Custom cache profiles for 'use cache' + cacheLife()
+  cacheLife: {
+    // Merchant data: revalidate every 60s, serve stale up to 5min, expire after 1hr
+    merchant: { stale: 300, revalidate: 60, expire: 3600 },
+    // Product catalog: revalidate every 5min, serve stale up to 5min, expire after 24hr
+    products: { stale: 300, revalidate: 300, expire: 86400 },
+    // Storefront pages (terms, FAQ, about): revalidate every 5min, stale 1min, expire 1hr
+    'storefront-page': { stale: 60, revalidate: 300, expire: 3600 },
+    // Categories: rarely change, revalidate every 1hr, expire after 24hr
+    categories: { stale: 300, revalidate: 3600, expire: 86400 },
+  },
+
   // Fix Vercel middleware tracing issue with Next.js 16
   // See: https://github.com/vercel/next.js/issues/71818
   outputFileTracingIncludes: {

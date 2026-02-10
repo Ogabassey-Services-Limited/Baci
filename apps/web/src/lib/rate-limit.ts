@@ -1,58 +1,63 @@
-// Rate Limiting Middleware
-// Implements token bucket algorithm for API rate limiting
-// Note: This implementation uses an in-memory store (`Map`).
-// In a serverless/edge environment (like Vercel), this store is NOT shared across instances.
-// It is effective for basic protection against single-instance floods but is not a global rate limiter.
-// For production-grade global rate limiting, use Redis (e.g., Vercel KV or Upstash).
+// Distributed Rate Limiting
+// Uses Upstash Redis (shared across all Vercel instances) with in-memory fallback.
+// Sliding window algorithm via @upstash/ratelimit SDK.
 
+import { Ratelimit } from '@upstash/ratelimit';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { getRedis } from './redis';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
 }
 
-// Rate limit configurations per endpoint pattern
+interface RateLimitResult {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  resetTime: number;
+}
+
+// ---------------------------------------------------------------------------
+// Route-specific limits (same as before)
+// ---------------------------------------------------------------------------
+
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  '/api/orders': { maxRequests: 10, windowMs: 60000 }, // 10 requests per minute
-  '/api/products': { maxRequests: 30, windowMs: 60000 }, // 30 requests per minute
-  '/api/storefront': { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
-  '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60000 }, // 3 requests per minute (OTP send)
-  '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute (OTP verify)
-  '/api/customers': { maxRequests: 20, windowMs: 60000 }, // 20 requests per minute
-  '/api/newsletter': { maxRequests: 5, windowMs: 900000 }, // 5 requests per 15 minutes
-  '/api/wallet': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute
-  '/api/payments/credit-direct/sign': { maxRequests: 5, windowMs: 60000 }, // 5 requests per minute
-  default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
+  '/api/orders': { maxRequests: 10, windowMs: 60_000 },
+  '/api/products': { maxRequests: 30, windowMs: 60_000 },
+  '/api/storefront': { maxRequests: 100, windowMs: 60_000 },
+  '/api/storefront/auth/send-code': { maxRequests: 3, windowMs: 60_000 },
+  '/api/storefront/auth/verify-code': { maxRequests: 5, windowMs: 60_000 },
+  '/api/customers': { maxRequests: 20, windowMs: 60_000 },
+  '/api/newsletter': { maxRequests: 5, windowMs: 900_000 },
+  '/api/wallet': { maxRequests: 5, windowMs: 60_000 },
+  '/api/payments/credit-direct/sign': { maxRequests: 5, windowMs: 60_000 },
+  default: { maxRequests: 50, windowMs: 60_000 },
 };
 
-// =============================================================================
-// IP VALIDATION (Edge-compatible, no Node.js 'net' module)
-// =============================================================================
+// ---------------------------------------------------------------------------
+// IP validation (Edge-compatible, no Node.js 'net' module)
+// ---------------------------------------------------------------------------
 
-// IPv4 regex pattern
 const IPV4_REGEX =
   /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
-// IPv6 regex pattern (simplified, covers most common formats)
 const IPV6_REGEX =
   /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^[0-9a-fA-F]{1,4}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^::$/;
 
-/**
- * Validate if a string is a valid IP address (IPv4 or IPv6)
- */
 function isValidIP(ip: string): boolean {
   return IPV4_REGEX.test(ip) || IPV6_REGEX.test(ip);
 }
 
-// =============================================================================
-// TRIE-BASED PREFIX MATCHING
-// =============================================================================
+// ---------------------------------------------------------------------------
+// Trie-based prefix matching (O(k) where k = path depth)
+// ---------------------------------------------------------------------------
 
-/**
- * Trie node for O(k) prefix pattern matching (k = path depth)
- */
 class TrieNode {
   children: Map<string, TrieNode>;
   config: RateLimitConfig | null;
@@ -64,9 +69,6 @@ class TrieNode {
   }
 }
 
-/**
- * Builds a Trie from the RATE_LIMITS object for prefix matching
- */
 function buildTrie(patterns: Record<string, RateLimitConfig>): TrieNode {
   const root = new TrieNode();
   for (const [pattern, config] of Object.entries(patterns)) {
@@ -86,50 +88,8 @@ function buildTrie(patterns: Record<string, RateLimitConfig>): TrieNode {
   return root;
 }
 
-// Build the Trie once at module load
 const rateLimitTrie = buildTrie(RATE_LIMITS);
 
-// In-memory store for rate limiting (use Redis in production)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Maximum store size to prevent unbounded memory growth
-const MAX_STORE_SIZE = 10000;
-
-// Batch size for incremental pruning to avoid blocking event loop
-const PRUNE_BATCH_SIZE = 100;
-
-/**
- * Get client identifier (IP address)
- * Validates IP format to prevent header spoofing bypasses
- */
-function getClientIdentifier(request: NextRequest): string {
-  // Try to get IP from various headers (for proxies/load balancers)
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIp = request.headers.get('x-real-ip');
-
-  // Get first valid forwarded IP if header exists
-  if (forwarded) {
-    const ips = forwarded.split(',').map((ip) => ip.trim());
-    const validIp = ips.find((ip) => isValidIP(ip));
-    if (validIp) return validIp;
-  }
-
-  // Check x-real-ip header
-  if (realIp && isValidIP(realIp)) {
-    return realIp;
-  }
-
-  // Fallback if no valid IP found
-  return 'unknown';
-}
-
-/**
- * Get rate limit config for the endpoint using Trie lookup
- * O(k) where k is the path depth, instead of O(n) pattern iteration
- *
- * Returns both the config and the matched pattern to use as the rate limit key.
- * This prevents bypass via dynamic path parameters (e.g., /api/products/1 vs /api/products/2).
- */
 function getRateLimitConfig(pathname: string): {
   config: RateLimitConfig;
   pattern: string;
@@ -158,61 +118,88 @@ function getRateLimitConfig(pathname: string): {
   };
 }
 
-/**
- * Incremental pruning to avoid blocking the event loop
- * Only prunes PRUNE_BATCH_SIZE entries per invocation
- */
-function pruneStore(now: number): void {
-  if (rateLimitStore.size < MAX_STORE_SIZE) return;
+// ---------------------------------------------------------------------------
+// Client identifier (IP)
+// ---------------------------------------------------------------------------
 
+function getClientIdentifier(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIp = request.headers.get('x-real-ip');
+
+  if (forwarded) {
+    const ips = forwarded.split(',').map((ip) => ip.trim());
+    const validIp = ips.find((ip) => isValidIP(ip));
+    if (validIp) return validIp;
+  }
+
+  if (realIp && isValidIP(realIp)) return realIp;
+
+  return 'unknown';
+}
+
+// ---------------------------------------------------------------------------
+// Upstash Ratelimit instances (one per unique config, created lazily)
+// ---------------------------------------------------------------------------
+
+const upstashLimiters = new Map<string, Ratelimit>();
+
+function getUpstashLimiter(config: RateLimitConfig): Ratelimit | null {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  const windowSeconds = `${Math.ceil(config.windowMs / 1000)} s` as const;
+  const key = `${config.maxRequests}:${windowSeconds}`;
+
+  let limiter = upstashLimiters.get(key);
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(config.maxRequests, windowSeconds),
+      prefix: 'baci:ratelimit',
+      ephemeralCache: new Map(),
+    });
+    upstashLimiters.set(key, limiter);
+  }
+  return limiter;
+}
+
+// ---------------------------------------------------------------------------
+// In-memory fallback (when Redis is unavailable)
+// ---------------------------------------------------------------------------
+
+const memoryStore = new Map<string, { count: number; resetTime: number }>();
+const MAX_STORE_SIZE = 10_000;
+const PRUNE_BATCH_SIZE = 100;
+
+function pruneStore(now: number): void {
+  if (memoryStore.size < MAX_STORE_SIZE) return;
   let pruned = 0;
-  for (const [key, entry] of rateLimitStore) {
+  for (const [key, entry] of memoryStore) {
     if (now > entry.resetTime) {
-      rateLimitStore.delete(key);
+      memoryStore.delete(key);
       pruned++;
       if (pruned >= PRUNE_BATCH_SIZE) break;
     }
   }
 }
 
-/**
- * Check if request should be rate limited
- */
-export function checkRateLimit(request: NextRequest): {
-  allowed: boolean;
-  limit: number;
-  remaining: number;
-  resetTime: number;
-} {
-  const identifier = getClientIdentifier(request);
-  const pathname = request.nextUrl.pathname;
-  // Use the pattern (bucket) instead of exact pathname to prevent bypass via path params
-  const { config, pattern } = getRateLimitConfig(pathname);
-
-  // Group requests by identifier AND pattern (e.g. IP + /api/products)
-  // This ensures /api/products/1 and /api/products/2 share the same limit
+function checkMemoryRateLimit(
+  identifier: string,
+  pattern: string,
+  config: RateLimitConfig
+): RateLimitResult {
   const key = `${identifier}:${pattern}`;
   const now = Date.now();
-
-  // Incremental pruning on each request
   pruneStore(now);
 
-  // Get or create rate limit entry
-  let entry = rateLimitStore.get(key);
-
-  // Reset if window has passed
+  let entry = memoryStore.get(key);
   if (!entry || now > entry.resetTime) {
-    entry = {
-      count: 0,
-      resetTime: now + config.windowMs,
-    };
+    entry = { count: 0, resetTime: now + config.windowMs };
   }
 
-  // Increment count
   entry.count++;
-  rateLimitStore.set(key, entry);
+  memoryStore.set(key, entry);
 
-  // Check if limit exceeded
   const allowed = entry.count <= config.maxRequests;
   const remaining = Math.max(0, config.maxRequests - entry.count);
 
@@ -224,16 +211,47 @@ export function checkRateLimit(request: NextRequest): {
   };
 }
 
-/**
- * Create rate limit response
- * Uses Math.max(0, ...) to ensure non-negative Retry-After values
- */
+// ---------------------------------------------------------------------------
+// Main entry point (async — uses Redis when available, memory fallback)
+// ---------------------------------------------------------------------------
+
+export async function checkRateLimit(
+  request: NextRequest
+): Promise<RateLimitResult> {
+  const identifier = getClientIdentifier(request);
+  const pathname = request.nextUrl.pathname;
+  const { config, pattern } = getRateLimitConfig(pathname);
+
+  // Try Upstash first
+  const limiter = getUpstashLimiter(config);
+  if (limiter) {
+    try {
+      const upstashKey = `${identifier}:${pattern}`;
+      const result = await limiter.limit(upstashKey);
+      return {
+        allowed: result.success,
+        limit: result.limit,
+        remaining: result.remaining,
+        resetTime: result.reset,
+      };
+    } catch {
+      // Redis error — fall through to in-memory
+    }
+  }
+
+  // Fallback to in-memory
+  return checkMemoryRateLimit(identifier, pattern, config);
+}
+
+// ---------------------------------------------------------------------------
+// Response helper
+// ---------------------------------------------------------------------------
+
 export function createRateLimitResponse(
   limit: number,
   remaining: number,
   resetTime: number
 ): NextResponse {
-  // Ensure non-negative retryAfter per HTTP spec
   const retryAfterSeconds = Math.max(
     0,
     Math.ceil((resetTime - Date.now()) / 1000)
@@ -256,33 +274,33 @@ export function createRateLimitResponse(
   return response;
 }
 
-/**
- * Cleanup old entries (call periodically)
- */
+// ---------------------------------------------------------------------------
+// Cleanup (in-memory fallback only)
+// ---------------------------------------------------------------------------
+
 export function cleanupRateLimitStore(): void {
   const now = Date.now();
-  for (const [key, entry] of rateLimitStore.entries()) {
+  for (const [key, entry] of memoryStore.entries()) {
     if (now > entry.resetTime) {
-      rateLimitStore.delete(key);
+      memoryStore.delete(key);
     }
   }
 }
 
-/**
- * Reset the rate limit store - FOR TESTING ONLY
- * This function clears all rate limit entries to ensure test isolation.
- * Throws an error if called in production to prevent accidental usage.
- */
+if (typeof setInterval !== 'undefined') {
+  setInterval(cleanupRateLimitStore, 5 * 60 * 1000);
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
 export function __resetRateLimitStoreForTesting(): void {
   if (process.env.NODE_ENV === 'production') {
     throw new Error(
       '__resetRateLimitStoreForTesting should only be called in test environment'
     );
   }
-  rateLimitStore.clear();
-}
-
-// Cleanup every 5 minutes (only in environments that support setInterval)
-if (typeof setInterval !== 'undefined') {
-  setInterval(cleanupRateLimitStore, 5 * 60 * 1000);
+  memoryStore.clear();
+  upstashLimiters.clear();
 }

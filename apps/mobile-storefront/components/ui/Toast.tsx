@@ -52,7 +52,7 @@ const VARIANT_CONFIG = {
     icon: 'warning' as const,
     iconColor: '#F59E0B',
     backgroundColor: '#FFFBEB',
-    textColor: '#92400E',
+    textColor: '#78350F',
   },
   info: {
     icon: 'information-circle' as const,

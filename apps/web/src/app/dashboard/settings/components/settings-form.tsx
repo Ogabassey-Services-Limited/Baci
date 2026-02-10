@@ -181,7 +181,7 @@ export function SettingsForm({
     }
   };
 
-  async function onSubmit(data: SettingsFormValues) {
+  async function _onSubmit(data: SettingsFormValues) {
     setIsSaving(true);
     try {
       await updateMerchant({
@@ -208,7 +208,7 @@ export function SettingsForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+      <form onSubmit={form.handleSubmit(_onSubmit)} className="grid gap-6">
         <BrandingCard
           merchantState={merchantState}
           brandColors={brandColors}

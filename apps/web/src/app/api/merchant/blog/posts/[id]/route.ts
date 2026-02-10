@@ -1,12 +1,11 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * Blog Post API - Single Post Operations
@@ -62,13 +61,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = auth.supabase;
 
     // Get blog post
     const { data: post, error } = await supabase
       .from('blog_posts')
-      .select('*')
+      .select(
+        'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at'
+      )
       .eq('id', id)
       .eq('merchant_id', access.merchantId)
       .single();
@@ -114,13 +114,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = auth.supabase;
 
     // Get existing post
     const { data: existingPost, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('*')
+      .select('id, slug, status, content, title, excerpt, category')
       .eq('id', id)
       .eq('merchant_id', access.merchantId)
       .single();
@@ -223,6 +222,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Invalidate blog caches so storefront reflects changes immediately
+    revalidateBlogPosts(access.merchantId, updatedPost.slug);
+
     return NextResponse.json(updatedPost);
   } catch (error) {
     console.error('Blog post PATCH error:', error);
@@ -256,8 +258,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = auth.supabase;
 
     // Delete post
     const { error: deleteError } = await supabase
@@ -270,6 +271,9 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       console.error('Error deleting blog post:', deleteError);
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
+
+    // Invalidate blog caches after deletion
+    revalidateBlogPosts(access.merchantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

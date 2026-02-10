@@ -82,13 +82,19 @@ export function useNetworkState(): UseNetworkStateResult {
       });
 
       // Execute reconnect callbacks
+      // BUG-4-006 FIX: Use Promise.allSettled for callbacks that may be async
       if (wasJustReconnected) {
-        reconnectCallbacks.current.forEach((callback) => {
-          try {
-            callback();
-          } catch (error) {
-            log.error('Error in reconnect callback:', error);
+        const callbackPromises = Array.from(reconnectCallbacks.current).map(
+          async (callback) => {
+            try {
+              await callback();
+            } catch (error) {
+              log.error('Error in reconnect callback:', error);
+            }
           }
+        );
+        Promise.allSettled(callbackPromises).catch((error) => {
+          log.error('Unexpected error in reconnect callbacks:', error);
         });
 
         // 2026 Critical Fix: Clear previous timeout before setting new one

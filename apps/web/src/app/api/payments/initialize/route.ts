@@ -15,9 +15,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
   capturePaymentWithCrypto,
+  convertNgnKoboToUsdtCents,
+  extractCryptoAddress,
   formatPhoneToE164,
   generatePaymentReference as generateJuicywayReference,
   getChainConfirmationTime,
+  getPayment,
   getPaymentSession,
   initializePayment as initializeJuicywayPayment,
   isSupportedCurrency as isJuicywayCurrency,
@@ -231,10 +234,15 @@ interface PaymentResult {
     chain: JuicywayCryptoChain;
     currency: JuicywayStablecoin;
     amount: number;
+    /** Stablecoin amount for display (e.g. "3.26") */
+    crypto_amount?: string;
+    /** NGN/USDT rate used for conversion */
+    conversion_rate?: number;
     confirmation_time: string;
     qrcode?: string;
-    payment_id?: string; // Payment ID for verification (different from session ID)
+    payment_id?: string;
   };
+  crypto_address_pending?: boolean;
   reference: string;
   platformFee: number;
   merchantAmount: number;
@@ -260,13 +268,15 @@ async function initializeJuicyway(
   const cryptoChain = (data.crypto_chain || 'TRX') as JuicywayCryptoChain;
   const cryptoCurrency = (data.crypto_currency || 'USDT') as JuicywayStablecoin;
 
-  // For crypto payments:
-  // - Send amount in NGN and let Juicyway handle real-time conversion
-  // - Juicyway locks the rate for 15 minutes and uses aggregated exchange rates
-  // For other payments, use NGN or the provided currency
-  const paymentCurrency = isJuicywayCurrency(data.currency)
-    ? data.currency
-    : 'NGN';
+  // For crypto payments, the session currency MUST be the stablecoin (USDT/USDC).
+  // Juicyway only generates a wallet address when the session currency matches the stablecoin.
+  // NGN/USD sessions return "No channel provided for processing" on capture.
+  // Juicyway handles the fiat→crypto conversion at its current exchange rate.
+  const paymentCurrency = isCryptoPayment
+    ? cryptoCurrency
+    : isJuicywayCurrency(data.currency)
+      ? data.currency
+      : 'NGN';
 
   // Validate chain/currency compatibility for crypto payments
   if (isCryptoPayment) {
@@ -278,8 +288,19 @@ async function initializeJuicyway(
     }
   }
 
+  // Juicyway treats amounts LITERALLY in the session currency.
+  // A USDT session with amount=100000 means $100,000 USDT, NOT ₦1,000.
+  // We must convert NGN → USDT/USDC cents before creating the session.
+  let sessionAmount = amountInMinor;
+  let conversionRate: number | undefined;
+  if (isCryptoPayment) {
+    const conversion = await convertNgnKoboToUsdtCents(amountInMinor);
+    sessionAmount = conversion.usdtCents;
+    conversionRate = conversion.rate;
+  }
+
   const juicywayData = await initializeJuicywayPayment({
-    amount: amountInMinor, // Always send in NGN minor units (kobo), Juicyway handles conversion
+    amount: sessionAmount,
     currency: paymentCurrency,
     customer: {
       first_name: firstName,
@@ -353,7 +374,7 @@ async function initializeJuicyway(
         'Crypto payment session failed: no session ID returned by Juicyway. Please try again.'
       );
     }
-    const MAX_POLL_ATTEMPTS = 10;
+    const MAX_POLL_ATTEMPTS = 5; // Quick server-side check (~10s); client polls if still pending
     const POLL_DELAY_MS = 2000;
 
     try {
@@ -371,7 +392,7 @@ async function initializeJuicyway(
               id?: string;
               amount?: number;
               status?: string;
-              payment_method?: typeof paymentMethod;
+              payment_method?: Record<string, unknown>;
             };
           }
         | undefined;
@@ -390,7 +411,19 @@ async function initializeJuicyway(
       }
 
       cryptoData = captureResult.data;
-      paymentMethod = cryptoData.payment?.payment_method;
+      // Juicyway returns address either at payment_method.address (docs) or
+      // payment_method.params.address (live API). extractCryptoAddress handles both.
+      const extractedAddr = extractCryptoAddress(
+        cryptoData.payment?.payment_method
+      );
+      if (extractedAddr) {
+        paymentMethod = {
+          address: extractedAddr.address,
+          chain: extractedAddr.chain as JuicywayCryptoChain,
+          currency: extractedAddr.currency as JuicywayStablecoin,
+          qrcode: extractedAddr.qrcode,
+        };
+      }
 
       const juicywayMode =
         (process.env.JUICYWAY_BASE_URL || '').includes('sandbox') ||
@@ -414,6 +447,7 @@ async function initializeJuicyway(
           pollAttempt++;
           await new Promise((resolve) => setTimeout(resolve, POLL_DELAY_MS));
 
+          // Try session endpoint first
           const pollResult = await getPaymentSession(juicywayData.id);
 
           if (!pollResult.success) {
@@ -422,39 +456,107 @@ async function initializeJuicyway(
               pollAttempt,
               pollResult.error
             );
+            // Stop polling if it's a terminal client error (4xx)
+            if (pollResult.code?.startsWith('HTTP_4')) {
+              throw new Error(`Juicyway API Error: ${pollResult.error}`);
+            }
             continue;
           }
 
-          const polledData = pollResult.data;
-          cryptoData = polledData;
-          paymentMethod = polledData.payment?.payment_method;
+          const polledSessionData = pollResult.data;
 
-          console.log(
-            'Poll attempt %d: Status=%s, Address=%s',
-            pollAttempt,
-            polledData.payment?.status,
-            paymentMethod?.address ? 'ready' : 'pending'
+          // Update tracking variables — extract address from params or top-level
+          cryptoData = polledSessionData;
+          const polledAddr = extractCryptoAddress(
+            polledSessionData.payment?.payment_method
           );
+          if (polledAddr) {
+            paymentMethod = {
+              address: polledAddr.address,
+              chain: polledAddr.chain as JuicywayCryptoChain,
+              currency: polledAddr.currency as JuicywayStablecoin,
+              qrcode: polledAddr.qrcode,
+            };
+          }
+
+          // LOG SESSION POLLING
+          console.log(
+            `[Juicyway Poll #${pollAttempt}/${MAX_POLL_ATTEMPTS}] Session`,
+            {
+              status: polledSessionData.payment?.status,
+              message: polledSessionData.message,
+              hasAddress: !!paymentMethod?.address,
+              raw: `${JSON.stringify(polledSessionData).substring(0, 100)}...`,
+            }
+          );
+
+          // Fallback: If session endpoint doesn't return address, try the specific PAYMENT endpoint
+          // This handles cases where session status lags behind payment status
+          if (!paymentMethod?.address && polledSessionData.payment?.id) {
+            try {
+              const paymentCheck = await getPayment(
+                polledSessionData.payment.id
+              );
+              if (paymentCheck.success) {
+                const paymentDetails = paymentCheck.data;
+                // The payment_method may include crypto fields (address, chain, currency)
+                // that aren't in the base JuicywayPaymentMethod schema
+                const pm = paymentDetails.payment_method as unknown as
+                  | (NonNullable<typeof paymentMethod> & {
+                      address?: string;
+                      params?: {
+                        address: string;
+                        chain: string;
+                        currency: string;
+                      };
+                    })
+                  | undefined;
+                const fallbackAddr = pm?.address || pm?.params?.address;
+                console.log(`[Juicyway Poll #${pollAttempt}] Payment Check`, {
+                  status: paymentDetails.status,
+                  hasAddress: !!fallbackAddr,
+                  raw: `${JSON.stringify(paymentDetails).substring(0, 100)}...`,
+                });
+
+                if (fallbackAddr) {
+                  paymentMethod = {
+                    address: fallbackAddr,
+                    chain: (pm?.chain ||
+                      pm?.params?.chain ||
+                      cryptoChain) as JuicywayCryptoChain,
+                    currency: (pm?.currency ||
+                      pm?.params?.currency ||
+                      cryptoCurrency) as JuicywayStablecoin,
+                  };
+                }
+              }
+            } catch (err) {
+              console.warn('Secondary payment check failed', err);
+            }
+          }
+
+          // Check for hard failure in status
+          if (
+            polledSessionData.status === 'failed' ||
+            polledSessionData.payment?.status === 'failed'
+          ) {
+            const rawFailure = JSON.stringify(polledSessionData);
+            throw new Error(
+              `Juicyway Failed: ${polledSessionData.message || 'Unknown'}. Raw: ${rawFailure}`
+            );
+          }
 
           if (paymentMethod?.address) {
             break;
           }
 
           if (pollAttempt === MAX_POLL_ATTEMPTS) {
-            console.error(
-              'No crypto address after all poll attempts. Full Data:',
-              JSON.stringify(polledData, null, 2)
-            );
-            throw new Error(
-              `Failed to generate crypto payment address: status ${polledData.payment?.status || 'unknown'} after ${MAX_POLL_ATTEMPTS} attempts (mode: ${juicywayMode})`
+            console.warn(
+              '[Juicyway] Address not ready after quick poll — returning pending for client-side polling.',
+              { sessionId: juicywayData.id, paymentId: cryptoData?.payment?.id }
             );
           }
         }
-      }
-
-      // At this point, we should have paymentMethod with address
-      if (!paymentMethod?.address) {
-        throw new Error('Crypto address generation failed after polling');
       }
 
       // IMPORTANT: We need BOTH the session ID and the payment ID:
@@ -462,16 +564,49 @@ async function initializeJuicyway(
       // - payment_id (cryptoData.payment.id): Used for GET /payments/{id} verification
       const paymentId = cryptoData?.payment?.id;
 
+      // payment.amount is in USDT/USDC cents (what we sent + Juicyway fee).
+      // Convert to major units for display (e.g. 326 cents → "3.26").
+      const juicywayCryptoAmount = cryptoData?.payment?.amount;
+      const cryptoAmountStr =
+        juicywayCryptoAmount != null
+          ? (juicywayCryptoAmount / 100).toFixed(2)
+          : undefined;
+
+      // If address is available, return it immediately
+      if (paymentMethod?.address) {
+        return {
+          authorization_url: '',
+          crypto_payment: {
+            address: paymentMethod.address,
+            chain: paymentMethod.chain,
+            currency: paymentMethod.currency,
+            amount: amountInMinor,
+            crypto_amount: cryptoAmountStr,
+            conversion_rate: conversionRate,
+            confirmation_time: getChainConfirmationTime(paymentMethod.chain),
+            qrcode: paymentMethod.qrcode,
+            payment_id: paymentId,
+          },
+          reference,
+          platformFee: fees.platformFee,
+          merchantAmount: fees.merchantAmount,
+          sessionId: juicywayData.id,
+        };
+      }
+
+      // Address not ready yet — return pending so client can poll
       return {
-        authorization_url: '', // No redirect needed for crypto payments
+        authorization_url: '',
+        crypto_address_pending: true,
         crypto_payment: {
-          address: paymentMethod.address,
-          chain: paymentMethod.chain,
-          currency: paymentMethod.currency,
-          amount: cryptoData?.payment?.amount || amountInMinor,
-          confirmation_time: getChainConfirmationTime(paymentMethod.chain),
-          qrcode: paymentMethod.qrcode, // Pass through QR code from API
-          payment_id: paymentId, // Include payment ID for verification
+          address: '', // Not available yet
+          chain: cryptoChain,
+          currency: cryptoCurrency,
+          amount: amountInMinor,
+          crypto_amount: cryptoAmountStr,
+          conversion_rate: conversionRate,
+          confirmation_time: getChainConfirmationTime(cryptoChain),
+          payment_id: paymentId,
         },
         reference,
         platformFee: fees.platformFee,
@@ -944,6 +1079,9 @@ export async function POST(request: NextRequest) {
       }),
       ...(paymentResult.crypto_payment && {
         crypto_payment: paymentResult.crypto_payment,
+      }),
+      ...(paymentResult.crypto_address_pending && {
+        crypto_address_pending: true,
       }),
       ...(paymentResult.sessionId && {
         session_id: paymentResult.sessionId,

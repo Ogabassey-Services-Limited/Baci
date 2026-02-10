@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Validate merchant exists and get their email
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, business_name, user_id')
+      .select('id, business_name, email, support_email')
       .eq('id', merchantId)
       .single();
 
@@ -42,16 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get merchant's email from auth.users
-    let merchantEmail: string | null = null;
-    if (merchant.user_id) {
-      const { data: userData } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('id', merchant.user_id)
-        .single();
-      merchantEmail = userData?.email || null;
-    }
+    // Use support_email (customer-facing) first, fall back to merchant account email
+    const merchantEmail = merchant.support_email || merchant.email || null;
 
     // Get IP address and user agent
     const ip =

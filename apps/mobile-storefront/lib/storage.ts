@@ -44,7 +44,7 @@ export const asyncStorage = {
  * Sync storage adapter (for compatibility with existing code)
  * Uses a simple in-memory cache with AsyncStorage backup
  *
- * 2026 Critical Fix: Added initialization tracking to prevent race conditions
+ * BUG-4-007 FIX: Added initialization tracking to prevent race conditions with Zustand stores
  */
 const memoryCache: Record<string, string> = {};
 let isStorageInitialized = false;
@@ -52,11 +52,11 @@ let initializationPromise: Promise<void> | null = null;
 
 export const syncStorage = {
   getItem: (name: string): string | null => {
-    // 2026 Critical Fix: Warn if accessed before initialization
+    // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
     if (!isStorageInitialized) {
       log.warn(
-        `Accessing "${name}" before initialization complete. ` +
-          'Call initializeStorage() in _layout.tsx before stores are accessed.'
+        `Storage accessed ("${name}") before initialization complete. ` +
+          'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
       );
     }
     // Return from memory cache (sync)

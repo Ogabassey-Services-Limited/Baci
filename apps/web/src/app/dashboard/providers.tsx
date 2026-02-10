@@ -1,6 +1,7 @@
 'use client';
 
 import AppBody from '@/components/app-body';
+import { CsrfInitializer } from '@/components/csrf-initializer';
 import { AuthProvider } from '@/contexts/auth-context';
 import { ProductProvider } from '@/contexts/product-context';
 import {
@@ -34,6 +35,7 @@ export function DashboardProviders({
 }: DashboardProvidersProps) {
   return (
     <AuthProvider>
+      <CsrfInitializer />
       <MerchantProvider
         initialMerchant={initialMerchant}
         initialStaffAccess={initialStaffAccess}

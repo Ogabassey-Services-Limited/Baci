@@ -2521,7 +2521,7 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
-  - react-native-webview (from `../../../node_modules/react-native-webview`)
+  - react-native-webview (from `../node_modules/react-native-webview`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-oscompat (from `../../../node_modules/react-native/ReactCommon/oscompat`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -2729,7 +2729,7 @@ EXTERNAL SOURCES:
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
   react-native-webview:
-    :path: "../../../node_modules/react-native-webview"
+    :path: "../node_modules/react-native-webview"
   React-NativeModulesApple:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-oscompat:

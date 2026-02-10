@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
@@ -501,6 +502,9 @@ export async function PUT(
       );
     }
 
+    // Invalidate product caches so storefront reflects changes immediately
+    revalidateProducts(merchant.id, updatedProduct.slug);
+
     return NextResponse.json({ product: updatedProduct });
   } catch (error) {
     console.error('Unexpected error in PUT /api/products/[id]:', error);
@@ -557,6 +561,9 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    // Invalidate product caches after deletion
+    revalidateProducts(merchant.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

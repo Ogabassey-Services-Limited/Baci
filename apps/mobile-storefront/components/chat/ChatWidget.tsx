@@ -54,6 +54,9 @@ const HIDDEN_ROUTES = [
   '/order-success',
   '/auth/login',
   '/modal',
+  '/orders',
+  '/search',
+  '/profile',
 ];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -65,6 +68,11 @@ const API_BASE_URL = 'https://ogabassey.usebaci.com';
 const FAB_SIZE = 60;
 const EDGE_MARGIN = 16;
 const SNAP_THRESHOLD = SCREEN_WIDTH / 2;
+
+// Intermittent nudge constants
+const NUDGE_VISIBLE_DURATION = 10000; // 10 seconds
+const NUDGE_HIDDEN_DURATION = 30000; // 30 seconds
+const NUDGE_INITIAL_DELAY = 5000; // 5 seconds
 
 interface ChatMessage {
   id: string;
@@ -202,29 +210,54 @@ export function ChatWidget({
     })
   ).current;
 
-  // Proactive nudge logic
+  // Proactive nudge logic with intermittent visibility cycle
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!isChatOpen) {
-        const randomMsg =
-          PROACTIVE_MESSAGES[
-          Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
-          ];
-        setProactiveMsg(randomMsg);
+    let timerId: NodeJS.Timeout;
 
-        // Fade in animation
-        Animated.timing(nudgeFadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }
-    }, 5000);
+    const startVisibleCycle = () => {
+      if (isChatOpen) return;
 
-    return () => clearTimeout(timer);
+      const randomMsg =
+        PROACTIVE_MESSAGES[
+        Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
+        ];
+      setProactiveMsg(randomMsg);
+
+      // Fade in animation
+      Animated.timing(nudgeFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      // Set timer to hide after duration
+      timerId = setTimeout(startHiddenCycle, NUDGE_VISIBLE_DURATION);
+    };
+
+    const startHiddenCycle = () => {
+      // Fade out animation
+      Animated.timing(nudgeFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setProactiveMsg(null);
+        // Set timer to show again after hidden duration
+        if (!isChatOpen) {
+          timerId = setTimeout(startVisibleCycle, NUDGE_HIDDEN_DURATION);
+        }
+      });
+    };
+
+    // Initial delay before first nudge
+    timerId = setTimeout(startVisibleCycle, NUDGE_INITIAL_DELAY);
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
   }, [isChatOpen, nudgeFadeAnim]);
 
-  // Hide proactive message when chat opens
+  // Immediately hide proactive message when chat opens
   useEffect(() => {
     if (isChatOpen) {
       setProactiveMsg(null);

@@ -87,11 +87,12 @@ function transformProduct(item: unknown): Product {
 interface Merchant {
   id: string;
   slug: string;
-  name: string;
+  business_name: string;
   social_media: Record<string, string>;
   email?: string;
   phone?: string;
   business_address?: string;
+  hero_slides?: Record<string, string>[];
 }
 
 /**
@@ -108,7 +109,9 @@ export function useMerchant() {
         async () =>
           await supabase
             .from('merchants')
-            .select('id, slug, name, social_media, email, phone, business_address')
+            .select(
+              'id, slug, business_name, social_media, email, phone, business_address, hero_slides'
+            )
             .eq('slug', MERCHANT_SLUG)
             .single(),
         { maxRetries: 3 }
@@ -122,7 +125,7 @@ export function useMerchant() {
     placeholderData: {
       id: CONSTANT_MERCHANT_ID,
       slug: MERCHANT_SLUG,
-      name: 'Store',
+      business_name: 'Store',
       social_media: {},
     } as Merchant,
   });
@@ -369,10 +372,14 @@ export function useProduct(slug: string) {
       // 2026 Best Practice: Validate data at the edge
       const validated = ProductRowSchema.safeParse(data);
       if (!validated.success) {
+        // BUG-2-002 FIX: Log validation error and throw instead of silently falling back
         log.error('Product validation failed:', validated.error.format());
+        throw new Error(
+          `Product validation failed: ${validated.error.message}`
+        );
       }
 
-      const item = validated.success ? validated.data : (data as Product);
+      const item = validated.data;
 
       return {
         ...transformProduct(item),

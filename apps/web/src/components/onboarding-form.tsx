@@ -438,6 +438,7 @@ export default function OnboardingForm() {
     errors.email,
     errors.password,
     errors.confirmPassword,
+    user,
   ]);
 
   if (isRedirecting) {

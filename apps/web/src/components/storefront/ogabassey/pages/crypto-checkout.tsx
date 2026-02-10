@@ -90,8 +90,6 @@ export function CryptoCheckoutPage() {
         setStatus('loading');
         setErrorMessage(null);
 
-        const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
-
         const res = await fetch('/api/payments/initialize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

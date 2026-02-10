@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
+import { setClipboardString } from '@/lib/clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -15,13 +15,7 @@ import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 
 const copyToClipboard = async (text: string) => {
-  try {
-    await Clipboard.setStringAsync(text);
-    return true;
-  } catch (error) {
-    console.warn('[CryptoPayment] Clipboard not available:', error);
-    return false;
-  }
+  return await setClipboardString(text);
 };
 
 const CryptoPaymentParamsSchema = z.object({

@@ -144,7 +144,10 @@ export function BlogClientPage({
       const response = await fetch(`/api/merchant/blog/posts?${params}`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch posts');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(
+          errorBody?.error || `Failed to fetch posts (${response.status})`
+        );
       }
 
       const data = await response.json();

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
@@ -557,6 +558,9 @@ export async function POST(request: NextRequest) {
         console.error('Failed to generate product embedding:', err)
       );
     }
+
+    // Invalidate product caches so storefront shows the new product immediately
+    revalidateProducts(merchant.id, slug);
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

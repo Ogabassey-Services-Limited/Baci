@@ -72,11 +72,9 @@ export const useCartStore = create<CartState>()(
           // Use negotiated price if available (matches web behavior)
           const effectivePrice = item.negotiatedPrice ?? item.price;
           const itemTotal = effectivePrice * item.quantity;
-          // Add assurance cost if enabled (rounded to avoid floating point errors)
-          const assuranceCost = item.hasAssurance
-            ? Math.round(itemTotal * (item.assuranceRate ?? 0.05))
-            : 0;
-          return total + itemTotal + assuranceCost;
+          // Assurance is calculated separately in UI/checkout layer
+          // DO NOT include assurance here to avoid double-counting
+          return total + itemTotal;
         }, 0);
       },
 

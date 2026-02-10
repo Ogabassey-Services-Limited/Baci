@@ -194,6 +194,10 @@ export function VariantSelector({
                           : 'transparent',
                     },
                   ]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={color.name}
+                  accessibilityState={{ checked: isSelected }}
+                  hitSlop={10}
                 >
                   {isSelected && (
                     <View
@@ -258,6 +262,12 @@ export function VariantSelector({
                       opacity: isOutOfStock ? 0.5 : 1,
                     },
                   ]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${option.value}${displayPrice ? `, ${formatPrice(displayPrice)}` : ''}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
+                  accessibilityState={{
+                    checked: isSelected,
+                    disabled: isOutOfStock,
+                  }}
                 >
                   <Text
                     style={[
@@ -351,7 +361,8 @@ const styles = StyleSheet.create({
   },
   storageChip: {
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    minHeight: 44, // 2026 Accessibility: Minimum 44px touch target
+    justifyContent: 'center',
     borderRadius: RADIUS.md,
     borderWidth: 2,
     minWidth: 80,

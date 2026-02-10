@@ -1,10 +1,10 @@
-import { revalidateTag } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { revalidateFeatures } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
@@ -319,7 +319,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Invalidate cache
-    revalidateTag(`features-${access.merchantId}`, 'default');
+    revalidateFeatures(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -410,7 +410,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Invalidate cache
-    revalidateTag(`features-${access.merchantId}`, 'default');
+    revalidateFeatures(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {

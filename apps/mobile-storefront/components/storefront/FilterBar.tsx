@@ -58,8 +58,6 @@ export function FilterBar({
   viewMode,
   onViewModeChange,
 }: FilterBarProps) {
-
-
   const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [tempMinPrice, setTempMinPrice] = useState(
@@ -264,6 +262,9 @@ export function FilterBar({
               onPress={() => onSelectCategory(cat)}
               style={[styles.catPill, isActive && styles.catPillActive]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`${cat} category`}
+              accessibilityState={{ selected: isActive }}
             >
               <Feather
                 name={icon}
@@ -339,7 +340,7 @@ export function FilterBar({
                       style={[
                         styles.popoverText,
                         activeFilterType === item.id &&
-                        styles.popoverTextActive,
+                          styles.popoverTextActive,
                       ]}
                     >
                       {item.label}

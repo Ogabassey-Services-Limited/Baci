@@ -8,24 +8,43 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
   const storeUrl = `${protocol}://${host}`;
 
-  // Protected paths that should not be crawled
-  const disallowedPaths = [
-    '/dashboard/',
-    '/onboarding/',
-    '/_storefront/',
-    '/api/',
-    '/checkout/',
-    '/reset-password/',
-    '/auth/',
-    '/_next/', // Prevent Next.js static assets from being indexed (Soft 404 fix)
-    '/blog/shopdetail/',
-    '/blog/zhHant/',
-    '/blog/product/',
-    '/blog/category/',
-    '/ogabassey.com/', // Invalid nested domain paths
-    '/*?*wc-ajax=*', // Block WooCommerce legacy AJAX endpoints
-    '/*?*add-to-cart=*', // Block legacy add-to-cart URLs
-  ];
+  // Detect if this is a merchant subdomain/custom domain vs the platform domain
+  const rootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+  ).toLowerCase();
+  const normalizedHost = host.split(':')[0].toLowerCase();
+  const isPlatformDomain =
+    normalizedHost === rootDomain ||
+    normalizedHost === `www.${rootDomain}` ||
+    normalizedHost === 'localhost' ||
+    normalizedHost === '127.0.0.1';
+
+  // Merchant storefronts only need minimal disallows (no admin routes exist)
+  // Platform domain needs full protection of admin/auth routes
+  const disallowedPaths = isPlatformDomain
+    ? [
+        '/dashboard/',
+        '/onboarding/',
+        '/_storefront/',
+        '/api/',
+        '/checkout/',
+        '/reset-password/',
+        '/auth/',
+        '/_next/',
+        '/blog/shopdetail/',
+        '/blog/zhHant/',
+        '/blog/product/',
+        '/blog/category/',
+        '/*?*wc-ajax=*',
+        '/*?*add-to-cart=*',
+      ]
+    : [
+        // Merchant subdomains/custom domains: only block API and internal paths
+        '/api/',
+        '/_next/',
+        '/checkout/',
+        '/account/login/',
+      ];
 
   return {
     rules: [

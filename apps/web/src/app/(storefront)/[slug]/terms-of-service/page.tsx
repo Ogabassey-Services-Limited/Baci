@@ -1,38 +1,21 @@
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getMerchant(slug: string) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const { data: merchant, error } = await supabase
-    .from('merchants')
-    .select('*')
-    .eq('slug', slug)
-    .single();
-
-  if (error || !merchant) {
-    return null;
-  }
-
-  return merchant;
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     return {
@@ -64,7 +47,7 @@ export async function generateMetadata({
 
 export default async function TermsOfServicePage({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

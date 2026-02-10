@@ -109,13 +109,23 @@ export async function getUserAccess(
   supabase: SupabaseClient
 ): Promise<UserAccess | null> {
   const { data, error } = await supabase.rpc('get_user_access');
-  if (error || !data) return null;
+  if (error) {
+    console.error('getUserAccess RPC error:', error.message, error.code);
+    return null;
+  }
+  if (!data) return null;
 
   const access = Array.isArray(data) ? data[0] : data;
   if (!access) return null;
 
   const parsed = userAccessSchema.safeParse(access);
-  if (!parsed.success) return null;
+  if (!parsed.success) {
+    console.error(
+      'getUserAccess schema validation failed:',
+      parsed.error.flatten()
+    );
+    return null;
+  }
 
   return {
     merchantId: parsed.data.merchant_id,

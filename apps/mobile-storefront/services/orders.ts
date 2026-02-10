@@ -14,6 +14,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
 import { z } from 'zod';
 import {
   ApiError,
@@ -86,6 +87,7 @@ const OrderResponseSchema = z.object({
     payment_status: z.string(),
     shipping_status: z.string(),
     created_at: z.string(),
+    tracking_token: z.string().nullable().optional(),
   }),
   wallet: z
     .object({
@@ -204,6 +206,9 @@ export async function createOrder(
   };
 
   try {
+    // BUG-1-008 FIX: Generate idempotency key to prevent duplicate orders on retry
+    const idempotencyKey = Crypto.randomUUID();
+
     // 5. Make API call to create order with retry and timeout
     // 2026 Best Practice: Automatic retry with exponential backoff for resilience
     const response = await fetchWithRetry(
@@ -212,6 +217,7 @@ export async function createOrder(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
           ...(session?.access_token && {
             Authorization: `Bearer ${session.access_token}`,
           }),
@@ -270,30 +276,41 @@ export async function createOrder(
     }
 
     // 7. Parse and validate response
+    // BUG-3-002 FIX: Throw error on schema validation failure instead of returning unvalidated data
     const data = await response.json();
     const orderResponse = OrderResponseSchema.safeParse(data);
 
     if (!orderResponse.success) {
-      // Response doesn't match expected schema, but order may have been created
-      // Log warning but return what we can
-      log.warn('Response schema mismatch', orderResponse.error);
-      trackEvent('order_response_schema_warning', {
-        orderId: data?.order?.id,
-      });
+      // Response doesn't match expected schema - this is a server contract violation
+      log.error('Response schema validation failed', orderResponse.error);
+      trackError(
+        'order_response_validation_failed',
+        'Invalid response schema',
+        {
+          orderId: data?.order?.id,
+          validationErrors: orderResponse.error.flatten(),
+        }
+      );
+
+      throw new OrderError(
+        'Order may have been created but response format is invalid. Please check your order history.',
+        'RESPONSE_VALIDATION_ERROR',
+        orderResponse.error
+      );
     }
 
     // 8. Track successful order creation
     trackEvent('order_created', {
-      orderId: data.order.id,
-      orderNumber: data.order.order_number,
-      total: data.order.total,
+      orderId: orderResponse.data.order.id,
+      orderNumber: orderResponse.data.order.order_number,
+      total: orderResponse.data.order.total,
       itemCount: request.items.length,
       paymentMethod: request.payment_method,
       duration_ms: Date.now() - startTime,
       source: 'mobile_app',
     });
 
-    return data as OrderResponse;
+    return orderResponse.data;
   } catch (error) {
     // Re-throw OrderError as-is
     if (error instanceof OrderError) {

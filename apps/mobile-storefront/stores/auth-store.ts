@@ -11,6 +11,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { create } from 'zustand';
+import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
@@ -52,7 +53,12 @@ interface AuthState {
     email: string,
     token: string
   ) => Promise<{ success: boolean; error?: string }>;
+  signInWithPassword: (
+    email: string,
+    password: string
+  ) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateProfile: (
@@ -76,8 +82,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   } | null,
   // 2026 Critical Fix: Prevent multiple concurrent initialize calls
   _initializationInProgress: false as boolean,
-  // Store expected redirect URL for OAuth validation
-  _expectedRedirectUrl: null as string | null,
 
   // Initialize auth state
   initialize: async () => {
@@ -104,9 +108,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const merchantValidation = MerchantRowSchema.safeParse(merchant);
 
       if (merchantError || !merchantValidation.success) {
-        // Merchant not found - app can still work in guest mode
+        // BUG-3-011: Include Zod error details in log
+        const errorDetails = merchantValidation.success
+          ? 'Database error'
+          : JSON.stringify(merchantValidation.error.flatten());
         log.warn(
-          `Store "${MERCHANT_SLUG}" not found in database. Running in guest mode.`
+          `Store "${MERCHANT_SLUG}" not found in database. Running in guest mode. Details: ${errorDetails}`
         );
         set({
           merchantId: null,
@@ -194,19 +201,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
               // Create customer if doesn't exist
               if (!customerData && session.user.email) {
+                // BUG-3-007: Validate full_name before splitting
+                const { firstName, lastName } = splitFullName(
+                  session.user.user_metadata?.full_name
+                );
+
                 const { data: newCustomer } = await supabase
                   .from('customers')
                   .insert({
                     merchant_id: merchantId,
                     email: session.user.email,
-                    first_name:
-                      session.user.user_metadata?.full_name?.split(' ')[0] ||
-                      '',
-                    last_name:
-                      session.user.user_metadata?.full_name
-                        ?.split(' ')
-                        .slice(1)
-                        .join(' ') || '',
+                    first_name: firstName,
+                    last_name: lastName,
                     avatar_url: session.user.user_metadata?.avatar_url,
                     source: 'mobile_app',
                   })
@@ -356,25 +362,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Sign in with Google OAuth
-  // 2026 Best Practice: Use expo-web-browser for OAuth in React Native
+  // BUG-3-001: Sign in with email/password (CRITICAL)
+  signInWithPassword: async (email: string, password: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        set({ error: error.message, isLoading: false });
+        return { success: false, error: error.message };
+      }
+
+      // Customer record will be created/fetched in the auth state change listener
+      set({ isLoading: false });
+      return { success: true };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to sign in with password';
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
+    }
+  },
+
+  // Sign in with Google OAuth (PKCE flow for mobile)
   signInWithGoogle: async () => {
     try {
       set({ isLoading: true, error: null });
 
-      // Dynamically import expo-web-browser to avoid issues on web
       const WebBrowser = await import('expo-web-browser');
       const Linking = await import('expo-linking');
 
-      // Create the redirect URL for the app
-      const redirectUrl = Linking.createURL('auth/callback');
+      // Use Linking.createURL for consistent URL generation across environments
+      const redirectUrl = Linking.createURL('/auth/callback');
 
-      // Get the OAuth URL from Supabase without auto-redirect
+      log.debug('Generated OAuth redirect URL:', redirectUrl);
+
+      // Get the OAuth URL from Supabase (PKCE flow handles CSRF via code_verifier)
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
-          skipBrowserRedirect: true, // Important: We'll handle the browser ourselves
+          skipBrowserRedirect: true,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -389,61 +427,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
-      // Open the OAuth URL in an in-app browser
+      log.debug('Opening Google OAuth URL');
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
         redirectUrl,
         { showInRecents: true }
       );
 
+      log.debug('OAuth Session Result:', { type: result.type });
+
       if (result.type === 'success' && result.url) {
-        // 2026 Critical Fix: Validate OAuth redirect URL origin before extracting tokens
-        const resultUrl = new URL(result.url);
-        const expectedUrl = new URL(redirectUrl);
+        // PKCE flow: extract authorization code from query params
+        const url = new URL(result.url);
+        const code = url.searchParams.get('code');
 
-        // Validate URL scheme and host match expected redirect
-        // This prevents open redirect attacks and token injection
-        if (
-          resultUrl.protocol !== expectedUrl.protocol ||
-          resultUrl.host !== expectedUrl.host ||
-          !resultUrl.pathname.startsWith(expectedUrl.pathname)
-        ) {
-          log.warn('OAuth redirect URL mismatch:', {
-            expected: redirectUrl,
-            received: result.url.substring(0, 100), // Log only first 100 chars for security
-          });
-          set({ error: 'Invalid OAuth redirect', isLoading: false });
-          return { success: false, error: 'Invalid OAuth redirect' };
+        if (!code) {
+          // Check for error in the redirect
+          const errorParam =
+            url.searchParams.get('error_description') ||
+            url.searchParams.get('error') ||
+            'No authorization code received';
+          log.error('OAuth redirect missing code:', errorParam);
+          set({ error: errorParam, isLoading: false });
+          return { success: false, error: errorParam };
         }
 
-        // Extract the access token and refresh token from the URL
-        const params = new URLSearchParams(resultUrl.hash.substring(1)); // Remove # prefix
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+        // Exchange the authorization code for a session
+        const { error: sessionError } =
+          await supabase.auth.exchangeCodeForSession(code);
 
-        if (accessToken && refreshToken) {
-          // Set the session manually
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (sessionError) {
-            set({ error: sessionError.message, isLoading: false });
-            return { success: false, error: sessionError.message };
-          }
-
-          set({ isLoading: false });
-          return { success: true };
+        if (sessionError) {
+          set({ error: sessionError.message, isLoading: false });
+          return { success: false, error: sessionError.message };
         }
 
-        // Check for error in URL params
-        const errorParam = params.get('error');
-        const errorDescription = params.get('error_description');
-        if (errorParam) {
-          set({ error: errorDescription || errorParam, isLoading: false });
-          return { success: false, error: errorDescription || errorParam };
-        }
+        set({ isLoading: false });
+        return { success: true };
       }
 
       // User cancelled or dismissed the browser
@@ -459,6 +478,77 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error instanceof Error
           ? error.message
           : 'Failed to sign in with Google';
+      log.error('Google sign-in error:', error);
+      set({ error: message, isLoading: false });
+      return { success: false, error: message };
+    }
+  },
+
+  // BUG-3-010: Robust implementation of Apple Sign-In (2026 Best Practice)
+  signInWithApple: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      // Dynamically import to avoid crashes if package is not yet installed
+      let AppleAuthentication;
+      try {
+        AppleAuthentication = await import('expo-apple-authentication');
+      } catch (e) {
+        throw new Error(
+          'expo-apple-authentication not installed. Please run "npx expo install expo-apple-authentication"'
+        );
+      }
+
+      // Check if Apple Authentication is available
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple Authentication is not available on this device');
+      }
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple Sign-In failed: No identity token received');
+      }
+
+      // 2026 Best Practice: Apple only returns name and email on the VERY FIRST sign-in.
+      // We must capture it here and ensure it's synced to the user metadata or customer record.
+      const fullName = credential.fullName
+        ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
+        : null;
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        set({ error: error.message, isLoading: false });
+        return { success: false, error: error.message };
+      }
+
+      // If we got a name, and it's a new user (or metadata is empty), update it
+      if (fullName && data.user && !data.user.user_metadata?.full_name) {
+        log.info('Updating user metadata with Apple name');
+        await supabase.auth.updateUser({
+          data: {
+            full_name: fullName,
+            // Apple doesn't provide avatar but we could set a placeholder
+          },
+        });
+      }
+
+      set({ isLoading: false });
+      return { success: true };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to sign in with Apple';
+      log.error('Apple sign-in error:', error);
       set({ error: message, isLoading: false });
       return { success: false, error: message };
     }
@@ -518,6 +608,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: 'Not logged in' };
       }
 
+      // BUG-3-006: Validate session before profile update
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        log.warn('Session expired during profile update');
+        return {
+          success: false,
+          error: 'Session expired. Please sign in again.',
+        };
+      }
+
       const { data: updated, error } = await supabase
         .from('customers')
         .update({
@@ -537,7 +641,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      set({ customer: updated });
+      // BUG-3-013: Validate DB update response before storing
+      const updateValidation = CustomerRowSchema.safeParse(updated);
+      if (!updateValidation.success) {
+        log.warn(
+          'Invalid customer data from update:',
+          updateValidation.error.flatten()
+        );
+        return { success: false, error: 'Invalid data received from server' };
+      }
+
+      const validatedCustomer = {
+        id: updateValidation.data.id,
+        email: updateValidation.data.email,
+        first_name: updateValidation.data.first_name ?? undefined,
+        last_name: updateValidation.data.last_name ?? undefined,
+        phone: updateValidation.data.phone ?? undefined,
+        avatar_url: updateValidation.data.avatar_url ?? undefined,
+        loyalty_points: updateValidation.data.loyalty_points ?? undefined,
+        loyalty_tier: updateValidation.data.loyalty_tier ?? undefined,
+      };
+
+      set({ customer: validatedCustomer });
       return { success: true };
     } catch (error) {
       const message =
