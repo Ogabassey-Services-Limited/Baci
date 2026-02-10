@@ -401,6 +401,7 @@ export function StorefrontProductGrid({
                       <button
                         type="button"
                         key={option}
+                        aria-pressed={selectedCategory === option}
                         onClick={() =>
                           handleSetSelectedCategory(
                             selectedCategory === option ? 'All' : option
@@ -439,6 +440,7 @@ export function StorefrontProductGrid({
                   <ThemedButton
                     key={category}
                     type="button"
+                    aria-pressed={selectedCategory === category}
                     variant={
                       selectedCategory === category ? 'default' : 'outline'
                     }
@@ -466,6 +468,15 @@ export function StorefrontProductGrid({
             }}
           />
         )}
+
+        {/* Live region for screen reader announcements */}
+        <output className="sr-only" aria-live="polite">
+          {isLoading || isSearching
+            ? 'Loading products...'
+            : `${searchResults.length} product${searchResults.length !== 1 ? 's' : ''} found${
+                selectedCategory !== 'All' ? ` in ${selectedCategory}` : ''
+              }`}
+        </output>
 
         {isLoading || isSearching ? (
           <ProductGridSkeleton
