@@ -149,10 +149,21 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    // Remove undefined values (build new object to avoid property injection)
-    const cleanedEventData: Record<string, unknown> = {};
+    // Dangerous keys that could cause prototype pollution
+    const BLOCKED_KEYS = new Set([
+      '__proto__',
+      'constructor',
+      'prototype',
+      '__defineGetter__',
+      '__defineSetter__',
+      '__lookupGetter__',
+      '__lookupSetter__',
+    ]);
+
+    // Build clean object: remove undefined values and block prototype-polluting keys
+    const cleanedEventData = Object.create(null) as Record<string, unknown>;
     for (const [key, value] of Object.entries(event_data)) {
-      if (value !== undefined) {
+      if (value !== undefined && !BLOCKED_KEYS.has(key)) {
         cleanedEventData[key] = value;
       }
     }

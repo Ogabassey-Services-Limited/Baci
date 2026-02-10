@@ -230,16 +230,15 @@ describe('POST /api/forms/submit', () => {
   });
 
   it('sanitizes formData keys (strips dangerous keys like __proto__)', async () => {
+    // Use JSON.parse to construct object with __proto__ key without
+    // triggering CodeQL's "invalid prototype value" static analysis warning
+    const formData = JSON.parse(
+      '{"name":"John","__proto__":"malicious","constructor":"attack","prototype":"exploit","safe_key":"safe_value"}'
+    );
     const request = makeRequest({
       merchantId: VALID_MERCHANT_ID,
       formName: 'contact',
-      formData: {
-        name: 'John',
-        __proto__: 'malicious',
-        constructor: 'attack',
-        prototype: 'exploit',
-        safe_key: 'safe_value',
-      },
+      formData,
     });
 
     const response = await POST(request);
