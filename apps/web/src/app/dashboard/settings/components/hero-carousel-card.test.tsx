@@ -67,21 +67,16 @@ describe('HeroCarouselCard', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders with custom title, description, and recommended size', () => {
+    it('renders card title and description', () => {
       render(
-        <HeroCarouselCard
-          slides={[]}
-          onSlidesChange={mockOnSlidesChange}
-          title="Custom Hero Title"
-          description="Custom hero description"
-          recommendedSize="2560x1440px"
-        />
+        <HeroCarouselCard slides={[]} onSlidesChange={mockOnSlidesChange} />
       );
 
-      expect(screen.getByText('Custom Hero Title')).toBeInTheDocument();
-      expect(screen.getByText(/Custom hero description/i)).toBeInTheDocument();
+      expect(screen.getByText('Hero Section Carousel')).toBeInTheDocument();
       expect(
-        screen.getByText(/Recommended size: 2560x1440px/i)
+        screen.getByText(
+          /Manage the slides for your storefront's hero section/i
+        )
       ).toBeInTheDocument();
     });
 
@@ -135,7 +130,7 @@ describe('HeroCarouselCard', () => {
         />
       );
 
-      expect(screen.getByText('UPLOAD')).toBeInTheDocument();
+      expect(screen.getByText('Upload')).toBeInTheDocument();
     });
   });
 

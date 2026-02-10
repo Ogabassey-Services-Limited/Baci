@@ -120,7 +120,7 @@ describe('SettingsForm', () => {
     expect(screen.getByTestId('store-features-card')).toBeInTheDocument();
     expect(screen.getByTestId('favicon-upload')).toBeInTheDocument();
     expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
-    expect(screen.getAllByTestId('hero-carousel-card')).toHaveLength(2);
+    expect(screen.getByTestId('hero-carousel-card')).toBeInTheDocument();
     expect(screen.getByTestId('social-media-card')).toBeInTheDocument();
   });
 
@@ -158,7 +158,6 @@ describe('SettingsForm', () => {
           business_name: 'Test Store',
           country: 'NG',
           hero_slides: [],
-          mobile_hero_slides: [],
           social_media: { twitter: '@test' },
         })
       );
