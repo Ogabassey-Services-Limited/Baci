@@ -149,10 +149,11 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    // Remove undefined values
-    for (const key of Object.keys(event_data)) {
-      if (event_data[key] === undefined) {
-        delete event_data[key];
+    // Remove undefined values (build new object to avoid property injection)
+    const cleanedEventData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(event_data)) {
+      if (value !== undefined) {
+        cleanedEventData[key] = value;
       }
     }
 
@@ -164,7 +165,7 @@ export async function POST(request: NextRequest) {
           {
             merchant_id,
             event_type,
-            event_data,
+            event_data: cleanedEventData,
             event_id,
             source: source || 'web',
             event_timestamp: timestamp || new Date().toISOString(),
@@ -188,7 +189,7 @@ export async function POST(request: NextRequest) {
         .insert({
           merchant_id,
           event_type,
-          event_data,
+          event_data: cleanedEventData,
           source: source || 'web',
           event_timestamp: timestamp || new Date().toISOString(),
         });

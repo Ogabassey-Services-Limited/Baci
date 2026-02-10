@@ -41,7 +41,7 @@ export function OgabasseyLoginPage() {
   const searchParams = useSearchParams();
   const redirectTo = sanitizeRedirect(searchParams.get('redirect'));
 
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { loading: merchantLoading } = useMerchant();
   const { isAuthenticated, isLoading: authLoading } = useCustomerAuth();
 
   const {
