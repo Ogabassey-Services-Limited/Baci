@@ -45,7 +45,7 @@ Every new or significantly modified file MUST have a colocated test file:
 
 ## Project Structure
 
-```text
+```
 apps/web/src/          # Next.js 16 App Router
 apps/mobile-admin/     # Expo admin app
 apps/mobile-storefront/ # Expo customer app

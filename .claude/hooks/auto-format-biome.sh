@@ -12,7 +12,7 @@ fi
 case "$FILE_PATH" in
   *.ts|*.tsx|*.js|*.jsx|*.json|*.jsonc|*.css)
     cd "$CLAUDE_PROJECT_DIR" || exit 0
-    pnpm biome check --write "$FILE_PATH" 2>/dev/null || true
+    pnpm biome check --write --unsafe "$FILE_PATH" 2>/dev/null || true
     ;;
 esac
 

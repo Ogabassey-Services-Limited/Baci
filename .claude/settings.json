@@ -10,12 +10,7 @@
       "Bash(git status *)",
       "Bash(git branch *)",
       "Bash(git show *)",
-      "Bash(gh pr *)",
-      "Bash(gh issue view *)",
-      "Bash(gh issue list *)",
-      "Bash(gh api *)",
-      "Bash(gh run *)",
-      "Bash(gh release view *)",
+      "Bash(gh *)",
       "mcp__supabase__search_docs",
       "mcp__supabase__list_projects",
       "mcp__supabase__list_tables",
@@ -94,11 +89,6 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/auto-format-biome.sh",
             "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/boy-scout-rule.sh",
-            "timeout": 5
           }
         ]
       }

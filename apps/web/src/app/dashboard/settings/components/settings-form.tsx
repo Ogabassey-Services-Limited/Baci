@@ -54,9 +54,6 @@ export function SettingsForm({
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
     initialMerchant?.hero_slides || []
   );
-  const [mobileHeroSlides, setMobileHeroSlides] = useState<HeroSlide[]>(
-    initialMerchant?.mobile_hero_slides || []
-  );
 
   // Ref to capture latest social media values for form submit
   const socialMediaRef = useRef<Record<string, string>>({
@@ -184,13 +181,12 @@ export function SettingsForm({
     }
   };
 
-  async function onSubmit(data: SettingsFormValues) {
+  async function _onSubmit(data: SettingsFormValues) {
     setIsSaving(true);
     try {
       await updateMerchant({
         ...data,
         hero_slides: heroSlides,
-        mobile_hero_slides: mobileHeroSlides,
         social_media: sanitizeSocialMedia(socialMediaRef.current),
       } as Parameters<typeof updateMerchant>[0]);
       toast({
@@ -212,7 +208,7 @@ export function SettingsForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+      <form onSubmit={form.handleSubmit(_onSubmit)} className="grid gap-6">
         <BrandingCard
           merchantState={merchantState}
           brandColors={brandColors}
@@ -242,20 +238,7 @@ export function SettingsForm({
 
         <DashboardAdUnit variant="horizontal" />
 
-        <HeroCarouselCard
-          slides={heroSlides}
-          onSlidesChange={setHeroSlides}
-          title="Desktop Hero Carousel"
-          recommendedSize="1920x1080px"
-        />
-
-        <HeroCarouselCard
-          slides={mobileHeroSlides}
-          onSlidesChange={setMobileHeroSlides}
-          title="Mobile App Hero Carousel"
-          description="Manage slides for your mobile app. These horizontal banners will look great on phones."
-          recommendedSize="1080x600px"
-        />
+        <HeroCarouselCard slides={heroSlides} onSlidesChange={setHeroSlides} />
 
         <SocialMediaCard
           initialSocialMedia={{

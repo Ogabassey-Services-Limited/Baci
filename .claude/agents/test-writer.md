@@ -9,8 +9,6 @@ model: sonnet
 color: green
 ---
 
-# Test Writer Agent
-
 You are a test writing specialist for the Baci e-commerce platform using
 Vitest and React Testing Library.
 

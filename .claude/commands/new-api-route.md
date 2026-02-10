@@ -1,5 +1,3 @@
-# New API Route
-
 Create a new API route at the specified path following Baci conventions.
 
 Requirements:

@@ -296,24 +296,130 @@ export const CheckoutPage: React.FC = () => {
   const walletAmountUsed = payWithWallet ? Math.min(walletBalance, total) : 0;
   const remainingAmount = total - walletAmountUsed;
 
-  // Direct payment for resumed orders (thin wrapper binding current state)
-  const runDirectPayment = async () => {
-    await executeDirectPayment({
-      resumedOrder,
-      preferredGateway,
-      merchantSlug: merchant?.slug || '',
-      setIsProcessing,
-      clearCheckoutSession,
-      routerPush: (url: string) => router.push(asRoute(url)),
-      getHref,
-    });
+  const taxRate = merchant?.vat_registration_status === 'registered'
+    ? (merchant.vat_rate ?? 7.5) / 100
+    : 0;
+
+  useEffect(() => {
+    const fetchTotals = async () => {
+      try {
+        const result = await calculateCommerce('calculate_order', {
+          subtotal: cartTotal,
+          shippingFee: deliveryCost,
+          taxRate,
+        });
+        setOrderTotals(result);
+      } catch (err) {
+        console.error("Failed to fetch totals from brain", err);
+      }
+    };
+    fetchTotals();
+  }, [cartTotal, deliveryCost, taxRate]);
+
+  // Handler for direct payment execution (CredPal/Credit Direct)
+  const executeDirectPayment = async () => {
+    if (!resumedOrder || !preferredGateway) return;
+
+    setIsProcessing(true);
+    try {
+      const paymentAmount = resumedOrder.total;
+
+      // For CredPal, use the inline checkout widget
+      if (preferredGateway === 'credpal') {
+        const { openCredPalCheckout, getCredPalKey } = await import('@/lib/credpal');
+        const productNames = resumedOrder.items.map(item => item.product_name).join(', ') || 'Purchase';
+
+        await openCredPalCheckout({
+          key: getCredPalKey(),
+          amount: paymentAmount,
+          product: productNames,
+          customerEmail: resumedOrder.customer_email,
+          customerName: resumedOrder.customer_name,
+          customerPhone: resumedOrder.customer_phone,
+          onSuccess: async (data) => {
+            // Update order with payment reference
+            await fetch(`/api/orders/update-payment-ref`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: resumedOrder.id,
+                paymentRef: data.order_no,
+                gateway: 'credpal',
+              }),
+            });
+            clearCheckoutSession();
+            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credpal`)));
+          },
+          onError: (error) => {
+            toast({
+              title: 'Payment Failed',
+              description: error.message || 'CredPal payment failed',
+              variant: 'destructive',
+            });
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            setIsProcessing(false);
+          },
+        });
+        return;
+      }
+
+      // For Credit Direct, use their checkout widget
+      if (preferredGateway === 'credit_direct') {
+        const { openCreditDirectCheckout } = await import('@/lib/credit-direct-client');
+
+        await openCreditDirectCheckout({
+          merchantSlug: merchant?.slug || 'ogabassey',
+          orderId: resumedOrder.id,
+          amount: paymentAmount,
+          customerEmail: resumedOrder.customer_email,
+          customerPhone: resumedOrder.customer_phone,
+          customerName: resumedOrder.customer_name,
+          items: resumedOrder.items.map(item => ({
+            id: item.product_id,
+            name: item.product_name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          onSuccess: async (transactionId) => {
+            await fetch(`/api/orders/update-payment-ref`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                orderId: resumedOrder.id,
+                paymentRef: transactionId,
+                gateway: 'credit_direct',
+              }),
+            });
+            clearCheckoutSession();
+            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credit_direct`)));
+          },
+          onError: (error) => {
+            toast({
+              title: 'Payment Failed',
+              description: error || 'Credit Direct payment failed',
+              variant: 'destructive',
+            });
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            setIsProcessing(false);
+          },
+        });
+        return;
+      }
+    } catch (error) {
+      console.error('Payment execution error:', error);
+      setIsProcessing(false);
+    }
   };
 
   // Auto-trigger payment for resumed orders
   useEffect(() => {
     if (resumedOrder && preferredGateway && !autoTriggerRef.current && !isProcessing) {
       autoTriggerRef.current = true;
-      runDirectPayment();
+      executeDirectPayment();
     }
   }, [resumedOrder, preferredGateway]);
 

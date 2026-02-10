@@ -26,18 +26,8 @@ PROTECTED_PATTERNS=(
   ".expo/"
 )
 
-BASENAME=$(basename "$FILE_PATH")
-
 for pattern in "${PROTECTED_PATTERNS[@]}"; do
-  MATCHED=false
-  case "$pattern" in
-    # Directory patterns (ending with /) — match path segment
-    */) [[ "$FILE_PATH" == *"$pattern"* ]] && MATCHED=true ;;
-    # File patterns — match exact basename
-    *)  [[ "$BASENAME" == "$pattern" ]] && MATCHED=true ;;
-  esac
-
-  if $MATCHED; then
+  if [[ "$FILE_PATH" == *"$pattern"* ]]; then
     jq -n --arg reason "Cannot edit '$FILE_PATH' — matches protected pattern '$pattern'. Use a different approach or ask the user to edit this file manually." '{
       "hookSpecificOutput": {
         "hookEventName": "PreToolUse",

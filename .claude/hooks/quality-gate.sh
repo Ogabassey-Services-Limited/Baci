@@ -17,14 +17,11 @@ fi
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
 # Check that new/modified source files have colocated test files
-# Exempt: types, config, index barrels, test files, CSS, non-code files
-MISSING_TESTS_FILE=$(mktemp)
-trap 'rm -f "$MISSING_TESTS_FILE"' EXIT
-
-{
-  git diff --name-only --diff-filter=ACM -z HEAD 2>/dev/null
-  git ls-files --others --exclude-standard -z 2>/dev/null
-} | while IFS= read -r -d '' FILE; do
+# Exempt: types, config, index barrels, test files, route files, CSS, non-code files
+MISSING_TESTS=""
+for FILE in $(git diff --name-only --diff-filter=ACM HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
+  # Strip trailing whitespace/CR from git output
+  FILE=$(echo "$FILE" | tr -d '\r' | xargs)
   [ -z "$FILE" ] && continue
   # Only check .ts/.tsx files in source directories
   case "$FILE" in
@@ -39,7 +36,7 @@ trap 'rm -f "$MISSING_TESTS_FILE"' EXIT
     index.ts|index.tsx) continue ;;                          # Barrel re-exports
     page.tsx|layout.tsx|loading.tsx|error.tsx) continue ;;   # Next.js route files
     not-found.tsx|template.tsx|default.tsx) continue ;;      # Next.js route files
-    global-error.tsx) continue ;;                            # Next.js error boundary
+    global-error.tsx|route.ts) continue ;;                   # Next.js route/error files
     globals.css|*.css) continue ;;                           # Style files
   esac
   case "$FILE" in
@@ -48,7 +45,6 @@ trap 'rm -f "$MISSING_TESTS_FILE"' EXIT
     */ui/*) continue ;;                                      # shadcn base components
     */contexts/*) continue ;;                                # React context providers
     */templates/*) continue ;;                               # Store templates
-    */__mocks__/*) continue ;;                               # Test mock files
   esac
   # Derive expected test file path using bash parameter expansion
   DIR=$(dirname "$FILE")
@@ -56,17 +52,13 @@ trap 'rm -f "$MISSING_TESTS_FILE"' EXIT
   BASE="${BASENAME%.*}"
   TEST_FILE="$DIR/$BASE.test.$EXT"
   if [ ! -f "$TEST_FILE" ]; then
-    echo "  - $FILE (expected: $TEST_FILE)" >> "$MISSING_TESTS_FILE"
+    MISSING_TESTS="$MISSING_TESTS\n  - $FILE (expected: $TEST_FILE)"
   fi
 done
 
-if [ -s "$MISSING_TESTS_FILE" ]; then
-  MISSING_TESTS=$(cat "$MISSING_TESTS_FILE")
-  REASON="Missing test files for new/modified source files. Create colocated tests:
-${MISSING_TESTS}
-
-See .ruler/07-testing.md for test requirements."
-  jq -n --arg reason "$REASON" '{"decision": "block", "reason": $reason}'
+if [ -n "$MISSING_TESTS" ]; then
+  jq -n --arg reason "Missing test files for new/modified source files. Create colocated tests:\n$MISSING_TESTS\n\nSee .ruler/07-testing.md for test requirements." \
+    '{"decision": "block", "reason": $reason}'
   exit 0
 fi
 
@@ -76,9 +68,7 @@ LINT_EXIT=$?
 
 if [ $LINT_EXIT -ne 0 ]; then
   TRIMMED=$(echo "$LINT_RESULT" | tail -30)
-  jq -n --arg reason "Lint errors detected. Fix all lint errors before completing:
-
-$TRIMMED" \
+  jq -n --arg reason "Lint errors detected. Fix all lint errors before completing:\n\n$TRIMMED" \
     '{"decision": "block", "reason": $reason}'
   exit 0
 fi
@@ -89,9 +79,7 @@ TYPE_EXIT=$?
 
 if [ $TYPE_EXIT -ne 0 ]; then
   TRIMMED=$(echo "$TYPE_RESULT" | tail -30)
-  jq -n --arg reason "TypeScript errors detected. Fix all type errors before completing:
-
-$TRIMMED" \
+  jq -n --arg reason "TypeScript errors detected. Fix all type errors before completing:\n\n$TRIMMED" \
     '{"decision": "block", "reason": $reason}'
   exit 0
 fi
@@ -102,9 +90,7 @@ TEST_EXIT=$?
 
 if [ $TEST_EXIT -ne 0 ]; then
   TRIMMED=$(echo "$TEST_RESULT" | tail -30)
-  jq -n --arg reason "Tests failed. Fix all failing tests before completing:
-
-$TRIMMED" \
+  jq -n --arg reason "Tests failed. Fix all failing tests before completing:\n\n$TRIMMED" \
     '{"decision": "block", "reason": $reason}'
   exit 0
 fi
@@ -118,11 +104,9 @@ if command -v coderabbit >/dev/null 2>&1; then
   # Skip if CodeRabbit errored out (OOM, network failure, auth issues)
   if echo "$CR_RESULT" | grep -qiE "(REVIEW ERROR|Out of memory|Failed to start|network|unauthorized|ECONNREFUSED)"; then
     : # CodeRabbit crashed — fail-open, allow stop
-  elif [ -n "$CR_RESULT" ] && echo "$CR_RESULT" | grep -qiE "(severity: (critical|high)|type: (error|issue))"; then
+  elif [ -n "$CR_RESULT" ] && echo "$CR_RESULT" | grep -qiE "(critical|high|error|warning|issue)"; then
     TRIMMED=$(echo "$CR_RESULT" | tail -30)
-    jq -n --arg reason "CodeRabbit found issues in your changes. Review and fix:
-
-$TRIMMED" \
+    jq -n --arg reason "CodeRabbit found issues in your changes. Review and fix:\n\n$TRIMMED" \
       '{"decision": "block", "reason": $reason}'
     exit 0
   fi

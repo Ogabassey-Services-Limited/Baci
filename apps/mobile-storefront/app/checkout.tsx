@@ -704,7 +704,7 @@ export default function CheckoutScreen() {
       }
     };
     fetchTotals();
-  }, [subtotal, deliveryFee, paymentSettings]);
+  }, [subtotal, deliveryFee, paymentSettings, assuranceFee]);
 
   const total = orderTotals?.total || subtotal + deliveryFee + assuranceFee;
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
@@ -893,8 +893,8 @@ export default function CheckoutScreen() {
             has_assurance: item.hasAssurance || false,
             assurance_fee: item.hasAssurance
               ? Math.round(
-                item.price * item.quantity * (item.assuranceRate ?? 0.05)
-              )
+                  item.price * item.quantity * (item.assuranceRate ?? 0.05)
+                )
               : 0,
           })),
           subtotal,
@@ -936,8 +936,8 @@ export default function CheckoutScreen() {
           has_assurance: item.hasAssurance || false,
           assurance_fee: item.hasAssurance
             ? Math.round(
-              item.price * item.quantity * (item.assuranceRate ?? 0.05)
-            )
+                item.price * item.quantity * (item.assuranceRate ?? 0.05)
+              )
             : 0,
         })),
         subtotal,
@@ -1411,7 +1411,7 @@ export default function CheckoutScreen() {
                           color: colors.text,
                           borderColor:
                             accountPassword.length > 0 &&
-                              accountPassword.length < 6
+                            accountPassword.length < 6
                               ? '#EF4444'
                               : colors.border,
                         },
@@ -2174,8 +2174,8 @@ export default function CheckoutScreen() {
                 data={
                   citySearch
                     ? shippingCities.filter((c) =>
-                      c.toLowerCase().includes(citySearch.toLowerCase())
-                    )
+                        c.toLowerCase().includes(citySearch.toLowerCase())
+                      )
                     : shippingCities
                 }
                 keyExtractor={(item) => item}
@@ -2331,7 +2331,7 @@ export default function CheckoutScreen() {
                       {
                         backgroundColor:
                           copiedCryptoField === 'address'
-                            ? palette.emerald[500] + '15'
+                            ? `${palette.emerald[500]}15`
                             : `${BRAND.primary}15`,
                       },
                     ]}

@@ -11,8 +11,6 @@ color: orange
 memory: project
 ---
 
-# Security Auditor Agent
-
 You are a security auditor specializing in e-commerce web applications built with
 Next.js, Supabase, and TypeScript.
 

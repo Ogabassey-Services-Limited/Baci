@@ -1,10 +1,5 @@
 import z from 'zod';
-import {
-  sanitizeEmail,
-  sanitizePhone,
-  sanitizeText,
-  sanitizeUrl,
-} from '@/lib/sanitize-core';
+import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
 import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**
@@ -14,7 +9,7 @@ import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 const _preprocessText = (val: unknown) =>
   typeof val === 'string' ? sanitizeText(val) : val;
 const _preprocessEmail = (val: unknown) =>
-  typeof val === 'string' ? sanitizeEmail(val).toLowerCase().trim() : val;
+  typeof val === 'string' ? val.toLowerCase().trim() : val;
 const _preprocessPhone = (val: unknown) =>
   typeof val === 'string' ? sanitizePhone(sanitizeText(val)) : val;
 const INVALID_URL_SENTINEL = '__invalid_url__';
