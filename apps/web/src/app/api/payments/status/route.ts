@@ -7,7 +7,12 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
-import { verifyPayment as verifyJuicywayPayment } from '@/lib/juicyway';
+import {
+  extractCryptoAddress,
+  getPayment as getJuicywayPayment,
+  getPaymentSession as getJuicywaySession,
+  verifyPayment as verifyJuicywayPayment,
+} from '@/lib/juicyway';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
 const QuerySchema = z
@@ -18,6 +23,8 @@ const QuerySchema = z
     payment_id: z.string().min(1).optional(),
     session_id: z.string().min(1).optional(),
     reference: z.string().optional(),
+    // When true, also check for crypto wallet address availability
+    check_address: z.enum(['true', 'false']).optional(),
   })
   .refine((data) => data.payment_id || data.session_id || data.reference, {
     message: 'At least one of payment_id, session_id, or reference is required',
@@ -33,6 +40,7 @@ export async function GET(request: NextRequest) {
       payment_id: searchParams.get('payment_id') ?? undefined,
       session_id: searchParams.get('session_id') ?? undefined,
       reference: searchParams.get('reference') ?? undefined,
+      check_address: searchParams.get('check_address') ?? undefined,
     };
 
     // Debug: Log raw query params
@@ -50,7 +58,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { gateway, payment_id, session_id, reference } = parsed.data;
+    const { gateway, payment_id, session_id, reference, check_address } =
+      parsed.data;
+    const wantAddress = check_address === 'true';
 
     if (gateway === 'juicyway') {
       // Use payment_id for verification (preferred), fall back to session_id
@@ -69,13 +79,81 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // Debug logging
       console.log('[Payment Status] Checking Juicyway payment:', {
         payment_id,
         session_id,
         verificationId,
         gateway,
+        wantAddress,
       });
+
+      // If client is polling for crypto address, check session + payment endpoints
+      if (wantAddress && session_id) {
+        const sessionResult = await getJuicywaySession(session_id);
+
+        if (sessionResult.success) {
+          const sessionData = sessionResult.data;
+          // Juicyway returns address at payment_method.address (docs) or
+          // payment_method.params.address (live API). extractCryptoAddress handles both.
+          let extracted = extractCryptoAddress(
+            sessionData.payment?.payment_method
+          );
+
+          // Fallback: check the individual payment endpoint
+          if (!extracted && sessionData.payment?.id) {
+            const paymentResult = await getJuicywayPayment(
+              sessionData.payment.id
+            );
+            if (paymentResult.success) {
+              const pm = paymentResult.data.payment_method as unknown as
+                | {
+                    address?: string;
+                    chain?: string;
+                    currency?: string;
+                    qrcode?: string;
+                    params?: {
+                      address: string;
+                      chain: string;
+                      currency: string;
+                    };
+                  }
+                | undefined;
+              const fallbackAddr = pm?.address || pm?.params?.address;
+              if (fallbackAddr) {
+                // Merge qrcode from session if payment endpoint doesn't have it
+                const sessionPm = sessionData.payment?.payment_method as
+                  | { qrcode?: string }
+                  | undefined;
+                extracted = {
+                  address: fallbackAddr,
+                  chain: pm?.chain || pm?.params?.chain || '',
+                  currency: pm?.currency || pm?.params?.currency || '',
+                  qrcode: pm?.qrcode || sessionPm?.qrcode,
+                };
+              }
+            }
+          }
+
+          if (extracted) {
+            return NextResponse.json({
+              success: true,
+              gateway: 'juicyway',
+              status: sessionData.payment?.status || 'pending',
+              is_pending: false,
+              crypto_address: extracted,
+            });
+          }
+
+          // Address still not ready
+          return NextResponse.json({
+            success: true,
+            gateway: 'juicyway',
+            status: sessionData.payment?.status || 'pending',
+            is_pending: true,
+            crypto_address: null,
+          });
+        }
+      }
 
       const result = await verifyJuicywayPayment(verificationId);
 

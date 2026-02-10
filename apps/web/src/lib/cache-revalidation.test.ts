@@ -1,0 +1,499 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// ---- Mocks ----
+
+const mockRevalidateTag = vi.fn();
+
+vi.mock('next/cache', () => ({
+  revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
+}));
+
+// ---- Import functions AFTER mocks ----
+import {
+  revalidateBlogPosts,
+  revalidateCategories,
+  revalidateDomains,
+  revalidateFeatures,
+  revalidateMerchant,
+  revalidatePageConfig,
+  revalidateProducts,
+  revalidateReviews,
+} from './cache-revalidation';
+
+// ---- Helpers ----
+
+const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+// ---- Tests ----
+
+describe('cache-revalidation utilities', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('revalidateProducts', () => {
+    it('revalidates products cache with merchant ID', () => {
+      revalidateProducts(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-details',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'category-page-data',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+    });
+
+    it('revalidates specific product when slug provided', () => {
+      const productSlug = 'test-product';
+
+      revalidateProducts(MERCHANT_ID, productSlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `product-${MERCHANT_ID}-${productSlug}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-details',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'category-page-data',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
+    });
+
+    it('handles empty slug gracefully', () => {
+      revalidateProducts(MERCHANT_ID, '');
+
+      // Should not call specific product tag when slug is empty
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+    });
+  });
+
+  describe('revalidateCategories', () => {
+    it('revalidates categories cache with merchant ID', () => {
+      revalidateCategories(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `categories-${MERCHANT_ID}`,
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'category-page-data',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('revalidates specific category when slug provided', () => {
+      const categorySlug = 'test-category';
+
+      revalidateCategories(MERCHANT_ID, categorySlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `categories-${MERCHANT_ID}`,
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `category-${MERCHANT_ID}-${categorySlug}`,
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'category-page-data',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+
+    it('handles empty slug gracefully', () => {
+      revalidateCategories(MERCHANT_ID, '');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `categories-${MERCHANT_ID}`,
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('revalidateMerchant', () => {
+    it('revalidates merchant cache with merchant ID', () => {
+      revalidateMerchant(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-id-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+
+    it('revalidates specific merchant when slug provided', () => {
+      const merchantSlug = 'test-store';
+
+      revalidateMerchant(MERCHANT_ID, merchantSlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-id-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-${merchantSlug}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+    });
+
+    it('handles empty slug gracefully', () => {
+      revalidateMerchant(MERCHANT_ID, '');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-id-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('revalidateBlogPosts', () => {
+    it('revalidates blog posts cache', () => {
+      const identifier = 'test-merchant';
+
+      revalidateBlogPosts(identifier);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-posts',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('revalidates specific blog post when slug provided', () => {
+      const identifier = 'test-merchant';
+      const postSlug = 'test-post';
+
+      revalidateBlogPosts(identifier, postSlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-posts',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `blog-${identifier}-${postSlug}`,
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles empty slug gracefully', () => {
+      const identifier = 'test-merchant';
+
+      revalidateBlogPosts(identifier, '');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-posts',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('works with merchant ID as identifier', () => {
+      revalidateBlogPosts(MERCHANT_ID, 'my-blog-post');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-posts',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `blog-${MERCHANT_ID}-my-blog-post`,
+        'storefront-page'
+      );
+    });
+  });
+
+  describe('revalidateReviews', () => {
+    it('revalidates reviews cache with product ID', () => {
+      const productId = 'product-123';
+
+      revalidateReviews(productId);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `reviews-${productId}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `rating-stats-${productId}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('works with different product IDs', () => {
+      const productId1 = 'product-456';
+      const productId2 = 'product-789';
+
+      revalidateReviews(productId1);
+      mockRevalidateTag.mockClear();
+      revalidateReviews(productId2);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `reviews-${productId2}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `rating-stats-${productId2}`,
+        'products'
+      );
+    });
+  });
+
+  describe('revalidateFeatures', () => {
+    it('revalidates features cache with merchant ID', () => {
+      revalidateFeatures(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `features-${MERCHANT_ID}`,
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('works with different merchant IDs', () => {
+      const merchantId1 = 'merchant-111';
+      const merchantId2 = 'merchant-222';
+
+      revalidateFeatures(merchantId1);
+      mockRevalidateTag.mockClear();
+      revalidateFeatures(merchantId2);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `features-${merchantId2}`,
+        'merchant'
+      );
+    });
+  });
+
+  describe('revalidatePageConfig', () => {
+    it('revalidates page config cache', () => {
+      revalidatePageConfig(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'page-config',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('revalidates specific page when slug provided', () => {
+      const pageSlug = 'about-us';
+
+      revalidatePageConfig(MERCHANT_ID, pageSlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'page-config',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `page-config-${MERCHANT_ID}-${pageSlug}`,
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles empty slug gracefully', () => {
+      revalidatePageConfig(MERCHANT_ID, '');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'page-config',
+        'storefront-page'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('works with different merchant IDs and page slugs', () => {
+      const merchantId = 'merchant-333';
+      const pageSlug = 'contact';
+
+      revalidatePageConfig(merchantId, pageSlug);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `page-config-${merchantId}-${pageSlug}`,
+        'storefront-page'
+      );
+    });
+  });
+
+  describe('revalidateDomains', () => {
+    it('revalidates domains cache without domain', () => {
+      revalidateDomains();
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domains', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('revalidates specific domain when provided', () => {
+      const domain = 'example.com';
+
+      revalidateDomains(domain);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domains', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'domain-example.com',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('converts domain to lowercase', () => {
+      const domain = 'Example.COM';
+
+      revalidateDomains(domain);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domains', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'domain-example.com',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('handles empty domain gracefully', () => {
+      revalidateDomains('');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domains', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('works with subdomain', () => {
+      const domain = 'shop.example.com';
+
+      revalidateDomains(domain);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('domains', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'domain-shop.example.com',
+        'merchant'
+      );
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles special characters in slugs', () => {
+      revalidateProducts(MERCHANT_ID, 'test-product-123');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `product-${MERCHANT_ID}-test-product-123`,
+        'products'
+      );
+    });
+
+    it('handles UUID merchant IDs', () => {
+      const uuid = '123e4567-e89b-12d3-a456-426614174000';
+
+      revalidateProducts(uuid);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${uuid}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${uuid}`,
+        'merchant'
+      );
+    });
+
+    it('does not throw when called multiple times rapidly', () => {
+      expect(() => {
+        for (let i = 0; i < 100; i++) {
+          revalidateProducts(MERCHANT_ID);
+        }
+      }).not.toThrow();
+
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(400); // 4 calls per invocation * 100
+    });
+
+    it('handles null/undefined merchant IDs gracefully', () => {
+      // TypeScript should prevent this, but test runtime behavior
+      revalidateProducts(undefined as unknown as string);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'products-undefined',
+        'products'
+      );
+    });
+  });
+
+  describe('integration scenarios', () => {
+    it('multiple revalidations work together', () => {
+      // Simulate a product update that affects multiple caches
+      revalidateProducts(MERCHANT_ID, 'new-product');
+      revalidateCategories(MERCHANT_ID, 'electronics');
+      revalidateMerchant(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `categories-${MERCHANT_ID}`,
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `dashboard-${MERCHANT_ID}`,
+        'merchant'
+      );
+    });
+
+    it('works when called sequentially in a workflow', () => {
+      // Simulate a store publish workflow
+      revalidateMerchant(MERCHANT_ID, 'my-store');
+      revalidateProducts(MERCHANT_ID);
+      revalidateFeatures(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('merchants', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `products-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `features-${MERCHANT_ID}`,
+        'merchant'
+      );
+    });
+  });
+});

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { generateProductSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
@@ -168,6 +169,11 @@ export async function POST(request: NextRequest) {
         errors.push(`Row ${i + 2}: ${(error as Error).message}`);
         failedCount++;
       }
+    }
+
+    // Invalidate product caches after bulk import
+    if (successCount > 0) {
+      revalidateProducts(merchant.id);
     }
 
     return NextResponse.json({

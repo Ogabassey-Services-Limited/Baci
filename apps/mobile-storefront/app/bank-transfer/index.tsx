@@ -4,7 +4,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,16 +11,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { setClipboardString } from '@/lib/clipboard';
 import { useCartStore } from '@/stores/cart-store';
 
 const copyToClipboard = async (text: string) => {
-  try {
-    await Clipboard.setStringAsync(text);
-    return true;
-  } catch (error) {
-    console.warn('[BankTransfer] Clipboard not available:', error);
-    return false;
-  }
+  return await setClipboardString(text);
 };
 
 const BankTransferParamsSchema = z.object({
@@ -40,6 +34,7 @@ export default function BankTransferScreen() {
   const params = useLocalSearchParams<Record<string, string>>();
   const clearCart = useCartStore((state) => state.clearCart);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validatedParams = useMemo(() => {
     const result = BankTransferParamsSchema.safeParse(params);
@@ -67,6 +62,8 @@ export default function BankTransferScreen() {
   };
 
   const handleConfirmTransfer = () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     clearCart();
     router.replace({
       pathname: '/order-success',
@@ -214,10 +211,22 @@ export default function BankTransferScreen() {
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
+          style={[
+            styles.primaryButton,
+            {
+              backgroundColor: BRAND.primary,
+              opacity: isSubmitting ? 0.6 : 1,
+            },
+          ]}
           onPress={handleConfirmTransfer}
+          disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel="Confirm I've sent the money"
+          accessibilityState={{ disabled: isSubmitting }}
         >
-          <Text style={styles.primaryButtonText}>I've Sent the Money</Text>
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? 'Processing...' : "I've Sent the Money"}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -247,7 +256,13 @@ function DetailRow({
           {value}
         </Text>
       </View>
-      <Pressable onPress={onCopy} style={detailRowStyles.copyButton}>
+      <Pressable
+        onPress={onCopy}
+        style={detailRowStyles.copyButton}
+        accessibilityRole="button"
+        accessibilityLabel={`Copy ${label.toLowerCase()}`}
+        accessibilityHint={copied ? 'Copied to clipboard' : undefined}
+      >
         <Ionicons
           name={copied ? 'checkmark' : 'copy-outline'}
           size={20}

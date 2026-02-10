@@ -27,7 +27,13 @@ const loadNativeModules = async () => {
   try {
     Notifications = await import('expo-notifications');
   } catch (e) {
-    console.debug('[PushHook] Notifications module ignored or failed to load:', e);
+    // BUG-4-005 FIX: Wrap console.debug with __DEV__ check
+    if (__DEV__) {
+      console.debug(
+        '[PushHook] Notifications module ignored or failed to load:',
+        e
+      );
+    }
   }
 };
 
@@ -67,7 +73,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           router.push(`/product/${params?.slug}`);
           break;
         case 'category':
-          router.push(`/category/${params?.slug}` as import('expo-router').Href);
+          router.push(
+            `/category/${params?.slug}` as import('expo-router').Href
+          );
           break;
         default:
           router.push('/');
@@ -127,6 +135,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Set up notification listeners on mount
   useEffect(() => {
     if (!Notifications) return;
+
+    // BUG-4-001 FIX: Remove old listeners before adding new ones to prevent memory leaks
+    if (notificationListener.current) {
+      notificationListener.current.remove();
+      notificationListener.current = null;
+    }
+    if (responseListener.current) {
+      responseListener.current.remove();
+      responseListener.current = null;
+    }
 
     // Listener for notifications received while app is foregrounded
     notificationListener.current =

@@ -5,7 +5,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
@@ -34,6 +33,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { z } from 'zod';
+import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
@@ -49,12 +49,14 @@ import Colors, {
   SHADOWS,
   SPACING,
 } from '@/constants/Colors';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { type TextContentType, TextContentTypes } from '@/hooks/use-keyboard';
 import {
   getEnabledPaymentMethods,
   getMerchantTaxRate,
   useMerchantPaymentSettings,
 } from '@/hooks/useMerchantPaymentSettings';
+import { setClipboardString } from '@/lib/clipboard';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { ShippingAddressSchema } from '@/lib/validation';
 import {
@@ -233,7 +235,7 @@ function FormField({
                 styles.input,
                 multiline && styles.multilineInput,
                 { backgroundColor: colors.card, color: colors.text },
-                { borderColor: errors[name] ? '#EF4444' : colors.border },
+                { borderColor: errors[name] ? colors.error : colors.border },
               ]}
               value={stringValue}
               onChangeText={(text) => {
@@ -363,6 +365,7 @@ export default function CheckoutScreen() {
   const subtotal = useCartStore((state) => state.subtotal());
   const clearCart = useCartStore((state) => state.clearCart);
   const customer = useAuthStore((state) => state.customer);
+  const { isInitialized } = useAuthStatus();
 
   const { data: paymentSettings } = useMerchantPaymentSettings();
   const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
@@ -393,6 +396,7 @@ export default function CheckoutScreen() {
   const [accountPassword, setAccountPassword] = React.useState('');
 
   // Crypto payment inline modal state
+  const [showCryptoSelection, setShowCryptoSelection] = React.useState(false);
   const [cryptoPayment, setCryptoPayment] = React.useState<{
     orderId: string;
     orderNumber: string;
@@ -404,7 +408,13 @@ export default function CheckoutScreen() {
     confirmationTime: string;
     reference: string;
     paymentId: string;
+    trackingToken?: string;
   } | null>(null);
+
+  // Partial order state for multi-step crypto flow
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [pendingOrder, setPendingOrder] = React.useState<any>(null);
+
   const [copiedCryptoField, setCopiedCryptoField] = React.useState<
     string | null
   >(null);
@@ -458,6 +468,24 @@ export default function CheckoutScreen() {
       hasTrackedStart.current = true;
     }
   }, [items, subtotal]);
+
+  // Auth check for protected checkout actions
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Check if user is trying to place order but not authenticated
+    // This prevents unauthorized checkout attempts
+    if (step === 'review' && !customer) {
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in to complete your order.',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
+          { text: 'Sign In', onPress: () => router.push('/auth/login') },
+        ]
+      );
+    }
+  }, [step, customer, isInitialized]);
 
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
@@ -649,6 +677,17 @@ export default function CheckoutScreen() {
   );
   const deliveryFee = selectedQuote?.price ?? 0;
 
+  // Calculate total assurance fee from cart items (2026 Best Practice: Single Source of Truth)
+  const assuranceFee = items.reduce((sum, item) => {
+    if (item.hasAssurance) {
+      return (
+        sum +
+        Math.round(item.price * item.quantity * (item.assuranceRate ?? 0.05))
+      );
+    }
+    return sum;
+  }, 0);
+
   useEffect(() => {
     const fetchTotals = async () => {
       try {
@@ -657,6 +696,7 @@ export default function CheckoutScreen() {
           subtotal,
           shippingFee: deliveryFee,
           taxRate,
+          assuranceFee,
         });
         setOrderTotals(result);
       } catch {
@@ -666,9 +706,10 @@ export default function CheckoutScreen() {
     fetchTotals();
   }, [subtotal, deliveryFee, paymentSettings]);
 
-  const total = orderTotals?.total || subtotal + deliveryFee;
-  // Show subtotal + delivery (no VAT) in steps 1 & 2; full total in Review
-  const displayTotal = step === 'review' ? total : subtotal + deliveryFee;
+  const total = orderTotals?.total || subtotal + deliveryFee + assuranceFee;
+  // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
+  const displayTotal =
+    step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
 
   const onAddressSubmit = (data: ShippingAddressInput) => {
     trackCheckoutStep('shipping_info', {
@@ -703,8 +744,105 @@ export default function CheckoutScreen() {
     setCitySearch('');
   };
 
+  const handleCryptoConfirm = async (chain: string, currency: string) => {
+    if (!pendingOrder) return;
+    setIsProcessing(true);
+    // Keep CryptoSelectionModal open (with spinner) while API loads
+
+    try {
+      const {
+        order,
+        orderResponse,
+        customerEmail,
+        customerName,
+        customerPhone,
+        trackingToken,
+      } = pendingOrder;
+
+      const initResponse = await fetch(
+        `${API_BASE_URL}/api/payments/initialize`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            merchant_id: MERCHANT_ID,
+            order_id: order.id,
+            amount: orderResponse.amountDueToGateway,
+            currency: 'NGN',
+            customer_email: customerEmail,
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            gateway: 'juicyway',
+            crypto_chain: chain,
+            crypto_currency: currency,
+          }),
+        }
+      );
+
+      const initData = await initResponse.json();
+
+      if (!initResponse.ok || !initData.success) {
+        throw new OrderError(
+          initData.error || 'Failed to initialize crypto payment',
+          'PAYMENT_INIT_ERROR'
+        );
+      }
+
+      if (!initData.crypto_payment?.address) {
+        throw new OrderError(
+          'Failed to generate crypto wallet address. Please try again.',
+          'PAYMENT_INIT_ERROR'
+        );
+      }
+
+      setIsProcessing(false);
+      setShowCryptoSelection(false); // Close selection modal, crypto payment modal opens next
+      isOrderInFlight.current = false; // Reset flight status
+
+      // BUG-1-005 Fix: Clear cart after successful crypto order creation
+      // Cart should be cleared once order is created, not when user confirms payment
+      clearCart();
+
+      const cp = initData.crypto_payment;
+      setCryptoPayment({
+        orderId: order.id,
+        orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+        address: cp.address,
+        chain: cp.chain || chain,
+        currency: cp.currency || currency,
+        amount: cp.amount || orderResponse.amountDueToGateway,
+        cryptoAmount: cp.crypto_amount || '',
+        confirmationTime: cp.confirmation_time || '',
+        reference: initData.reference || '',
+        paymentId: cp.payment_id || '',
+        trackingToken,
+      });
+    } catch (error) {
+      setIsProcessing(false);
+      setShowCryptoSelection(false);
+      isOrderInFlight.current = false;
+      if (error instanceof OrderError) {
+        Alert.alert('Payment Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to initialize payment');
+      }
+    } finally {
+      setPendingOrder(null);
+    }
+  };
+
   // 2026 Fix: Renamed to onCheckoutSubmit to work with handleSubmit
   const onCheckoutSubmit = async (address: ShippingAddressInput) => {
+    // BUG-1-003 Fix: Validate cart FIRST before any processing
+    if (items.length === 0) {
+      Alert.alert(
+        'Empty Cart',
+        'Your cart is empty. Please add items before checking out.',
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+      );
+      return;
+    }
+
     if (isOrderInFlight.current || isProcessing) {
       return;
     }
@@ -712,6 +850,7 @@ export default function CheckoutScreen() {
     isOrderInFlight.current = true;
     setIsProcessing(true);
 
+    // BUG-1-003 Fix: Re-validate cart is still not empty
     if (items.length === 0) {
       isOrderInFlight.current = false;
       setIsProcessing(false);
@@ -722,6 +861,9 @@ export default function CheckoutScreen() {
       );
       return;
     }
+
+    // BUG-1-002 Fix: Snapshot cart items for rollback if needed
+    const cartSnapshot = [...items];
 
     try {
       trackCheckoutStep('review');
@@ -750,7 +892,9 @@ export default function CheckoutScreen() {
             variant_id: item.variant_id,
             has_assurance: item.hasAssurance || false,
             assurance_fee: item.hasAssurance
-              ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+              ? Math.round(
+                item.price * item.quantity * (item.assuranceRate ?? 0.05)
+              )
               : 0,
           })),
           subtotal,
@@ -791,7 +935,9 @@ export default function CheckoutScreen() {
           variant_id: item.variant_id,
           has_assurance: item.hasAssurance || false,
           assurance_fee: item.hasAssurance
-            ? Math.round(item.price * (item.assuranceRate ?? 0.05))
+            ? Math.round(
+              item.price * item.quantity * (item.assuranceRate ?? 0.05)
+            )
             : 0,
         })),
         subtotal,
@@ -850,60 +996,19 @@ export default function CheckoutScreen() {
       const isBankTransfer = selectedPayment === 'bank_transfer';
       const isJuicyway = selectedPayment === 'juicyway';
 
-      // Juicyway crypto: initialize inline and show wallet address modal
+      // Juicyway crypto: Show selection modal first
       if (isJuicyway) {
-        const initResponse = await fetch(
-          `${API_BASE_URL}/api/payments/initialize`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              merchant_id: MERCHANT_ID,
-              order_id: order.id,
-              amount: orderResponse.amountDueToGateway,
-              currency: 'NGN',
-              customer_email: customerEmail,
-              customer_name: customerName,
-              customer_phone: customerPhone,
-              gateway: 'juicyway',
-              crypto_chain: 'TRX',
-              crypto_currency: 'USDT',
-            }),
-          }
-        );
-
-        const initData = await initResponse.json();
-
-        if (!initResponse.ok || !initData.success) {
-          throw new OrderError(
-            initData.error || 'Failed to initialize crypto payment',
-            'PAYMENT_INIT_ERROR'
-          );
-        }
-
-        if (!initData.crypto_payment?.address) {
-          throw new OrderError(
-            'Failed to generate crypto wallet address. Please try again.',
-            'PAYMENT_INIT_ERROR'
-          );
-        }
-
-        setIsProcessing(false);
-        isOrderInFlightRef.current = false;
-
-        const cp = initData.crypto_payment;
-        setCryptoPayment({
-          orderId: order.id,
-          orderNumber,
-          address: cp.address,
-          chain: cp.chain || 'TRX',
-          currency: cp.currency || 'USDT',
-          amount: cp.amount || orderResponse.amountDueToGateway,
-          cryptoAmount: cp.crypto_amount || '',
-          confirmationTime: cp.confirmation_time || '',
-          reference: initData.reference || '',
-          paymentId: cp.payment_id || '',
+        setPendingOrder({
+          order,
+          orderResponse,
+          customerEmail,
+          customerName,
+          customerPhone,
+          trackingToken: order.tracking_token || undefined,
         });
+        setIsProcessing(false);
+        isOrderInFlight.current = false;
+        setShowCryptoSelection(true);
         return;
       }
 
@@ -979,16 +1084,29 @@ export default function CheckoutScreen() {
         return;
       }
 
-      // Pay on delivery — clear cart and go to success
+      // BUG-1-002 Fix: Pay on delivery — clear cart BEFORE navigation
+      // This prevents duplicate orders from race conditions
       clearCart();
+
+      // Navigate to success after cart is cleared
       router.replace({
         pathname: '/order-success',
         params: {
           orderId: order.id,
           orderNumber,
+          ...(order.tracking_token && {
+            trackingToken: order.tracking_token,
+          }),
         },
       });
     } catch (error) {
+      // BUG-1-002 Fix: Rollback cart on error
+      // Restore cart items if order creation failed
+      if (cartSnapshot && items.length === 0) {
+        for (const item of cartSnapshot) {
+          useCartStore.getState().addItem(item);
+        }
+      }
       if (error instanceof OrderError) {
         trackError('checkout_failed', error.message, {
           step: 'place_order',
@@ -1293,7 +1411,7 @@ export default function CheckoutScreen() {
                           color: colors.text,
                           borderColor:
                             accountPassword.length > 0 &&
-                            accountPassword.length < 6
+                              accountPassword.length < 6
                               ? '#EF4444'
                               : colors.border,
                         },
@@ -1808,6 +1926,18 @@ export default function CheckoutScreen() {
               {formatPrice(deliveryFee)}
             </Text>
           </View>
+          {assuranceFee > 0 && (
+            <View style={styles.totalRow}>
+              <Text
+                style={[styles.totalLabel, { color: colors.textSecondary }]}
+              >
+                Device Assurance
+              </Text>
+              <Text style={[styles.totalValue, { color: colors.text }]}>
+                {formatPrice(assuranceFee)}
+              </Text>
+            </View>
+          )}
           {orderTotals && getMerchantTaxRate(paymentSettings) > 0 && (
             <View style={styles.totalRow}>
               <Text
@@ -2044,8 +2174,8 @@ export default function CheckoutScreen() {
                 data={
                   citySearch
                     ? shippingCities.filter((c) =>
-                        c.toLowerCase().includes(citySearch.toLowerCase())
-                      )
+                      c.toLowerCase().includes(citySearch.toLowerCase())
+                    )
                     : shippingCities
                 }
                 keyExtractor={(item) => item}
@@ -2081,6 +2211,16 @@ export default function CheckoutScreen() {
         </Modal>
       </KeyboardAvoidingView>
 
+      <CryptoSelectionModal
+        visible={showCryptoSelection}
+        onClose={() => setShowCryptoSelection(false)}
+        onConfirm={(chain, currency) => {
+          // Cast string types to strict union types is handled by internal logic or just pass string if API accepts string
+          handleCryptoConfirm(chain, currency);
+        }}
+        isProcessing={isProcessing}
+      />
+
       {/* Crypto Payment Modal */}
       {cryptoPayment && (
         <Modal visible animationType="slide" transparent={false}>
@@ -2092,32 +2232,30 @@ export default function CheckoutScreen() {
               style={[styles.cryptoHeader, { backgroundColor: BRAND.primary }]}
             >
               <View style={styles.cryptoHeaderLeft}>
-                <View style={styles.cryptoHeaderIcon}>
-                  <Ionicons name="shield-checkmark" size={16} color="#FFFFFF" />
-                </View>
+                <Pressable
+                  onPress={() => {
+                    setCryptoPayment(null);
+                    setShowCryptoSelection(true);
+                  }}
+                  style={styles.cryptoBackBtn}
+                  accessibilityLabel="Change network or coin"
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                </Pressable>
                 <Text style={styles.cryptoHeaderTitle}>Pay with Crypto</Text>
               </View>
               <Pressable
                 onPress={() => {
                   Alert.alert(
-                    'Leave Payment?',
-                    'Your order has been created. You can complete the crypto payment later.',
+                    'Close Payment?',
+                    "If you've already sent crypto, your order will still be processed once the payment is detected on the blockchain.",
                     [
                       { text: 'Stay', style: 'cancel' },
                       {
-                        text: 'Leave',
-                        style: 'destructive',
+                        text: 'Close',
                         onPress: () => {
                           setCryptoPayment(null);
-                          clearCart();
-                          router.replace({
-                            pathname: '/order-success',
-                            params: {
-                              orderId: cryptoPayment.orderId,
-                              orderNumber: cryptoPayment.orderNumber,
-                              paymentMethod: 'juicyway',
-                            },
-                          });
                         },
                       },
                     ]
@@ -2161,11 +2299,12 @@ export default function CheckoutScreen() {
                   <View style={styles.cryptoPulseDot} />
                   <Text style={styles.cryptoChainText}>
                     Network:{' '}
-                    {cryptoPayment.chain === 'TRX'
-                      ? 'Tron (TRC-20)'
-                      : cryptoPayment.chain === 'ETH'
-                        ? 'Ethereum (ERC-20)'
-                        : cryptoPayment.chain}
+                    {{
+                      TRX: 'Tron (TRC-20)',
+                      ETH: 'Ethereum (ERC-20)',
+                      MATIC: 'Polygon',
+                      AVAXC: 'Avalanche C-Chain',
+                    }[cryptoPayment.chain] || cryptoPayment.chain}
                   </Text>
                 </View>
               </View>
@@ -2192,17 +2331,17 @@ export default function CheckoutScreen() {
                       {
                         backgroundColor:
                           copiedCryptoField === 'address'
-                            ? '#DEF7EC'
+                            ? palette.emerald[500] + '15'
                             : `${BRAND.primary}15`,
                       },
                     ]}
                     onPress={async () => {
-                      try {
-                        await Clipboard.setStringAsync(cryptoPayment.address);
+                      const success = await setClipboardString(
+                        cryptoPayment.address
+                      );
+                      if (success) {
                         setCopiedCryptoField('address');
                         setTimeout(() => setCopiedCryptoField(null), 2000);
-                      } catch {
-                        // Clipboard not available
                       }
                     }}
                   >
@@ -2286,7 +2425,9 @@ export default function CheckoutScreen() {
                   { backgroundColor: BRAND.primary },
                 ]}
                 onPress={() => {
-                  clearCart();
+                  // BUG-1-005 Fix: Cart already cleared after order creation
+                  // No need to clear again here
+                  const token = cryptoPayment.trackingToken;
                   setCryptoPayment(null);
                   router.replace({
                     pathname: '/order-success',
@@ -2294,6 +2435,7 @@ export default function CheckoutScreen() {
                       orderId: cryptoPayment.orderId,
                       orderNumber: cryptoPayment.orderNumber,
                       paymentMethod: 'juicyway',
+                      ...(token && { trackingToken: token }),
                     },
                   });
                 }}
@@ -2800,18 +2942,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  cryptoHeaderIcon: {
+  cryptoHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cryptoBackBtn: {
     width: 32,
     height: 32,
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  cryptoHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
   cryptoCloseBtn: {
     width: 32,

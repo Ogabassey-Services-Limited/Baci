@@ -1,11 +1,31 @@
 
 > @baci/mobile-storefront@1.0.0 lint /Users/mac/Baci-app/apps/mobile-storefront
-> expo lint
+> NODE_OPTIONS='--no-warnings --import tsx' expo lint
 
 env: load .env
-env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
 npm warn Unknown env config "shamefully-hoist". This will stop working in the next major version of npm.
 npm warn Unknown env config "npm-globalconfig". This will stop working in the next major version of npm.
 npm warn Unknown env config "verify-deps-before-run". This will stop working in the next major version of npm.
 npm warn Unknown env config "_jsr-registry". This will stop working in the next major version of npm.
 npm warn Unknown env config "node-linker". This will stop working in the next major version of npm.
+npm warn Unknown env config "store-dir". This will stop working in the next major version of npm.
+npm warn Unknown global config "store-dir". This will stop working in the next major version of npm.
+
+/Users/mac/Baci-app/apps/mobile-storefront/app/(tabs)/index.tsx
+  72:6  warning  React Hook useEffect has a missing dependency: 'requestPermission'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/mac/Baci-app/apps/mobile-storefront/app/checkout.tsx
+  707:6  warning  React Hook useEffect has a missing dependency: 'assuranceFee'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/mac/Baci-app/apps/mobile-storefront/app/order-success.tsx
+  49:6  warning  React Hook useEffect has a missing dependency: 'requestPermission'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/mac/Baci-app/apps/mobile-storefront/app/search.tsx
+  331:15  warning  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  jsx-a11y/no-autofocus
+
+/Users/mac/Baci-app/apps/mobile-storefront/components/storefront/FilterSheet.tsx
+  117:23  warning  The autoFocus prop should not be used, as it can reduce usability and accessibility for users  jsx-a11y/no-autofocus
+
+✖ 5 problems (0 errors, 5 warnings)
+

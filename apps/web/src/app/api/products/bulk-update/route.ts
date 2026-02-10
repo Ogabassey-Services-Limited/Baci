@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import type { Change } from '@/app/dashboard/products/actions';
+import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
@@ -160,6 +161,9 @@ export async function POST(request: NextRequest) {
         results.errors.push(`Failed to ${safeType} "${safeName}"`);
       }
     }
+
+    // Invalidate product caches after bulk update
+    revalidateProducts(merchant.id);
 
     return NextResponse.json({ success: true, results });
   } catch (error) {

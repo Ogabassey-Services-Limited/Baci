@@ -116,6 +116,7 @@ export async function GET(request: NextRequest) {
           secondaryText:
             placePrediction?.structuredFormat?.secondaryText?.text || '',
           fullText: placePrediction?.text?.text || '',
+          description: placePrediction?.text?.text || '',
         };
       });
 

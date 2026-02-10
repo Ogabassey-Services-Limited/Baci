@@ -1,36 +1,42 @@
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
-  Easing,
 } from 'react-native-reanimated';
-import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { OfflineNotice } from '@/components/OfflineNotice';
+import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
+import { SearchDropdown } from '@/components/storefront/SearchDropdown';
+// Footer component available but not currently rendered
+// import { Footer } from '@/components/storefront/Footer';
+import { PermissionModal } from '@/components/ui/PermissionModal';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
+import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { usePageConfig } from '@/hooks/use-products';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
-// Footer component available but not currently rendered
-// import { Footer } from '@/components/storefront/Footer';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
 
 // 2026 Best Practice: Use any type for AnimatedFlashList
 // The type system can't properly infer animated component types with FlashList generics
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AnimatedFlashList: any = Animated.createAnimatedComponent(FlashList as any);
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const AnimatedFlashList: any = Animated.createAnimatedComponent(
+  FlashList as any
+);
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -44,6 +50,36 @@ export default function HomeScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
   );
+
+  const { requestPermission, triggerSystemPrompt, markDenied } =
+    usePermissionBooster();
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+
+  useEffect(() => {
+    // Check for tracking permissions (Soft Ask) - ATT
+    // 2026 Best Practice: Ask during "personalized deal discovery" (Home screen)
+    // Wait for a moment so they see the "deals" (products) first
+    const checkPermissions = async () => {
+      setTimeout(async () => {
+        const result = await requestPermission('tracking');
+        if (result === 'soft-ask-needed') {
+          setShowPermissionModal(true);
+        }
+      }, 3000); // 3 seconds delay
+    };
+
+    checkPermissions();
+  }, []);
+
+  const handlePermissionGrant = async () => {
+    setShowPermissionModal(false);
+    await triggerSystemPrompt('tracking');
+  };
+
+  const handlePermissionDeny = () => {
+    setShowPermissionModal(false);
+    markDenied('tracking');
+  };
 
   const {
     data: pageConfig,
@@ -105,8 +141,10 @@ export default function HomeScreen() {
   // 2026 Best Practice: Network state monitoring for offline UX
   const { isOnline, onReconnect } = useNetworkState();
 
+  const [searchVisible, setSearchVisible] = useState(false);
+
   const handleSearch = useCallback(() => {
-    router.push('/search');
+    setSearchVisible(true);
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -126,8 +164,9 @@ export default function HomeScreen() {
 
   const handleCategorySelect = useCallback((id: string | null) => {
     if (id && id.startsWith('u-')) {
-      // 2026 Best Practice: Utility items bridge to Fintech services (Kuda API)
-      router.push('/wallet');
+      // 2026 Best Practice: Route to Guest Utility Flow
+      const type = id.replace('u-', '');
+      router.push(`/utilities/${type}` as never);
       return;
     }
     setSelectedCategoryId(id);
@@ -208,6 +247,7 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Stack.Screen options={{ headerShown: false, title: '' }} />
       <SnowEffect />
       <StatusBar barStyle="light-content" />
 
@@ -274,6 +314,17 @@ export default function HomeScreen() {
           />
         }
         showsVerticalScrollIndicator={false}
+      />
+      <PermissionModal
+        visible={showPermissionModal}
+        type="tracking"
+        onGrant={handlePermissionGrant}
+        onDeny={handlePermissionDeny}
+      />
+      <SearchDropdown
+        isVisible={searchVisible}
+        onClose={() => setSearchVisible(false)}
+        topOffset={headerHeight}
       />
     </View>
   );

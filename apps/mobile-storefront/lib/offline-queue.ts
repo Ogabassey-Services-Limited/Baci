@@ -74,12 +74,42 @@ class OfflineQueueManager {
   private handlers: Map<MutationType, MutationHandler> = new Map();
   private listeners: Set<(state: OfflineQueueState) => void> = new Set();
   private unsubscribeNetInfo: (() => void) | null = null;
+  // BUG-4-002 FIX: Prevent duplicate initialization with promise deduplication
+  private initPromise: Promise<void> | null = null;
+  private failedMutations: QueuedMutation[] = [];
+  private errorCallback: ((mutation: QueuedMutation) => void) | null = null;
 
   /**
    * Initialize the queue manager
    * Call this at app startup
+   * BUG-4-002 FIX: Safe to call multiple times - returns existing promise if already initializing
    */
   async initialize(): Promise<void> {
+    // Return existing promise if initialization is in progress
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    // Create new initialization promise
+    this.initPromise = this._doInitialize();
+
+    try {
+      await this.initPromise;
+    } finally {
+      // Don't clear the promise - keep it to indicate we're initialized
+    }
+  }
+
+  /**
+   * Internal initialization logic
+   */
+  private async _doInitialize(): Promise<void> {
+    // Clean up any existing listener first
+    if (this.unsubscribeNetInfo) {
+      this.unsubscribeNetInfo();
+      this.unsubscribeNetInfo = null;
+    }
+
     // Load persisted queue
     await this.loadQueue();
 
@@ -110,6 +140,28 @@ class OfflineQueueManager {
   destroy(): void {
     this.unsubscribeNetInfo?.();
     this.listeners.clear();
+    this.initPromise = null;
+  }
+
+  /**
+   * BUG-4-008 FIX: Set callback for failed mutations after max retries
+   */
+  setErrorCallback(callback: (mutation: QueuedMutation) => void): void {
+    this.errorCallback = callback;
+  }
+
+  /**
+   * BUG-4-008 FIX: Get all failed mutations
+   */
+  getFailedMutations(): QueuedMutation[] {
+    return [...this.failedMutations];
+  }
+
+  /**
+   * BUG-4-008 FIX: Clear failed mutations (after user reviews them)
+   */
+  clearFailedMutations(): void {
+    this.failedMutations = [];
   }
 
   /**
@@ -225,9 +277,20 @@ class OfflineQueueManager {
 
         log.error(`Failed to process ${mutation.id}:`, error);
 
-        // Remove if max retries exceeded (5 attempts)
+        // BUG-4-008 FIX: Store failed mutations and notify callback instead of silently removing
         if (mutation.retryCount >= 5) {
-          log.warn(`Max retries exceeded for ${mutation.id}, removing`);
+          log.warn(
+            `Max retries exceeded for ${mutation.id}, moving to failed list`
+          );
+
+          // Store in failed mutations for UI review
+          this.failedMutations.push({ ...mutation });
+
+          // Notify error callback if registered
+          if (this.errorCallback) {
+            this.errorCallback({ ...mutation });
+          }
+
           await this.remove(mutation.id);
         } else {
           await this.persistQueue();

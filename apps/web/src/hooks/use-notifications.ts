@@ -212,7 +212,11 @@ export function useNotifications(): UseNotificationsReturn {
           }
         }
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) {
+          console.warn('Notification subscription error:', err.message);
+        }
+      });
 
     channelRef.current = channel;
 

@@ -12,9 +12,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image, type ImageProps } from 'expo-image';
-import { useState, useCallback } from 'react';
-import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-
+import { useCallback, useState } from 'react';
+import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 // Default blurhash for smooth loading placeholder
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
@@ -107,7 +106,10 @@ export function SafeImage({
   // If error and showFallbackIcon, render placeholder view
   if (hasError && showFallbackIcon) {
     return (
-      <View style={[styles.fallbackContainer, style, fallbackStyle]}>
+      <View
+        style={[styles.fallbackContainer, style, fallbackStyle]}
+        accessibilityLabel="Image unavailable"
+      >
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}

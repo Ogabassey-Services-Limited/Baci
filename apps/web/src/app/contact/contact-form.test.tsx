@@ -142,7 +142,7 @@ describe('PlatformContactForm', () => {
   });
 
   it('disables submit button while submitting', async () => {
-    let resolvePromise: (value: Response) => void;
+    let resolvePromise: ((value: Response) => void) | undefined;
     global.fetch = vi.fn().mockImplementation(
       () =>
         new Promise<Response>((resolve) => {
@@ -172,7 +172,7 @@ describe('PlatformContactForm', () => {
     });
 
     // Resolve the fetch to clean up
-    resolvePromise!(
+    resolvePromise?.(
       new Response(JSON.stringify({ success: true }), { status: 200 })
     );
 

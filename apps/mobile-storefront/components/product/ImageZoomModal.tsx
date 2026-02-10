@@ -306,6 +306,7 @@ export function ImageZoomModal({
             hitSlop={12}
             accessibilityLabel="Close image viewer"
             accessibilityRole="button"
+            accessibilityHint="Double tap to close the full screen image viewer"
           >
             <Ionicons name="close" size={28} color="#FFF" />
           </Pressable>
@@ -347,7 +348,7 @@ export function ImageZoomModal({
                 <Pressable
                   onPress={goToPrevious}
                   style={styles.navButtonInner}
-                  hitSlop={12}
+                  hitSlop={16}
                   accessibilityLabel="Previous image"
                   accessibilityRole="button"
                 >
@@ -363,7 +364,7 @@ export function ImageZoomModal({
                 <Pressable
                   onPress={goToNext}
                   style={styles.navButtonInner}
-                  hitSlop={12}
+                  hitSlop={16}
                   accessibilityLabel="Next image"
                   accessibilityRole="button"
                 >

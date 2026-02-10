@@ -12,6 +12,7 @@ import {
 import { logger } from '@/lib/logger';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
+import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
@@ -266,6 +267,15 @@ export async function POST(
         } catch {
           // Errors are already logged inside triggerPurchaseConversion
           // This catch prevents unhandled rejections in the background task
+        }
+      });
+
+      // Auto-purchase MyCover shipping insurance for orders with assurance
+      after(async () => {
+        try {
+          await purchaseInsuranceForPaidOrder(supabase, id, merchant.id);
+        } catch {
+          // Errors logged inside purchaseInsuranceForPaidOrder
         }
       });
     } else {

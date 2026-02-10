@@ -20,6 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.store',
+    scheme: 'ogabassey', // Ensure scheme is explicitly set for iOS
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
@@ -27,16 +28,34 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     googleServicesFile: './GoogleService-Info.plist',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSUserTrackingUsageDescription:
+        'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
+      CFBundleURLTypes: [
+        {
+          CFBundleURLSchemes: ['ogabassey'],
+        },
+      ],
     },
   },
   android: {
     package: 'com.ogabassey.store',
+    scheme: 'ogabassey', // Ensure scheme is explicitly set for Android
     googleServicesFile: './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#000000',
     },
     intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          {
+            scheme: 'ogabassey',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
       {
         action: 'VIEW',
         autoVerify: true,
@@ -86,6 +105,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     'expo-localization',
+    'expo-apple-authentication',
   ],
   web: {
     bundler: 'metro',

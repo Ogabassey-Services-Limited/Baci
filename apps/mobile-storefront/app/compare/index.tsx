@@ -12,8 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { useComparisonStore } from '@/stores/comparison-store';
 import { useCartStore } from '@/stores/cart-store';
+import { useComparisonStore } from '@/stores/comparison-store';
 import { formatPrice } from '@/types/product';
 
 export default function CompareScreen() {
@@ -142,7 +142,11 @@ export default function CompareScreen() {
                   onPress={() => router.push(`/product/${product.slug}`)}
                 >
                   <Image
-                    source={{ uri: product.image }}
+                    source={{
+                      uri:
+                        product.image ||
+                        'https://placehold.co/400x400/1a1a1a/ffffff?text=P',
+                    }}
                     style={styles.productImage}
                     contentFit="cover"
                     placeholder={{ blurhash: BLURHASH_VARIANTS.default }}

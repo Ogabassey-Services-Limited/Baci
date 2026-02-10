@@ -149,6 +149,9 @@ export function ConditionSelector({
                   borderColor: isSelected ? config.color : colors.border,
                 },
               ]}
+              accessibilityRole="radio"
+              accessibilityLabel={`${config.label}${item.grade ? `, Grade ${item.grade}` : ''}${item.price ? `, ${formatPrice(item.price)}` : ''}`}
+              accessibilityState={{ checked: isSelected }}
             >
               <View style={styles.optionHeader}>
                 <View
@@ -158,7 +161,11 @@ export function ConditionSelector({
                   ]}
                 >
                   <Ionicons
-                    name={config.icon as React.ComponentProps<typeof Ionicons>['name']}
+                    name={
+                      config.icon as React.ComponentProps<
+                        typeof Ionicons
+                      >['name']
+                    }
                     size={16}
                     color={config.color}
                   />

@@ -15,12 +15,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   type TextInputProps,
-  TouchableOpacity,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -69,6 +69,10 @@ function generateSessionToken(): string {
   });
 }
 
+// Simple in-memory cache for address predictions
+// BUG-5-009: Improve network resilience and performance
+const predictionCache = new Map<string, PlacePrediction[]>();
+
 export function AddressAutocomplete({
   value = '',
   onChangeText,
@@ -102,6 +106,12 @@ export function AddressAutocomplete({
         return;
       }
 
+      // Check cache first
+      if (predictionCache.has(input)) {
+        setPredictions(predictionCache.get(input)!);
+        return;
+      }
+
       setIsLoading(true);
       try {
         const params = new URLSearchParams({
@@ -115,13 +125,23 @@ export function AddressAutocomplete({
         );
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[Autocomplete] HTTP ${response.status}: ${errorText}`);
+          if (response.status === 403) {
+            throw new Error(
+              'Google Places API requires billing to be enabled.'
+            );
+          }
           throw new Error('Failed to fetch predictions');
         }
 
         const data = await response.json();
-        setPredictions(data.predictions || []);
+        const results = data.predictions || [];
+        setPredictions(results);
+        predictionCache.set(input, results);
       } catch (error) {
         console.error('Error fetching predictions:', error);
+        // Show specific error messages to the user via the console or UI
         setPredictions([]);
       } finally {
         setIsLoading(false);
@@ -167,6 +187,8 @@ export function AddressAutocomplete({
         );
 
         if (!response.ok) {
+          const errorText = await response.text();
+          console.warn(`[PlaceDetails] HTTP ${response.status}: ${errorText}`);
           throw new Error('Failed to fetch place details');
         }
 
@@ -227,6 +249,11 @@ export function AddressAutocomplete({
           placeholderTextColor={palette.gray[400]}
           autoComplete="street-address"
           textContentType="fullStreetAddress"
+          accessibilityLabel="Street address"
+          accessibilityHint="Start typing to see address suggestions"
+          // BUG-5-021: Improved accessibility for screen readers
+          accessibilityRole="combobox"
+          accessibilityState={{ expanded: isOpen }}
           {...props}
         />
 
@@ -237,9 +264,14 @@ export function AddressAutocomplete({
             style={styles.loader}
           />
         ) : internalValue ? (
-          <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
+          <Pressable
+            onPress={handleClear}
+            style={styles.clearButton}
+            accessibilityLabel="Clear address"
+            accessibilityRole="button"
+          >
             <Ionicons name="close-circle" size={18} color={palette.gray[400]} />
-          </TouchableOpacity>
+          </Pressable>
         ) : null}
       </View>
 
@@ -248,17 +280,26 @@ export function AddressAutocomplete({
 
       {/* Predictions Dropdown */}
       {isOpen && predictions.length > 0 && (
-        <View style={styles.dropdown}>
+        <View
+          style={styles.dropdown}
+          accessibilityRole="list"
+          accessibilityLabel="Address suggestions"
+        >
           <ScrollView
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
             showsVerticalScrollIndicator={false}
           >
             {predictions.map((item) => (
-              <TouchableOpacity
+              <Pressable
                 key={item.placeId}
-                style={styles.predictionRow}
+                style={({ pressed }: { pressed: boolean }) => [
+                  styles.predictionRow,
+                  pressed && { backgroundColor: palette.gray[100] },
+                ]}
                 onPress={() => handlePredictionSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
               >
                 <View style={styles.predictionIcon}>
                   <Ionicons
@@ -275,7 +316,7 @@ export function AddressAutocomplete({
                     {item.secondaryText}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Powered by </Text>

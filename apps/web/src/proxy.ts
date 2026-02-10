@@ -13,6 +13,7 @@
  * See: https://nextjs.org/docs/app/building-your-application/routing/middleware
  */
 
+import { trace } from '@opentelemetry/api';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   CLICK_ID_PARAMS,
@@ -320,13 +321,46 @@ export async function proxy(request: NextRequest) {
   // ==== RATE LIMITING (API Routes) ====
   // Protect API endpoints from abuse
   if (pathname.startsWith('/api')) {
-    const rateLimitResult = checkRateLimit(request);
+    const rateLimitResult = await checkRateLimit(request);
     if (!rateLimitResult.allowed) {
       return createRateLimitResponse(
         rateLimitResult.limit,
         rateLimitResult.remaining,
         rateLimitResult.resetTime
       );
+    }
+
+    // ==== INPUT VALIDATION (Mutation Requests) ====
+    // Enforce Content-Type and body size limits at the edge
+    const method = request.method;
+    if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+      // Reject oversized payloads (2MB limit, matches serverActions.bodySizeLimit)
+      const contentLength = request.headers.get('content-length');
+      if (
+        contentLength &&
+        Number.parseInt(contentLength, 10) > 2 * 1024 * 1024
+      ) {
+        return NextResponse.json(
+          { error: 'Payload too large', maxSize: '2MB' },
+          { status: 413 }
+        );
+      }
+
+      // Enforce valid Content-Type for API mutations
+      // Allow: JSON, form-data (file uploads), URL-encoded forms
+      // Skip check if Content-Type is missing (some clients omit it)
+      const contentType = request.headers.get('content-type') || '';
+      if (
+        contentType &&
+        !contentType.includes('application/json') &&
+        !contentType.includes('multipart/form-data') &&
+        !contentType.includes('application/x-www-form-urlencoded')
+      ) {
+        return NextResponse.json(
+          { error: 'Unsupported Content-Type' },
+          { status: 415 }
+        );
+      }
     }
   }
 
@@ -601,9 +635,25 @@ export async function proxy(request: NextRequest) {
         request, // Pass request for click ID capture on storefront
         hostname
       );
-    } else {
-      // Invalid/suspicious hostname - reject
-      return new NextResponse('Bad Request', { status: 400 });
+    }
+  }
+
+  // ==== OPENTELEMETRY: MERCHANT CONTEXT ====
+  // Inject merchant slug/domain into the active trace span for multi-tenant observability.
+  // This enables per-merchant filtering in the Vercel Observability dashboard.
+  const activeSpan = trace.getActiveSpan();
+  if (activeSpan) {
+    if (subdomain) activeSpan.setAttribute('merchant.slug', subdomain);
+
+    // Capture custom domain if available (normalized domain from the logic below)
+    const domain = normalizeHostname(hostname).replace(/^www\./, '');
+    if (
+      domain &&
+      domain !== ROOT_DOMAIN &&
+      !isLocalhost(hostname) &&
+      !isVercelPreview(hostname)
+    ) {
+      activeSpan.setAttribute('merchant.domain', domain);
     }
   }
 

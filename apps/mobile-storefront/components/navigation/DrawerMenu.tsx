@@ -42,10 +42,16 @@ interface MenuItem {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   path: string;
+  authRequired?: boolean;
 }
 
 const menuItems: MenuItem[] = [
-  { label: 'Profile', icon: 'person-outline', path: '/(tabs)/account' },
+  {
+    label: 'My Account',
+    icon: 'person-outline',
+    path: '/profile',
+    authRequired: true,
+  },
   { label: 'Orders', icon: 'bag-outline', path: '/orders' },
   { label: 'Saved Items', icon: 'heart-outline', path: '/saved' },
   { label: 'IMEI Checker', icon: 'scan-outline', path: '/imei-check' },
@@ -194,35 +200,37 @@ export function DrawerMenu() {
             {/* Section Header */}
             <Text style={styles.sectionHeader}>ACCOUNT</Text>
 
-            {/* Menu Items */}
-            {menuItems.map((item) => {
-              const active = isActive(item.path);
-              return (
-                <Pressable
-                  key={item.path}
-                  style={[styles.menuItem, active && styles.menuItemActive]}
-                  onPress={() => handleNavigate(item.path)}
-                  accessibilityLabel={item.label}
-                  accessibilityRole="menuitem"
-                >
-                  <View style={styles.menuItemContent}>
-                    <Ionicons
-                      name={item.icon}
-                      size={18}
-                      color={active ? BRAND.primary : '#9CA3AF'}
-                    />
-                    <Text
-                      style={[
-                        styles.menuItemLabel,
-                        active && styles.menuItemLabelActive,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
+            {/* Menu Items — hide auth-required items for guests */}
+            {menuItems
+              .filter((item) => !item.authRequired || isAuthenticated)
+              .map((item) => {
+                const active = isActive(item.path);
+                return (
+                  <Pressable
+                    key={item.path}
+                    style={[styles.menuItem, active && styles.menuItemActive]}
+                    onPress={() => handleNavigate(item.path)}
+                    accessibilityLabel={item.label}
+                    accessibilityRole="menuitem"
+                  >
+                    <View style={styles.menuItemContent}>
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={active ? BRAND.primary : '#9CA3AF'}
+                      />
+                      <Text
+                        style={[
+                          styles.menuItemLabel,
+                          active && styles.menuItemLabelActive,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
           </ScrollView>
 
           {/* Footer */}

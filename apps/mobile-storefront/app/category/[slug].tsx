@@ -26,8 +26,13 @@ export default function CategoryScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // BUG-2-004 FIX: Validate slug is non-empty before use
+  const isValidSlug = Boolean(
+    slug && typeof slug === 'string' && slug.length > 0
+  );
+
   const { products, isLoading, error, hasMore, refetch, loadMore } =
-    useProducts({ category: slug, limit: 20 });
+    useProducts({ category: isValidSlug ? slug : undefined, limit: 20 });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -48,6 +53,11 @@ export default function CategoryScreen() {
   };
 
   const getCategoryTitle = (slug: string): string => {
+    // BUG-2-005 FIX: Add basic sanitization and fallback to "Category"
+    if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
+      return 'Category';
+    }
+
     const titles: Record<string, string> = {
       all: 'All Products',
       iphones: 'iPhones',
@@ -57,9 +67,15 @@ export default function CategoryScreen() {
       tablets: 'Tablets',
       smartwatches: 'Smart Watches',
     };
+
+    // Basic sanitization: remove special chars except hyphens
+    const sanitized = slug.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+
     return (
-      titles[slug] ||
-      slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ')
+      titles[sanitized] ||
+      sanitized.charAt(0).toUpperCase() +
+        sanitized.slice(1).replace(/-/g, ' ') ||
+      'Category'
     );
   };
 
@@ -84,6 +100,26 @@ export default function CategoryScreen() {
   };
 
   const renderEmpty = () => {
+    // BUG-2-004 FIX: Show error for invalid slug
+    if (!isValidSlug) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Invalid Category
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            This category link is not valid. Please try browsing from the home
+            page.
+          </Text>
+        </View>
+      );
+    }
+
     if (isLoading) {
       return (
         <View style={styles.emptyContainer}>

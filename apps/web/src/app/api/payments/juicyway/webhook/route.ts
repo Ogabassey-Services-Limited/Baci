@@ -17,6 +17,7 @@ import {
 } from '@/lib/offline-conversions';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 // Juicyway webhook IP whitelist (from docs)
 const JUICYWAY_IPS = [
@@ -391,6 +392,19 @@ export async function POST(request: NextRequest) {
             error: conversionError,
           });
         }
+
+        // Auto-purchase MyCover shipping insurance for orders with assurance
+        purchaseInsuranceForPaidOrder(
+          supabase,
+          transaction.order_id,
+          transaction.merchant_id
+        ).catch((err) => {
+          logger.error({
+            message: 'Failed to auto-purchase insurance (Juicyway)',
+            orderId: transaction.order_id,
+            error: err,
+          });
+        });
       }
     }
 

@@ -20,13 +20,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GoogleLogo } from '@/components/icons/GoogleLogo';
+import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useKeyboard, TextContentTypes } from '@/hooks/use-keyboard';
+import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
 
-type AuthStep = 'email' | 'otp';
+type AuthStep = 'email' | 'otp' | 'password';
+type AuthMethod = 'otp' | 'password';
 
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
@@ -37,12 +40,21 @@ export default function LoginScreen() {
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const isLoading = useAuthStore((state) => state.isLoading);
 
+  const signInWithPassword = useAuthStore((state) => state.signInWithPassword);
+  const signInWithApple = useAuthStore((state) => state.signInWithApple);
+
   const [step, setStep] = useState<AuthStep>('email');
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
   const { withKeyboardDismiss } = useKeyboard();
@@ -51,7 +63,8 @@ export default function LoginScreen() {
   const otpInputRef = useRef<TextInput>(null);
 
   // 2026 Best Practice: Dismiss keyboard on submit
-  const handleSendOtp = withKeyboardDismiss(async () => {
+  // 2026 Best Practice: Dismiss keyboard on submit
+  const handleContinue = withKeyboardDismiss(async () => {
     // Validate email with Zod
     const emailResult = EmailSchema.safeParse(email.trim());
     const error = getFirstError(emailResult);
@@ -62,36 +75,39 @@ export default function LoginScreen() {
     }
 
     setEmailError(null);
-    const result = await signInWithOtp(email.toLowerCase().trim());
 
-    if (result.success) {
-      setStep('otp');
-      // Focus OTP input after transition
-      setTimeout(() => otpInputRef.current?.focus(), 300);
+    if (authMethod === 'otp') {
+      const result = await signInWithOtp(email.toLowerCase().trim());
+      if (result.success) {
+        setStep('otp');
+        setTimeout(() => otpInputRef.current?.focus(), 300);
+      } else {
+        Alert.alert(
+          'Error',
+          result.error || 'Failed to send verification code'
+        );
+      }
     } else {
-      Alert.alert('Error', result.error || 'Failed to send verification code');
+      setStep('password');
     }
   });
 
   // 2026 Best Practice: Dismiss keyboard on submit
-  const handleVerifyOtp = withKeyboardDismiss(async () => {
-    // Validate OTP with Zod
-    const otpResult = OtpSchema.safeParse(otp.trim());
-    const error = getFirstError(otpResult);
-
-    if (error) {
-      setOtpError(error);
+  const handlePasswordSignIn = withKeyboardDismiss(async () => {
+    if (!password) {
+      setPasswordError('Password is required');
       return;
     }
 
-    setOtpError(null);
-    const result = await verifyOtp(email.toLowerCase().trim(), otp.trim());
+    const result = await signInWithPassword(
+      email.toLowerCase().trim(),
+      password
+    );
 
     if (result.success) {
-      // Navigate to home on success
       router.replace('/');
     } else {
-      Alert.alert('Error', result.error || 'Invalid verification code');
+      Alert.alert('Error', result.error || 'Failed to sign in');
     }
   });
 
@@ -123,15 +139,27 @@ export default function LoginScreen() {
 
   // 2026 Critical Fix: Handle Android hardware back button
   useEffect(() => {
+    const checkAppleAvailability = async () => {
+      try {
+        const appleAuth = await import('expo-apple-authentication');
+        const available = await appleAuth.isAvailableAsync();
+        setIsAppleAvailable(available);
+      } catch (_e) {
+        setIsAppleAvailable(false);
+      }
+    };
+    checkAppleAvailability();
+
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        if (step === 'otp') {
+        if (step === 'otp' || step === 'password') {
           setStep('email');
           setOtp('');
-          return true; // Prevent default back behavior
+          setPassword('');
+          return true;
         }
-        return false; // Let default back behavior happen
+        return false;
       }
     );
 
@@ -143,21 +171,35 @@ export default function LoginScreen() {
     setIsGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
-
       if (result.success) {
-        // Navigate to home on success
         router.replace('/');
       } else if (result.error !== 'Sign in was cancelled') {
-        // Only show error if user didn't cancel
         Alert.alert('Error', result.error || 'Failed to sign in with Google');
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert(
         'Error',
-        error instanceof Error ? error.message : 'Failed to sign in with Google'
+        'An unexpected error occurred during Google sign-in'
       );
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  // 2026 Best Practice: Handle Apple sign-in
+  const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
+    try {
+      const result = await signInWithApple();
+      if (result.success) {
+        router.replace('/');
+      } else if (result.error !== 'Sign in was cancelled') {
+        Alert.alert('Error', result.error || 'Failed to sign in with Apple');
+      }
+    } catch (_error) {
+      Alert.alert('Error', 'An unexpected error occurred during Apple sign-in');
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -203,7 +245,7 @@ export default function LoginScreen() {
             textContentType={TextContentTypes.emailAddress}
             autoComplete="email"
             returnKeyType="go"
-            onSubmitEditing={handleSendOtp}
+            onSubmitEditing={handleContinue}
             blurOnSubmit={false}
           />
         </View>
@@ -216,14 +258,29 @@ export default function LoginScreen() {
           { backgroundColor: BRAND.primary },
           isLoading && styles.buttonDisabled,
         ]}
-        onPress={handleSendOtp}
+        onPress={handleContinue}
         disabled={isLoading}
       >
         {isLoading ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Text style={styles.primaryButtonText}>
+            {authMethod === 'otp'
+              ? 'Continue with Code'
+              : 'Continue with Password'}
+          </Text>
         )}
+      </Pressable>
+
+      <Pressable
+        onPress={() => setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')}
+        style={styles.methodToggle}
+      >
+        <Text style={[styles.methodToggleText, { color: BRAND.primary }]}>
+          {authMethod === 'otp'
+            ? 'Use password instead'
+            : 'Use verification code instead'}
+        </Text>
       </Pressable>
 
       <View style={styles.divider}>
@@ -238,26 +295,49 @@ export default function LoginScreen() {
         />
       </View>
 
-      <Pressable
-        style={[
-          styles.socialButton,
-          { borderColor: colors.border },
-          (isLoading || isGoogleLoading) && styles.buttonDisabled,
-        ]}
-        onPress={handleGoogleSignIn}
-        disabled={isLoading || isGoogleLoading}
-      >
-        {isGoogleLoading ? (
-          <ActivityIndicator size="small" color={colors.text} />
-        ) : (
-          <>
-            <Ionicons name="logo-google" size={20} color={colors.text} />
-            <Text style={[styles.socialButtonText, { color: colors.text }]}>
-              Continue with Google
-            </Text>
-          </>
-        )}
-      </Pressable>
+      <View style={styles.socialContainer}>
+        <Pressable
+          style={[
+            styles.socialButton,
+            { borderColor: colors.border, flex: 1 },
+            (isLoading || isGoogleLoading) && styles.buttonDisabled,
+          ]}
+          onPress={handleGoogleSignIn}
+          disabled={isLoading || isGoogleLoading}
+        >
+          {isGoogleLoading ? (
+            <ActivityIndicator size="small" color={colors.text} />
+          ) : (
+            <>
+              <GoogleLogo size={20} />
+              <Text style={[styles.socialButtonText, { color: colors.text }]}>
+                Google
+              </Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.socialButton,
+            { borderColor: colors.border, flex: 1 },
+            (isLoading || isAppleLoading) && styles.buttonDisabled,
+          ]}
+          onPress={handleAppleSignIn}
+          disabled={isLoading || isAppleLoading}
+        >
+          {isAppleLoading ? (
+            <ActivityIndicator size="small" color={colors.text} />
+          ) : (
+            <>
+              <Ionicons name="logo-apple" size={22} color={colors.text} />
+              <Text style={[styles.socialButtonText, { color: colors.text }]}>
+                Apple
+              </Text>
+            </>
+          )}
+        </Pressable>
+      </View>
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
         By continuing, you agree to our{' '}
@@ -311,17 +391,26 @@ export default function LoginScreen() {
               if (otpError) setOtpError(null);
               // Auto-submit when 6 digits entered
               if (text.length === 6) {
-                handleVerifyOtp();
+                // handleVerifyOtp is now part of the verify logic
+                (async () => {
+                  const otpResult = OtpSchema.safeParse(text.trim());
+                  if (otpResult.success) {
+                    const result = await verifyOtp(
+                      email.toLowerCase().trim(),
+                      text.trim()
+                    );
+                    if (result.success) router.replace('/');
+                    else Alert.alert('Error', result.error || 'Invalid code');
+                  }
+                })();
               }
             }}
             keyboardType="number-pad"
             maxLength={6}
             editable={!isLoading}
-            // 2026 Best Practice: textContentType for iOS OTP autofill
             textContentType={TextContentTypes.oneTimeCode}
             autoComplete="one-time-code"
             returnKeyType="done"
-            onSubmitEditing={handleVerifyOtp}
           />
         </View>
         {otpError && <Text style={styles.errorText}>{otpError}</Text>}
@@ -333,7 +422,21 @@ export default function LoginScreen() {
           { backgroundColor: BRAND.primary },
           isLoading && styles.buttonDisabled,
         ]}
-        onPress={handleVerifyOtp}
+        onPress={async () => {
+          const otpResult = OtpSchema.safeParse(otp.trim());
+          const error = getFirstError(otpResult);
+          if (error) {
+            setOtpError(error);
+            return;
+          }
+          setOtpError(null);
+          const result = await verifyOtp(
+            email.toLowerCase().trim(),
+            otp.trim()
+          );
+          if (result.success) router.replace('/');
+          else Alert.alert('Error', result.error || 'Invalid code');
+        }}
         disabled={isLoading}
       >
         {isLoading ? (
@@ -353,6 +456,91 @@ export default function LoginScreen() {
           </Text>
         </Pressable>
       </View>
+    </>
+  );
+
+  const renderPasswordStep = () => (
+    <>
+      <Text style={[styles.title, { color: colors.text }]}>Enter Password</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Sign in with your password for {email}
+      </Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          Password
+        </Text>
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              backgroundColor: colors.card,
+              borderColor: passwordError ? '#EF4444' : colors.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="lock-closed-outline"
+            size={20}
+            color={passwordError ? '#EF4444' : colors.textSecondary}
+          />
+          <TextInput
+            style={[styles.input, { color: colors.text }]}
+            placeholder="••••••••"
+            placeholderTextColor={colors.textSecondary}
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (passwordError) setPasswordError(null);
+            }}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+            textContentType={TextContentTypes.password}
+            autoComplete="password"
+            returnKeyType="done"
+            onSubmitEditing={handlePasswordSignIn}
+          />
+          <Pressable onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={colors.textSecondary}
+            />
+          </Pressable>
+        </View>
+        {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+      </View>
+
+      <Pressable
+        style={[
+          styles.primaryButton,
+          { backgroundColor: BRAND.primary },
+          isLoading && styles.buttonDisabled,
+        ]}
+        onPress={handlePasswordSignIn}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.primaryButtonText}>Sign In</Text>
+        )}
+      </Pressable>
+
+      <Pressable
+        onPress={() => {
+          setAuthMethod('otp');
+          setStep('email');
+          handleContinue();
+        }}
+        style={styles.methodToggle}
+      >
+        <Text style={[styles.methodToggleText, { color: BRAND.primary }]}>
+          Sign in with verification code instead
+        </Text>
+      </Pressable>
     </>
   );
 
@@ -380,14 +568,19 @@ export default function LoginScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
           >
-            {/* Logo */}
             <View style={styles.logoContainer}>
-              <Text style={[styles.logoText, { color: BRAND.primary }]}>
-                Ogabassey
-              </Text>
+              <Logo
+                color={colorScheme === 'dark' ? 'white' : 'black'}
+                width={180}
+                height={32}
+              />
             </View>
 
-            {step === 'email' ? renderEmailStep() : renderOtpStep()}
+            {step === 'email'
+              ? renderEmailStep()
+              : step === 'otp'
+                ? renderOtpStep()
+                : renderPasswordStep()}
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -494,6 +687,20 @@ const styles = StyleSheet.create({
   },
   socialButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  methodToggle: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingVertical: 8,
+  },
+  methodToggleText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   termsText: {
