@@ -1,10 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Import handlers. We need to use require or dynamic import if we want to spy on them?
-// No, we test the handlers directly.
-import { GET as searchGET } from './route';
 import { GET as autocompleteGET } from './autocomplete/route';
+import { GET as searchGET } from './route';
 
 // Mock env
 vi.mock('@/env', () => ({
@@ -30,6 +27,7 @@ const sharedChainableMock: any = {
   }),
   maybeSingle: vi.fn().mockResolvedValue({ data: null }),
   insert: vi.fn().mockResolvedValue({ error: null }),
+  // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock
   then: (resolve: any) => Promise.resolve().then(resolve),
   update: vi.fn().mockReturnThis(),
   delete: vi.fn().mockReturnThis(),
@@ -63,7 +61,6 @@ vi.mock('next/headers', () => ({
 describe('Search API Security', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset shared mock implementation if needed, but simple clearAllMocks should clear calls.
   });
 
   describe('GET /api/search', () => {
@@ -139,16 +136,16 @@ describe('Search API Security', () => {
     });
 
     it('should validate merchant_id UUID', async () => {
-        const invalidMerchantId = 'not-a-uuid';
-        const request = new NextRequest(
-            `http://localhost:3000/api/search/autocomplete?q=test&merchant_id=${invalidMerchantId}`
-        );
+      const invalidMerchantId = 'not-a-uuid';
+      const request = new NextRequest(
+        `http://localhost:3000/api/search/autocomplete?q=test&merchant_id=${invalidMerchantId}`
+      );
 
-        const response = await autocompleteGET(request);
+      const response = await autocompleteGET(request);
 
-        expect(response.status).toBe(400);
-        const data = await response.json();
-        expect(data.error).toMatch(/Invalid merchant_id/);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toMatch(/Invalid merchant_id/);
     });
   });
 });
