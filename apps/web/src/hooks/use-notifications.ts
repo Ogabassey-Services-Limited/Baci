@@ -212,7 +212,7 @@ export function useNotifications(): UseNotificationsReturn {
           }
         }
       })
-      .subscribe((status, err) => {
+      .subscribe((_status, err) => {
         if (err) {
           console.warn('Notification subscription error:', err.message);
         }

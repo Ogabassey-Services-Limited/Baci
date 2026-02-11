@@ -29,7 +29,7 @@ const HTML_ESCAPE_MAP: Record<string, string> = {
 const LIKE_ESCAPE_MAP: Record<string, string> = {
   '\\': '\\\\',
   '%': '\\%',
-  '_': '\\_',
+  _: '\\_',
 };
 
 /**

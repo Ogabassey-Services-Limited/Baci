@@ -4,7 +4,9 @@ import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET') || '';
+// biome-ignore lint/style/noNonNullAssertion: Required environment variables
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+// biome-ignore lint/style/noNonNullAssertion: Required environment variables
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const BACI_LOGO_URL =
