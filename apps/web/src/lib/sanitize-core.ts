@@ -4,6 +4,34 @@
 
 import z from 'zod';
 
+// Pre-compiled Regexes for Performance
+const HTML_TAG_REGEX = /<[^>]{0,1000}>/g;
+const NULL_BYTE_REGEX = /\0/g;
+const PHONE_SANITIZATION_REGEX = /[^\d+\-\s()]/g;
+const SEARCH_QUERY_SANITIZATION_REGEX = /[<>'"`;\\,()|]/g;
+const LOG_CONTROL_CHARS_REGEX = /[\r\n\t]/g;
+const LOG_NON_PRINTABLE_REGEX = /[^\x20-\x7E]/g;
+const LIKE_ESCAPE_REGEX = /[\\%_]/g;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const FILENAME_TRAVERSAL_REGEX = /\.\./g;
+const FILENAME_SANITIZATION_REGEX = /[^a-zA-Z0-9._-]/g;
+const HTML_ESCAPE_REGEX = /[&<>"']/g;
+
+const HTML_ESCAPE_MAP: Record<string, string> = {
+  '&': '\\u0026',
+  '<': '\\u003c',
+  '>': '\\u003e',
+  '"': '\\u0022',
+  "'": '\\u0027',
+};
+
+const LIKE_ESCAPE_MAP: Record<string, string> = {
+  '\\': '\\\\',
+  '%': '\\%',
+  '_': '\\_',
+};
+
 /**
  * Strips HTML tags from a string by iteratively applying the regex until no more matches.
  * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
@@ -16,8 +44,6 @@ export function stripHtmlTags(text: string | null | undefined): string {
   const maxLength = 100000;
   const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
 
-  // Use non-greedy match with length limit per tag to prevent catastrophic backtracking
-  const htmlTagRegex = /<[^>]{0,1000}>/g;
   let result = truncated;
   let previous: string;
   let iterations = 0;
@@ -27,7 +53,7 @@ export function stripHtmlTags(text: string | null | undefined): string {
   // This handles cases like <scr<script>ipt> which become <script> after one pass
   do {
     previous = result;
-    result = result.replace(htmlTagRegex, '');
+    result = result.replace(HTML_TAG_REGEX, '');
     iterations++;
   } while (result !== previous && iterations < maxIterations);
 
@@ -41,7 +67,7 @@ export function sanitizeText(text: string, maxLength: number = 10000): string {
   if (!text) return '';
 
   // Remove null bytes
-  let sanitized = text.replace(/\0/g, '');
+  let sanitized = text.replace(NULL_BYTE_REGEX, '');
 
   // Remove HTML tags (iteratively to handle nested patterns)
   sanitized = stripHtmlTags(sanitized);
@@ -68,7 +94,7 @@ export function sanitizeEmail(email: string): string {
  * Sanitize phone number (remove non-numeric characters except +)
  */
 export function sanitizePhone(phone: string): string {
-  return phone.replace(/[^\d+\-\s()]/g, '').trim();
+  return phone.replace(PHONE_SANITIZATION_REGEX, '').trim();
 }
 
 /**
@@ -94,12 +120,7 @@ export function sanitizeUrl(url: string): string {
  */
 export function escapeHtml(str: string): string {
   if (!str) return '';
-  return str
-    .replace(/&/g, '\\u0026')
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/"/g, '\\u0022')
-    .replace(/'/g, '\\u0027');
+  return str.replace(HTML_ESCAPE_REGEX, (match) => HTML_ESCAPE_MAP[match]);
 }
 
 /**
@@ -304,7 +325,7 @@ export const orderSchema = z.object({
 export function sanitizeSearchQuery(query: string): string {
   // Remove special characters that could be used for injection
   // Includes PostgREST control characters (,)()|  to prevent filter injection
-  let sanitized = query.replace(/[<>'"`;\\,()|]/g, '');
+  let sanitized = query.replace(SEARCH_QUERY_SANITIZATION_REGEX, '');
 
   // Trim and limit length
   sanitized = sanitized.trim().substring(0, 200);
@@ -332,7 +353,9 @@ export function sanitizeForLog(value: unknown, maxLength = 1000): string {
       typeof value === 'boolean'
     ) {
       const str = String(value).slice(0, maxLength);
-      return str.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+      return str
+        .replace(LOG_CONTROL_CHARS_REGEX, ' ')
+        .replace(LOG_NON_PRINTABLE_REGEX, '');
     }
 
     // For complex types, use JSON.stringify but wrap in try-catch for BigInt/Circular
@@ -341,13 +364,15 @@ export function sanitizeForLog(value: unknown, maxLength = 1000): string {
       0,
       maxLength
     );
-    return result.replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '');
+    return result
+      .replace(LOG_CONTROL_CHARS_REGEX, ' ')
+      .replace(LOG_NON_PRINTABLE_REGEX, '');
   } catch {
     // Ultimate fallback
     return String(value ?? '')
       .slice(0, maxLength)
-      .replace(/[\r\n\t]/g, ' ')
-      .replace(/[^\x20-\x7E]/g, '');
+      .replace(LOG_CONTROL_CHARS_REGEX, ' ')
+      .replace(LOG_NON_PRINTABLE_REGEX, '');
   }
 }
 
@@ -356,19 +381,14 @@ export function sanitizeForLog(value: unknown, maxLength = 1000): string {
  */
 export function sanitizeLikePattern(pattern: string): string {
   // Escape special SQL LIKE characters
-  return pattern
-    .replace(/\\/g, '\\\\')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_');
+  return pattern.replace(LIKE_ESCAPE_REGEX, (match) => LIKE_ESCAPE_MAP[match]);
 }
 
 /**
  * Validate UUID format
  */
 export function isValidUuid(uuid: string): boolean {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  return uuidRegex.test(uuid);
+  return UUID_REGEX.test(uuid);
 }
 
 /**
@@ -376,10 +396,10 @@ export function isValidUuid(uuid: string): boolean {
  */
 export function sanitizeFileName(fileName: string): string {
   // Remove path traversal attempts
-  let sanitized = fileName.replace(/\.\./g, '');
+  let sanitized = fileName.replace(FILENAME_TRAVERSAL_REGEX, '');
 
   // Remove special characters
-  sanitized = sanitized.replace(/[^a-zA-Z0-9._-]/g, '_');
+  sanitized = sanitized.replace(FILENAME_SANITIZATION_REGEX, '_');
 
   // Limit length
   sanitized = sanitized.substring(0, 255);
