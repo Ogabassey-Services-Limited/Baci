@@ -21,8 +21,18 @@ export function PasswordStrengthIndicator({
   if (strength === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 mt-2">
-      <div className="grid grid-cols-3 gap-1 w-full">
+    // biome-ignore lint/a11y/useSemanticElements: Custom design requires div structure
+    <div
+      className="flex items-center gap-2 mt-2"
+      role="meter"
+      aria-label="Password strength"
+      aria-valuenow={strength}
+      aria-valuemin={0}
+      aria-valuemax={3}
+      aria-valuetext={currentLevel.text}
+      aria-live="polite"
+    >
+      <div className="grid grid-cols-3 gap-1 w-full" aria-hidden="true">
         {strengthLevels.slice(1).map(({ level, className }) => (
           <div key={level} className="h-1.5 rounded-full bg-muted">
             <div
@@ -34,7 +44,10 @@ export function PasswordStrengthIndicator({
           </div>
         ))}
       </div>
-      <p className="text-xs font-medium text-muted-foreground w-16 text-right">
+      <p
+        className="text-xs font-medium text-muted-foreground w-16 text-right"
+        aria-hidden="true"
+      >
         {currentLevel.text}
       </p>
     </div>
