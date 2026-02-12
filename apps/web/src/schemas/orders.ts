@@ -1,10 +1,16 @@
 import { z } from 'zod';
+import {
+  sanitizeEmail,
+  sanitizePhone,
+  sanitizePrice,
+  sanitizeText,
+} from '@/lib/sanitize-core';
 
 export const orderCreateSchema = z.object({
   merchant_id: z.string().uuid(),
-  customer_email: z.string().email(),
-  customer_name: z.string().min(1),
-  customer_phone: z.string().optional(),
+  customer_email: z.string().email().transform(sanitizeEmail),
+  customer_name: z.string().min(1).transform(sanitizeText),
+  customer_phone: z.string().transform(sanitizePhone).optional(),
   items: z
     .array(
       z
@@ -12,14 +18,22 @@ export const orderCreateSchema = z.object({
           product_id: z.string().optional(),
           productId: z.string().optional(),
           id: z.string().optional(),
-          name: z.string().min(1),
-          productName: z.string().optional(),
+          name: z.string().min(1).transform(sanitizeText),
+          productName: z.string().transform(sanitizeText).optional(),
           quantity: z.number().int().positive(),
-          price: z.number().nonnegative(),
-          negotiatedPrice: z.number().nonnegative().optional(),
-          value: z.number().nonnegative().optional(),
+          price: z.number().nonnegative().transform(sanitizePrice),
+          negotiatedPrice: z
+            .number()
+            .nonnegative()
+            .transform(sanitizePrice)
+            .optional(),
+          value: z.number().nonnegative().transform(sanitizePrice).optional(),
           has_assurance: z.boolean().optional(),
-          assurance_fee: z.number().nonnegative().optional(),
+          assurance_fee: z
+            .number()
+            .nonnegative()
+            .transform(sanitizePrice)
+            .optional(),
           variantId: z.string().optional(),
           variant_id: z.string().optional(),
           variantAttributes: z.record(z.string()).optional(),
@@ -30,22 +44,34 @@ export const orderCreateSchema = z.object({
         })
     )
     .min(1),
-  subtotal: z.coerce.number().nonnegative(),
-  shipping_fee: z.coerce.number().nonnegative().default(0),
-  discount_amount: z.coerce.number().nonnegative().default(0),
-  tax_amount: z.coerce.number().nonnegative().default(0),
-  payment_method: z.string().min(1),
-  payment_status: z.string().default('unpaid'),
-  shipping_status: z.string().default('pending'),
+  subtotal: z.coerce.number().nonnegative().transform(sanitizePrice),
+  shipping_fee: z.coerce
+    .number()
+    .nonnegative()
+    .default(0)
+    .transform(sanitizePrice),
+  discount_amount: z.coerce
+    .number()
+    .nonnegative()
+    .default(0)
+    .transform(sanitizePrice),
+  tax_amount: z.coerce
+    .number()
+    .nonnegative()
+    .default(0)
+    .transform(sanitizePrice),
+  payment_method: z.string().min(1).transform(sanitizeText),
+  payment_status: z.string().default('unpaid').transform(sanitizeText),
+  shipping_status: z.string().default('pending').transform(sanitizeText),
   shipping_address: z
     .object({
-      address: z.string().min(1),
-      city: z.string().optional(),
-      state: z.string().optional(),
+      address: z.string().min(1).transform(sanitizeText),
+      city: z.string().transform(sanitizeText).optional(),
+      state: z.string().transform(sanitizeText).optional(),
     })
     .optional(),
-  source: z.string().default('online_store'),
-  notes: z.string().optional(),
+  source: z.string().default('online_store').transform(sanitizeText),
+  notes: z.string().transform(sanitizeText).optional(),
   ad_tracking: z
     .object({
       fbp: z.string().optional(),
@@ -62,10 +88,10 @@ export const orderCreateSchema = z.object({
   user_id: z.string().uuid().optional(),
   // Shipping metadata
   selected_quote_id: z.string().uuid().optional(),
-  shipping_provider: z.string().optional(),
-  tracking_number: z.string().optional(),
+  shipping_provider: z.string().transform(sanitizeText).optional(),
+  tracking_number: z.string().transform(sanitizeText).optional(),
   // Legacy/Optional fields
-  shipping_provider_legacy: z.string().optional(),
+  shipping_provider_legacy: z.string().transform(sanitizeText).optional(),
 });
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
