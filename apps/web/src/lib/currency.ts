@@ -64,28 +64,18 @@ const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
 const MAX_CACHE_SIZE = 100;
 
 /**
- * Format a number as currency based on country code
- *
- * @param amount - The amount to format
- * @param countryCode - The country code (e.g., 'NG', 'US', 'GB')
- * @param options - Additional Intl.NumberFormat options
- * @returns Formatted currency string
- *
- * @example
- * formatCurrency(1000, 'NG') // "₦1,000.00"
- * formatCurrency(1000, 'US') // "$1,000.00"
- * formatCurrency(1000, 'GB') // "£1,000.00"
+ * Optimized currency formatter using a pre-calculated config
+ * Avoids recalculating config on every call
  */
-export function formatCurrency(
+export function formatCurrencyWithConfig(
   amount: number,
-  countryCode?: string | null,
+  config: CurrencyConfig,
   options?: Partial<Intl.NumberFormatOptions>
 ): string {
-  const config = getCurrencyConfig(countryCode);
-
   try {
     // Generate cache key based on config and options
     // Optimized: avoid JSON.stringify for the common case (no custom options)
+    // Check !options first to avoid Object.keys allocation in the hot path
     const cacheKey =
       !options || Object.keys(options).length === 0
         ? `${config.locale}:${config.code}`
@@ -126,6 +116,28 @@ export function formatCurrency(
     // Fallback for unsupported locales
     return `${config.symbol}${amount.toFixed(2)}`;
   }
+}
+
+/**
+ * Format a number as currency based on country code
+ *
+ * @param amount - The amount to format
+ * @param countryCode - The country code (e.g., 'NG', 'US', 'GB')
+ * @param options - Additional Intl.NumberFormat options
+ * @returns Formatted currency string
+ *
+ * @example
+ * formatCurrency(1000, 'NG') // "₦1,000.00"
+ * formatCurrency(1000, 'US') // "$1,000.00"
+ * formatCurrency(1000, 'GB') // "£1,000.00"
+ */
+export function formatCurrency(
+  amount: number,
+  countryCode?: string | null,
+  options?: Partial<Intl.NumberFormatOptions>
+): string {
+  const config = getCurrencyConfig(countryCode);
+  return formatCurrencyWithConfig(amount, config, options);
 }
 
 /**
