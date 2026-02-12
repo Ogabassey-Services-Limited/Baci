@@ -7,3 +7,8 @@
 
 **Learning:** `StorefrontProductCard` previously lacked pricing context (original price, percentage off) compared to `QuickViewModal`, making it harder for users to identify deals and causing accessibility gaps for screen readers who only heard the current price.
 **Action:** When displaying discounted prices, always include the original price (crossed out) and a specific percentage badge. Use `sr-only` text to explicitly label "Original price" and "Current price" to prevent confusion for screen reader users and ensure strict WCAG 2.1 AA compliance.
+
+## 2026-02-12 - Reduced Motion Implementation
+
+**Learning:** `framer-motion` hooks like `useReducedMotion` may return complex objects (MotionValue) instead of simple booleans depending on the version, which can lead to always-true conditionals if not handled correctly.
+**Action:** Prefer native `window.matchMedia` hooks for simple boolean checks to avoid dependency quirks and ensure reliable accessibility compliance.

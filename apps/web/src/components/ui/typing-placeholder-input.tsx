@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { Input, type InputProps } from '@/components/ui/input';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 import { cn } from '@/lib/utils';
 
 interface TypingPlaceholderInputProps extends InputProps {
@@ -37,8 +38,11 @@ export const TypingPlaceholderInput = React.forwardRef<
     const [text, setText] = useState('');
     const [hasStoppedPermanently, setHasStoppedPermanently] = useState(false);
 
+    // Respect user's motion preferences
+    const shouldReduceMotion = useReducedMotion();
+
     useEffect(() => {
-      if (hasStoppedPermanently) return;
+      if (hasStoppedPermanently || shouldReduceMotion) return;
 
       const currentWord = placeholders[wordIndex % placeholders.length];
 
@@ -72,14 +76,28 @@ export const TypingPlaceholderInput = React.forwardRef<
       deletingSpeed,
       delayBeforeDelete,
       hasStoppedPermanently,
+      shouldReduceMotion,
     ]);
 
-    // Update the placeholder while animating
+    // Update the placeholder while animating or set static fallback
     useEffect(() => {
+      if (shouldReduceMotion) {
+        if (placeholders.length > 0) {
+          setPlaceholder(staticPrefix + placeholders[0]);
+        }
+        return;
+      }
+
       if (!hasStoppedPermanently) {
         setPlaceholder(staticPrefix + text);
       }
-    }, [text, staticPrefix, hasStoppedPermanently]);
+    }, [
+      text,
+      staticPrefix,
+      hasStoppedPermanently,
+      shouldReduceMotion,
+      placeholders,
+    ]);
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setHasStoppedPermanently(true);
