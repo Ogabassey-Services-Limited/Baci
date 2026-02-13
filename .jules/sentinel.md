@@ -18,3 +18,14 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-02-12 - Missing Sanitization in Order Schema
+
+**Vulnerability:** The Order Creation API (`/api/orders`) relied on `orderCreateSchema` from `@/schemas/orders.ts` which lacked explicit sanitization transforms (`.transform(sanitizeText)`), allowing raw XSS payloads in fields like `customer_name`, `notes`, and `shipping_address`.
+
+**Learning:** Despite `SECURITY.md` citing `orderCreateSchema` as a secure example, the actual implementation was missing the critical `.transform()` calls. Documentation can drift from code reality, creating a false sense of security.
+
+**Prevention:**
+1. Verify implementation details against security documentation regularly.
+2. Add explicit unit tests that attempt to inject XSS payloads and assert they are stripped.
+3. Ensure all user-input string fields in Zod schemas use appropriate sanitizers (`sanitizeText`, `sanitizeEmail`, etc.) via `.transform()`.

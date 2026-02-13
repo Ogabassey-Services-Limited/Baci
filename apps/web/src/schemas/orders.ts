@@ -1,10 +1,24 @@
 import { z } from 'zod';
+import {
+  sanitizeEmail,
+  sanitizePhone,
+  sanitizeText,
+} from '@/lib/sanitize-core';
 
 export const orderCreateSchema = z.object({
   merchant_id: z.string().uuid(),
-  customer_email: z.string().email(),
-  customer_name: z.string().min(1),
-  customer_phone: z.string().optional(),
+  customer_email: z
+    .string()
+    .email()
+    .transform((val) => sanitizeEmail(val)),
+  customer_name: z
+    .string()
+    .min(1)
+    .transform((val) => sanitizeText(val)),
+  customer_phone: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizePhone(val) : val)),
   items: z
     .array(
       z
@@ -12,8 +26,14 @@ export const orderCreateSchema = z.object({
           product_id: z.string().optional(),
           productId: z.string().optional(),
           id: z.string().optional(),
-          name: z.string().min(1),
-          productName: z.string().optional(),
+          name: z
+            .string()
+            .min(1)
+            .transform((val) => sanitizeText(val)),
+          productName: z
+            .string()
+            .optional()
+            .transform((val) => (val ? sanitizeText(val) : val)),
           quantity: z.number().int().positive(),
           price: z.number().nonnegative(),
           negotiatedPrice: z.number().nonnegative().optional(),
@@ -34,18 +54,33 @@ export const orderCreateSchema = z.object({
   shipping_fee: z.coerce.number().nonnegative().default(0),
   discount_amount: z.coerce.number().nonnegative().default(0),
   tax_amount: z.coerce.number().nonnegative().default(0),
-  payment_method: z.string().min(1),
+  payment_method: z.string().min(1).transform((val) => sanitizeText(val)),
   payment_status: z.string().default('unpaid'),
   shipping_status: z.string().default('pending'),
   shipping_address: z
     .object({
-      address: z.string().min(1),
-      city: z.string().optional(),
-      state: z.string().optional(),
+      address: z
+        .string()
+        .min(1)
+        .transform((val) => sanitizeText(val)),
+      city: z
+        .string()
+        .optional()
+        .transform((val) => (val ? sanitizeText(val) : val)),
+      state: z
+        .string()
+        .optional()
+        .transform((val) => (val ? sanitizeText(val) : val)),
     })
     .optional(),
-  source: z.string().default('online_store'),
-  notes: z.string().optional(),
+  source: z
+    .string()
+    .default('online_store')
+    .transform((val) => sanitizeText(val)),
+  notes: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
   ad_tracking: z
     .object({
       fbp: z.string().optional(),
@@ -62,10 +97,19 @@ export const orderCreateSchema = z.object({
   user_id: z.string().uuid().optional(),
   // Shipping metadata
   selected_quote_id: z.string().uuid().optional(),
-  shipping_provider: z.string().optional(),
-  tracking_number: z.string().optional(),
+  shipping_provider: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
+  tracking_number: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
   // Legacy/Optional fields
-  shipping_provider_legacy: z.string().optional(),
+  shipping_provider_legacy: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
 });
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
