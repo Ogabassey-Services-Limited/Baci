@@ -131,5 +131,7 @@ exclude = [
   # Flaky external URLs that may timeout
   "^https?://vitest\\.dev",
   # Test fixture URLs (Upstash mock endpoints)
-  "upstash\\.io"
+  "upstash\\.io",
+  # Google Storage assets (403 Forbidden due to access restrictions)
+  "commondatastorage\\.googleapis\\.com"
 ]

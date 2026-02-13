@@ -10,8 +10,7 @@
 import { useCallback, useMemo } from 'react';
 import {
   type CurrencyConfig,
-  formatCurrencyCompact as formatCurrencyCompactUtil,
-  formatCurrency as formatCurrencyUtil,
+  formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
   getCurrencyCode as getCurrencyCodeUtil,
   getCurrencyConfig,
   getCurrencySymbol as getCurrencySymbolUtil,
@@ -60,13 +59,17 @@ export function useCurrency(): UseCurrencyReturn {
   const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
 
   const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyUtil(amount, countryCode),
-    [countryCode]
+    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
+    [config]
   );
 
   const formatCurrencyCompact = useCallback(
-    (amount: number) => formatCurrencyCompactUtil(amount, countryCode),
-    [countryCode]
+    (amount: number) =>
+      formatCurrencyWithConfigUtil(amount, config, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+    [config]
   );
 
   const currencySymbol = useMemo(
@@ -105,13 +108,17 @@ export function useCurrencyWithCountry(
   const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
 
   const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyUtil(amount, countryCode),
-    [countryCode]
+    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
+    [config]
   );
 
   const formatCurrencyCompact = useCallback(
-    (amount: number) => formatCurrencyCompactUtil(amount, countryCode),
-    [countryCode]
+    (amount: number) =>
+      formatCurrencyWithConfigUtil(amount, config, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+    [config]
   );
 
   const currencySymbol = useMemo(
