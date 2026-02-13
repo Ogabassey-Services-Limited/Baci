@@ -192,6 +192,9 @@ export function getLocaleForCountry(country: string | null): string {
   return localeMap[country || ''] || 'en-US';
 }
 
+const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
+const MAX_CACHE_SIZE = 100;
+
 /**
  * Format a price with the appropriate currency and locale.
  *
@@ -205,13 +208,40 @@ export function formatPrice(
   country: string | null,
   options: Partial<Intl.NumberFormatOptions> = {}
 ): string {
-  const currency = getCurrencyForCountry(country);
-  const locale = getLocaleForCountry(country);
+  // Generate cache key
+  // We include country and serialized options to ensure uniqueness
+  const cacheKey =
+    !options || Object.keys(options).length === 0
+      ? `${country || 'null'}`
+      : `${country || 'null'}:${JSON.stringify(options)}`;
 
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    currencyDisplay: 'symbol',
-    ...options,
-  }).format(amount);
+  let formatter = FORMATTER_CACHE.get(cacheKey);
+
+  if (!formatter) {
+    const currency = getCurrencyForCountry(country);
+    const locale = getLocaleForCountry(country);
+
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+      ...options,
+    });
+
+    // Simple LRU: if cache is full, remove the first (oldest) item
+    if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
+      const firstKey = FORMATTER_CACHE.keys().next().value;
+      if (firstKey !== undefined) {
+        FORMATTER_CACHE.delete(firstKey);
+      }
+    }
+
+    FORMATTER_CACHE.set(cacheKey, formatter);
+  } else {
+    // Move to end to mark as recently used
+    FORMATTER_CACHE.delete(cacheKey);
+    FORMATTER_CACHE.set(cacheKey, formatter);
+  }
+
+  return formatter.format(amount);
 }
