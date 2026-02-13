@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -16,23 +17,64 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/hooks/use-cart', () => ({
   useCart: vi.fn(() => ({
+    cart: [],
     items: [],
     addToCart: vi.fn(),
     totalItems: 0,
     removeFromCart: vi.fn(),
     updateQuantity: vi.fn(),
+    applyNegotiatedPrice: vi.fn(),
   })),
 }));
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', business_name: 'Test' },
+    basePath: '',
   })),
+}));
+vi.mock('@/hooks/use-toast', () => ({
+  useToast: vi.fn(() => ({ toast: vi.fn() })),
 }));
 vi.mock('@/components/storefront/brand-products', () => ({
   BrandProducts: () => null,
 }));
 vi.mock('@/components/storefront/price-range-products', () => ({
   PriceRangeProducts: () => null,
+}));
+
+// Mock the V2SavedProvider context
+vi.mock('../providers/v2-saved-context', () => ({
+  useV2Saved: vi.fn(() => ({
+    savedItems: [],
+    toggleSaved: vi.fn(),
+    isSaved: vi.fn(() => false),
+    toastState: { show: false, message: '', type: 'add' },
+    dismissToast: vi.fn(),
+  })),
+  V2SavedProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
+// Mock the remaining component dependencies
+vi.mock('../components/AdUnit', () => ({
+  AdUnit: () => null,
+}));
+vi.mock('../components/BannerCarousel', () => ({
+  BannerCarousel: () => null,
+}));
+vi.mock('../components/BlogSnippet', () => ({
+  BlogSnippet: () => null,
+}));
+vi.mock('../components/NegotiationModal', () => ({
+  NegotiationModal: () => null,
+}));
+vi.mock('../components/ProductComparisonTable', () => ({
+  ProductComparisonTable: () => null,
+}));
+vi.mock('../components/ProductVideo', () => ({
+  ProductVideo: () => null,
+}));
+vi.mock('../components/FlyToCartAnimation', () => ({
+  FlyToCartAnimation: () => null,
 }));
 
 import { ProductDetailsPage } from './product-details-page';
@@ -46,7 +88,10 @@ describe('ProductDetailsPage', () => {
         price: '₦5,000',
         image: 'https://example.com/img.jpg',
         description: 'A test product',
-        condition: 'New' as const,
+        condition: 'new' as const,
+        colors: [],
+        storage: [],
+        images: ['https://example.com/img.jpg'],
       }} />
     );
     expect(container).toBeDefined();

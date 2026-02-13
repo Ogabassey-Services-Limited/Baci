@@ -90,10 +90,26 @@ describe('useMerchantFeatures', () => {
   });
 
   it('handles fetch error', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
+    const mockResponse = {
       ok: false,
-      json: () => Promise.resolve({ error: 'Unauthorized' }),
-    } as Response);
+      status: 401,
+      statusText: 'Unauthorized',
+      headers: new Headers(),
+      redirected: false,
+      type: 'basic' as ResponseType,
+      url: '',
+      clone: vi.fn(),
+      body: null,
+      bodyUsed: false,
+      arrayBuffer: vi.fn(),
+      blob: vi.fn(),
+      formData: vi.fn(),
+      text: vi.fn(),
+      json: vi.fn(() => Promise.resolve({ error: 'Unauthorized' })),
+    } as unknown as Response;
+
+    // Mock multiple times since fetchSettings may be called more than once due to dependency array
+    vi.mocked(fetch).mockResolvedValue(mockResponse);
 
     const { result } = renderHook(() => useMerchantFeatures());
 

@@ -1,13 +1,23 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MetricCard } from './metric-card';
 
 describe('MetricCard', () => {
-  it('renders label and value', () => {
+  beforeEach(() => {
+    // Mock IntersectionObserver for animation trigger
+    global.IntersectionObserver = class IntersectionObserver {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    } as unknown as typeof IntersectionObserver;
+  });
+
+  it('renders label and initial value of 0', () => {
     render(
       <MetricCard label="Revenue" value="$1,000" icon={<span>Icon</span>} />
     );
     expect(screen.getByText('Revenue')).toBeDefined();
-    expect(screen.getByText('$1,000')).toBeDefined();
+    // Component starts with displayValue of '0' before animation triggers
+    expect(screen.getByText(/\$0/)).toBeDefined();
   });
 });

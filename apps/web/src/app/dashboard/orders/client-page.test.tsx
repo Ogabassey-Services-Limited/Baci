@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -32,6 +33,16 @@ vi.mock('@/hooks/use-toast', () => ({
 // The client page imports many subcomponents - mock them all
 vi.mock('@/components/ui/bag-loader', () => ({
   BagLoader: () => <div>Loading...</div>,
+}));
+
+// Mock AuthContext to provide the required context
+vi.mock('@/contexts/auth-context', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: 'user-1', email: 'test@example.com' },
+    loading: false,
+    signOut: vi.fn(),
+  })),
+  AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 import OrdersClientPage from './client-page';

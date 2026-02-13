@@ -192,10 +192,10 @@ export function BlogClientPage({
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of fetchPosts avoids infinite loop without React Compiler (e.g. in tests)
   useEffect(() => {
     fetchPosts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchPosts]);
+  }, [merchant?.id, statusFilter, debouncedSearch, page]);
 
   const handleDelete = async () => {
     if (!deletePostId) return;

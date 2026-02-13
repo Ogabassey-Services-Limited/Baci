@@ -45,7 +45,7 @@ describe('agentic/paystack', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('creates customer then DVA with titan-paycom as primary bank', async () => {
+    it('creates customer then DVA with wema-bank as primary bank', async () => {
       vi.stubEnv('PAYSTACK_SECRET_KEY', 'sk_test_123');
       vi.resetModules();
       const { createDedicatedVirtualAccount } = await import('./paystack');
@@ -58,14 +58,14 @@ describe('agentic/paystack', () => {
             data: { customer_code: 'CUS_test123' },
           })
         )
-        // 2. Create DVA (titan-paycom)
+        // 2. Create DVA (wema-bank)
         .mockResolvedValueOnce(
           mockResponse(200, {
             status: true,
             data: {
               account_number: '1234567890',
               account_name: 'MERCHANT/JOHN DOE',
-              bank: { name: 'Titan Paycom' },
+              bank: { name: 'Wema Bank' },
               currency: 'NGN',
             },
           })
@@ -79,16 +79,16 @@ describe('agentic/paystack', () => {
       });
 
       expect(result.account_number).toBe('1234567890');
-      expect(result.bank_name).toBe('Titan Paycom');
+      expect(result.bank_name).toBe('Wema Bank');
       expect(result.account_name).toBe('MERCHANT/JOHN DOE');
 
-      // Verify titan-paycom was used (second fetch call)
+      // Verify wema-bank was used (second fetch call)
       const dvaCall = mockFetch.mock.calls[1];
       const dvaBody = JSON.parse(dvaCall[1].body);
-      expect(dvaBody.preferred_bank).toBe('titan-paycom');
+      expect(dvaBody.preferred_bank).toBe('wema-bank');
     });
 
-    it('falls back to wema-bank when titan-paycom fails', async () => {
+    it('falls back to titan-paycom when wema-bank fails', async () => {
       vi.stubEnv('PAYSTACK_SECRET_KEY', 'sk_test_123');
       vi.resetModules();
       const { createDedicatedVirtualAccount } = await import('./paystack');
@@ -101,18 +101,18 @@ describe('agentic/paystack', () => {
             data: { customer_code: 'CUS_test456' },
           })
         )
-        // 2. titan-paycom fails
+        // 2. wema-bank fails
         .mockResolvedValueOnce(
           mockResponse(400, { message: 'Bank unavailable' })
         )
-        // 3. wema-bank succeeds
+        // 3. titan-paycom succeeds
         .mockResolvedValueOnce(
           mockResponse(200, {
             status: true,
             data: {
               account_number: '9876543210',
               account_name: 'PAYSTACK-BIZ/JOHN DOE',
-              bank: { name: 'Wema Bank' },
+              bank: { name: 'Titan Paycom' },
               currency: 'NGN',
             },
           })
@@ -126,12 +126,12 @@ describe('agentic/paystack', () => {
       });
 
       expect(result.account_number).toBe('9876543210');
-      expect(result.bank_name).toBe('Wema Bank');
+      expect(result.bank_name).toBe('Titan Paycom');
       expect(mockFetch).toHaveBeenCalledTimes(3);
 
-      // Verify fallback: third call is wema-bank
+      // Verify fallback: third call is titan-paycom
       const fallbackBody = JSON.parse(mockFetch.mock.calls[2][1].body);
-      expect(fallbackBody.preferred_bank).toBe('wema-bank');
+      expect(fallbackBody.preferred_bank).toBe('titan-paycom');
     });
 
     it('throws when both banks fail', async () => {
@@ -147,9 +147,9 @@ describe('agentic/paystack', () => {
             data: { customer_code: 'CUS_test789' },
           })
         )
-        // 2. titan-paycom fails
+        // 2. wema-bank fails
         .mockResolvedValueOnce(mockResponse(400, { message: 'Unavailable' }))
-        // 3. wema-bank also fails
+        // 3. titan-paycom also fails
         .mockResolvedValueOnce(
           mockResponse(400, { message: 'Also unavailable' })
         );

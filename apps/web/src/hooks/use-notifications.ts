@@ -228,11 +228,11 @@ export function useNotifications(): UseNotificationsReturn {
   /**
    * Initial fetch
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of function refs avoids infinite loop without React Compiler
   useEffect(() => {
     fetchNotifications();
     fetchActiveBanners();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchActiveBanners, fetchNotifications]);
+  }, [merchant?.id]);
 
   /**
    * Mark a notification as read
