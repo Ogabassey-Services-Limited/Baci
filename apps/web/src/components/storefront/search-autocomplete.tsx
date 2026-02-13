@@ -2,7 +2,7 @@
 
 import { Search, TrendingUp } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { trackEvent } from '@/lib/event-tracking';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -74,20 +74,24 @@ export function SearchAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch autocomplete suggestions
-  const fetchSuggestions = useCallback(
-    async (query: string) => {
-      if (query.length < 2) {
-        setSuggestions([]);
-        setPopularSearches([]);
-        setIsOpen(false);
-        return;
-      }
+  // Debounced search with autocomplete suggestions
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
 
+    if (value.length < 2) {
+      setSuggestions([]);
+      setPopularSearches([]);
+      setIsOpen(false);
+      return;
+    }
+
+    debounceTimer.current = setTimeout(async () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/search/autocomplete?q=${encodeURIComponent(query)}&merchant_id=${merchantId}&limit=10`
+          `/api/search/autocomplete?q=${encodeURIComponent(value)}&merchant_id=${merchantId}&limit=10`
         );
         const data = await response.json();
 
@@ -99,7 +103,7 @@ export function SearchAutocomplete({
         // Track search event for merchant analytics
         const resultsCount =
           (data.suggestions?.length || 0) + (data.popularSearches?.length || 0);
-        trackEvent.search(merchantId, query, resultsCount);
+        trackEvent.search(merchantId, value, resultsCount);
       } catch (error) {
         console.error('Autocomplete error:', error);
         setSuggestions([]);
@@ -107,18 +111,6 @@ export function SearchAutocomplete({
       } finally {
         setLoading(false);
       }
-    },
-    [merchantId]
-  );
-
-  // Debounced search
-  useEffect(() => {
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    debounceTimer.current = setTimeout(() => {
-      fetchSuggestions(value);
     }, 300);
 
     return () => {
@@ -126,7 +118,7 @@ export function SearchAutocomplete({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [value, fetchSuggestions]);
+  }, [value, merchantId]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {

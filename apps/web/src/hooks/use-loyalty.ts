@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface LoyaltyReward {
   id: string;
@@ -77,7 +77,7 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLoyaltyData = useCallback(async () => {
+  const fetchLoyaltyData = async () => {
     if (!merchantId || !customerId) {
       setLoading(false);
       return;
@@ -141,10 +141,11 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, customerId]);
+  };
 
   useEffect(() => {
     fetchLoyaltyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchLoyaltyData]);
 
   const enroll = async (referralCode?: string): Promise<EnrollmentResult> => {

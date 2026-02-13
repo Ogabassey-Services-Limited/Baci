@@ -3,7 +3,7 @@
 import { AlertCircle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { OgabasseyV2PurchaseHistory } from '@/components/storefront/ogabassey/pages/purchase-history';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -62,7 +62,7 @@ export default function CustomerOrdersPage() {
   }, [authLoading, isAuthenticated, router]);
 
   // Fetch orders
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = async () => {
     if (!customer || !merchant || !merchant.slug) return;
 
     setIsLoadingOrders(true);
@@ -89,13 +89,14 @@ export default function CustomerOrdersPage() {
     } finally {
       setIsLoadingOrders(false);
     }
-  }, [customer, merchant]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (customer && merchant) {
       fetchOrders();
     }
-  }, [customer, merchant, fetchOrders]);
+  }, [customer, merchant]);
 
   if (merchantLoading || authLoading) {
     return (

@@ -53,9 +53,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import SafeImage from '@/components/ui/SafeImage';
 import { SuccessModal } from '@/components/ui/SuccessModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
   type PaymentStatus,
   type ShippingStatus,
@@ -66,6 +68,12 @@ import {
   useUpdateOrderStatus,
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
+import { BASE_URL } from '@/lib/api-client';
+import type {
+  ReceiptMerchant,
+  ReceiptOrder,
+} from '@/lib/generate-receipt-html';
+import { generateReceiptHtml } from '@/lib/generate-receipt-html';
 import { supabase } from '@/lib/supabase';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -122,174 +130,6 @@ const isStatusActionAllowed = (
   }
 };
 
-const generateReceiptHtml = (order: {
-  total: number;
-  created_at: string;
-  payment_status: string;
-  order_number: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  payment_method: string | null;
-  items: Array<{
-    product_name: string;
-    quantity: number;
-    price: number;
-  }>;
-}) => {
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
-  const total = formatCurrency(order.total);
-  const date = new Date(order.created_at).toLocaleDateString('en-NG', {
-    dateStyle: 'medium',
-  });
-  const time = new Date(order.created_at).toLocaleTimeString('en-NG', {
-    timeStyle: 'short',
-  });
-  const isPaid = order.payment_status === 'paid';
-  const documentTitle = isPaid ? 'Receipt' : 'Invoice';
-  const watermarkColor = isPaid
-    ? 'rgba(34, 197, 94, 0.08)'
-    : 'rgba(239, 68, 68, 0.08)';
-  const watermarkBorderColor = isPaid
-    ? 'rgba(34, 197, 94, 0.15)'
-    : 'rgba(239, 68, 68, 0.15)';
-  const watermarkText = isPaid ? 'PAID' : 'UNPAID';
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f8fafc;
-            padding: 24px;
-            color: #1f2937;
-          }
-          .receipt-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-            position: relative;
-          }
-          .top-stripe {
-            height: 6px;
-            background: linear-gradient(90deg, #dc2626, #ef4444);
-          }
-          .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            font-size: 64px;
-            font-weight: 900;
-            color: ${watermarkColor};
-            border: 5px dashed ${watermarkBorderColor};
-            border-radius: 12px;
-            padding: 8px 24px;
-            pointer-events: none;
-            white-space: nowrap;
-            letter-spacing: 4px;
-          }
-          .content { padding: 32px; position: relative; z-index: 1; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
-          .logo { font-size: 28px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
-          .doc-type { text-align: right; }
-          .doc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: ${isPaid ? '#9ca3af' : '#dc2626'}; margin-bottom: 4px; }
-          .doc-number { font-size: 14px; font-weight: 700; color: #111827; }
-          .amount-section { text-align: center; padding: 24px 0; margin-bottom: 24px; border-bottom: 2px dashed #e5e7eb; }
-          .amount-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
-          .amount-value { font-size: 36px; font-weight: 800; color: ${isPaid ? '#111827' : '#dc2626'}; }
-          .amount-date { font-size: 12px; color: #9ca3af; margin-top: 8px; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-          .info-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 4px; }
-          .info-value { font-size: 14px; font-weight: 600; color: #111827; }
-          .info-sub { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.4; }
-          .section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 12px; }
-          .product-card { background: #f9fafb; border: 1px solid #f3f4f6; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-          .product-row { display: flex; justify-content: space-between; align-items: flex-start; }
-          .product-name { font-size: 14px; font-weight: 600; color: #111827; }
-          .product-qty { font-size: 12px; color: #6b7280; margin-top: 2px; }
-          .product-price { font-size: 14px; font-weight: 700; color: #111827; }
-          .footer { text-align: center; padding-top: 24px; border-top: 1px solid #f3f4f6; margin-top: 24px; }
-          .footer-help { font-size: 10px; color: #9ca3af; margin-bottom: 4px; }
-          .footer-contact { font-size: 12px; font-weight: 700; color: #dc2626; }
-        </style>
-      </head>
-      <body>
-        <div class="receipt-container">
-          <div class="top-stripe"></div>
-          <div class="watermark">${watermarkText}</div>
-          <div class="content">
-            <div class="header">
-              <div class="logo">OGABASSEY</div>
-              <div class="doc-type">
-                <div class="doc-label">${documentTitle}</div>
-                <div class="doc-number">#${order.order_number}</div>
-              </div>
-            </div>
-
-            <div class="amount-section">
-              <div class="amount-label">${isPaid ? 'Total Amount' : 'Total to Pay'}</div>
-              <div class="amount-value">${total}</div>
-              <div class="amount-date">${date} • ${time}</div>
-            </div>
-
-            <div class="info-grid">
-              <div>
-                <div class="info-label">Billed To</div>
-                <div class="info-value">${order.customer_name}</div>
-                <div class="info-sub">${order.customer_email}</div>
-                <div class="info-sub">${order.customer_phone}</div>
-              </div>
-              <div style="text-align: right;">
-                <div class="info-label">Payment Method</div>
-                <div class="info-value">${order.payment_method || 'N/A'}</div>
-                <div class="info-sub">${isPaid ? 'Verified' : 'Pending'}</div>
-              </div>
-            </div>
-
-            <div class="section-label">Product Details</div>
-            ${order.items
-              .map(
-                (item: {
-                  product_name: string;
-                  quantity: number;
-                  price: number;
-                }) => `
-              <div class="product-card">
-                <div class="product-row">
-                  <div>
-                    <div class="product-name">${item.product_name}</div>
-                    <div class="product-qty">Qty: ${item.quantity}</div>
-                  </div>
-                  <div class="product-price">${formatCurrency(item.price * item.quantity)}</div>
-                </div>
-              </div>
-            `
-              )
-              .join('')}
-
-            <div class="footer">
-              <div class="footer-help">Questions regarding this ${documentTitle.toLowerCase()}?</div>
-              <div class="footer-contact">help@ogabassey.com • +234 814 697 8921</div>
-            </div>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
-};
-
 export default function OrderDetailsScreen() {
   const rawParams = useLocalSearchParams<{
     id: string;
@@ -317,6 +157,7 @@ export default function OrderDetailsScreen() {
   // Data Fetching - use placeholder ID when invalid to maintain hook order
   const queryClient = useQueryClient();
   const { data: order, isLoading, error } = useOrder(orderId ?? '');
+  const { merchant } = useMerchant();
   const updateStatusMutation = useUpdateOrderStatus();
   const shipOnCreditMutation = useShipOnCredit();
   const sendReminderMutation = useSendReminder();
@@ -340,6 +181,11 @@ export default function OrderDetailsScreen() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+
+  // Receipt Preview State
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
+  const [receiptHtml, setReceiptHtml] = useState('');
+  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
 
   const [successModal, setSuccessModal] = useState({
     visible: false,
@@ -690,17 +536,16 @@ Thank you for choosing Ogabassey!
           } = await supabase.auth.getSession();
           if (session?.access_token) {
             // Fire and forget - don't block the UI
-            fetch(
-              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/shipped`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
-              }
-            ).catch(() => {}); // Silently ignore email errors
+            fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
+            }).catch(() => {
+              // Silently ignore email errors
+            });
           }
         } catch {
           // Ignore email errors - status update already succeeded
@@ -718,16 +563,13 @@ Thank you for choosing Ogabassey!
               console.log('UseOrder: Sending delivered email...');
             }
             // Fire and forget - don't block the UI
-            fetch(
-              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/delivered`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-              }
-            )
+            fetch(`${BASE_URL}/api/orders/${order.id}/delivered`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            })
               .then((res) => {
                 if (__DEV__) {
                   if (!res.ok)
@@ -760,17 +602,14 @@ Thank you for choosing Ogabassey!
               console.log('UseOrder: Sending cancelled email...');
             }
             // Fire and forget - don't block the UI
-            fetch(
-              `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${order.id}/cancelled`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({ cancelled_by: 'merchant' }),
-              }
-            )
+            fetch(`${BASE_URL}/api/orders/${order.id}/cancelled`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ cancelled_by: 'merchant' }),
+            })
               .then((res) => {
                 if (__DEV__) {
                   if (!res.ok)
@@ -899,9 +738,105 @@ Thank you for choosing Ogabassey!
   };
 
   const handleSendReceipt = async () => {
-    if (!order) return;
+    if (!order || !merchant || isGeneratingReceipt) return;
+    setIsGeneratingReceipt(true);
     try {
-      const html = generateReceiptHtml(order);
+      // Determine bank account for invoice:
+      // Priority: order-specific VBA → staff terminal → merchant's main terminal
+      let virtualAccount = order.virtual_account ?? null;
+
+      if (order.payment_status !== 'paid' && !virtualAccount) {
+        if (order.staff_terminal) {
+          // Staff-created order: use the staff's virtual terminal bank account
+          virtualAccount = order.staff_terminal;
+        } else {
+          // Fallback: use merchant's main virtual terminal (no API call needed)
+          try {
+            const { data: terminal } = await supabase
+              .from('virtual_terminals')
+              .select('account_number, account_name, bank')
+              .eq('merchant_id', merchant.id)
+              .eq('active', true)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+
+            if (terminal?.account_number) {
+              virtualAccount = {
+                account_number: terminal.account_number,
+                bank_name: terminal.bank,
+                account_name: terminal.account_name,
+              };
+            }
+          } catch (termError) {
+            console.warn('[Receipt] Terminal lookup failed:', termError);
+          }
+        }
+      }
+
+      // Build typed receipt data
+      const receiptOrder: ReceiptOrder = {
+        order_number: order.order_number,
+        created_at: order.created_at,
+        currency: order.currency ?? 'NGN',
+        total: Number(order.total) || 0,
+        subtotal: Number(order.subtotal) || Number(order.total) || 0,
+        shipping_fee: Number(order.shipping_fee) || 0,
+        tax_amount: Number(order.tax_amount) || 0,
+        discount_amount: Number(order.discount_amount) || 0,
+        amount_paid: Number(order.amount_paid) || 0,
+        balance: Number(order.balance) || 0,
+        payment_status: order.payment_status,
+        payment_method: order.payment_method ?? null,
+        is_credit_order: order.is_credit_order ?? false,
+        customer_name: order.customer_name,
+        customer_email: order.customer_email,
+        customer_phone: order.customer_phone ?? null,
+        virtual_account: virtualAccount,
+        items: (order.items ?? []).map(
+          (item: {
+            product_name?: string;
+            name?: string;
+            quantity: number;
+            price: number;
+          }) => ({
+            product_name: item.product_name || item.name || 'Product',
+            quantity: item.quantity,
+            price: Number(item.price) || 0,
+          })
+        ),
+      };
+
+      const receiptMerchant: ReceiptMerchant = {
+        business_name: merchant.business_name,
+        logo_url: merchant.logo_url ?? null,
+        email: merchant.email,
+        phone: merchant.phone ?? null,
+        support_email: merchant.support_email ?? null,
+        support_phone: merchant.support_phone ?? null,
+        business_address: merchant.business_address ?? null,
+        cac_rc_number: merchant.cac_rc_number ?? null,
+        brand_colors: merchant.brand_colors ?? undefined,
+        vat_registration_status: merchant.vat_registration_status ?? null,
+        vat_rate: merchant.vat_rate ?? null,
+        bank_code: merchant.bank_code ?? null,
+        bank_account_number: merchant.bank_account_number ?? null,
+        social_media: merchant.social_media ?? null,
+      };
+
+      const html = generateReceiptHtml(receiptOrder, receiptMerchant);
+      setReceiptHtml(html);
+      setShowReceiptPreview(true);
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to generate receipt');
+    } finally {
+      setIsGeneratingReceipt(false);
+    }
+  };
+
+  const handleShareReceiptPdf = async () => {
+    if (!receiptHtml) return;
+    try {
       if (!Print || !Sharing) {
         Alert.alert(
           'Error',
@@ -909,13 +844,13 @@ Thank you for choosing Ogabassey!
         );
         return;
       }
-      const { uri } = await Print.printToFileAsync({ html });
+      const { uri } = await Print.printToFileAsync({ html: receiptHtml });
       await Sharing.shareAsync(uri, {
         UTI: '.pdf',
         mimeType: 'application/pdf',
       });
     } catch (_error) {
-      Alert.alert('Error', 'Failed to generate receipt');
+      Alert.alert('Error', 'Failed to share receipt PDF');
     }
   };
 
@@ -1167,12 +1102,28 @@ Thank you for choosing Ogabassey!
               </Text>
             </View>
             <Pressable
-              style={[styles.receiptBtn, { backgroundColor: colors.primary }]}
+              style={[
+                styles.receiptBtn,
+                {
+                  backgroundColor: isGeneratingReceipt
+                    ? colors.textMuted
+                    : colors.primary,
+                },
+              ]}
               onPress={handleSendReceipt}
+              disabled={isGeneratingReceipt}
             >
-              <Ionicons name="document-text-outline" size={18} color="#FFF" />
+              {isGeneratingReceipt ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Ionicons name="document-text-outline" size={18} color="#FFF" />
+              )}
               <Text style={styles.receiptBtnText}>
-                {order.payment_status === 'paid' ? 'Receipt' : 'Invoice'}
+                {isGeneratingReceipt
+                  ? 'Generating...'
+                  : order.payment_status === 'paid'
+                    ? 'Receipt'
+                    : 'Invoice'}
               </Text>
             </Pressable>
           </View>
@@ -2209,6 +2160,14 @@ Thank you for choosing Ogabassey!
         message={successModal.message}
         subMessage={successModal.subMessage}
         onClose={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
+      />
+
+      <ReceiptPreviewModal
+        visible={showReceiptPreview}
+        html={receiptHtml}
+        onClose={() => setShowReceiptPreview(false)}
+        onShare={handleShareReceiptPdf}
+        isPaid={order.payment_status === 'paid'}
       />
     </SafeAreaView>
   );

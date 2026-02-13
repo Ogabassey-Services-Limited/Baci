@@ -4,7 +4,7 @@ import { Heart, Home, ShoppingCart, User, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useCart } from '@/hooks/use-cart';
 import { asRoute } from '@/lib/routes';
@@ -34,7 +34,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
   const basePath = normalizedSlug;
 
   // Active state logic
-  const isActive = useCallback((path: string) => {
+  const isActive = (path: string) => {
     const fullPath = `${basePath}${path}`;
     if (path === '/account') {
       return pathname?.startsWith(`${basePath}/account`) || false;
@@ -43,7 +43,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
       return pathname === basePath || pathname === `${basePath}/`;
     }
     return pathname === fullPath || pathname?.startsWith(`${fullPath}/`) || false;
-  }, [basePath, pathname]);
+  };
 
   // Scroll-based visibility with debouncing
   const [isVisible, setIsVisible] = useState(true);

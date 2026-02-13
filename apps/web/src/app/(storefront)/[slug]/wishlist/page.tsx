@@ -12,7 +12,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -86,32 +86,29 @@ export default function WishListPage() {
     fetchMerchantCountry();
   }, [merchantSlug]);
 
-  const fetchWishList = useCallback(
-    async (email: string) => {
-      if (!email) return;
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `/api/wishlist?email=${encodeURIComponent(email)}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setWishListItems(data.items || []);
-        } else {
-          throw new Error('Failed to fetch wish list');
-        }
-      } catch (_error) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load your wish list.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
+  const fetchWishList = async (email: string) => {
+    if (!email) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/wishlist?email=${encodeURIComponent(email)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setWishListItems(data.items || []);
+      } else {
+        throw new Error('Failed to fetch wish list');
       }
-    },
-    [toast]
-  );
+    } catch (_error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load your wish list.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Check auth or localStorage
   useEffect(() => {
@@ -131,6 +128,8 @@ export default function WishListPage() {
         // localStorage not available
       }
     }
+    // React Compiler handles memoization - fetchWishList is stable
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Function doesn't actually change between renders
   }, [isAuthenticated, customer?.email, fetchWishList]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {

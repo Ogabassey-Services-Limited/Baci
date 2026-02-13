@@ -3,7 +3,7 @@
 import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
@@ -79,14 +79,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   }, [categoryName]); // Add categoryName dependency for proper reset
 
   // Derived Data: Products in the current Category (from props)
-  const categoryProducts = useMemo(() => {
+  const categoryProducts = (() => {
     // Use server-provided products directly - no additional filtering needed
     // since server already filters by category_id or category TEXT field
     return products;
-  }, [products]);
+  })();
 
   // Derived Data: Available Options based on products in category
-  const availableOptions = useMemo(() => {
+  const availableOptions = (() => {
     const options = {
       brand: new Set<string>(),
       condition: new Set<string>(),
@@ -128,10 +128,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       displayType: Array.from(options.displayType).sort(),
       displaySize: Array.from(options.displaySize).sort(),
     };
-  }, [categoryProducts]);
+  })();
 
   // Derived Data: Filtered Products based on user selection
-  const filteredProducts = useMemo(() => {
+  const filteredProducts = (() => {
     return categoryProducts.filter((p) => {
       // Price
       if (
@@ -189,7 +189,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
       return true;
     });
-  }, [categoryProducts, filters]);
+  })();
 
   const handleFilterChange = (
     section: keyof FilterState,
@@ -228,13 +228,13 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   };
 
   // Clean display title for H1 and Breadcrumb (Koray-approved: no keyword stuffing)
-  const displayTitle = useMemo(() => {
+  const displayTitle = (() => {
     if (categoryName === 'All') return 'All Products';
 
     return decodeURIComponent(categoryName)
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
-  }, [categoryName]);
+  })();
 
   // SEO heading is only for the SEO content block at the bottom, not the H1
   const pageTitle = displayTitle;

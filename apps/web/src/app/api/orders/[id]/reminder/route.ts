@@ -122,7 +122,7 @@ export async function POST(
       .from('order_payment_accounts')
       .select('account_number, bank_name, account_name')
       .eq('order_id', orderId)
-      .single();
+      .maybeSingle();
 
     // 6. Generate payment link
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';

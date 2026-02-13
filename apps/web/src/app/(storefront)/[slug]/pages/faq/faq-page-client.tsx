@@ -1,7 +1,7 @@
 'use client';
 
 import { HelpCircle, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -49,25 +49,17 @@ export function FAQPageClient({
   const hasStructuredFAQs = faqItems.length > 0;
 
   // Filter FAQs based on search
-  const filteredFAQs = useMemo(
-    () =>
-      searchQuery
-        ? faqItems.filter(
-            (faq) =>
-              faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-        : faqItems,
-    [faqItems, searchQuery]
-  );
+  const filteredFAQs = searchQuery
+    ? faqItems.filter(
+        (faq) =>
+          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : faqItems;
 
   // Group FAQs by category
-
-  const groupedFAQs = useMemo(
-    () => groupFAQsByCategory(filteredFAQs),
-    [filteredFAQs]
-  );
-  const categories = useMemo(() => Object.keys(groupedFAQs), [groupedFAQs]);
+  const groupedFAQs = groupFAQsByCategory(filteredFAQs);
+  const categories = Object.keys(groupedFAQs);
 
   /* 
      JSON-LD is handled server-side in page.tsx using generateFAQSchema.

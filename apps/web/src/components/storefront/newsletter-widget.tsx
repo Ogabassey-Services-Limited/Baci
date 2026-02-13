@@ -1,7 +1,7 @@
 'use client';
 
 import { Gift, Loader2, Mail, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Input } from '@/components/ui/input';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -71,18 +71,18 @@ export function NewsletterWidget({
     return () => clearTimeout(timer);
   }, [showDelay]);
 
-  const handleDismiss = useCallback(() => {
+  const handleDismiss = () => {
     setIsVisible(false);
     localStorage.setItem(NEWSLETTER_DISMISSED_KEY, new Date().toISOString());
-  }, []);
+  };
 
-  const handleMinimize = useCallback(() => {
+  const handleMinimize = () => {
     setIsMinimized(true);
-  }, []);
+  };
 
-  const handleExpand = useCallback(() => {
+  const handleExpand = () => {
     setIsMinimized(false);
-  }, []);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

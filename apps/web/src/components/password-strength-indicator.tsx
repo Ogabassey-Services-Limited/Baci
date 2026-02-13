@@ -16,9 +16,10 @@ interface PasswordStrengthIndicatorProps {
 export function PasswordStrengthIndicator({
   strength,
 }: PasswordStrengthIndicatorProps) {
-  const currentLevel = strengthLevels[strength] || strengthLevels[0];
+  const clamped = Math.max(0, Math.min(3, strength));
+  const currentLevel = strengthLevels[clamped];
 
-  if (strength === 0) return null;
+  if (clamped === 0) return null;
 
   return (
     // biome-ignore lint/a11y/useSemanticElements: Custom design requires div structure
@@ -26,7 +27,7 @@ export function PasswordStrengthIndicator({
       className="flex items-center gap-2 mt-2"
       role="meter"
       aria-label="Password strength"
-      aria-valuenow={strength}
+      aria-valuenow={clamped}
       aria-valuemin={0}
       aria-valuemax={3}
       aria-valuetext={currentLevel.text}
@@ -38,7 +39,7 @@ export function PasswordStrengthIndicator({
             <div
               className={cn(
                 'h-1.5 rounded-full transition-all duration-300',
-                strength >= level ? className : ''
+                clamped >= level ? className : ''
               )}
             />
           </div>

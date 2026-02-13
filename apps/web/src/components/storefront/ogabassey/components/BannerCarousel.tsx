@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AD_CONFIG } from '../config/ads';
 import { AdUnit } from './AdUnit';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -70,7 +70,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Dynamic slides based on props
-  const slides = useMemo(() => {
+  const slides = (() => {
     if (categoryImage) {
       const customSlide: BannerSlide = {
         id: 0,
@@ -84,7 +84,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
       return [customSlide, ...BANNER_SLIDES];
     }
     return BANNER_SLIDES;
-  }, [categoryImage, title, description]);
+  })();
 
   // Touch handling state
   const [touchStart, setTouchStart] = useState<number | null>(null);

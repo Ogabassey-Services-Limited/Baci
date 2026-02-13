@@ -7,13 +7,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  useActionState,
-  useEffect,
-  useMemo,
-  useState,
-  useTransition,
-} from 'react';
+import { useActionState, useEffect, useState, useTransition } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import {
@@ -382,64 +376,46 @@ export default function OnboardingForm() {
   });
   const logoUrl = useWatch({ control: form.control, name: 'logoUrl' });
 
-  // Memoize parsed brandColors to prevent infinite re-renders in preview
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const parsedBrandColors = useMemo(() => {
-    if (!brandColors) return undefined;
+  // Parse brandColors to prevent infinite re-renders in preview
+  let parsedBrandColors: BrandColors | undefined;
+  if (brandColors) {
     try {
-      return JSON.parse(brandColors) as BrandColors;
+      parsedBrandColors = JSON.parse(brandColors) as BrandColors;
     } catch {
-      return undefined;
+      // Invalid JSON, keep undefined
     }
-  }, [brandColors]);
+  }
 
   const showPreview = step === 2 && !!brandColors;
 
   // 2025 Best Practice: Use form errors from zodResolver as single source of truth
   // No duplicate schema validation needed
-  const isCurrentStepValid = useMemo(() => {
-    if (step === 1)
-      return (
-        !errors.businessName &&
-        !errors.businessType &&
-        !errors.otherBusinessType
-      );
-    if (step === 2) return !errors.logoUrl && !errors.brandColors;
-    if (step === 3) {
-      // For step 3, check: email valid
-      const hasValidEmail = !!formEmail && !errors.email;
+  let isCurrentStepValid = false;
+  if (step === 1) {
+    isCurrentStepValid =
+      !errors.businessName && !errors.businessType && !errors.otherBusinessType;
+  } else if (step === 2) {
+    isCurrentStepValid = !errors.logoUrl && !errors.brandColors;
+  } else if (step === 3) {
+    // For step 3, check: email valid
+    const hasValidEmail = !!formEmail && !errors.email;
 
-      // If user is already authenticated (e.g. via Magic Link), password is not required
-      if (user) {
-        return hasValidEmail;
-      }
-
+    // If user is already authenticated (e.g. via Magic Link), password is not required
+    if (user) {
+      isCurrentStepValid = hasValidEmail;
+    } else {
       // If no user, check password strong enough (8+ chars), and passwords match
       const hasStrongPassword = !!formPassword && formPassword.length >= 8;
       const passwordsMatch = formPassword === formConfirmPassword;
       const noPasswordErrors = !errors.password && !errors.confirmPassword;
 
-      return (
-        hasValidEmail && hasStrongPassword && passwordsMatch && noPasswordErrors
-      );
+      isCurrentStepValid =
+        hasValidEmail &&
+        hasStrongPassword &&
+        passwordsMatch &&
+        noPasswordErrors;
     }
-    return false;
-  }, [
-    step,
-    errors,
-    formEmail,
-    formPassword,
-    formConfirmPassword,
-    errors.businessName,
-    errors.businessType,
-    errors.otherBusinessType,
-    errors.logoUrl,
-    errors.brandColors,
-    errors.email,
-    errors.password,
-    errors.confirmPassword,
-    user,
-  ]);
+  }
 
   if (isRedirecting) {
     return (

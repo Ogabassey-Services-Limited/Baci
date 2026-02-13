@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 import dynamic from 'next/dynamic';
 import type { JSONContent } from 'novel';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 
 // Dynamically import NovelEditor to avoid SSR issues with Tiptap
 const NovelEditor = dynamic(() => import('./novel-editor'), {
@@ -55,14 +55,11 @@ export function BlogEditor({
   });
 
   // Handle HTML content updates from Novel
-  const handleContentChange = useCallback(
-    (html: string) => {
-      // We now store the HTML string in the DB
-      // This is much safer than JSON and handles Markdown better
-      onChange(html);
-    },
-    [onChange]
-  );
+  const handleContentChange = (html: string) => {
+    // We now store the HTML string in the DB
+    // This is much safer than JSON and handles Markdown better
+    onChange(html);
+  };
 
   return (
     <div className="min-h-[500px] w-full">

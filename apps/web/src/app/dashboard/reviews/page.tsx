@@ -12,7 +12,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StarRating } from '@/components/storefront/star-rating';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -85,7 +85,7 @@ export default function ReviewsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showResponseDialog, setShowResponseDialog] = useState(false);
 
-  const fetchReviews = useCallback(async () => {
+  const fetchReviews = async () => {
     if (!merchant?.id) return;
 
     setIsLoading(true);
@@ -111,10 +111,11 @@ export default function ReviewsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [merchant?.id, statusFilter, debouncedSearch, toast]);
+  };
 
   useEffect(() => {
     fetchReviews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchReviews]);
 
   const updateReviewStatus = async (
@@ -252,21 +253,18 @@ export default function ReviewsPage() {
     }
   };
 
-  const stats = useMemo(
-    () => ({
-      total: reviews.length,
-      pending: reviews.filter((r) => r.status === 'pending').length,
-      approved: reviews.filter((r) => r.status === 'approved').length,
-      rejected: reviews.filter((r) => r.status === 'rejected').length,
-      averageRating:
-        reviews.length > 0
-          ? (
-              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            ).toFixed(1)
-          : '0.0',
-    }),
-    [reviews]
-  );
+  const stats = {
+    total: reviews.length,
+    pending: reviews.filter((r) => r.status === 'pending').length,
+    approved: reviews.filter((r) => r.status === 'approved').length,
+    rejected: reviews.filter((r) => r.status === 'rejected').length,
+    averageRating:
+      reviews.length > 0
+        ? (
+            reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          ).toFixed(1)
+        : '0.0',
+  };
 
   return (
     <div className="space-y-6">

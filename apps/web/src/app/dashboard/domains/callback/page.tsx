@@ -2,7 +2,7 @@
 
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -20,7 +20,7 @@ function DomainPaymentCallbackContent() {
   const [message, setMessage] = useState('Processing your payment...');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
-  const completePurchase = useCallback(async () => {
+  const completePurchase = async () => {
     if (!reference || !domain) {
       setStatus('error');
       setMessage('Missing payment information');
@@ -85,10 +85,11 @@ function DomainPaymentCallbackContent() {
         'Please contact support if you were charged but the domain was not registered.'
       );
     }
-  }, [reference, domain, years]);
+  };
 
   useEffect(() => {
     completePurchase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completePurchase]);
 
   return (

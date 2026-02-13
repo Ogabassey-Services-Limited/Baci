@@ -4,7 +4,7 @@ import { Calendar, Clock, Loader2, User } from 'lucide-react';
 import type { Route } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -60,7 +60,7 @@ export function BlogList({
     setHasMore(initialPosts.length < totalPosts);
   }, [initialPosts, totalPosts]);
 
-  const loadMore = useCallback(() => {
+  const loadMore = () => {
     startTransition(async () => {
       const nextPage = page + 1;
       try {
@@ -91,8 +91,9 @@ export function BlogList({
         console.error('Failed to load more posts:', error);
       }
     });
-  }, [page, merchantId, category, searchQuery, posts.length, totalPosts]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -108,7 +109,7 @@ export function BlogList({
     }
 
     return () => observer.disconnect();
-  }, [hasMore, isPending, loadMore]);
+  }, [hasMore, isPending]);
 
   return (
     <>

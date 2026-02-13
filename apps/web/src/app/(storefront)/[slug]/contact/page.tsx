@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { normalizeSocialUrl } from '@/lib/social';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 import { StorefrontPageWrapper } from '../storefront-page-wrapper';

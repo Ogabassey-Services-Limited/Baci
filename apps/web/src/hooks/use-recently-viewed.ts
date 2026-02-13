@@ -7,7 +7,7 @@
  * removing old entries and maintaining a configurable max size.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Product } from '@/lib/products';
 import { useMerchantSafe } from './use-merchant';
 
@@ -89,7 +89,7 @@ export function useRecentlyViewed(
   const [entries, setEntries] = useState<RecentlyViewedEntry[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const storageKey = useMemo(() => getStorageKey(merchantId), [merchantId]);
+  const storageKey = getStorageKey(merchantId);
   const expirationMs = expirationDays * 24 * 60 * 60 * 1000;
 
   // Load from localStorage on mount - this is the standard pattern for syncing external state
@@ -131,28 +131,25 @@ export function useRecentlyViewed(
     }
   }, [entries, storageKey, isInitialized]);
 
-  const addToRecentlyViewed = useCallback(
-    (productId: string) => {
-      setEntries((prev) => {
-        // Remove existing entry for this product (if any)
-        const filtered = prev.filter((entry) => entry.productId !== productId);
+  const addToRecentlyViewed = (productId: string) => {
+    setEntries((prev) => {
+      // Remove existing entry for this product (if any)
+      const filtered = prev.filter((entry) => entry.productId !== productId);
 
-        // Add new entry at the beginning
-        const newEntry: RecentlyViewedEntry = {
-          productId,
-          viewedAt: Date.now(),
-        };
+      // Add new entry at the beginning
+      const newEntry: RecentlyViewedEntry = {
+        productId,
+        viewedAt: Date.now(),
+      };
 
-        // Keep only maxItems
-        const updated = [newEntry, ...filtered].slice(0, maxItems);
+      // Keep only maxItems
+      const updated = [newEntry, ...filtered].slice(0, maxItems);
 
-        return updated;
-      });
-    },
-    [maxItems]
-  );
+      return updated;
+    });
+  };
 
-  const clearRecentlyViewed = useCallback(() => {
+  const clearRecentlyViewed = () => {
     setEntries([]);
     if (typeof window !== 'undefined') {
       try {
@@ -161,25 +158,19 @@ export function useRecentlyViewed(
         console.error('Failed to clear recently viewed products:', error);
       }
     }
-  }, [storageKey]);
+  };
 
-  const isRecentlyViewed = useCallback(
-    (productId: string) => {
-      return entries.some((entry) => entry.productId === productId);
-    },
-    [entries]
-  );
+  const isRecentlyViewed = (productId: string) => {
+    return entries.some((entry) => entry.productId === productId);
+  };
 
   // Compute IDs with exclusion filter
-  const recentlyViewedIds = useMemo(() => {
-    let ids = entries.map((entry) => entry.productId);
-
-    if (excludeProductId) {
-      ids = ids.filter((id) => id !== excludeProductId);
-    }
-
-    return ids;
-  }, [entries, excludeProductId]);
+  let recentlyViewedIds = entries.map((entry) => entry.productId);
+  if (excludeProductId) {
+    recentlyViewedIds = recentlyViewedIds.filter(
+      (id) => id !== excludeProductId
+    );
+  }
 
   return {
     recentlyViewedIds,

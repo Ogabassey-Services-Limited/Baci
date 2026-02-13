@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type AnalyticsCategory,
   AnalyticsCategoryNav,
@@ -53,20 +53,20 @@ export default function AnalyticsClientPage() {
     : null;
 
   // Placeholder fetch functions for specialized categories - implementation pending
-  const fetchInventoryData = useCallback(() => {
+  const fetchInventoryData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
-  const fetchSegmentData = useCallback(() => {
+  const fetchSegmentData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
-  const fetchAdAnalyticsData = useCallback(() => {
+  const fetchAdAnalyticsData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
   // Fetch base analytics data
   useEffect(() => {
@@ -145,13 +145,7 @@ export default function AnalyticsClientPage() {
     return () => {
       isCancelled = true;
     };
-  }, [
-    activeCategory,
-    merchant,
-    fetchInventoryData,
-    fetchSegmentData,
-    fetchAdAnalyticsData,
-  ]);
+  }, [activeCategory, merchant]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!analyticsData) {

@@ -16,7 +16,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import {
@@ -160,13 +160,13 @@ export default function EditBlogPostPage() {
     setShowRecoveryDialog(false);
   };
 
-  const discardRecoveredDraft = useCallback(() => {
+  const discardRecoveredDraft = () => {
     clearSavedData();
     setShowRecoveryDialog(false);
-  }, [clearSavedData]);
+  };
 
   // Undo auto-recovery - restore the original database state
-  const undoRecovery = useCallback(() => {
+  const undoRecovery = () => {
     if (preRecoveryData) {
       setFormData(preRecoveryData);
       clearSavedData();
@@ -176,7 +176,7 @@ export default function EditBlogPostPage() {
         description: 'Restored to the last saved version.',
       });
     }
-  }, [preRecoveryData, clearSavedData, toast]);
+  };
 
   useEffect(() => {
     const fetchPost = async () => {
@@ -278,82 +278,73 @@ export default function EditBlogPostPage() {
     }
   }, [isLoading, hasSavedData, getSavedData, formData, toast, undoRecovery]);
 
-  const handleChange = useCallback(
-    (field: keyof PostFormData, value: string) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleChange = (field: keyof PostFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const optimizeSEO = useCallback(
-    (field: 'seo_title' | 'seo_description') => {
-      const limit = field === 'seo_title' ? 70 : 160;
-      const currentValue =
-        formData[field] ||
-        (field === 'seo_title' ? formData.title : formData.excerpt);
-      const optimized = currentValue.slice(0, limit);
-      handleChange(field, optimized);
-      toast({
-        title: 'SEO Optimized',
-        description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
-      });
-    },
-    [formData, handleChange, toast]
-  );
+  const optimizeSEO = (field: 'seo_title' | 'seo_description') => {
+    const limit = field === 'seo_title' ? 70 : 160;
+    const currentValue =
+      formData[field] ||
+      (field === 'seo_title' ? formData.title : formData.excerpt);
+    const optimized = currentValue.slice(0, limit);
+    handleChange(field, optimized);
+    toast({
+      title: 'SEO Optimized',
+      description: `The ${field.replace('_', ' ')} has been truncated to 160 characters.`,
+    });
+  };
 
   const [isUploading, setIsUploading] = useState(false);
 
   // Handle featured image selection and upload
-  const handleFeaturedImageUpload = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return;
+  const handleFeaturedImageUpload = async (files: File[]) => {
+    if (files.length === 0) return;
 
-      setIsUploading(true);
-      const file = files[0];
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
+    setIsUploading(true);
+    const file = files[0];
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
 
-      try {
-        const csrfToken = getClientCsrfToken();
-        const headers: HeadersInit = {};
-        if (csrfToken) {
-          headers['x-csrf-token'] = csrfToken;
-        }
-
-        const response = await fetch('/api/merchant/blog/upload', {
-          method: 'POST',
-          headers,
-          body: formDataUpload,
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to upload image');
-        }
-
-        const data = await response.json();
-        handleChange('featured_image_url', data.url);
-        toast({
-          title: 'Success',
-          description: 'Featured image uploaded successfully.',
-        });
-      } catch (error) {
-        console.error('Error uploading image:', error);
-        toast({
-          title: 'Error',
-          description:
-            error instanceof Error ? error.message : 'Failed to upload image',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsUploading(false);
+    try {
+      const csrfToken = getClientCsrfToken();
+      const headers: HeadersInit = {};
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
       }
-    },
-    [handleChange, toast]
-  );
+
+      const response = await fetch('/api/merchant/blog/upload', {
+        method: 'POST',
+        headers,
+        body: formDataUpload,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const data = await response.json();
+      handleChange('featured_image_url', data.url);
+      toast({
+        title: 'Success',
+        description: 'Featured image uploaded successfully.',
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to upload image',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Image upload handler for the editor
-  const handleImageUpload = useCallback(async (file: File): Promise<string> => {
+  const handleImageUpload = async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
 
@@ -376,7 +367,7 @@ export default function EditBlogPostPage() {
 
     const data = await response.json();
     return data.url;
-  }, []);
+  };
 
   const validateForm = (): string | null => {
     // Sanitize data first

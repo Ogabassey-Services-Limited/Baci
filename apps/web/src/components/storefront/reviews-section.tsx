@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, MessageSquareText } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -55,50 +55,48 @@ export function ReviewsSection({
   const [offset, setOffset] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const fetchReviews = useCallback(
-    async (reset = false) => {
-      const currentOffset = reset ? 0 : offset;
+  const fetchReviews = async (reset = false) => {
+    const currentOffset = reset ? 0 : offset;
+
+    if (reset) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    try {
+      const response = await fetch(
+        `/api/reviews?product_id=${productId}&sort=${sortBy}&limit=10&offset=${currentOffset}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch reviews');
+      }
+
+      const data = await response.json();
 
       if (reset) {
-        setIsLoading(true);
+        setReviews(data.reviews);
+        setOffset(10);
       } else {
-        setIsLoadingMore(true);
+        setReviews((prev) => [...prev, ...data.reviews]);
+        setOffset((prev) => prev + 10);
       }
 
-      try {
-        const response = await fetch(
-          `/api/reviews?product_id=${productId}&sort=${sortBy}&limit=10&offset=${currentOffset}`
-        );
+      setStats(data.stats);
+      setHasMore(data.pagination.hasMore);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch reviews');
-        }
-
-        const data = await response.json();
-
-        if (reset) {
-          setReviews(data.reviews);
-          setOffset(10);
-        } else {
-          setReviews((prev) => [...prev, ...data.reviews]);
-          setOffset((prev) => prev + 10);
-        }
-
-        setStats(data.stats);
-        setHasMore(data.pagination.hasMore);
-      } catch (error) {
-        console.error('Error fetching reviews:', error);
-      } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
-      }
-    },
-    [productId, sortBy, offset]
-  );
-
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchReviews(true);
-  }, [fetchReviews]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [productId, sortBy]);
 
   const handleSortChange = (value: string) => {
     setSortBy(value);

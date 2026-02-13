@@ -21,7 +21,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,7 +124,7 @@ export function BlogClientPage({
     | undefined
   >(initialCounts);
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = async () => {
     if (!merchant?.id) return;
 
     setIsLoading(true);
@@ -167,7 +167,7 @@ export function BlogClientPage({
     } finally {
       setIsLoading(false);
     }
-  }, [merchant?.id, statusFilter, debouncedSearch, page, toast]);
+  };
 
   const handlePreview = async (post: BlogPost) => {
     if (!merchant?.slug) {
@@ -194,6 +194,7 @@ export function BlogClientPage({
 
   useEffect(() => {
     fetchPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchPosts]);
 
   const handleDelete = async () => {

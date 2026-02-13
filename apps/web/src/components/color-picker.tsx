@@ -2,7 +2,7 @@
 
 import { colord } from 'colord';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -63,16 +63,13 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const hex = colord({ h: hue, s: saturation, l: lightness }).toHex();
 
   // Update color and notify parent
-  const updateColor = useCallback(
-    (h: number, s: number, l: number) => {
-      const newHex = colord({ h, s, l }).toHex();
-      lastPropColorRef.current = newHex;
-      setHexInput(newHex);
-      hexInputRef.current = newHex;
-      onChange(newHex);
-    },
-    [onChange]
-  );
+  const updateColor = (h: number, s: number, l: number) => {
+    const newHex = colord({ h, s, l }).toHex();
+    lastPropColorRef.current = newHex;
+    setHexInput(newHex);
+    hexInputRef.current = newHex;
+    onChange(newHex);
+  };
 
   const handleSatLightChange = (
     e:

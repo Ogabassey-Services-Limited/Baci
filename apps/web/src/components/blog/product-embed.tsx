@@ -2,7 +2,7 @@
 
 import { Loader2, Package, Search, ShoppingCart } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,7 +47,7 @@ export function ProductEmbedPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchProducts = useCallback(async (query = '') => {
+  const fetchProducts = async (query = '') => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -61,13 +61,14 @@ export function ProductEmbedPicker({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (open) {
       fetchProducts();
     }
-  }, [open, fetchProducts]);
+  }, [open]);
 
   const handleSearch = (value: string) => {
     setSearch(value);

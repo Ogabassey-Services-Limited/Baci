@@ -6,7 +6,8 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { sanitizeSchemaMarkup, sanitizeText } from '@/lib/sanitize-core';
+import { sanitizeText } from '@/lib/sanitize-core';
+import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
   generateProductSchema,

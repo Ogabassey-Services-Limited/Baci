@@ -11,7 +11,6 @@
  *   }
  */
 
-import { useMemo } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import {
   FEATURE_METADATA,
@@ -57,7 +56,7 @@ export function useMerchantFeatures(): MerchantFeaturesResult {
 
   // Get plan tier from merchant data (default to 'free')
   // TODO: Add plan_tier column to merchants table
-  const planTier: PlanTier = useMemo(() => {
+  const planTier: PlanTier = (() => {
     if (!merchant) return 'free';
 
     // If merchant has plan_tier field, use it
@@ -75,19 +74,13 @@ export function useMerchantFeatures(): MerchantFeaturesResult {
     }
 
     return 'free';
-  }, [merchant]);
+  })();
 
-  const hasFeature = useMemo(() => {
-    return (feature: FeatureKey) => planHasFeature(planTier, feature);
-  }, [planTier]);
+  const hasFeature = (feature: FeatureKey) => planHasFeature(planTier, feature);
 
-  const availableFeatures = useMemo(() => {
-    return getPlanFeatures(planTier);
-  }, [planTier]);
+  const availableFeatures = getPlanFeatures(planTier);
 
-  const canUseSmartCartPro = useMemo(() => {
-    return hasSmartCartPro(planTier);
-  }, [planTier]);
+  const canUseSmartCartPro = hasSmartCartPro(planTier);
 
   const isPaidPlan = planTier !== 'free';
 

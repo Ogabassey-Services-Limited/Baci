@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FormProvider,
   useForm,
@@ -872,14 +872,11 @@ function CheckoutPageContent() {
   }, [paymentSettings.creditDirectEnabled, creditDirectScriptLoaded]);
 
   // Handle shipping quote selection
-  const handleShippingSelect = useCallback(
-    (quote: ShippingQuote, sessionId: string) => {
-      setSelectedShippingQuote(quote);
-      setShippingSessionId(sessionId);
-      setShippingFee(quote.price);
-    },
-    []
-  );
+  const handleShippingSelect = (quote: ShippingQuote, sessionId: string) => {
+    setSelectedShippingQuote(quote);
+    setShippingSessionId(sessionId);
+    setShippingFee(quote.price);
+  };
 
   // Calculate discount amount
   const discountAmount = appliedDiscount

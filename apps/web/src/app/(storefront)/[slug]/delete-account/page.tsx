@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 
 interface PageProps {
   params: Promise<{ slug: string }>;

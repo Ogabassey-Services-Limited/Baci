@@ -3,8 +3,8 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
-import { createVirtualBankAccount } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { generatePaymentAccount } from '@/lib/paystack';
 
 /**
  * POST /api/orders/[id]/ship-on-credit
@@ -98,33 +98,37 @@ export async function POST(
       );
     }
 
-    // 7. Create virtual account for payment collection (optional but recommended)
+    // 7. Create Paystack DVA for payment collection (optional but recommended)
+    //    Uses generatePaymentAccount which handles existing customer DVAs idempotently
     let virtualAccount = null;
     try {
-      const accountResult = await createVirtualBankAccount({
-        accountName: `${order.customer_name} - Order ${order.order_number}`,
-        customerEmail: order.customer_email,
-        amount: order.total,
-        orderId: orderId,
-        merchantId: merchant.id,
+      const nameParts = (order.customer_name || 'Customer').trim().split(' ');
+      const dvaResult = await generatePaymentAccount({
+        email: order.customer_email || `${orderId}@orders.usebaci.com`,
+        firstName: nameParts[0] || 'Customer',
+        lastName: nameParts.slice(1).join(' ') || 'User',
+        phone: '',
+        orderId,
       });
 
-      if (accountResult.success && accountResult.data) {
-        // Store virtual account in database
+      if (dvaResult.success) {
         await supabase.from('order_payment_accounts').insert({
           order_id: orderId,
-          account_number: accountResult.data.accountNumber,
-          bank_name: accountResult.data.bankName,
-          account_name: accountResult.data.accountName,
-          provider: 'korapay',
-          expires_at: accountResult.data.expiresAt,
+          account_number: dvaResult.data.account_number,
+          bank_name: dvaResult.data.bank_name,
+          account_name: dvaResult.data.account_name,
+          provider: 'paystack',
         });
-        virtualAccount = accountResult.data;
+        virtualAccount = {
+          account_number: dvaResult.data.account_number,
+          bank_name: dvaResult.data.bank_name,
+          account_name: dvaResult.data.account_name,
+        };
       }
     } catch (vaError) {
       // Non-blocking: Log but don't fail the request
       logger.warn({
-        message: 'Could not create virtual account for credit order',
+        message: 'Could not create DVA for credit order',
         error: vaError,
       });
     }

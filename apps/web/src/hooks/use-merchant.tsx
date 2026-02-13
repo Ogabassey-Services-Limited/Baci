@@ -3,10 +3,8 @@
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -189,11 +187,11 @@ export const MerchantProvider = ({
   const basePath =
     routingMode === 'domain' ? '' : `/${merchant?.slug || slug || ''}`;
 
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
   // Initialize ref with prop value to avoid race condition
   const hasHydrated = useRef(!!initialMerchant);
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     // If we provided initial data, skip the first automatic fetch
     if (!hasHydrated.current && initialMerchant && !slug) {
       hasHydrated.current = true;
@@ -507,75 +505,73 @@ export const MerchantProvider = ({
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, user, initialMerchant, supabase]);
+  };
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData]);
 
-  const reloadMerchant = useCallback(() => {
+  const reloadMerchant = () => {
     loadData();
-  }, [loadData]);
+  };
 
-  const updateMerchant = useCallback(
-    async (data: Partial<MerchantData>, options?: { skipReload?: boolean }) => {
-      if (!user) {
-        const errorMsg = 'Cannot update merchant data, no user logged in.';
-        logger.error({ message: errorMsg });
-        throw new Error(errorMsg);
-      }
+  const updateMerchant = async (
+    data: Partial<MerchantData>,
+    options?: { skipReload?: boolean }
+  ) => {
+    if (!user) {
+      const errorMsg = 'Cannot update merchant data, no user logged in.';
+      logger.error({ message: errorMsg });
+      throw new Error(errorMsg);
+    }
 
-      // Check if user has permission to update merchant settings
-      if (staffAccess.isStaff && !staffAccess.permissions.settings?.edit) {
-        const errorMsg = "You don't have permission to update store settings.";
-        logger.error({ message: errorMsg });
-        throw new Error(errorMsg);
-      }
+    // Check if user has permission to update merchant settings
+    if (staffAccess.isStaff && !staffAccess.permissions.settings?.edit) {
+      const errorMsg = "You don't have permission to update store settings.";
+      logger.error({ message: errorMsg });
+      throw new Error(errorMsg);
+    }
 
-      logger.info({ message: 'Updating merchant data in Supabase...', data });
+    logger.info({ message: 'Updating merchant data in Supabase...', data });
 
-      // For staff, update by merchant_id instead of user_id
-      const query = staffAccess.isOwner
-        ? supabase.from('merchants').update(data).eq('user_id', user.id)
-        : supabase.from('merchants').update(data).eq('id', merchant?.id);
+    // For staff, update by merchant_id instead of user_id
+    const query = staffAccess.isOwner
+      ? supabase.from('merchants').update(data).eq('user_id', user.id)
+      : supabase.from('merchants').update(data).eq('id', merchant?.id);
 
-      const { error } = await query;
+    const { error } = await query;
 
-      if (error) {
-        logger.error({
-          message: 'Failed to update merchant data',
-          error: error as Error,
-        });
-        throw error;
-      }
+    if (error) {
+      logger.error({
+        message: 'Failed to update merchant data',
+        error: error as Error,
+      });
+      throw error;
+    }
 
-      // Optimistic update: merge new data into current state
-      if (options?.skipReload) {
-        setMerchant((prev) => (prev ? { ...prev, ...data } : prev));
-        logger.info({ message: 'Merchant data updated optimistically.' });
-      } else {
-        logger.info({ message: 'Merchant data updated, reloading.' });
-        reloadMerchant();
-      }
-    },
-    [user, reloadMerchant, staffAccess, merchant?.id, supabase]
-  );
+    // Optimistic update: merge new data into current state
+    if (options?.skipReload) {
+      setMerchant((prev) => (prev ? { ...prev, ...data } : prev));
+      logger.info({ message: 'Merchant data updated optimistically.' });
+    } else {
+      logger.info({ message: 'Merchant data updated, reloading.' });
+      reloadMerchant();
+    }
+  };
 
   // Helper function to check permissions
-  const hasPermission = useCallback(
-    (resource: string, action: string): boolean => {
-      // Owners have full access
-      if (staffAccess.isOwner) return true;
+  const hasPermission = (resource: string, action: string): boolean => {
+    // Owners have full access
+    if (staffAccess.isOwner) return true;
 
-      // Check staff permissions
-      if (staffAccess.isStaff) {
-        return staffAccess.permissions[resource]?.[action] === true;
-      }
+    // Check staff permissions
+    if (staffAccess.isStaff) {
+      return staffAccess.permissions[resource]?.[action] === true;
+    }
 
-      return false;
-    },
-    [staffAccess]
-  );
+    return false;
+  };
 
   const value = {
     merchant,

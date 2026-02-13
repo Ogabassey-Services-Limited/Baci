@@ -22,7 +22,7 @@ import { PaystackLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransfer
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { usePersistedForm } from '@/hooks/use-persisted-state';
@@ -121,24 +121,21 @@ export const CheckoutPage: React.FC = () => {
   const completedSteps = isHydrated ? rawCompletedSteps : { contact: false, delivery: false };
 
   // Convenient setters that update the persisted form
-  const setFirstName = useCallback((v: string) => setCheckoutField('firstName', v), [setCheckoutField]);
-  const setLastName = useCallback((v: string) => setCheckoutField('lastName', v), [setCheckoutField]);
-  const setCustomerEmail = useCallback((v: string) => setCheckoutField('customerEmail', v), [setCheckoutField]);
-  const setCustomerPhone = useCallback((v: string) => setCheckoutField('customerPhone', v), [setCheckoutField]);
-  const setNewAddressStreet = useCallback((v: string) => setCheckoutField('newAddressStreet', v), [setCheckoutField]);
-  const setNewAddressState = useCallback((v: string) => setCheckoutField('newAddressState', v), [setCheckoutField]);
-  const setNewAddressCity = useCallback((v: string) => setCheckoutField('newAddressCity', v), [setCheckoutField]);
-  const setCurrentStep = useCallback((v: 'contact' | 'delivery' | 'payment') => setCheckoutField('currentStep', v), [setCheckoutField]);
-  const setCompletedSteps = useCallback(
-    (v: { contact: boolean; delivery: boolean } | ((prev: { contact: boolean; delivery: boolean }) => { contact: boolean; delivery: boolean })) => {
-      if (typeof v === 'function') {
-        setCheckoutField('completedSteps', v(completedSteps));
-      } else {
-        setCheckoutField('completedSteps', v);
-      }
-    },
-    [setCheckoutField, completedSteps]
-  );
+  const setFirstName = (v: string) => setCheckoutField('firstName', v);
+  const setLastName = (v: string) => setCheckoutField('lastName', v);
+  const setCustomerEmail = (v: string) => setCheckoutField('customerEmail', v);
+  const setCustomerPhone = (v: string) => setCheckoutField('customerPhone', v);
+  const setNewAddressStreet = (v: string) => setCheckoutField('newAddressStreet', v);
+  const setNewAddressState = (v: string) => setCheckoutField('newAddressState', v);
+  const setNewAddressCity = (v: string) => setCheckoutField('newAddressCity', v);
+  const setCurrentStep = (v: 'contact' | 'delivery' | 'payment') => setCheckoutField('currentStep', v);
+  const setCompletedSteps = (v: { contact: boolean; delivery: boolean } | ((prev: { contact: boolean; delivery: boolean }) => { contact: boolean; delivery: boolean })) => {
+    if (typeof v === 'function') {
+      setCheckoutField('completedSteps', v(completedSteps));
+    } else {
+      setCheckoutField('completedSteps', v);
+    }
+  };
 
   // Non-persisted UI state
   const [createAccount, setCreateAccount] = useState(false);
@@ -164,12 +161,12 @@ export const CheckoutPage: React.FC = () => {
   };
 
   // Validation States (hydration-safe: default to false during SSR to match disabled="" on server)
-  const rawIsContactValid = useMemo(() => {
+  const rawIsContactValid = (() => {
     const hasRequiredFields = firstName.trim() && lastName.trim() && customerEmail.trim() && customerPhone;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isPhoneValid = customerPhone && isValidPhoneNumber(customerPhone);
     return !!(hasRequiredFields && emailRegex.test(customerEmail.trim()) && isPhoneValid);
-  }, [firstName, lastName, customerEmail, customerPhone]);
+  })();
   const isContactValid = isHydrated ? rawIsContactValid : false;
 
 
@@ -341,7 +338,7 @@ export const CheckoutPage: React.FC = () => {
     attempts: 0,
   });
 
-  const verifyCryptoPayment = useCallback(async () => {
+  const verifyCryptoPayment = async () => {
     // Use paymentId for verification (from the capture response)
     // Fall back to sessionId if paymentId is not available
     const verificationId = cryptoPaymentData?.paymentId || cryptoPaymentData?.sessionId;
@@ -453,7 +450,7 @@ export const CheckoutPage: React.FC = () => {
         setCryptoVerificationStatus('failed');
       }
     }, 10000); // Poll every 10 seconds
-  }, [cryptoPaymentData, clearCheckoutSession, clearCart, router, getHref]);
+  };
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -487,7 +484,7 @@ export const CheckoutPage: React.FC = () => {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
 
   // Delivery step validation (hydration-safe)
-  const rawIsDeliveryValid = useMemo(() => {
+  const rawIsDeliveryValid = (() => {
     if (!deliveryMethod) return false;
     // For door delivery, a shipping quote MUST be selected
     if (deliveryMethod === 'door') return !!selectedQuoteId;
@@ -495,7 +492,7 @@ export const CheckoutPage: React.FC = () => {
     if (deliveryMethod === 'airport') return !!airportType;
     // Pickup is valid as long as the state matches (handled by UI selection enforcement)
     return true;
-  }, [deliveryMethod, selectedQuoteId, airportType]);
+  })();
   const isDeliveryValid = isHydrated ? rawIsDeliveryValid : false;
 
   // Note: newAddressState, newAddressCity, newAddressStreet are now part of checkoutForm (persisted)

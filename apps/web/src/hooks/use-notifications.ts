@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ActiveBanner,
@@ -54,76 +54,73 @@ export function useNotifications(): UseNotificationsReturn {
   /**
    * Fetch notifications from the API
    */
-  const fetchNotifications = useCallback(
-    async (append = false) => {
-      if (!merchant?.id) return;
+  const fetchNotifications = async (append = false) => {
+    if (!merchant?.id) return;
 
-      // Prevent duplicate parallel fetches
-      if (isFetchingRef.current && !append) {
-        return;
+    // Prevent duplicate parallel fetches
+    if (isFetchingRef.current && !append) {
+      return;
+    }
+
+    try {
+      if (!append) {
+        isFetchingRef.current = true;
+        setIsLoading(true);
       }
 
-      try {
-        if (!append) {
-          isFetchingRef.current = true;
-          setIsLoading(true);
-        }
+      const params = new URLSearchParams();
+      params.set('limit', '20');
+      if (append && cursor) {
+        params.set('cursor', cursor);
+      }
 
-        const params = new URLSearchParams();
-        params.set('limit', '20');
-        if (append && cursor) {
-          params.set('cursor', cursor);
-        }
+      const response = await fetch(`/api/notifications?${params.toString()}`);
+      // Implement throttling to prevent 429s
+      if (response.status === 429) {
+        console.warn('Rate limit exceeded for notifications. Backing off.');
+        // Wait 60 seconds before trying again if rate limited
+        await new Promise((resolve) => setTimeout(resolve, 60000));
+        return [];
+      }
 
-        const response = await fetch(`/api/notifications?${params.toString()}`);
-        // Implement throttling to prevent 429s
-        if (response.status === 429) {
-          console.warn('Rate limit exceeded for notifications. Backing off.');
-          // Wait 60 seconds before trying again if rate limited
-          await new Promise((resolve) => setTimeout(resolve, 60000));
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          // Don't throw for 429s or other actionable errors, just log and return empty
-          console.error(
-            'Failed to fetch notifications:',
-            response.status,
-            errorData
-          );
-          return [];
-        }
-
-        const data = await response.json();
-
-        if (append) {
-          setNotifications((prev) => [...prev, ...data.data]);
-        } else {
-          setNotifications(data.data);
-        }
-
-        setUnreadCount(data.unread_count);
-        setHasMore(data.has_more);
-        setCursor(data.cursor);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching notifications:', err);
-        setError(
-          err instanceof Error ? err.message : 'Failed to fetch notifications'
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        // Don't throw for 429s or other actionable errors, just log and return empty
+        console.error(
+          'Failed to fetch notifications:',
+          response.status,
+          errorData
         );
-      } finally {
-        setIsLoading(false);
-        isFetchingRef.current = false;
+        return [];
       }
-    },
-    [merchant?.id, cursor]
-  );
+
+      const data = await response.json();
+
+      if (append) {
+        setNotifications((prev) => [...prev, ...data.data]);
+      } else {
+        setNotifications(data.data);
+      }
+
+      setUnreadCount(data.unread_count);
+      setHasMore(data.has_more);
+      setCursor(data.cursor);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch notifications'
+      );
+    } finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  };
 
   /**
    * Fetch active banners
    */
-  const fetchActiveBanners = useCallback(async () => {
+  const fetchActiveBanners = async () => {
     if (!merchant?.id) return;
 
     try {
@@ -142,7 +139,7 @@ export function useNotifications(): UseNotificationsReturn {
     } catch (err) {
       console.error('Error fetching active banners:', err);
     }
-  }, [merchant?.id]);
+  };
 
   /**
    * Set up Supabase Broadcast subscription
@@ -165,7 +162,7 @@ export function useNotifications(): UseNotificationsReturn {
         };
 
         // Check if this notification is for the current merchant
-        if (data.target_merchant_ids?.includes(merchant.id)) {
+        if (merchant && data.target_merchant_ids?.includes(merchant.id)) {
           // Add the new notification to the top of the list
           const newNotification: MerchantNotificationWithDetails = {
             id: data.merchant_notification_id,
@@ -226,7 +223,7 @@ export function useNotifications(): UseNotificationsReturn {
         channelRef.current = null;
       }
     };
-  }, [merchant?.id]);
+  }, [merchant?.id, merchant]);
 
   /**
    * Initial fetch
@@ -234,12 +231,13 @@ export function useNotifications(): UseNotificationsReturn {
   useEffect(() => {
     fetchNotifications();
     fetchActiveBanners();
-  }, [fetchNotifications, fetchActiveBanners]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchActiveBanners, fetchNotifications]);
 
   /**
    * Mark a notification as read
    */
-  const markAsRead = useCallback(async (id: string) => {
+  const markAsRead = async (id: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
@@ -264,12 +262,12 @@ export function useNotifications(): UseNotificationsReturn {
       console.error('Error marking notification as read:', err);
       throw err;
     }
-  }, []);
+  };
 
   /**
    * Mark all notifications as read
    */
-  const markAllAsRead = useCallback(async () => {
+  const markAllAsRead = async () => {
     try {
       // Mark all unread notifications as read
       const unreadIds = notifications
@@ -298,12 +296,12 @@ export function useNotifications(): UseNotificationsReturn {
       console.error('Error marking all as read:', err);
       throw err;
     }
-  }, [notifications]);
+  };
 
   /**
    * Dismiss a notification (removes from list)
    */
-  const dismiss = useCallback(async (id: string) => {
+  const dismiss = async (id: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
@@ -324,12 +322,12 @@ export function useNotifications(): UseNotificationsReturn {
       console.error('Error dismissing notification:', err);
       throw err;
     }
-  }, []);
+  };
 
   /**
    * Dismiss a banner notification
    */
-  const dismissBanner = useCallback(async (id: string) => {
+  const dismissBanner = async (id: string) => {
     try {
       const response = await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
@@ -347,25 +345,25 @@ export function useNotifications(): UseNotificationsReturn {
       console.error('Error dismissing banner:', err);
       throw err;
     }
-  }, []);
+  };
 
   /**
    * Load more notifications (cursor-based pagination)
    */
-  const loadMore = useCallback(async () => {
+  const loadMore = async () => {
     if (hasMore && cursor) {
       await fetchNotifications(true);
     }
-  }, [hasMore, cursor, fetchNotifications]);
+  };
 
   /**
    * Refetch all notifications
    */
-  const refetch = useCallback(async () => {
+  const refetch = async () => {
     setCursor(null);
     await fetchNotifications(false);
     await fetchActiveBanners();
-  }, [fetchNotifications, fetchActiveBanners]);
+  };
 
   return {
     notifications,

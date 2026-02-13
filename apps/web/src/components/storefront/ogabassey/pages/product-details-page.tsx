@@ -25,7 +25,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrandProducts } from '@/components/storefront/brand-products';
 import { PriceRangeProducts } from '@/components/storefront/price-range-products';
 import { useCart } from '@/hooks/use-cart';
@@ -118,7 +118,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     return '#cccccc';
   };
 
-  const productData = useMemo(() => {
+  const productData = (() => {
     // Get color_images if available
     const colorImages = (serverProduct as Product & { color_images?: Record<string, string[]> }).color_images;
 
@@ -205,7 +205,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         { label: 'Condition', value: serverProduct.condition || 'New' },
       ],
     };
-  }, [serverProduct, getColorHex]);
+  })();
 
   // Phase 7: Condition State
   type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
@@ -260,7 +260,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
   // Derived state to find if this exact variant is in cart
   // Must match generateCartItemId format: [productId, color?, storage?].join('-')
-  const currentCartItemId = useMemo(() => {
+  const currentCartItemId = (() => {
     const parts: string[] = [String(productData.id)];
     if (selectedColor !== null && productData.colors[selectedColor]) {
       parts.push(productData.colors[selectedColor].name);
@@ -273,7 +273,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       parts.push(selectedCondition);
     }
     return parts.join('-');
-  }, [productData.id, productData.colors, productData.storage, selectedColor, selectedStorage, selectedCondition]);
+  })();
 
   const cartItem = currentCartItemId
     ? cart.find((item) => item.cartItemId === currentCartItemId)
@@ -373,7 +373,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   };
 
   // Phase 7 & 4: Get Current Offer Data (Price, Stock) based on Condition AND Variants
-  const currentOffer = useMemo(() => {
+  const currentOffer = (() => {
     let price = productData.rawPrice || 0;
     // Attempt to parse price string if rawPrice is missing (fallback)
     if (!price && typeof productData.price === 'string') {
@@ -443,7 +443,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       stock,
       id: productData.id,
     };
-  }, [selectedCondition, selectedStorage, selectedPlatform, productData]);
+  })();
 
   const getProductForCart = () => {
     // Return object with numeric price for cart (cart expects price: number)

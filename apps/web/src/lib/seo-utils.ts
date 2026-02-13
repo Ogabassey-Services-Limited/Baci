@@ -1,11 +1,8 @@
 import type { Route } from 'next';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
-import {
-  escapeHtml,
-  sanitizeSchemaMarkup,
-  stripHtmlTags,
-} from './sanitize-core';
+import { escapeHtml, stripHtmlTags } from './sanitize-core';
+import { sanitizeSchemaMarkup } from './sanitize-json-ld';
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml };

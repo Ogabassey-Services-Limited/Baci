@@ -162,13 +162,13 @@ export async function createDedicatedVirtualAccount(
 
   const customerCode = await getOrCreatePaystackCustomer(customer);
 
-  // Create DVA — include customer details for bank verification
+  // Create DVA — always include customer details (wema-bank requires phone)
   const baseDvaPayload: Record<string, string> = {
     customer: customerCode,
+    first_name: customer.first_name || 'Customer',
+    last_name: customer.last_name || 'User',
+    phone: customer.phone || '00000000000',
   };
-  if (customer.first_name) baseDvaPayload.first_name = customer.first_name;
-  if (customer.last_name) baseDvaPayload.last_name = customer.last_name;
-  if (customer.phone) baseDvaPayload.phone = customer.phone;
 
   const tryCreateDva = (bank: string) =>
     paystackRequest('/dedicated_account', 'POST', {
@@ -187,10 +187,10 @@ export async function createDedicatedVirtualAccount(
       currency?: string;
     };
   };
+  // Try wema-bank first (more reliable), then titan-paycom as fallback
   try {
     res = await tryCreateDva('wema-bank');
   } catch (error) {
-    // Fallback: try titan-paycom if wema-bank fails
     logger.warn({
       message: 'DVA wema-bank failed, trying titan-paycom',
       error: error instanceof Error ? error.message : String(error),

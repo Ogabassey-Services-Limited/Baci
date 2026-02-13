@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -105,7 +105,7 @@ export default function AdminNotificationsPage() {
     scheduled: 0,
   });
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -168,11 +168,12 @@ export default function AdminNotificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, filters, searchQuery, toast]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchNotifications();
-  }, [fetchNotifications]);
+  }, [page, filters, searchQuery, toast]);
 
   const handleDelete = async (id: string) => {
     try {

@@ -11,7 +11,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -120,7 +120,7 @@ export default function SystemHealthPage() {
   const [refreshingViews, setRefreshingViews] = useState(false);
   const { toast } = useToast();
 
-  const fetchHealth = useCallback(async () => {
+  const fetchHealth = async () => {
     const controller = new AbortController();
     const signal = controller.signal;
 
@@ -147,7 +147,7 @@ export default function SystemHealthPage() {
     }
 
     return () => controller.abort();
-  }, [toast]);
+  };
 
   const refreshAnalyticsViews = async () => {
     try {
@@ -170,12 +170,13 @@ export default function SystemHealthPage() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     const abort = fetchHealth();
     return () => {
       abort.then((cleanup) => cleanup?.());
     };
-  }, [fetchHealth]);
+  }, [toast]);
 
   // Calculate overall health score with safe fallback array
   const checks = health?.health ?? [];

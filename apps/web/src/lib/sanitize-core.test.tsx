@@ -17,13 +17,15 @@ import {
   sanitizeLikePattern,
   sanitizePhone,
   sanitizePrice,
-  sanitizeSchemaMarkup,
-  sanitizeSchemaUrl,
   sanitizeSearchQuery,
   sanitizeText,
   sanitizeUrl,
   stripHtmlTags,
 } from '@/lib/sanitize-core';
+import {
+  sanitizeSchemaMarkup,
+  sanitizeSchemaUrl,
+} from '@/lib/sanitize-json-ld';
 
 describe('sanitizeSearchQuery', () => {
   it('should remove basic special characters', () => {

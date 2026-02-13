@@ -11,7 +11,7 @@ import {
   User,
   Wallet,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -104,7 +104,7 @@ export function VirtualTerminalSettings({
     city: '',
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     try {
       const [accountsRes, branchesRes] = await Promise.all([
         fetch('/api/paystack/virtual-terminal'),
@@ -148,11 +148,12 @@ export function VirtualTerminalSettings({
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [toast]);
 
   const handleCreateAccount = async () => {
     if (!newAccount.name.trim()) {

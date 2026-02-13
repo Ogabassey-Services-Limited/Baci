@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { Button } from '@/components/ui/button';
@@ -50,9 +50,9 @@ export function StorefrontWrapper({
   const [templateLoading, setTemplateLoading] = useState(true);
 
   // Define callback before conditional returns to satisfy React hooks rules
-  const handleNoConfig = useCallback(() => {
+  const handleNoConfig = () => {
     setShowError(true);
-  }, []);
+  };
 
   // Load template components based on merchant's template_id
   useEffect(() => {

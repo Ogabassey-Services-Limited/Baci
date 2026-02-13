@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type {
   CryptoChain,
   CryptoCurrency,
@@ -203,7 +203,7 @@ export function useCryptoPayment({
     attempts: 0,
   });
 
-  const verifyCryptoPayment = useCallback(async () => {
+  const verifyCryptoPayment = async () => {
     const verificationId =
       cryptoPaymentData?.paymentId || cryptoPaymentData?.sessionId;
 
@@ -318,7 +318,7 @@ export function useCryptoPayment({
         onFailed();
       }
     }, 10000);
-  }, [cryptoPaymentData, clearCheckoutSession, clearCart, routerPush, getHref]);
+  };
 
   // Cleanup polling on unmount
   useEffect(() => {

@@ -3,10 +3,8 @@
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -70,10 +68,10 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [tier, setTier] = useState<AdFeatureTier>('starter');
 
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   // Load settings from database
-  const loadSettings = useCallback(async () => {
+  const loadSettings = async () => {
     if (!merchant?.merchant?.id) {
       setSettings(null);
       setLoading(false);
@@ -172,169 +170,161 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
     } finally {
       setLoading(false);
     }
-  }, [merchant?.merchant?.id, supabase]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadSettings is stable across renders
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+  }, [merchant?.merchant?.id]);
 
   // Update main settings
-  const updateSettings = useCallback(
-    async (updates: Partial<AdMonetizationSettings>) => {
-      if (!merchant?.merchant?.id || !settings) {
-        throw new Error('No merchant or settings available');
+  const updateSettings = async (updates: Partial<AdMonetizationSettings>) => {
+    if (!merchant?.merchant?.id || !settings) {
+      throw new Error('No merchant or settings available');
+    }
+
+    const dbUpdates: Record<string, unknown> = {};
+
+    if (updates.enabled !== undefined) dbUpdates.enabled = updates.enabled;
+    if (updates.credentials) {
+      if (updates.credentials.networkCode !== undefined) {
+        dbUpdates.network_code = updates.credentials.networkCode;
+      }
+      if (updates.credentials.adsenseId !== undefined) {
+        dbUpdates.adsense_id = updates.credentials.adsenseId;
+      }
+      if (updates.credentials.provider !== undefined) {
+        dbUpdates.provider = updates.credentials.provider;
+      }
+    }
+    if (updates.revenueSharePercent !== undefined) {
+      dbUpdates.revenue_share_percent = updates.revenueSharePercent;
+    }
+    if (updates.testMode !== undefined) dbUpdates.test_mode = updates.testMode;
+    if (updates.maxAdsPerPage !== undefined)
+      dbUpdates.max_ads_per_page = updates.maxAdsPerPage;
+    if (updates.trackImpressions !== undefined)
+      dbUpdates.track_impressions = updates.trackImpressions;
+    if (updates.trackClicks !== undefined)
+      dbUpdates.track_clicks = updates.trackClicks;
+    if (updates.showAdLabels !== undefined)
+      dbUpdates.show_ad_labels = updates.showAdLabels;
+
+    // Upsert settings
+    const { error } = await supabase.from('merchant_ad_settings').upsert(
+      {
+        merchant_id: merchant.merchant.id,
+        ...dbUpdates,
+      },
+      {
+        onConflict: 'merchant_id',
+      }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    // Update local state
+    setSettings((prev) => (prev ? { ...prev, ...updates } : null));
+  };
+
+  // Update a specific placement
+  const updatePlacement = async (
+    placementKey: string,
+    updates: Partial<AdPlacementSettings>
+  ) => {
+    if (!merchant?.merchant?.id || !settings) {
+      throw new Error('No merchant or settings available');
+    }
+
+    // Check if can enable
+    if (updates.enabled === true) {
+      const currentEnabled = settings.placements.filter(
+        (p) => p.enabled
+      ).length;
+      if (!canEnablePlacement(tier, currentEnabled, placementKey)) {
+        throw new Error('Cannot enable more placements on current tier');
+      }
+    }
+
+    const { error } = await supabase.from('merchant_ad_placements').upsert(
+      {
+        merchant_id: merchant.merchant.id,
+        placement_key: placementKey,
+        enabled: updates.enabled,
+        custom_ad_unit_id: updates.customAdUnitId,
+        custom_sizes: updates.customSizes,
+        frequency: updates.frequency,
+      },
+      {
+        onConflict: 'merchant_id,placement_key',
+      }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    // Update local state
+    setSettings((prev) => {
+      if (!prev) return null;
+
+      const existingIndex = prev.placements.findIndex(
+        (p) => p.placementKey === placementKey
+      );
+
+      const newPlacements = [...prev.placements];
+      if (existingIndex >= 0) {
+        newPlacements[existingIndex] = {
+          ...newPlacements[existingIndex],
+          ...updates,
+        };
+      } else {
+        newPlacements.push({
+          placementKey,
+          enabled: updates.enabled || false,
+          ...updates,
+        });
       }
 
-      const dbUpdates: Record<string, unknown> = {};
+      return { ...prev, placements: newPlacements };
+    });
+  };
 
-      if (updates.enabled !== undefined) dbUpdates.enabled = updates.enabled;
-      if (updates.credentials) {
-        if (updates.credentials.networkCode !== undefined) {
-          dbUpdates.network_code = updates.credentials.networkCode;
-        }
-        if (updates.credentials.adsenseId !== undefined) {
-          dbUpdates.adsense_id = updates.credentials.adsenseId;
-        }
-        if (updates.credentials.provider !== undefined) {
-          dbUpdates.provider = updates.credentials.provider;
-        }
-      }
-      if (updates.revenueSharePercent !== undefined) {
-        dbUpdates.revenue_share_percent = updates.revenueSharePercent;
-      }
-      if (updates.testMode !== undefined)
-        dbUpdates.test_mode = updates.testMode;
-      if (updates.maxAdsPerPage !== undefined)
-        dbUpdates.max_ads_per_page = updates.maxAdsPerPage;
-      if (updates.trackImpressions !== undefined)
-        dbUpdates.track_impressions = updates.trackImpressions;
-      if (updates.trackClicks !== undefined)
-        dbUpdates.track_clicks = updates.trackClicks;
-      if (updates.showAdLabels !== undefined)
-        dbUpdates.show_ad_labels = updates.showAdLabels;
+  // Update rewarded ad settings
+  const updateRewardedAd = async (updates: Partial<RewardedAdSettings>) => {
+    if (!merchant?.merchant?.id || !settings) {
+      throw new Error('No merchant or settings available');
+    }
 
-      // Upsert settings
-      const { error } = await supabase.from('merchant_ad_settings').upsert(
+    const { error } = await supabase
+      .from('merchant_rewarded_ad_settings')
+      .upsert(
         {
           merchant_id: merchant.merchant.id,
-          ...dbUpdates,
+          enabled: updates.enabled,
+          reward_type: updates.rewardType,
+          reward_value: updates.rewardValue,
+          reward_expiry_days: updates.rewardExpiryDays,
+          min_order_value: updates.minOrderValue,
         },
         {
           onConflict: 'merchant_id',
         }
       );
 
-      if (error) {
-        throw error;
-      }
+    if (error) {
+      throw error;
+    }
 
-      // Update local state
-      setSettings((prev) => (prev ? { ...prev, ...updates } : null));
-    },
-    [merchant?.merchant?.id, settings, supabase]
-  );
-
-  // Update a specific placement
-  const updatePlacement = useCallback(
-    async (placementKey: string, updates: Partial<AdPlacementSettings>) => {
-      if (!merchant?.merchant?.id || !settings) {
-        throw new Error('No merchant or settings available');
-      }
-
-      // Check if can enable
-      if (updates.enabled === true) {
-        const currentEnabled = settings.placements.filter(
-          (p) => p.enabled
-        ).length;
-        if (!canEnablePlacement(tier, currentEnabled, placementKey)) {
-          throw new Error('Cannot enable more placements on current tier');
-        }
-      }
-
-      const { error } = await supabase.from('merchant_ad_placements').upsert(
-        {
-          merchant_id: merchant.merchant.id,
-          placement_key: placementKey,
-          enabled: updates.enabled,
-          custom_ad_unit_id: updates.customAdUnitId,
-          custom_sizes: updates.customSizes,
-          frequency: updates.frequency,
-        },
-        {
-          onConflict: 'merchant_id,placement_key',
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      // Update local state
-      setSettings((prev) => {
-        if (!prev) return null;
-
-        const existingIndex = prev.placements.findIndex(
-          (p) => p.placementKey === placementKey
-        );
-
-        const newPlacements = [...prev.placements];
-        if (existingIndex >= 0) {
-          newPlacements[existingIndex] = {
-            ...newPlacements[existingIndex],
-            ...updates,
-          };
-        } else {
-          newPlacements.push({
-            placementKey,
-            enabled: updates.enabled || false,
-            ...updates,
-          });
-        }
-
-        return { ...prev, placements: newPlacements };
-      });
-    },
-    [merchant?.merchant?.id, settings, tier, supabase]
-  );
-
-  // Update rewarded ad settings
-  const updateRewardedAd = useCallback(
-    async (updates: Partial<RewardedAdSettings>) => {
-      if (!merchant?.merchant?.id || !settings) {
-        throw new Error('No merchant or settings available');
-      }
-
-      const { error } = await supabase
-        .from('merchant_rewarded_ad_settings')
-        .upsert(
-          {
-            merchant_id: merchant.merchant.id,
-            enabled: updates.enabled,
-            reward_type: updates.rewardType,
-            reward_value: updates.rewardValue,
-            reward_expiry_days: updates.rewardExpiryDays,
-            min_order_value: updates.minOrderValue,
-          },
-          {
-            onConflict: 'merchant_id',
-          }
-        );
-
-      if (error) {
-        throw error;
-      }
-
-      setSettings((prev) =>
-        prev
-          ? { ...prev, rewardedAd: { ...prev.rewardedAd, ...updates } }
-          : null
-      );
-    },
-    [merchant?.merchant?.id, settings, supabase]
-  );
+    setSettings((prev) =>
+      prev ? { ...prev, rewardedAd: { ...prev.rewardedAd, ...updates } } : null
+    );
+  };
 
   // Enable all allowed placements
-  const enableAllPlacements = useCallback(async () => {
+  const enableAllPlacements = async () => {
     if (!merchant?.merchant?.id || !settings) return;
 
     const placementKeys = Object.keys(AD_PLACEMENTS);
@@ -346,10 +336,10 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
         enabledCount++;
       }
     }
-  }, [merchant?.merchant?.id, settings, tier, updatePlacement]);
+  };
 
   // Disable all placements
-  const disableAllPlacements = useCallback(async () => {
+  const disableAllPlacements = async () => {
     if (!merchant?.merchant?.id || !settings) return;
 
     for (const placement of settings.placements) {
@@ -357,29 +347,26 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
         await updatePlacement(placement.placementKey, { enabled: false });
       }
     }
-  }, [merchant?.merchant?.id, settings, updatePlacement]);
+  };
 
   // Helper functions
-  const isPlacementEnabled = useCallback(
-    (placementKey: string): boolean => {
-      if (!settings) return false;
-      const placement = settings.placements.find(
-        (p) => p.placementKey === placementKey
-      );
-      return placement?.enabled || false;
-    },
-    [settings]
-  );
+  const isPlacementEnabled = (placementKey: string): boolean => {
+    if (!settings) return false;
+    const placement = settings.placements.find(
+      (p) => p.placementKey === placementKey
+    );
+    return placement?.enabled || false;
+  };
 
-  const getEnabledPlacementCount = useCallback((): number => {
+  const getEnabledPlacementCount = (): number => {
     if (!settings) return 0;
     return settings.placements.filter((p) => p.enabled).length;
-  }, [settings]);
+  };
 
-  const canEnableMorePlacements = useCallback((): boolean => {
+  const canEnableMorePlacements = (): boolean => {
     const currentCount = getEnabledPlacementCount();
     return canEnablePlacement(tier, currentCount, 'any');
-  }, [tier, getEnabledPlacementCount]);
+  };
 
   const value: AdSettingsContextType = {
     settings,

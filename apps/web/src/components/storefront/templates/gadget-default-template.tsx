@@ -3,7 +3,7 @@
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AnnouncementBar } from '@/components/storefront/blocks/announcement-bar';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { Header } from '@/components/storefront/blocks/header';
@@ -35,13 +35,11 @@ export function GadgetDefaultTemplate({
   const [browseMode, setBrowseMode] = useState<BrowseMode>('category');
 
   // Derive unique brands from products
-  const allBrands = useMemo(() => {
-    const brands = new Set<string>();
-    products.forEach((p) => {
-      if (p.brand) brands.add(p.brand);
-    });
-    return Array.from(brands).slice(0, 8); // Limit to 8
-  }, [products]);
+  const brands = new Set<string>();
+  products.forEach((p) => {
+    if (p.brand) brands.add(p.brand);
+  });
+  const allBrands = Array.from(brands).slice(0, 8); // Limit to 8
 
   const PRICE_RANGES = [
     { label: 'Under ₦5,000', href: '/search?max_price=5000' },

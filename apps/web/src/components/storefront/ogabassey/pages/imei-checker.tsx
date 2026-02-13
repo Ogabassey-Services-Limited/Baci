@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 
 // Service tiers matching the API
 const SERVICE_TIERS = {
@@ -162,11 +162,11 @@ export const OgabasseyImeiChecker: React.FC = () => {
     return () => clearTimeout(timer);
   }, [deviceQuery]);
 
-  const handleSelectDevice = useCallback((device: ProductSuggestion) => {
+  const handleSelectDevice = (device: ProductSuggestion) => {
     setSelectedDevice(device);
     setDeviceQuery(device.name);
     setShowSuggestions(false);
-  }, []);
+  };
 
   const handleCheck = async (e: React.FormEvent) => {
     e.preventDefault();

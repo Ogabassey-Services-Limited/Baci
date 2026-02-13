@@ -3,7 +3,7 @@
 import { AlertCircle, Loader2, Package, Printer, Truck } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,7 +62,7 @@ export function OrderManagerModal({
   const [deliveryType, setDeliveryType] = useState('dropshipping');
   const { toast } = useToast();
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -75,13 +75,14 @@ export function OrderManagerModal({
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (isOpen && orderId) {
       fetchItems();
     }
-  }, [isOpen, orderId, fetchItems]);
+  }, [isOpen, orderId]);
 
   const handleAction = async (
     action: 'pack' | 'ready_to_ship' | 'print_label'

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 
@@ -75,43 +75,40 @@ export function useIntegrationSettings<T extends object>({
   }, [merchant, keys, platformName]);
 
   // Save settings to the features API
-  const saveSettings = useCallback(
-    async (updates: Partial<T>) => {
-      try {
-        const response = await fetch('/api/merchant/features', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
+  const saveSettings = async (updates: Partial<T>) => {
+    try {
+      const response = await fetch('/api/merchant/features', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to save settings');
-        }
-
-        const data = await response.json();
-        // Extract only the keys we care about from the response
-        const extracted = {} as T;
-        for (const key of keys) {
-          extracted[key] = data[key as string] ?? null;
-        }
-        setSettings(extracted);
-
-        toast({
-          title: 'Settings saved',
-          description: `Your ${platformName} settings have been updated.`,
-        });
-      } catch (error) {
-        console.error('Failed to save settings for', platformName, ':', error);
-        toast({
-          variant: 'destructive',
-          title: 'Save failed',
-          description: 'Could not save your settings. Please try again.',
-        });
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
       }
-    },
-    [keys, platformName, toast]
-  );
+
+      const data = await response.json();
+      // Extract only the keys we care about from the response
+      const extracted = {} as T;
+      for (const key of keys) {
+        extracted[key] = data[key as string] ?? null;
+      }
+      setSettings(extracted);
+
+      toast({
+        title: 'Settings saved',
+        description: `Your ${platformName} settings have been updated.`,
+      });
+    } catch (error) {
+      console.error('Failed to save settings for', platformName, ':', error);
+      toast({
+        variant: 'destructive',
+        title: 'Save failed',
+        description: 'Could not save your settings. Please try again.',
+      });
+      throw error;
+    }
+  };
 
   return {
     settings,

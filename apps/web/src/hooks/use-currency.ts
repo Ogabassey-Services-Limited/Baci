@@ -7,7 +7,6 @@
  * providing a consistent currency display across all storefront pages.
  */
 
-import { useCallback, useMemo } from 'react';
 import {
   type CurrencyConfig,
   formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
@@ -56,31 +55,20 @@ export function useCurrency(): UseCurrencyReturn {
   const merchantContext = useMerchantSafe();
   const countryCode = merchantContext?.merchant?.country ?? null;
 
-  const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
+  const config = getCurrencyConfig(countryCode);
 
-  const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
-    [config]
-  );
+  const formatCurrency = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config);
 
-  const formatCurrencyCompact = useCallback(
-    (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }),
-    [config]
-  );
+  const formatCurrencyCompact = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
-  const currencySymbol = useMemo(
-    () => getCurrencySymbolUtil(countryCode),
-    [countryCode]
-  );
+  const currencySymbol = getCurrencySymbolUtil(countryCode);
 
-  const currencyCode = useMemo(
-    () => getCurrencyCodeUtil(countryCode),
-    [countryCode]
-  );
+  const currencyCode = getCurrencyCodeUtil(countryCode);
 
   return {
     formatCurrency,
@@ -105,31 +93,20 @@ export function useCurrency(): UseCurrencyReturn {
 export function useCurrencyWithCountry(
   countryCode: string | null | undefined
 ): UseCurrencyReturn {
-  const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
+  const config = getCurrencyConfig(countryCode);
 
-  const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
-    [config]
-  );
+  const formatCurrency = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config);
 
-  const formatCurrencyCompact = useCallback(
-    (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }),
-    [config]
-  );
+  const formatCurrencyCompact = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
-  const currencySymbol = useMemo(
-    () => getCurrencySymbolUtil(countryCode),
-    [countryCode]
-  );
+  const currencySymbol = getCurrencySymbolUtil(countryCode);
 
-  const currencyCodeValue = useMemo(
-    () => getCurrencyCodeUtil(countryCode),
-    [countryCode]
-  );
+  const currencyCodeValue = getCurrencyCodeUtil(countryCode);
 
   return {
     formatCurrency,

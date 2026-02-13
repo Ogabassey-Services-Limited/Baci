@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 // Migrated from temp-source/components/InteractiveProductGrid.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
@@ -59,7 +59,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
 
   // Derive categories: Use explicitly passed categories if available, otherwise derive from products
-  const categories = useMemo(() => {
+  const categories = (() => {
     // If explicit categories array provided:
     if (explicitCategories && explicitCategories.length > 0) {
       // Map to just names string array, ensuring "All" is first
@@ -68,13 +68,13 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
     // Fallback behavior: derive from current products
     return ['All', ...Array.from(new Set(products.map((p) => p.categories?.name || (p as any).category)))];
-  }, [products, explicitCategories]);
+  })();
 
-  const brands = useMemo(() => {
+  const brands = (() => {
     return Array.from(
       new Set(products.map((p) => p.brand).filter(Boolean) as string[])
     );
-  }, [products]);
+  })();
 
   const filteredProducts = products.filter((product) => {
     // Category Filter

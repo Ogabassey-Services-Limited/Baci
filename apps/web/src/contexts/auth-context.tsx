@@ -6,7 +6,6 @@ import {
   type ReactNode,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -22,7 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = createClient();
 
   useEffect(() => {
     // Get initial user - use getUser() instead of getSession() to ensure

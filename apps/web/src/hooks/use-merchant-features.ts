@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Storefront Feature Settings (Public)
@@ -151,7 +151,7 @@ export function useStorefrontFeatures({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchFeatures = useCallback(async () => {
+  const fetchFeatures = async () => {
     if (!merchantId && !slug) return;
 
     setIsLoading(true);
@@ -176,12 +176,13 @@ export function useStorefrontFeatures({
     } finally {
       setIsLoading(false);
     }
-  }, [merchantId, slug]);
+  };
 
   useEffect(() => {
     if (autoFetch && (merchantId || slug)) {
       fetchFeatures();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoFetch, merchantId, slug, fetchFeatures]);
 
   return {
@@ -214,7 +215,7 @@ export function useMerchantFeatures() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = async () => {
     setIsLoading(true);
     setError(null);
 
@@ -233,56 +234,55 @@ export function useMerchantFeatures() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const updateSettings = useCallback(
-    async (updates: Partial<MerchantFeatureSettings>): Promise<boolean> => {
-      setIsSaving(true);
-      setError(null);
+  const updateSettings = async (
+    updates: Partial<MerchantFeatureSettings>
+  ): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
 
-      try {
-        const response = await fetch('/api/merchant/features', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
+    try {
+      const response = await fetch('/api/merchant/features', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (!response.ok) {
-          setError(result.error || 'Failed to update settings');
-          return false;
-        }
-
-        setSettings(result);
-        return true;
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to update settings'
-        );
+      if (!response.ok) {
+        setError(result.error || 'Failed to update settings');
         return false;
-      } finally {
-        setIsSaving(false);
       }
-    },
-    []
-  );
 
-  const toggleFeature = useCallback(
-    async (feature: keyof MerchantFeatureSettings): Promise<boolean> => {
-      await Promise.resolve(); // Satisfy linter
-      if (!settings) return false;
+      setSettings(result);
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to update settings'
+      );
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-      const currentValue = settings[feature];
-      if (typeof currentValue !== 'boolean') return false;
+  const toggleFeature = async (
+    feature: keyof MerchantFeatureSettings
+  ): Promise<boolean> => {
+    await Promise.resolve(); // Satisfy linter
+    if (!settings) return false;
 
-      return updateSettings({ [feature]: !currentValue });
-    },
-    [settings, updateSettings]
-  );
+    const currentValue = settings[feature];
+    if (typeof currentValue !== 'boolean') return false;
+
+    return updateSettings({ [feature]: !currentValue });
+  };
 
   useEffect(() => {
     fetchSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchSettings]);
 
   return {

@@ -8,7 +8,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface JumiaIntegration {
   id: string;
@@ -36,7 +36,7 @@ export default function ChannelsPage() {
   } | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
 
-  const fetchIntegrations = useCallback(async () => {
+  const fetchIntegrations = async () => {
     try {
       const response = await fetch('/api/marketplace/jumia/connect');
       const data = await response.json();
@@ -46,7 +46,7 @@ export default function ChannelsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   // Check for success/error from OAuth callback
   useEffect(() => {
@@ -83,6 +83,7 @@ export default function ChannelsPage() {
 
   useEffect(() => {
     fetchIntegrations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchIntegrations]);
 
   const handleConnect = async () => {
