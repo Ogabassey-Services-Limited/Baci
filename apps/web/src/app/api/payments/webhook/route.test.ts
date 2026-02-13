@@ -50,7 +50,7 @@ function createMockSupabaseClient() {
     auth: {
       getUser: vi.fn(),
     },
-    from: vi.fn((table: string) => {
+    from: vi.fn((_table: string) => {
       // Create a new chain for each table call
       const chain = {
         select: vi.fn().mockReturnThis(),

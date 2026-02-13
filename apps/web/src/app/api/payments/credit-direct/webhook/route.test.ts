@@ -442,7 +442,7 @@ describe('POST /api/payments/credit-direct/webhook', () => {
 
       // Track which from() call we're on
       let fromCallCount = 0;
-      supabaseMock.from.mockImplementation((table: string) => {
+      supabaseMock.from.mockImplementation((_table: string) => {
         fromCallCount++;
         if (fromCallCount === 1) {
           // First from('orders') - order lookup
