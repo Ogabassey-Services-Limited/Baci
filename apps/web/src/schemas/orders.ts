@@ -54,7 +54,10 @@ export const orderCreateSchema = z.object({
   shipping_fee: z.coerce.number().nonnegative().default(0),
   discount_amount: z.coerce.number().nonnegative().default(0),
   tax_amount: z.coerce.number().nonnegative().default(0),
-  payment_method: z.string().min(1).transform((val) => sanitizeText(val)),
+  payment_method: z
+    .string()
+    .min(1)
+    .transform((val) => sanitizeText(val)),
   payment_status: z.string().default('unpaid'),
   shipping_status: z.string().default('pending'),
   shipping_address: z
