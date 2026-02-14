@@ -1,4 +1,3 @@
-
 import { describe, expect, it } from 'vitest';
 import { orderCreateSchema } from './orders';
 
@@ -19,9 +18,9 @@ describe('orderCreateSchema', () => {
     subtotal: 100,
     payment_method: 'card',
     shipping_address: {
-        address: '123 Main St',
-        city: 'New York',
-        state: 'NY',
+      address: '123 Main St',
+      city: 'New York',
+      state: 'NY',
     },
     notes: 'Please deliver promptly.',
   };
@@ -42,7 +41,7 @@ describe('orderCreateSchema', () => {
       // Before fix: contains script tags
       // After fix: should not contain script tags
       // We expect this test to fail/change behavior after we implement the fix
-       expect(result.data.customer_name).not.toContain('<script>');
+      expect(result.data.customer_name).not.toContain('<script>');
     }
   });
 
@@ -54,24 +53,24 @@ describe('orderCreateSchema', () => {
     const result = orderCreateSchema.safeParse(maliciousOrder);
     expect(result.success).toBe(true);
     if (result.success) {
-       expect(result.data.notes).not.toContain('<img');
+      expect(result.data.notes).not.toContain('<img');
     }
   });
 
-    it('sanitizes shipping address with HTML tags', () => {
+  it('sanitizes shipping address with HTML tags', () => {
     const maliciousOrder = {
       ...validOrder,
       shipping_address: {
         address: '123 <script>alert(1)</script> St',
         city: 'New <b>York</b>',
         state: 'NY',
-      }
+      },
     };
     const result = orderCreateSchema.safeParse(maliciousOrder);
     expect(result.success).toBe(true);
     if (result.success) {
-       expect(result.data.shipping_address?.address).not.toContain('<script>');
-       expect(result.data.shipping_address?.city).not.toContain('<b>');
+      expect(result.data.shipping_address?.address).not.toContain('<script>');
+      expect(result.data.shipping_address?.city).not.toContain('<b>');
     }
   });
 });
