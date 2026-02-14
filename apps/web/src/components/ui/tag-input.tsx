@@ -113,7 +113,7 @@ export function TagInput({
               {tag}
               <button
                 type="button"
-                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors"
+                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(index);
