@@ -9,8 +9,7 @@ const HTML_TAG_REGEX = /<[^>]{0,1000}>/g;
 const NULL_BYTE_REGEX = /\0/g;
 const PHONE_SANITIZATION_REGEX = /[^\d+\-\s()]/g;
 const SEARCH_QUERY_SANITIZATION_REGEX = /[<>'"`;\\,()|]/g;
-const LOG_CONTROL_CHARS_REGEX = /[\r\n\t]/g;
-const LOG_NON_PRINTABLE_REGEX = /[^\x20-\x7E]/g;
+const LOG_SANITIZER_REGEX = /[^\x20-\x7E]/g;
 const LIKE_ESCAPE_REGEX = /[\\%_]/g;
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,6 +43,9 @@ export function stripHtmlTags(text: string | null | undefined): string {
   const maxLength = 100000;
   const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
 
+  // Optimization: fast path for strings without HTML tags
+  if (!truncated.includes('<')) return truncated;
+
   let result = truncated;
   let previous: string;
   let iterations = 0;
@@ -67,9 +69,14 @@ export function sanitizeText(text: string, maxLength: number = 10000): string {
   if (!text) return '';
 
   // Remove null bytes
-  let sanitized = text.replace(NULL_BYTE_REGEX, '');
+  // Optimization: check if null byte exists before replacing (regex overhead)
+  let sanitized = text;
+  if (sanitized.includes('\0')) {
+    sanitized = sanitized.replace(NULL_BYTE_REGEX, '');
+  }
 
   // Remove HTML tags (iteratively to handle nested patterns)
+  // Optimization: fast path check is inside stripHtmlTags
   sanitized = stripHtmlTags(sanitized);
 
   // Trim whitespace
@@ -353,9 +360,9 @@ export function sanitizeForLog(value: unknown, maxLength = 1000): string {
       typeof value === 'boolean'
     ) {
       const str = String(value).slice(0, maxLength);
-      return str
-        .replace(LOG_CONTROL_CHARS_REGEX, ' ')
-        .replace(LOG_NON_PRINTABLE_REGEX, '');
+      return str.replace(LOG_SANITIZER_REGEX, (match) =>
+        match === '\r' || match === '\n' || match === '\t' ? ' ' : ''
+      );
     }
 
     // For complex types, use JSON.stringify but wrap in try-catch for BigInt/Circular
@@ -364,15 +371,16 @@ export function sanitizeForLog(value: unknown, maxLength = 1000): string {
       0,
       maxLength
     );
-    return result
-      .replace(LOG_CONTROL_CHARS_REGEX, ' ')
-      .replace(LOG_NON_PRINTABLE_REGEX, '');
+    return result.replace(LOG_SANITIZER_REGEX, (match) =>
+      match === '\r' || match === '\n' || match === '\t' ? ' ' : ''
+    );
   } catch {
     // Ultimate fallback
     return String(value ?? '')
       .slice(0, maxLength)
-      .replace(LOG_CONTROL_CHARS_REGEX, ' ')
-      .replace(LOG_NON_PRINTABLE_REGEX, '');
+      .replace(LOG_SANITIZER_REGEX, (match) =>
+        match === '\r' || match === '\n' || match === '\t' ? ' ' : ''
+      );
   }
 }
 
