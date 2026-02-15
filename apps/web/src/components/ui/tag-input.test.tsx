@@ -172,4 +172,13 @@ describe('TagInput', () => {
       );
     });
   });
+
+  it('has visible focus styles on remove buttons', () => {
+    render(<TagInputHarness initial={['tag1']} onChangeSpy={mockOnChange} />);
+    const removeButton = screen.getByRole('button', { name: /remove tag1/i });
+    expect(removeButton).toHaveClass('focus-visible:outline-none');
+    expect(removeButton).toHaveClass('focus-visible:ring-2');
+    expect(removeButton).toHaveClass('focus-visible:ring-ring');
+    expect(removeButton).toHaveClass('focus-visible:ring-offset-2');
+  });
 });
