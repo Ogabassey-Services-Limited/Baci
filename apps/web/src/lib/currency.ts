@@ -62,6 +62,7 @@ export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
 
 const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
 const MAX_CACHE_SIZE = 100;
+let lastAccessedKey: string | null = null;
 
 /**
  * Optimized currency formatter using a pre-calculated config
@@ -105,10 +106,16 @@ export function formatCurrencyWithConfig(
         }
       }
       FORMATTER_CACHE.set(cacheKey, formatter);
+      lastAccessedKey = cacheKey;
     } else {
-      // Move to end to indicate "Recent" usage (LRU order)
-      FORMATTER_CACHE.delete(cacheKey);
-      FORMATTER_CACHE.set(cacheKey, formatter);
+      // Optimization: Only update LRU (delete/set) if this key wasn't the last one accessed
+      // This saves Map operations in tight loops (e.g. product lists) where the same currency is used repeatedly
+      if (lastAccessedKey !== cacheKey) {
+        // Move to end to indicate "Recent" usage (LRU order)
+        FORMATTER_CACHE.delete(cacheKey);
+        FORMATTER_CACHE.set(cacheKey, formatter);
+        lastAccessedKey = cacheKey;
+      }
     }
 
     return formatter.format(amount);
