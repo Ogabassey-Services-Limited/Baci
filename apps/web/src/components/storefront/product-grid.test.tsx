@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Product } from '@/lib/products';
+import type { Product, ProductImage } from '@/lib/products';
 import { StorefrontProductGrid } from './product-grid';
 
 // Mock dependencies
@@ -25,6 +26,11 @@ vi.mock('@/hooks/use-merchant', () => ({
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(() => ({ toast: vi.fn() })),
+}));
+
+// Mock useDebounce to return value immediately
+vi.mock('@/hooks/use-debounce', () => ({
+  useDebounce: <T,>(value: T) => value,
 }));
 
 // Mock API client
@@ -63,28 +69,49 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 import { apiGet } from '@/lib/api-client';
 
 describe('StorefrontProductGrid', () => {
+  const mockImages: ProductImage[] = [
+    { url: 'img1.jpg', alt: 'Test Image 1', order: 0 },
+  ];
+  const mockImages2: ProductImage[] = [
+    { url: 'img2.jpg', alt: 'Test Image 2', order: 0 },
+  ];
+
   const mockProducts: Product[] = [
     {
       id: '1',
-      name: 'Test Product 1',
+      name: 'Alpha Device',
       price: 100,
       category: 'Electronics',
       status: 'active',
-      images: ['img1.jpg'],
+      images: mockImages,
       stock: 10,
-      slug: 'test-product-1',
-      description: 'Description 1',
+      manage_stock: true,
+      slug: 'alpha-device',
+      description: 'A cutting-edge alpha device.',
+      image: 'img1.jpg',
+      imageLarge: 'img1-large.jpg',
+      imageHint: 'alpha',
+      brand: 'Brand A',
+      gtin: '123',
+      mpn: 'mpn1',
     },
     {
       id: '2',
-      name: 'Test Product 2',
+      name: 'Beta Gadget',
       price: 200,
       category: 'Clothing',
       status: 'active',
-      images: ['img2.jpg'],
+      images: mockImages2,
       stock: 5,
-      slug: 'test-product-2',
-      description: 'Description 2',
+      manage_stock: true,
+      slug: 'beta-gadget',
+      description: 'A stylish beta gadget.',
+      image: 'img2.jpg',
+      imageLarge: 'img2-large.jpg',
+      imageHint: 'beta',
+      brand: 'Brand B',
+      gtin: '456',
+      mpn: 'mpn2',
     },
   ];
 
@@ -137,8 +164,8 @@ describe('StorefrontProductGrid', () => {
       expect(screen.getAllByTestId('product-card')).toHaveLength(2);
     });
 
-    expect(screen.getByText('Test Product 1 - 100')).toBeInTheDocument();
-    expect(screen.getByText('Test Product 2 - 200')).toBeInTheDocument();
+    expect(screen.getByText('Alpha Device - 100')).toBeInTheDocument();
+    expect(screen.getByText('Beta Gadget - 200')).toBeInTheDocument();
   });
 
   it('filters by category when category is selected', async () => {
@@ -155,13 +182,13 @@ describe('StorefrontProductGrid', () => {
       // Should only show Electronics product
       const products = screen.getAllByTestId('product-card');
       expect(products).toHaveLength(1);
-      expect(products[0]).toHaveTextContent('Test Product 1');
+      expect(products[0]).toHaveTextContent('Alpha Device');
     });
   });
 
   it('filters by search query', async () => {
     (useStorefrontSafe as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      searchQuery: 'Product 2', // Search active
+      searchQuery: 'Beta', // Search active, specifically for "Beta"
       selectedCategory: 'All',
       setSelectedCategory: vi.fn(),
       setSearchQuery: vi.fn(),
@@ -172,7 +199,7 @@ describe('StorefrontProductGrid', () => {
     await waitFor(() => {
       const products = screen.getAllByTestId('product-card');
       expect(products).toHaveLength(1);
-      expect(products[0]).toHaveTextContent('Test Product 2');
+      expect(products[0]).toHaveTextContent('Beta Gadget');
     });
   });
 
