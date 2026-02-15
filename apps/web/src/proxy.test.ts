@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { describe, expect, it, vi, afterEach } from 'vitest';
-import { proxy } from './proxy';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { proxy } from './proxy';
 
 // Mock dependencies
 vi.mock('@/lib/supabase/middleware', () => ({
@@ -103,7 +103,9 @@ describe('Middleware Proxy', () => {
   });
 
   it('should log rate limit violations', async () => {
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // no-op for clean test output
+    });
 
     // Mock rate limit to fail
     vi.mocked(checkRateLimit).mockResolvedValueOnce({

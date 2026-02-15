@@ -102,6 +102,7 @@ exclude = [
   "tr\\.snapchat\\.com/v2/conversion",
   "vendor-api(-staging)?\\.jumia\\.com",
   "vendorcenter\\.jumia\\.com\\.ng",
+  "ads\\.tiktok\\.com",
   
   # CodeRabbit Feedback: Anchored New Exclusions
   "^https?://your-app\\.vercel\\.app",
