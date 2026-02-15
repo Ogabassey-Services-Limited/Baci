@@ -323,6 +323,16 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/api')) {
     const rateLimitResult = await checkRateLimit(request);
     if (!rateLimitResult.allowed) {
+      // Log rate limit violation for security auditing
+      console.warn(`[Security] Rate limit exceeded for ${pathname}`, {
+        ip:
+          request.headers.get('x-forwarded-for') ||
+          request.headers.get('x-real-ip') ||
+          'unknown',
+        endpoint: pathname,
+        limit: rateLimitResult.limit,
+      });
+
       return createRateLimitResponse(
         rateLimitResult.limit,
         rateLimitResult.remaining,
@@ -787,6 +797,9 @@ function applySecurityHeaders(
   // Add missing security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('X-XSS-Protection', '1; mode=block'); // Legacy XSS protection for older browsers
+  response.headers.set('X-DNS-Prefetch-Control', 'on'); // Enable DNS prefetching for performance
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none'); // Prevent Flash/PDF cross-domain access
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',
