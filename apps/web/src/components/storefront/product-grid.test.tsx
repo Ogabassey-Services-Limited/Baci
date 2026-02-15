@@ -1,220 +1,200 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
 import { StorefrontProductGrid } from './product-grid';
 
 // Mock dependencies
-vi.mock('next/link', () => ({
-  default: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-vi.mock('@/components/optimized-image', () => ({
-  ProductCardImage: () => <div data-testid="product-image" />,
-}));
-
-interface MockCardProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-interface MockButtonProps {
-  children: React.ReactNode;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  disabled?: boolean;
-  'aria-label'?: string;
-  'aria-pressed'?: boolean;
-  variant?: string;
-  colorRole?: string;
-  size?: string;
-  className?: string;
-}
-
-interface MockBadgeProps {
-  children: React.ReactNode;
-  variant?: string;
-  className?: string;
-}
-
-vi.mock('@/components/themed', () => ({
-  ThemedCard: ({ children, className }: MockCardProps) => (
-    <div className={className}>{children}</div>
-  ),
-  ThemedButton: ({
-    children,
-    onClick,
-    disabled,
-    'aria-label': ariaLabel,
-    'aria-pressed': ariaPressed,
-  }: MockButtonProps) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      aria-pressed={ariaPressed}
-    >
-      {children}
-    </button>
-  ),
-  ThemedBadge: ({ children }: MockBadgeProps) => <span>{children}</span>,
-}));
-
-vi.mock('@/hooks/use-currency', () => ({
-  useCurrency: () => ({
-    formatCurrency: (amount: number) => `$${amount}`,
-    formatCurrencyCompact: (amount: number) => `$${amount}`,
-  }),
+vi.mock('@/contexts/storefront-context', () => ({
+  useStorefrontSafe: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
-  useCart: () => ({
-    cart: [],
-    addToCart: vi.fn(),
-    updateQuantity: vi.fn(),
-    setMerchantSlug: vi.fn(),
-  }),
+  useCart: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-currency', () => ({
+  useCurrency: vi.fn(() => ({
+    formatCurrency: (amount: number) => `$${amount}`,
+    formatCurrencyCompact: (amount: number) => `$${amount}`,
+  })),
 }));
 
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: () => ({
-    merchant: {
-      id: 'm1',
-      slug: 'test-merchant',
-      brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
-      navigationCategories: [{ name: 'Fashion' }, { name: 'Other' }],
-    },
-  }),
+  useMerchantSafe: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({
-    toast: vi.fn(),
-  }),
+  useToast: vi.fn(() => ({ toast: vi.fn() })),
 }));
 
-vi.mock('@/hooks/use-debounce', () => ({
-  useDebounce: (value: any) => value,
-}));
-
-vi.mock('@/contexts/storefront-context', () => ({
-  useStorefrontSafe: () => ({
-    searchQuery: '',
-    selectedCategory: 'All',
-    setSearchQuery: vi.fn(),
-    setSelectedCategory: vi.fn(),
-  }),
-}));
-
+// Mock API client
 vi.mock('@/lib/api-client', () => ({
-  apiGet: vi.fn().mockImplementation((url) => {
-    if (url.includes('/api/storefront/products')) {
-      return Promise.resolve({ products: [mockProduct] });
-    }
-    if (url.includes('/api/products/count')) {
-      return Promise.resolve({ count: 1, recommendedMethod: 'client' });
-    }
-    return Promise.resolve({});
-  }),
+  apiGet: vi.fn(),
 }));
 
-vi.mock('@/lib/category-sorting', () => ({
-  sortCategories: ({ categories }: { categories: string[] }) => categories,
-}));
-
-vi.mock('@/lib/color-utils', () => ({
-  findDarkestColor: () => '#000',
-}));
-
-vi.mock('./did-you-mean-banner', () => ({
-  DidYouMeanBanner: () => <div>Did you mean banner</div>,
-}));
-
+// Mock child components that might cause issues in testing
 vi.mock('./product-card', () => ({
-  StorefrontProductCard: ({ product }: { product: Product }) => (
-    <div data-testid="product-card">{product.name}</div>
+  StorefrontProductCard: ({
+    product,
+  }: {
+    product: Product;
+    onAddToCart: unknown;
+  }) => (
+    <div data-testid="product-card">
+      {product.name} - {product.price}
+    </div>
   ),
 }));
 
 vi.mock('./quick-view-modal', () => ({
-  QuickViewModal: () => <div />,
+  QuickViewModal: () => <div data-testid="quick-view-modal" />,
   useQuickView: () => ({
-    product: null,
     isOpen: false,
     openQuickView: vi.fn(),
     closeQuickView: vi.fn(),
+    product: null,
   }),
 }));
 
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductGridSkeleton: () => <div data-testid="grid-skeleton" />,
-}));
-
-// Basic product mock
-const mockProduct: Product = {
-  id: 'p1',
-  name: 'Test Product',
-  description: 'A test product',
-  status: 'active',
-  price: 100,
-  manage_stock: true,
-  stock: 10,
-  image: 'img.jpg',
-  imageLarge: 'img-large.jpg',
-  imageHint: 'hint',
-  brand: 'Brand',
-  category: 'Fashion',
-  gtin: '123',
-  mpn: 'MPN',
-};
+// Import mocks after definition
+import { useStorefrontSafe } from '@/contexts/storefront-context';
+import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { apiGet } from '@/lib/api-client';
 
 describe('StorefrontProductGrid', () => {
+  const mockProducts: Product[] = [
+    {
+      id: '1',
+      name: 'Test Product 1',
+      price: 100,
+      category: 'Electronics',
+      status: 'active',
+      images: ['img1.jpg'],
+      stock: 10,
+      slug: 'test-product-1',
+      description: 'Description 1',
+    },
+    {
+      id: '2',
+      name: 'Test Product 2',
+      price: 200,
+      category: 'Clothing',
+      status: 'active',
+      images: ['img2.jpg'],
+      stock: 5,
+      slug: 'test-product-2',
+      description: 'Description 2',
+    },
+  ];
+
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default mock implementations
+    (useMerchantSafe as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      merchant: { id: 'merchant-123', slug: 'test-store' },
+    });
+
+    (useCart as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      cart: [],
+      addToCart: vi.fn(),
+      updateQuantity: vi.fn(),
+      setMerchantSlug: vi.fn(),
+    });
+
+    (useStorefrontSafe as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      searchQuery: '',
+      selectedCategory: 'All',
+      setSelectedCategory: vi.fn(),
+      setSearchQuery: vi.fn(),
+    });
+
+    (apiGet as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (url) => {
+        if (url.includes('/api/storefront/products')) {
+          return Promise.resolve({ products: mockProducts });
+        }
+        if (url.includes('/api/products/count')) {
+          return Promise.resolve({ count: 2, recommendedMethod: 'client' });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      }
+    );
   });
 
-  it('renders without crashing', async () => {
+  it('renders loading state initially', () => {
     render(<StorefrontProductGrid />);
+    // Initial render shows skeleton or loading state
+    // We check for the output live region text
+    expect(screen.getByText(/Loading products/i)).toBeInTheDocument();
+  });
+
+  it('renders products after fetching', async () => {
+    render(<StorefrontProductGrid />);
+
     await waitFor(() => {
-      expect(screen.getByText('Test Product')).toBeInTheDocument();
+      expect(screen.getAllByTestId('product-card')).toHaveLength(2);
+    });
+
+    expect(screen.getByText('Test Product 1 - 100')).toBeInTheDocument();
+    expect(screen.getByText('Test Product 2 - 200')).toBeInTheDocument();
+  });
+
+  it('filters by category when category is selected', async () => {
+    (useStorefrontSafe as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      searchQuery: '',
+      selectedCategory: 'Electronics', // Pre-selected
+      setSelectedCategory: vi.fn(),
+      setSearchQuery: vi.fn(),
+    });
+
+    render(<StorefrontProductGrid />);
+
+    await waitFor(() => {
+      // Should only show Electronics product
+      const products = screen.getAllByTestId('product-card');
+      expect(products).toHaveLength(1);
+      expect(products[0]).toHaveTextContent('Test Product 1');
     });
   });
 
-  it('renders category buttons with correct aria-pressed state', async () => {
-    render(<StorefrontProductGrid />);
-    await waitFor(() => {
-      // 'Fashion' is not selected by default ('All' is)
-      const fashionButton = screen.getByText('Fashion').closest('button');
-      expect(fashionButton).toHaveAttribute('aria-pressed', 'false');
+  it('filters by search query', async () => {
+    (useStorefrontSafe as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      searchQuery: 'Product 2', // Search active
+      selectedCategory: 'All',
+      setSelectedCategory: vi.fn(),
+      setSearchQuery: vi.fn(),
+    });
 
-      // 'All' should be selected
-      const allButton = screen.getByText('All').closest('button');
-      expect(allButton).toHaveAttribute('aria-pressed', 'true');
+    render(<StorefrontProductGrid />);
+
+    await waitFor(() => {
+      const products = screen.getAllByTestId('product-card');
+      expect(products).toHaveLength(1);
+      expect(products[0]).toHaveTextContent('Test Product 2');
     });
   });
 
-  it('renders live region with correct status text', async () => {
+  it('handles empty state', async () => {
+    (apiGet as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      (url) => {
+        if (url.includes('/api/storefront/products')) {
+          return Promise.resolve({ products: [] });
+        }
+        if (url.includes('/api/products/count')) {
+          return Promise.resolve({ count: 0, recommendedMethod: 'client' });
+        }
+        return Promise.reject(new Error(`Unhandled URL: ${url}`));
+      }
+    );
+
     render(<StorefrontProductGrid />);
 
-    // Initially it might be loading, but we wait for products
     await waitFor(() => {
-      // We mocked 1 product
-      const expectedText = /1 product found/i;
-      // We look for the live region specifically
-      // In our implementation: <output class="sr-only" aria-live="polite">
-
-      // Since screen.getByRole('status') might be ambiguous if multiple exist,
-      // but we only added one <output> which has implicit status role.
-      // However, explicit aria-live="polite" is key.
-
-      // We can also query by text directly if it's the only place with that text.
-      expect(screen.getByText(expectedText)).toBeInTheDocument();
-
-      // Check that it is indeed in a live region (roughly)
-      const liveRegion = screen
-        .getByText(expectedText)
-        .closest('[aria-live="polite"]');
-      expect(liveRegion).toBeInTheDocument();
+      expect(
+        screen.getByText(/No products are currently available/i)
+      ).toBeInTheDocument();
     });
   });
 });

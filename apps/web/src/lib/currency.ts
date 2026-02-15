@@ -107,15 +107,14 @@ export function formatCurrencyWithConfig(
       }
       FORMATTER_CACHE.set(cacheKey, formatter);
       lastAccessedKey = cacheKey;
-    } else {
+    } else if (lastAccessedKey !== cacheKey) {
       // Optimization: Only update LRU (delete/set) if this key wasn't the last one accessed
       // This saves Map operations in tight loops (e.g. product lists) where the same currency is used repeatedly
-      if (lastAccessedKey !== cacheKey) {
-        // Move to end to indicate "Recent" usage (LRU order)
-        FORMATTER_CACHE.delete(cacheKey);
-        FORMATTER_CACHE.set(cacheKey, formatter);
-        lastAccessedKey = cacheKey;
-      }
+
+      // Move to end to indicate "Recent" usage (LRU order)
+      FORMATTER_CACHE.delete(cacheKey);
+      FORMATTER_CACHE.set(cacheKey, formatter);
+      lastAccessedKey = cacheKey;
     }
 
     return formatter.format(amount);
