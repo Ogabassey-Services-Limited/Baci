@@ -101,7 +101,11 @@ export const TypingPlaceholderInput = React.forwardRef<
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setHasStoppedPermanently(true);
-      setPlaceholder(''); // Clear on focus
+      // Keep the placeholder visible on focus, snapping to the full text
+      if (placeholders.length > 0) {
+        const currentWord = placeholders[wordIndex % placeholders.length];
+        setPlaceholder(staticPrefix + currentWord);
+      }
       props.onFocus?.(e);
     };
 
@@ -123,7 +127,7 @@ export const TypingPlaceholderInput = React.forwardRef<
         onBlur={handleBlur}
         placeholder={placeholder}
         className={cn(
-          'placeholder:text-muted-foreground transition-all duration-300 focus:placeholder:text-accent',
+          'placeholder:text-muted-foreground transition-all duration-300 focus:placeholder:text-accent focus:placeholder:opacity-100',
           className
         )}
       />
