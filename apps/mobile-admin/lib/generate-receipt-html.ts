@@ -493,11 +493,11 @@ export function generateReceiptHtml(
     const plainTerms = rawTerms
       .replace(/<[^>]*>/g, ' ')
       .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, '&')
       .replace(/\s+/g, ' ')
       .trim();
     if (plainTerms.length > 0) {

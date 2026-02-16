@@ -1,9 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+// Explicit .ts import because .tsx file also exports useMerchantFeatures
 import {
   useMerchantFeatures,
   useStorefrontFeatures,
-} from './use-merchant-features';
+} from './use-merchant-features.ts';
 
 describe('useStorefrontFeatures', () => {
   beforeEach(() => {
