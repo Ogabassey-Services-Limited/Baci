@@ -21,7 +21,7 @@ vi.mock('next/headers', () => ({
 const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
-  mockCreateDedicatedVirtualAccount,
+  mockGeneratePaymentAccount,
   mockFrom,
   mockRpc,
   mockSupabaseClient,
@@ -31,7 +31,7 @@ const {
   return {
     mockAuthenticateApiRequest: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
-    mockCreateDedicatedVirtualAccount: vi.fn(),
+    mockGeneratePaymentAccount: vi.fn(),
     mockFrom,
     mockRpc,
     mockSupabaseClient: {
@@ -48,13 +48,9 @@ vi.mock('@/lib/api-auth', () => ({
   getMerchantIdForApiUser: mockGetMerchantIdForApiUser,
 }));
 
-// Mock agentic paystack (createDedicatedVirtualAccount)
-vi.mock('@/lib/agentic/paystack', () => ({
-  createDedicatedVirtualAccount: mockCreateDedicatedVirtualAccount,
-}));
-
-// Mock Paystack (calculatePlatformFee only)
+// Mock Paystack (generatePaymentAccount + calculatePlatformFee)
 vi.mock('@/lib/paystack', () => ({
+  generatePaymentAccount: mockGeneratePaymentAccount,
   calculatePlatformFee: vi.fn((amountKobo: number) => ({
     platformFee: Math.min((amountKobo * 2) / 100, 205000),
     merchantAmount: amountKobo - Math.min((amountKobo * 2) / 100, 205000),
@@ -209,7 +205,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
           return mockQuery({
             account_number: '1234567890',
             bank_name: 'Wema Bank',
-            account_name: 'John Doe',
+            account_name: 'Ogabassey/John Doe',
           });
         }
       }
@@ -251,12 +247,14 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       return mockQuery(null);
     });
 
-    mockCreateDedicatedVirtualAccount.mockResolvedValue({
-      account_number: '9876543210',
-      account_name: 'JOHN DOE',
-      bank_name: 'Wema Bank',
-      currency: 'NGN',
-      assigned: true,
+    mockGeneratePaymentAccount.mockResolvedValue({
+      success: true,
+      data: {
+        account_number: '9876543210',
+        account_name: 'Ogabassey/John Doe',
+        bank_name: 'Wema Bank',
+        customer_code: 'CUS_test123',
+      },
     });
 
     const response = await POST(createRequest(), createParams());
@@ -267,12 +265,13 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.virtualAccount.account_number).toBe('9876543210');
     expect(body.virtualAccount.bank_name).toBe('Wema Bank');
 
-    // Verify createDedicatedVirtualAccount was called with correct data
-    expect(mockCreateDedicatedVirtualAccount).toHaveBeenCalledWith({
+    // Verify generatePaymentAccount was called with correct data
+    expect(mockGeneratePaymentAccount).toHaveBeenCalledWith({
       email: 'john@test.com',
-      first_name: 'John',
-      last_name: 'Doe',
+      firstName: 'John',
+      lastName: 'Doe',
       phone: '+2348012345678',
+      orderId: ORDER_ID,
     });
 
     // Verify transaction record was created
@@ -286,7 +285,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     );
   });
 
-  it('returns 500 when Paystack DVA creation throws', async () => {
+  it('returns 502 when Paystack DVA creation fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -313,13 +312,15 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       return mockQuery(null);
     });
 
-    mockCreateDedicatedVirtualAccount.mockRejectedValue(
-      new Error('Failed to assign DVA: wema-bank and titan-paycom both failed')
-    );
+    mockGeneratePaymentAccount.mockResolvedValue({
+      success: false,
+      error: 'wema-bank and titan-paycom both failed',
+      code: 'DVA_CREATION_FAILED',
+    });
 
     const response = await POST(createRequest(), createParams());
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(502);
     const body = await response.json();
-    expect(body.error).toContain('Failed to assign DVA');
+    expect(body.error).toContain('DVA creation failed');
   });
 });
