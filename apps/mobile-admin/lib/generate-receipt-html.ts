@@ -40,7 +40,7 @@ const BANK_NAMES: Record<string, string> = {
   '090267': 'Kuda Bank',
 };
 
-function getBankNameFromCode(code: string | null): string | null {
+export function getBankNameFromCode(code: string | null): string | null {
   if (!code) return null;
   return BANK_NAMES[code] || null;
 }
@@ -58,6 +58,8 @@ export interface ReceiptMerchant {
   support_phone: string | null;
   business_address: string | null;
   cac_rc_number: string | null;
+  tax_identification_number: string | null;
+  legal_entity_name: string | null;
   brand_colors?: { primary: string; background: string; accent: string };
   vat_registration_status: string | null;
   vat_rate: number | null;
@@ -70,6 +72,9 @@ export interface ReceiptMerchant {
     facebook?: string;
     twitter?: string;
     tiktok?: string;
+  } | null;
+  pages?: {
+    terms?: string;
   } | null;
 }
 
@@ -121,6 +126,7 @@ interface ReceiptOptions {
   qrCodeDataUri?: string;
   storeUrl?: string;
   paymentLink?: string;
+  svgXml?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +237,9 @@ export function generateReceiptHtml(
   });
 
   // -- Merchant info --
-  const storeName = escapeHtml(merchant.business_name || merchant.email);
+  const storeName = escapeHtml(
+    merchant.legal_entity_name || merchant.business_name || merchant.email
+  );
   const contactEmail = merchant.support_email || merchant.email;
   const contactPhone = merchant.support_phone || merchant.phone;
 
@@ -244,9 +252,14 @@ export function generateReceiptHtml(
   ].filter(Boolean);
 
   // -- Logo --
-  const logoHtml = merchant.logo_url
-    ? `<img src="${escapeHtml(merchant.logo_url)}" alt="${storeName}" style="max-height:40px;max-width:140px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div style="display:none" class="logo-fallback">${storeName}</div>`
-    : `<div class="logo-fallback">${storeName}</div>`;
+  let logoHtml = '';
+  if (options.svgXml) {
+    logoHtml = `<div class="logo-svg">${options.svgXml}</div>`;
+  } else if (merchant.logo_url) {
+    logoHtml = `<img src="${merchant.logo_url}" alt="${storeName}" class="logo-img" style="display: block !important;" onerror="this.src='https://placehold.co/200x80?text=${encodeURIComponent(storeName)}'">`;
+  } else {
+    logoHtml = `<div class="logo-fallback">${storeName}</div>`;
+  }
 
   // -- Items rows --
   const itemRows =
@@ -345,14 +358,10 @@ export function generateReceiptHtml(
     const parts: string[] = [];
 
     // DVA card — tagged "Automatic Confirmation"
-    // Display as "MerchantName/CustomerName" on invoices for clarity.
+    // Use the actual account_name from Paystack (e.g. "Ogabassey/Mera Ibrahim")
     if (order.virtual_account) {
       const va = order.virtual_account;
-      const customerName = order.customer_name?.split(' ')[0] || '';
-      const dvaDisplayName =
-        merchant.business_name && customerName
-          ? `${merchant.business_name}/${customerName}`
-          : merchant.business_name || va.account_name;
+      const dvaDisplayName = va.account_name;
       parts.push(`
         <div class="bank-card">
           <div class="bank-label" style="display:flex;align-items:center;gap:6px;">
@@ -430,22 +439,79 @@ export function generateReceiptHtml(
     ? `<div class="qr-block"><img src="${options.qrCodeDataUri}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
     : '';
 
-  // -- Social handles --
+  // -- Social handles (with icons & smart grouping) --
   const social = merchant.social_media;
-  const handles = [
-    social?.instagram ? `@${social.instagram}` : null,
-    social?.twitter ? `@${social.twitter}` : null,
-    social?.tiktok ? `@${social.tiktok}` : null,
-  ].filter(Boolean);
-  const socialHtml =
-    handles.length > 0
-      ? `<div class="social">${handles.join(' &middot; ')}</div>`
-      : '';
+  const socialIcons: Record<string, string> = {
+    instagram:
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E4405F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>',
+    twitter:
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="#000000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+    tiktok:
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="#000000"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.71a8.28 8.28 0 0 0 4.76 1.5v-3.4a4.85 4.85 0 0 1-1-.12z"/></svg>',
+    facebook:
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>',
+  };
+  // Build entries: { platform, handle }
+  const socialEntries: Array<{ platform: string; handle: string }> = [];
+  if (social?.instagram)
+    socialEntries.push({ platform: 'instagram', handle: social.instagram });
+  if (social?.facebook)
+    socialEntries.push({ platform: 'facebook', handle: social.facebook });
+  if (social?.twitter)
+    socialEntries.push({ platform: 'twitter', handle: social.twitter });
+  if (social?.tiktok)
+    socialEntries.push({ platform: 'tiktok', handle: social.tiktok });
 
-  // -- Terms & conditions link --
-  const termsHtml = options.storeUrl
-    ? `<div class="terms"><a href="https://${escapeHtml(options.storeUrl)}/terms">Terms & Conditions</a></div>`
-    : '';
+  // Group by handle — if multiple platforms share the same handle, combine icons
+  const socialItems: string[] = [];
+  if (socialEntries.length > 0) {
+    const grouped = new Map<string, string[]>();
+    for (const entry of socialEntries) {
+      const key = entry.handle.toLowerCase().replace(/^@/, '');
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.push(entry.platform);
+      } else {
+        grouped.set(key, [entry.platform]);
+      }
+    }
+    for (const [handle, platforms] of grouped) {
+      const icons = platforms
+        .map((p) => `<span class="footer-icon">${socialIcons[p]}</span>`)
+        .join('');
+      socialItems.push(
+        `<span class="footer-item">${icons}<span>@${escapeHtml(handle)}</span></span>`
+      );
+    }
+  }
+
+  // -- Terms & conditions --
+  let termsHtml = '';
+  const rawTerms = merchant.pages?.terms;
+  if (rawTerms) {
+    // Strip HTML tags and decode common entities to get plain text
+    const plainTerms = rawTerms
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (plainTerms.length > 0) {
+      // Truncate to ~500 chars for receipt readability
+      const truncated =
+        plainTerms.length > 500 ? `${plainTerms.slice(0, 497)}...` : plainTerms;
+      const termsLink = options.storeUrl
+        ? ` <a href="https://${escapeHtml(options.storeUrl)}/terms">Read full terms</a>`
+        : '';
+      termsHtml = `<div class="terms-block"><div class="terms-label">Terms &amp; Conditions</div><div class="terms-text">${escapeHtml(truncated)}</div>${termsLink ? `<div class="terms-link">${termsLink}</div>` : ''}</div>`;
+    }
+  } else if (options.storeUrl) {
+    termsHtml = `<div class="terms"><a href="https://${escapeHtml(options.storeUrl)}/terms">Terms &amp; Conditions</a></div>`;
+  }
 
   // -- Compose HTML --
   return `<!DOCTYPE html>
@@ -506,6 +572,8 @@ export function generateReceiptHtml(
 
   /* Header */
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+  .logo-img { max-height: 48px; max-width: 140px; object-fit: contain; display: block; }
+  .logo-svg svg { max-height: 48px; max-width: 140px; width: auto; height: auto; display: block; }
   .logo-fallback { font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; color: #111827; letter-spacing: -0.5px; }
   .merchant-info { margin-top: 6px; font-size: 12px; color: #6b7280; line-height: 1.5; }
   .merchant-info strong { color: #374151; font-weight: 600; }
@@ -600,14 +668,21 @@ export function generateReceiptHtml(
   .qr-caption { font-size: 10px; color: #9ca3af; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
 
   /* Footer */
-  .footer-area { margin-top: auto; padding-top: 14px; border-top: 1px solid ${brandCardBorder}; text-align: center; }
-  .footer-contact { font-size: 12px; color: #4b5563; margin-bottom: 3px; }
-  .footer-contact a { color: ${brandPrimary}; text-decoration: none; font-weight: 600; }
-  .footer-rc { font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
-  .social { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+  .footer-area { margin-top: auto; padding-top: 14px; text-align: center; }
+  .footer-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+  .footer-row a { color: ${brandPrimary}; text-decoration: none; font-weight: 600; }
+  .footer-item { display: inline-flex; align-items: center; gap: 3px; }
+  .footer-icon { display: inline-flex; align-items: center; }
+  .footer-email-icon { display: inline-flex; align-items: center; color: ${brandPrimary}; }
+  .footer-sep { color: #d1d5db; margin: 0 2px; }
   .terms { font-size: 10px; color: #6b7280; margin-bottom: 6px; }
   .terms a { color: ${brandPrimary}; text-decoration: none; font-weight: 600; }
-  .powered { font-size: 9px; color: #cbd5e1; text-transform: uppercase; letter-spacing: 2px; }
+  .terms-block { margin: 10px 0 8px; padding: 10px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; text-align: left; }
+  .terms-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #374151; margin-bottom: 4px; }
+  .terms-text { font-size: 9px; color: #6b7280; line-height: 1.5; }
+  .terms-link { font-size: 9px; margin-top: 4px; }
+  .terms-link a { color: ${brandPrimary}; text-decoration: none; font-weight: 600; }
+  .powered { font-size: 11px; color: ${brandPrimary}; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-top: 14px; padding-top: 10px; border-top: 1px solid ${brandCardBorder}; }
 </style>
 </head>
 <body>
@@ -624,6 +699,7 @@ export function generateReceiptHtml(
           ${contactPhone ? `<div>${escapeHtml(contactPhone)}</div>` : ''}
           ${contactEmail ? `<div>${escapeHtml(contactEmail)}</div>` : ''}
           ${merchant.cac_rc_number ? `<div><strong>RC: ${escapeHtml(merchant.cac_rc_number)}</strong></div>` : ''}
+          ${merchant.tax_identification_number ? `<div><strong>TIN: ${escapeHtml(merchant.tax_identification_number)}</strong></div>` : ''}
         </div>
       </div>
       <div class="doc-meta">
@@ -693,13 +769,29 @@ export function generateReceiptHtml(
 
     <!-- Footer -->
     <div class="footer-area">
-      <div class="footer-contact">
-        Questions? Contact
-        ${contactEmail ? ` <a href="mailto:${escapeHtml(contactEmail)}">${escapeHtml(contactEmail)}</a>` : ''}
-      </div>
-      ${merchant.cac_rc_number ? `<div class="footer-rc">RC: ${escapeHtml(merchant.cac_rc_number)}</div>` : ''}
-      ${socialHtml}
       ${termsHtml}
+      ${(() => {
+        const allItems: string[] = [];
+        if (contactEmail) {
+          allItems.push(
+            `<span class="footer-item"><span class="footer-email-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span><a href="mailto:${escapeHtml(contactEmail)}">${escapeHtml(contactEmail)}</a></span>`
+          );
+        }
+        allItems.push(...socialItems);
+        if (merchant.cac_rc_number) {
+          allItems.push(
+            `<span class="footer-item">RC: ${escapeHtml(merchant.cac_rc_number)}</span>`
+          );
+        }
+        if (merchant.tax_identification_number) {
+          allItems.push(
+            `<span class="footer-item">TIN: ${escapeHtml(merchant.tax_identification_number)}</span>`
+          );
+        }
+        return allItems.length > 0
+          ? `<div class="footer-row">${allItems.join('<span class="footer-sep">&middot;</span>')}</div>`
+          : '';
+      })()}
       <div class="powered">Powered by Baci &middot; usebaci.com</div>
     </div>
 

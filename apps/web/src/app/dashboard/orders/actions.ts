@@ -387,7 +387,9 @@ export async function resendOrderConfirmation(
     // 2. Fetch Merchant Details
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('business_name, slug, support_email, email_sender_name, email')
+      .select(
+        'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+      )
       .eq('id', order.merchant_id)
       .single();
 
@@ -426,6 +428,8 @@ export async function resendOrderConfirmation(
       },
       merchantName: merchant.business_name,
       merchantUrl,
+      merchantTin: merchant.tax_identification_number ?? undefined,
+      merchantRcNumber: merchant.cac_rc_number ?? undefined,
     };
 
     const htmlContent = generateOrderConfirmationEmail(emailData);

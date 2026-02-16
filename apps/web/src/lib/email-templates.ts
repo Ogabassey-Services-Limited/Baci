@@ -4,7 +4,19 @@ interface OrderItem {
   price: number;
 }
 
-interface OrderConfirmationData {
+interface MerchantRegistrationInfo {
+  merchantTin?: string;
+  merchantRcNumber?: string;
+}
+
+function buildRegistrationLine(data: MerchantRegistrationInfo): string {
+  const parts: string[] = [];
+  if (data.merchantRcNumber) parts.push(`RC: ${data.merchantRcNumber}`);
+  if (data.merchantTin) parts.push(`TIN: ${data.merchantTin}`);
+  return parts.join(' &middot; ');
+}
+
+interface OrderConfirmationData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: OrderItem[];
@@ -182,6 +194,12 @@ export function generateOrderConfirmationEmail(
               <p style="margin: 0; font-size: 14px; color: #64748b;">
                 Questions? Reply to this email or contact us at <a href="${data.merchantUrl}" style="color: #ca8a04; text-decoration: none;">${data.merchantName}</a>
               </p>
+              ${(() => {
+                const reg = buildRegistrationLine(data);
+                return reg
+                  ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #94a3b8;">${reg}</p>`
+                  : '';
+              })()}
               <p style="margin: 20px 0 0 0; font-size: 12px; color: #94a3b8;">
                 &copy; ${new Date().getFullYear()} ${data.merchantName}. Powered by <strong>Baci</strong>.
               </p>
@@ -252,7 +270,7 @@ interface PaymentReminderItem {
   price: number;
 }
 
-interface PaymentReminderData {
+interface PaymentReminderData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: PaymentReminderItem[];
@@ -406,6 +424,12 @@ export function generatePaymentReminderEmail(
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
+      ${(() => {
+        const reg = buildRegistrationLine(data);
+        return reg
+          ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
+          : '';
+      })()}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>
@@ -457,7 +481,7 @@ Powered by Baci — AI E-commerce Platform
 
 // --- Payment Receipt Email (Partial or Full) ---
 
-interface PaymentReceiptData {
+interface PaymentReceiptData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: PaymentReminderItem[];
@@ -571,6 +595,12 @@ export function generatePaymentReceiptEmail(data: PaymentReceiptData): string {
       <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
+      ${(() => {
+        const reg = buildRegistrationLine(data);
+        return reg
+          ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
+          : '';
+      })()}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>
@@ -608,7 +638,7 @@ ${data.merchantName}
 
 // --- Order Shipped Email ---
 
-interface OrderShippedData {
+interface OrderShippedData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: { name: string; quantity: number }[];
@@ -770,6 +800,12 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${supportEmailHtml}
+      ${(() => {
+        const reg = buildRegistrationLine(data);
+        return reg
+          ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
+          : '';
+      })()}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>
@@ -839,7 +875,7 @@ Powered by Baci - AI E-commerce Platform
 
 // --- Order Delivered Email ---
 
-interface OrderDeliveredData {
+interface OrderDeliveredData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: { name: string; quantity: number }[];
@@ -956,6 +992,12 @@ export function generateOrderDeliveredEmail(data: OrderDeliveredData): string {
         Thank you for shopping with <strong>${data.merchantName}</strong>
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>` : ''}
+      ${(() => {
+        const reg = buildRegistrationLine(data);
+        return reg
+          ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
+          : '';
+      })()}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>
@@ -1017,7 +1059,7 @@ Powered by Baci - AI E-commerce Platform
 
 // --- Order Cancellation Email ---
 
-interface OrderCancellationData {
+interface OrderCancellationData extends MerchantRegistrationInfo {
   orderNumber: string;
   customerName: string;
   items: { name: string; quantity: number; price: number }[];
@@ -1169,6 +1211,12 @@ export function generateOrderCancellationEmail(
         We're sorry this didn't work out. Hope to see you again soon!
       </p>
       ${data.supportEmail ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Contact: ${data.supportEmail}</p>` : ''}
+      ${(() => {
+        const reg = buildRegistrationLine(data);
+        return reg
+          ? `<p style="margin: 0 0 8px 0; font-size: 12px; color: #9ca3af;">${reg}</p>`
+          : '';
+      })()}
       <p style="margin: 0; font-size: 12px; color: #9ca3af;">
         Powered by <strong>Baci</strong> — AI E-commerce Platform
       </p>

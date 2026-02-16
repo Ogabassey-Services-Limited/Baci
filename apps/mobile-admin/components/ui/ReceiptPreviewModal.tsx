@@ -83,6 +83,10 @@ export function ReceiptPreviewModal({
               showsVerticalScrollIndicator={false}
               scalesPageToFit
               originWhitelist={['*']}
+              allowFileAccess
+              allowFileAccessFromFileURLs
+              mixedContentMode="always"
+              javaScriptEnabled
             />
           ) : null}
         </View>
