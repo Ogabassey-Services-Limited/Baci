@@ -1,12 +1,11 @@
 import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createDedicatedVirtualAccount } from '@/lib/agentic/paystack';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { logger } from '@/lib/logger';
-import { calculatePlatformFee } from '@/lib/paystack';
+import { calculatePlatformFee, generatePaymentAccount } from '@/lib/paystack';
 
 const nanoidUppercase = customAlphabet(
   'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
@@ -20,7 +19,7 @@ const nanoidUppercase = customAlphabet(
  * Also creates a pending transaction so the Paystack webhook can match the payment.
  * Supports both cookie-based auth (web) and Bearer token auth (mobile).
  *
- * Uses the agentic paystack module which has bank fallback (wema-bank → titan-paycom).
+ * Uses generatePaymentAccount which checks for existing DVAs before creating new ones.
  */
 export async function POST(
   request: NextRequest,
@@ -89,7 +88,6 @@ export async function POST(
     const lastName = nameParts.slice(1).join(' ') || 'User';
 
     // 6b. Get a valid phone number — wema-bank requires it for DVA creation.
-    // Fallback: customer phone → merchant phone → placeholder
     let phone = order.customer_phone || '';
     if (!phone) {
       const { data: merchant } = await supabase
@@ -100,7 +98,8 @@ export async function POST(
       phone = merchant?.phone || '08000000000';
     }
 
-    // 7. Create Paystack DVA via agentic module (wema-bank → titan-paycom fallback)
+    // 7. Create Paystack DVA via generatePaymentAccount
+    //    This checks for existing customer DVAs first (GET) before creating new ones (POST)
     logger.info({
       message: 'Creating Paystack DVA for order',
       orderId,
@@ -109,21 +108,34 @@ export async function POST(
       lastName,
     });
 
-    const dvaResult = await createDedicatedVirtualAccount({
+    const dvaResult = await generatePaymentAccount({
       email: order.customer_email || `${orderId}@orders.usebaci.com`,
-      first_name: firstName,
-      last_name: lastName,
+      firstName,
+      lastName,
       phone,
+      orderId,
     });
+
+    if (!dvaResult.success) {
+      logger.error({
+        message: 'DVA creation failed',
+        orderId,
+        error: dvaResult.error,
+      });
+      return NextResponse.json(
+        { error: `DVA creation failed: ${dvaResult.error}` },
+        { status: 502 }
+      );
+    }
 
     // 8. Store in order_payment_accounts
     const { error: insertError } = await supabase
       .from('order_payment_accounts')
       .insert({
         order_id: orderId,
-        account_number: dvaResult.account_number,
-        bank_name: dvaResult.bank_name,
-        account_name: dvaResult.account_name,
+        account_number: dvaResult.data.account_number,
+        bank_name: dvaResult.data.bank_name,
+        account_name: dvaResult.data.account_name,
         provider: 'paystack',
       });
 
@@ -168,17 +180,17 @@ export async function POST(
     logger.info({
       message: 'Paystack DVA created for order',
       orderId,
-      accountNumber: dvaResult.account_number,
-      bankName: dvaResult.bank_name,
+      accountNumber: dvaResult.data.account_number,
+      bankName: dvaResult.data.bank_name,
       reference,
     });
 
     return NextResponse.json({
       success: true,
       virtualAccount: {
-        account_number: dvaResult.account_number,
-        bank_name: dvaResult.bank_name,
-        account_name: dvaResult.account_name,
+        account_number: dvaResult.data.account_number,
+        bank_name: dvaResult.data.bank_name,
+        account_name: dvaResult.data.account_name,
       },
       existing: false,
     });

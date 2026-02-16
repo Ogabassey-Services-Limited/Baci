@@ -532,7 +532,7 @@ export default function HomeScreen() {
                 const statusConfig = getStatusConfig(order.shipping_status);
 
                 return (
-                  <View key={order.id}>
+                  <View key={`recent-${order.id}`}>
                     {index > 0 && (
                       <View
                         style={[

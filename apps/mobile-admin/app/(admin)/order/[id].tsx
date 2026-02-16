@@ -73,7 +73,10 @@ import type {
   ReceiptMerchant,
   ReceiptOrder,
 } from '@/lib/generate-receipt-html';
-import { generateReceiptHtml } from '@/lib/generate-receipt-html';
+import {
+  generateReceiptHtml,
+  getBankNameFromCode,
+} from '@/lib/generate-receipt-html';
 import { supabase } from '@/lib/supabase';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -750,26 +753,121 @@ Thank you for choosing Ogabassey!
           // Staff-created order: use the staff's virtual terminal bank account
           virtualAccount = order.staff_terminal;
         } else {
-          // Fallback: use merchant's main virtual terminal (no API call needed)
+          // Generate a per-order DVA (Dedicated Virtual Account) via Paystack
+          // This creates a unique bank account for this order so payments auto-confirm
           try {
-            const { data: terminal } = await supabase
-              .from('virtual_terminals')
-              .select('account_number, account_name, bank')
-              .eq('merchant_id', merchant.id)
-              .eq('active', true)
-              .order('created_at', { ascending: true })
-              .limit(1)
-              .maybeSingle();
-
-            if (terminal?.account_number) {
-              virtualAccount = {
-                account_number: terminal.account_number,
-                bank_name: terminal.bank,
-                account_name: terminal.account_name,
-              };
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              const dvaRes = await fetch(
+                `${BASE_URL}/api/orders/${order.id}/generate-dva`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                }
+              );
+              if (dvaRes.ok) {
+                const dvaJson = await dvaRes.json();
+                if (dvaJson.virtualAccount?.account_number) {
+                  virtualAccount = {
+                    account_number: dvaJson.virtualAccount.account_number,
+                    bank_name: dvaJson.virtualAccount.bank_name || '',
+                    account_name: dvaJson.virtualAccount.account_name || '',
+                  };
+                }
+              }
             }
-          } catch (termError) {
-            console.warn('[Receipt] Terminal lookup failed:', termError);
+          } catch {
+            // DVA generation failed — will try fallbacks below
+          }
+
+          // Fallback 2: Merchant's Paystack virtual terminal
+          if (!virtualAccount) {
+            try {
+              const {
+                data: { session },
+              } = await supabase.auth.getSession();
+              if (session?.access_token) {
+                const vtRes = await fetch(
+                  `${BASE_URL}/api/paystack/virtual-terminal`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                  }
+                );
+                if (vtRes.ok) {
+                  const vtJson = await vtRes.json();
+                  const terminal = vtJson.terminals?.find(
+                    (t: { active: boolean }) => t.active
+                  );
+                  if (terminal?.account_number) {
+                    virtualAccount = {
+                      account_number: terminal.account_number,
+                      bank_name: terminal.bank || '',
+                      account_name: terminal.account_name || '',
+                    };
+                  }
+                }
+              }
+            } catch {
+              // Virtual terminal also unavailable
+            }
+          }
+
+          // Fallback 3: Merchant's own bank details — resolve name via Paystack
+          if (
+            !virtualAccount &&
+            merchant.bank_account_number &&
+            merchant.bank_code
+          ) {
+            let resolvedName = merchant.bank_account_name || '';
+            const resolvedBankName =
+              getBankNameFromCode(merchant.bank_code) || '';
+
+            // Resolve account name from Paystack if we don't have it
+            if (!resolvedName || resolvedName === merchant.business_name) {
+              try {
+                const {
+                  data: { session: s },
+                } = await supabase.auth.getSession();
+                if (s?.access_token) {
+                  const resolveRes = await fetch(
+                    `${BASE_URL}/api/paystack/resolve`,
+                    {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${s.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        accountNumber: merchant.bank_account_number,
+                        bankCode: merchant.bank_code,
+                      }),
+                    }
+                  );
+                  if (resolveRes.ok) {
+                    const resolveJson: { account_name?: string } =
+                      await resolveRes.json();
+                    if (resolveJson.account_name) {
+                      resolvedName = resolveJson.account_name;
+                    }
+                  }
+                }
+              } catch {
+                // Resolve failed — use what we have
+              }
+            }
+
+            virtualAccount = {
+              account_number: merchant.bank_account_number,
+              bank_name: resolvedBankName,
+              account_name: resolvedName || merchant.business_name,
+            };
           }
         }
       }
@@ -807,24 +905,86 @@ Thank you for choosing Ogabassey!
         ),
       };
 
+      // Fetch merchant's T&C page content (not in context RPC)
+      let merchantPages: { terms?: string } | null = null;
+      try {
+        const { data: pagesData } = await supabase
+          .from('merchants')
+          .select('pages')
+          .eq('id', merchant.id)
+          .single();
+
+        if (
+          pagesData?.pages &&
+          typeof pagesData.pages === 'object' &&
+          'terms' in pagesData.pages
+        ) {
+          const terms = (pagesData.pages as { terms: string }).terms;
+          if (terms) {
+            merchantPages = { terms };
+          }
+        }
+      } catch {
+        // Pages fetch failed — receipt still works without T&C
+      }
+
+      // Convert remote logo URLs to inline data URIs or fetch SVG XML
+      let logoDataUri: string | null = merchant.logo_url ?? null;
+      let svgXml: string | undefined;
+
+      if (logoDataUri?.startsWith('https://')) {
+        const isSvg = logoDataUri.toLowerCase().includes('.svg');
+        if (isSvg) {
+          try {
+            const response = await fetch(logoDataUri);
+            if (response.ok) {
+              svgXml = await response.text();
+            }
+          } catch (e) {
+            console.warn('[OrderDetails] SVG fetch failed', e);
+          }
+        } else {
+          try {
+            const { File, Paths } = await import('expo-file-system');
+            const dest = new File(
+              Paths.cache,
+              `receipt_logo_${Date.now()}.png`
+            );
+            const downloaded = await File.downloadFileAsync(logoDataUri, dest, {
+              idempotent: true,
+            });
+            const base64 = await downloaded.base64();
+            const mime = downloaded.type || 'image/png';
+            logoDataUri = `data:${mime};base64,${base64}`;
+          } catch {
+            logoDataUri = null;
+          }
+        }
+      }
+
       const receiptMerchant: ReceiptMerchant = {
         business_name: merchant.business_name,
-        logo_url: merchant.logo_url ?? null,
+        logo_url: logoDataUri,
         email: merchant.email,
         phone: merchant.phone ?? null,
         support_email: merchant.support_email ?? null,
         support_phone: merchant.support_phone ?? null,
         business_address: merchant.business_address ?? null,
         cac_rc_number: merchant.cac_rc_number ?? null,
+        tax_identification_number: merchant.tax_identification_number ?? null,
+        legal_entity_name: merchant.legal_entity_name ?? null,
         brand_colors: merchant.brand_colors ?? undefined,
         vat_registration_status: merchant.vat_registration_status ?? null,
         vat_rate: merchant.vat_rate ?? null,
         bank_code: merchant.bank_code ?? null,
         bank_account_number: merchant.bank_account_number ?? null,
         social_media: merchant.social_media ?? null,
+        pages: merchantPages,
       };
 
-      const html = generateReceiptHtml(receiptOrder, receiptMerchant);
+      const html = generateReceiptHtml(receiptOrder, receiptMerchant, {
+        svgXml,
+      });
       setReceiptHtml(html);
       setShowReceiptPreview(true);
     } catch (_error) {
@@ -844,8 +1004,35 @@ Thank you for choosing Ogabassey!
         );
         return;
       }
+      const docType = order?.payment_status === 'paid' ? 'Receipt' : 'Invoice';
+      const bizName = (merchant?.business_name || 'Baci').replace(
+        /[^a-zA-Z0-9]/g,
+        '-'
+      );
+      const custName = (order?.customer_name || 'Customer')
+        .replace(/[^a-zA-Z0-9 ]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+      const dateStr = new Date()
+        .toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+        .replace(/ /g, '-');
+      const pdfFilename = `${bizName}_${docType}_${custName}_${dateStr}`;
+
       const { uri } = await Print.printToFileAsync({ html: receiptHtml });
-      await Sharing.shareAsync(uri, {
+
+      // Rename to a user-friendly filename
+      const { File } = await import('expo-file-system');
+      const printedFile = new File(uri);
+      const destDir = uri.substring(0, uri.lastIndexOf('/'));
+      const destFile = new File(`${destDir}/${pdfFilename}.pdf`);
+      if (destFile.exists) destFile.delete();
+      printedFile.move(destFile);
+
+      await Sharing.shareAsync(destFile.uri, {
         UTI: '.pdf',
         mimeType: 'application/pdf',
       });

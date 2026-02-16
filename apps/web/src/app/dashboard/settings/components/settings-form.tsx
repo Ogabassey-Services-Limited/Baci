@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { FaviconUpload } from '@/app/dashboard/settings/favicon-upload';
 import { DashboardAdUnit } from '@/components/dashboard/dashboard-ad-unit';
@@ -51,6 +51,7 @@ export function SettingsForm({
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [, startTransition] = useTransition();
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>(
     initialMerchant?.hero_slides || []
   );
@@ -92,18 +93,38 @@ export function SettingsForm({
         setIsUploading(true);
         const previousState = merchantState;
         try {
-          // biome-ignore lint/suspicious/noExplicitAny: State callback typing
-          setMerchantState((prev: any) => ({ ...prev, logo_url: dataUri }));
+          startTransition(() => {
+            setMerchantState((prev) =>
+              prev ? { ...prev, logo_url: dataUri } : prev
+            );
+          });
 
           const newColors = await extractColorsFromImage(dataUri);
-          await updateMerchant({ logo_url: dataUri, brand_colors: newColors });
 
-          // biome-ignore lint/suspicious/noExplicitAny: State callback typing
-          setMerchantState((prev: any) => ({
-            ...prev,
-            logo_url: dataUri,
+          // Upload to storage instead of storing data URI in DB
+          const { uploadImage } = await import('@/lib/storage');
+          const uploadedUrl = await uploadImage(dataUri);
+
+          if (!uploadedUrl)
+            throw new Error('Failed to upload logo to storage.');
+
+          await updateMerchant({
+            logo_url: uploadedUrl,
             brand_colors: newColors,
-          }));
+          });
+
+          // Update local state with the final public URL
+          startTransition(() => {
+            setMerchantState((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    logo_url: uploadedUrl,
+                    brand_colors: newColors,
+                  }
+                : prev
+            );
+          });
 
           toast({
             title: 'Logo and Colors Updated!',
@@ -134,11 +155,18 @@ export function SettingsForm({
   ) => {
     if (merchantState?.brand_colors) {
       const updatedColors = { ...merchantState.brand_colors, [role]: newColor };
-      // biome-ignore lint/suspicious/noExplicitAny: State callback typing
-      setMerchantState((prev: any) => ({
-        ...prev,
-        brand_colors: updatedColors,
-      }));
+
+      startTransition(() => {
+        setMerchantState((prev) =>
+          prev
+            ? {
+                ...prev,
+                brand_colors: updatedColors,
+              }
+            : prev
+        );
+      });
+
       setIsDirty(true);
       try {
         await updateMerchant({ brand_colors: updatedColors });
@@ -162,11 +190,16 @@ export function SettingsForm({
       background: primary,
       accent: background,
     };
-    // biome-ignore lint/suspicious/noExplicitAny: State callback typing
-    setMerchantState((prev: any) => ({
-      ...prev,
-      brand_colors: remappedColors,
-    }));
+    startTransition(() => {
+      setMerchantState((prev) =>
+        prev
+          ? {
+              ...prev,
+              brand_colors: remappedColors,
+            }
+          : prev
+      );
+    });
     setIsDirty(true);
     try {
       await updateMerchant({ brand_colors: remappedColors });
