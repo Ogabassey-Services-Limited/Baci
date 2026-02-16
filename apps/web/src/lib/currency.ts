@@ -63,6 +63,12 @@ export function getCurrencyConfig(countryCode?: string | null): CurrencyConfig {
 const FORMATTER_CACHE = new Map<string, Intl.NumberFormat>();
 const MAX_CACHE_SIZE = 100;
 
+// Optimization: Cache the last used configuration to skip Map lookups
+// This significantly improves performance for list rendering where currency stays consistent
+let lastConfig: CurrencyConfig | null = null;
+let lastOptions: Partial<Intl.NumberFormatOptions> | undefined;
+let lastFormatter: Intl.NumberFormat | null = null;
+
 /**
  * Optimized currency formatter using a pre-calculated config
  * Avoids recalculating config on every call
@@ -73,6 +79,12 @@ export function formatCurrencyWithConfig(
   options?: Partial<Intl.NumberFormatOptions>
 ): string {
   try {
+    // Optimization: fast path for repeated calls with same config/options reference
+    // This avoids JSON.stringify and Map lookups entirely for sequential calls
+    if (config === lastConfig && options === lastOptions && lastFormatter) {
+      return lastFormatter.format(amount);
+    }
+
     // Generate cache key based on config and options
     // Optimized: avoid JSON.stringify for the common case (no custom options)
     // Check !options first to avoid Object.keys allocation in the hot path
@@ -110,6 +122,11 @@ export function formatCurrencyWithConfig(
       FORMATTER_CACHE.delete(cacheKey);
       FORMATTER_CACHE.set(cacheKey, formatter);
     }
+
+    // Update last accessed cache
+    lastConfig = config;
+    lastOptions = options;
+    lastFormatter = formatter;
 
     return formatter.format(amount);
   } catch {

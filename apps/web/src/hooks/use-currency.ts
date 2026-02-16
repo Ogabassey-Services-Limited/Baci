@@ -17,6 +17,12 @@ import {
 } from '@/lib/currency';
 import { useMerchantSafe } from './use-merchant';
 
+// Optimization: Use constant options object to enable fast path in formatCurrencyWithConfig
+const COMPACT_OPTIONS: Partial<Intl.NumberFormatOptions> = {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+};
+
 export interface UseCurrencyReturn {
   /** Format amount as currency (e.g., "₦1,000.00") */
   formatCurrency: (amount: number) => string;
@@ -65,10 +71,7 @@ export function useCurrency(): UseCurrencyReturn {
 
   const formatCurrencyCompact = useCallback(
     (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }),
+      formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS),
     [config]
   );
 
@@ -114,10 +117,7 @@ export function useCurrencyWithCountry(
 
   const formatCurrencyCompact = useCallback(
     (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }),
+      formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS),
     [config]
   );
 
