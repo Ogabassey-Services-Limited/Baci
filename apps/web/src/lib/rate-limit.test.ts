@@ -149,6 +149,16 @@ describe('Rate Limit — in-memory fallback', () => {
     });
     expect((await checkRateLimit(req2)).allowed).toBe(false);
   });
+
+  it('enforces stricter limit for IMEI check', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/storefront/imei-check'
+    );
+    req.headers.set('x-forwarded-for', '10.10.10.10');
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(10);
+  });
 });
 
 describe('Rate Limit — Upstash Redis', () => {
