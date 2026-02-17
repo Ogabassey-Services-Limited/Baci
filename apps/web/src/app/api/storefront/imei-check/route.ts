@@ -2,14 +2,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getDeviceImage } from '@/lib/device-images';
 
 const SICKW_API_URL = 'https://sickw.com/api.php';
-// Default key is likely invalid/sample, warn if used
-const DEFAULT_KEY = 'DFR-BAS-8T4-TCX-IN9-RIP-X3M-7V2';
-const SICKW_API_KEY = process.env.SICKW_API_KEY || DEFAULT_KEY;
+const SICKW_API_KEY = process.env.SICKW_API_KEY;
 
 // Only warn if the key is NOT in the environment variables
-if (!process.env.SICKW_API_KEY) {
+if (!SICKW_API_KEY) {
   console.warn(
-    '⚠️ WARNING: SICKW_API_KEY is missing. Using public default key. Service may be limited.'
+    '⚠️ WARNING: SICKW_API_KEY is missing. IMEI check service will be unavailable.'
   );
 }
 
@@ -371,6 +369,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid service tier' },
         { status: 400 }
+      );
+    }
+
+    if (!SICKW_API_KEY) {
+      console.error(
+        '[IMEI Check] SICKW_API_KEY is not configured. Cannot process request.'
+      );
+      return NextResponse.json(
+        { success: false, error: 'Service configuration error' },
+        { status: 503 }
       );
     }
 
