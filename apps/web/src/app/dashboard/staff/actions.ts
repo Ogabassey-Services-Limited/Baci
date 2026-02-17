@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { getAppUrl } from '@/env';
 import { ensurePermission } from '@/lib/merchant-server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
@@ -423,5 +424,104 @@ async function sendInviteEmail(
     console.error('Failed to send invite email');
     // Silent fail on email shouldn't break the action
     // The action caller handles "success" so we probably shouldn't throw here if the DB part worked.
+  }
+}
+
+export async function resetStaffPassword(id: string) {
+  const { merchant } = await ensurePermission('staff', 'edit');
+
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const { data: staff } = await supabase
+    .from('staff_members')
+    .select('id, email, name, status, user_id')
+    .eq('id', id)
+    .eq('merchant_id', merchant.id)
+    .single();
+
+  if (!staff) {
+    throw new Error('Staff member not found');
+  }
+
+  if (staff.status !== 'active') {
+    throw new Error('Can only reset password for active staff members');
+  }
+
+  if (!staff.user_id) {
+    throw new Error('Staff member has not accepted their invitation yet');
+  }
+
+  const adminClient = createAdminClient();
+  const { data: linkData, error: linkError } =
+    await adminClient.auth.admin.generateLink({
+      type: 'recovery',
+      email: staff.email,
+      options: {
+        redirectTo: `${getAppUrl()}/reset-password`,
+      },
+    });
+
+  if (linkError || !linkData?.properties?.action_link) {
+    throw new Error('Failed to generate password reset link');
+  }
+
+  await sendPasswordResetEmail(
+    staff.email,
+    staff.name || '',
+    merchant.business_name,
+    linkData.properties.action_link
+  );
+
+  revalidatePath('/dashboard/staff');
+  return { success: true };
+}
+
+async function sendPasswordResetEmail(
+  email: string,
+  name: string,
+  businessName: string,
+  resetLink: string
+) {
+  const safeName = escapeHtmlForEmail(name) || 'there';
+  const safeBusinessName = escapeHtmlForEmail(businessName);
+
+  try {
+    await sendEmail({
+      to: email,
+      toName: name,
+      subject: `Password Reset for ${businessName}`,
+      htmlContent: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #6366f1; margin: 0;">Password Reset</h1>
+            </div>
+            <p>Hi ${safeName},</p>
+            <p>Your administrator at <strong>${safeBusinessName}</strong> has requested a password reset for your account.</p>
+            <p>Click the button below to set a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetLink}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Reset Password</a>
+            </div>
+            <p style="font-size: 12px; color: #666;">
+              If you didn't expect this, please contact your store administrator.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #666; text-align: center;">
+              This email was sent by ${safeBusinessName} via Baci.
+            </p>
+          </body>
+          </html>
+        `,
+      textContent: `Hi ${name || 'there'},\n\nYour administrator at ${businessName} has requested a password reset for your account.\n\nClick the link below to set a new password:\n${resetLink}\n\nIf you didn't expect this, please contact your store administrator.`,
+      emailType: 'team',
+    });
+  } catch {
+    console.error('Failed to send password reset email');
   }
 }

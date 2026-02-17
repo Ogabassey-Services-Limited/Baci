@@ -40,11 +40,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch all active domains from Supabase
+    // Fetch all active primary domains from Supabase
     const supabase = createServiceClient();
     const { data: domains, error } = await supabase
       .from('domains')
-      .select('domain, merchants!inner(slug)')
+      .select('domain, is_primary, merchants!inner(slug)')
       .eq('status', 'active');
 
     if (error) {
@@ -55,13 +55,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build domain → slug mapping
-    const mappings: Record<string, string> = {};
+    // Build bidirectional mappings:
+    // 1. domain → slug  (for custom domain → merchant routing)
+    // 2. slug:X → domain (for subdomain → custom domain redirects, primary only)
+    const domainToSlug: Record<string, string> = {};
+    const slugToDomain: Record<string, string> = {};
     for (const record of domains || []) {
       // @ts-expect-error - Supabase nested select typing
-      const slug = record.merchants?.slug;
+      const slug = record.merchants?.slug as string | undefined;
       if (record.domain && slug) {
-        mappings[record.domain] = slug;
+        domainToSlug[record.domain] = slug;
+        // Only primary domains are used for redirects
+        if (record.is_primary) {
+          slugToDomain[`slug:${slug}`] = record.domain;
+        }
       }
     }
 
@@ -74,12 +81,19 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build items array for Edge Config update
-    const items = Object.entries(mappings).map(([domain, slug]) => ({
-      operation: 'upsert' as const,
-      key: domain,
-      value: slug,
-    }));
+    // Build items array for Edge Config update (both directions)
+    const items = [
+      ...Object.entries(domainToSlug).map(([domain, slug]) => ({
+        operation: 'upsert' as const,
+        key: domain,
+        value: slug,
+      })),
+      ...Object.entries(slugToDomain).map(([key, domain]) => ({
+        operation: 'upsert' as const,
+        key,
+        value: domain,
+      })),
+    ];
 
     const updateResponse = await fetch(
       `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
@@ -104,8 +118,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      synced: Object.keys(mappings).length,
-      mappings,
+      synced: items.length,
+      domainMappings: Object.keys(domainToSlug).length,
+      redirectMappings: Object.keys(slugToDomain).length,
     });
   } catch (error) {
     console.error('[Edge Config Sync] Unexpected error:', error);

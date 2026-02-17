@@ -3,23 +3,35 @@
 import { useEffect } from 'react';
 
 /**
- * Client component to initialize CSRF token on app load
- * This runs once when the app mounts
+ * Client component to initialize CSRF token on app load.
+ * Retries once after a short delay if the initial fetch fails
+ * (handles transient timing during dev server startup).
  */
 export function CsrfInitializer() {
   useEffect(() => {
-    // Initialize CSRF token
-    fetch('/api/csrf')
-      .then((response) => {
-        if (!response.ok) {
-          console.error('Failed to initialize CSRF token');
+    let cancelled = false;
+
+    async function initCsrf(retries = 1) {
+      try {
+        const response = await fetch('/api/csrf');
+        if (!response.ok && retries > 0 && !cancelled) {
+          await new Promise((r) => setTimeout(r, 1000));
+          if (!cancelled) return initCsrf(retries - 1);
         }
-      })
-      .catch((error) => {
-        console.error('Error initializing CSRF token:', error);
-      });
+      } catch {
+        if (retries > 0 && !cancelled) {
+          await new Promise((r) => setTimeout(r, 1000));
+          if (!cancelled) return initCsrf(retries - 1);
+        }
+      }
+    }
+
+    initCsrf();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // This component doesn't render anything
   return null;
 }

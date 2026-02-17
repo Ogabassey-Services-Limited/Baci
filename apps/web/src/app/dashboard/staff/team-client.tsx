@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
+  Key,
   Loader2,
   Mail,
   MoreHorizontal,
@@ -83,6 +84,7 @@ import {
   inviteStaffMember,
   removeStaffMember,
   resendInvitation,
+  resetStaffPassword,
   updateStaffMember,
 } from './actions';
 import { type InviteStaffData, InviteStaffSchema } from './schema';
@@ -255,6 +257,30 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
             error instanceof Error
               ? error.message
               : 'Failed to resend invitation.',
+          variant: 'destructive',
+        });
+      }
+    });
+  };
+
+  // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
+  const handleResetPassword = async (staffId: string, email: string) => {
+    startTransition(async () => {
+      try {
+        await resetStaffPassword(staffId);
+
+        toast({
+          title: 'Password Reset Sent',
+          description: `A password reset email has been sent to ${email}.`,
+        });
+      } catch (error) {
+        console.error('Failed to reset staff password:', error);
+        toast({
+          title: 'Error',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Failed to send password reset.',
           variant: 'destructive',
         });
       }
@@ -456,7 +482,8 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                           <FormLabel>Role *</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value as string}
+                            value={field.value as string}
+                            name="role"
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -636,6 +663,16 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                                 <Shield className="h-4 w-4 mr-2" />
                                 Change Role
                               </DropdownMenuItem>
+                              {member.status === 'active' && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleResetPassword(member.id, member.email)
+                                  }
+                                >
+                                  <Key className="h-4 w-4 mr-2" />
+                                  Reset Password
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               {member.status === 'active' && (
                                 <DropdownMenuItem
