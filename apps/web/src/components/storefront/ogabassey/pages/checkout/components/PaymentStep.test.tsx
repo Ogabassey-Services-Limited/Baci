@@ -587,7 +587,7 @@ describe('PaymentStep', () => {
   describe('Payment Method Selection States', () => {
     it('highlights selected payment method with border and background', () => {
       // Arrange & Act
-      const { container } = render(
+      render(
         <PaymentStep {...defaultProps} paymentMethod="paystack" />
       );
 
