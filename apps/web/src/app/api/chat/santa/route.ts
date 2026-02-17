@@ -11,8 +11,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export const maxDuration = 30;
 
-// Ogabassey merchant ID (cached for performance)
-const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+// Ogabassey merchant ID — single source of truth across all chat endpoints
+const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
 /**
  * Generate a session ID from IP address (hashed for privacy)
@@ -119,7 +119,6 @@ const santaChatSchema = z.object({
       z.object({
         role: z.enum(['user', 'assistant', 'system']),
         content: z.string().min(1).max(10000),
-        imageUrl: z.string().optional(),
       })
     )
     .min(1)
@@ -191,6 +190,12 @@ ${productList}
  * Returns a streaming text response from the Santa chatbot.
  * Allows anonymous access for storefront customers with IP-based rate limiting.
  * Logs interactions for campaign analytics.
+ *
+ * Security notes:
+ * - CSRF: This endpoint is intentionally exempt from CSRF validation because
+ *   it serves anonymous storefront customers (no auth cookies/session).
+ *   Abuse is mitigated via IP-based rate limiting instead.
+ * - Rate limiting: In-memory, see provider.ts for known limitations.
  */
 export async function POST(req: Request) {
   try {

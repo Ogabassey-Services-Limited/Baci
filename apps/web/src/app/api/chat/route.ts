@@ -9,6 +9,12 @@
  * - Check payment status
  * - Provide upsell/cross-sell recommendations
  * - Add items to cart
+ *
+ * Security notes:
+ * - CSRF: This endpoint is intentionally exempt from CSRF validation because
+ *   it serves anonymous storefront customers (no auth cookies/session).
+ *   Abuse is mitigated via IP-based rate limiting instead.
+ * - Rate limiting: In-memory, see provider.ts for known limitations.
  */
 
 import crypto from 'node:crypto';

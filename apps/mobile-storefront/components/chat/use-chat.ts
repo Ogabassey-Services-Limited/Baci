@@ -82,62 +82,67 @@ export function useChat(santaMode: boolean) {
         : `${API_BASE_URL}/api/chat`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      const _timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-      // H23 fix: Read fresh messages from ref instead of stale closure
+      // Capture history before setMessages so concurrent renders can't duplicate
       const currentMessages = messagesRef.current;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          messages: [
-            ...currentMessages.map((m) => ({
-              role: m.role === 'model' ? 'assistant' : 'user',
-              content: m.text,
-            })),
-            { role: 'user', content: messageText },
-          ],
-        }),
-      });
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
 
-      clearTimeout(timeoutId);
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            messages: [
+              ...currentMessages.map((m) => ({
+                role: m.role === 'model' ? 'assistant' : 'user',
+                content: m.text,
+              })),
+              { role: 'user', content: messageText },
+            ],
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Chat service unavailable');
-      }
-
-      // Parse streaming response (handles both AI SDK data-stream and plain text)
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let aiResponseText = '';
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          // Both endpoints return plain text (toTextStreamResponse / text/plain)
-          aiResponseText += chunk;
+        if (!response.ok) {
+          throw new Error('Chat service unavailable');
         }
-      }
 
-      // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
-      const displayText = aiResponseText
-        .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
-        .trim();
+        // Parse streaming response — plain text from toTextStreamResponse / text/plain
+        reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let aiResponseText = '';
 
-      const aiMessage: ChatMessage = {
-        id: `ai-${++_msgCounter.current}`,
-        role: 'model',
-        text: displayText || 'I apologize, I could not process that request.',
-        timestamp: new Date(),
-      };
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            aiResponseText += decoder.decode(value, { stream: true });
+          }
+          // Flush any remaining multi-byte characters held in the decoder buffer
+          aiResponseText += decoder.decode();
+        }
 
-      setMessages((prev) => [...prev, aiMessage]);
+        // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
+        const displayText = aiResponseText
+          .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
+          .trim();
 
-      if (Platform.OS === 'ios') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        const aiMessage: ChatMessage = {
+          id: `ai-${++_msgCounter.current}`,
+          role: 'model',
+          text: displayText || 'I apologize, I could not process that request.',
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+
+        if (Platform.OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } finally {
+        clearTimeout(_timeoutId);
+        reader?.cancel();
       }
     } catch (error) {
       log.error('Chat error:', error);
@@ -171,15 +176,17 @@ export function useChat(santaMode: boolean) {
       messages.length === 1 &&
       !isLoading
     ) {
-      // Small delay to ensure welcome message is settled
+      // Clear synchronously first to prevent double-fire if effect re-evaluates
+      // during the 500ms delay (e.g. from isLoading or messages.length changes)
+      const msg = chatInitialMessage;
+      useUIStore.getState().clearChatInitialMessage();
+
       const timer = setTimeout(() => {
-        handleSendRef.current(chatInitialMessage);
-        // Clear it from the store so it doesn't repeat on subsequent opens
-        useUIStore.getState().clearChatInitialMessage();
+        handleSendRef.current(msg);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isChatOpen, chatInitialMessage, messages.length, isLoading]);
+  }, [chatInitialMessage, isChatOpen, isLoading, messages.length]);
 
   const handleSuggestionPress = (suggestion: string) => {
     handleSend(suggestion);

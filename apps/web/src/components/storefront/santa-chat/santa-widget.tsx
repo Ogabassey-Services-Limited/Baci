@@ -36,7 +36,12 @@ export function SantaWidget() {
 
       {/* Chat dialog overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-end md:p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-end md:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Santa chat assistant"
+        >
           {/* Backdrop */}
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close is supplementary to close button */}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop is a click-to-dismiss overlay */}

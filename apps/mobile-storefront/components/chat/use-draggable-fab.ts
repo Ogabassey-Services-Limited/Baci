@@ -6,7 +6,6 @@ import {
   FAB_SIZE,
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
-  SNAP_THRESHOLD,
 } from './constants';
 
 export function useDraggableFab(bottomOffset: number) {
@@ -84,16 +83,20 @@ export function useDraggableFab(bottomOffset: number) {
         const currentX = panXRef.current;
         const currentY = panYRef.current;
 
+        // Use runtime dimensions instead of stale module-level constants
+        // so snap logic stays correct after orientation changes
+        const { width: screenW, height: screenH } = Dimensions.get('window');
+
         // Snap to nearest edge (left or right)
-        const snapToRight = currentX + FAB_SIZE / 2 > SNAP_THRESHOLD;
+        const snapToRight = currentX + FAB_SIZE / 2 > screenW / 2;
         const targetX = snapToRight
-          ? SCREEN_WIDTH - FAB_SIZE - EDGE_MARGIN
+          ? screenW - FAB_SIZE - EDGE_MARGIN
           : EDGE_MARGIN;
 
         // M30 fix: Read bottomOffset from ref for fresh value
         const clampBottom = bottomOffsetRef.current;
         const minY = 100; // Below status bar
-        const maxY = SCREEN_HEIGHT - clampBottom - FAB_SIZE;
+        const maxY = screenH - clampBottom - FAB_SIZE;
         const targetY = Math.min(Math.max(currentY, minY), maxY);
 
         // Animate to snapped position

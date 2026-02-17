@@ -66,6 +66,11 @@ export const AI_RATE_LIMITS = {
 /**
  * In-memory rate limiter for AI requests
  * Uses a sliding window approach
+ *
+ * LIMITATION: This store lives in process memory. In serverless environments
+ * (Vercel Functions), each cold start creates a fresh Map, so rate limits
+ * reset when the instance is recycled. For stricter enforcement, migrate
+ * to Vercel KV or Upstash Redis with sliding-window counters.
  */
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 

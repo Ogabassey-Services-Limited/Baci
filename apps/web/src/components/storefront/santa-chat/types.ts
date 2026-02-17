@@ -12,29 +12,23 @@ export interface ChatMessage {
 
 export interface SantaAction {
   type: 'ADD_TO_CART';
-  product: string;
-  price: string;
+  productName: string;
+  price: number;
 }
 
 /**
- * Parse the ACTION:ADD_TO_CART|PRODUCT:xxx|PRICE:xxx format
+ * Parse ACTION:ADD_TO_CART|PRODUCT:xxx|PRICE:xxx from Santa's response.
+ * Returns parsed product name and numeric price, or null if no action found.
  */
-export function parseCartAction(text: string): SantaAction | null {
-  if (!text.includes('ACTION:ADD_TO_CART')) {
-    return null;
-  }
+export function parseSantaAction(content: string): SantaAction | null {
+  const actionMatch = content.match(
+    /ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:(\d+(?:,\d+)*)/
+  );
+  if (!actionMatch) return null;
 
-  const parts = text.split('|');
-  const productPart = parts.find((p) => p.startsWith('PRODUCT:'));
-  const pricePart = parts.find((p) => p.startsWith('PRICE:'));
-
-  if (productPart && pricePart) {
-    return {
-      type: 'ADD_TO_CART',
-      product: productPart.replace('PRODUCT:', '').trim(),
-      price: pricePart.replace('PRICE:', '').trim(),
-    };
-  }
-
-  return null;
+  return {
+    type: 'ADD_TO_CART',
+    productName: actionMatch[1].trim(),
+    price: Number.parseInt(actionMatch[2].replace(/,/g, ''), 10),
+  };
 }
