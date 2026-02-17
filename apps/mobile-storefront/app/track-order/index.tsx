@@ -167,10 +167,14 @@ export default function TrackOrderScreen() {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20_000); // 20s timeout
+
     const fetchOrder = async () => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/storefront/orders/track-order?token=${trackingToken}&merchant_slug=${MERCHANT_SLUG}`
+          `${API_BASE_URL}/api/storefront/orders/track-order?token=${trackingToken}&merchant_slug=${MERCHANT_SLUG}`,
+          { signal: controller.signal }
         );
 
         if (!res.ok) {
@@ -183,13 +187,23 @@ export default function TrackOrderScreen() {
         const json = await res.json();
         setData(json as TrackOrderData);
       } catch (err) {
+        if (controller.signal.aborted) {
+          setError('Request timed out. Please try again.');
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to load order');
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
 
     fetchOrder();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [trackingToken]);
 
   if (isLoading) {

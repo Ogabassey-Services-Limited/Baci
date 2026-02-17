@@ -277,7 +277,12 @@ export async function calculateCommerce(
       log.warn('Failed to track event:', trackErr);
     }
 
-    return result as any;
+    // Type assertion needed: Supabase edge function returns untyped JSON.
+    // The function overloads above guarantee the correct return type per action.
+    return result as
+      | CalculateOrderOutputType
+      | CalculateVTUOutputType
+      | RedeemLoyaltyOutputType;
   } catch (error) {
     if (error instanceof CommerceError) throw error;
 

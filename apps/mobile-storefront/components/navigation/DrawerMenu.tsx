@@ -49,7 +49,7 @@ const menuItems: MenuItem[] = [
   {
     label: 'My Account',
     icon: 'person-outline',
-    path: '/profile',
+    path: '/account',
     authRequired: true,
   },
   { label: 'Orders', icon: 'bag-outline', path: '/orders' },

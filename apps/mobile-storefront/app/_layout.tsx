@@ -22,7 +22,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -108,6 +108,10 @@ export default function RootLayout() {
   const cleanup = useAuthStore((state) => state.cleanup); // BUG-4-004: Get cleanup function
   const { register: registerPushNotifications } = usePushNotifications();
 
+  // Bug #15 fix: Module-level guard to prevent concurrent initialize() calls
+  // (e.g., from StrictMode or fast re-mount)
+  const initPromiseRef = useRef<Promise<void> | null>(null);
+
   // Initialize auth, analytics, and offline queue on app start
   useEffect(() => {
     const initializeApp = async () => {
@@ -128,21 +132,12 @@ export default function RootLayout() {
       offlineQueue.registerHandler('create_order', async (orderData) => {
         return await createOrder(orderData as CreateOrderRequest);
       });
-
-      // Initialize ad tracking (Facebook, Google, ATT)
-      // await initAdTracking();
-
-      // Track app open event
-      // await trackAppOpen();
-
-      // Request ATT permission after a short delay (iOS best practice)
-      // Don't show immediately on first launch - wait for user engagement
-      // setTimeout(async () => {
-      //   await requestTrackingPermission();
-      // }, 3000);
     };
 
-    initializeApp();
+    // Guard: only run once; subsequent calls await the first
+    if (!initPromiseRef.current) {
+      initPromiseRef.current = initializeApp();
+    }
 
     // BUG-4-004: Cleanup auth subscription and offline queue on unmount
     return () => {
@@ -219,7 +214,11 @@ function RootLayoutNav() {
             >
               <Stack.Screen
                 name="(tabs)"
-                options={{ headerShown: false, headerBackTitle: '' }}
+                options={{
+                  headerShown: false,
+                  headerBackTitle: '',
+                  title: '', // Ensure folder name isn't used as title/back label
+                }}
               />
               <Stack.Screen
                 name="product/[slug]"

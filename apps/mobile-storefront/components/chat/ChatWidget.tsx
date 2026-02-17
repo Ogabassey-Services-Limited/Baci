@@ -16,10 +16,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createLogger } from '@/lib/logger';
+import { sanitizeHtml } from '@/lib/sanitize-html';
 
 const log = createLogger('ChatWidget');
+
 import {
   ActivityIndicator,
   Animated,
@@ -37,8 +39,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useUIStore } from '@/stores/ui-store';
 
 /**
@@ -56,7 +58,7 @@ const HIDDEN_ROUTES = [
   '/modal',
   '/orders',
   '/search',
-  '/profile',
+  '/account',
 ];
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -219,7 +221,7 @@ export function ChatWidget({
 
       const randomMsg =
         PROACTIVE_MESSAGES[
-        Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
+          Math.floor(Math.random() * PROACTIVE_MESSAGES.length)
         ];
       setProactiveMsg(randomMsg);
 
@@ -383,10 +385,12 @@ export function ChatWidget({
           }
         }
 
-        // Clean the response text
-        const displayText = aiResponseText
-          .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
-          .trim();
+        // Clean and sanitize the response text
+        const displayText = sanitizeHtml(
+          aiResponseText
+            .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
+            .trim()
+        );
 
         const aiMessage: ChatMessage = {
           id: `ai-${Date.now()}`,
@@ -481,12 +485,12 @@ export function ChatWidget({
               isUser
                 ? [styles.userBubble, { backgroundColor: BRAND.primary }]
                 : [
-                  styles.aiBubble,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  },
-                ],
+                    styles.aiBubble,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ],
             ]}
           >
             <Text
@@ -527,9 +531,18 @@ export function ChatWidget({
 
   // Calculate nudge position based on FAB position
   const isOnRight = useRef(true);
-  pan.x.addListener(({ value }) => {
-    isOnRight.current = value + FAB_SIZE / 2 > SNAP_THRESHOLD;
-  });
+  const panListenerId = useRef<string | null>(null);
+
+  useEffect(() => {
+    panListenerId.current = pan.x.addListener(({ value }) => {
+      isOnRight.current = value + FAB_SIZE / 2 > SNAP_THRESHOLD;
+    });
+    return () => {
+      if (panListenerId.current != null) {
+        pan.x.removeListener(panListenerId.current);
+      }
+    };
+  }, [pan.x]);
 
   // Hide chat widget on specific screens (checkout, auth, order-success, etc.)
   if (shouldHide) {

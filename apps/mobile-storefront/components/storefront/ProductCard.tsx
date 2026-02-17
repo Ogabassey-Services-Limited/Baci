@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -151,8 +151,7 @@ export function ProductCard({
         channelRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only re-subscribe when product.id changes, not stock_quantity
-  }, [product.id, supabase]);
+  }, [product.id, product.stock_quantity]);
 
   // Determine if we should show scarcity badge
 
@@ -217,6 +216,7 @@ export function ProductCard({
 
   // 2026 Best Practice: Track image load failures for fallback rendering
   const [imageError, setImageError] = useState(false);
+  const [fallbackError, setFallbackError] = useState(false);
 
   // Common image props for all variants
   // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
@@ -232,16 +232,23 @@ export function ProductCard({
     allowDownscaling: true,
     onError: () => {
       // Silently handle image decode failures (iOS 26 24-bpp bug)
-      setImageError(true);
+      if (!imageError) {
+        setImageError(true);
+      } else if (!fallbackError) {
+        // Fallback URL also failed; stop trying remote URLs
+        setFallbackError(true);
+      }
     },
   };
 
   // Fallback to blurhash placeholder if image fails to load
-  const imageSource = imageError
-    ? {
-        uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
-      }
-    : { uri: product.image };
+  // If the fallback URL also fails, skip the Image entirely (render a local placeholder)
+  const imageSource =
+    imageError && !fallbackError
+      ? {
+          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
+        }
+      : { uri: product.image };
 
   // --- RENDER: Editorial Variant (Fashion) ---
   if (variant === 'editorial') {
@@ -252,11 +259,17 @@ export function ProductCard({
         onPressOut={handleAnimateOut}
         style={[styles.editorialContainer, animatedStyle]}
       >
-        <Image
-          source={imageSource}
-          style={styles.editorialImage}
-          {...imageProps}
-        />
+        {fallbackError ? (
+          <View style={[styles.editorialImage, styles.imagePlaceholder]}>
+            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+          </View>
+        ) : (
+          <Image
+            source={imageSource}
+            style={styles.editorialImage}
+            {...imageProps}
+          />
+        )}
         <View style={styles.editorialContent}>
           <Text style={[styles.editorialName, { color: colors.text }]}>
             {product.name}
@@ -282,7 +295,17 @@ export function ProductCard({
           animatedStyle,
         ]}
       >
-        <Image source={imageSource} style={styles.listImage} {...imageProps} />
+        {fallbackError ? (
+          <View style={[styles.listImage, styles.imagePlaceholder]}>
+            <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+          </View>
+        ) : (
+          <Image
+            source={imageSource}
+            style={styles.listImage}
+            {...imageProps}
+          />
+        )}
         <View style={styles.listContent}>
           {/* Rating */}
           <View style={styles.ratingRowMini}>
@@ -412,7 +435,17 @@ export function ProductCard({
           </View>
         )}
 
-        <Image source={imageSource} style={styles.gridImage} {...imageProps} />
+        {fallbackError ? (
+          <View style={[styles.gridImage, styles.imagePlaceholder]}>
+            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+          </View>
+        ) : (
+          <Image
+            source={imageSource}
+            style={styles.gridImage}
+            {...imageProps}
+          />
+        )}
 
         {/* Floating Cart Button */}
         <Pressable
@@ -486,6 +519,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   gridImage: { width: '100%', height: '100%' },
+  imagePlaceholder: {
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   badgeContainer: {
     position: 'absolute',
     top: 8,

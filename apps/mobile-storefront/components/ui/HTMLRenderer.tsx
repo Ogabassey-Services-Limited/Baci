@@ -1,9 +1,12 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
-import RenderHTML, { MixedStyleDeclaration } from 'react-native-render-html';
+import RenderHTML, {
+  type MixedStyleDeclaration,
+} from 'react-native-render-html';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { sanitizeHtml } from '@/lib/sanitize-html';
 
 interface HTMLRendererProps {
   html: string;
@@ -26,7 +29,7 @@ export const HTMLRenderer = ({ html, baseColor }: HTMLRendererProps) => {
         color: baseColor || colors.text,
         fontSize: 15,
         lineHeight: 24,
-        fontFamily: 'serif', // System serif matches web's premium feel
+        fontFamily: 'serif',
       },
       p: {
         marginBottom: 16,
@@ -81,8 +84,8 @@ export const HTMLRenderer = ({ html, baseColor }: HTMLRendererProps) => {
 
   return (
     <RenderHTML
-      contentWidth={width - 40} // Accounting for default screen padding
-      source={{ html }}
+      contentWidth={width - 40}
+      source={{ html: sanitizeHtml(html) }}
       tagsStyles={tagsStyles}
       enableExperimentalMarginCollapsing={true}
     />

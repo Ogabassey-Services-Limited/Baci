@@ -281,19 +281,19 @@ export type MarkReviewHelpfulResponse = z.infer<
  * IMEI Check API response schema
  */
 export const ImeiResultSchema = z.object({
-  imei: z.string(),
-  device: z.string(),
-  modelNumber: z.string(),
+  imei: z.string().min(1),
+  device: z.string().min(1),
+  modelNumber: z.string().min(1),
   status: z.enum(['Clean', 'Blacklisted', 'Unknown']),
-  icloud: z.string(),
-  icloudLock: z.string(),
-  simLock: z.string(),
-  blacklistStatus: z.string(),
-  carrier: z.string(),
+  icloud: z.string().min(1),
+  icloudLock: z.string().min(1),
+  simLock: z.string().min(1),
+  blacklistStatus: z.string().min(1),
+  carrier: z.string().min(1),
   deviceImage: z.string(),
   score: z.number(),
   deviceType: z.enum(['apple', 'android', 'other']),
-  verdict: z.string(),
+  verdict: z.string().min(1),
   verdictType: z.enum(['safe', 'caution', 'danger']),
 });
 

@@ -20,7 +20,7 @@ export default function UtilitiesLayout() {
           fontWeight: '600',
         },
         headerShadowVisible: false,
-        headerBackTitleVisible: false,
+        headerBackTitle: '',
         headerLeft: () => (
           <Pressable onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={24} color={colors.text} />

@@ -25,10 +25,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
+import { createLogger } from '@/lib/logger';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Wallet');
 
@@ -107,7 +107,7 @@ export default function WalletScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
+    return new Date(dateString).toLocaleString('en-NG', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',

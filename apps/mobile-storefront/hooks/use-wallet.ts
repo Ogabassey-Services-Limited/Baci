@@ -12,14 +12,14 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { z } from 'zod';
 import { calculateCommerce, supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/stores/auth-store';
 import {
   CustomerRowSchema,
-  WalletRowSchema,
   TransactionRowSchema,
+  WalletRowSchema,
 } from '@/lib/validation';
-import { z } from 'zod';
+import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
 // TYPES
@@ -86,6 +86,8 @@ async function fetchWalletData(
   ]);
 
   if (customerResult.error) throw customerResult.error;
+  if (walletResult.error) throw walletResult.error;
+  if (transactionsResult.error) throw transactionsResult.error;
 
   // 2026 Best Practice: Validate response data with Zod
   const customerValidation = CustomerRowSchema.pick({
@@ -99,21 +101,36 @@ async function fetchWalletData(
     .array(TransactionRowSchema)
     .safeParse(transactionsResult.data);
 
+  // Bug #97 fix: Only access .data when the query succeeded (no error) and data is non-null
+  const safeWalletBalance = walletValidation.success
+    ? walletValidation.data.balance
+    : typeof walletResult.data?.balance === 'number'
+      ? walletResult.data.balance
+      : 0;
+
+  const safeLoyaltyPoints = customerValidation.success
+    ? (customerValidation.data.loyalty_points ?? 0)
+    : typeof customerResult.data?.loyalty_points === 'number'
+      ? customerResult.data.loyalty_points
+      : 0;
+
+  const safeLoyaltyTier = customerValidation.success
+    ? (customerValidation.data.loyalty_tier ?? 'Bronze')
+    : typeof customerResult.data?.loyalty_tier === 'string'
+      ? customerResult.data.loyalty_tier
+      : 'Bronze';
+
   return {
     wallet: {
-      balance: walletValidation.success
-        ? walletValidation.data.balance
-        : (walletResult.data?.balance ?? 0),
-      loyalty_points: customerValidation.success
-        ? (customerValidation.data.loyalty_points ?? 0)
-        : (customerResult.data?.loyalty_points ?? 0),
-      loyalty_tier: customerValidation.success
-        ? (customerValidation.data.loyalty_tier ?? 'Bronze')
-        : (customerResult.data?.loyalty_tier ?? 'Bronze'),
+      balance: safeWalletBalance,
+      loyalty_points: safeLoyaltyPoints,
+      loyalty_tier: safeLoyaltyTier,
     },
     transactions: transactionsValidation.success
       ? transactionsValidation.data
-      : (transactionsResult.data ?? []),
+      : Array.isArray(transactionsResult.data)
+        ? transactionsResult.data
+        : [],
   };
 }
 
@@ -214,10 +231,16 @@ export function useRedeemPoints() {
 
   return useMutation({
     mutationFn: async (points: number) => {
+      // Look up current points balance from cached wallet data
+      const cachedData = queryClient.getQueryData<WalletQueryData>(
+        walletKeys.data(customer?.id || '')
+      );
+      const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
+
       // First, validate with Commerce Brain
       const result = await calculateCommerce('redeem_loyalty', {
         points,
-        currentPoints: 0, // Will be validated server-side
+        currentPoints,
         pointsToNairaRate: 1,
       });
 

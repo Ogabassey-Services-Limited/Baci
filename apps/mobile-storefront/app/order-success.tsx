@@ -8,11 +8,11 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PermissionModal } from '@/components/ui/PermissionModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useAuthStore } from '@/stores/auth-store';
-import { PermissionModal } from '@/components/ui/PermissionModal';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
@@ -46,7 +46,7 @@ export default function OrderSuccessScreen() {
     };
 
     checkPermissions();
-  }, [scaleAnim]);
+  }, [scaleAnim, requestPermission]);
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -251,7 +251,7 @@ export default function OrderSuccessScreen() {
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView >
+      </SafeAreaView>
 
       <PermissionModal
         visible={showPermissionModal}

@@ -137,21 +137,25 @@ export function useCart() {
 
   /** Look up last-known stock_quantity from TanStack Query product cache */
   function getCachedStock(productId: string): number | undefined {
+    // Bug #99 fix: Build a Map for O(1) lookup instead of O(n) scan
     const queries = queryClient.getQueriesData<{ stock_quantity?: number }[]>({
       queryKey: ['products'],
     });
+    const stockMap = new Map<string, number>();
     for (const [, data] of queries) {
       if (!Array.isArray(data)) continue;
-      const product = data.find(
-        (p) =>
+      for (const p of data) {
+        if (
           p &&
           typeof p === 'object' &&
           'id' in p &&
-          (p as { id: string }).id === productId
-      );
-      if (product?.stock_quantity != null) return product.stock_quantity;
+          p.stock_quantity != null
+        ) {
+          stockMap.set((p as { id: string }).id, p.stock_quantity);
+        }
+      }
     }
-    return undefined;
+    return stockMap.get(productId);
   }
 
   /**
@@ -297,8 +301,9 @@ export function useCart() {
     },
 
     onSuccess: (data) => {
-      // Invalidate specific product query to refresh stock data
-      const item = items.find((i) => i.id === data.id);
+      // Bug #96 fix: Read fresh items from store instead of stale closure
+      const freshItems = useCartStore.getState().items;
+      const item = freshItems.find((i) => i.id === data.id);
       if (item) {
         queryClient.invalidateQueries({
           queryKey: ['product', item.product_id],

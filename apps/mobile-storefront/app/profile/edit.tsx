@@ -62,8 +62,7 @@ export default function ProfileEditScreen() {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
-    // BUG-3-005: Cast required for Zod v3 / @hookform/resolvers v4 compatibility
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod 4 + @hookform/resolvers type mismatch
     resolver: zodResolver(ProfileSchema as unknown as z.ZodType<any, any, any>),
     defaultValues: {
       first_name: customer?.first_name || '',
@@ -140,9 +139,9 @@ export default function ProfileEditScreen() {
           />
         )}
       />
-      {errors[name] && (
+      {errors?.[name] && (
         <Text style={styles.errorText} accessibilityLiveRegion="polite">
-          {errors[name]?.message}
+          {errors?.[name]?.message}
         </Text>
       )}
     </View>

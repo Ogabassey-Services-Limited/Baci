@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { BillerListSchema, type Biller } from '@/lib/vtu-schemas';
+export type { Biller };
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||

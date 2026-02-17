@@ -19,9 +19,9 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Addresses');
 
@@ -86,17 +86,26 @@ export default function AddressesScreen() {
 
   const handleSetDefault = async (addressId: string) => {
     try {
-      // First, unset all defaults
-      await supabase
-        .from('customer_addresses')
-        .update({ is_default: false })
-        .eq('customer_id', user?.id);
-
-      // Set the new default
-      await supabase
+      // Set the new default first — this is the critical operation.
+      // If clearing old defaults fails afterward, we still have a valid default.
+      const { error: setError } = await supabase
         .from('customer_addresses')
         .update({ is_default: true })
         .eq('id', addressId);
+
+      if (setError) throw setError;
+
+      // Then clear old defaults (exclude the one we just set)
+      const { error: clearError } = await supabase
+        .from('customer_addresses')
+        .update({ is_default: false })
+        .eq('customer_id', user?.id)
+        .neq('id', addressId);
+
+      if (clearError) {
+        log.error('Failed to clear old defaults:', clearError);
+        // Non-fatal: new default is already set, old ones will be cleaned up on next save
+      }
 
       // Refresh the list
       fetchAddresses();

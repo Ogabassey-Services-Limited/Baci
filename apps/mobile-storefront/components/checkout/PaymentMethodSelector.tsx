@@ -114,8 +114,13 @@ export function PaymentMethodSelector({
   const colors = Colors[colorScheme ?? 'light'];
 
   // Check BNPL eligibility based on order total
+  // Guard against null/undefined/NaN — BNPL requires a valid positive total
+  const hasValidTotal =
+    orderTotal != null && Number.isFinite(orderTotal) && orderTotal > 0;
   const isBNPLEligible =
-    orderTotal >= BNPL_MIN_AMOUNT && orderTotal <= BNPL_MAX_AMOUNT;
+    hasValidTotal &&
+    orderTotal >= BNPL_MIN_AMOUNT &&
+    orderTotal <= BNPL_MAX_AMOUNT;
 
   // Hide installments tab if no BNPL methods are enabled
   const hasBNPLMethods =

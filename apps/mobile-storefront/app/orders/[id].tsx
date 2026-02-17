@@ -135,11 +135,11 @@ export default function OrderDetailsScreen() {
 
       setOrder({
         ...data,
-        items: data.order_items || [],
+        items: data.order_items ?? [],
       });
 
       // Fetch insurance policy if any items have assurance
-      const hasAssurance = (data.order_items || []).some(
+      const hasAssurance = (data.order_items ?? []).some(
         (item: { has_assurance?: boolean }) => item.has_assurance
       );
       if (hasAssurance) {

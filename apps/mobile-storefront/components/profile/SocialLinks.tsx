@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SPACING } from '@/constants/Colors';
 import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
@@ -15,17 +15,22 @@ interface SocialLinksProps {
   colors: { textSecondary: string };
 }
 
-const PLATFORM_CONFIG: Record<string, { icon: string; color: string }> = {
-  instagram: { icon: 'logo-instagram', color: '#E1306C' },
-  tiktok: { icon: 'logo-tiktok', color: '#010101' },
-  twitter: { icon: 'logo-twitter', color: '#1DA1F2' },
-  facebook: { icon: 'logo-facebook', color: '#1877F2' },
-  youtube: { icon: 'logo-youtube', color: '#FF0000' },
-  snapchat: { icon: 'logo-snapchat', color: '#FFFC00' },
-  linkedin: { icon: 'logo-linkedin', color: '#0A66C2' },
+const PLATFORM_CONFIG: Record<
+  string,
+  { icon: string; color: string; label: string }
+> = {
+  instagram: { icon: 'logo-instagram', color: '#E1306C', label: 'Instagram' },
+  tiktok: { icon: 'logo-tiktok', color: '#010101', label: 'TikTok' },
+  twitter: { icon: 'logo-twitter', color: '#1DA1F2', label: 'Twitter' },
+  facebook: { icon: 'logo-facebook', color: '#1877F2', label: 'Facebook' },
+  youtube: { icon: 'logo-youtube', color: '#FF0000', label: 'YouTube' },
+  snapchat: { icon: 'logo-snapchat', color: '#FFFC00', label: 'Snapchat' },
+  linkedin: { icon: 'logo-linkedin', color: '#0A66C2', label: 'LinkedIn' },
 };
 
 export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
+  const cleanedPhone = phone ? phone.replace(/\D/g, '') : '';
+
   const items = Object.entries(socialMedia)
     .map(([platform, handle]) => {
       const config = PLATFORM_CONFIG[platform];
@@ -39,9 +44,10 @@ export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
     url: string;
     icon: string;
     color: string;
+    label: string;
   }[];
 
-  if (items.length === 0 && !phone) return null;
+  if (items.length === 0 && !cleanedPhone) return null;
 
   return (
     <Animated.View
@@ -49,54 +55,64 @@ export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
       style={styles.container}
     >
       <Text style={[styles.title, { color: colors.textSecondary }]}>
-        Connect With Us
+        Join Our Community
       </Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
+      <View style={styles.row}>
         {items.map((item) => (
           <Pressable
             key={item.platform}
             style={({ pressed }) => [
               styles.btn,
-              {
-                backgroundColor: `${item.color}12`,
-                borderColor: `${item.color}20`,
-              },
               pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
             ]}
-            onPress={() => Linking.openURL(item.url)}
+            onPress={async () => {
+              try {
+                await Linking.openURL(item.url);
+              } catch (_e) {
+                // URL scheme not supported or failed to open
+              }
+            }}
             accessibilityRole="link"
             accessibilityLabel={`Visit our ${item.platform} page`}
           >
-            <Ionicons
-              name={item.icon as React.ComponentProps<typeof Ionicons>['name']}
-              size={22}
-              color={item.color}
-            />
+            <View style={styles.iconContainer}>
+              <Ionicons
+                name={
+                  item.icon as React.ComponentProps<typeof Ionicons>['name']
+                }
+                size={26}
+                color={item.color}
+              />
+            </View>
+            <Text style={[styles.label, { color: item.color }]}>
+              {item.label}
+            </Text>
           </Pressable>
         ))}
-        {phone && (
+        {cleanedPhone && (
           <Pressable
+            key="whatsapp"
             style={({ pressed }) => [
               styles.btn,
-              { backgroundColor: '#25D36612', borderColor: '#25D36620' },
               pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
             ]}
-            onPress={() =>
-              Linking.openURL(
-                `https://wa.me/${phone.replace(/\D/g, '') || '2348146978921'}`
-              )
-            }
+            onPress={async () => {
+              try {
+                await Linking.openURL(`https://wa.me/${cleanedPhone}`);
+              } catch (_e) {
+                // URL scheme not supported or failed to open
+              }
+            }}
             accessibilityRole="link"
             accessibilityLabel="Chat on WhatsApp"
           >
-            <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+            <View style={styles.iconContainer}>
+              <Ionicons name="logo-whatsapp" size={26} color="#25D366" />
+            </View>
+            <Text style={[styles.label, { color: '#25D366' }]}>WhatsApp</Text>
           </Pressable>
         )}
-      </ScrollView>
+      </View>
     </Animated.View>
   );
 }
@@ -104,7 +120,7 @@ export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
 const styles = StyleSheet.create({
   container: {
     marginTop: SPACING.lg,
-    paddingLeft: SPACING.md,
+    paddingHorizontal: SPACING.md,
   },
   title: {
     fontSize: 12,
@@ -112,18 +128,29 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     marginBottom: 10,
-    marginLeft: 4,
+    textAlign: 'center',
   },
-  scroll: {
-    gap: 10,
-    paddingRight: SPACING.md,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    columnGap: 12,
+    rowGap: 16,
   },
   btn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    marginBottom: 4,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

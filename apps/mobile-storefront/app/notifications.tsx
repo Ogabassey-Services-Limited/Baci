@@ -106,7 +106,6 @@ export default function NotificationsScreen() {
       <Stack.Screen
         options={{
           title: 'Notifications',
-          headerBackTitle: 'Back',
         }}
       />
       <FlatList

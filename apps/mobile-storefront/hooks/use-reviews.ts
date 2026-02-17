@@ -5,15 +5,15 @@
  * 2026 Best Practice: Zod validation for API responses
  */
 
-import { useCallback, useEffect, useState } from 'react';
 import Constants from 'expo-constants';
+import { useCallback, useEffect, useState } from 'react';
 import { createLogger } from '@/lib/logger';
 import {
+  MarkReviewHelpfulResponseSchema,
+  parseApiResponse,
   type Review,
   type ReviewStats,
   ReviewsApiResponseSchema,
-  MarkReviewHelpfulResponseSchema,
-  parseApiResponse,
 } from '@/lib/validation';
 
 const log = createLogger('Reviews');
@@ -83,15 +83,32 @@ export function useReviews({
         if (!validatedData) {
           // Fallback to raw data if validation fails (graceful degradation)
           log.warn('Reviews API response validation failed, using raw data');
-          const reviews = Array.isArray(rawData?.reviews)
+          const rawReviews = Array.isArray(rawData?.reviews)
             ? rawData.reviews
+                .filter(
+                  (r: unknown): r is Record<string, unknown> =>
+                    r != null && typeof r === 'object'
+                )
+                .map((r: Record<string, unknown>) => ({
+                  ...r,
+                  rating: typeof r.rating === 'number' ? r.rating : 0,
+                  comment: typeof r.comment === 'string' ? r.comment : '',
+                  customer_name:
+                    typeof r.customer_name === 'string'
+                      ? r.customer_name
+                      : 'Anonymous',
+                }))
             : [];
           if (append) {
-            setReviews((prev) => [...prev, ...reviews]);
+            setReviews((prev) => [...prev, ...rawReviews]);
           } else {
-            setReviews(reviews);
+            setReviews(rawReviews as Review[]);
           }
-          if (rawData?.stats) {
+          if (
+            rawData?.stats &&
+            typeof rawData.stats === 'object' &&
+            typeof rawData.stats.average === 'number'
+          ) {
             setStats(rawData.stats);
           }
           const totalPages = rawData?.pagination?.totalPages || 1;
@@ -126,7 +143,7 @@ export function useReviews({
   useEffect(() => {
     setPage(1);
     fetchReviews(1);
-  }, [productId, fetchReviews]);
+  }, [fetchReviews]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || isLoading) return;

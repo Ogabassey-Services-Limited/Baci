@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
+import { z } from 'zod';
 import { CONFIG } from '@/lib/config';
-import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 import { scheduleLocalNotification } from '@/services/push-notifications';
@@ -24,17 +25,22 @@ export interface VTUPurchaseParams {
   billerName?: string;
 }
 
-export interface VTUPurchaseResult {
-  success: boolean;
-  reference: string;
-  transactionId?: string;
-  amount: number;
-  cashback?: {
-    amount: number;
-    credited: boolean;
-    newBalance: number;
-  };
-}
+/** Bug #62: Zod schema to validate API response at runtime */
+const VTUPurchaseResultSchema = z.object({
+  success: z.boolean(),
+  reference: z.string(),
+  transactionId: z.string().optional(),
+  amount: z.number(),
+  cashback: z
+    .object({
+      amount: z.number(),
+      credited: z.boolean(),
+      newBalance: z.number(),
+    })
+    .optional(),
+});
+
+export type VTUPurchaseResult = z.infer<typeof VTUPurchaseResultSchema>;
 
 export function useVTUPurchase() {
   const queryClient = useQueryClient();
@@ -54,8 +60,10 @@ export function useVTUPurchase() {
           params.networkProvider
         : undefined;
 
+      // Bug #75: Explicit 30s timeout to prevent hanging requests
       const response = await fetchWithTimeout(`${API_URL}/api/vtu/purchase`, {
         method: 'POST',
+        timeout: DEFAULT_TIMEOUT,
         headers: {
           'Content-Type': 'application/json',
           ...(session?.access_token && {
@@ -82,7 +90,15 @@ export function useVTUPurchase() {
         throw new Error(data.error || 'Purchase failed. Please try again.');
       }
 
-      return data;
+      // Bug #62: Validate API response against schema
+      const parsed = VTUPurchaseResultSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new Error(
+          'Unexpected response from server. Please contact support if the issue persists.'
+        );
+      }
+
+      return parsed.data;
     },
     onSuccess: async (data) => {
       // Handle cashback notification

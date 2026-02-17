@@ -1,6 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AirtimeForm } from '@/components/utilities/AirtimeForm';
@@ -22,7 +29,14 @@ interface SuccessData {
   cashback?: CashbackInfo;
 }
 
-const TYPE_TITLES: Record<string, string> = {
+const VALID_TYPES = ['airtime', 'data', 'tv', 'power', 'gaming'] as const;
+type ValidType = (typeof VALID_TYPES)[number];
+
+function isValidType(value: string): value is ValidType {
+  return (VALID_TYPES as readonly string[]).includes(value);
+}
+
+const TYPE_TITLES: Record<ValidType, string> = {
   airtime: 'Buy Airtime',
   data: 'Buy Data',
   tv: 'TV Subscription',
@@ -39,8 +53,37 @@ export default function UtilityPurchaseScreen() {
 
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
 
-  const validType = type || 'airtime';
-  const title = TYPE_TITLES[validType] || 'Utility';
+  // Bug #59: Validate the type param instead of silently defaulting to 'airtime'
+  if (!type || !isValidType(type)) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <Stack.Screen
+          options={{ title: 'Invalid Service', headerBackTitle: '' }}
+        />
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorTitle, { color: colors.text }]}>
+            Service Not Found
+          </Text>
+          <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+            The requested utility service is not available.
+          </Text>
+          <Pressable
+            style={[styles.backButton, { borderColor: colors.border }]}
+            onPress={() => router.back()}
+          >
+            <Text style={[styles.backButtonText, { color: colors.text }]}>
+              Go Back
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const validType: ValidType = type;
+  const title = TYPE_TITLES[validType];
 
   const handleSuccess = (data: SuccessData) => {
     setSuccessData(data);
@@ -79,11 +122,11 @@ export default function UtilityPurchaseScreen() {
         {(validType === 'tv' ||
           validType === 'power' ||
           validType === 'gaming') && (
-            <BillForm
-              type={validType as 'tv' | 'power' | 'gaming'}
-              onSuccess={handleSuccess}
-            />
-          )}
+          <BillForm
+            type={validType as 'tv' | 'power' | 'gaming'}
+            onSuccess={handleSuccess}
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -92,4 +135,21 @@ export default function UtilityPurchaseScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   flex: { flex: 1 },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  errorTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  errorMessage: { fontSize: 15, textAlign: 'center', marginBottom: 24 },
+  backButton: {
+    height: 48,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: { fontSize: 16, fontWeight: '600' },
 });

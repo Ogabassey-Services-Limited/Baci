@@ -50,6 +50,14 @@ export function DataForm({ onSuccess }: DataFormProps) {
       );
       return;
     }
+    // Bug #64: Prevent submission when planAmount is 0 or not set
+    if (planAmount <= 0) {
+      Alert.alert(
+        'Invalid Amount',
+        'Please enter a valid amount before proceeding.'
+      );
+      return;
+    }
 
     try {
       const result = await purchase.mutateAsync({

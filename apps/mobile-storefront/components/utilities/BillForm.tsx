@@ -77,11 +77,20 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   };
 
   const handlePurchase = async () => {
-    if (!selectedBiller || !verify.data?.verified || !amount) {
+    // Bug #71: Explicitly check verification is complete before allowing purchase
+    if (!selectedBiller) {
+      Alert.alert('Missing Provider', 'Please select a provider.');
+      return;
+    }
+    if (!verify.data?.verified) {
       Alert.alert(
-        'Missing Information',
-        'Please verify your account and enter an amount.'
+        'Verification Required',
+        `Please verify your ${IDENTIFIER_LABELS[type].toLowerCase()} before making a purchase.`
       );
+      return;
+    }
+    if (!amount) {
+      Alert.alert('Missing Amount', 'Please enter an amount.');
       return;
     }
     if (numericAmount < 50 || numericAmount > 500000) {
@@ -127,7 +136,10 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
           selectedBillerId={selectedBiller?.billerId ?? null}
           onSelect={(biller) => {
             setSelectedBiller(biller);
-            verify.reset();
+            // Bug #72: Only reset verification when not in a pending state
+            if (!verify.isPending) {
+              verify.reset();
+            }
           }}
           isLoading={billersLoading}
         />
@@ -159,7 +171,10 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                 value={customerId}
                 onChangeText={(text) => {
                   setCustomerId(text);
-                  verify.reset();
+                  // Bug #72: Only reset verification when not in a pending state
+                  if (!verify.isPending) {
+                    verify.reset();
+                  }
                 }}
               />
               <Pressable

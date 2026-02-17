@@ -31,7 +31,7 @@ export const useThemeStore = create<ThemeState>()(
 
           // 2026 Standard: Force reset seasonal theme if out of season
           if (rehydratedState.theme === 'santa' && !SEASONAL.isDecember()) {
-            rehydratedState.setTheme('standard');
+            useThemeStore.setState({ theme: 'standard' });
           }
         };
       },

@@ -44,9 +44,13 @@ export function ProfileHeader({ customer, loyaltyPoints }: ProfileHeaderProps) {
     customer.first_name?.[0]?.toUpperCase() ||
     customer.email?.[0]?.toUpperCase() ||
     'U';
+  const emailParts = customer.email?.split('@') ?? [];
+  const emailLocalPart = emailParts[0] ?? '';
   const displayName = customer.first_name
     ? `${customer.first_name} ${customer.last_name || ''}`.trim()
-    : 'Store Member';
+    : emailLocalPart
+      ? emailLocalPart.charAt(0).toUpperCase() + emailLocalPart.slice(1)
+      : 'Store Member';
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={styles.container}>

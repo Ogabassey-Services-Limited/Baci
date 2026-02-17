@@ -409,6 +409,7 @@ export function useProduct(slug: string) {
     product: query.data || null,
     isLoading: query.isLoading,
     error: query.error?.message || null,
+    refetch: query.refetch,
   };
 }
 

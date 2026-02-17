@@ -12,7 +12,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image, type ImageProps } from 'expo-image';
-import { useCallback, useState } from 'react';
+import { useRef, useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
 // Default blurhash for smooth loading placeholder
@@ -63,40 +63,45 @@ export function SafeImage({
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
 
+  // Refs to avoid stale closures — React Compiler handles memoization,
+  // so we don't use manual useCallback. Refs ensure the error handler
+  // always reads the current prop values.
+  const onLoadErrorRef = useRef(onLoadError);
+  onLoadErrorRef.current = onLoadError;
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+
   // Handle image load errors gracefully
-  const handleError = useCallback(
-    (error: { error: string }) => {
-      // Prevent infinite error loops
-      if (errorCount >= 2) return;
+  const handleError = (error: { error: string }) => {
+    // Prevent infinite error loops
+    if (errorCount >= 2) return;
 
-      setErrorCount((prev) => prev + 1);
-      setHasError(true);
+    setErrorCount((prev) => prev + 1);
+    setHasError(true);
 
-      // Log for debugging in development
-      if (__DEV__) {
-        console.warn(
-          '[SafeImage] Image load failed:',
-          error.error,
-          '\nSource:',
-          source
-        );
-      }
+    // Log for debugging in development
+    if (__DEV__) {
+      console.warn(
+        '[SafeImage] Image load failed:',
+        error.error,
+        '\nSource:',
+        sourceRef.current
+      );
+    }
 
-      // Call optional error callback
-      if (onLoadError) {
-        onLoadError(new Error(error.error));
-      }
-    },
-    [errorCount, onLoadError, source]
-  );
+    // Call optional error callback using ref to avoid stale closure
+    if (onLoadErrorRef.current) {
+      onLoadErrorRef.current(new Error(error.error));
+    }
+  };
 
   // Reset error state when source changes
-  const handleLoadStart = useCallback(() => {
+  const handleLoadStart = () => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
     }
-  }, [hasError]);
+  };
 
   // If we have a custom fallback component, use it
   if (hasError && fallbackComponent) {

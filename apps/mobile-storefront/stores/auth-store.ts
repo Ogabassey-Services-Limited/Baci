@@ -137,7 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (session?.user) {
         // Fetch customer data for this merchant
-        const { data: customerData } = await supabase
+        let { data: customerData } = await supabase
           .from('customers')
           .select(
             'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
@@ -145,6 +145,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .eq('merchant_id', merchantValidation.data.id)
           .eq('email', session.user.email)
           .single();
+
+        // Backfill missing profile fields from OAuth provider on app init
+        if (customerData && session.user.user_metadata) {
+          const meta = session.user.user_metadata;
+          const { firstName, lastName } = splitFullName(meta.full_name);
+          const updates: Record<string, string> = {};
+
+          if (!customerData.first_name && firstName)
+            updates.first_name = firstName;
+          if (!customerData.last_name && lastName) updates.last_name = lastName;
+          if (!customerData.avatar_url && meta.avatar_url)
+            updates.avatar_url = meta.avatar_url;
+
+          if (Object.keys(updates).length > 0) {
+            const { data: updated } = await supabase
+              .from('customers')
+              .update(updates)
+              .eq('id', customerData.id)
+              .eq('merchant_id', merchantValidation.data.id)
+              .select(
+                'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+              )
+              .single();
+
+            if (updated) customerData = updated;
+          }
+        }
 
         // 2026 Best Practice: Validate customer data
         const customerValidation = CustomerRowSchema.safeParse(customerData);
@@ -222,6 +249,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   .single();
 
                 customerData = newCustomer;
+              } else if (customerData && session.user.user_metadata) {
+                // Backfill missing profile fields from OAuth provider (e.g. Google name/avatar)
+                const meta = session.user.user_metadata;
+                const { firstName, lastName } = splitFullName(meta.full_name);
+                const updates: Record<string, string> = {};
+
+                if (!customerData.first_name && firstName)
+                  updates.first_name = firstName;
+                if (!customerData.last_name && lastName)
+                  updates.last_name = lastName;
+                if (!customerData.avatar_url && meta.avatar_url)
+                  updates.avatar_url = meta.avatar_url;
+
+                if (Object.keys(updates).length > 0) {
+                  const { data: updated } = await supabase
+                    .from('customers')
+                    .update(updates)
+                    .eq('id', customerData.id)
+                    .eq('merchant_id', merchantId)
+                    .select(
+                      'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                    )
+                    .single();
+
+                  if (updated) customerData = updated;
+                }
               }
 
               // 2026 Best Practice: Validate customer data from auth listener
@@ -493,7 +546,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let AppleAuthentication;
       try {
         AppleAuthentication = await import('expo-apple-authentication');
-      } catch (e) {
+      } catch (_e) {
         throw new Error(
           'expo-apple-authentication not installed. Please run "npx expo install expo-apple-authentication"'
         );
@@ -546,6 +599,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
+      // 2026 Best Practice: Handle Apple Sign-In cancellation gracefully
+      // When user dismisses the Apple prompt, signInAsync throws ERR_REQUEST_CANCELED
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as Error & { code: string }).code === 'ERR_REQUEST_CANCELED'
+      ) {
+        set({ isLoading: false });
+        return { success: false, error: 'Sign in was cancelled' };
+      }
+
       const message =
         error instanceof Error ? error.message : 'Failed to sign in with Apple';
       log.error('Apple sign-in error:', error);
@@ -563,7 +627,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       get().cleanup();
 
       await supabase.auth.signOut();
-      // Clear cart on logout to prevent cart data leakage between users
+      // Clear entire cart on logout to prevent cart data leakage between users.
+      // This is intentionally unscoped: the mobile app serves a single merchant
+      // (MERCHANT_SLUG), so all cart items belong to the same store.
       useCartStore.getState().clearCart();
       set({
         user: null,

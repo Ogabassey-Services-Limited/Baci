@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -37,14 +37,20 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   );
 
   // Memoize all random-based values with stable seeds
-  const xPosition = useMemo(() => seededRandom(0) * SCREEN_WIDTH, [seededRandom]);
+  const xPosition = useMemo(
+    () => seededRandom(0) * SCREEN_WIDTH,
+    [seededRandom]
+  );
   const startY = useMemo(() => -seededRandom(1) * 200, [seededRandom]);
   const duration = useMemo(
     () => (6000 + seededRandom(2) * 4000) / speedMultiplier,
     [speedMultiplier, seededRandom]
   );
   const delay = useMemo(() => seededRandom(3) * 8000, [seededRandom]);
-  const size = useMemo(() => (3 + seededRandom(4) * 4) * scale, [scale, seededRandom]);
+  const size = useMemo(
+    () => (3 + seededRandom(4) * 4) * scale,
+    [scale, seededRandom]
+  );
 
   // 2026 Best Practice: Initialize shared values with stable starting values
   const translateY = useSharedValue(startY);
@@ -101,7 +107,7 @@ export function SnowEffect() {
   return (
     <View style={styles.container} pointerEvents="none">
       {Array.from({ length: NUM_SNOWFLAKES }).map((_, i) => (
-        <Snowflake key={i} index={i} color={tokens.snowColor} />
+        <Snowflake key={i} index={i} color={tokens.snowColor ?? '#FFFFFF'} />
       ))}
     </View>
   );

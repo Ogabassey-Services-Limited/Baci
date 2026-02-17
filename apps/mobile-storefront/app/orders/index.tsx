@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { OfflineNotice, OfflineEmptyState } from '@/components/OfflineNotice';
+import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
@@ -121,8 +121,8 @@ export default function OrdersScreen() {
 
       const formattedOrders = (data || []).map((order) => ({
         ...order,
-        items_count: order.order_items?.length || 0,
-        items: order.order_items || [],
+        items_count: (order.order_items ?? []).length,
+        items: order.order_items ?? [],
       }));
 
       setOrders(formattedOrders);
@@ -219,7 +219,11 @@ export default function OrdersScreen() {
             ]}
           >
             <Ionicons
-              name={statusConfig.icon as React.ComponentProps<typeof Ionicons>['name']}
+              name={
+                statusConfig.icon as React.ComponentProps<
+                  typeof Ionicons
+                >['name']
+              }
               size={14}
               color={statusConfig.color}
             />

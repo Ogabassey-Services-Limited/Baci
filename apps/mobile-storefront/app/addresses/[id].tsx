@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,8 +19,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useToast } from '@/components/ui/Toast';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
@@ -105,6 +105,16 @@ export default function AddressFormScreen() {
   const [isLoading, setIsLoading] = useState(!isNewAddress);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<AddressForm>>({});
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup navigate timeout on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (navigateTimeoutRef.current) {
+        clearTimeout(navigateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const fetchAddress = useCallback(async () => {
     try {
@@ -148,7 +158,7 @@ export default function AddressFormScreen() {
 
     if (!form.name.trim()) newErrors.name = 'Name is required';
     if (!form.phone.trim()) newErrors.phone = 'Phone number is required';
-    else if (!/^(\+234|0)[789]\d{9}$/.test(form.phone.replace(/\s/g, ''))) {
+    else if (!/^(\+234|234|0)[7-9]\d{9}$/.test(form.phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Enter a valid Nigerian phone number';
     }
     if (!form.address.trim()) newErrors.address = 'Address is required';
@@ -199,7 +209,7 @@ export default function AddressFormScreen() {
       }
 
       // Small delay to let the toast show before navigating back
-      setTimeout(() => router.back(), 500);
+      navigateTimeoutRef.current = setTimeout(() => router.back(), 500);
     } catch (err) {
       log.error('Error saving address:', err);
       Alert.alert('Error', 'Failed to save address');

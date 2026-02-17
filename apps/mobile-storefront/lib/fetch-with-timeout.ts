@@ -111,5 +111,12 @@ export async function fetchJsonWithTimeout<T>(
     throw new Error(`HTTP ${response.status}: ${errorText}`);
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return await (response.json() as Promise<T>);
+  } catch {
+    throw new Error(
+      `Server returned non-JSON response (HTTP ${response.status}). ` +
+        'The server may have returned an HTML error page.'
+    );
+  }
 }

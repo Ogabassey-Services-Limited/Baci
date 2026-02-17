@@ -82,7 +82,6 @@ export function useNetworkState(): UseNetworkStateResult {
       });
 
       // Execute reconnect callbacks
-      // BUG-4-006 FIX: Use Promise.allSettled for callbacks that may be async
       if (wasJustReconnected) {
         const callbackPromises = Array.from(reconnectCallbacks.current).map(
           async (callback) => {
@@ -93,8 +92,18 @@ export function useNetworkState(): UseNetworkStateResult {
             }
           }
         );
-        Promise.allSettled(callbackPromises).catch((error) => {
-          log.error('Unexpected error in reconnect callbacks:', error);
+        // Promise.allSettled never rejects, so .catch() is unnecessary.
+        // Individual callback errors are already caught in the try-catch above.
+        // Check results for any unexpected rejections defensively.
+        Promise.allSettled(callbackPromises).then((results) => {
+          for (const result of results) {
+            if (result.status === 'rejected') {
+              log.error(
+                'Unexpected rejection in reconnect callback:',
+                result.reason
+              );
+            }
+          }
         });
 
         // 2026 Critical Fix: Clear previous timeout before setting new one

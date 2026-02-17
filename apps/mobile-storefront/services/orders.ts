@@ -302,7 +302,7 @@ export async function createOrder(
     // 8. Track successful order creation
     trackEvent('order_created', {
       orderId: orderResponse.data.order.id,
-      orderNumber: orderResponse.data.order.order_number,
+      orderNumber: orderResponse.data.order.order_number ?? 'N/A',
       total: orderResponse.data.order.total,
       itemCount: request.items.length,
       paymentMethod: request.payment_method,

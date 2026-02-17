@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -114,14 +114,14 @@ export default function SavedTabScreen() {
         />
       )}
 
-      <ScrollView
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        {items.map((item) => (
+        renderItem={({ item }) => (
           <Pressable
-            key={item.id}
             style={[styles.productCard, { backgroundColor: colors.card }]}
             onPress={() => handleProductPress(item.slug)}
             accessibilityRole="button"
@@ -163,8 +163,8 @@ export default function SavedTabScreen() {
               <Ionicons name="heart" size={24} color={BRAND.primary} />
             </Pressable>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+      />
     </SafeAreaView>
   );
 }

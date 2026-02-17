@@ -31,6 +31,15 @@ import { useAuthStore } from '@/stores/auth-store';
 type AuthStep = 'email' | 'otp' | 'password';
 type AuthMethod = 'otp' | 'password';
 
+/** Dismiss the login modal or replace with root if modal stack is empty */
+const dismissAndNavigate = () => {
+  if (router.canDismiss()) {
+    router.dismiss();
+  } else {
+    router.replace('/');
+  }
+};
+
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -61,6 +70,15 @@ export default function LoginScreen() {
 
   // Refs for input focus management
   const otpInputRef = useRef<TextInput>(null);
+  const isMountedRef = useRef(true);
+
+  // Track component mount state to prevent state updates after unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // 2026 Best Practice: Dismiss keyboard on submit
   // 2026 Best Practice: Dismiss keyboard on submit
@@ -105,7 +123,7 @@ export default function LoginScreen() {
     );
 
     if (result.success) {
-      router.replace('/');
+      dismissAndNavigate();
     } else {
       Alert.alert('Error', result.error || 'Failed to sign in');
     }
@@ -172,7 +190,8 @@ export default function LoginScreen() {
     try {
       const result = await signInWithGoogle();
       if (result.success) {
-        router.replace('/');
+        // Login is presented as a modal - dismiss it to return to the underlying screen
+        dismissAndNavigate();
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Google');
       }
@@ -192,7 +211,7 @@ export default function LoginScreen() {
     try {
       const result = await signInWithApple();
       if (result.success) {
-        router.replace('/');
+        dismissAndNavigate();
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Apple');
       }
@@ -391,7 +410,6 @@ export default function LoginScreen() {
               if (otpError) setOtpError(null);
               // Auto-submit when 6 digits entered
               if (text.length === 6) {
-                // handleVerifyOtp is now part of the verify logic
                 (async () => {
                   const otpResult = OtpSchema.safeParse(text.trim());
                   if (otpResult.success) {
@@ -399,8 +417,11 @@ export default function LoginScreen() {
                       email.toLowerCase().trim(),
                       text.trim()
                     );
-                    if (result.success) router.replace('/');
-                    else Alert.alert('Error', result.error || 'Invalid code');
+                    // Bail out if unmounted during async operation
+                    if (!isMountedRef.current) return;
+                    if (result.success) {
+                      dismissAndNavigate();
+                    } else Alert.alert('Error', result.error || 'Invalid code');
                   }
                 })();
               }
@@ -434,8 +455,9 @@ export default function LoginScreen() {
             email.toLowerCase().trim(),
             otp.trim()
           );
-          if (result.success) router.replace('/');
-          else Alert.alert('Error', result.error || 'Invalid code');
+          if (result.success) {
+            dismissAndNavigate();
+          } else Alert.alert('Error', result.error || 'Invalid code');
         }}
         disabled={isLoading}
       >
@@ -530,10 +552,29 @@ export default function LoginScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => {
+        onPress={async () => {
           setAuthMethod('otp');
-          setStep('email');
-          handleContinue();
+          // Validate email inline instead of calling handleContinue,
+          // which would read the stale authMethod ('password') from closure.
+          const emailResult = EmailSchema.safeParse(email.trim());
+          const error = getFirstError(emailResult);
+          if (error) {
+            setEmailError(error);
+            setStep('email');
+            return;
+          }
+          setEmailError(null);
+          const result = await signInWithOtp(email.toLowerCase().trim());
+          if (result.success) {
+            setStep('otp');
+            setTimeout(() => otpInputRef.current?.focus(), 300);
+          } else {
+            setStep('email');
+            Alert.alert(
+              'Error',
+              result.error || 'Failed to send verification code'
+            );
+          }
         }}
         style={styles.methodToggle}
       >

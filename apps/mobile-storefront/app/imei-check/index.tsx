@@ -26,12 +26,26 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import {
-  type ImeiResult,
   ImeiCheckApiResponseSchema,
+  type ImeiResult,
   parseApiResponse,
 } from '@/lib/validation';
 
 const log = createLogger('ImeiChecker');
+
+function isValidIMEI(imei: string): boolean {
+  if (!/^\d{15}$/.test(imei)) return false;
+  let sum = 0;
+  for (let i = 0; i < 15; i++) {
+    let digit = Number.parseInt(imei[i], 10);
+    if (i % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
 
 // Service tiers for IMEI checking
 const SERVICE_TIERS = {
@@ -116,7 +130,7 @@ export default function ImeiCheckerScreen() {
     // 2026 Best Practice: Dismiss keyboard on submit
     Keyboard.dismiss();
 
-    if (imei.length !== 15) {
+    if (!isValidIMEI(imei)) {
       Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.');
       return;
     }
@@ -137,6 +151,12 @@ export default function ImeiCheckerScreen() {
 
       const rawData = await response.json();
 
+      // Bug #66: Check for HTTP errors and API-level errors BEFORE Zod validation
+      if (!response.ok || rawData?.error) {
+        setError(rawData?.error || 'Unable to check IMEI. Please try again.');
+        return;
+      }
+
       // 2026 Best Practice: Validate API response with Zod
       const validated = parseApiResponse(
         ImeiCheckApiResponseSchema,
@@ -144,23 +164,14 @@ export default function ImeiCheckerScreen() {
         'IMEI check API'
       );
 
-      if (
-        !response.ok ||
-        (validated && !validated.success) ||
-        (!validated && !rawData?.success)
-      ) {
-        setError(
-          validated?.error ||
-          rawData?.error ||
-          'Unable to check IMEI. Please try again.'
-        );
+      if (!validated || !validated.success) {
+        setError('Invalid response from server. Please try again.');
         return;
       }
 
-      // Use validated data if available, otherwise fallback
-      const resultData = validated?.data || rawData?.data;
+      const resultData = validated.data;
       if (!resultData) {
-        setError('Invalid response from server. Please try again.');
+        setError('No data returned from server. Please try again.');
         return;
       }
 
@@ -187,7 +198,6 @@ export default function ImeiCheckerScreen() {
         return { bg: '#DEF7EC', text: '#059669', border: '#A7F3D0' };
       case 'danger':
         return { bg: '#FEE2E2', text: '#DC2626', border: '#FECACA' };
-      case 'caution':
       default:
         return { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' };
     }

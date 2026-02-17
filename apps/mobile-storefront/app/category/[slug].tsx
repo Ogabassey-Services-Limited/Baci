@@ -74,7 +74,7 @@ export default function CategoryScreen() {
     return (
       titles[sanitized] ||
       sanitized.charAt(0).toUpperCase() +
-        sanitized.slice(1).replace(/-/g, ' ') ||
+      sanitized.slice(1).replace(/-/g, ' ') ||
       'Category'
     );
   };
@@ -170,7 +170,6 @@ export default function CategoryScreen() {
       <Stack.Screen
         options={{
           title: getCategoryTitle(slug || ''),
-          headerBackTitle: 'Back',
         }}
       />
       <FlatList

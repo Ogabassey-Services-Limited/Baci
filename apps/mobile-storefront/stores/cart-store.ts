@@ -117,7 +117,7 @@ export const useCartStore = create<CartState>()(
           // Add new item
           const newItem: CartItem = {
             ...item,
-            id: `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`,
+            id: `${item.product_id}::${item.variant_id || 'default'}::${Date.now()}`,
           };
 
           return { items: [...state.items, newItem] };
@@ -220,6 +220,8 @@ export const useCartStore = create<CartState>()(
       },
 
       // Toggle device assurance for item
+      // Only stores a boolean flag; the actual fee is computed at checkout
+      // using the item's current effective price (negotiatedPrice ?? price).
       toggleAssurance: (id) => {
         set((state) => ({
           items: state.items.map((item) =>
@@ -227,7 +229,6 @@ export const useCartStore = create<CartState>()(
               ? {
                   ...item,
                   hasAssurance: !item.hasAssurance,
-                  assuranceRate: 0.05, // 5% assurance rate
                 }
               : item
           ),

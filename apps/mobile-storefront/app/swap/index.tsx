@@ -40,6 +40,7 @@ const loadNativeModules = async () => {
 loadNativeModules();
 
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { createLogger } from '@/lib/logger';
 import {
   type AIAnalysisResult,
@@ -78,7 +79,8 @@ const HOW_IT_WORKS = [
 ];
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
-const SUPPORT_PHONE = '2348146978921';
+// Imported from shared constant for consistency across the app
+const SUPPORT_PHONE = SUPPORT_WHATSAPP_PHONE;
 
 export default function SwapScreen() {
   const colorScheme = useColorScheme();
@@ -166,13 +168,17 @@ export default function SwapScreen() {
       // Create form data
       // 2026 Note: React Native FormData accepts { uri, type, name } objects
       // This is a RN-specific API that differs from web FormData
+      if (!videoUri) {
+        setError('No video selected. Please select or record a video first.');
+        setStep('upload');
+        return;
+      }
       const formData = new FormData();
       const videoFile = {
         uri: videoUri,
         type: 'video/mp4',
         name: 'device-video.mp4',
-      };
-      // @ts-expect-error - React Native FormData accepts file-like objects with uri
+      } as unknown as Blob;
       formData.append('video', videoFile);
 
       const response = await fetch(`${API_BASE_URL}/api/ai/grade-device`, {
@@ -189,20 +195,20 @@ export default function SwapScreen() {
         throw new Error(rawData?.error || 'Failed to analyze device');
       }
 
-      // 2026 Best Practice: Validate API response with Zod
+      // Bug #68: Validate AI response with Zod; do NOT fall back to unvalidated data
       const validated = parseApiResponse(
         AIGradeDeviceApiResponseSchema,
         rawData,
         'AI grade device API'
       );
 
-      // Use validated data if available, otherwise fallback
-      const resultData = validated?.data || rawData?.data;
-      if (!resultData) {
-        throw new Error('Invalid response from AI analysis');
+      if (!validated || !validated.data) {
+        throw new Error(
+          'We could not process the AI analysis result. Please try again.'
+        );
       }
 
-      setResult(resultData);
+      setResult(validated.data);
       setStep('result');
     } catch (err) {
       log.error('Analysis error:', err);
@@ -220,11 +226,11 @@ export default function SwapScreen() {
 
     const message = encodeURIComponent(
       `Hello! I did an AI trade-in check.\n\n` +
-      `Device: ${result.model}\n` +
-      `Grade: ${result.grade}\n` +
-      `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
-      `Observations: ${result.observations.join(', ')}\n\n` +
-      `I'd like to proceed with the swap.`
+        `Device: ${result.model}\n` +
+        `Grade: ${result.grade}\n` +
+        `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
+        `Observations: ${result.observations.map((o) => o.replace(/\n/g, ' ').trim()).join(', ')}\n\n` +
+        `I'd like to proceed with the swap.`
     );
 
     Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);

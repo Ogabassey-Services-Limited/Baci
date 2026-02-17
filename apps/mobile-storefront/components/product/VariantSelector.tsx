@@ -138,10 +138,14 @@ export function VariantSelector({
           v.storage === s || v.attributes?.storage === s || v.name?.includes(s)
       );
 
+      // If no variant found, fall back to base price so the user never sees a null price
+      const hasVariantPricing =
+        variant?.price_override !== undefined ||
+        variant?.price_modifier !== undefined;
       normalizedStorage.push({
         value: s,
         priceModifier: variant?.price_modifier,
-        priceOverride: variant?.price_override,
+        priceOverride: hasVariantPricing ? variant?.price_override : basePrice,
         stock: variant?.stock_quantity,
       });
     }

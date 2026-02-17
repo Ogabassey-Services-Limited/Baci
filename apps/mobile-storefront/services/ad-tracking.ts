@@ -772,9 +772,13 @@ export async function trackPaymentInfoAdded(
 
   sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
 
-  AppEventsLogger.logEvent('fb_mobile_add_payment_info', { _eventId: eventId });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_add_payment_info', {
+      _eventId: eventId,
+    });
+  }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_add_payment_info', 0, 'NGN', {});
   }
 }
@@ -798,10 +802,12 @@ export async function trackSearch(
 
   sendServerConversion('SEARCH', eventId, {});
 
-  AppEventsLogger.logEvent('fb_mobile_search', {
-    fb_search_string: query,
-    _eventId: eventId,
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_search', {
+      fb_search_string: query,
+      _eventId: eventId,
+    });
+  }
 
   if (isTikTokInitialized) {
     (
@@ -825,7 +831,9 @@ export async function trackSearch(
  */
 export async function trackAppOpen(): Promise<void> {
   // await analytics().logAppOpen();
-  AppEventsLogger.logEvent('fb_mobile_activate_app');
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_activate_app');
+  }
 }
 
 /**
@@ -860,12 +868,14 @@ export async function trackSignup(
     userId: userData?.userId,
   });
 
-  AppEventsLogger.logEvent('fb_mobile_complete_registration', {
-    fb_registration_method: method,
-    _eventId: eventId,
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+      fb_registration_method: method,
+      _eventId: eventId,
+    });
+  }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_complete_registration', 0, 'NGN', {
       fb_registration_method: method,
     });
@@ -907,14 +917,16 @@ export async function trackCustomEvent(
   posthogTrack(eventName, params);
   // await analytics().logEvent(eventName, params);
 
-  if (params) {
-    const fbParams: Record<string, string> = { _eventId: eventId };
-    Object.entries(params).forEach(([key, value]) => {
-      fbParams[key] = String(value);
-    });
-    AppEventsLogger.logEvent(eventName, fbParams);
-  } else {
-    AppEventsLogger.logEvent(eventName, { _eventId: eventId });
+  if (AppEventsLogger) {
+    if (params) {
+      const fbParams: Record<string, string> = { _eventId: eventId };
+      Object.entries(params).forEach(([key, value]) => {
+        fbParams[key] = String(value);
+      });
+      AppEventsLogger.logEvent(eventName, fbParams);
+    } else {
+      AppEventsLogger.logEvent(eventName, { _eventId: eventId });
+    }
   }
 
   if (isTikTokInitialized) {

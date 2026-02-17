@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -69,7 +69,7 @@ export default function HomeScreen() {
     };
 
     checkPermissions();
-  }, []);
+  }, [requestPermission]);
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -163,7 +163,7 @@ export default function HomeScreen() {
   }, [onReconnect, refetch]);
 
   const handleCategorySelect = useCallback((id: string | null) => {
-    if (id && id.startsWith('u-')) {
+    if (id?.startsWith('u-')) {
       // 2026 Best Practice: Route to Guest Utility Flow
       const type = id.replace('u-', '');
       router.push(`/utilities/${type}` as never);
@@ -297,10 +297,9 @@ export default function HomeScreen() {
         renderItem={renderItem}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         keyExtractor={(item: any, index: number) =>
-          item.props?.id || `block - ${index} `
+          item.props?.id || `block-${index}`
         }
         ListHeaderComponent={renderListHeader}
-        extraData={selectedCategoryId}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         estimatedItemSize={600}

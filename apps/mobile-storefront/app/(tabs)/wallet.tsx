@@ -18,10 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
+  palette,
   RADIUS,
   SHADOWS,
   SPACING,
-  palette,
 } from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
 import { useAuthStore } from '@/stores/auth-store';
@@ -130,7 +130,7 @@ export default function WalletTabScreen() {
         <View style={[styles.balanceCard, { backgroundColor: '#0F0F0F' }]}>
           <Text style={styles.balanceLabel}>Available Balance</Text>
           <Text style={styles.balanceAmount}>
-            {formatPrice(data?.wallet?.balance || 0)}
+            {formatPrice(data?.wallet?.balance ?? 0)}
           </Text>
           <View style={styles.balanceActions}>
             <Pressable
@@ -154,7 +154,7 @@ export default function WalletTabScreen() {
             </Text>
           </View>
           <Text style={[styles.pointsAmount, { color: palette.amber[900] }]}>
-            {(data?.wallet?.loyalty_points || 0).toLocaleString()} pts
+            {(data?.wallet?.loyalty_points ?? 0).toLocaleString()} pts
           </Text>
           <Pressable
             style={[

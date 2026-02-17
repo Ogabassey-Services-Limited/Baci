@@ -79,18 +79,29 @@ export default function ProductDetailScreen() {
   );
 
   // 2026 Best Practice: Network state monitoring for offline UX
-  const { isOnline } = useNetworkState();
+  const { isOnline, onReconnect } = useNetworkState();
 
   // 2026 Best Practice: Haptic feedback for tactile UX
   const haptics = useHaptics();
 
   // Only fetch if we have a valid slug
-  const { product, isLoading, error } = useProduct(isValidSlug ? slug : '');
+  const { product, isLoading, error, refetch } = useProduct(
+    isValidSlug ? slug : ''
+  );
   const { items, addItem, updateQuantity, removeItem } = useCartStore();
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
   const dismissSavedToast = useSavedStore((state) => state.dismissToast);
+
+  // Auto-retry fetching product when network is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      if (error || !product) {
+        refetch();
+      }
+    });
+  }, [onReconnect, error, product, refetch]);
 
   // Fetch reviews for this product
   const {
@@ -198,14 +209,14 @@ export default function ProductDetailScreen() {
 
     // Auto-update store if it's a valid positive number
     const num = Number.parseInt(cleanText, 10);
-    if (!isNaN(num) && num > 0 && cartItem) {
+    if (!Number.isNaN(num) && num > 0 && cartItem) {
       updateQuantity(cartItem.id, num);
     }
   };
 
   const handleLocalQtyBlur = () => {
     const num = Number.parseInt(localQty, 10);
-    if (isNaN(num) || num <= 0) {
+    if (Number.isNaN(num) || num <= 0) {
       // Revert to current cart quantity if invalid
       setLocalQty(quantityInCart.toString());
     } else if (cartItem) {
@@ -390,8 +401,8 @@ export default function ProductDetailScreen() {
         >
           <OfflineEmptyState
             title="Product Unavailable Offline"
-            description="Connect to the internet to view this product"
-            onRetry={() => router.back()}
+            description="Connect to the internet to view this product. It will auto-retry when your connection is restored."
+            onRetry={() => refetch()}
           />
         </View>
       );
@@ -424,11 +435,15 @@ export default function ProductDetailScreen() {
 
   // Use color-specific images if selected, otherwise default product images
   // BUG-2-001 FIX: Filter null/undefined images and fallback to placeholder
-  const images = colorImages?.length
+  const rawImages = colorImages?.length
     ? colorImages.filter(Boolean)
     : product.images?.length
       ? product.images.filter(Boolean)
       : [product.image].filter(Boolean);
+  const images =
+    rawImages.length > 0
+      ? rawImages
+      : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
 
   // Calculate effective price based on selected condition, storage, and variant
   const calculateEffectivePrice = () => {
@@ -693,7 +708,9 @@ export default function ProductDetailScreen() {
                     ]}
                     accessibilityRole="button"
                     accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                    accessibilityState={{ selected: selectedImageIndex === idx }}
+                    accessibilityState={{
+                      selected: selectedImageIndex === idx,
+                    }}
                     accessibilityHint="Double tap to show this image in the main view"
                   >
                     <Image
@@ -758,7 +775,7 @@ export default function ProductDetailScreen() {
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
               {typeof reviewStats?.average_rating === 'number' &&
-                Number.isFinite(reviewStats.average_rating)
+              Number.isFinite(reviewStats.average_rating)
                 ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count ?? 0} reviews)`
                 : product.rating
                   ? `${product.rating} (${product.review_count || 0} reviews)`
@@ -824,31 +841,31 @@ export default function ProductDetailScreen() {
             product.color_images ||
             product.variant_attributes?.storage ||
             product.variants?.some((v) => v.storage)) && (
-              <View style={styles.section}>
-                <VariantSelector
-                  colors={product.colors}
-                  colorImages={product.color_images}
-                  storage={
-                    product.variant_attributes?.storage ||
-                    product.variants
-                      ?.map((v) => v.storage)
-                      .filter((s): s is string => !!s)
+            <View style={styles.section}>
+              <VariantSelector
+                colors={product.colors}
+                colorImages={product.color_images}
+                storage={
+                  product.variant_attributes?.storage ||
+                  product.variants
+                    ?.map((v) => v.storage)
+                    .filter((s): s is string => !!s)
+                }
+                variants={product.variants}
+                selectedColor={selectedColor}
+                selectedStorage={selectedStorage}
+                onSelectColor={(color, imgs) => {
+                  setSelectedColor(color);
+                  if (imgs?.length) {
+                    setColorImages(imgs);
+                    setSelectedImageIndex(0);
                   }
-                  variants={product.variants}
-                  selectedColor={selectedColor}
-                  selectedStorage={selectedStorage}
-                  onSelectColor={(color, imgs) => {
-                    setSelectedColor(color);
-                    if (imgs?.length) {
-                      setColorImages(imgs);
-                      setSelectedImageIndex(0);
-                    }
-                  }}
-                  onSelectStorage={setSelectedStorage}
-                  basePrice={effectivePrice}
-                />
-              </View>
-            )}
+                }}
+                onSelectStorage={setSelectedStorage}
+                basePrice={effectivePrice}
+              />
+            </View>
+          )}
 
           {/* Legacy Variants (fallback for products without colors/storage) */}
           {product.variants &&

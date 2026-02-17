@@ -65,7 +65,7 @@ import {
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
-import { createOrder, OrderError } from '@/services/orders';
+import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
@@ -101,6 +101,15 @@ interface QuoteResponse {
 interface ShippingLocation {
   state: string;
   city: string;
+}
+
+interface PendingCryptoOrder {
+  order: OrderResponse['order'];
+  orderResponse: OrderResponse;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  trackingToken?: string;
 }
 
 const API_BASE_URL =
@@ -412,8 +421,8 @@ export default function CheckoutScreen() {
   } | null>(null);
 
   // Partial order state for multi-step crypto flow
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [pendingOrder, setPendingOrder] = React.useState<any>(null);
+  const [pendingOrder, setPendingOrder] =
+    React.useState<PendingCryptoOrder | null>(null);
 
   const [copiedCryptoField, setCopiedCryptoField] = React.useState<
     string | null
@@ -426,6 +435,7 @@ export default function CheckoutScreen() {
     watch,
     getValues,
     setValue,
+    reset,
   } = useForm<ShippingAddressInput>({
     // Cast to any for Zod 4 compatibility with @hookform/resolvers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -486,6 +496,24 @@ export default function CheckoutScreen() {
       );
     }
   }, [step, customer, isInitialized]);
+
+  // Mid-checkout login: sync customer data into form, preserving fields the user already edited
+  useEffect(() => {
+    if (!customer) return;
+    reset(
+      {
+        email: customer.email || '',
+        firstName: customer.first_name || '',
+        lastName: customer.last_name || '',
+        phone: customer.phone || '',
+        address: getValues('address'),
+        city: getValues('city'),
+        state: getValues('state'),
+        notes: getValues('notes'),
+      },
+      { keepDirtyValues: true }
+    );
+  }, [customer, reset, getValues]);
 
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
@@ -660,16 +688,17 @@ export default function CheckoutScreen() {
       setShippingQuotes([]);
       setSelectedQuoteId('');
     }
+    // Only refetch when location or items change — receiver details don't affect quote pricing
   }, [
     watchedState,
     watchedCity,
     items,
     customer,
+    watchedAddress,
+    watchedEmail,
     watchedFirstName,
     watchedLastName,
     watchedPhone,
-    watchedAddress,
-    watchedEmail,
   ]);
 
   const selectedQuote = shippingQuotes.find(
@@ -682,7 +711,11 @@ export default function CheckoutScreen() {
     if (item.hasAssurance) {
       return (
         sum +
-        Math.round(item.price * item.quantity * (item.assuranceRate ?? 0.05))
+        Math.round(
+          (item.negotiatedPrice ?? item.price) *
+            item.quantity *
+            (item.assuranceRate ?? 0.05)
+        )
       );
     }
     return sum;
@@ -706,7 +739,9 @@ export default function CheckoutScreen() {
     fetchTotals();
   }, [subtotal, deliveryFee, paymentSettings, assuranceFee]);
 
-  const total = orderTotals?.total || subtotal + deliveryFee + assuranceFee;
+  const taxAmount = orderTotals?.taxAmount ?? 0;
+  const total =
+    orderTotals?.total || subtotal + deliveryFee + assuranceFee + taxAmount;
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
     step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
@@ -746,6 +781,21 @@ export default function CheckoutScreen() {
 
   const handleCryptoConfirm = async (chain: string, currency: string) => {
     if (!pendingOrder) return;
+
+    // Re-validate that the crypto payment amount still matches the current
+    // order total before initiating payment (Bug #25 fix)
+    const { orderResponse: pendingResponse } = pendingOrder;
+    if (pendingResponse.amountDueToGateway !== total) {
+      Alert.alert(
+        'Amount Changed',
+        'Your order total has changed since the order was created. Please go back and try again.',
+        [{ text: 'OK' }]
+      );
+      setPendingOrder(null);
+      setShowCryptoSelection(false);
+      return;
+    }
+
     setIsProcessing(true);
     // Keep CryptoSelectionModal open (with spinner) while API loads
 
@@ -763,7 +813,10 @@ export default function CheckoutScreen() {
         `${API_BASE_URL}/api/payments/initialize`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
+          },
           body: JSON.stringify({
             merchant_id: MERCHANT_ID,
             order_id: order.id,
@@ -796,12 +849,8 @@ export default function CheckoutScreen() {
       }
 
       setIsProcessing(false);
-      setShowCryptoSelection(false); // Close selection modal, crypto payment modal opens next
-      isOrderInFlight.current = false; // Reset flight status
-
-      // BUG-1-005 Fix: Clear cart after successful crypto order creation
-      // Cart should be cleared once order is created, not when user confirms payment
-      clearCart();
+      setShowCryptoSelection(false);
+      isOrderInFlight.current = false;
 
       const cp = initData.crypto_payment;
       setCryptoPayment({
@@ -833,8 +882,12 @@ export default function CheckoutScreen() {
 
   // 2026 Fix: Renamed to onCheckoutSubmit to work with handleSubmit
   const onCheckoutSubmit = async (address: ShippingAddressInput) => {
+    // Capture a snapshot of items at the start of the async flow so that
+    // any concurrent cart mutations do not affect the in-flight order.
+    const itemsSnapshot = [...useCartStore.getState().items];
+
     // BUG-1-003 Fix: Validate cart FIRST before any processing
-    if (items.length === 0) {
+    if (itemsSnapshot.length === 0) {
       Alert.alert(
         'Empty Cart',
         'Your cart is empty. Please add items before checking out.',
@@ -847,23 +900,36 @@ export default function CheckoutScreen() {
       return;
     }
 
-    isOrderInFlight.current = true;
-    setIsProcessing(true);
-
-    // BUG-1-003 Fix: Re-validate cart is still not empty
-    if (items.length === 0) {
-      isOrderInFlight.current = false;
-      setIsProcessing(false);
+    // Re-validate that the selected payment method is still enabled
+    // (merchant may have toggled it since the user selected it)
+    if (
+      enabledPaymentMethods.length > 0 &&
+      !enabledPaymentMethods.includes(selectedPayment)
+    ) {
       Alert.alert(
-        'Empty Cart',
-        'Your cart is empty. Please add items before checking out.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        'Payment Method Unavailable',
+        'The selected payment method is no longer available. Please choose another.',
+        [{ text: 'OK', onPress: () => setStep('payment') }]
       );
       return;
     }
 
+    // Validate that a shipping quote is selected when shipping quotes are
+    // available (i.e. the address step fetched quotes for the chosen location)
+    if (shippingQuotes.length > 0 && !selectedQuoteId) {
+      Alert.alert(
+        'Shipping Required',
+        'Please select a delivery option before placing your order.',
+        [{ text: 'OK', onPress: () => setStep('address') }]
+      );
+      return;
+    }
+
+    isOrderInFlight.current = true;
+    setIsProcessing(true);
+
     // BUG-1-002 Fix: Snapshot cart items for rollback if needed
-    const cartSnapshot = [...items];
+    const cartSnapshot = [...itemsSnapshot];
 
     try {
       trackCheckoutStep('review');
@@ -882,21 +948,26 @@ export default function CheckoutScreen() {
           customer_email: customerEmail,
           customer_name: customerName,
           customer_phone: customerPhone,
-          items: items.map((item) => ({
-            id: item.product_id,
-            product_id: item.product_id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            image_url: item.image_url,
-            variant_id: item.variant_id,
-            has_assurance: item.hasAssurance || false,
-            assurance_fee: item.hasAssurance
-              ? Math.round(
-                  item.price * item.quantity * (item.assuranceRate ?? 0.05)
-                )
-              : 0,
-          })),
+          items: itemsSnapshot.map((item) => {
+            const effectivePrice = item.negotiatedPrice ?? item.price;
+            return {
+              id: item.product_id,
+              product_id: item.product_id,
+              name: item.name,
+              quantity: item.quantity,
+              price: effectivePrice,
+              image_url: item.image_url,
+              variant_id: item.variant_id,
+              has_assurance: item.hasAssurance || false,
+              assurance_fee: item.hasAssurance
+                ? Math.round(
+                    effectivePrice *
+                      item.quantity *
+                      (item.assuranceRate ?? 0.05)
+                  )
+                : 0,
+            };
+          }),
           subtotal,
           shipping_fee: deliveryFee,
           tax_amount: orderTotals?.taxAmount || 0,
@@ -925,21 +996,24 @@ export default function CheckoutScreen() {
         customer_email: customerEmail,
         customer_name: customerName,
         customer_phone: customerPhone,
-        items: items.map((item) => ({
-          id: item.product_id,
-          product_id: item.product_id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image_url: item.image_url,
-          variant_id: item.variant_id,
-          has_assurance: item.hasAssurance || false,
-          assurance_fee: item.hasAssurance
-            ? Math.round(
-                item.price * item.quantity * (item.assuranceRate ?? 0.05)
-              )
-            : 0,
-        })),
+        items: itemsSnapshot.map((item) => {
+          const effectivePrice = item.negotiatedPrice ?? item.price;
+          return {
+            id: item.product_id,
+            product_id: item.product_id,
+            name: item.name,
+            quantity: item.quantity,
+            price: effectivePrice,
+            image_url: item.image_url,
+            variant_id: item.variant_id,
+            has_assurance: item.hasAssurance || false,
+            assurance_fee: item.hasAssurance
+              ? Math.round(
+                  effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
+                )
+              : 0,
+          };
+        }),
         subtotal,
         shipping_fee: deliveryFee,
         tax_amount: orderTotals?.taxAmount || 0,
@@ -960,7 +1034,7 @@ export default function CheckoutScreen() {
         shipping: deliveryFee,
         tax: orderTotals?.taxAmount,
         currency: 'NGN',
-        itemCount: items.reduce((acc, item) => acc + item.quantity, 0),
+        itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: selectedPayment,
       });
 
@@ -1088,6 +1162,12 @@ export default function CheckoutScreen() {
       // This prevents duplicate orders from race conditions
       clearCart();
 
+      // Wait for Zustand persist middleware to flush to AsyncStorage
+      // (syncStorage.setItem is fire-and-forget; give it time to complete)
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+
       // Navigate to success after cart is cleared
       router.replace({
         pathname: '/order-success',
@@ -1102,7 +1182,8 @@ export default function CheckoutScreen() {
     } catch (error) {
       // BUG-1-002 Fix: Rollback cart on error
       // Restore cart items if order creation failed
-      if (cartSnapshot && items.length === 0) {
+      // Check live store (not stale closure) since clearCart may have run mid-try
+      if (cartSnapshot && useCartStore.getState().items.length === 0) {
         for (const item of cartSnapshot) {
           useCartStore.getState().addItem(item);
         }
@@ -1898,7 +1979,9 @@ export default function CheckoutScreen() {
                 x{item.quantity}
               </Text>
               <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                {formatPrice(item.price * item.quantity)}
+                {formatPrice(
+                  (item.negotiatedPrice ?? item.price) * item.quantity
+                )}
               </Text>
             </View>
           ))}
@@ -2425,8 +2508,7 @@ export default function CheckoutScreen() {
                   { backgroundColor: BRAND.primary },
                 ]}
                 onPress={() => {
-                  // BUG-1-005 Fix: Cart already cleared after order creation
-                  // No need to clear again here
+                  clearCart();
                   const token = cryptoPayment.trackingToken;
                   setCryptoPayment(null);
                   router.replace({

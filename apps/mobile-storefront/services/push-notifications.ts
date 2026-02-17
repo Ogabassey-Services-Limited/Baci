@@ -10,10 +10,16 @@
  */
 
 import Constants from 'expo-constants';
+import {
+  AndroidImportance,
+  type NotificationResponse,
+  type PermissionStatus,
+  SchedulableTriggerInputTypes,
+} from 'expo-notifications';
 import { Platform } from 'react-native';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
-import { createLogger } from '@/lib/logger';
 const log = createLogger('PushNotifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
@@ -25,7 +31,7 @@ const loadNativeModules = async () => {
   try {
     const [dev, notif] = await Promise.all([
       import('expo-device'),
-      import('expo-notifications')
+      import('expo-notifications'),
     ]);
     Device = dev;
     Notifications = notif;
@@ -52,13 +58,13 @@ loadNativeModules();
 export interface PushNotificationState {
   token: string | null;
   isRegistered: boolean;
-  permissionStatus: Notifications.PermissionStatus | null;
+  permissionStatus: PermissionStatus | null;
 }
 
 /**
  * Request push notification permissions
  */
-export async function requestPermissions(): Promise<Notifications.PermissionStatus | null> {
+export async function requestPermissions(): Promise<PermissionStatus | null> {
   if (!Notifications) return null;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
@@ -128,7 +134,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'Order Updates',
     description: 'Notifications about your order status',
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#DC2626',
     sound: 'default',
@@ -138,7 +144,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('promotions', {
     name: 'Deals & Promotions',
     description: 'Special offers and discounts',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: AndroidImportance.DEFAULT,
     sound: 'default',
   });
 
@@ -146,7 +152,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('general', {
     name: 'General',
     description: 'General notifications',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: AndroidImportance.DEFAULT,
   });
 }
 
@@ -216,7 +222,7 @@ export async function removePushTokenFromServer(
  * Handle notification tap - navigate to relevant screen
  */
 export function handleNotificationResponse(
-  response: Notifications.NotificationResponse,
+  response: NotificationResponse,
   navigate: (screen: string, params?: Record<string, string>) => void
 ): void {
   const data = response.notification.request.content.data;
@@ -271,7 +277,7 @@ export async function scheduleLocalNotification(
       sound: 'default',
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: triggerSeconds,
     },
   });
@@ -317,5 +323,10 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
-  await Notifications.setBadgeCountAsync(0);
+  if (!Notifications?.setBadgeCountAsync) return;
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch {
+    // Silently fail on platforms that don't support badge count (e.g. web)
+  }
 }
