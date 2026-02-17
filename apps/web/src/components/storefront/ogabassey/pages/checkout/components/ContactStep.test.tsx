@@ -432,7 +432,7 @@ describe('ContactStep', () => {
 
     it('toggles password visibility when eye icon is clicked', () => {
       // Arrange
-      const { container } = render(
+      render(
         <ContactStep
           {...defaultProps}
           user={null}
