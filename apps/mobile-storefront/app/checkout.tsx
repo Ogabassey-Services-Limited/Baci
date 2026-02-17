@@ -481,6 +481,15 @@ export default function CheckoutScreen() {
   // AbortController for shipping quote requests — prevents race conditions
   // when multiple requests fire (e.g. rapid city/state changes)
   const shippingQuoteAbortRef = useRef<AbortController | null>(null);
+  // Timer ref for crypto copy feedback — prevents setState after unmount
+  const cryptoCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup crypto copy timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cryptoCopyTimerRef.current) clearTimeout(cryptoCopyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -613,6 +622,7 @@ export default function CheckoutScreen() {
       setIsLoadingCities(false);
       return;
     }
+    const controller = new AbortController();
     setShippingCities([]);
     setIsLoadingCities(true);
     const fetchCities = async () => {
@@ -620,8 +630,10 @@ export default function CheckoutScreen() {
         const res = await fetch(
           `${API_BASE_URL}/api/shipping/locations?state=${encodeURIComponent(
             watchedState
-          )}`
+          )}`,
+          { signal: controller.signal }
         );
+        if (controller.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
           const normalizedState = watchedState.trim().toLowerCase();
@@ -642,12 +654,17 @@ export default function CheckoutScreen() {
           setShippingCities([]);
         }
       } catch (_error) {
-        setShippingCities([]);
+        if (!controller.signal.aborted) {
+          setShippingCities([]);
+        }
       } finally {
-        setIsLoadingCities(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingCities(false);
+        }
       }
     };
     fetchCities();
+    return () => controller.abort();
   }, [watchedState]);
 
   // Sentinel: when Topship cities finish loading, match the Google-suggested city
@@ -772,7 +789,7 @@ export default function CheckoutScreen() {
 
   const taxAmount = orderTotals?.taxAmount ?? 0;
   const total =
-    orderTotals?.total || subtotal + deliveryFee + assuranceFee + taxAmount;
+    orderTotals?.total ?? subtotal + deliveryFee + assuranceFee + taxAmount;
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
     step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
@@ -1135,7 +1152,10 @@ export default function CheckoutScreen() {
           `${API_BASE_URL}/api/payments/initialize`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': `payment-init-${order.id}-${gateway}`,
+            },
             body: JSON.stringify({
               merchant_id: MERCHANT_ID,
               order_id: order.id,
@@ -2464,7 +2484,12 @@ export default function CheckoutScreen() {
                       );
                       if (success) {
                         setCopiedCryptoField('address');
-                        setTimeout(() => setCopiedCryptoField(null), 2000);
+                        if (cryptoCopyTimerRef.current)
+                          clearTimeout(cryptoCopyTimerRef.current);
+                        cryptoCopyTimerRef.current = setTimeout(
+                          () => setCopiedCryptoField(null),
+                          2000
+                        );
                       }
                     }}
                   >

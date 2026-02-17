@@ -201,8 +201,8 @@ export function useCart() {
       // Generate a temporary ID for potential rollback
       const rollbackId = `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`;
 
-      // Capture current state for rollback
-      const previousItems = [...items];
+      // Capture current state for rollback (read fresh from store to avoid stale closure)
+      const previousItems = [...useCartStore.getState().items];
 
       // Optimistically add to cart (instant UI update)
       addItemToStore(item);
@@ -256,8 +256,10 @@ export function useCart() {
     },
 
     onMutate: async (id) => {
-      const previousItems = [...items];
-      const removedItem = items.find((i) => i.id === id);
+      // Read fresh from store to avoid stale closure
+      const freshItems = useCartStore.getState().items;
+      const previousItems = [...freshItems];
+      const removedItem = freshItems.find((i) => i.id === id);
 
       // Optimistically remove from cart
       removeItemFromStore(id);
@@ -300,7 +302,8 @@ export function useCart() {
     },
 
     onMutate: async ({ id, quantity }) => {
-      const previousItems = [...items];
+      // Read fresh from store to avoid stale closure
+      const previousItems = [...useCartStore.getState().items];
 
       // Optimistically update quantity
       updateQuantityInStore(id, quantity);

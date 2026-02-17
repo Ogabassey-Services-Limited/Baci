@@ -231,9 +231,17 @@ export function useRedeemPoints() {
 
   return useMutation({
     mutationFn: async (points: number) => {
+      if (!customer?.id || !merchantId) {
+        throw new Error('Authentication required. Please sign in again.');
+      }
+
+      // Capture in local variables to prevent stale closure if auth changes mid-request
+      const customerId = customer.id;
+      const currentMerchantId = merchantId;
+
       // Look up current points balance from cached wallet data
       const cachedData = queryClient.getQueryData<WalletQueryData>(
-        walletKeys.data(customer?.id || '')
+        walletKeys.data(customerId)
       );
       const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
 
@@ -250,8 +258,8 @@ export function useRedeemPoints() {
 
       // Then execute the RPC
       const { error } = await supabase.rpc('redeem_loyalty_points', {
-        p_customer_id: customer?.id,
-        p_merchant_id: merchantId,
+        p_customer_id: customerId,
+        p_merchant_id: currentMerchantId,
         p_points: points,
         p_wallet_credit: result.walletCredit,
       });

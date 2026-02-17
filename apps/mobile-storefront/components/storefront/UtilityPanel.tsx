@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 // router removed as it was unused.
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -17,7 +18,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BRAND, SPACING } from '@/constants/Colors';
-import { useCategories, type Category } from '@/hooks/use-products';
+import { type Category, useCategories } from '@/hooks/use-products';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -41,8 +42,8 @@ interface CategoryItemProps {
   onPress: () => void;
 }
 
-// 2026 Best Practice: Memoize category items to prevent unnecessary re-renders
-const CategoryItem = memo(function CategoryItem({
+// React Compiler handles memoization (ADR-004)
+function CategoryItem({
   name,
   iconName,
   variant,
@@ -91,9 +92,9 @@ const CategoryItem = memo(function CategoryItem({
     };
   });
 
-  const handlePressIn = () => { };
+  const handlePressIn = () => {};
 
-  const handlePressOut = () => { };
+  const handlePressOut = () => {};
 
   if (variant === 'circle') {
     return (
@@ -137,7 +138,7 @@ const CategoryItem = memo(function CategoryItem({
 
   // Fallback for non-circle variants (keep basic logic)
   return null;
-});
+}
 
 export function UtilityPanel({
   variant = 'circle',
@@ -183,7 +184,7 @@ export function UtilityPanel({
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility, utilityWords.length]);
+  }, [isManualUtility]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
@@ -256,7 +257,9 @@ export function UtilityPanel({
             id={category.id}
             name={category.name}
             slug={category.slug}
-            iconName={category.icon as React.ComponentProps<typeof Ionicons>['name']}
+            iconName={
+              category.icon as React.ComponentProps<typeof Ionicons>['name']
+            }
             variant={itemVariant}
             // Active if: (Manual Interaction & matches selection) OR (Auto Mode & index matches)
             isActive={
